@@ -41,4 +41,22 @@ object AudioProbePolicy {
      * sample is non-zero. Exact digital zero must never pass the hardware gate. */
     fun hasUsableInputSignal(stats: AudioSignalStats): Boolean =
         stats.frames > 0 && stats.peak > 0f
+
+    /**
+     * Prime roughly 50 ms of duplex output before AudioTrack.play(). Starting a
+     * streaming AudioTrack empty can create a deterministic startup underrun that
+     * says nothing about steady-state duplex stability. The amount is capped to a
+     * conservative fraction of the configured buffer so the prefill itself never
+     * tries to fill the whole blocking stream buffer.
+     */
+    fun duplexPrimeFrames(sampleRateHz: Int, bufferFrames: Int): Int {
+        if (sampleRateHz <= 0 || bufferFrames <= 0) return 0
+        val fiftyMs = (sampleRateHz / 20).coerceAtLeast(128)
+        val safeBufferShare = (bufferFrames / 3).coerceAtLeast(128)
+        return minOf(fiftyMs, safeBufferShare, bufferFrames).coerceAtLeast(1)
+    }
+
+    /** Only underruns added after our baseline belong to the measured run. */
+    fun underrunDelta(baseline: Int, finalCount: Int): Int =
+        (finalCount - baseline).coerceAtLeast(0)
 }
