@@ -1,0 +1,44 @@
+# Current State
+
+Last updated: 2026-09-08
+
+## Stable baseline
+- `main`: signed/homologation baseline `0.2.0-alpha03`, versionCode 4.
+- Stable main commit includes signed M2 software candidate; do not merge parallel work while required hardware gate remains open.
+
+## Active development
+- branch: `dev/parallel-m3-m5`
+- draft PR: #1
+- current app version on branch: `0.2.0-alpha04`, versionCode 5.
+
+## Gates
+- M2 software diagnostics: implemented and CI-green.
+- M2 Pocket Amp physical homologation: OPEN.
+- M3 WAV codec core/Android path: software-green.
+- M3 real tablet evidence: PASS for tested WAV PCM24, 44.1 kHz, stereo, direct seek and exact midpoint seek.
+- M4: IN PROGRESS.
+
+## M4 completed checkpoints
+- persisted Studio project workspace and track lanes;
+- clean adaptive design system and app launcher identity;
+- non-destructive `AudioClip` timeline model and validation;
+- timeline preview foundation;
+- WAV import vertical slice via Android Files/SAF into a chosen track;
+- imported clip persistence through `FileProjectRepository`.
+
+## Latest verified CI before this documentation checkpoint
+Commit `d6e3ee225a88e55c019ca3fced882d777f5bc9b0` (`feat(studio): import validated WAV into persisted timeline clip`) has GitHub Actions run #57 completed successfully. Unit tests, Android Lint, debug APK assembly and artifact upload passed. Signed homologation was not required for the routine development checkpoint.
+
+## Current implementation checkpoint
+M4 now persists technical source metadata on imported clips (`sourceFormat`, sample rate, channel count, bit depth and encoding) so later transport/resampling checkpoints do not need to re-probe the source on every project load. The next checkpoints are clip management, waveform caching/rendering and transport/playhead.
+
+## Important limitations that are intentional, not final scope
+- user-facing Studio import currently begins with WAV only;
+- compressed formats are still planned/unverified and must not be advertised yet;
+- production resampling is not yet enabled;
+- waveform and transport are not yet unlocked;
+- recording into Studio is a later milestone;
+- M2 Pocket Amp gate remains physically open.
+
+## Branch policy
+`main` remains stable. Parallel work stays in the draft PR. Do not trigger signed homologation for routine development commits. Do not close physical gates based only on CI.
