@@ -66,6 +66,8 @@ dependencies {
     implementation(project(":core:audio"))
     implementation(project(":platform:audio-android"))
     implementation(project(":core:project"))
+    implementation(project(":core:codec"))
+    implementation(project(":platform:codec-android"))
 
     val composeBom = platform(libs.compose.bom)
     implementation(composeBom)
