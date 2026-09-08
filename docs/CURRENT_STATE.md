@@ -29,30 +29,34 @@ Last updated: 2026-09-08
 - clip-management core with remove, mute/unmute, move and non-destructive trim;
 - waveform envelope generation, derived cache and Studio rendering;
 - deterministic timeline frame/fraction mapping and bounded playhead/loop state;
-- explicit top marker-head component with 48 dp interaction targets for playhead/loop and shared semantic contract for trim/record markers.
+- explicit top marker-head component with 48 dp interaction targets;
+- canonical transport state policy STOPPED / PLAYING / RECORDING;
+- canonical symbol-only transport bar: return-to-start, play→stop, record, loop;
+- stopped-only edit lock contract for markers/import/clip edits;
+- trim marker color changed to muted mustard `#9C741F`, distinct from record red.
 
-## Latest verified CI before this marker checkpoint
-Run #115 completed successfully for the managed-media + waveform checkpoint. Unit tests, Android Lint, debug APK assembly and artifact upload passed. Signed homologation was intentionally skipped for routine development.
+## Latest verified CI
+Run #129 completed successfully for the prior marker-head checkpoint. Unit tests, Android Lint, debug APK assembly and artifact upload passed. Signed homologation was intentionally skipped for routine development.
 
 ## Current implementation checkpoint
-The Studio now has a marker-head timeline interaction foundation. The playhead uses restrained blue and loop in/out markers use restrained green. Dragging is initiated from the clearly visible marker head at the top; the thin vertical line is orientation only. The reusable marker contract already defines trim and record-head semantics so later implementations cannot regress to line-only precision dragging.
+The current M4 checkpoint is transport UX/state safety. Marker heads are only user-editable while transport is STOPPED. The pure `TransportPolicy` defines active-state locking and loop/return-to-start behavior. The Studio has the final intended transport control arrangement and icon semantics.
 
-The marker state is currently session/UI state and does not yet claim live transport playback. Production play/pause/stop, audio-clock-driven playhead movement and actual loop playback remain the next isolated M4 transport checkpoint.
+Play/record remain intentionally disabled because the production transport/record engine is not yet implemented. This follows the product rule that unimplemented features must not appear as working controls. Once the real engine is connected, the same policy will make Play become Stop, lock timeline edits during PLAYING/RECORDING and let the engine own playhead/record-head progression.
 
-## Next checkpoints
-1. validate the current marker-head code in CI;
-2. production transport state/playback over immutable managed media;
-3. audio-clock-driven playhead progression and seek;
-4. bind trim marker heads to non-destructive clip trim mode;
-5. tablet UX validation for marker size, drag precision and light/dark contrast;
-6. broader codec/import support only as each format passes its own software/Android gates.
+## Next checkpoint
+1. production playback engine over immutable managed media;
+2. audio-clock-driven playhead progression;
+3. stop and seek synchronization;
+4. loop execution using the existing loop markers;
+5. only after those pass, enable the Play control;
+6. recording remains a later M5 engine gate even though its UX/state semantics are already defined.
 
 ## Important limitations that are intentional, not final scope
 - user-facing Studio import currently begins with WAV only;
 - compressed formats are still planned/unverified and must not be advertised yet;
 - production resampling is not yet enabled;
-- marker heads currently manipulate timeline state, not a live playback engine;
-- recording into Studio is a later milestone;
+- transport UI/state policy exists, but production playback is still gated;
+- record control remains disabled until recording engine implementation;
 - M2 Pocket Amp gate remains physically open.
 
 ## Branch policy
