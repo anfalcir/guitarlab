@@ -85,6 +85,7 @@ fun StudioPlaceholderScreen(
             )
             state.project != null -> ProjectWorkspace(
                 project = state.project!!,
+                waveforms = state.waveforms,
                 importing = state.importing,
                 editingClip = state.editingClip,
                 importStatus = state.importStatus,
@@ -106,6 +107,7 @@ fun StudioPlaceholderScreen(
 @Composable
 private fun ProjectWorkspace(
     project: GuitarProject,
+    waveforms: Map<String, List<Float>>,
     importing: Boolean,
     editingClip: Boolean,
     importStatus: String?,
@@ -136,6 +138,7 @@ private fun ProjectWorkspace(
     if (project.clips.isNotEmpty()) {
         ClipManager(
             project = project,
+            waveforms = waveforms,
             busy = importing || editingClip,
             onToggleMuted = onToggleClipMuted,
             onRemove = onRemoveClip,
@@ -160,8 +163,8 @@ private fun ProjectWorkspace(
     }
 
     InlineStatus(
-        title = "M4 clip management checkpoint",
-        text = "Imported clips can now be muted/unmuted or removed with project persistence. The pure clip editor also supports validated movement by frame, which will be wired to timeline gestures after waveform/playhead foundations are validated.",
+        title = "M4 managed media + waveform checkpoint",
+        text = "Imports are copied into immutable project-managed source storage. Edits remain metadata-only, while waveform envelopes are cached as disposable derived data and rendered without modifying either source copy.",
     )
 }
 
@@ -271,6 +274,7 @@ private fun TimelineTrackRow(
 @Composable
 private fun ClipManager(
     project: GuitarProject,
+    waveforms: Map<String, List<Float>>,
     busy: Boolean,
     onToggleMuted: (String) -> Unit,
     onRemove: (String) -> Unit,
@@ -289,13 +293,19 @@ private fun ClipManager(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
-                    Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text(clip.name, style = MaterialTheme.typography.bodyLarge)
                         Text(
                             "$trackName • ${clip.sourceFormat ?: "audio"} • ${clip.sourceSampleRateHz?.let { "$it Hz" } ?: "rate n/a"} • ${clip.sourceChannelCount?.let { "${it}ch" } ?: "channels n/a"}",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
+                        Text(
+                            if (clip.managedSourcePath != null) "Managed source • original protected" else "Legacy external reference",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        waveforms[clip.id]?.let { WaveformMini(peaks = it, muted = clip.muted) }
                     }
                     TextButton(onClick = { onToggleMuted(clip.id) }, enabled = !busy) {
                         Text(if (clip.muted) "Unmute" else "Mute")
