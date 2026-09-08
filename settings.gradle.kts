@@ -18,6 +18,7 @@ rootProject.name = "GuitarLabStudio"
 include(":app")
 include(":core:model")
 include(":core:project")
+include(":core:codec")
 
 include(":core:audio")
 include(":platform:audio-android")
