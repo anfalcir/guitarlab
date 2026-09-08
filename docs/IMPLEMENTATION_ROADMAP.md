@@ -37,13 +37,16 @@ Sequence:
 5. project-managed immutable source ingestion — done;
 6. source technical metadata persistence — done;
 7. clip management basics and non-destructive trim core — done;
-8. waveform envelope/cache + Studio rendering — done/software CI validated at prior checkpoint;
-9. explicit marker-head interaction foundation for playhead/loop, with trim/record marker contract — current checkpoint;
-10. production transport playback/pause/stop + playhead clock/seek over managed clips — next;
-11. bind trim marker heads to clip trim mode and timeline-scale movement;
-12. tablet validation for import/reopen/waveform/marker ergonomics/transport.
+8. waveform envelope/cache + Studio rendering — done/software CI validated;
+9. explicit marker-head interaction foundation — done/software CI validated;
+10. transport UX/state safety foundation — current checkpoint: canonical symbol-only return/play-stop/record/loop bar, STOPPED/PLAYING/RECORDING state model, stopped-only editing, muted-mustard trim semantics, no fake enabled playback/record controls;
+11. production transport engine over managed media — next: actual playback, audio-clock-driven playhead, stop, seek and loop execution;
+12. bind trim marker heads to clip trim mode and timeline-scale movement;
+13. tablet validation for import/reopen/waveform/marker ergonomics/transport.
 
-M4 exit gate: import a supported file into immutable managed storage, persist/reopen, render waveform, seek/play correctly, edit clips non-destructively through clear marker controls, and show no project/source corruption.
+There is no separate pause control in the final transport model. Play becomes Stop while active.
+
+M4 exit gate: import a supported file into immutable managed storage, persist/reopen, render waveform, seek/play correctly, execute loop correctly, edit clips non-destructively through clear marker controls, keep edits locked during active transport, and show no project/source corruption.
 
 ## M5 — Recording workflow
 Planned.
@@ -52,6 +55,7 @@ Planned.
 - explicit monitoring;
 - recorded clips placed correctly on timeline;
 - recording head follows the shared explicit marker-head UX contract;
+- all user timeline edits remain locked while RECORDING;
 - crash/disconnect-safe recording finalization.
 Exit gate: repeated real-device takes with file integrity and stable routing.
 
@@ -90,4 +94,5 @@ Planned.
 - A feature is user-visible as supported only after its applicable gate passes.
 - `main` remains the stable signed baseline until the parallel development branch is ready and all required open gates are closed.
 - Routine development commits must not trigger signed builds unnecessarily.
-- Timeline controls must follow `TIMELINE_INTERACTION_GUIDELINES.md`; line-only precision dragging is not an acceptable final UX for core controls.
+- Timeline controls must follow `TIMELINE_INTERACTION_GUIDELINES.md`; line-only precision dragging is not acceptable.
+- Play/record controls must remain disabled until the production transport/record engine is real and validated.
