@@ -4,7 +4,6 @@ import android.content.ContentResolver
 import android.content.res.AssetFileDescriptor
 import android.net.Uri
 import studio.guitarlab.core.codec.AudioCodecException
-import studio.guitarlab.core.codec.SeekableByteSource
 import java.io.FileInputStream
 import java.nio.ByteBuffer
 import java.nio.channels.FileChannel
@@ -16,16 +15,20 @@ import java.nio.channels.FileChannel
 class ContentUriSeekableByteSource(
     resolver: ContentResolver,
     uri: Uri,
-) : SeekableByteSource, AutoCloseable {
+) : AndroidAudioDocumentSource {
     private val descriptor: AssetFileDescriptor = resolver.openAssetFileDescriptor(uri, "r")
         ?: throw AudioCodecException("Android could not open the selected audio document")
     private val input = FileInputStream(descriptor.fileDescriptor)
     private val channel: FileChannel = input.channel
     private val baseOffset = descriptor.startOffset.coerceAtLeast(0L)
 
+    override val accessMode: String = "DIRECT_SEEK"
+
     override val sizeBytes: Long = when {
         descriptor.declaredLength >= 0L -> descriptor.declaredLength
-        else -> (channel.size() - baseOffset).coerceAtLeast(0L)
+        else -> runCatching { channel.size() - baseOffset }.getOrElse {
+            throw AudioCodecException("Selected document does not expose a seekable size", it)
+        }.coerceAtLeast(0L)
     }
 
     @Synchronized
@@ -37,15 +40,19 @@ class ContentUriSeekableByteSource(
         if (length == 0 || position >= sizeBytes) return 0
 
         val count = minOf(length.toLong(), sizeBytes - position).toInt()
-        channel.position(baseOffset + position)
-        val buffer = ByteBuffer.wrap(destination, offset, count)
-        var total = 0
-        while (buffer.hasRemaining()) {
-            val read = channel.read(buffer)
-            if (read <= 0) break
-            total += read
+        try {
+            channel.position(baseOffset + position)
+            val buffer = ByteBuffer.wrap(destination, offset, count)
+            var total = 0
+            while (buffer.hasRemaining()) {
+                val read = channel.read(buffer)
+                if (read <= 0) break
+                total += read
+            }
+            return total
+        } catch (error: Throwable) {
+            throw AudioCodecException("Selected document provider does not support reliable random access", error)
         }
-        return total
     }
 
     override fun close() {

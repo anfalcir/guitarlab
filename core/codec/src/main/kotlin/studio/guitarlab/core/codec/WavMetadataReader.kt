@@ -7,24 +7,29 @@ class WavMetadataReader : AudioMetadataReader {
         if (riff.asAscii(0, 4) != "RIFF" || riff.asAscii(8, 4) != "WAVE") {
             throw AudioCodecException("Unsupported WAV container: expected RIFF/WAVE")
         }
+        val riffDeclaredBytes = riff.u32le(4) + 8L
+        if (riffDeclaredBytes > source.sizeBytes) {
+            throw AudioCodecException("WAV RIFF size exceeds available file bytes")
+        }
 
         var cursor = 12L
         var format: FormatChunk? = null
         var dataOffset: Long? = null
         var dataSize: Long? = null
+        val scanLimit = minOf(source.sizeBytes, riffDeclaredBytes)
 
-        while (cursor + 8 <= source.sizeBytes) {
+        while (cursor + 8 <= scanLimit) {
             val chunkHeader = source.readExact(cursor, 8)
             val id = chunkHeader.asAscii(0, 4)
             val declaredSize = chunkHeader.u32le(4)
             val payloadOffset = cursor + 8
             val payloadEnd = payloadOffset + declaredSize
-            if (payloadEnd < payloadOffset || payloadEnd > source.sizeBytes) {
-                throw AudioCodecException("WAV chunk '$id' exceeds file bounds")
+            if (payloadEnd < payloadOffset || payloadEnd > scanLimit) {
+                throw AudioCodecException("WAV chunk '$id' exceeds RIFF/file bounds")
             }
 
             when (id) {
-                "fmt " -> format = parseFormat(source, payloadOffset, declaredSize)
+                "fmt " -> if (format == null) format = parseFormat(source, payloadOffset, declaredSize)
                 "data" -> if (dataOffset == null) {
                     dataOffset = payloadOffset
                     dataSize = declaredSize
@@ -32,7 +37,9 @@ class WavMetadataReader : AudioMetadataReader {
             }
 
             val paddedSize = declaredSize + (declaredSize and 1L)
-            cursor = payloadOffset + paddedSize
+            val next = payloadOffset + paddedSize
+            if (next < payloadOffset) throw AudioCodecException("WAV chunk offset overflow")
+            cursor = next
             if (format != null && dataOffset != null) break
         }
 

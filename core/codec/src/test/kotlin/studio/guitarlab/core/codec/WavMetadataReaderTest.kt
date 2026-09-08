@@ -50,6 +50,44 @@ class WavMetadataReaderTest {
     }
 
     @Test
+    fun skipsUnknownOddSizedChunkWithRiffPadding() {
+        val original = GoldenWavFactory.pcm16(
+            sampleRate = 48_000,
+            channels = 1,
+            frames = listOf(shortArrayOf(100), shortArrayOf(200)),
+        )
+        val withJunk = insertChunkAfterWaveHeader(original, "JUNK", byteArrayOf(1, 2, 3))
+
+        val metadata = WavMetadataReader().read(ByteArraySeekableSource(withJunk))
+
+        assertEquals(2, metadata.totalFrames)
+        assertEquals(48_000, metadata.sampleRateHz)
+        assertEquals(1, metadata.channelCount)
+    }
+
+    @Test
+    fun rejectsRiffSizeThatClaimsBytesBeyondFile() {
+        val bytes = GoldenWavFactory.pcm16(48_000, 1, listOf(shortArrayOf(1))).copyOf()
+        writeU32le(bytes, 4, bytes.size + 1024)
+
+        assertFailsWith<AudioCodecException> {
+            WavMetadataReader().read(ByteArraySeekableSource(bytes))
+        }
+    }
+
+    @Test
+    fun rejectsMisalignedDataChunk() {
+        val bytes = GoldenWavFactory.pcm16(48_000, 2, listOf(shortArrayOf(1, 2))).copyOf()
+        val dataSizeOffset = 40
+        writeU32le(bytes, dataSizeOffset, 3)
+        writeU32le(bytes, 4, bytes.size - 8)
+
+        assertFailsWith<AudioCodecException> {
+            WavMetadataReader().read(ByteArraySeekableSource(bytes))
+        }
+    }
+
+    @Test
     fun rejectsTruncatedOrNonWaveInput() {
         assertFailsWith<AudioCodecException> {
             WavMetadataReader().read(ByteArraySeekableSource(byteArrayOf(1, 2, 3)))
@@ -57,5 +95,25 @@ class WavMetadataReaderTest {
         assertFailsWith<AudioCodecException> {
             WavMetadataReader().read(ByteArraySeekableSource("not-a-wave-file".toByteArray()))
         }
+    }
+
+    private fun insertChunkAfterWaveHeader(original: ByteArray, id: String, payload: ByteArray): ByteArray {
+        require(id.length == 4)
+        val paddedPayloadSize = payload.size + (payload.size and 1)
+        val chunk = ByteArray(8 + paddedPayloadSize)
+        id.toByteArray(Charsets.US_ASCII).copyInto(chunk, 0)
+        writeU32le(chunk, 4, payload.size)
+        payload.copyInto(chunk, 8)
+
+        val result = ByteArray(original.size + chunk.size)
+        original.copyInto(result, 0, 0, 12)
+        chunk.copyInto(result, 12)
+        original.copyInto(result, 12 + chunk.size, 12)
+        writeU32le(result, 4, result.size - 8)
+        return result
+    }
+
+    private fun writeU32le(bytes: ByteArray, offset: Int, value: Int) {
+        repeat(4) { shift -> bytes[offset + shift] = ((value ushr (shift * 8)) and 0xFF).toByte() }
     }
 }
