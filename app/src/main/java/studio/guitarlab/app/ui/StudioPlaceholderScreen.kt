@@ -1,5 +1,7 @@
 package studio.guitarlab.app.ui
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -17,10 +19,14 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -39,6 +45,13 @@ fun StudioPlaceholderScreen(
     viewModel: StudioViewModel = viewModel(),
 ) {
     val state by viewModel.state.collectAsState()
+    var pendingTrackId by remember { mutableStateOf<String?>(null) }
+    val wavPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        val trackId = pendingTrackId
+        pendingTrackId = null
+        if (uri != null && trackId != null) viewModel.importWav(trackId, uri)
+    }
+
     LaunchedEffect(projectId) { viewModel.load(projectId) }
 
     Column(
@@ -66,17 +79,34 @@ fun StudioPlaceholderScreen(
 
         when {
             state.loading -> CircularProgressIndicator()
-            state.error != null -> InlineStatus(
+            state.error != null && state.project == null -> InlineStatus(
                 title = "Project could not be opened",
                 text = state.error.orEmpty(),
             )
-            state.project != null -> ProjectWorkspace(project = state.project!!)
+            state.project != null -> ProjectWorkspace(
+                project = state.project!!,
+                importing = state.importing,
+                importStatus = state.importStatus,
+                importError = state.error,
+                onImportWav = { trackId ->
+                    if (!state.importing) {
+                        pendingTrackId = trackId
+                        wavPicker.launch(arrayOf("audio/wav", "audio/x-wav", "audio/wave", "application/octet-stream"))
+                    }
+                },
+            )
         }
     }
 }
 
 @Composable
-private fun ProjectWorkspace(project: GuitarProject) {
+private fun ProjectWorkspace(
+    project: GuitarProject,
+    importing: Boolean,
+    importStatus: String?,
+    importError: String?,
+    onImportWav: (String) -> Unit,
+) {
     val sampleRateText = project.sampleRate.fixedHz?.let { "$it Hz" } ?: "Auto"
 
     Row(
@@ -89,7 +119,10 @@ private fun ProjectWorkspace(project: GuitarProject) {
         ProjectFact("Sample rate", sampleRateText)
     }
 
-    TimelinePreview(project)
+    TimelinePreview(project, importing, onImportWav)
+
+    importStatus?.let { InlineStatus("Import", it) }
+    importError?.let { InlineStatus("Import failed", it) }
 
     Text("Track structure", style = MaterialTheme.typography.titleLarge)
 
@@ -109,13 +142,17 @@ private fun ProjectWorkspace(project: GuitarProject) {
     }
 
     InlineStatus(
-        title = "M4 timeline foundation",
-        text = "The project now persists non-destructive clip placement metadata. Import, transport and waveform rendering will be unlocked in separate validated checkpoints.",
+        title = "M4 import checkpoint",
+        text = "WAV import now validates through the M3 codec, persists a non-destructive clip at frame 0, and keeps transport/waveform gated for the next checkpoints.",
     )
 }
 
 @Composable
-private fun TimelinePreview(project: GuitarProject) {
+private fun TimelinePreview(
+    project: GuitarProject,
+    importing: Boolean,
+    onImportWav: (String) -> Unit,
+) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -137,7 +174,12 @@ private fun TimelinePreview(project: GuitarProject) {
         ) {
             Column(Modifier.padding(vertical = 8.dp)) {
                 project.tracks.sortedBy { it.order }.forEach { track ->
-                    TimelineTrackRow(track, project.clips.filter { it.trackId == track.id })
+                    TimelineTrackRow(
+                        track = track,
+                        clips = project.clips.filter { it.trackId == track.id },
+                        importing = importing,
+                        onImportWav = { onImportWav(track.id) },
+                    )
                 }
                 if (project.tracks.isEmpty()) {
                     Text(
@@ -152,21 +194,26 @@ private fun TimelinePreview(project: GuitarProject) {
 }
 
 @Composable
-private fun TimelineTrackRow(track: AudioTrack, clips: List<AudioClip>) {
+private fun TimelineTrackRow(
+    track: AudioTrack,
+    clips: List<AudioClip>,
+    importing: Boolean,
+    onImportWav: () -> Unit,
+) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 5.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Text(
             track.name,
-            modifier = Modifier.weight(0.28f),
+            modifier = Modifier.weight(0.24f),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Box(
             modifier = Modifier
-                .weight(0.72f)
+                .weight(0.62f)
                 .height(34.dp)
                 .clip(RoundedCornerShape(8.dp))
                 .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.78f)),
@@ -192,6 +239,13 @@ private fun TimelineTrackRow(track: AudioTrack, clips: List<AudioClip>) {
                     }
                 }
             }
+        }
+        TextButton(
+            onClick = onImportWav,
+            enabled = !importing,
+            modifier = Modifier.weight(0.14f),
+        ) {
+            Text(if (importing) "…" else "+ WAV")
         }
     }
 }
