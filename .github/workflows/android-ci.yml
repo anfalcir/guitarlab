@@ -60,9 +60,17 @@ jobs:
           chmod +x scripts/materialize_ci_sources.sh
           scripts/materialize_ci_sources.sh
 
-      - name: Software gate
+      - name: Unit tests
         shell: bash
-        run: gradle --no-daemon --stacktrace test lint assembleDebug
+        run: gradle --no-daemon --console=plain --stacktrace test
+
+      - name: Android Lint
+        shell: bash
+        run: gradle --no-daemon --console=plain --stacktrace lint
+
+      - name: Assemble debug APK
+        shell: bash
+        run: gradle --no-daemon --console=plain --stacktrace assembleDebug
 
       - name: Upload debug APK and reports
         if: always()
@@ -142,7 +150,7 @@ jobs:
 
       - name: Build signed release
         shell: bash
-        run: gradle --no-daemon --stacktrace assembleRelease
+        run: gradle --no-daemon --console=plain --stacktrace assembleRelease
 
       - name: Verify official signing identity
         shell: bash
