@@ -1,0 +1,58 @@
+package studio.guitarlab.core.project
+
+import java.io.DataInputStream
+import java.io.DataOutputStream
+import java.io.File
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
+import studio.guitarlab.core.codec.WaveformEnvelope
+
+class WaveformCacheStore(private val rootDirectory: File) {
+    fun write(projectId: String, clipId: String, envelope: WaveformEnvelope) {
+        val destination = cacheFile(projectId, clipId).also { it.parentFile?.mkdirs() }
+        val temporary = File(destination.parentFile, ".${destination.name}.part")
+        DataOutputStream(temporary.outputStream().buffered()).use { output ->
+            output.writeInt(MAGIC)
+            output.writeInt(envelope.peaks.size)
+            envelope.peaks.forEach(output::writeFloat)
+        }
+        try {
+            Files.move(
+                temporary.toPath(),
+                destination.toPath(),
+                StandardCopyOption.REPLACE_EXISTING,
+                StandardCopyOption.ATOMIC_MOVE,
+            )
+        } catch (_: Exception) {
+            Files.move(temporary.toPath(), destination.toPath(), StandardCopyOption.REPLACE_EXISTING)
+        }
+    }
+
+    fun read(projectId: String, clipId: String): WaveformEnvelope? = runCatching {
+        val file = cacheFile(projectId, clipId)
+        if (!file.isFile) return null
+        DataInputStream(file.inputStream().buffered()).use { input ->
+            require(input.readInt() == MAGIC) { "Invalid waveform cache magic." }
+            val count = input.readInt()
+            require(count in 0..MAX_POINTS) { "Invalid waveform cache point count." }
+            WaveformEnvelope(List(count) { input.readFloat().coerceIn(0f, 1f) })
+        }
+    }.getOrNull()
+
+    fun remove(projectId: String, clipId: String) {
+        cacheFile(projectId, clipId).delete()
+    }
+
+    private fun cacheFile(projectId: String, clipId: String): File {
+        val safeProject = sanitize(projectId)
+        val safeClip = sanitize(clipId)
+        return File(rootDirectory, "projects/$safeProject/media/derived/waveform/$safeClip.glwf")
+    }
+
+    private fun sanitize(value: String): String = value.replace(Regex("[^A-Za-z0-9._-]"), "_")
+
+    private companion object {
+        const val MAGIC = 0x474C5746 // GLWF
+        const val MAX_POINTS = 16_384
+    }
+}
