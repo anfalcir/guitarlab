@@ -48,23 +48,35 @@ Current physical evidence includes a real WAV PCM24 / 44.1 kHz / stereo file wit
 
 ## M4 Studio gate
 For each supported import path:
-- select source using Android document picker;
 - external source is opened read-only and copied completely into project-managed `media/source/` storage;
 - invalid/empty/malformed source fails safely and leaves no committed clip;
 - valid source creates exactly one clip in chosen track;
-- technical metadata is consistent with the managed copy;
-- managed copy bytes remain unchanged after move, trim, mute/unmute, gain changes and waveform generation;
-- external original bytes remain unchanged throughout import/edit workflow;
-- after successful import, move/rename/delete or otherwise make the external original unavailable, then reopen the project: the managed clip must still load independently;
-- save and reopen project; clip and managed-source reference persist;
-- non-destructive trim remains within immutable source bounds;
-- removing a clip does not rewrite its source file;
-- waveform envelope is deterministic for the same decoded source;
-- waveform cache round-trips, and missing/corrupt cache can be regenerated from the managed source;
-- waveform rendering does not decode/write the whole source on every UI frame;
-- future playhead/seek starts and ends at expected positions;
-- mismatched project/source sample rates follow explicit strategy and produce derivatives rather than overwriting source;
+- managed copy and external original remain byte-unchanged through edit/waveform workflows;
+- project reopens independently after the external original becomes unavailable;
+- non-destructive trim stays within immutable source bounds;
+- waveform envelope/cache is deterministic and regenerable;
 - repeated import/reopen does not corrupt JSON or source media.
+
+### Timeline/transport UX gate
+- playhead/loop/trim controls use explicit top marker heads with at least 48 dp touch targets;
+- the thin vertical guide is not required as the drag target;
+- playhead is blue, loop green, trim muted mustard `#9C741F`, record red; identity is also conveyed by glyph/context;
+- canonical transport bar order is return-to-start, play/stop, record, loop;
+- no separate pause button exists; state model is STOPPED / PLAYING / RECORDING;
+- while PLAYING or RECORDING, user manipulation of playhead, loop, trim, clip move/trim, import and clip editing is blocked;
+- the UI visibly communicates marker lock while transport is active;
+- loop configuration cannot change during active transport;
+- Play/Record remain disabled until their real engines are implemented; an enabled no-op/fake transport is a gate failure.
+
+### Production transport gate (next)
+- Play starts real managed-media playback and button becomes Stop;
+- Stop returns state to STOPPED without corrupting playhead/timeline state;
+- audio-clock-driven playhead progression matches audible position;
+- return-to-start/seek positions are sample/time consistent;
+- enabled loop repeats exactly between loop markers without marker mutation;
+- stopping unlocks timeline editing immediately and safely;
+- active transport never mutates immutable source assets;
+- playback errors/disconnects fail to a controlled stopped/error state.
 
 ## Later recording gate
 - track arm/disarm semantics;
@@ -73,6 +85,7 @@ For each supported import path:
 - interruption/disconnect recovery;
 - repeated take creation;
 - timeline placement and source duration correct;
+- all user timeline edits remain locked while RECORDING;
 - monitoring does not unintentionally double the signal;
 - latency/alignment measurements recorded before compensation is claimed.
 
