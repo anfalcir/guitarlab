@@ -36,4 +36,4 @@ val StudioWarning = Color(0xFFD99A3D)
 // Timeline semantics: restrained, recognizable, and never the only cue.
 val StudioPlayhead = Color(0xFF3B82F6) // navigation / current execution position
 val StudioLoop = Color(0xFF2E9D67) // loop in/out range
-val StudioTrim = Color(0xFFD65A5A) // destructive-looking edit intent, while operation remains non-destructive
+val StudioTrim = Color(0xFF9C741F) // muted mustard: editing boundary, clearly distinct from record red
