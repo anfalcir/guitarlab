@@ -23,30 +23,45 @@ Last updated: 2026-09-08
 - clean adaptive design system and app launcher identity;
 - non-destructive `AudioClip` timeline model and validation;
 - timeline preview foundation;
-- WAV import vertical slice via Android Files/SAF into a chosen track;
+- WAV import vertical slice into selected track;
 - imported clip persistence through `FileProjectRepository`;
 - technical source metadata persisted on clips;
 - clip-management core with validated remove, mute/unmute and frame movement operations;
-- Studio controls for persisted mute/unmute and removal.
+- explicit non-destructive trim model bounded by immutable source length;
+- Studio controls for persisted mute/unmute and removal;
+- project-managed source ingest: external files are copied into `media/source/` and no longer become the runtime dependency after successful import;
+- managed source path + origin provenance metadata persisted separately;
+- deterministic waveform-envelope builder;
+- derived waveform cache under `media/derived/waveform/`;
+- cached waveform rendering in Studio clip management;
+- cache rebuild from managed source when a cache is missing/corrupt.
 
 ## Latest verified CI before this checkpoint
-Run #65 completed successfully for the documentation + M4 source-metadata checkpoint. Unit tests, Android Lint, debug APK assembly and artifact upload passed. Signed homologation was intentionally skipped for this routine development checkpoint.
+Run #67 completed successfully for the prior clip-management checkpoint: unit tests, Android Lint, debug APK assembly and artifact upload passed. Signed homologation was intentionally skipped for routine development.
 
 ## Current implementation checkpoint
-M4 clip management is now isolated behind a pure `ProjectClipEditor`, allowing deterministic tests before UI wiring. Mute/unmute and removal are exposed in Studio and persisted atomically. Frame movement is implemented and tested in the core editor but intentionally not yet exposed as a gesture until waveform scale and playhead semantics are established.
+The managed-media + waveform checkpoint is implemented and awaiting its own current-head CI result. New imports now use the external Android document only as read-only ingestion input. The project copies it into app-controlled project storage, validates/decodes the internal copy, and persists a clip that points to the managed source. The original external URI is provenance only.
+
+Both layers are protected:
+- external original: never written by GuitarLab;
+- internal managed source: immutable after successful ingest.
+
+Trim/move/gain/mute stay metadata-only. Waveforms are disposable derived cache data and may be regenerated from the managed source. See `MANAGED_MEDIA_POLICY.md`.
 
 ## Next checkpoints
-1. waveform envelope/cache contract and deterministic generation;
-2. waveform rendering in timeline clips;
-3. transport state/playhead foundation;
-4. bind validated clip movement to timeline scale/gestures;
-5. broader codec/import support only as each format passes its own software/Android gates.
+1. current-head CI validation for managed-media + waveform implementation;
+2. transport state/playhead foundation;
+3. seek/playback over managed clips;
+4. bind validated clip movement/trim to timeline scale and gestures;
+5. tablet validation: import, rename/move/delete the original external file, reopen project, confirm waveform/source still work;
+6. broader codec/import support only as each format passes its own software/Android gates.
 
 ## Important limitations that are intentional, not final scope
 - user-facing Studio import currently begins with WAV only;
+- legacy development projects may still contain direct external `sourceUri` references until migration is implemented;
 - compressed formats are still planned/unverified and must not be advertised yet;
 - production resampling is not yet enabled;
-- waveform and transport are not yet unlocked;
+- transport/playback of Studio clips is the next M4 block;
 - recording into Studio is a later milestone;
 - M2 Pocket Amp gate remains physically open.
 
