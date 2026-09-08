@@ -37,6 +37,8 @@ import studio.guitarlab.core.model.AudioTrack
 import studio.guitarlab.core.model.BuiltInRoles
 import studio.guitarlab.core.model.GuitarProject
 import studio.guitarlab.core.model.TrackGroup
+import studio.guitarlab.core.project.TimelineControlPolicy
+import studio.guitarlab.core.project.TimelineControlState
 
 @Composable
 fun StudioPlaceholderScreen(
@@ -86,6 +88,7 @@ fun StudioPlaceholderScreen(
             state.project != null -> ProjectWorkspace(
                 project = state.project!!,
                 waveforms = state.waveforms,
+                timelineControls = state.timelineControls,
                 importing = state.importing,
                 editingClip = state.editingClip,
                 importStatus = state.importStatus,
@@ -97,6 +100,9 @@ fun StudioPlaceholderScreen(
                         wavPicker.launch(arrayOf("audio/wav", "audio/x-wav", "audio/wave", "application/octet-stream"))
                     }
                 },
+                onPlayheadFrameChanged = viewModel::setPlayheadFrame,
+                onLoopStartFrameChanged = viewModel::setLoopStartFrame,
+                onLoopEndFrameChanged = viewModel::setLoopEndFrame,
                 onToggleClipMuted = viewModel::toggleClipMuted,
                 onRemoveClip = viewModel::removeClip,
             )
@@ -108,16 +114,21 @@ fun StudioPlaceholderScreen(
 private fun ProjectWorkspace(
     project: GuitarProject,
     waveforms: Map<String, List<Float>>,
+    timelineControls: TimelineControlState,
     importing: Boolean,
     editingClip: Boolean,
     importStatus: String?,
     clipStatus: String?,
     error: String?,
     onImportWav: (String) -> Unit,
+    onPlayheadFrameChanged: (Long) -> Unit,
+    onLoopStartFrameChanged: (Long) -> Unit,
+    onLoopEndFrameChanged: (Long) -> Unit,
     onToggleClipMuted: (String) -> Unit,
     onRemoveClip: (String) -> Unit,
 ) {
     val sampleRateText = project.sampleRate.fixedHz?.let { "$it Hz" } ?: "Auto"
+    val projectEndFrame = TimelineControlPolicy.projectEndFrame(project)
 
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -127,6 +138,30 @@ private fun ProjectWorkspace(
         ProjectFact("Tracks", project.tracks.size.toString())
         ProjectFact("Clips", project.clips.size.toString())
         ProjectFact("Sample rate", sampleRateText)
+    }
+
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("Timeline controls", style = MaterialTheme.typography.titleLarge)
+        Text(
+            "Drag the marker head at the top. The vertical line is visual guidance only and is not the drag target.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        TimelineMarkerRail(
+            projectEndFrame = projectEndFrame,
+            playheadFrame = timelineControls.playheadFrame,
+            loopStartFrame = timelineControls.loopStartFrame,
+            loopEndFrame = timelineControls.loopEndFrame,
+            onPlayheadFrameChanged = onPlayheadFrameChanged,
+            onLoopStartFrameChanged = onLoopStartFrameChanged,
+            onLoopEndFrameChanged = onLoopEndFrameChanged,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Text(
+            "Playhead ${timelineControls.playheadFrame} • Loop ${timelineControls.loopStartFrame}–${timelineControls.loopEndFrame} frames",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 
     TimelinePreview(project, importing || editingClip, onImportWav)
@@ -163,8 +198,8 @@ private fun ProjectWorkspace(
     }
 
     InlineStatus(
-        title = "M4 managed media + waveform checkpoint",
-        text = "Imports are copied into immutable project-managed source storage. Edits remain metadata-only, while waveform envelopes are cached as disposable derived data and rendered without modifying either source copy.",
+        title = "M4 timeline interaction checkpoint",
+        text = "Managed media and waveform caching are software-validated. Playhead and loop boundaries now use explicit top marker heads with large drag targets and bounded frame mapping. Transport audio playback remains the next isolated checkpoint; trim/record heads reuse the same marker contract when those modes are wired.",
     )
 }
 
