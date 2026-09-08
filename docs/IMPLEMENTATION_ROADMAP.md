@@ -33,13 +33,17 @@ Sequence:
 1. persisted project workspace and track lanes — done;
 2. design system + launcher identity — done;
 3. persistent non-destructive AudioClip model — done;
-4. WAV import vertical slice into selected track — done/software CI pending/validated according to CURRENT_STATE;
-5. persist source technical metadata needed by timeline/transport — current checkpoint;
-6. clip management basics (select/remove/move/trim model operations);
-7. waveform cache/rendering;
-8. transport/playhead/seeking over clips;
+4. WAV import vertical slice into selected track — done;
+5. persist source technical metadata needed by timeline/transport — done;
+6. clip management basics (remove/mute/move + non-destructive trim model) — done;
+7. immutable managed-media ingest + waveform cache/rendering — current checkpoint implemented, CI/device validation pending according to CURRENT_STATE;
+8. transport/playhead/seeking over clips — next checkpoint;
 9. tablet validation for import, reopen, waveform and transport.
-M4 exit gate: import a supported file, persist/reopen, render waveform, seek/play correctly, edit clip non-destructively, no project corruption.
+
+### M4 managed-media invariant
+A successful import must copy the external file into `projects/<project>/media/source/`. Both the user's external original and the managed internal source are immutable. Timeline edits alter metadata only. Resampling, waveform, proxy and render outputs are separate derived assets.
+
+M4 exit gate: import a supported file, persist/reopen independently of the external original, render waveform, seek/play correctly, edit clip non-destructively, and show no project/source corruption.
 
 ## M5 — Recording workflow
 Planned.
