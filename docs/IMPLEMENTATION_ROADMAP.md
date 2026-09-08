@@ -23,7 +23,7 @@ Status: WAV core + Android SAF path implemented; tested real PCM24/44.1k stereo 
 - codec contracts;
 - WAV metadata/PCM decode/seek;
 - sample-rate strategy planning;
-- Android content URI direct seek/cache fallback;
+- Android document ingestion/validation;
 - codec diagnostics.
 Exit gate: codec unit tests plus representative real-device files.
 
@@ -34,16 +34,16 @@ Sequence:
 2. design system + launcher identity — done;
 3. persistent non-destructive AudioClip model — done;
 4. WAV import vertical slice into selected track — done;
-5. persist source technical metadata needed by timeline/transport — done;
-6. clip management basics (remove/mute/move + non-destructive trim model) — done;
-7. immutable managed-media ingest + waveform cache/rendering — current checkpoint implemented, CI/device validation pending according to CURRENT_STATE;
-8. transport/playhead/seeking over clips — next checkpoint;
-9. tablet validation for import, reopen, waveform and transport.
+5. project-managed immutable source ingestion — done;
+6. source technical metadata persistence — done;
+7. clip management basics and non-destructive trim core — done;
+8. waveform envelope/cache + Studio rendering — done/software CI validated at prior checkpoint;
+9. explicit marker-head interaction foundation for playhead/loop, with trim/record marker contract — current checkpoint;
+10. production transport playback/pause/stop + playhead clock/seek over managed clips — next;
+11. bind trim marker heads to clip trim mode and timeline-scale movement;
+12. tablet validation for import/reopen/waveform/marker ergonomics/transport.
 
-### M4 managed-media invariant
-A successful import must copy the external file into `projects/<project>/media/source/`. Both the user's external original and the managed internal source are immutable. Timeline edits alter metadata only. Resampling, waveform, proxy and render outputs are separate derived assets.
-
-M4 exit gate: import a supported file, persist/reopen independently of the external original, render waveform, seek/play correctly, edit clip non-destructively, and show no project/source corruption.
+M4 exit gate: import a supported file into immutable managed storage, persist/reopen, render waveform, seek/play correctly, edit clips non-destructively through clear marker controls, and show no project/source corruption.
 
 ## M5 — Recording workflow
 Planned.
@@ -51,6 +51,7 @@ Planned.
 - guitar-oriented mono capture and double-track workflows;
 - explicit monitoring;
 - recorded clips placed correctly on timeline;
+- recording head follows the shared explicit marker-head UX contract;
 - crash/disconnect-safe recording finalization.
 Exit gate: repeated real-device takes with file integrity and stable routing.
 
@@ -89,3 +90,4 @@ Planned.
 - A feature is user-visible as supported only after its applicable gate passes.
 - `main` remains the stable signed baseline until the parallel development branch is ready and all required open gates are closed.
 - Routine development commits must not trigger signed builds unnecessarily.
+- Timeline controls must follow `TIMELINE_INTERACTION_GUIDELINES.md`; line-only precision dragging is not an acceptable final UX for core controls.
