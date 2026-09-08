@@ -4,7 +4,7 @@ plugins {
 
 android {
     namespace = "studio.guitarlab.platform.audio.android"
-    compileSdk = 37
+    compileSdk = 36
 
     defaultConfig {
         minSdk = 26
