@@ -15,13 +15,20 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun SettingsScreen(
     onBack: () -> Unit,
-    onAudioDiagnostics: () -> Unit
+    onAudioDiagnostics: () -> Unit,
+    onCodecDiagnostics: () -> Unit,
 ) {
     Column(Modifier.fillMaxSize().padding(28.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Text("Settings", style = MaterialTheme.typography.headlineMedium)
+
         Text("Audio", style = MaterialTheme.typography.titleMedium)
         Text("Device: Auto\nSample rate: Auto / follow device\nInternal processing: 32-bit float")
-        Button(onClick = onAudioDiagnostics) { Text("Audio Diagnostics") }
+        Button(onClick = onAudioDiagnostics) { Text("M2 Audio Diagnostics") }
+
+        Text("Import / codecs", style = MaterialTheme.typography.titleMedium)
+        Text("M3 development gate. WAV is implemented but remains unadvertised until Android file/metadata/decode/seek homologation passes.")
+        Button(onClick = onCodecDiagnostics) { Text("M3 Codec Diagnostics") }
+
         Text("Projects", style = MaterialTheme.typography.titleMedium)
         Text("Autosave: On\nDefault new project: Ask every time")
         OutlinedButton(onClick = onBack) { Text("Back") }
