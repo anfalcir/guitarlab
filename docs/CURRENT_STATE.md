@@ -22,46 +22,36 @@ Last updated: 2026-09-08
 - persisted Studio project workspace and track lanes;
 - clean adaptive design system and app launcher identity;
 - non-destructive `AudioClip` timeline model and validation;
-- timeline preview foundation;
-- WAV import vertical slice into selected track;
-- imported clip persistence through `FileProjectRepository`;
+- WAV import into a chosen track;
+- imported media copied into immutable project-managed `media/source/` storage;
+- external original retained only as provenance and never used as mutable working media;
 - technical source metadata persisted on clips;
-- clip-management core with validated remove, mute/unmute and frame movement operations;
-- explicit non-destructive trim model bounded by immutable source length;
-- Studio controls for persisted mute/unmute and removal;
-- project-managed source ingest: external files are copied into `media/source/` and no longer become the runtime dependency after successful import;
-- managed source path + origin provenance metadata persisted separately;
-- deterministic waveform-envelope builder;
-- derived waveform cache under `media/derived/waveform/`;
-- cached waveform rendering in Studio clip management;
-- cache rebuild from managed source when a cache is missing/corrupt.
+- clip-management core with remove, mute/unmute, move and non-destructive trim;
+- waveform envelope generation, derived cache and Studio rendering;
+- deterministic timeline frame/fraction mapping and bounded playhead/loop state;
+- explicit top marker-head component with 48 dp interaction targets for playhead/loop and shared semantic contract for trim/record markers.
 
-## Latest verified CI before this checkpoint
-Run #67 completed successfully for the prior clip-management checkpoint: unit tests, Android Lint, debug APK assembly and artifact upload passed. Signed homologation was intentionally skipped for routine development.
+## Latest verified CI before this marker checkpoint
+Run #115 completed successfully for the managed-media + waveform checkpoint. Unit tests, Android Lint, debug APK assembly and artifact upload passed. Signed homologation was intentionally skipped for routine development.
 
 ## Current implementation checkpoint
-The managed-media + waveform checkpoint is implemented and awaiting its own current-head CI result. New imports now use the external Android document only as read-only ingestion input. The project copies it into app-controlled project storage, validates/decodes the internal copy, and persists a clip that points to the managed source. The original external URI is provenance only.
+The Studio now has a marker-head timeline interaction foundation. The playhead uses restrained blue and loop in/out markers use restrained green. Dragging is initiated from the clearly visible marker head at the top; the thin vertical line is orientation only. The reusable marker contract already defines trim and record-head semantics so later implementations cannot regress to line-only precision dragging.
 
-Both layers are protected:
-- external original: never written by GuitarLab;
-- internal managed source: immutable after successful ingest.
-
-Trim/move/gain/mute stay metadata-only. Waveforms are disposable derived cache data and may be regenerated from the managed source. See `MANAGED_MEDIA_POLICY.md`.
+The marker state is currently session/UI state and does not yet claim live transport playback. Production play/pause/stop, audio-clock-driven playhead movement and actual loop playback remain the next isolated M4 transport checkpoint.
 
 ## Next checkpoints
-1. current-head CI validation for managed-media + waveform implementation;
-2. transport state/playhead foundation;
-3. seek/playback over managed clips;
-4. bind validated clip movement/trim to timeline scale and gestures;
-5. tablet validation: import, rename/move/delete the original external file, reopen project, confirm waveform/source still work;
+1. validate the current marker-head code in CI;
+2. production transport state/playback over immutable managed media;
+3. audio-clock-driven playhead progression and seek;
+4. bind trim marker heads to non-destructive clip trim mode;
+5. tablet UX validation for marker size, drag precision and light/dark contrast;
 6. broader codec/import support only as each format passes its own software/Android gates.
 
 ## Important limitations that are intentional, not final scope
 - user-facing Studio import currently begins with WAV only;
-- legacy development projects may still contain direct external `sourceUri` references until migration is implemented;
 - compressed formats are still planned/unverified and must not be advertised yet;
 - production resampling is not yet enabled;
-- transport/playback of Studio clips is the next M4 block;
+- marker heads currently manipulate timeline state, not a live playback engine;
 - recording into Studio is a later milestone;
 - M2 Pocket Amp gate remains physically open.
 
