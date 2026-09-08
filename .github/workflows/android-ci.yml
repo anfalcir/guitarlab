@@ -107,7 +107,7 @@ jobs:
   homologation-apk:
     name: Signed homologation APK
     needs: software-gate
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.signed_homologation == true }}
+    if: ${{ (github.event_name == 'workflow_dispatch' && inputs.signed_homologation == true) || (github.event_name == 'push' && contains(github.event.head_commit.message, '[sign-homologation]')) }}
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
