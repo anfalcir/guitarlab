@@ -4,60 +4,59 @@ Last updated: 2026-09-08
 
 ## Stable baseline
 - `main`: signed/homologation baseline `0.2.0-alpha03`, versionCode 4.
-- Stable main commit includes signed M2 software candidate; do not merge parallel work while required hardware gate remains open.
+- Stable main remains untouched while the M2 Pocket Amp physical gate is open.
 
 ## Active development
 - branch: `dev/parallel-m3-m5`
 - draft PR: #1
-- current app version on branch: `0.2.0-alpha04`, versionCode 5.
+- branch app version: `0.2.0-alpha04`, versionCode 5.
 
 ## Gates
-- M2 software diagnostics: implemented and CI-green.
+- M2 software diagnostics: CI-green.
 - M2 Pocket Amp physical homologation: OPEN.
-- M3 WAV codec core/Android path: software-green.
-- M3 real tablet evidence: PASS for tested WAV PCM24, 44.1 kHz, stereo, direct seek and exact midpoint seek.
+- M3 WAV codec core/Android path: software-green; tested tablet evidence exists for PCM24/44.1 kHz/stereo direct seek.
 - M4: IN PROGRESS.
 
 ## M4 completed checkpoints
-- persisted Studio project workspace and track lanes;
-- clean adaptive design system and app launcher identity;
-- non-destructive `AudioClip` timeline model and validation;
-- WAV import into a chosen track;
-- imported media copied into immutable project-managed `media/source/` storage;
-- external original retained only as provenance and never used as mutable working media;
-- technical source metadata persisted on clips;
-- clip-management core with remove, mute/unmute, move and non-destructive trim;
-- waveform envelope generation, derived cache and Studio rendering;
-- deterministic timeline frame/fraction mapping and bounded playhead/loop state;
-- explicit top marker-head component with 48 dp interaction targets;
-- canonical transport state policy STOPPED / PLAYING / RECORDING;
-- canonical symbol-only transport bar: return-to-start, play→stop, record, loop;
-- stopped-only edit lock contract for markers/import/clip edits;
-- trim marker color changed to muted mustard `#9C741F`, distinct from record red.
+- persisted Studio workspace and track lanes;
+- clean adaptive design system and launcher identity;
+- non-destructive `AudioClip` model;
+- WAV import into chosen track;
+- immutable project-managed source ingestion under `media/source/`;
+- source metadata persistence;
+- clip remove/mute/move and metadata-only trim core;
+- waveform envelope generation/cache/rendering;
+- explicit top marker-head UX for playhead/loop, with trim/record contract;
+- semantic marker colors: playhead blue, loop green, trim restrained mustard, record red;
+- transport state safety: edits only while `STOPPED`, no separate pause mode;
+- real Android Studio playback engine over managed WAV media;
+- hardware playback-head-driven playhead progression;
+- Stop and start-from-playhead behavior;
+- real loop wrapping using the existing loop markers;
+- record remains disabled until M5.
 
-## Latest verified CI
-Run #129 completed successfully for the prior marker-head checkpoint. Unit tests, Android Lint, debug APK assembly and artifact upload passed. Signed homologation was intentionally skipped for routine development.
+## Latest verified CI before this playback checkpoint
+Run #159 completed successfully: unit tests, Android Lint, debug APK assembly and artifact upload all passed. Signed homologation was intentionally skipped.
 
-## Current implementation checkpoint
-The current M4 checkpoint is transport UX/state safety. Marker heads are only user-editable while transport is STOPPED. The pure `TransportPolicy` defines active-state locking and loop/return-to-start behavior. The Studio has the final intended transport control arrangement and icon semantics.
+## Current playback checkpoint
+The Studio now has a real M4 playback path using Android `AudioTrack` and the existing WAV decoder. Playback reads only immutable managed project sources. Multiple audible mono/stereo clips may be mixed by timeline overlap. The playhead follows `AudioTrack.playbackHeadPosition`, and loop playback maps the hardware-presented frame count through deterministic loop logic.
 
-Play/record remain intentionally disabled because the production transport/record engine is not yet implemented. This follows the product rule that unimplemented features must not appear as working controls. Once the real engine is connected, the same policy will make Play become Stop, lock timeline edits during PLAYING/RECORDING and let the engine own playhead/record-head progression.
+The first playback slice intentionally rejects audible clips that require sample-rate conversion. No implicit speed/pitch changes and no source rewriting are allowed. Resampling will create derived media after its own quality gate.
 
-## Next checkpoint
-1. production playback engine over immutable managed media;
-2. audio-clock-driven playhead progression;
-3. stop and seek synchronization;
-4. loop execution using the existing loop markers;
-5. only after those pass, enable the Play control;
-6. recording remains a later M5 engine gate even though its UX/state semantics are already defined.
+## Next checkpoints
+1. CI validation of the playback engine checkpoint;
+2. tablet validation of play/stop, start position, clock-following playhead and loop boundaries;
+3. bind mustard trim marker heads to the existing non-destructive trim core;
+4. validate marker locking and tablet ergonomics during playback;
+5. continue toward the remaining M4 exit gate without closing the M2 Pocket Amp gate.
 
-## Important limitations that are intentional, not final scope
-- user-facing Studio import currently begins with WAV only;
-- compressed formats are still planned/unverified and must not be advertised yet;
-- production resampling is not yet enabled;
-- transport UI/state policy exists, but production playback is still gated;
-- record control remains disabled until recording engine implementation;
-- M2 Pocket Amp gate remains physically open.
+## Intentional limitations
+- user-facing import currently begins with WAV;
+- compressed formats remain planned/unverified;
+- resampling is not yet production-enabled;
+- M4 playback currently requires managed WAV clips at playback/project sample rate, mono or stereo;
+- Studio recording remains M5 scope;
+- M2 Pocket Amp physical gate remains OPEN.
 
 ## Branch policy
-`main` remains stable. Parallel work stays in the draft PR. Do not trigger signed homologation for routine development commits. Do not close physical gates based only on CI.
+`main` remains stable. Parallel work stays in the draft PR. Routine commits do not trigger signed homologation. CI evidence never substitutes for physical-device homologation.

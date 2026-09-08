@@ -40,10 +40,11 @@ fun TransportBar(
             TransportButton(
                 if (state.mode == TransportMode.STOPPED) "▶" else "■",
                 if (state.mode == TransportMode.STOPPED) "Play" else "Stop",
-                engineReady,
+                engineReady || state.mode == TransportMode.PLAYING,
                 onPlayStop,
             )
-            TransportButton("●", "Record", engineReady && state.mode == TransportMode.STOPPED, onRecord, StudioRecord)
+            // Recording belongs to M5 and must not become enabled merely because M4 playback is ready.
+            TransportButton("●", "Record", false, onRecord, StudioRecord)
             TransportButton("↻", "Loop", editingEnabled, onToggleLoop, if (state.loopEnabled) StudioLoop else null)
         }
     }

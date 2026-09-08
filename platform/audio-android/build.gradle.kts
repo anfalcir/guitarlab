@@ -18,5 +18,6 @@ android {
 
 dependencies {
     implementation(project(":core:audio"))
+    implementation(project(":core:codec"))
     implementation(libs.kotlinx.coroutines.android)
 }

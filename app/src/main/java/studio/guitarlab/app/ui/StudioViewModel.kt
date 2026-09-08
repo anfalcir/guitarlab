@@ -23,9 +23,14 @@ import studio.guitarlab.core.project.ProjectClipEditor
 import studio.guitarlab.core.project.ProjectManagedMediaStore
 import studio.guitarlab.core.project.TimelineControlPolicy
 import studio.guitarlab.core.project.TimelineControlState
+import studio.guitarlab.core.project.TransportMode
 import studio.guitarlab.core.project.TransportPolicy
 import studio.guitarlab.core.project.TransportState
 import studio.guitarlab.core.project.WaveformCacheStore
+import studio.guitarlab.platform.audio.android.AndroidStudioPlaybackEngine
+import studio.guitarlab.platform.audio.android.StudioPlaybackClip
+import studio.guitarlab.platform.audio.android.StudioPlaybackListener
+import studio.guitarlab.platform.audio.android.StudioPlaybackRequest
 
 data class StudioUiState(
     val loading: Boolean = true,
@@ -46,11 +51,13 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
     private val repository = FileProjectRepository(rootDirectory)
     private val mediaStore = ProjectManagedMediaStore(rootDirectory)
     private val waveformCache = WaveformCacheStore(rootDirectory)
+    private val playbackEngine = AndroidStudioPlaybackEngine()
     private val _state = MutableStateFlow(StudioUiState())
     val state: StateFlow<StudioUiState> = _state.asStateFlow()
 
     fun load(projectId: String) {
         if (_state.value.project?.id == projectId && !_state.value.loading) return
+        playbackEngine.stop()
         viewModelScope.launch {
             _state.value = StudioUiState(loading = true)
             runCatching {
@@ -65,6 +72,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                     project = project,
                     waveforms = waveforms,
                     timelineControls = TimelineControlPolicy.normalizedForProject(TimelineControlState(), end),
+                    transportEngineReady = playbackReadiness(project).ready,
                 )
             }.onFailure { error ->
                 _state.value = StudioUiState(loading = false, error = error.message ?: "Unable to load project.")
@@ -129,6 +137,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                     waveforms = _state.value.waveforms + (imported.id to peaks),
                     timelineControls = TimelineControlPolicy.normalizedForProject(_state.value.timelineControls, end),
                     transport = _state.value.transport,
+                    transportEngineReady = playbackReadiness(saved).ready,
                     importStatus = "Imported safely • ${metadata.channelCount}ch • ${metadata.sampleRateHz} Hz • immutable project copy",
                 )
             }.onFailure { error ->
@@ -151,13 +160,19 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun togglePlayStop() {
-        if (!_state.value.transportEngineReady) return
-        _state.value = _state.value.copy(transport = TransportPolicy.togglePlayStop(_state.value.transport))
+        val current = _state.value
+        when (current.transport.mode) {
+            TransportMode.PLAYING -> {
+                playbackEngine.stop()
+                _state.value = current.copy(transport = current.transport.copy(mode = TransportMode.STOPPED))
+            }
+            TransportMode.RECORDING -> return
+            TransportMode.STOPPED -> startPlayback(current)
+        }
     }
 
     fun startRecording() {
-        if (!_state.value.transportEngineReady) return
-        _state.value = _state.value.copy(transport = TransportPolicy.startRecording(_state.value.transport))
+        // M5 gate: recording is intentionally not armed by the M4 playback engine.
     }
 
     fun toggleClipMuted(clipId: String) {
@@ -169,6 +184,89 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
 
     fun removeClip(clipId: String) = editClip("Clip removed") { current ->
         ProjectClipEditor.removeClip(current, clipId, System.currentTimeMillis())
+    }
+
+    override fun onCleared() {
+        playbackEngine.close()
+        super.onCleared()
+    }
+
+    private fun startPlayback(current: StudioUiState) {
+        val project = current.project ?: return
+        val readiness = playbackReadiness(project)
+        if (!readiness.ready || readiness.sampleRateHz == null) {
+            _state.value = current.copy(error = readiness.reason ?: "Project is not ready for playback.")
+            return
+        }
+        val end = TimelineControlPolicy.projectEndFrame(project)
+        val requestedStart = if (!current.transport.loopEnabled && current.timelineControls.playheadFrame >= end) 0L else current.timelineControls.playheadFrame
+        val request = runCatching {
+            StudioPlaybackRequest(
+                sampleRateHz = readiness.sampleRateHz,
+                startFrame = requestedStart,
+                projectEndFrame = end,
+                loopEnabled = current.transport.loopEnabled,
+                loopStartFrame = current.timelineControls.loopStartFrame,
+                loopEndFrame = current.timelineControls.loopEndFrame,
+                clips = project.clips.filterNot { it.muted }.map { clip ->
+                    val managedPath = requireNotNull(clip.managedSourcePath) { "Clip '${clip.name}' is not project-managed." }
+                    StudioPlaybackClip(
+                        file = mediaStore.resolve(project.id, managedPath),
+                        timelineStartFrame = clip.startFrame,
+                        sourceStartFrame = clip.sourceStartFrame,
+                        lengthFrames = clip.lengthFrames,
+                        gainDb = clip.gainDb,
+                        muted = clip.muted,
+                    )
+                },
+            )
+        }.getOrElse { error ->
+            _state.value = current.copy(error = error.message ?: "Unable to prepare managed media for playback.")
+            return
+        }
+
+        _state.value = current.copy(
+            timelineControls = TimelineControlPolicy.movePlayhead(current.timelineControls, requestedStart, end),
+            transport = current.transport.copy(mode = TransportMode.PLAYING),
+            error = null,
+        )
+        runCatching {
+            playbackEngine.start(request, object : StudioPlaybackListener {
+                override fun onPosition(frame: Long) {
+                    viewModelScope.launch {
+                        val state = _state.value
+                        if (state.transport.mode == TransportMode.PLAYING) {
+                            _state.value = state.copy(timelineControls = state.timelineControls.copy(playheadFrame = frame))
+                        }
+                    }
+                }
+
+                override fun onStopped(frame: Long) {
+                    viewModelScope.launch {
+                        val state = _state.value
+                        _state.value = state.copy(
+                            transport = state.transport.copy(mode = TransportMode.STOPPED),
+                            timelineControls = state.timelineControls.copy(playheadFrame = frame),
+                        )
+                    }
+                }
+
+                override fun onError(message: String) {
+                    viewModelScope.launch {
+                        val state = _state.value
+                        _state.value = state.copy(
+                            transport = state.transport.copy(mode = TransportMode.STOPPED),
+                            error = message,
+                        )
+                    }
+                }
+            })
+        }.onFailure { error ->
+            _state.value = _state.value.copy(
+                transport = _state.value.transport.copy(mode = TransportMode.STOPPED),
+                error = error.message ?: "Studio playback could not start.",
+            )
+        }
     }
 
     private fun editTimelineMarker(transform: (TimelineControlState, Long) -> TimelineControlState) {
@@ -194,11 +292,33 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                         project = saved,
                         waveforms = _state.value.waveforms.filterKeys { it in validClipIds },
                         timelineControls = TimelineControlPolicy.normalizedForProject(_state.value.timelineControls, end),
+                        transportEngineReady = playbackReadiness(saved).ready,
                         clipStatus = status,
                     )
                 }
                 .onFailure { error -> _state.value = _state.value.copy(editingClip = false, error = error.message ?: "Clip edit failed.") }
         }
+    }
+
+    private fun playbackReadiness(project: GuitarProject): PlaybackReadiness {
+        val audible = project.clips.filterNot { it.muted }
+        if (audible.isEmpty()) return PlaybackReadiness(false, reason = "Add or unmute a managed WAV clip before playback.")
+        if (audible.any { it.managedSourcePath.isNullOrBlank() || it.sourceFormat != "WAV" }) {
+            return PlaybackReadiness(false, reason = "M4 playback currently requires project-managed WAV clips.")
+        }
+        if (audible.any { it.sourceChannelCount !in 1..2 }) {
+            return PlaybackReadiness(false, reason = "M4 playback currently supports mono/stereo sources.")
+        }
+        val firstRate = audible.first().sourceSampleRateHz
+            ?: return PlaybackReadiness(false, reason = "Playback source sample rate is unknown.")
+        val projectRate = project.sampleRate.fixedHz ?: firstRate
+        if (audible.any { it.sourceSampleRateHz != projectRate }) {
+            return PlaybackReadiness(
+                false,
+                reason = "Playback is gated because one or more clips need resampling. Source media remains immutable; resampling will use derived media when its gate is implemented.",
+            )
+        }
+        return PlaybackReadiness(true, projectRate)
     }
 
     private fun loadWaveforms(project: GuitarProject): Map<String, List<Float>> = buildMap {
@@ -224,6 +344,8 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
             }
         }.getOrNull()
     }
+
+    private data class PlaybackReadiness(val ready: Boolean, val sampleRateHz: Int? = null, val reason: String? = null)
 
     private companion object { const val WAVEFORM_POINTS = 320 }
 }
