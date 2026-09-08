@@ -1,8 +1,8 @@
     ): OutputLoopResult {
         val targetFrames = (config.sampleRateHz * (durationMs / 1000.0)).toLong().coerceAtLeast(1)
         val chunkFrames = min(config.bufferFrames.coerceAtLeast(128), 1024)
-        var frames = 0L
-        var phase = 0.0
+        var frames = initialFrames.coerceIn(0L, targetFrames)
+        var phase = initialPhase
         var zeroWrites = 0
         val phaseStep = 2.0 * PI * toneHz / config.sampleRateHz
 
@@ -22,6 +22,24 @@
         }
 
         return OutputLoopResult(frames)
+    }
+
+    private fun primeOutput(
+        track: AudioTrack,
+        config: AudioStreamConfig,
+        toneHz: Double
+    ): OutputPrimeResult {
+        val primeFrames = AudioProbePolicy.duplexPrimeFrames(config.sampleRateHz, config.bufferFrames)
+        if (primeFrames <= 0) return OutputPrimeResult(0L, 0.0)
+        val phaseStep = 2.0 * PI * toneHz / config.sampleRateHz
+        val writtenSamples = writeTone(track, config, primeFrames, 0.0, phaseStep)
+        if (writtenSamples < 0) error("AudioTrack prefill failed with error $writtenSamples")
+        val writtenFrames = writtenSamples / config.channelCount
+        if (writtenFrames <= 0) error("AudioTrack prefill produced no frames")
+        return OutputPrimeResult(
+            frames = writtenFrames.toLong(),
+            nextPhase = phaseStep * writtenFrames
+        )
     }
 
     private suspend fun captureStats(
@@ -194,6 +212,7 @@
         val sumSquares: Double,
         val sampleCount: Long
     )
+    private data class OutputPrimeResult(val frames: Long, val nextPhase: Double)
     private data class OutputLoopResult(val frames: Long)
     private data class DuplexLoopResult(val input: InputLoopResult, val output: OutputLoopResult)
     private data class ChunkStats(
