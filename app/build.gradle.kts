@@ -5,7 +5,7 @@ plugins {
 
 android {
     namespace = "studio.guitarlab.app"
-    compileSdk = 37
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "studio.guitarlab.app"
