@@ -46,4 +46,33 @@ object BuiltInRoles {
 
 @Serializable data class TrackGroup(val id: String, val name: String, val collapsed: Boolean = false, val order: Int)
 @Serializable data class AudioTrack(val id: String, val name: String, val groupId: String? = null, val roleId: String? = null, val roleSource: RoleSource = RoleSource.NONE, val channelLayout: ChannelLayout = ChannelLayout.MONO, val pan: Float = 0f, val gainDb: Float = 0f, val muted: Boolean = false, val solo: Boolean = false, val armed: Boolean = false, val order: Int)
-@Serializable data class GuitarProject(val schemaVersion: Int = CURRENT_PROJECT_SCHEMA_VERSION, val id: String, val name: String, val template: ProjectTemplate, val createdAtEpochMs: Long, val updatedAtEpochMs: Long, val sampleRate: SampleRateConfig = SampleRateConfig(), val groups: List<TrackGroup> = emptyList(), val tracks: List<AudioTrack> = emptyList(), val customRoles: List<TrackRoleDefinition> = emptyList())
+
+/**
+ * Timeline placement metadata. Audio bytes stay outside the project JSON; sourceUri is a stable
+ * document/app URI reference and sourceStartFrame allows non-destructive trims later.
+ */
+@Serializable data class AudioClip(
+    val id: String,
+    val trackId: String,
+    val name: String,
+    val sourceUri: String,
+    val startFrame: Long,
+    val sourceStartFrame: Long = 0,
+    val lengthFrames: Long,
+    val gainDb: Float = 0f,
+    val muted: Boolean = false,
+)
+
+@Serializable data class GuitarProject(
+    val schemaVersion: Int = CURRENT_PROJECT_SCHEMA_VERSION,
+    val id: String,
+    val name: String,
+    val template: ProjectTemplate,
+    val createdAtEpochMs: Long,
+    val updatedAtEpochMs: Long,
+    val sampleRate: SampleRateConfig = SampleRateConfig(),
+    val groups: List<TrackGroup> = emptyList(),
+    val tracks: List<AudioTrack> = emptyList(),
+    val clips: List<AudioClip> = emptyList(),
+    val customRoles: List<TrackRoleDefinition> = emptyList(),
+)

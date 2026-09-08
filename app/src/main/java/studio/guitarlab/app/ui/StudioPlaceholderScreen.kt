@@ -1,10 +1,13 @@
 package studio.guitarlab.app.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -20,8 +23,11 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import studio.guitarlab.core.model.AudioClip
+import studio.guitarlab.core.model.AudioTrack
 import studio.guitarlab.core.model.BuiltInRoles
 import studio.guitarlab.core.model.GuitarProject
 import studio.guitarlab.core.model.TrackGroup
@@ -79,11 +85,13 @@ private fun ProjectWorkspace(project: GuitarProject) {
     ) {
         ProjectFact("Template", project.template.name.lowercase().replaceFirstChar { it.uppercase() })
         ProjectFact("Tracks", project.tracks.size.toString())
-        ProjectFact("Groups", project.groups.size.toString())
+        ProjectFact("Clips", project.clips.size.toString())
         ProjectFact("Sample rate", sampleRateText)
     }
 
-    Text("Tracks", style = MaterialTheme.typography.titleLarge)
+    TimelinePreview(project)
+
+    Text("Track structure", style = MaterialTheme.typography.titleLarge)
 
     val groupedTrackIds = mutableSetOf<String>()
     project.groups.sortedBy { it.order }.forEach { group ->
@@ -101,9 +109,91 @@ private fun ProjectWorkspace(project: GuitarProject) {
     }
 
     InlineStatus(
-        title = "M4 workspace foundation",
-        text = "Project structure is live. Clips, transport and audio editing stay locked until their next validation checkpoints.",
+        title = "M4 timeline foundation",
+        text = "The project now persists non-destructive clip placement metadata. Import, transport and waveform rendering will be unlocked in separate validated checkpoints.",
     )
+}
+
+@Composable
+private fun TimelinePreview(project: GuitarProject) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text("Timeline", style = MaterialTheme.typography.titleLarge)
+            Text(
+                "00:00   00:15   00:30   00:45   01:00",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(14.dp),
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.28f),
+        ) {
+            Column(Modifier.padding(vertical = 8.dp)) {
+                project.tracks.sortedBy { it.order }.forEach { track ->
+                    TimelineTrackRow(track, project.clips.filter { it.trackId == track.id })
+                }
+                if (project.tracks.isEmpty()) {
+                    Text(
+                        "No tracks yet",
+                        modifier = Modifier.padding(16.dp),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TimelineTrackRow(track: AudioTrack, clips: List<AudioClip>) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 5.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Text(
+            track.name,
+            modifier = Modifier.weight(0.28f),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Box(
+            modifier = Modifier
+                .weight(0.72f)
+                .height(34.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.78f)),
+        ) {
+            if (clips.isNotEmpty()) {
+                Row(
+                    modifier = Modifier.fillMaxSize().padding(4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    clips.sortedBy { it.startFrame }.take(3).forEach { clip ->
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                        ) {
+                            Text(
+                                clip.name,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 @Composable
