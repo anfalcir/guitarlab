@@ -94,7 +94,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: guitarlab-alpha04-software-gate
+          name: guitarlab-alpha05-software-gate
           if-no-files-found: warn
           retention-days: 30
           path: |
@@ -137,6 +137,16 @@ jobs:
         run: |
           chmod +x scripts/materialize_ci_sources.sh
           scripts/materialize_ci_sources.sh
+
+      - name: Read app version
+        shell: bash
+        run: |
+          VERSION_NAME="$(sed -n 's/.*versionName = "\([^"]*\)".*/\1/p' app/build.gradle.kts | head -n1)"
+          VERSION_CODE="$(sed -n 's/.*versionCode = \([0-9][0-9]*\).*/\1/p' app/build.gradle.kts | head -n1)"
+          test -n "$VERSION_NAME"
+          test -n "$VERSION_CODE"
+          echo "APP_VERSION_NAME=$VERSION_NAME" >> "$GITHUB_ENV"
+          echo "APP_VERSION_CODE=$VERSION_CODE" >> "$GITHUB_ENV"
 
       - name: Restore private signing bundle
         shell: bash
@@ -188,21 +198,23 @@ jobs:
         shell: bash
         run: |
           mkdir -p deliverables
-          cp app/build/outputs/apk/release/app-release.apk deliverables/GuitarLabStudio-M2-M3-0.2.0-alpha04-homologacao.apk
+          APK_NAME="GuitarLabStudio-M2-M3-M4-${APP_VERSION_NAME}-homologacao.apk"
+          cp app/build/outputs/apk/release/app-release.apk "deliverables/${APK_NAME}"
           sha256sum deliverables/*.apk > deliverables/SHA256SUMS.txt
           {
             echo "commit=${GITHUB_SHA}"
-            echo "versionName=0.2.0-alpha04"
-            echo "versionCode=5"
-            echo "milestones=M2-software-plus-M3-codec"
-            echo "hardwareGate=PocketAmp-M2-open"
+            echo "versionName=${APP_VERSION_NAME}"
+            echo "versionCode=${APP_VERSION_CODE}"
+            echo "milestones=M2-homologated-plus-M3-codec-plus-M4-playback-trim"
+            echo "hardwareGate=M2-PocketAmp-SM-X230-pass"
+            echo "m4Gate=tablet-consolidation-pending"
             echo "certificateSha256=${EXPECTED_CERT_SHA256}"
           } > deliverables/BUILD_IDENTITY.txt
 
       - name: Upload signed homologation APK
         uses: actions/upload-artifact@v4
         with:
-          name: GuitarLabStudio-M2-M3-alpha04-homologacao
+          name: GuitarLabStudio-M2-M3-M4-${{ env.APP_VERSION_NAME }}-homologacao
           if-no-files-found: error
           retention-days: 90
           path: deliverables/
