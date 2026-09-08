@@ -29,8 +29,10 @@ Parallel M3/M4 development was explicitly allowed while Pocket Amp is unavailabl
 ## D-009 — Production audio engine is distinct from diagnostics
 M2 probes validate Android routes and capture/playback behavior. Final Studio transport/recording requires a sustained low-latency architecture and later latency compensation.
 
-## D-010 — Persisted Android document access
-Imported media should use persistable SAF permission where available. Providers without dependable random access may use controlled temporary cache for decoding/probing. Recorded/project-managed media should use app-controlled project storage.
+## D-010 — Import always ingests an immutable project-managed source
+The user's selected external file is read-only input. A successful import always creates a complete copy in app-controlled project storage before the project depends on it. After commit, normal Studio operation depends on the managed copy, not continued SAF access to the external original. The external URI may be retained only as provenance metadata.
+
+The managed source copy is also immutable. Trim, move, gain, mute, split and similar edits are metadata-only and never overwrite, truncate, normalize, resample or otherwise mutate that source. Failed import transactions may delete only an uncommitted copy that has not yet been referenced by a saved project.
 
 ## D-011 — Clean modern UI
 The old graphite/amber-heavy appearance was replaced by neutral surfaces, restrained teal accent, adaptive light/dark themes and clearer hierarchy. Record/warning/error colors remain functional, not decorative.
@@ -40,3 +42,6 @@ GitHub Actions is the canonical remote build path. Signing secrets/keystore are 
 
 ## D-013 — Documentation is canonical project context
 The target product, roadmap, support matrices, state and homologation rules must live in the repository. Chat history may explain decisions but must not be the only source of truth.
+
+## D-014 — Derived media is disposable, source media is authoritative
+Waveform envelopes, proxies, resampled working files, renders, freezes and exports are separate derived artifacts. They may be regenerated or replaced without changing the immutable managed source. A missing/corrupt waveform cache is therefore a cache problem, never source corruption.
