@@ -5,15 +5,22 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -30,13 +37,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import studio.guitarlab.app.ui.theme.StudioTrim
 import studio.guitarlab.core.model.AudioClip
 import studio.guitarlab.core.model.AudioTrack
 import studio.guitarlab.core.model.BuiltInRoles
 import studio.guitarlab.core.model.GuitarProject
-import studio.guitarlab.core.model.TrackGroup
 import studio.guitarlab.core.project.TimelineControlPolicy
 import studio.guitarlab.core.project.TimelineControlState
 import studio.guitarlab.core.project.TransportPolicy
@@ -61,58 +69,76 @@ fun StudioPlaceholderScreen(
     LaunchedEffect(projectId) { viewModel.load(projectId) }
 
     Column(
-        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp, vertical = 20.dp),
-        verticalArrangement = Arrangement.spacedBy(20.dp),
+        modifier = Modifier.fillMaxSize().padding(horizontal = 14.dp, vertical = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text("Studio", style = MaterialTheme.typography.headlineMedium)
+        StudioHeader(project = state.project, fallbackId = projectId, onBack = onBack)
+
+        Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
+            when {
+                state.loading -> CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+                state.error != null && state.project == null -> CompactStatus(
+                    text = state.error.orEmpty(),
+                    error = true,
+                    modifier = Modifier.align(Alignment.TopStart),
+                )
+                state.project != null -> ProjectWorkspace(
+                    project = state.project!!,
+                    waveforms = state.waveforms,
+                    timelineControls = state.timelineControls,
+                    trimControls = state.trimControls,
+                    transport = state.transport,
+                    transportEngineReady = state.transportEngineReady,
+                    importing = state.importing,
+                    editingClip = state.editingClip,
+                    importStatus = state.importStatus,
+                    error = state.error,
+                    onImportWav = { trackId ->
+                        if (!state.importing && !state.editingClip && state.trimControls == null && TransportPolicy.timelineEditingEnabled(state.transport)) {
+                            pendingTrackId = trackId
+                            wavPicker.launch(arrayOf("audio/wav", "audio/x-wav", "audio/wave", "application/octet-stream"))
+                        }
+                    },
+                    onReturnToStart = viewModel::returnToStart,
+                    onPlayStop = viewModel::togglePlayStop,
+                    onRecord = viewModel::startRecording,
+                    onToggleLoop = viewModel::toggleLoop,
+                    onPlayheadFrameChanged = viewModel::setPlayheadFrame,
+                    onLoopStartFrameChanged = viewModel::setLoopStartFrame,
+                    onLoopEndFrameChanged = viewModel::setLoopEndFrame,
+                    onBeginTrim = viewModel::beginTrim,
+                    onTrimStartFrameChanged = viewModel::setTrimStartFrame,
+                    onTrimEndFrameChanged = viewModel::setTrimEndFrame,
+                    onApplyTrim = viewModel::applyTrim,
+                    onCancelTrim = viewModel::cancelTrim,
+                    onToggleClipMuted = viewModel::toggleClipMuted,
+                    onRemoveClip = viewModel::removeClip,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun StudioHeader(project: GuitarProject?, fallbackId: String, onBack: () -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+            Text(project?.name ?: "Project ${fallbackId.take(8)}…", style = MaterialTheme.typography.titleLarge)
+            project?.let {
+                val sampleRate = it.sampleRate.fixedHz?.let { hz -> "$hz Hz" } ?: "Auto rate"
                 Text(
-                    state.project?.name ?: "Project ${projectId.take(8)}…",
-                    style = MaterialTheme.typography.bodyMedium,
+                    "${it.tracks.size} tracks • ${it.clips.size} clips • $sampleRate",
+                    style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            OutlinedButton(onClick = onBack) { Text("Home") }
         }
-
-        when {
-            state.loading -> CircularProgressIndicator()
-            state.error != null && state.project == null -> InlineStatus("Project could not be opened", state.error.orEmpty())
-            state.project != null -> ProjectWorkspace(
-                project = state.project!!,
-                waveforms = state.waveforms,
-                timelineControls = state.timelineControls,
-                trimControls = state.trimControls,
-                transport = state.transport,
-                transportEngineReady = state.transportEngineReady,
-                importing = state.importing,
-                editingClip = state.editingClip,
-                importStatus = state.importStatus,
-                clipStatus = state.clipStatus,
-                error = state.error,
-                onImportWav = { trackId ->
-                    if (!state.importing && !state.editingClip && state.trimControls == null && TransportPolicy.timelineEditingEnabled(state.transport)) {
-                        pendingTrackId = trackId
-                        wavPicker.launch(arrayOf("audio/wav", "audio/x-wav", "audio/wave", "application/octet-stream"))
-                    }
-                },
-                onReturnToStart = viewModel::returnToStart,
-                onPlayStop = viewModel::togglePlayStop,
-                onRecord = viewModel::startRecording,
-                onToggleLoop = viewModel::toggleLoop,
-                onPlayheadFrameChanged = viewModel::setPlayheadFrame,
-                onLoopStartFrameChanged = viewModel::setLoopStartFrame,
-                onLoopEndFrameChanged = viewModel::setLoopEndFrame,
-                onBeginTrim = viewModel::beginTrim,
-                onTrimStartFrameChanged = viewModel::setTrimStartFrame,
-                onTrimEndFrameChanged = viewModel::setTrimEndFrame,
-                onApplyTrim = viewModel::applyTrim,
-                onCancelTrim = viewModel::cancelTrim,
-                onToggleClipMuted = viewModel::toggleClipMuted,
-                onRemoveClip = viewModel::removeClip,
-            )
-        }
+        OutlinedButton(onClick = onBack) { Text("Home") }
     }
 }
 
@@ -127,7 +153,6 @@ private fun ProjectWorkspace(
     importing: Boolean,
     editingClip: Boolean,
     importStatus: String?,
-    clipStatus: String?,
     error: String?,
     onImportWav: (String) -> Unit,
     onReturnToStart: () -> Unit,
@@ -144,24 +169,83 @@ private fun ProjectWorkspace(
     onCancelTrim: () -> Unit,
     onToggleClipMuted: (String) -> Unit,
     onRemoveClip: (String) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    val sampleRateText = project.sampleRate.fixedHz?.let { "$it Hz" } ?: "Auto"
     val baseProjectEndFrame = TimelineControlPolicy.projectEndFrame(project)
     val trimClip = trimControls?.let { state -> project.clips.firstOrNull { it.id == state.clipId } }
-    val projectEndFrame = maxOf(baseProjectEndFrame, trimClip?.let(TrimControlPolicy::maximumEndFrame) ?: 0L)
+    val projectEndFrame = maxOf(baseProjectEndFrame, trimClip?.let(TrimControlPolicy::maximumEndFrame) ?: 0L).coerceAtLeast(1L)
     val timelineEditingEnabled = TransportPolicy.timelineEditingEnabled(transport)
     val trimActive = trimControls != null
-    val busy = importing || editingClip || !timelineEditingEnabled || trimActive
+    val clipEditingEnabled = !importing && !editingClip && timelineEditingEnabled && !trimActive
 
-    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(18.dp)) {
-        ProjectFact("Template", project.template.name.lowercase().replaceFirstChar { it.uppercase() })
-        ProjectFact("Tracks", project.tracks.size.toString())
-        ProjectFact("Clips", project.clips.size.toString())
-        ProjectFact("Sample rate", sampleRateText)
-    }
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (error != null) {
+            CompactStatus(text = error, error = true)
+        } else if (importing) {
+            CompactStatus(text = "Importing audio into project-managed storage…")
+        } else if (!importStatus.isNullOrBlank() && project.clips.isEmpty()) {
+            CompactStatus(text = importStatus)
+        }
 
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("Transport", style = MaterialTheme.typography.titleLarge)
+        Surface(
+            modifier = Modifier.fillMaxWidth().weight(1f),
+            shape = RoundedCornerShape(12.dp),
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.22f),
+            tonalElevation = 0.dp,
+        ) {
+            Column(modifier = Modifier.fillMaxSize().padding(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                TimelineMarkerRail(
+                    projectEndFrame = projectEndFrame,
+                    playheadFrame = timelineControls.playheadFrame,
+                    loopStartFrame = timelineControls.loopStartFrame,
+                    loopEndFrame = timelineControls.loopEndFrame,
+                    showLoopMarkers = transport.loopEnabled,
+                    enabled = timelineEditingEnabled,
+                    onPlayheadFrameChanged = onPlayheadFrameChanged,
+                    onLoopStartFrameChanged = onLoopStartFrameChanged,
+                    onLoopEndFrameChanged = onLoopEndFrameChanged,
+                    trimStartFrame = trimControls?.startFrame,
+                    trimEndFrame = trimControls?.endFrame,
+                    onTrimStartFrameChanged = if (trimActive) onTrimStartFrameChanged else null,
+                    onTrimEndFrameChanged = if (trimActive) onTrimEndFrameChanged else null,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                TimelineRuler(project, projectEndFrame)
+                LazyColumn(
+                    modifier = Modifier.fillMaxWidth().weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                    contentPadding = PaddingValues(bottom = 2.dp),
+                ) {
+                    items(project.tracks.sortedBy { it.order }, key = { it.id }) { track ->
+                        StudioTrackLane(
+                            track = track,
+                            clips = project.clips.filter { it.trackId == track.id },
+                            waveforms = waveforms,
+                            projectEndFrame = projectEndFrame,
+                            canImport = clipEditingEnabled,
+                            canEditClip = clipEditingEnabled,
+                            activeTrimClipId = trimControls?.clipId,
+                            onImportWav = { onImportWav(track.id) },
+                            onBeginTrim = onBeginTrim,
+                            onToggleMuted = onToggleClipMuted,
+                            onRemove = onRemoveClip,
+                        )
+                    }
+                }
+            }
+        }
+
+        if (trimControls != null && trimClip != null) {
+            TrimActionBar(
+                clipName = trimClip.name,
+                startFrame = trimControls.startFrame,
+                endFrame = trimControls.endFrame,
+                enabled = !editingClip && timelineEditingEnabled,
+                onApply = onApplyTrim,
+                onCancel = onCancelTrim,
+            )
+        }
+
         TransportBar(
             state = transport,
             engineReady = transportEngineReady && !trimActive,
@@ -169,173 +253,103 @@ private fun ProjectWorkspace(
             onPlayStop = onPlayStop,
             onRecord = onRecord,
             onToggleLoop = onToggleLoop,
-        )
-        if (!transportEngineReady) {
-            Text(
-                "Play stays disabled until the current project has managed playback-ready audio. Record remains an M5 gate.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        } else if (trimActive) {
-            Text(
-                "Playback is temporarily disabled while a trim draft is open. Apply or cancel the trim first.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-
-        Text("Timeline controls", style = MaterialTheme.typography.titleLarge)
-        Text(
-            when {
-                !timelineEditingEnabled -> "Timeline markers are locked while playback or recording is active."
-                trimActive -> "Trim mode: drag the mustard T◀ / T▶ heads. Source audio is not modified."
-                else -> "Drag the marker head at the top; the vertical line is guidance only."
-            },
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        TimelineMarkerRail(
-            projectEndFrame = projectEndFrame,
-            playheadFrame = timelineControls.playheadFrame,
-            loopStartFrame = timelineControls.loopStartFrame,
-            loopEndFrame = timelineControls.loopEndFrame,
-            enabled = timelineEditingEnabled,
-            onPlayheadFrameChanged = onPlayheadFrameChanged,
-            onLoopStartFrameChanged = onLoopStartFrameChanged,
-            onLoopEndFrameChanged = onLoopEndFrameChanged,
-            trimStartFrame = trimControls?.startFrame,
-            trimEndFrame = trimControls?.endFrame,
-            onTrimStartFrameChanged = if (trimActive) onTrimStartFrameChanged else null,
-            onTrimEndFrameChanged = if (trimActive) onTrimEndFrameChanged else null,
             modifier = Modifier.fillMaxWidth(),
         )
-        Text(
-            buildString {
-                append("Playhead ${timelineControls.playheadFrame} • Loop ${timelineControls.loopStartFrame}–${timelineControls.loopEndFrame} frames")
-                trimControls?.let { append(" • Trim ${it.startFrame}–${it.endFrame}") }
-            },
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        if (trimActive) {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                TextButton(onClick = onApplyTrim, enabled = !editingClip && timelineEditingEnabled) { Text("Apply trim") }
-                TextButton(onClick = onCancelTrim, enabled = !editingClip && timelineEditingEnabled) { Text("Cancel") }
-            }
-        }
     }
-
-    TimelinePreview(project, busy, onImportWav)
-
-    importStatus?.let { InlineStatus("Import", it) }
-    clipStatus?.let { InlineStatus("Clip", it) }
-    error?.let { InlineStatus("Operation failed", it) }
-
-    if (project.clips.isNotEmpty()) {
-        ClipManager(
-            project = project,
-            waveforms = waveforms,
-            busy = importing || editingClip || !timelineEditingEnabled,
-            trimControls = trimControls,
-            onBeginTrim = onBeginTrim,
-            onToggleMuted = onToggleClipMuted,
-            onRemove = onRemoveClip,
-        )
-    }
-
-    Text("Track structure", style = MaterialTheme.typography.titleLarge)
-    val groupedTrackIds = mutableSetOf<String>()
-    project.groups.sortedBy { it.order }.forEach { group ->
-        val tracks = project.tracks.filter { it.groupId == group.id }.sortedBy { it.order }
-        groupedTrackIds += tracks.map { it.id }
-        GroupLane(group, tracks.map { it.name to roleName(it.roleId) })
-    }
-    val ungrouped = project.tracks.filter { it.id !in groupedTrackIds }.sortedBy { it.order }
-    if (ungrouped.isNotEmpty()) {
-        GroupLane(TrackGroup(id = "ungrouped", name = "Ungrouped", order = Int.MAX_VALUE), ungrouped.map { it.name to roleName(it.roleId) })
-    }
-
-    InlineStatus(
-        "M4 playback + trim checkpoint",
-        "Playback uses immutable managed media and a hardware-clock playhead. Trim now uses explicit mustard marker heads with a draft/apply model; only clip metadata changes and all editing remains locked during active transport.",
-    )
 }
 
 @Composable
-private fun TimelinePreview(project: GuitarProject, busy: Boolean, onImportWav: (String) -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Text("Timeline", style = MaterialTheme.typography.titleLarge)
-            Text("00:00   00:15   00:30   00:45   01:00", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-        Surface(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.28f)) {
-            Column(Modifier.padding(vertical = 8.dp)) {
-                project.tracks.sortedBy { it.order }.forEach { track ->
-                    TimelineTrackRow(track, project.clips.filter { it.trackId == track.id }, busy) { onImportWav(track.id) }
-                }
-                if (project.tracks.isEmpty()) Text("No tracks yet", modifier = Modifier.padding(16.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
+private fun TimelineRuler(project: GuitarProject, projectEndFrame: Long) {
+    val sampleRate = project.sampleRate.fixedHz
+        ?: project.clips.firstOrNull { it.sourceSampleRateHz != null }?.sourceSampleRateHz
+        ?: 48_000
+    Row(modifier = Modifier.fillMaxWidth().padding(start = 156.dp, end = 8.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+        for (step in 0..4) {
+            val frame = projectEndFrame * step / 4
+            Text(
+                formatTimelineTime(frame, sampleRate),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }
 
 @Composable
-private fun TimelineTrackRow(track: AudioTrack, clips: List<AudioClip>, busy: Boolean, onImportWav: () -> Unit) {
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 5.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        Text(track.name, modifier = Modifier.weight(0.24f), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Box(
-            modifier = Modifier.weight(0.62f).height(34.dp).clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.surface.copy(alpha = 0.78f)),
-        ) {
-            if (clips.isNotEmpty()) {
-                Row(modifier = Modifier.fillMaxSize().padding(4.dp), horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
-                    clips.sortedBy { it.startFrame }.take(3).forEach { clip ->
-                        Surface(shape = RoundedCornerShape(6.dp), color = if (clip.muted) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.primaryContainer) {
-                            Text(
-                                if (clip.muted) "Muted • ${clip.name}" else clip.name,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = if (clip.muted) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onPrimaryContainer,
-                            )
-                        }
-                    }
-                }
-            }
-        }
-        TextButton(onClick = onImportWav, enabled = !busy, modifier = Modifier.weight(0.14f)) { Text(if (busy) "…" else "+ WAV") }
-    }
-}
-
-@Composable
-private fun ClipManager(
-    project: GuitarProject,
+private fun StudioTrackLane(
+    track: AudioTrack,
+    clips: List<AudioClip>,
     waveforms: Map<String, List<Float>>,
-    busy: Boolean,
-    trimControls: TrimControlState?,
+    projectEndFrame: Long,
+    canImport: Boolean,
+    canEditClip: Boolean,
+    activeTrimClipId: String?,
+    onImportWav: () -> Unit,
     onBeginTrim: (String) -> Unit,
     onToggleMuted: (String) -> Unit,
     onRemove: (String) -> Unit,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("Clips", style = MaterialTheme.typography.titleLarge)
-        project.clips.sortedWith(compareBy<AudioClip> { it.trackId }.thenBy { it.startFrame }).forEach { clip ->
-            val trackName = project.tracks.firstOrNull { it.id == clip.trackId }?.name ?: "Missing track"
-            val thisTrimActive = trimControls?.clipId == clip.id
-            val anotherTrimActive = trimControls != null && !thisTrimActive
-            Surface(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.34f)) {
-                Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text(clip.name, style = MaterialTheme.typography.bodyLarge)
-                        Text("$trackName • ${clip.sourceFormat ?: "audio"} • ${clip.sourceSampleRateHz?.let { "$it Hz" } ?: "rate n/a"} • ${clip.sourceChannelCount?.let { "${it}ch" } ?: "channels n/a"}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text(if (clip.managedSourcePath != null) "Managed source • original protected" else "Legacy external reference", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        waveforms[clip.id]?.let { WaveformMini(peaks = it, muted = clip.muted) }
-                    }
-                    TextButton(onClick = { onBeginTrim(clip.id) }, enabled = !busy && trimControls == null) { Text(if (thisTrimActive) "Trimming" else "Trim") }
-                    TextButton(onClick = { onToggleMuted(clip.id) }, enabled = !busy && !anotherTrimActive && trimControls == null) { Text(if (clip.muted) "Unmute" else "Mute") }
-                    TextButton(onClick = { onRemove(clip.id) }, enabled = !busy && trimControls == null) { Text("Remove") }
+    Row(
+        modifier = Modifier.fillMaxWidth().height(68.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Surface(
+            modifier = Modifier.width(150.dp).fillMaxHeight(),
+            shape = RoundedCornerShape(8.dp),
+            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.88f),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                    Text(track.name, style = MaterialTheme.typography.bodyMedium, maxLines = 1)
+                    Text(
+                        roleName(track.roleId),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                    )
+                }
+                TextButton(
+                    onClick = onImportWav,
+                    enabled = canImport,
+                    contentPadding = PaddingValues(horizontal = 5.dp, vertical = 0.dp),
+                ) { Text("+") }
+            }
+        }
+
+        BoxWithConstraints(
+            modifier = Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.surface.copy(alpha = 0.72f)),
+        ) {
+            if (clips.isEmpty()) {
+                Text(
+                    "No audio",
+                    modifier = Modifier.align(Alignment.CenterStart).padding(start = 10.dp),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } else {
+                clips.sortedBy { it.startFrame }.forEach { clip ->
+                    val startFraction = (clip.startFrame.toDouble() / projectEndFrame).coerceIn(0.0, 1.0)
+                    val endFrame = (clip.startFrame + clip.lengthFrames).coerceAtMost(projectEndFrame)
+                    val endFraction = (endFrame.toDouble() / projectEndFrame).coerceIn(startFraction, 1.0)
+                    val x = maxWidth * startFraction.toFloat()
+                    val naturalWidth = maxWidth * (endFraction - startFraction).toFloat()
+                    val availableWidth = (maxWidth - x).coerceAtLeast(1.dp)
+                    val clipWidth = naturalWidth.coerceAtLeast(92.dp).coerceAtMost(availableWidth)
+                    TimelineClipCard(
+                        clip = clip,
+                        peaks = waveforms[clip.id],
+                        trimming = activeTrimClipId == clip.id,
+                        canEdit = canEditClip,
+                        onTrim = { onBeginTrim(clip.id) },
+                        onMute = { onToggleMuted(clip.id) },
+                        onRemove = { onRemove(clip.id) },
+                        modifier = Modifier.offset(x = x).padding(vertical = 4.dp).width(clipWidth).height(60.dp).align(Alignment.CenterStart),
+                    )
                 }
             }
         }
@@ -343,40 +357,103 @@ private fun ClipManager(
 }
 
 @Composable
-private fun ProjectFact(label: String, value: String) {
-    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-        Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(value, style = MaterialTheme.typography.bodyMedium)
-    }
-}
-
-@Composable
-private fun GroupLane(group: TrackGroup, tracks: List<Pair<String, String>>) {
-    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(group.name, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        if (tracks.isEmpty()) Text("No tracks", color = MaterialTheme.colorScheme.onSurfaceVariant) else tracks.forEach { (name, role) -> TrackLane(name, role) }
-    }
-}
-
-@Composable
-private fun TrackLane(name: String, role: String) {
-    Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.42f), modifier = Modifier.fillMaxWidth()) {
-        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 13.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Text(name, style = MaterialTheme.typography.bodyLarge)
-            Text(role, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+private fun TimelineClipCard(
+    clip: AudioClip,
+    peaks: List<Float>?,
+    trimming: Boolean,
+    canEdit: Boolean,
+    onTrim: () -> Unit,
+    onMute: () -> Unit,
+    onRemove: () -> Unit,
+    modifier: Modifier,
+) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(7.dp),
+        color = if (trimming) StudioTrim.copy(alpha = 0.22f) else MaterialTheme.colorScheme.primaryContainer.copy(alpha = if (clip.muted) 0.40f else 0.82f),
+        tonalElevation = 0.dp,
+    ) {
+        Column(modifier = Modifier.fillMaxSize().padding(horizontal = 7.dp, vertical = 3.dp)) {
+            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    clip.name,
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.labelMedium,
+                    maxLines = 1,
+                    color = if (clip.muted) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onPrimaryContainer,
+                )
+                TextButton(onClick = onTrim, enabled = canEdit, contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp), modifier = Modifier.height(28.dp)) { Text("Trim", style = MaterialTheme.typography.labelSmall) }
+                TextButton(onClick = onMute, enabled = canEdit, contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp), modifier = Modifier.height(28.dp)) { Text(if (clip.muted) "U" else "M", style = MaterialTheme.typography.labelSmall) }
+                TextButton(onClick = onRemove, enabled = canEdit, contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp), modifier = Modifier.height(28.dp)) { Text("×", style = MaterialTheme.typography.labelMedium) }
+            }
+            peaks?.let { WaveformMini(peaks = it, muted = clip.muted, modifier = Modifier.fillMaxWidth().height(20.dp)) }
         }
     }
 }
 
 @Composable
-private fun InlineStatus(title: String, text: String) {
-    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text(title, style = MaterialTheme.typography.titleMedium)
-        Text(text, color = MaterialTheme.colorScheme.onSurfaceVariant)
+private fun TrimActionBar(
+    clipName: String,
+    startFrame: Long,
+    endFrame: Long,
+    enabled: Boolean,
+    onApply: () -> Unit,
+    onCancel: () -> Unit,
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(10.dp),
+        color = StudioTrim.copy(alpha = 0.13f),
+        tonalElevation = 0.dp,
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text("Trim • $clipName", style = MaterialTheme.typography.labelLarge)
+                Text(
+                    "$startFrame – $endFrame frames • source remains unchanged",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            OutlinedButton(onClick = onCancel, enabled = enabled) { Text("Cancel") }
+            Button(
+                onClick = onApply,
+                enabled = enabled,
+                colors = ButtonDefaults.buttonColors(containerColor = StudioTrim, contentColor = Color.White),
+            ) { Text("✓ Apply trim") }
+        }
+    }
+}
+
+@Composable
+private fun CompactStatus(text: String, error: Boolean = false, modifier: Modifier = Modifier) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(8.dp),
+        color = if (error) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+    ) {
+        Text(
+            text,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+            style = MaterialTheme.typography.bodySmall,
+            color = if (error) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 2,
+        )
     }
 }
 
 private fun roleName(roleId: String?): String {
     if (roleId == null) return "No role"
     return BuiltInRoles.definitions.firstOrNull { it.id == roleId }?.name ?: roleId
+}
+
+private fun formatTimelineTime(frame: Long, sampleRate: Int): String {
+    val totalSeconds = if (sampleRate > 0) frame / sampleRate else 0L
+    val minutes = totalSeconds / 60
+    val seconds = totalSeconds % 60
+    return "%02d:%02d".format(minutes, seconds)
 }

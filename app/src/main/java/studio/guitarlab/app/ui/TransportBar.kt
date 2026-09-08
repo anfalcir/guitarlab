@@ -2,6 +2,7 @@ package studio.guitarlab.app.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -30,10 +31,15 @@ fun TransportBar(
     modifier: Modifier = Modifier,
 ) {
     val editingEnabled = TransportPolicy.timelineEditingEnabled(state)
-    Surface(modifier = modifier, tonalElevation = 0.dp, color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.28f)) {
+    Surface(
+        modifier = modifier,
+        tonalElevation = 0.dp,
+        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.34f),
+    ) {
         Row(
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically,
         ) {
             TransportButton("|◀", "Return to timeline start", editingEnabled, onReturnToStart)
@@ -43,7 +49,6 @@ fun TransportBar(
                 engineReady || state.mode == TransportMode.PLAYING,
                 onPlayStop,
             )
-            // Recording belongs to M5 and must not become enabled merely because M4 playback is ready.
             TransportButton("●", "Record", false, onRecord, StudioRecord)
             TransportButton("↻", "Loop", editingEnabled, onToggleLoop, if (state.loopEnabled) StudioLoop else null)
         }

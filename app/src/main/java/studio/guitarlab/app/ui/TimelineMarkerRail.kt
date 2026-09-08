@@ -7,8 +7,6 @@ import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
@@ -51,6 +49,7 @@ fun TimelineMarkerRail(
     playheadFrame: Long,
     loopStartFrame: Long,
     loopEndFrame: Long,
+    showLoopMarkers: Boolean,
     enabled: Boolean,
     onPlayheadFrameChanged: (Long) -> Unit,
     onLoopStartFrameChanged: (Long) -> Unit,
@@ -61,34 +60,22 @@ fun TimelineMarkerRail(
     onTrimStartFrameChanged: ((Long) -> Unit)? = null,
     onTrimEndFrameChanged: ((Long) -> Unit)? = null,
 ) {
-    Column(modifier = modifier, horizontalAlignment = Alignment.Start) {
-        Row(modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp)) {
-            MarkerLegend("Playhead", StudioPlayhead)
-            MarkerLegend("Loop in/out", StudioLoop)
-            if (trimStartFrame != null && trimEndFrame != null) MarkerLegend("Trim in/out", StudioTrim)
-            if (!enabled) {
-                Text(
-                    "Locked while transport is active",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-        BoxWithConstraints(
-            modifier = Modifier.fillMaxWidth().height(104.dp).alpha(if (enabled) 1f else 0.48f),
-        ) {
-            val density = LocalDensity.current
-            val widthPx = with(density) { maxWidth.toPx() }.coerceAtLeast(1f)
+    BoxWithConstraints(
+        modifier = modifier.height(62.dp).alpha(if (enabled) 1f else 0.52f),
+    ) {
+        val density = LocalDensity.current
+        val widthPx = with(density) { maxWidth.toPx() }.coerceAtLeast(1f)
+        if (showLoopMarkers) {
             TimelineMarker(TimelineMarkerKind.LOOP_START, loopStartFrame, projectEndFrame, widthPx, enabled, onLoopStartFrameChanged)
             TimelineMarker(TimelineMarkerKind.LOOP_END, loopEndFrame, projectEndFrame, widthPx, enabled, onLoopEndFrameChanged)
-            if (trimStartFrame != null && onTrimStartFrameChanged != null) {
-                TimelineMarker(TimelineMarkerKind.TRIM_START, trimStartFrame, projectEndFrame, widthPx, enabled, onTrimStartFrameChanged)
-            }
-            if (trimEndFrame != null && onTrimEndFrameChanged != null) {
-                TimelineMarker(TimelineMarkerKind.TRIM_END, trimEndFrame, projectEndFrame, widthPx, enabled, onTrimEndFrameChanged)
-            }
-            TimelineMarker(TimelineMarkerKind.PLAYHEAD, playheadFrame, projectEndFrame, widthPx, enabled, onPlayheadFrameChanged)
         }
+        if (trimStartFrame != null && onTrimStartFrameChanged != null) {
+            TimelineMarker(TimelineMarkerKind.TRIM_START, trimStartFrame, projectEndFrame, widthPx, enabled, onTrimStartFrameChanged)
+        }
+        if (trimEndFrame != null && onTrimEndFrameChanged != null) {
+            TimelineMarker(TimelineMarkerKind.TRIM_END, trimEndFrame, projectEndFrame, widthPx, enabled, onTrimEndFrameChanged)
+        }
+        TimelineMarker(TimelineMarkerKind.PLAYHEAD, playheadFrame, projectEndFrame, widthPx, enabled, onPlayheadFrameChanged)
     }
 }
 
@@ -110,11 +97,11 @@ private fun TimelineMarker(
     val label = markerLabel(kind)
 
     Box(
-        modifier = Modifier.offset { IntOffset(x.roundToInt(), 0) }.width(markerWidth).height(104.dp),
+        modifier = Modifier.offset { IntOffset(x.roundToInt(), 0) }.width(markerWidth).height(62.dp),
         contentAlignment = Alignment.TopCenter,
     ) {
         Box(
-            modifier = Modifier.width(markerWidth).height(40.dp).draggable(
+            modifier = Modifier.width(markerWidth).height(38.dp).draggable(
                 enabled = enabled,
                 orientation = Orientation.Horizontal,
                 state = rememberDraggableState { deltaPx ->
@@ -144,27 +131,14 @@ private fun TimelineMarker(
                 }
             }
         }
-        Canvas(Modifier.padding(top = 39.dp).width(2.dp).height(65.dp)) {
+        Canvas(Modifier.padding(top = 37.dp).width(2.dp).height(25.dp)) {
             drawLine(
-                color = color.copy(alpha = 0.82f),
+                color = color.copy(alpha = 0.86f),
                 start = Offset(size.width / 2f, 0f),
                 end = Offset(size.width / 2f, size.height),
                 strokeWidth = size.width,
             )
         }
-    }
-}
-
-@Composable
-private fun MarkerLegend(text: String, color: Color) {
-    Row(modifier = Modifier.padding(end = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-        Surface(modifier = Modifier.size(8.dp), shape = RoundedCornerShape(50), color = color) {}
-        Text(
-            text = text,
-            modifier = Modifier.padding(start = 6.dp),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
     }
 }
 
