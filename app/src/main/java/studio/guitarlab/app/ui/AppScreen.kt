@@ -6,4 +6,5 @@ sealed interface AppScreen {
     data class Studio(val projectId: String) : AppScreen
     data object Settings : AppScreen
     data object AudioProbe : AppScreen
+    data object CodecProbe : AppScreen
 }
