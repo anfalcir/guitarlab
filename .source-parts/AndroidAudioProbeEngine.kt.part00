@@ -1,0 +1,220 @@
+package studio.guitarlab.platform.audio.android
+
+import android.Manifest
+import android.content.Context
+import android.content.pm.PackageManager
+import android.media.AudioAttributes
+import android.media.AudioDeviceCallback
+import android.media.AudioDeviceInfo
+import android.media.AudioFormat
+import android.media.AudioManager
+import android.media.AudioRecord
+import android.media.AudioTrack
+import android.media.MediaRecorder
+import android.hardware.SensorPrivacyManager
+import android.os.Build
+import android.os.Handler
+import android.os.Looper
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.withContext
+import studio.guitarlab.core.audio.AudioDeviceDescriptor
+import studio.guitarlab.core.audio.AudioDirection
+import studio.guitarlab.core.audio.AudioProbeEngine
+import studio.guitarlab.core.audio.AudioProbeOperation
+import studio.guitarlab.core.audio.AudioProbePolicy
+import studio.guitarlab.core.audio.AudioProbeResult
+import studio.guitarlab.core.audio.AudioSignalStats
+import studio.guitarlab.core.audio.AudioStreamConfig
+import studio.guitarlab.core.audio.PcmEncoding
+import java.util.concurrent.atomic.AtomicBoolean
+import kotlin.math.PI
+import kotlin.math.max
+import kotlin.math.min
+import kotlin.math.sin
+import kotlin.math.sqrt
+
+/**
+ * M2 diagnostic engine.
+ *
+ * This intentionally uses public Android AudioRecord/AudioTrack APIs so the first
+ * hardware gate can validate routing, channel mapping and duplex stability before
+ * the final realtime Oboe engine is introduced. Product audio code depends only on
+ * [AudioProbeEngine], so this implementation is replaceable.
+ */
+@OptIn(ExperimentalCoroutinesApi::class)
+class AndroidAudioProbeEngine(context: Context) : AudioProbeEngine {
+    private val appContext = context.applicationContext
+    private val audioManager = appContext.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+    private val stopRequested = AtomicBoolean(false)
+
+    override val deviceUpdates: Flow<List<AudioDeviceDescriptor>> = callbackFlow {
+        fun emitSnapshot() {
+            trySend(scanDevices())
+        }
+
+        val callback = object : AudioDeviceCallback() {
+            override fun onAudioDevicesAdded(addedDevices: Array<out AudioDeviceInfo>) = emitSnapshot()
+            override fun onAudioDevicesRemoved(removedDevices: Array<out AudioDeviceInfo>) = emitSnapshot()
+        }
+
+        audioManager.registerAudioDeviceCallback(callback, Handler(Looper.getMainLooper()))
+        emitSnapshot()
+        awaitClose { runCatching { audioManager.unregisterAudioDeviceCallback(callback) } }
+    }
+
+    override suspend fun refreshDevices(): List<AudioDeviceDescriptor> = withContext(Dispatchers.Default) {
+        scanDevices()
+    }
+
+    override suspend fun runPlaybackTest(
+        outputDeviceKey: String?,
+        durationMs: Long
+    ): AudioProbeResult = withContext(Dispatchers.IO) {
+        stopRequested.set(false)
+        val startedNs = System.nanoTime()
+        val device = resolveDevice(outputDeviceKey, AudioDirection.OUTPUT)
+        if (outputDeviceKey != null && device == null) {
+            return@withContext failedResult(
+                AudioProbeOperation.PLAYBACK,
+                startedNs,
+                "Selected output device is no longer available."
+            )
+        }
+        val opened = openOutput(device)
+            ?: return@withContext failedResult(
+                AudioProbeOperation.PLAYBACK,
+                startedNs,
+                "Could not open a compatible output stream for the selected device."
+            )
+
+        val track = opened.track
+        var framesWritten = 0L
+        var zeroWrites = 0
+        val warnings = mutableListOf<String>()
+        try {
+            track.play()
+            val targetFrames = (opened.config.sampleRateHz * (durationMs / 1000.0)).toLong().coerceAtLeast(1)
+            val chunkFrames = min(opened.config.bufferFrames.coerceAtLeast(128), 1024)
+            var phase = 0.0
+            val phaseStep = 2.0 * PI * TEST_TONE_HZ / opened.config.sampleRateHz
+
+            while (framesWritten < targetFrames && !stopRequested.get() && isActive) {
+                val frames = min(chunkFrames.toLong(), targetFrames - framesWritten).toInt()
+                val result = when (opened.config.encoding) {
+                    PcmEncoding.FLOAT_32 -> {
+                        val buffer = FloatArray(frames * opened.config.channelCount)
+                        var index = 0
+                        repeat(frames) {
+                            val sample = (sin(phase) * TEST_TONE_AMPLITUDE).toFloat()
+                            phase += phaseStep
+                            repeat(opened.config.channelCount) { buffer[index++] = sample }
+                        }
+                        track.write(buffer, 0, buffer.size, AudioTrack.WRITE_BLOCKING)
+                    }
+
+                    PcmEncoding.PCM_16 -> {
+                        val buffer = ShortArray(frames * opened.config.channelCount)
+                        var index = 0
+                        repeat(frames) {
+                            val sample = (sin(phase) * TEST_TONE_AMPLITUDE * Short.MAX_VALUE).toInt().toShort()
+                            phase += phaseStep
+                            repeat(opened.config.channelCount) { buffer[index++] = sample }
+                        }
+                        track.write(buffer, 0, buffer.size, AudioTrack.WRITE_BLOCKING)
+                    }
+                }
+
+                if (result < 0) {
+                    return@withContext failedResult(
+                        AudioProbeOperation.PLAYBACK,
+                        startedNs,
+                        "Output write failed with AudioTrack error $result.",
+                        outputConfig = opened.config
+                    )
+                }
+                val writtenFrames = result / opened.config.channelCount
+                framesWritten += writtenFrames
+                if (writtenFrames == 0) {
+                    zeroWrites++
+                    if (zeroWrites >= MAX_STALL_COUNT) {
+                        return@withContext failedResult(
+                            AudioProbeOperation.PLAYBACK,
+                            startedNs,
+                            "Output stream stalled with repeated zero-length writes.",
+                            outputConfig = opened.config
+                        )
+                    }
+                } else {
+                    zeroWrites = 0
+                }
+            }
+
+            val routedKey = track.routedDevice?.id?.toString()
+            val verifiedConfig = opened.config.copy(routedDeviceKey = routedKey)
+            if (outputDeviceKey != null && routedKey != null && routedKey != outputDeviceKey) {
+                return@withContext failedResult(
+                    AudioProbeOperation.PLAYBACK,
+                    startedNs,
+                    "Android routed playback to device $routedKey instead of selected device $outputDeviceKey.",
+                    outputConfig = verifiedConfig
+                )
+            }
+            if (outputDeviceKey != null && routedKey == null) warnings += "Android did not expose the active output route for verification."
+            val stopped = stopRequested.get()
+            AudioProbeResult(
+                operation = AudioProbeOperation.PLAYBACK,
+                success = !stopped,
+                stopped = stopped,
+                elapsedMs = elapsedMs(startedNs),
+                outputConfig = verifiedConfig,
+                outputFrames = framesWritten,
+                outputUnderruns = track.underrunCount,
+                message = if (stopped) "Playback test stopped by user." else "Playback stream completed.",
+                warnings = warnings.distinct()
+            )
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (error: Throwable) {
+            failedResult(
+                AudioProbeOperation.PLAYBACK,
+                startedNs,
+                error.message ?: error::class.java.simpleName,
+                outputConfig = opened.config
+            )
+        } finally {
+            safelyRelease(track)
+        }
+    }
+
+    override suspend fun runRecordTest(
+        inputDeviceKey: String?,
+        durationMs: Long
+    ): AudioProbeResult = withContext(Dispatchers.IO) {
+        stopRequested.set(false)
+        val startedNs = System.nanoTime()
+        val device = resolveDevice(inputDeviceKey, AudioDirection.INPUT)
+        if (inputDeviceKey != null && device == null) {
+            return@withContext failedResult(
+                AudioProbeOperation.RECORD,
+                startedNs,
+                "Selected input device is no longer available."
+            )
+        }
+        microphoneBlockReason()?.let { reason ->
+            return@withContext failedResult(
+                AudioProbeOperation.RECORD,
+                startedNs,
+                reason
+            )
+        }
+        val opened = openInput(device)
+            ?: return@withContext failedResult(
+                AudioProbeOperation.RECORD,

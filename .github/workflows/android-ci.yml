@@ -1,0 +1,188 @@
+name: GuitarLab Android CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      signed_homologation:
+        description: "Build signed homologation APK"
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: guitarlab-android-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  JAVA_VERSION: "17"
+  ANDROID_PLATFORM: "37"
+  ANDROID_BUILD_TOOLS: "36.0.0"
+  EXPECTED_CERT_SHA256: "0762D4F3ECB8E1A9AAA4BDB1E098A666C9BA9BF8B71C4F14B0E7A7065404E181"
+
+jobs:
+  software-gate:
+    name: Unit tests + Lint + Debug APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install locked SDK packages
+        shell: bash
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platform-tools" "platforms;android-${ANDROID_PLATFORM}" "build-tools;${ANDROID_BUILD_TOOLS}"
+
+      - name: Set up Gradle 9.6.1 and persistent cache
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "9.6.1"
+          cache-read-only: ${{ github.event_name == 'pull_request' }}
+
+      - name: Materialize split source
+        shell: bash
+        run: |
+          chmod +x scripts/materialize_ci_sources.sh
+          scripts/materialize_ci_sources.sh
+
+      - name: Software gate
+        shell: bash
+        run: gradle --no-daemon --stacktrace test lint assembleDebug
+
+      - name: Upload debug APK and reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: guitarlab-alpha03-software-gate
+          if-no-files-found: error
+          retention-days: 30
+          path: |
+            app/build/outputs/apk/debug/*.apk
+            **/build/reports/tests/**
+            **/build/reports/lint-results*.html
+            **/build/reports/lint-results*.xml
+
+  homologation-apk:
+    name: Signed homologation APK
+    needs: software-gate
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.signed_homologation == true }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install locked SDK packages
+        shell: bash
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platform-tools" "platforms;android-${ANDROID_PLATFORM}" "build-tools;${ANDROID_BUILD_TOOLS}"
+
+      - name: Set up Gradle 9.6.1 and persistent cache
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "9.6.1"
+
+      - name: Materialize split source
+        shell: bash
+        run: |
+          chmod +x scripts/materialize_ci_sources.sh
+          scripts/materialize_ci_sources.sh
+
+      - name: Restore private signing bundle
+        shell: bash
+        env:
+          SIGNING_BUNDLE_B64: ${{ secrets.GUITARLAB_SIGNING_BUNDLE_B64 }}
+        run: |
+          if [ -z "$SIGNING_BUNDLE_B64" ]; then
+            echo "::error::Missing repository secret GUITARLAB_SIGNING_BUNDLE_B64"
+            exit 1
+          fi
+          umask 077
+          SIGN_DIR="$RUNNER_TEMP/guitarlab-signing"
+          mkdir -p "$SIGN_DIR"
+          printf '%s' "$SIGNING_BUNDLE_B64" | base64 --decode > "$SIGN_DIR/signing.zip"
+          unzip -q "$SIGN_DIR/signing.zip" -d "$SIGN_DIR/unpacked"
+          KEYSTORE="$SIGN_DIR/unpacked/guitarlab-homologation.jks"
+          CREDS="$SIGN_DIR/unpacked/guitarlab-homologation-credentials.txt"
+          test -s "$KEYSTORE"
+          test -s "$CREDS"
+          ALIAS="$(awk -F= '$1=="alias" {sub(/^alias=/,""); print; exit}' "$CREDS")"
+          PASSWORD="$(awk -F= '$1=="password" {sub(/^password=/,""); print; exit}' "$CREDS")"
+          test -n "$ALIAS"
+          test -n "$PASSWORD"
+          {
+            echo "GUITARLAB_KEYSTORE_PATH=$KEYSTORE"
+            echo "GUITARLAB_KEY_ALIAS=$ALIAS"
+            echo "GUITARLAB_KEYSTORE_PASSWORD=$PASSWORD"
+            echo "GUITARLAB_KEY_PASSWORD=$PASSWORD"
+          } >> "$GITHUB_ENV"
+
+      - name: Build signed release
+        shell: bash
+        run: gradle --no-daemon --stacktrace assembleRelease
+
+      - name: Verify official signing identity
+        shell: bash
+        run: |
+          APK="app/build/outputs/apk/release/app-release.apk"
+          test -f "$APK"
+          APKSIGNER="${ANDROID_HOME}/build-tools/${ANDROID_BUILD_TOOLS}/apksigner"
+          "$APKSIGNER" verify --verbose --print-certs "$APK" | tee "$RUNNER_TEMP/apksigner.txt"
+          ACTUAL="$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' "$RUNNER_TEMP/apksigner.txt" | head -n1 | tr '[:lower:]' '[:upper:]' | tr -d '[:space:]:')"
+          if [ "$ACTUAL" != "$EXPECTED_CERT_SHA256" ]; then
+            echo "::error::Signing certificate mismatch. Expected $EXPECTED_CERT_SHA256, got $ACTUAL"
+            exit 1
+          fi
+
+      - name: Package homologation deliverable
+        shell: bash
+        run: |
+          mkdir -p deliverables
+          cp app/build/outputs/apk/release/app-release.apk deliverables/GuitarLabStudio-M2-0.2.0-alpha03-homologacao.apk
+          sha256sum deliverables/*.apk > deliverables/SHA256SUMS.txt
+          {
+            echo "commit=${GITHUB_SHA}"
+            echo "versionName=0.2.0-alpha03"
+            echo "versionCode=4"
+            echo "certificateSha256=${EXPECTED_CERT_SHA256}"
+          } > deliverables/BUILD_IDENTITY.txt
+
+      - name: Upload signed homologation APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: GuitarLabStudio-M2-alpha03-homologacao
+          if-no-files-found: error
+          retention-days: 90
+          path: deliverables/
+
+      - name: Destroy restored keystore
+        if: always()
+        shell: bash
+        run: rm -rf "$RUNNER_TEMP/guitarlab-signing"

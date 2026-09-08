@@ -1,0 +1,33 @@
+.gradle/
+.idea/
+local.properties
+build/
+**/build/
+*.iml
+.DS_Store
+captures/
+.externalNativeBuild/
+.cxx/
+keystore.properties
+*.jks
+*.keystore
+
+# Local Android signing / secrets
+*.jks
+*.keystore
+keystore.properties
+local.properties
+
+# Build outputs
+**/build/
+*.apk
+*.aab
+
+# Portable build cache bundles are delivery assets, not source
+build-infra/cache-bundles/
+*.tar.zst
+*.tar.zst.sha256
+
+.toolchain/
+
+*.parts/

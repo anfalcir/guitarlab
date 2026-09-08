@@ -1,0 +1,220 @@
+    }
+
+    override fun close() {
+        stopRequested.set(true)
+    }
+
+    private fun scanDevices(): List<AudioDeviceDescriptor> = (
+        audioManager.getDevices(AudioManager.GET_DEVICES_INPUTS) +
+            audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
+        )
+        .map(AndroidAudioDeviceMapper::map)
+        .groupBy { it.key }
+        .values
+        .map { descriptors ->
+            descriptors.reduce { merged, descriptor ->
+                merged.copy(
+                    supportsInput = merged.supportsInput || descriptor.supportsInput,
+                    supportsOutput = merged.supportsOutput || descriptor.supportsOutput,
+                    sampleRatesHz = (merged.sampleRatesHz + descriptor.sampleRatesHz).distinct().sorted(),
+                    channelCounts = (merged.channelCounts + descriptor.channelCounts).distinct().sorted(),
+                    encodings = (merged.encodings + descriptor.encodings).distinct()
+                )
+            }
+        }
+        .sortedWith(
+            compareByDescending<AudioDeviceDescriptor> { it.transport == studio.guitarlab.core.audio.AudioTransport.USB }
+                .thenBy { it.name.lowercase() }
+        )
+
+    private fun resolveDevice(key: String?, direction: AudioDirection): AudioDeviceInfo? {
+        if (key == null) return null
+        val deviceFlag = when (direction) {
+            AudioDirection.INPUT -> AudioManager.GET_DEVICES_INPUTS
+            AudioDirection.OUTPUT -> AudioManager.GET_DEVICES_OUTPUTS
+        }
+        return audioManager.getDevices(deviceFlag).firstOrNull { device ->
+            device.id.toString() == key && when (direction) {
+                AudioDirection.INPUT -> device.isSource
+                AudioDirection.OUTPUT -> device.isSink
+            }
+        }
+    }
+
+    private fun openOutput(device: AudioDeviceInfo?): OpenedOutput? {
+        val descriptor = device?.let(AndroidAudioDeviceMapper::map)
+        val rates = AudioProbePolicy.sampleRateCandidates(descriptor?.sampleRatesHz.orEmpty())
+        val channels = AudioProbePolicy.channelCandidates(descriptor?.channelCounts.orEmpty(), AudioDirection.OUTPUT)
+        val encodings = AudioProbePolicy.encodingCandidates(descriptor?.encodings.orEmpty())
+
+        for (rate in rates) for (channelCount in channels) for (encoding in encodings) {
+            val channelMask = outputChannelMask(channelCount) ?: continue
+            val androidEncoding = androidEncoding(encoding)
+            val minBytes = AudioTrack.getMinBufferSize(rate, channelMask, androidEncoding)
+            if (minBytes <= 0) continue
+            val bytesPerFrame = bytesPerSample(encoding) * channelCount
+            val bufferBytes = max(minBytes * 2, bytesPerFrame * 256)
+
+            val track = runCatching {
+                AudioTrack.Builder()
+                    .setAudioAttributes(
+                        AudioAttributes.Builder()
+                            .setUsage(AudioAttributes.USAGE_MEDIA)
+                            .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                            .build()
+                    )
+                    .setAudioFormat(
+                        AudioFormat.Builder()
+                            .setEncoding(androidEncoding)
+                            .setSampleRate(rate)
+                            .setChannelMask(channelMask)
+                            .build()
+                    )
+                    .setBufferSizeInBytes(bufferBytes)
+                    .setTransferMode(AudioTrack.MODE_STREAM)
+                    .setPerformanceMode(AudioTrack.PERFORMANCE_MODE_LOW_LATENCY)
+                    .build()
+            }.getOrNull() ?: continue
+
+            if (track.state != AudioTrack.STATE_INITIALIZED) {
+                safelyRelease(track)
+                continue
+            }
+            if (device != null && !track.setPreferredDevice(device)) {
+                safelyRelease(track)
+                continue
+            }
+
+            return OpenedOutput(
+                track,
+                AudioStreamConfig(
+                    deviceKey = device?.id?.toString(),
+                    sampleRateHz = rate,
+                    channelCount = channelCount,
+                    encoding = encoding,
+                    bufferFrames = bufferBytes / bytesPerFrame,
+                    requestedLowLatency = true
+                )
+            )
+        }
+        return null
+    }
+
+    private fun openInput(device: AudioDeviceInfo?, preferredRate: Int? = null): OpenedInput? {
+        if (appContext.checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            return null
+        }
+        val descriptor = device?.let(AndroidAudioDeviceMapper::map)
+        val baseRates = AudioProbePolicy.sampleRateCandidates(descriptor?.sampleRatesHz.orEmpty())
+        // Some Android devices advertise only legacy voice rates for the built-in
+        // microphone even though AudioRecord accepts normal media rates. Prefer
+        // studio/media rates first and let the platform validate each candidate.
+        val mediaRates = if (device?.type == AudioDeviceInfo.TYPE_BUILTIN_MIC) {
+            (listOf(48_000, 44_100) + baseRates).distinct()
+        } else {
+            baseRates
+        }
+        val rates = preferredRate?.let { preferred ->
+            (listOf(preferred) + mediaRates).distinct()
+        } ?: mediaRates
+        val channels = AudioProbePolicy.channelCandidates(descriptor?.channelCounts.orEmpty(), AudioDirection.INPUT)
+        val encodings = AudioProbePolicy.encodingCandidates(descriptor?.encodings.orEmpty())
+        val unprocessed = if (supportsUnprocessedSource()) listOf(MediaRecorder.AudioSource.UNPROCESSED) else emptyList()
+        val sources = if (device?.type == AudioDeviceInfo.TYPE_BUILTIN_MIC) {
+            // MIC is the least ambiguous source for an actual tablet microphone.
+            (listOf(MediaRecorder.AudioSource.MIC) + unprocessed + MediaRecorder.AudioSource.DEFAULT).distinct()
+        } else {
+            // USB interfaces should avoid platform processing when possible. MIC is
+            // kept only as a compatibility fallback; routedDevice is verified later.
+            (unprocessed + listOf(MediaRecorder.AudioSource.DEFAULT, MediaRecorder.AudioSource.MIC)).distinct()
+        }
+
+        for (source in sources) for (rate in rates) for (channelCount in channels) for (encoding in encodings) {
+            val channelMask = inputChannelMask(channelCount) ?: continue
+            val androidEncoding = androidEncoding(encoding)
+            val minBytes = AudioRecord.getMinBufferSize(rate, channelMask, androidEncoding)
+            if (minBytes <= 0) continue
+            val bytesPerFrame = bytesPerSample(encoding) * channelCount
+            val bufferBytes = max(minBytes * 2, bytesPerFrame * 256)
+
+            val recorder = runCatching {
+                AudioRecord.Builder()
+                    .setAudioSource(source)
+                    .setAudioFormat(
+                        AudioFormat.Builder()
+                            .setEncoding(androidEncoding)
+                            .setSampleRate(rate)
+                            .setChannelMask(channelMask)
+                            .build()
+                    )
+                    .setBufferSizeInBytes(bufferBytes)
+                    .build()
+            }.getOrNull() ?: continue
+
+            if (recorder.state != AudioRecord.STATE_INITIALIZED) {
+                safelyRelease(recorder)
+                continue
+            }
+            if (device != null && !recorder.setPreferredDevice(device)) {
+                safelyRelease(recorder)
+                continue
+            }
+
+            return OpenedInput(
+                recorder,
+                AudioStreamConfig(
+                    deviceKey = device?.id?.toString(),
+                    sampleRateHz = rate,
+                    channelCount = channelCount,
+                    encoding = encoding,
+                    bufferFrames = bufferBytes / bytesPerFrame,
+                    requestedLowLatency = false,
+                    inputSourceLabel = when (source) {
+                        MediaRecorder.AudioSource.UNPROCESSED -> "UNPROCESSED"
+                        MediaRecorder.AudioSource.MIC -> "MIC"
+                        else -> "DEFAULT"
+                    }
+                )
+            )
+        }
+        return null
+    }
+
+
+    private suspend fun pumpInput(
+        recorder: AudioRecord,
+        config: AudioStreamConfig,
+        durationMs: Long
+    ): InputLoopResult {
+        val targetFrames = (config.sampleRateHz * (durationMs / 1000.0)).toLong().coerceAtLeast(1)
+        val chunkFrames = min(config.bufferFrames.coerceAtLeast(128), 1024)
+        var frames = 0L
+        var peak = 0f
+        var sumSquares = 0.0
+        var sampleCount = 0L
+        var zeroReads = 0
+
+        while (frames < targetFrames && !stopRequested.get() && kotlinx.coroutines.currentCoroutineContext().isActive) {
+            val wantedFrames = min(chunkFrames.toLong(), targetFrames - frames).toInt()
+            val chunk = readChunk(recorder, config, wantedFrames)
+            if (chunk.samplesRead < 0) error("AudioRecord read failed with error ${chunk.samplesRead}")
+            if (chunk.samplesRead == 0) {
+                zeroReads++
+                if (zeroReads >= MAX_STALL_COUNT) error("AudioRecord stalled with repeated zero-length reads")
+            } else {
+                zeroReads = 0
+            }
+            frames += chunk.samplesRead / config.channelCount
+            peak = max(peak, chunk.peak)
+            sumSquares += chunk.sumSquares
+            sampleCount += chunk.sampleCount
+        }
+
+        return InputLoopResult(frames, peak, sumSquares, sampleCount)
+    }
+
+    private suspend fun pumpOutput(
+        track: AudioTrack,
+        config: AudioStreamConfig,
+        durationMs: Long,
+        toneHz: Double

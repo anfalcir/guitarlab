@@ -1,0 +1,220 @@
+                startedNs,
+                "Could not open a compatible input stream. Check RECORD_AUDIO permission, system microphone privacy/mute, and the selected device."
+            )
+
+        val recorder = opened.recorder
+        try {
+            recorder.startRecording()
+            if (recorder.recordingState != AudioRecord.RECORDSTATE_RECORDING) {
+                return@withContext failedResult(
+                    AudioProbeOperation.RECORD,
+                    startedNs,
+                    "AudioRecord did not enter RECORDING state.",
+                    inputConfig = opened.config
+                )
+            }
+
+            val stats = captureStats(recorder, opened.config, durationMs)
+            val routedKey = recorder.routedDevice?.id?.toString()
+            val verifiedConfig = opened.config.copy(routedDeviceKey = routedKey)
+            if (inputDeviceKey != null && routedKey != null && routedKey != inputDeviceKey) {
+                return@withContext failedResult(
+                    AudioProbeOperation.RECORD,
+                    startedNs,
+                    "Android routed recording to device $routedKey instead of selected device $inputDeviceKey.",
+                    inputConfig = verifiedConfig
+                )
+            }
+            val zeroSignal = stats.frames > 0 && !AudioProbePolicy.hasUsableInputSignal(stats)
+            val warnings = buildList {
+                if (inputDeviceKey != null && routedKey == null) add("Android did not expose the active input route for verification.")
+                if (zeroSignal) {
+                    add(
+                        microphoneBlockReason()
+                            ?: "Capture returned only digital zero. The stream is open and routed, but no usable audio reached the app; verify Android microphone privacy/mute, input source/routing, cable/device state, and Pocket Amp loopback/input state."
+                    )
+                }
+            }
+            val stopped = stopRequested.get()
+            AudioProbeResult(
+                operation = AudioProbeOperation.RECORD,
+                success = !stopped && !zeroSignal,
+                stopped = stopped,
+                elapsedMs = elapsedMs(startedNs),
+                inputConfig = verifiedConfig,
+                inputStats = stats,
+                message = when {
+                    stopped -> "Record test stopped by user."
+                    zeroSignal -> "Input stream completed, but captured only digital silence."
+                    else -> "Input capture completed with non-zero audio."
+                },
+                warnings = warnings
+            )
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (error: Throwable) {
+            failedResult(
+                AudioProbeOperation.RECORD,
+                startedNs,
+                error.message ?: error::class.java.simpleName,
+                inputConfig = opened.config
+            )
+        } finally {
+            safelyRelease(recorder)
+        }
+    }
+
+    override suspend fun runDuplexTest(
+        inputDeviceKey: String?,
+        outputDeviceKey: String?,
+        durationMs: Long
+    ): AudioProbeResult = withContext(Dispatchers.IO) {
+        stopRequested.set(false)
+        val startedNs = System.nanoTime()
+        val inputDevice = resolveDevice(inputDeviceKey, AudioDirection.INPUT)
+        val outputDevice = resolveDevice(outputDeviceKey, AudioDirection.OUTPUT)
+        if (inputDeviceKey != null && inputDevice == null) {
+            return@withContext failedResult(AudioProbeOperation.DUPLEX, startedNs, "Selected input device is no longer available.")
+        }
+        if (outputDeviceKey != null && outputDevice == null) {
+            return@withContext failedResult(AudioProbeOperation.DUPLEX, startedNs, "Selected output device is no longer available.")
+        }
+
+        val output = openOutput(outputDevice)
+            ?: return@withContext failedResult(
+                AudioProbeOperation.DUPLEX,
+                startedNs,
+                "Could not open output stream for duplex test."
+            )
+        val input = openInput(inputDevice, preferredRate = output.config.sampleRateHz)
+            ?: run {
+                safelyRelease(output.track)
+                return@withContext failedResult(
+                    AudioProbeOperation.DUPLEX,
+                    startedNs,
+                    "Could not open input stream for duplex test.",
+                    outputConfig = output.config
+                )
+            }
+
+        val recorder = input.recorder
+        val track = output.track
+        try {
+            recorder.startRecording()
+            track.play()
+
+            if (recorder.recordingState != AudioRecord.RECORDSTATE_RECORDING) {
+                return@withContext failedResult(
+                    AudioProbeOperation.DUPLEX,
+                    startedNs,
+                    "Input stream failed to enter RECORDING state.",
+                    inputConfig = input.config,
+                    outputConfig = output.config
+                )
+            }
+
+            // Run the blocking input and output pumps on separate IO workers. Alternating
+            // AudioRecord.read() and AudioTrack.write() on one thread can manufacture
+            // underruns that are artifacts of the probe itself instead of the USB path.
+            val duplex = coroutineScope {
+                val outputDeferred = async(Dispatchers.IO) {
+                    pumpOutput(track, output.config, durationMs, DUPLEX_TONE_HZ)
+                }
+                val inputDeferred = async(Dispatchers.IO) {
+                    pumpInput(recorder, input.config, durationMs)
+                }
+                try {
+                    DuplexLoopResult(
+                        input = inputDeferred.await(),
+                        output = outputDeferred.await()
+                    )
+                } catch (error: Throwable) {
+                    // Make the sibling blocking loop converge as soon as the current
+                    // read/write returns, then let structured concurrency cancel it.
+                    stopRequested.set(true)
+                    throw error
+                }
+            }
+
+            val inputFrames = duplex.input.frames
+            val outputFrames = duplex.output.frames
+            val peak = duplex.input.peak
+            val sumSquares = duplex.input.sumSquares
+            val sampleCount = duplex.input.sampleCount
+
+            val inputRoutedKey = recorder.routedDevice?.id?.toString()
+            val outputRoutedKey = track.routedDevice?.id?.toString()
+            val verifiedInput = input.config.copy(routedDeviceKey = inputRoutedKey)
+            val verifiedOutput = output.config.copy(routedDeviceKey = outputRoutedKey)
+            if (inputDeviceKey != null && inputRoutedKey != null && inputRoutedKey != inputDeviceKey) {
+                return@withContext failedResult(
+                    AudioProbeOperation.DUPLEX,
+                    startedNs,
+                    "Duplex input routed to $inputRoutedKey instead of selected $inputDeviceKey.",
+                    inputConfig = verifiedInput,
+                    outputConfig = verifiedOutput
+                )
+            }
+            if (outputDeviceKey != null && outputRoutedKey != null && outputRoutedKey != outputDeviceKey) {
+                return@withContext failedResult(
+                    AudioProbeOperation.DUPLEX,
+                    startedNs,
+                    "Duplex output routed to $outputRoutedKey instead of selected $outputDeviceKey.",
+                    inputConfig = verifiedInput,
+                    outputConfig = verifiedOutput
+                )
+            }
+            val zeroSignal = inputFrames > 0 && !AudioProbePolicy.hasUsableInputSignal(
+                AudioSignalStats(frames = inputFrames, peak = peak)
+            )
+            val stopped = stopRequested.get()
+            AudioProbeResult(
+                operation = AudioProbeOperation.DUPLEX,
+                success = !stopped && !zeroSignal,
+                stopped = stopped,
+                elapsedMs = elapsedMs(startedNs),
+                inputConfig = verifiedInput,
+                outputConfig = verifiedOutput,
+                inputStats = AudioSignalStats(
+                    frames = inputFrames,
+                    peak = peak,
+                    rms = if (sampleCount > 0) sqrt(sumSquares / sampleCount).toFloat() else 0f
+                ),
+                outputFrames = outputFrames,
+                outputUnderruns = track.underrunCount,
+                message = when {
+                    stopped -> "Duplex test stopped by user."
+                    zeroSignal -> "Duplex streams ran concurrently, but input captured only digital silence."
+                    else -> "Input and output streams ran concurrently with non-zero input audio."
+                },
+                warnings = buildList {
+                    if (input.config.sampleRateHz != output.config.sampleRateHz) {
+                        add("Input/output sample rates differ; final realtime engine must reconcile them explicitly.")
+                    }
+                    if (inputDeviceKey != null && inputRoutedKey == null) add("Android did not expose the active duplex input route for verification.")
+                    if (outputDeviceKey != null && outputRoutedKey == null) add("Android did not expose the active duplex output route for verification.")
+                    if (zeroSignal) add(
+                        microphoneBlockReason()
+                            ?: "Duplex input returned only digital zero; verify Android microphone privacy/mute and the selected input routing/loopback state."
+                    )
+                    if (track.underrunCount > 0) add("Duplex output reported ${track.underrunCount} underrun(s). Repeat the test before approving M2.")
+                }
+            )
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (error: Throwable) {
+            failedResult(
+                AudioProbeOperation.DUPLEX,
+                startedNs,
+                error.message ?: error::class.java.simpleName,
+                inputConfig = input.config,
+                outputConfig = output.config
+            )
+        } finally {
+            safelyRelease(recorder)
+            safelyRelease(track)
+        }
+    }
+
+    override fun stopCurrentTest() {
+        stopRequested.set(true)
