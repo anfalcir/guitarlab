@@ -55,7 +55,13 @@ Target V1 interoperability includes WAV, FLAC, AIFF, MP3, AAC/M4A, OGG Vorbis an
 - Hotplug/disconnect must fail in a controlled manner without app crashes.
 
 ## Transport and monitoring
-Planned: play, pause, stop, seek, loop/range playback, playhead synchronization and recording transport. Monitoring must be explicit and latency-aware.
+- Canonical transport states are STOPPED, PLAYING and RECORDING; there is no separate pause button.
+- Primary visible controls are return-to-start, play/stop, record and loop, represented by familiar symbols/icons rather than text labels.
+- When PLAYING or RECORDING, user timeline editing is locked: playhead drag, loop/trim markers, clip move/trim, import and clip-edit actions cannot be changed until transport returns to STOPPED.
+- The audio engine owns automatic playhead/record-head progression while transport is active.
+- Seek and loop playback must be sample/time consistent with the project timeline and explicit resampling strategy.
+- Monitoring must be explicit and latency-aware.
+- Play/record controls must not be enabled before the production transport/record engine is implemented and its applicable gate passes.
 
 ## Mixing
 Planned: track gain/pan/mute/solo, project summing, clip gain, meters, and export rendering. More advanced processing is additive and must not block the core guitar practice/recording workflow.
@@ -68,6 +74,8 @@ Planned targets include high-quality WAV (16/24-bit and 32-bit float where pract
 - Clean modern visual language; light/dark adaptive theme.
 - Technical diagnostics remain separate from everyday creative screens.
 - No fake enabled controls for features that are not implemented.
+- Directly manipulated timeline positions use explicit top marker heads with at least 48 dp touch targets; the thin guide line is not the primary drag target.
+- Semantic timeline colors are restrained: playhead blue, loop green, trim muted mustard, recording red; color is never the only cue.
 
 ## Reliability and security
 - Unit tests, Android Lint and debug assembly are mandatory software gates.
