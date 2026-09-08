@@ -48,10 +48,10 @@ object BuiltInRoles {
 @Serializable data class AudioTrack(val id: String, val name: String, val groupId: String? = null, val roleId: String? = null, val roleSource: RoleSource = RoleSource.NONE, val channelLayout: ChannelLayout = ChannelLayout.MONO, val pan: Float = 0f, val gainDb: Float = 0f, val muted: Boolean = false, val solo: Boolean = false, val armed: Boolean = false, val order: Int)
 
 /**
- * Timeline placement metadata. Audio bytes stay outside the project JSON; sourceUri is a stable
- * document/app URI reference and sourceStartFrame allows non-destructive trims later.
- * Technical source fields are optional for backward-compatible schema evolution and let later
- * transport/resampling checkpoints reason about imported media without re-probing on every load.
+ * Imported media is copied into project-managed source storage. Neither the external original nor
+ * the managed source copy is rewritten by ordinary editing. Trim/move/gain/mute stay as metadata;
+ * waveform/proxy/render outputs are separate derived files. sourceUri remains for compatibility
+ * with older projects that referenced Android documents directly.
  */
 @Serializable data class AudioClip(
     val id: String,
@@ -63,11 +63,14 @@ object BuiltInRoles {
     val lengthFrames: Long,
     val gainDb: Float = 0f,
     val muted: Boolean = false,
+    val managedSourcePath: String? = null,
+    val originUri: String? = null,
     val sourceFormat: String? = null,
     val sourceSampleRateHz: Int? = null,
     val sourceChannelCount: Int? = null,
     val sourceBitsPerSample: Int? = null,
     val sourceEncoding: String? = null,
+    val sourceTotalFrames: Long? = null,
 )
 
 @Serializable data class GuitarProject(
