@@ -38,4 +38,18 @@ class AudioProbePolicyTest {
         assertFalse(AudioProbePolicy.hasUsableInputSignal(AudioSignalStats(frames = 24_000, peak = 0f, rms = 0f)))
         assertTrue(AudioProbePolicy.hasUsableInputSignal(AudioSignalStats(frames = 24_000, peak = 0.001f, rms = 0.0002f)))
     }
+
+    @Test
+    fun duplexPrimeTargetsFiftyMillisecondsWithoutFillingBuffer() {
+        assertEquals(2_400, AudioProbePolicy.duplexPrimeFrames(sampleRateHz = 48_000, bufferFrames = 12_288))
+        assertEquals(1_280, AudioProbePolicy.duplexPrimeFrames(sampleRateHz = 48_000, bufferFrames = 3_840))
+        assertEquals(0, AudioProbePolicy.duplexPrimeFrames(sampleRateHz = 0, bufferFrames = 3_840))
+    }
+
+    @Test
+    fun underrunDeltaNeverReportsPreexistingOrNegativeCounts() {
+        assertEquals(0, AudioProbePolicy.underrunDelta(baseline = 1, finalCount = 1))
+        assertEquals(2, AudioProbePolicy.underrunDelta(baseline = 1, finalCount = 3))
+        assertEquals(0, AudioProbePolicy.underrunDelta(baseline = 3, finalCount = 1))
+    }
 }
