@@ -1,6 +1,7 @@
 package studio.guitarlab.core.project
 
 import java.io.ByteArrayInputStream
+import java.io.File
 import java.nio.file.Files
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
