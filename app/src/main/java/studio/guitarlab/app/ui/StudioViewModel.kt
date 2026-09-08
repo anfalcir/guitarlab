@@ -21,6 +21,8 @@ import studio.guitarlab.core.model.GuitarProject
 import studio.guitarlab.core.project.FileProjectRepository
 import studio.guitarlab.core.project.ProjectClipEditor
 import studio.guitarlab.core.project.ProjectManagedMediaStore
+import studio.guitarlab.core.project.TimelineControlPolicy
+import studio.guitarlab.core.project.TimelineControlState
 import studio.guitarlab.core.project.WaveformCacheStore
 
 data class StudioUiState(
@@ -29,6 +31,7 @@ data class StudioUiState(
     val editingClip: Boolean = false,
     val project: GuitarProject? = null,
     val waveforms: Map<String, List<Float>> = emptyMap(),
+    val timelineControls: TimelineControlState = TimelineControlState(),
     val error: String? = null,
     val importStatus: String? = null,
     val clipStatus: String? = null,
@@ -52,7 +55,13 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                     project to loadWaveforms(project)
                 }
             }.onSuccess { (project, waveforms) ->
-                _state.value = StudioUiState(loading = false, project = project, waveforms = waveforms)
+                val end = TimelineControlPolicy.projectEndFrame(project)
+                _state.value = StudioUiState(
+                    loading = false,
+                    project = project,
+                    waveforms = waveforms,
+                    timelineControls = TimelineControlPolicy.normalizedForProject(TimelineControlState(), end),
+                )
             }.onFailure { error ->
                 _state.value = StudioUiState(
                     loading = false,
@@ -127,10 +136,12 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                 }
             }.onSuccess { (saved, metadata, peaks) ->
                 val imported = saved.clips.last()
+                val end = TimelineControlPolicy.projectEndFrame(saved)
                 _state.value = StudioUiState(
                     loading = false,
                     project = saved,
                     waveforms = _state.value.waveforms + (imported.id to peaks),
+                    timelineControls = TimelineControlPolicy.normalizedForProject(_state.value.timelineControls, end),
                     importStatus = "Imported safely • ${metadata.channelCount}ch • ${metadata.sampleRateHz} Hz • immutable project copy",
                 )
             }.onFailure { error ->
@@ -141,6 +152,30 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                 )
             }
         }
+    }
+
+    fun setPlayheadFrame(frame: Long) {
+        val project = _state.value.project ?: return
+        val end = TimelineControlPolicy.projectEndFrame(project)
+        _state.value = _state.value.copy(
+            timelineControls = TimelineControlPolicy.movePlayhead(_state.value.timelineControls, frame, end)
+        )
+    }
+
+    fun setLoopStartFrame(frame: Long) {
+        val project = _state.value.project ?: return
+        val end = TimelineControlPolicy.projectEndFrame(project)
+        _state.value = _state.value.copy(
+            timelineControls = TimelineControlPolicy.moveLoopStart(_state.value.timelineControls, frame, end)
+        )
+    }
+
+    fun setLoopEndFrame(frame: Long) {
+        val project = _state.value.project ?: return
+        val end = TimelineControlPolicy.projectEndFrame(project)
+        _state.value = _state.value.copy(
+            timelineControls = TimelineControlPolicy.moveLoopEnd(_state.value.timelineControls, frame, end)
+        )
     }
 
     fun toggleClipMuted(clipId: String) {
@@ -165,10 +200,12 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                 withContext(Dispatchers.IO) { repository.save(transform(current)) }
             }.onSuccess { saved ->
                 val validClipIds = saved.clips.map { it.id }.toSet()
+                val end = TimelineControlPolicy.projectEndFrame(saved)
                 _state.value = _state.value.copy(
                     editingClip = false,
                     project = saved,
                     waveforms = _state.value.waveforms.filterKeys { it in validClipIds },
+                    timelineControls = TimelineControlPolicy.normalizedForProject(_state.value.timelineControls, end),
                     clipStatus = status,
                 )
             }.onFailure { error ->

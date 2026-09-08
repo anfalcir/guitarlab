@@ -32,3 +32,8 @@ val LightOnSecondary = Color(0xFFFFFFFF)
 val StudioError = Color(0xFFB3261E)
 val StudioRecord = Color(0xFFD94A4A)
 val StudioWarning = Color(0xFFD99A3D)
+
+// Timeline semantics: restrained, recognizable, and never the only cue.
+val StudioPlayhead = Color(0xFF3B82F6) // navigation / current execution position
+val StudioLoop = Color(0xFF2E9D67) // loop in/out range
+val StudioTrim = Color(0xFFD65A5A) // destructive-looking edit intent, while operation remains non-destructive
