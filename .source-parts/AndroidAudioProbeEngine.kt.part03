@@ -129,12 +129,6 @@
         if (audioManager.isMicrophoneMute) {
             return "Android reports the microphone as muted. Disable the system microphone mute/privacy control and retry."
         }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            val privacyManager = appContext.getSystemService(SensorPrivacyManager::class.java)
-            if (privacyManager?.isSensorPrivacyEnabled(SensorPrivacyManager.Sensors.MICROPHONE) == true) {
-                return "Android microphone privacy is enabled. Allow microphone access from the system privacy control and retry."
-            }
-        }
         return null
     }
 
