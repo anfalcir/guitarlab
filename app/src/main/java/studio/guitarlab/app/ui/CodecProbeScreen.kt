@@ -69,6 +69,7 @@ fun CodecProbeScreen(onBack: () -> Unit) {
                             val seekBuffer = FloatArray(256 * metadata.channelCount)
                             val seekRead = decoder.readInterleaved(seekBuffer, frameCount = 256)
                             val seekEndedAt = decoder.positionFrames
+                            val bitDepth = metadata.bitsPerSample?.toString() ?: "n/a"
 
                             CodecProbeUiResult(
                                 success = readFrames > 0 && seekRead >= 0,
@@ -78,7 +79,7 @@ fun CodecProbeScreen(onBack: () -> Unit) {
                                     appendLine("sampleRate=${metadata.sampleRateHz}Hz")
                                     appendLine("channels=${metadata.channelCount}")
                                     appendLine("encoding=${metadata.sampleEncoding}")
-                                    appendLine("bits=${metadata.bitsPerSample ?: \"n/a\"}")
+                                    appendLine("bits=$bitDepth")
                                     appendLine("frames=${metadata.totalFrames}")
                                     appendLine("durationUs=${metadata.durationUs}")
                                     appendLine("decodedFrames=$readFrames")
