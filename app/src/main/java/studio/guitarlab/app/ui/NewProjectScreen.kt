@@ -20,69 +20,98 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import studio.guitarlab.core.model.ProjectTemplate
 
 @Composable
 fun NewProjectScreen(
     onBack: () -> Unit,
-    onCreate: (String, ProjectTemplate) -> Unit
+    onCreate: (String, ProjectTemplate) -> Unit,
 ) {
     var name by remember { mutableStateOf("") }
     var selected by remember { mutableStateOf(ProjectTemplate.GUITAR) }
 
     Column(
-        modifier = Modifier.fillMaxSize().padding(28.dp),
-        verticalArrangement = Arrangement.spacedBy(18.dp)
+        modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 20.dp),
+        verticalArrangement = Arrangement.spacedBy(22.dp),
     ) {
-        Text("Create Project", style = MaterialTheme.typography.headlineMedium)
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text("New project", style = MaterialTheme.typography.headlineMedium)
+            Text(
+                "Choose a starting point. You can change the track structure later.",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+
         OutlinedTextField(
             value = name,
             onValueChange = { name = it },
             label = { Text("Project name") },
+            placeholder = { Text("e.g. Hero practice") },
             singleLine = true,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
         )
 
-        TemplateCard(
-            title = "Guitar Template",
-            description = "Backing Track • Guitar L/R • My Guitar L/R, organized in visual groups and ready for study/recording.",
-            selected = selected == ProjectTemplate.GUITAR,
-            onClick = { selected = ProjectTemplate.GUITAR }
-        )
-        TemplateCard(
-            title = "Blank Project",
-            description = "Start with an empty timeline and build the track structure freely.",
-            selected = selected == ProjectTemplate.BLANK,
-            onClick = { selected = ProjectTemplate.BLANK }
-        )
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text("Start from", style = MaterialTheme.typography.titleMedium)
+            TemplateOption(
+                title = "Guitar Template",
+                description = "Backing, reference guitars and your double-tracked guitars already organized.",
+                selected = selected == ProjectTemplate.GUITAR,
+                onClick = { selected = ProjectTemplate.GUITAR },
+            )
+            TemplateOption(
+                title = "Blank Project",
+                description = "An empty workspace for building the project exactly as you want.",
+                selected = selected == ProjectTemplate.BLANK,
+                onClick = { selected = ProjectTemplate.BLANK },
+            )
+        }
 
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             OutlinedButton(onClick = onBack) { Text("Cancel") }
             Button(
                 enabled = name.isNotBlank(),
-                onClick = { onCreate(name.trim(), selected) }
-            ) { Text("Create") }
+                onClick = { onCreate(name.trim(), selected) },
+            ) { Text("Create project") }
         }
     }
 }
 
 @Composable
-private fun TemplateCard(
+private fun TemplateOption(
     title: String,
     description: String,
     selected: Boolean,
-    onClick: () -> Unit
+    onClick: () -> Unit,
 ) {
-    val container = if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
+    val shape = RoundedCornerShape(14.dp)
     Surface(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
-        shape = RoundedCornerShape(18.dp),
-        color = container
+        modifier = Modifier.fillMaxWidth().clip(shape).clickable(onClick = onClick),
+        shape = shape,
+        color = if (selected) {
+            MaterialTheme.colorScheme.primaryContainer
+        } else {
+            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.42f)
+        },
     ) {
-        Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text(if (selected) "●  $title" else "○  $title", style = MaterialTheme.typography.titleMedium)
-            Text(description, style = MaterialTheme.typography.bodyMedium)
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 15.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text(
+                if (selected) "●" else "○",
+                color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text(title, style = MaterialTheme.typography.titleMedium)
+                Text(
+                    description,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
     }
 }

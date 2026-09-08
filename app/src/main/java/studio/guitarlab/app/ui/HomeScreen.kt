@@ -1,6 +1,5 @@
 package studio.guitarlab.app.ui
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -29,6 +28,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import studio.guitarlab.core.model.GuitarProject
@@ -40,41 +40,75 @@ fun HomeScreen(
     viewModel: HomeViewModel,
     onNewProject: () -> Unit,
     onOpenProject: (String) -> Unit,
-    onSettings: () -> Unit
+    onSettings: () -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 
     Column(
-        modifier = Modifier.fillMaxSize().padding(horizontal = 28.dp, vertical = 22.dp),
-        verticalArrangement = Arrangement.spacedBy(18.dp)
+        modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 20.dp),
+        verticalArrangement = Arrangement.spacedBy(22.dp),
     ) {
-        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text("GuitarLab Studio", style = MaterialTheme.typography.headlineMedium)
-                Text("Practice • Record • Compare • Mix", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text("GuitarLab", style = MaterialTheme.typography.headlineMedium)
+                Text(
+                    "Studio",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
             OutlinedButton(onClick = onSettings) { Text("Settings") }
         }
 
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Button(onClick = onNewProject) { Text("+ New Project") }
-            OutlinedButton(onClick = { }, enabled = false) { Text("Import Project") }
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text("Your workspace", style = MaterialTheme.typography.titleLarge)
+            Text(
+                "Practice, record and compare without getting in the way of playing.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Button(onClick = onNewProject) { Text("New project") }
+                OutlinedButton(onClick = { }, enabled = false) { Text("Import") }
+            }
         }
 
-        Text("Recent Projects", style = MaterialTheme.typography.titleMedium)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text("Recent projects", style = MaterialTheme.typography.titleMedium)
+            if (state.projects.isNotEmpty()) {
+                Text(
+                    "${state.projects.size} total",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
 
         when {
-            state.loading -> Box(Modifier.fillMaxWidth().padding(40.dp), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
-            }
-            state.projects.isEmpty() -> EmptyProjectsCard(onNewProject)
-            else -> LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            state.loading -> Box(
+                Modifier.fillMaxWidth().padding(vertical = 48.dp),
+                contentAlignment = Alignment.Center,
+            ) { CircularProgressIndicator() }
+
+            state.projects.isEmpty() -> EmptyProjectsState(onNewProject)
+
+            else -> LazyColumn(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
                 items(state.projects, key = { it.id }) { project ->
-                    ProjectCard(
+                    ProjectRow(
                         project = project,
                         onOpen = { onOpenProject(project.id) },
                         onDuplicate = { viewModel.duplicateProject(project) },
-                        onDelete = { viewModel.deleteProject(project.id) }
+                        onDelete = { viewModel.deleteProject(project.id) },
                     )
                 }
             }
@@ -87,41 +121,59 @@ fun HomeScreen(
 }
 
 @Composable
-private fun EmptyProjectsCard(onNewProject: () -> Unit) {
-    Surface(shape = RoundedCornerShape(18.dp), tonalElevation = 2.dp, modifier = Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("No projects yet", style = MaterialTheme.typography.titleMedium)
-            Text("Start blank or use the Guitar Template to be ready for backing, reference guitars and double-tracked recording.")
-            Spacer(Modifier.height(4.dp))
-            Button(onClick = onNewProject) { Text("Create first project") }
-        }
+private fun EmptyProjectsState(onNewProject: () -> Unit) {
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 28.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text("No projects yet", style = MaterialTheme.typography.titleMedium)
+        Text(
+            "Start blank or use the Guitar Template with your study and recording tracks already organized.",
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.height(4.dp))
+        Button(onClick = onNewProject) { Text("Create first project") }
     }
 }
 
 @Composable
-private fun ProjectCard(
+private fun ProjectRow(
     project: GuitarProject,
     onOpen: () -> Unit,
     onDuplicate: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
 ) {
     var menuOpen by remember { mutableStateOf(false) }
+    val shape = RoundedCornerShape(14.dp)
+
     Surface(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onOpen),
-        shape = RoundedCornerShape(16.dp),
-        tonalElevation = 1.dp
+        modifier = Modifier.fillMaxWidth().clip(shape).clickable(onClick = onOpen),
+        shape = shape,
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
     ) {
-        Row(Modifier.padding(18.dp), verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                 Text(project.name, style = MaterialTheme.typography.titleMedium)
                 val modified = DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT)
                     .format(Date(project.updatedAtEpochMs))
-                Text("$modified • ${project.tracks.size} tracks", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(
+                    "$modified  ·  ${project.tracks.size} tracks",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
+
             Box {
                 Text(
                     text = "•••",
-                    modifier = Modifier.background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(10.dp)).clickable { menuOpen = true }.padding(horizontal = 12.dp, vertical = 8.dp)
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(10.dp))
+                        .clickable { menuOpen = true }
+                        .padding(horizontal = 10.dp, vertical = 8.dp),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                     DropdownMenuItem(text = { Text("Duplicate") }, onClick = { menuOpen = false; onDuplicate() })

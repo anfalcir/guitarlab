@@ -18,6 +18,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -38,14 +39,19 @@ fun StudioPlaceholderScreen(
         Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(28.dp),
-        verticalArrangement = Arrangement.spacedBy(18.dp),
+            .padding(horizontal = 24.dp, vertical = 20.dp),
+        verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Column {
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text("Studio", style = MaterialTheme.typography.headlineMedium)
                 Text(
                     state.project?.name ?: "Project ${projectId.take(8)}…",
+                    style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
@@ -54,7 +60,7 @@ fun StudioPlaceholderScreen(
 
         when {
             state.loading -> CircularProgressIndicator()
-            state.error != null -> StatusCard(
+            state.error != null -> InlineStatus(
                 title = "Project could not be opened",
                 text = state.error.orEmpty(),
             )
@@ -65,20 +71,19 @@ fun StudioPlaceholderScreen(
 
 @Composable
 private fun ProjectWorkspace(project: GuitarProject) {
-    StatusCard(
-        title = "M4 project workspace foundation",
-        text = "Project persistence, template structure and track lanes are now rendered from the saved project model. Audio clips and transport remain gated until the next M4 checkpoints pass their software and tablet tests.",
-    )
+    val sampleRateText = project.sampleRate.fixedHz?.let { "$it Hz" } ?: "Auto"
 
-    Surface(shape = RoundedCornerShape(18.dp), tonalElevation = 1.dp, modifier = Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(22.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text(project.name, style = MaterialTheme.typography.titleLarge)
-            Text("Template: ${project.template}")
-            Text("Tracks: ${project.tracks.size} • Groups: ${project.groups.size}")
-            val sampleRateText = project.sampleRate.fixedHz?.let { "$it Hz" } ?: "Auto"
-            Text("Project sample rate: $sampleRateText")
-        }
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(18.dp),
+    ) {
+        ProjectFact("Template", project.template.name.lowercase().replaceFirstChar { it.uppercase() })
+        ProjectFact("Tracks", project.tracks.size.toString())
+        ProjectFact("Groups", project.groups.size.toString())
+        ProjectFact("Sample rate", sampleRateText)
     }
+
+    Text("Tracks", style = MaterialTheme.typography.titleLarge)
 
     val groupedTrackIds = mutableSetOf<String>()
     project.groups.sortedBy { it.order }.forEach { group ->
@@ -94,39 +99,66 @@ private fun ProjectWorkspace(project: GuitarProject) {
             tracks = ungrouped.map { it.name to roleName(it.roleId) },
         )
     }
+
+    InlineStatus(
+        title = "M4 workspace foundation",
+        text = "Project structure is live. Clips, transport and audio editing stay locked until their next validation checkpoints.",
+    )
+}
+
+@Composable
+private fun ProjectFact(label: String, value: String) {
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(value, style = MaterialTheme.typography.bodyMedium)
+    }
 }
 
 @Composable
 private fun GroupLane(group: TrackGroup, tracks: List<Pair<String, String>>) {
-    Surface(shape = RoundedCornerShape(16.dp), tonalElevation = 1.dp, modifier = Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text(group.name, style = MaterialTheme.typography.titleMedium)
-            if (tracks.isEmpty()) {
-                Text("No tracks", color = MaterialTheme.colorScheme.onSurfaceVariant)
-            } else {
-                tracks.forEach { (name, role) ->
-                    Surface(shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth()) {
-                        Row(
-                            Modifier.fillMaxWidth().padding(14.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                        ) {
-                            Text(name)
-                            Text(role, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                    }
-                }
-            }
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(
+            group.name,
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        if (tracks.isEmpty()) {
+            Text("No tracks", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        } else {
+            tracks.forEach { (name, role) -> TrackLane(name, role) }
         }
     }
 }
 
 @Composable
-private fun StatusCard(title: String, text: String) {
-    Surface(shape = RoundedCornerShape(18.dp), tonalElevation = 1.dp, modifier = Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(22.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(title, style = MaterialTheme.typography.titleLarge)
-            Text(text)
+private fun TrackLane(name: String, role: String) {
+    Surface(
+        shape = RoundedCornerShape(12.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.42f),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 13.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(name, style = MaterialTheme.typography.bodyLarge)
+            Text(role, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
+    }
+}
+
+@Composable
+private fun InlineStatus(title: String, text: String) {
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Text(title, style = MaterialTheme.typography.titleMedium)
+        Text(text, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
