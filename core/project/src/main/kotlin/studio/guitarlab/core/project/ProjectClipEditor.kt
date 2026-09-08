@@ -27,4 +27,28 @@ object ProjectClipEditor {
             updatedAtEpochMs = nowEpochMs,
         )
     }
+
+    /**
+     * Non-destructive trim: only sourceStartFrame/lengthFrames change. No source file is rewritten.
+     */
+    fun trimClip(
+        project: GuitarProject,
+        clipId: String,
+        sourceStartFrame: Long,
+        lengthFrames: Long,
+        nowEpochMs: Long,
+    ): GuitarProject {
+        require(sourceStartFrame >= 0) { "Clip source start frame must be non-negative." }
+        require(lengthFrames > 0) { "Clip length must be positive." }
+        val target = project.clips.firstOrNull { it.id == clipId } ?: error("Clip '$clipId' not found.")
+        target.sourceTotalFrames?.let { total ->
+            require(sourceStartFrame + lengthFrames <= total) { "Trim exceeds immutable source bounds." }
+        }
+        return project.copy(
+            clips = project.clips.map { clip ->
+                if (clip.id == clipId) clip.copy(sourceStartFrame = sourceStartFrame, lengthFrames = lengthFrames) else clip
+            },
+            updatedAtEpochMs = nowEpochMs,
+        )
+    }
 }
