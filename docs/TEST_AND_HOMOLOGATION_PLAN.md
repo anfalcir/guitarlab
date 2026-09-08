@@ -49,16 +49,22 @@ Current physical evidence includes a real WAV PCM24 / 44.1 kHz / stereo file wit
 ## M4 Studio gate
 For each supported import path:
 - select source using Android document picker;
-- invalid source fails safely;
+- external source is opened read-only and copied completely into project-managed `media/source/` storage;
+- invalid/empty/malformed source fails safely and leaves no committed clip;
 - valid source creates exactly one clip in chosen track;
-- technical metadata is consistent with source;
-- save and reopen project; clip persists;
-- URI remains readable after lifecycle/app restart when persistable access is available;
-- remove/edit operations remain non-destructive;
-- waveform cache corresponds to source/clip bounds;
-- playhead/seek starts and ends at expected positions;
-- mismatched project/source sample rates follow explicit strategy;
-- repeated import/reopen does not corrupt JSON.
+- technical metadata is consistent with the managed copy;
+- managed copy bytes remain unchanged after move, trim, mute/unmute, gain changes and waveform generation;
+- external original bytes remain unchanged throughout import/edit workflow;
+- after successful import, move/rename/delete or otherwise make the external original unavailable, then reopen the project: the managed clip must still load independently;
+- save and reopen project; clip and managed-source reference persist;
+- non-destructive trim remains within immutable source bounds;
+- removing a clip does not rewrite its source file;
+- waveform envelope is deterministic for the same decoded source;
+- waveform cache round-trips, and missing/corrupt cache can be regenerated from the managed source;
+- waveform rendering does not decode/write the whole source on every UI frame;
+- future playhead/seek starts and ends at expected positions;
+- mismatched project/source sample rates follow explicit strategy and produce derivatives rather than overwriting source;
+- repeated import/reopen does not corrupt JSON or source media.
 
 ## Later recording gate
 - track arm/disarm semantics;
