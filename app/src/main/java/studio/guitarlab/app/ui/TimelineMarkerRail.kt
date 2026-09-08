@@ -56,11 +56,16 @@ fun TimelineMarkerRail(
     onLoopStartFrameChanged: (Long) -> Unit,
     onLoopEndFrameChanged: (Long) -> Unit,
     modifier: Modifier = Modifier,
+    trimStartFrame: Long? = null,
+    trimEndFrame: Long? = null,
+    onTrimStartFrameChanged: ((Long) -> Unit)? = null,
+    onTrimEndFrameChanged: ((Long) -> Unit)? = null,
 ) {
     Column(modifier = modifier, horizontalAlignment = Alignment.Start) {
         Row(modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp)) {
             MarkerLegend("Playhead", StudioPlayhead)
             MarkerLegend("Loop in/out", StudioLoop)
+            if (trimStartFrame != null && trimEndFrame != null) MarkerLegend("Trim in/out", StudioTrim)
             if (!enabled) {
                 Text(
                     "Locked while transport is active",
@@ -70,15 +75,18 @@ fun TimelineMarkerRail(
             }
         }
         BoxWithConstraints(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(104.dp)
-                .alpha(if (enabled) 1f else 0.48f),
+            modifier = Modifier.fillMaxWidth().height(104.dp).alpha(if (enabled) 1f else 0.48f),
         ) {
             val density = LocalDensity.current
             val widthPx = with(density) { maxWidth.toPx() }.coerceAtLeast(1f)
             TimelineMarker(TimelineMarkerKind.LOOP_START, loopStartFrame, projectEndFrame, widthPx, enabled, onLoopStartFrameChanged)
             TimelineMarker(TimelineMarkerKind.LOOP_END, loopEndFrame, projectEndFrame, widthPx, enabled, onLoopEndFrameChanged)
+            if (trimStartFrame != null && onTrimStartFrameChanged != null) {
+                TimelineMarker(TimelineMarkerKind.TRIM_START, trimStartFrame, projectEndFrame, widthPx, enabled, onTrimStartFrameChanged)
+            }
+            if (trimEndFrame != null && onTrimEndFrameChanged != null) {
+                TimelineMarker(TimelineMarkerKind.TRIM_END, trimEndFrame, projectEndFrame, widthPx, enabled, onTrimEndFrameChanged)
+            }
             TimelineMarker(TimelineMarkerKind.PLAYHEAD, playheadFrame, projectEndFrame, widthPx, enabled, onPlayheadFrameChanged)
         }
     }
@@ -97,30 +105,23 @@ private fun TimelineMarker(
     val markerWidth = 48.dp
     val density = LocalDensity.current
     val markerWidthPx = with(density) { markerWidth.toPx() }
-    val x = (fraction * widthPx - markerWidthPx / 2f)
-        .coerceIn(-markerWidthPx / 2f, widthPx - markerWidthPx / 2f)
+    val x = (fraction * widthPx - markerWidthPx / 2f).coerceIn(-markerWidthPx / 2f, widthPx - markerWidthPx / 2f)
     val color = markerColor(kind)
     val label = markerLabel(kind)
 
     Box(
-        modifier = Modifier
-            .offset { IntOffset(x.roundToInt(), 0) }
-            .width(markerWidth)
-            .height(104.dp),
+        modifier = Modifier.offset { IntOffset(x.roundToInt(), 0) }.width(markerWidth).height(104.dp),
         contentAlignment = Alignment.TopCenter,
     ) {
         Box(
-            modifier = Modifier
-                .width(markerWidth)
-                .height(40.dp)
-                .draggable(
-                    enabled = enabled,
-                    orientation = Orientation.Horizontal,
-                    state = rememberDraggableState { deltaPx ->
-                        val deltaFrames = (deltaPx / widthPx * projectEndFrame.coerceAtLeast(1L)).roundToLong()
-                        onFrameChanged((frame + deltaFrames).coerceIn(0L, projectEndFrame.coerceAtLeast(1L)))
-                    },
-                ),
+            modifier = Modifier.width(markerWidth).height(40.dp).draggable(
+                enabled = enabled,
+                orientation = Orientation.Horizontal,
+                state = rememberDraggableState { deltaPx ->
+                    val deltaFrames = (deltaPx / widthPx * projectEndFrame.coerceAtLeast(1L)).roundToLong()
+                    onFrameChanged((frame + deltaFrames).coerceIn(0L, projectEndFrame.coerceAtLeast(1L)))
+                },
+            ),
             contentAlignment = Alignment.TopCenter,
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {

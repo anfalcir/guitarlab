@@ -26,6 +26,8 @@ import studio.guitarlab.core.project.TimelineControlState
 import studio.guitarlab.core.project.TransportMode
 import studio.guitarlab.core.project.TransportPolicy
 import studio.guitarlab.core.project.TransportState
+import studio.guitarlab.core.project.TrimControlPolicy
+import studio.guitarlab.core.project.TrimControlState
 import studio.guitarlab.core.project.WaveformCacheStore
 import studio.guitarlab.platform.audio.android.AndroidStudioPlaybackEngine
 import studio.guitarlab.platform.audio.android.StudioPlaybackClip
@@ -39,6 +41,7 @@ data class StudioUiState(
     val project: GuitarProject? = null,
     val waveforms: Map<String, List<Float>> = emptyMap(),
     val timelineControls: TimelineControlState = TimelineControlState(),
+    val trimControls: TrimControlState? = null,
     val transport: TransportState = TransportState(),
     val transportEngineReady: Boolean = false,
     val error: String? = null,
@@ -83,7 +86,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
     fun importWav(trackId: String, uri: Uri) {
         val currentState = _state.value
         val current = currentState.project ?: return
-        if (!TransportPolicy.timelineEditingEnabled(currentState.transport)) return
+        if (!TransportPolicy.timelineEditingEnabled(currentState.transport) || currentState.trimControls != null) return
         if (current.tracks.none { it.id == trackId }) {
             _state.value = currentState.copy(error = "The selected destination track no longer exists.")
             return
@@ -150,12 +153,78 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
     fun setLoopStartFrame(frame: Long) = editTimelineMarker { state, end -> TimelineControlPolicy.moveLoopStart(state, frame, end) }
     fun setLoopEndFrame(frame: Long) = editTimelineMarker { state, end -> TimelineControlPolicy.moveLoopEnd(state, frame, end) }
 
+    fun beginTrim(clipId: String) {
+        val current = _state.value
+        val project = current.project ?: return
+        if (current.importing || current.editingClip || !TransportPolicy.timelineEditingEnabled(current.transport)) return
+        val clip = project.clips.firstOrNull { it.id == clipId } ?: return
+        _state.value = current.copy(trimControls = TrimControlPolicy.fromClip(clip), clipStatus = "Trim mode • drag mustard T◀ / T▶ markers, then Apply or Cancel", error = null)
+    }
+
+    fun setTrimStartFrame(frame: Long) {
+        val current = _state.value
+        val trim = current.trimControls ?: return
+        if (!TransportPolicy.timelineEditingEnabled(current.transport)) return
+        val clip = current.project?.clips?.firstOrNull { it.id == trim.clipId } ?: return
+        _state.value = current.copy(trimControls = TrimControlPolicy.moveStart(trim, frame, clip))
+    }
+
+    fun setTrimEndFrame(frame: Long) {
+        val current = _state.value
+        val trim = current.trimControls ?: return
+        if (!TransportPolicy.timelineEditingEnabled(current.transport)) return
+        val clip = current.project?.clips?.firstOrNull { it.id == trim.clipId } ?: return
+        _state.value = current.copy(trimControls = TrimControlPolicy.moveEnd(trim, frame, clip))
+    }
+
+    fun cancelTrim() {
+        val current = _state.value
+        if (!TransportPolicy.timelineEditingEnabled(current.transport)) return
+        _state.value = current.copy(trimControls = null, clipStatus = "Trim cancelled")
+    }
+
+    fun applyTrim() {
+        val current = _state.value
+        val project = current.project ?: return
+        val trim = current.trimControls ?: return
+        if (current.importing || current.editingClip || !TransportPolicy.timelineEditingEnabled(current.transport)) return
+        viewModelScope.launch {
+            _state.value = current.copy(editingClip = true, error = null)
+            runCatching {
+                withContext(Dispatchers.IO) {
+                    repository.save(
+                        ProjectClipEditor.trimClipToTimelineEdges(
+                            project = project,
+                            clipId = trim.clipId,
+                            timelineStartFrame = trim.startFrame,
+                            timelineEndFrame = trim.endFrame,
+                            nowEpochMs = System.currentTimeMillis(),
+                        )
+                    )
+                }
+            }.onSuccess { saved ->
+                val end = TimelineControlPolicy.projectEndFrame(saved)
+                _state.value = _state.value.copy(
+                    editingClip = false,
+                    project = saved,
+                    trimControls = null,
+                    timelineControls = TimelineControlPolicy.normalizedForProject(_state.value.timelineControls, end),
+                    transportEngineReady = playbackReadiness(saved).ready,
+                    clipStatus = "Trim applied non-destructively • immutable source unchanged",
+                )
+            }.onFailure { error ->
+                _state.value = _state.value.copy(editingClip = false, error = error.message ?: "Trim could not be applied.")
+            }
+        }
+    }
+
     fun returnToStart() {
         if (!TransportPolicy.timelineEditingEnabled(_state.value.transport)) return
         setPlayheadFrame(0L)
     }
 
     fun toggleLoop() {
+        if (_state.value.trimControls != null) return
         _state.value = _state.value.copy(transport = TransportPolicy.toggleLoop(_state.value.transport))
     }
 
@@ -167,7 +236,13 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                 _state.value = current.copy(transport = current.transport.copy(mode = TransportMode.STOPPED))
             }
             TransportMode.RECORDING -> return
-            TransportMode.STOPPED -> startPlayback(current)
+            TransportMode.STOPPED -> {
+                if (current.trimControls != null) {
+                    _state.value = current.copy(error = "Apply or cancel the current trim before playback.")
+                    return
+                }
+                startPlayback(current)
+            }
         }
     }
 
@@ -254,10 +329,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                 override fun onError(message: String) {
                     viewModelScope.launch {
                         val state = _state.value
-                        _state.value = state.copy(
-                            transport = state.transport.copy(mode = TransportMode.STOPPED),
-                            error = message,
-                        )
+                        _state.value = state.copy(transport = state.transport.copy(mode = TransportMode.STOPPED), error = message)
                     }
                 }
             })
@@ -272,7 +344,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
     private fun editTimelineMarker(transform: (TimelineControlState, Long) -> TimelineControlState) {
         val current = _state.value
         val project = current.project ?: return
-        if (!TransportPolicy.timelineEditingEnabled(current.transport)) return
+        if (!TransportPolicy.timelineEditingEnabled(current.transport) || current.trimControls != null) return
         val end = TimelineControlPolicy.projectEndFrame(project)
         _state.value = current.copy(timelineControls = transform(current.timelineControls, end))
     }
@@ -280,7 +352,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
     private fun editClip(status: String, transform: (GuitarProject) -> GuitarProject) {
         val currentState = _state.value
         val current = currentState.project ?: return
-        if (currentState.importing || currentState.editingClip || !TransportPolicy.timelineEditingEnabled(currentState.transport)) return
+        if (currentState.importing || currentState.editingClip || currentState.trimControls != null || !TransportPolicy.timelineEditingEnabled(currentState.transport)) return
         viewModelScope.launch {
             _state.value = _state.value.copy(editingClip = true, error = null, clipStatus = null)
             runCatching { withContext(Dispatchers.IO) { repository.save(transform(current)) } }
@@ -309,14 +381,10 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
         if (audible.any { it.sourceChannelCount !in 1..2 }) {
             return PlaybackReadiness(false, reason = "M4 playback currently supports mono/stereo sources.")
         }
-        val firstRate = audible.first().sourceSampleRateHz
-            ?: return PlaybackReadiness(false, reason = "Playback source sample rate is unknown.")
+        val firstRate = audible.first().sourceSampleRateHz ?: return PlaybackReadiness(false, reason = "Playback source sample rate is unknown.")
         val projectRate = project.sampleRate.fixedHz ?: firstRate
         if (audible.any { it.sourceSampleRateHz != projectRate }) {
-            return PlaybackReadiness(
-                false,
-                reason = "Playback is gated because one or more clips need resampling. Source media remains immutable; resampling will use derived media when its gate is implemented.",
-            )
+            return PlaybackReadiness(false, reason = "Playback is gated because one or more clips need resampling. Source media remains immutable; resampling will use derived media when its gate is implemented.")
         }
         return PlaybackReadiness(true, projectRate)
     }

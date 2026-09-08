@@ -23,8 +23,8 @@ Never change speed/pitch accidentally. Mismatches require validated resampling.
 ## D-007 — Capability claims follow gates
 Planned/partial features are not advertised as supported.
 
-## D-008 — M2 hardware gate remains authoritative
-Parallel M3/M4 work does not close Pocket Amp homologation.
+## D-008 — M2 target hardware gate is closed
+The M2 Pocket Amp gate is HOMOLOGATED/PASS for Samsung SM-X230 on Android 16/API 36 with the tested Pocket Amp USB audio path. M2 no longer blocks branch integration. Future hardware combinations remain separate compatibility evidence and do not rewrite this specific result.
 
 ## D-009 — Production audio is distinct from diagnostics
 M2 probes do not substitute for Studio transport/recording architecture.
@@ -48,4 +48,7 @@ Manipulable positions use clear top marker heads with >=48dp targets; guide line
 Marker movement, clip edits and import are locked while PLAYING/RECORDING. There is no separate Pause state in the current transport model; Play toggles to Stop.
 
 ## D-016 — Playhead follows the audio hardware clock
-M4 playback uses Android `AudioTrack` over immutable managed WAV media. UI time must follow hardware-presented frames (`playbackHeadPosition`) rather than an arbitrary timer. Loop wrapping is deterministic and tested. The engine explicitly rejects sample-rate mismatches until a validated derived-media resampler exists. Recording remains a separate M5 gate.
+M4 playback uses Android `AudioTrack` over immutable managed WAV media. UI time follows hardware-presented frames (`playbackHeadPosition`) rather than an arbitrary timer. Loop wrapping is deterministic and tested. The engine rejects sample-rate mismatches until a validated derived-media resampler exists. Recording remains a separate M5 gate.
+
+## D-017 — Trim is a staged, non-destructive marker edit
+Trim uses mustard T◀/T▶ marker heads and a draft/apply/cancel transaction. Marker dragging changes only draft state while STOPPED; Apply persists clip metadata once. Moving the left edge changes timeline start and source offset by the same delta, preserving source/timeline alignment. The right edge changes visible length. Neither edge may expose frames outside the immutable managed source. Playback and unrelated edits are blocked while a trim draft is open.

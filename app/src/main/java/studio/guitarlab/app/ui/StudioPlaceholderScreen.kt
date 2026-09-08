@@ -41,6 +41,8 @@ import studio.guitarlab.core.project.TimelineControlPolicy
 import studio.guitarlab.core.project.TimelineControlState
 import studio.guitarlab.core.project.TransportPolicy
 import studio.guitarlab.core.project.TransportState
+import studio.guitarlab.core.project.TrimControlPolicy
+import studio.guitarlab.core.project.TrimControlState
 
 @Composable
 fun StudioPlaceholderScreen(
@@ -81,6 +83,7 @@ fun StudioPlaceholderScreen(
                 project = state.project!!,
                 waveforms = state.waveforms,
                 timelineControls = state.timelineControls,
+                trimControls = state.trimControls,
                 transport = state.transport,
                 transportEngineReady = state.transportEngineReady,
                 importing = state.importing,
@@ -89,7 +92,7 @@ fun StudioPlaceholderScreen(
                 clipStatus = state.clipStatus,
                 error = state.error,
                 onImportWav = { trackId ->
-                    if (!state.importing && !state.editingClip && TransportPolicy.timelineEditingEnabled(state.transport)) {
+                    if (!state.importing && !state.editingClip && state.trimControls == null && TransportPolicy.timelineEditingEnabled(state.transport)) {
                         pendingTrackId = trackId
                         wavPicker.launch(arrayOf("audio/wav", "audio/x-wav", "audio/wave", "application/octet-stream"))
                     }
@@ -101,6 +104,11 @@ fun StudioPlaceholderScreen(
                 onPlayheadFrameChanged = viewModel::setPlayheadFrame,
                 onLoopStartFrameChanged = viewModel::setLoopStartFrame,
                 onLoopEndFrameChanged = viewModel::setLoopEndFrame,
+                onBeginTrim = viewModel::beginTrim,
+                onTrimStartFrameChanged = viewModel::setTrimStartFrame,
+                onTrimEndFrameChanged = viewModel::setTrimEndFrame,
+                onApplyTrim = viewModel::applyTrim,
+                onCancelTrim = viewModel::cancelTrim,
                 onToggleClipMuted = viewModel::toggleClipMuted,
                 onRemoveClip = viewModel::removeClip,
             )
@@ -113,6 +121,7 @@ private fun ProjectWorkspace(
     project: GuitarProject,
     waveforms: Map<String, List<Float>>,
     timelineControls: TimelineControlState,
+    trimControls: TrimControlState?,
     transport: TransportState,
     transportEngineReady: Boolean,
     importing: Boolean,
@@ -128,13 +137,21 @@ private fun ProjectWorkspace(
     onPlayheadFrameChanged: (Long) -> Unit,
     onLoopStartFrameChanged: (Long) -> Unit,
     onLoopEndFrameChanged: (Long) -> Unit,
+    onBeginTrim: (String) -> Unit,
+    onTrimStartFrameChanged: (Long) -> Unit,
+    onTrimEndFrameChanged: (Long) -> Unit,
+    onApplyTrim: () -> Unit,
+    onCancelTrim: () -> Unit,
     onToggleClipMuted: (String) -> Unit,
     onRemoveClip: (String) -> Unit,
 ) {
     val sampleRateText = project.sampleRate.fixedHz?.let { "$it Hz" } ?: "Auto"
-    val projectEndFrame = TimelineControlPolicy.projectEndFrame(project)
+    val baseProjectEndFrame = TimelineControlPolicy.projectEndFrame(project)
+    val trimClip = trimControls?.let { state -> project.clips.firstOrNull { it.id == state.clipId } }
+    val projectEndFrame = maxOf(baseProjectEndFrame, trimClip?.let(TrimControlPolicy::maximumEndFrame) ?: 0L)
     val timelineEditingEnabled = TransportPolicy.timelineEditingEnabled(transport)
-    val busy = importing || editingClip || !timelineEditingEnabled
+    val trimActive = trimControls != null
+    val busy = importing || editingClip || !timelineEditingEnabled || trimActive
 
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(18.dp)) {
         ProjectFact("Template", project.template.name.lowercase().replaceFirstChar { it.uppercase() })
@@ -147,7 +164,7 @@ private fun ProjectWorkspace(
         Text("Transport", style = MaterialTheme.typography.titleLarge)
         TransportBar(
             state = transport,
-            engineReady = transportEngineReady,
+            engineReady = transportEngineReady && !trimActive,
             onReturnToStart = onReturnToStart,
             onPlayStop = onPlayStop,
             onRecord = onRecord,
@@ -155,15 +172,25 @@ private fun ProjectWorkspace(
         )
         if (!transportEngineReady) {
             Text(
-                "Play/record stay disabled until the production audio engine passes its gate. This prevents fake transport controls.",
+                "Play stays disabled until the current project has managed playback-ready audio. Record remains an M5 gate.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        } else if (trimActive) {
+            Text(
+                "Playback is temporarily disabled while a trim draft is open. Apply or cancel the trim first.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+
         Text("Timeline controls", style = MaterialTheme.typography.titleLarge)
         Text(
-            if (timelineEditingEnabled) "Drag the marker head at the top; the vertical line is guidance only."
-            else "Timeline markers are locked while playback or recording is active.",
+            when {
+                !timelineEditingEnabled -> "Timeline markers are locked while playback or recording is active."
+                trimActive -> "Trim mode: drag the mustard T◀ / T▶ heads. Source audio is not modified."
+                else -> "Drag the marker head at the top; the vertical line is guidance only."
+            },
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -176,13 +203,26 @@ private fun ProjectWorkspace(
             onPlayheadFrameChanged = onPlayheadFrameChanged,
             onLoopStartFrameChanged = onLoopStartFrameChanged,
             onLoopEndFrameChanged = onLoopEndFrameChanged,
+            trimStartFrame = trimControls?.startFrame,
+            trimEndFrame = trimControls?.endFrame,
+            onTrimStartFrameChanged = if (trimActive) onTrimStartFrameChanged else null,
+            onTrimEndFrameChanged = if (trimActive) onTrimEndFrameChanged else null,
             modifier = Modifier.fillMaxWidth(),
         )
         Text(
-            "Playhead ${timelineControls.playheadFrame} • Loop ${timelineControls.loopStartFrame}–${timelineControls.loopEndFrame} frames",
+            buildString {
+                append("Playhead ${timelineControls.playheadFrame} • Loop ${timelineControls.loopStartFrame}–${timelineControls.loopEndFrame} frames")
+                trimControls?.let { append(" • Trim ${it.startFrame}–${it.endFrame}") }
+            },
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        if (trimActive) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                TextButton(onClick = onApplyTrim, enabled = !editingClip && timelineEditingEnabled) { Text("Apply trim") }
+                TextButton(onClick = onCancelTrim, enabled = !editingClip && timelineEditingEnabled) { Text("Cancel") }
+            }
+        }
     }
 
     TimelinePreview(project, busy, onImportWav)
@@ -192,7 +232,15 @@ private fun ProjectWorkspace(
     error?.let { InlineStatus("Operation failed", it) }
 
     if (project.clips.isNotEmpty()) {
-        ClipManager(project, waveforms, busy, onToggleClipMuted, onRemoveClip)
+        ClipManager(
+            project = project,
+            waveforms = waveforms,
+            busy = importing || editingClip || !timelineEditingEnabled,
+            trimControls = trimControls,
+            onBeginTrim = onBeginTrim,
+            onToggleMuted = onToggleClipMuted,
+            onRemove = onRemoveClip,
+        )
     }
 
     Text("Track structure", style = MaterialTheme.typography.titleLarge)
@@ -208,8 +256,8 @@ private fun ProjectWorkspace(
     }
 
     InlineStatus(
-        "M4 transport-safety checkpoint",
-        "Transport symbols and edit-lock semantics are now canonical: return-to-start, play/stop, record and loop. Marker/import/clip edits are allowed only while stopped. Production playback remains gated until the real audio engine is wired and validated.",
+        "M4 playback + trim checkpoint",
+        "Playback uses immutable managed media and a hardware-clock playhead. Trim now uses explicit mustard marker heads with a draft/apply model; only clip metadata changes and all editing remains locked during active transport.",
     )
 }
 
@@ -262,11 +310,21 @@ private fun TimelineTrackRow(track: AudioTrack, clips: List<AudioClip>, busy: Bo
 }
 
 @Composable
-private fun ClipManager(project: GuitarProject, waveforms: Map<String, List<Float>>, busy: Boolean, onToggleMuted: (String) -> Unit, onRemove: (String) -> Unit) {
+private fun ClipManager(
+    project: GuitarProject,
+    waveforms: Map<String, List<Float>>,
+    busy: Boolean,
+    trimControls: TrimControlState?,
+    onBeginTrim: (String) -> Unit,
+    onToggleMuted: (String) -> Unit,
+    onRemove: (String) -> Unit,
+) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text("Clips", style = MaterialTheme.typography.titleLarge)
         project.clips.sortedWith(compareBy<AudioClip> { it.trackId }.thenBy { it.startFrame }).forEach { clip ->
             val trackName = project.tracks.firstOrNull { it.id == clip.trackId }?.name ?: "Missing track"
+            val thisTrimActive = trimControls?.clipId == clip.id
+            val anotherTrimActive = trimControls != null && !thisTrimActive
             Surface(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.34f)) {
                 Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -275,8 +333,9 @@ private fun ClipManager(project: GuitarProject, waveforms: Map<String, List<Floa
                         Text(if (clip.managedSourcePath != null) "Managed source • original protected" else "Legacy external reference", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         waveforms[clip.id]?.let { WaveformMini(peaks = it, muted = clip.muted) }
                     }
-                    TextButton(onClick = { onToggleMuted(clip.id) }, enabled = !busy) { Text(if (clip.muted) "Unmute" else "Mute") }
-                    TextButton(onClick = { onRemove(clip.id) }, enabled = !busy) { Text("Remove") }
+                    TextButton(onClick = { onBeginTrim(clip.id) }, enabled = !busy && trimControls == null) { Text(if (thisTrimActive) "Trimming" else "Trim") }
+                    TextButton(onClick = { onToggleMuted(clip.id) }, enabled = !busy && !anotherTrimActive && trimControls == null) { Text(if (clip.muted) "Unmute" else "Mute") }
+                    TextButton(onClick = { onRemove(clip.id) }, enabled = !busy && trimControls == null) { Text("Remove") }
                 }
             }
         }
