@@ -39,6 +39,8 @@ import studio.guitarlab.core.model.GuitarProject
 import studio.guitarlab.core.model.TrackGroup
 import studio.guitarlab.core.project.TimelineControlPolicy
 import studio.guitarlab.core.project.TimelineControlState
+import studio.guitarlab.core.project.TransportPolicy
+import studio.guitarlab.core.project.TransportState
 
 @Composable
 fun StudioPlaceholderScreen(
@@ -57,17 +59,10 @@ fun StudioPlaceholderScreen(
     LaunchedEffect(projectId) { viewModel.load(projectId) }
 
     Column(
-        Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 24.dp, vertical = 20.dp),
+        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp, vertical = 20.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
-        Row(
-            Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text("Studio", style = MaterialTheme.typography.headlineMedium)
                 Text(
@@ -81,25 +76,28 @@ fun StudioPlaceholderScreen(
 
         when {
             state.loading -> CircularProgressIndicator()
-            state.error != null && state.project == null -> InlineStatus(
-                title = "Project could not be opened",
-                text = state.error.orEmpty(),
-            )
+            state.error != null && state.project == null -> InlineStatus("Project could not be opened", state.error.orEmpty())
             state.project != null -> ProjectWorkspace(
                 project = state.project!!,
                 waveforms = state.waveforms,
                 timelineControls = state.timelineControls,
+                transport = state.transport,
+                transportEngineReady = state.transportEngineReady,
                 importing = state.importing,
                 editingClip = state.editingClip,
                 importStatus = state.importStatus,
                 clipStatus = state.clipStatus,
                 error = state.error,
                 onImportWav = { trackId ->
-                    if (!state.importing && !state.editingClip) {
+                    if (!state.importing && !state.editingClip && TransportPolicy.timelineEditingEnabled(state.transport)) {
                         pendingTrackId = trackId
                         wavPicker.launch(arrayOf("audio/wav", "audio/x-wav", "audio/wave", "application/octet-stream"))
                     }
                 },
+                onReturnToStart = viewModel::returnToStart,
+                onPlayStop = viewModel::togglePlayStop,
+                onRecord = viewModel::startRecording,
+                onToggleLoop = viewModel::toggleLoop,
                 onPlayheadFrameChanged = viewModel::setPlayheadFrame,
                 onLoopStartFrameChanged = viewModel::setLoopStartFrame,
                 onLoopEndFrameChanged = viewModel::setLoopEndFrame,
@@ -115,12 +113,18 @@ private fun ProjectWorkspace(
     project: GuitarProject,
     waveforms: Map<String, List<Float>>,
     timelineControls: TimelineControlState,
+    transport: TransportState,
+    transportEngineReady: Boolean,
     importing: Boolean,
     editingClip: Boolean,
     importStatus: String?,
     clipStatus: String?,
     error: String?,
     onImportWav: (String) -> Unit,
+    onReturnToStart: () -> Unit,
+    onPlayStop: () -> Unit,
+    onRecord: () -> Unit,
+    onToggleLoop: () -> Unit,
     onPlayheadFrameChanged: (Long) -> Unit,
     onLoopStartFrameChanged: (Long) -> Unit,
     onLoopEndFrameChanged: (Long) -> Unit,
@@ -129,11 +133,10 @@ private fun ProjectWorkspace(
 ) {
     val sampleRateText = project.sampleRate.fixedHz?.let { "$it Hz" } ?: "Auto"
     val projectEndFrame = TimelineControlPolicy.projectEndFrame(project)
+    val timelineEditingEnabled = TransportPolicy.timelineEditingEnabled(transport)
+    val busy = importing || editingClip || !timelineEditingEnabled
 
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(18.dp),
-    ) {
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(18.dp)) {
         ProjectFact("Template", project.template.name.lowercase().replaceFirstChar { it.uppercase() })
         ProjectFact("Tracks", project.tracks.size.toString())
         ProjectFact("Clips", project.clips.size.toString())
@@ -141,9 +144,26 @@ private fun ProjectWorkspace(
     }
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("Transport", style = MaterialTheme.typography.titleLarge)
+        TransportBar(
+            state = transport,
+            engineReady = transportEngineReady,
+            onReturnToStart = onReturnToStart,
+            onPlayStop = onPlayStop,
+            onRecord = onRecord,
+            onToggleLoop = onToggleLoop,
+        )
+        if (!transportEngineReady) {
+            Text(
+                "Play/record stay disabled until the production audio engine passes its gate. This prevents fake transport controls.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
         Text("Timeline controls", style = MaterialTheme.typography.titleLarge)
         Text(
-            "Drag the marker head at the top. The vertical line is visual guidance only and is not the drag target.",
+            if (timelineEditingEnabled) "Drag the marker head at the top; the vertical line is guidance only."
+            else "Timeline markers are locked while playback or recording is active.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -152,6 +172,7 @@ private fun ProjectWorkspace(
             playheadFrame = timelineControls.playheadFrame,
             loopStartFrame = timelineControls.loopStartFrame,
             loopEndFrame = timelineControls.loopEndFrame,
+            enabled = timelineEditingEnabled,
             onPlayheadFrameChanged = onPlayheadFrameChanged,
             onLoopStartFrameChanged = onLoopStartFrameChanged,
             onLoopEndFrameChanged = onLoopEndFrameChanged,
@@ -164,127 +185,67 @@ private fun ProjectWorkspace(
         )
     }
 
-    TimelinePreview(project, importing || editingClip, onImportWav)
+    TimelinePreview(project, busy, onImportWav)
 
     importStatus?.let { InlineStatus("Import", it) }
     clipStatus?.let { InlineStatus("Clip", it) }
     error?.let { InlineStatus("Operation failed", it) }
 
     if (project.clips.isNotEmpty()) {
-        ClipManager(
-            project = project,
-            waveforms = waveforms,
-            busy = importing || editingClip,
-            onToggleMuted = onToggleClipMuted,
-            onRemove = onRemoveClip,
-        )
+        ClipManager(project, waveforms, busy, onToggleClipMuted, onRemoveClip)
     }
 
     Text("Track structure", style = MaterialTheme.typography.titleLarge)
-
     val groupedTrackIds = mutableSetOf<String>()
     project.groups.sortedBy { it.order }.forEach { group ->
         val tracks = project.tracks.filter { it.groupId == group.id }.sortedBy { it.order }
         groupedTrackIds += tracks.map { it.id }
         GroupLane(group, tracks.map { it.name to roleName(it.roleId) })
     }
-
     val ungrouped = project.tracks.filter { it.id !in groupedTrackIds }.sortedBy { it.order }
     if (ungrouped.isNotEmpty()) {
-        GroupLane(
-            group = TrackGroup(id = "ungrouped", name = "Ungrouped", order = Int.MAX_VALUE),
-            tracks = ungrouped.map { it.name to roleName(it.roleId) },
-        )
+        GroupLane(TrackGroup(id = "ungrouped", name = "Ungrouped", order = Int.MAX_VALUE), ungrouped.map { it.name to roleName(it.roleId) })
     }
 
     InlineStatus(
-        title = "M4 timeline interaction checkpoint",
-        text = "Managed media and waveform caching are software-validated. Playhead and loop boundaries now use explicit top marker heads with large drag targets and bounded frame mapping. Transport audio playback remains the next isolated checkpoint; trim/record heads reuse the same marker contract when those modes are wired.",
+        "M4 transport-safety checkpoint",
+        "Transport symbols and edit-lock semantics are now canonical: return-to-start, play/stop, record and loop. Marker/import/clip edits are allowed only while stopped. Production playback remains gated until the real audio engine is wired and validated.",
     )
 }
 
 @Composable
-private fun TimelinePreview(
-    project: GuitarProject,
-    busy: Boolean,
-    onImportWav: (String) -> Unit,
-) {
+private fun TimelinePreview(project: GuitarProject, busy: Boolean, onImportWav: (String) -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Text("Timeline", style = MaterialTheme.typography.titleLarge)
-            Text(
-                "00:00   00:15   00:30   00:45   01:00",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            Text("00:00   00:15   00:30   00:45   01:00", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(14.dp),
-            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.28f),
-        ) {
+        Surface(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.28f)) {
             Column(Modifier.padding(vertical = 8.dp)) {
                 project.tracks.sortedBy { it.order }.forEach { track ->
-                    TimelineTrackRow(
-                        track = track,
-                        clips = project.clips.filter { it.trackId == track.id },
-                        busy = busy,
-                        onImportWav = { onImportWav(track.id) },
-                    )
+                    TimelineTrackRow(track, project.clips.filter { it.trackId == track.id }, busy) { onImportWav(track.id) }
                 }
-                if (project.tracks.isEmpty()) {
-                    Text(
-                        "No tracks yet",
-                        modifier = Modifier.padding(16.dp),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
+                if (project.tracks.isEmpty()) Text("No tracks yet", modifier = Modifier.padding(16.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }
 }
 
 @Composable
-private fun TimelineTrackRow(
-    track: AudioTrack,
-    clips: List<AudioClip>,
-    busy: Boolean,
-    onImportWav: () -> Unit,
-) {
+private fun TimelineTrackRow(track: AudioTrack, clips: List<AudioClip>, busy: Boolean, onImportWav: () -> Unit) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 5.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Text(
-            track.name,
-            modifier = Modifier.weight(0.24f),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        Text(track.name, modifier = Modifier.weight(0.24f), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Box(
-            modifier = Modifier
-                .weight(0.62f)
-                .height(34.dp)
-                .clip(RoundedCornerShape(8.dp))
-                .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.78f)),
+            modifier = Modifier.weight(0.62f).height(34.dp).clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.surface.copy(alpha = 0.78f)),
         ) {
             if (clips.isNotEmpty()) {
-                Row(
-                    modifier = Modifier.fillMaxSize().padding(4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
+                Row(modifier = Modifier.fillMaxSize().padding(4.dp), horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
                     clips.sortedBy { it.startFrame }.take(3).forEach { clip ->
-                        Surface(
-                            shape = RoundedCornerShape(6.dp),
-                            color = if (clip.muted) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.primaryContainer,
-                        ) {
+                        Surface(shape = RoundedCornerShape(6.dp), color = if (clip.muted) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.primaryContainer) {
                             Text(
                                 if (clip.muted) "Muted • ${clip.name}" else clip.name,
                                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
@@ -296,55 +257,25 @@ private fun TimelineTrackRow(
                 }
             }
         }
-        TextButton(
-            onClick = onImportWav,
-            enabled = !busy,
-            modifier = Modifier.weight(0.14f),
-        ) {
-            Text(if (busy) "…" else "+ WAV")
-        }
+        TextButton(onClick = onImportWav, enabled = !busy, modifier = Modifier.weight(0.14f)) { Text(if (busy) "…" else "+ WAV") }
     }
 }
 
 @Composable
-private fun ClipManager(
-    project: GuitarProject,
-    waveforms: Map<String, List<Float>>,
-    busy: Boolean,
-    onToggleMuted: (String) -> Unit,
-    onRemove: (String) -> Unit,
-) {
+private fun ClipManager(project: GuitarProject, waveforms: Map<String, List<Float>>, busy: Boolean, onToggleMuted: (String) -> Unit, onRemove: (String) -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text("Clips", style = MaterialTheme.typography.titleLarge)
         project.clips.sortedWith(compareBy<AudioClip> { it.trackId }.thenBy { it.startFrame }).forEach { clip ->
             val trackName = project.tracks.firstOrNull { it.id == clip.trackId }?.name ?: "Missing track"
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.34f),
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
+            Surface(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.34f)) {
+                Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text(clip.name, style = MaterialTheme.typography.bodyLarge)
-                        Text(
-                            "$trackName • ${clip.sourceFormat ?: "audio"} • ${clip.sourceSampleRateHz?.let { "$it Hz" } ?: "rate n/a"} • ${clip.sourceChannelCount?.let { "${it}ch" } ?: "channels n/a"}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        Text(
-                            if (clip.managedSourcePath != null) "Managed source • original protected" else "Legacy external reference",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
+                        Text("$trackName • ${clip.sourceFormat ?: "audio"} • ${clip.sourceSampleRateHz?.let { "$it Hz" } ?: "rate n/a"} • ${clip.sourceChannelCount?.let { "${it}ch" } ?: "channels n/a"}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(if (clip.managedSourcePath != null) "Managed source • original protected" else "Legacy external reference", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         waveforms[clip.id]?.let { WaveformMini(peaks = it, muted = clip.muted) }
                     }
-                    TextButton(onClick = { onToggleMuted(clip.id) }, enabled = !busy) {
-                        Text(if (clip.muted) "Unmute" else "Mute")
-                    }
+                    TextButton(onClick = { onToggleMuted(clip.id) }, enabled = !busy) { Text(if (clip.muted) "Unmute" else "Mute") }
                     TextButton(onClick = { onRemove(clip.id) }, enabled = !busy) { Text("Remove") }
                 }
             }
@@ -362,35 +293,16 @@ private fun ProjectFact(label: String, value: String) {
 
 @Composable
 private fun GroupLane(group: TrackGroup, tracks: List<Pair<String, String>>) {
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        Text(
-            group.name,
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        if (tracks.isEmpty()) {
-            Text("No tracks", color = MaterialTheme.colorScheme.onSurfaceVariant)
-        } else {
-            tracks.forEach { (name, role) -> TrackLane(name, role) }
-        }
+    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(group.name, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        if (tracks.isEmpty()) Text("No tracks", color = MaterialTheme.colorScheme.onSurfaceVariant) else tracks.forEach { (name, role) -> TrackLane(name, role) }
     }
 }
 
 @Composable
 private fun TrackLane(name: String, role: String) {
-    Surface(
-        shape = RoundedCornerShape(12.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.42f),
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        Row(
-            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 13.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
+    Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.42f), modifier = Modifier.fillMaxWidth()) {
+        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 13.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Text(name, style = MaterialTheme.typography.bodyLarge)
             Text(role, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
@@ -399,10 +311,7 @@ private fun TrackLane(name: String, role: String) {
 
 @Composable
 private fun InlineStatus(title: String, text: String) {
-    Column(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
+    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text(title, style = MaterialTheme.typography.titleMedium)
         Text(text, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
