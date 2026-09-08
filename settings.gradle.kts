@@ -22,3 +22,4 @@ include(":core:codec")
 
 include(":core:audio")
 include(":platform:audio-android")
+include(":platform:codec-android")
