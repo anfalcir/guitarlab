@@ -12,6 +12,7 @@ Read first:
 - [`docs/CODEC_SUPPORT_MATRIX.md`](docs/CODEC_SUPPORT_MATRIX.md) — planned vs implemented vs verified audio formats
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — module boundaries and design rules
 - [`docs/MANAGED_MEDIA_POLICY.md`](docs/MANAGED_MEDIA_POLICY.md) — immutable external/internal source policy and derived-media rules
+- [`docs/TIMELINE_INTERACTION_GUIDELINES.md`](docs/TIMELINE_INTERACTION_GUIDELINES.md) — marker-head, transport, color and stopped-only editing UX contract
 - [`docs/TEST_AND_HOMOLOGATION_PLAN.md`](docs/TEST_AND_HOMOLOGATION_PLAN.md) — CI/device/hardware validation
 - [`docs/DECISIONS.md`](docs/DECISIONS.md) — durable product/architecture decisions
 - [`docs/CURRENT_STATE.md`](docs/CURRENT_STATE.md) — exact development/gate status
@@ -23,7 +24,9 @@ Important: the M2 Pocket Amp physical hardware gate remains OPEN. Parallel M3/M4
 
 M3 established the codec architecture and WAV vertical slice. WAV-first does **not** mean WAV-only: multi-format import/export is an explicit final-product requirement and is tracked in the codec matrix.
 
-M4 now follows a strict managed-media invariant: imported external files are read-only inputs, successful imports create immutable project-managed source copies, non-destructive edits change metadata only, and waveforms/resampling/renders are separate derived artifacts.
+M4 now follows two strict invariants. Imported external files are read-only inputs and successful imports create immutable project-managed source copies. Timeline editing is user-controlled only while transport is STOPPED; PLAYING/RECORDING lock marker and clip edits while the future audio engine owns timeline progression.
+
+The canonical Studio transport UX is return-to-start, play→stop, record and loop with familiar symbols, no separate pause button. Trim uses a restrained mustard accent distinct from record red. Play/record remain disabled until the real production engines are implemented and gated.
 
 ## Build
 GitHub Actions in `.github/workflows/android-ci.yml` is the canonical remote executor. Routine development CI performs source materialization, JDK/Android setup, unit tests, Android Lint, debug APK assembly and diagnostics/artifact upload.
