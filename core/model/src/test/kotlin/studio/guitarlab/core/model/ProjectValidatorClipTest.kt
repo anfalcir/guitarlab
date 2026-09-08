@@ -26,6 +26,11 @@ class ProjectValidatorClipTest {
                         sourceUri = "content://audio/take1.wav",
                         startFrame = 0,
                         lengthFrames = 48_000,
+                        sourceFormat = "WAV",
+                        sourceSampleRateHz = 48_000,
+                        sourceChannelCount = 2,
+                        sourceBitsPerSample = 24,
+                        sourceEncoding = "PCM_S24_LE",
                     )
                 )
             )
@@ -55,6 +60,31 @@ class ProjectValidatorClipTest {
         assertTrue("clip.start.negative" in codes)
         assertTrue("clip.source-start.negative" in codes)
         assertTrue("clip.length.invalid" in codes)
+    }
+
+    @Test
+    fun clipRejectsInvalidKnownSourceMetadata() {
+        val issues = ProjectValidator.validate(
+            baseProject(
+                listOf(
+                    AudioClip(
+                        id = "clip-1",
+                        trackId = "track-1",
+                        name = "Bad metadata",
+                        sourceUri = "content://audio/bad.wav",
+                        startFrame = 0,
+                        lengthFrames = 100,
+                        sourceSampleRateHz = 0,
+                        sourceChannelCount = 0,
+                        sourceBitsPerSample = -1,
+                    )
+                )
+            )
+        )
+        val codes = issues.map { it.code }.toSet()
+        assertTrue("clip.source-rate.invalid" in codes)
+        assertTrue("clip.source-channels.invalid" in codes)
+        assertTrue("clip.source-bits.invalid" in codes)
     }
 
     @Test

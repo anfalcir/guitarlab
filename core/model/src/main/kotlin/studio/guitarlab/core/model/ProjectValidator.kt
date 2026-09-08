@@ -28,6 +28,9 @@ object ProjectValidator {
             if (clip.startFrame < 0) issues += ValidationIssue("clip.start.negative", "Clip '${clip.name}' start frame must be non-negative.")
             if (clip.sourceStartFrame < 0) issues += ValidationIssue("clip.source-start.negative", "Clip '${clip.name}' source start frame must be non-negative.")
             if (clip.lengthFrames <= 0) issues += ValidationIssue("clip.length.invalid", "Clip '${clip.name}' length must be positive.")
+            if (clip.sourceSampleRateHz != null && clip.sourceSampleRateHz <= 0) issues += ValidationIssue("clip.source-rate.invalid", "Clip '${clip.name}' source sample rate must be positive when known.")
+            if (clip.sourceChannelCount != null && clip.sourceChannelCount !in 1..32) issues += ValidationIssue("clip.source-channels.invalid", "Clip '${clip.name}' source channel count is invalid.")
+            if (clip.sourceBitsPerSample != null && clip.sourceBitsPerSample <= 0) issues += ValidationIssue("clip.source-bits.invalid", "Clip '${clip.name}' source bit depth must be positive when known.")
         }
 
         val customRoleIds = project.customRoles.map { it.id }

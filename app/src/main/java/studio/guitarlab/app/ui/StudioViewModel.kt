@@ -85,6 +85,11 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                         startFrame = 0,
                         sourceStartFrame = 0,
                         lengthFrames = metadata.totalFrames,
+                        sourceFormat = metadata.fileFormat.name,
+                        sourceSampleRateHz = metadata.sampleRateHz,
+                        sourceChannelCount = metadata.channelCount,
+                        sourceBitsPerSample = metadata.bitsPerSample,
+                        sourceEncoding = metadata.sampleEncoding.name,
                     )
                     repository.save(
                         current.copy(

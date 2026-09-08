@@ -50,6 +50,8 @@ object BuiltInRoles {
 /**
  * Timeline placement metadata. Audio bytes stay outside the project JSON; sourceUri is a stable
  * document/app URI reference and sourceStartFrame allows non-destructive trims later.
+ * Technical source fields are optional for backward-compatible schema evolution and let later
+ * transport/resampling checkpoints reason about imported media without re-probing on every load.
  */
 @Serializable data class AudioClip(
     val id: String,
@@ -61,6 +63,11 @@ object BuiltInRoles {
     val lengthFrames: Long,
     val gainDb: Float = 0f,
     val muted: Boolean = false,
+    val sourceFormat: String? = null,
+    val sourceSampleRateHz: Int? = null,
+    val sourceChannelCount: Int? = null,
+    val sourceBitsPerSample: Int? = null,
+    val sourceEncoding: String? = null,
 )
 
 @Serializable data class GuitarProject(
