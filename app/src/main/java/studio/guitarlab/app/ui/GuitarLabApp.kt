@@ -35,8 +35,10 @@ fun GuitarLabApp(homeViewModel: HomeViewModel = viewModel()) {
         )
         AppScreen.Settings -> SettingsScreen(
             onBack = { screen = AppScreen.Home },
-            onAudioDiagnostics = { screen = AppScreen.AudioProbe }
+            onAudioDiagnostics = { screen = AppScreen.AudioProbe },
+            onCodecDiagnostics = { screen = AppScreen.CodecProbe },
         )
         AppScreen.AudioProbe -> AudioProbeScreen(onBack = { screen = AppScreen.Settings })
+        AppScreen.CodecProbe -> CodecProbeScreen(onBack = { screen = AppScreen.Settings })
     }
 }
