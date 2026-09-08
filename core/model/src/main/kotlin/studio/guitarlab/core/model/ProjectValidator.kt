@@ -31,6 +31,15 @@ object ProjectValidator {
             if (clip.sourceSampleRateHz != null && clip.sourceSampleRateHz <= 0) issues += ValidationIssue("clip.source-rate.invalid", "Clip '${clip.name}' source sample rate must be positive when known.")
             if (clip.sourceChannelCount != null && clip.sourceChannelCount !in 1..32) issues += ValidationIssue("clip.source-channels.invalid", "Clip '${clip.name}' source channel count is invalid.")
             if (clip.sourceBitsPerSample != null && clip.sourceBitsPerSample <= 0) issues += ValidationIssue("clip.source-bits.invalid", "Clip '${clip.name}' source bit depth must be positive when known.")
+            if (clip.sourceTotalFrames != null && clip.sourceTotalFrames <= 0) issues += ValidationIssue("clip.source-total.invalid", "Clip '${clip.name}' source total frames must be positive when known.")
+            if (clip.sourceTotalFrames != null && clip.sourceStartFrame + clip.lengthFrames > clip.sourceTotalFrames) {
+                issues += ValidationIssue("clip.trim.bounds", "Clip '${clip.name}' trim exceeds the immutable source bounds.")
+            }
+            clip.managedSourcePath?.let { path ->
+                if (!path.startsWith("media/source/") || path.contains("..") || path.startsWith('/')) {
+                    issues += ValidationIssue("clip.managed-source.path", "Clip '${clip.name}' managed source path is invalid.")
+                }
+            }
         }
 
         val customRoleIds = project.customRoles.map { it.id }
