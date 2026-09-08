@@ -86,14 +86,18 @@ fun StudioPlaceholderScreen(
             state.project != null -> ProjectWorkspace(
                 project = state.project!!,
                 importing = state.importing,
+                editingClip = state.editingClip,
                 importStatus = state.importStatus,
-                importError = state.error,
+                clipStatus = state.clipStatus,
+                error = state.error,
                 onImportWav = { trackId ->
-                    if (!state.importing) {
+                    if (!state.importing && !state.editingClip) {
                         pendingTrackId = trackId
                         wavPicker.launch(arrayOf("audio/wav", "audio/x-wav", "audio/wave", "application/octet-stream"))
                     }
                 },
+                onToggleClipMuted = viewModel::toggleClipMuted,
+                onRemoveClip = viewModel::removeClip,
             )
         }
     }
@@ -103,9 +107,13 @@ fun StudioPlaceholderScreen(
 private fun ProjectWorkspace(
     project: GuitarProject,
     importing: Boolean,
+    editingClip: Boolean,
     importStatus: String?,
-    importError: String?,
+    clipStatus: String?,
+    error: String?,
     onImportWav: (String) -> Unit,
+    onToggleClipMuted: (String) -> Unit,
+    onRemoveClip: (String) -> Unit,
 ) {
     val sampleRateText = project.sampleRate.fixedHz?.let { "$it Hz" } ?: "Auto"
 
@@ -119,10 +127,20 @@ private fun ProjectWorkspace(
         ProjectFact("Sample rate", sampleRateText)
     }
 
-    TimelinePreview(project, importing, onImportWav)
+    TimelinePreview(project, importing || editingClip, onImportWav)
 
     importStatus?.let { InlineStatus("Import", it) }
-    importError?.let { InlineStatus("Import failed", it) }
+    clipStatus?.let { InlineStatus("Clip", it) }
+    error?.let { InlineStatus("Operation failed", it) }
+
+    if (project.clips.isNotEmpty()) {
+        ClipManager(
+            project = project,
+            busy = importing || editingClip,
+            onToggleMuted = onToggleClipMuted,
+            onRemove = onRemoveClip,
+        )
+    }
 
     Text("Track structure", style = MaterialTheme.typography.titleLarge)
 
@@ -142,15 +160,15 @@ private fun ProjectWorkspace(
     }
 
     InlineStatus(
-        title = "M4 import checkpoint",
-        text = "WAV import now validates through the M3 codec, persists a non-destructive clip at frame 0, and keeps transport/waveform gated for the next checkpoints.",
+        title = "M4 clip management checkpoint",
+        text = "Imported clips can now be muted/unmuted or removed with project persistence. The pure clip editor also supports validated movement by frame, which will be wired to timeline gestures after waveform/playhead foundations are validated.",
     )
 }
 
 @Composable
 private fun TimelinePreview(
     project: GuitarProject,
-    importing: Boolean,
+    busy: Boolean,
     onImportWav: (String) -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -177,7 +195,7 @@ private fun TimelinePreview(
                     TimelineTrackRow(
                         track = track,
                         clips = project.clips.filter { it.trackId == track.id },
-                        importing = importing,
+                        busy = busy,
                         onImportWav = { onImportWav(track.id) },
                     )
                 }
@@ -197,7 +215,7 @@ private fun TimelinePreview(
 private fun TimelineTrackRow(
     track: AudioTrack,
     clips: List<AudioClip>,
-    importing: Boolean,
+    busy: Boolean,
     onImportWav: () -> Unit,
 ) {
     Row(
@@ -227,13 +245,13 @@ private fun TimelineTrackRow(
                     clips.sortedBy { it.startFrame }.take(3).forEach { clip ->
                         Surface(
                             shape = RoundedCornerShape(6.dp),
-                            color = MaterialTheme.colorScheme.primaryContainer,
+                            color = if (clip.muted) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.primaryContainer,
                         ) {
                             Text(
-                                clip.name,
+                                if (clip.muted) "Muted • ${clip.name}" else clip.name,
                                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                color = if (clip.muted) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onPrimaryContainer,
                             )
                         }
                     }
@@ -242,10 +260,49 @@ private fun TimelineTrackRow(
         }
         TextButton(
             onClick = onImportWav,
-            enabled = !importing,
+            enabled = !busy,
             modifier = Modifier.weight(0.14f),
         ) {
-            Text(if (importing) "…" else "+ WAV")
+            Text(if (busy) "…" else "+ WAV")
+        }
+    }
+}
+
+@Composable
+private fun ClipManager(
+    project: GuitarProject,
+    busy: Boolean,
+    onToggleMuted: (String) -> Unit,
+    onRemove: (String) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("Clips", style = MaterialTheme.typography.titleLarge)
+        project.clips.sortedWith(compareBy<AudioClip> { it.trackId }.thenBy { it.startFrame }).forEach { clip ->
+            val trackName = project.tracks.firstOrNull { it.id == clip.trackId }?.name ?: "Missing track"
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.34f),
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text(clip.name, style = MaterialTheme.typography.bodyLarge)
+                        Text(
+                            "$trackName • ${clip.sourceFormat ?: "audio"} • ${clip.sourceSampleRateHz?.let { "$it Hz" } ?: "rate n/a"} • ${clip.sourceChannelCount?.let { "${it}ch" } ?: "channels n/a"}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    TextButton(onClick = { onToggleMuted(clip.id) }, enabled = !busy) {
+                        Text(if (clip.muted) "Unmute" else "Mute")
+                    }
+                    TextButton(onClick = { onRemove(clip.id) }, enabled = !busy) { Text("Remove") }
+                }
+            }
         }
     }
 }

@@ -24,13 +24,23 @@ Last updated: 2026-09-08
 - non-destructive `AudioClip` timeline model and validation;
 - timeline preview foundation;
 - WAV import vertical slice via Android Files/SAF into a chosen track;
-- imported clip persistence through `FileProjectRepository`.
+- imported clip persistence through `FileProjectRepository`;
+- technical source metadata persisted on clips;
+- clip-management core with validated remove, mute/unmute and frame movement operations;
+- Studio controls for persisted mute/unmute and removal.
 
-## Latest verified CI before this documentation checkpoint
-Commit `d6e3ee225a88e55c019ca3fced882d777f5bc9b0` (`feat(studio): import validated WAV into persisted timeline clip`) has GitHub Actions run #57 completed successfully. Unit tests, Android Lint, debug APK assembly and artifact upload passed. Signed homologation was not required for the routine development checkpoint.
+## Latest verified CI before this checkpoint
+Run #65 completed successfully for the documentation + M4 source-metadata checkpoint. Unit tests, Android Lint, debug APK assembly and artifact upload passed. Signed homologation was intentionally skipped for this routine development checkpoint.
 
 ## Current implementation checkpoint
-M4 now persists technical source metadata on imported clips (`sourceFormat`, sample rate, channel count, bit depth and encoding) so later transport/resampling checkpoints do not need to re-probe the source on every project load. The next checkpoints are clip management, waveform caching/rendering and transport/playhead.
+M4 clip management is now isolated behind a pure `ProjectClipEditor`, allowing deterministic tests before UI wiring. Mute/unmute and removal are exposed in Studio and persisted atomically. Frame movement is implemented and tested in the core editor but intentionally not yet exposed as a gesture until waveform scale and playhead semantics are established.
+
+## Next checkpoints
+1. waveform envelope/cache contract and deterministic generation;
+2. waveform rendering in timeline clips;
+3. transport state/playhead foundation;
+4. bind validated clip movement to timeline scale/gestures;
+5. broader codec/import support only as each format passes its own software/Android gates.
 
 ## Important limitations that are intentional, not final scope
 - user-facing Studio import currently begins with WAV only;

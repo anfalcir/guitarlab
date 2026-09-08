@@ -17,14 +17,17 @@ import studio.guitarlab.core.codec.WavMetadataReader
 import studio.guitarlab.core.model.AudioClip
 import studio.guitarlab.core.model.GuitarProject
 import studio.guitarlab.core.project.FileProjectRepository
+import studio.guitarlab.core.project.ProjectClipEditor
 import studio.guitarlab.platform.codec.android.AndroidAudioDocumentSourceFactory
 
 data class StudioUiState(
     val loading: Boolean = true,
     val importing: Boolean = false,
+    val editingClip: Boolean = false,
     val project: GuitarProject? = null,
     val error: String? = null,
     val importStatus: String? = null,
+    val clipStatus: String? = null,
 )
 
 class StudioViewModel(application: Application) : AndroidViewModel(application) {
@@ -58,7 +61,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
         }
 
         viewModelScope.launch {
-            _state.value = _state.value.copy(importing = true, error = null, importStatus = "Validating WAV…")
+            _state.value = _state.value.copy(importing = true, error = null, importStatus = "Validating WAV…", clipStatus = null)
             runCatching {
                 withContext(Dispatchers.IO) {
                     val context = getApplication<Application>()
@@ -109,6 +112,41 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                     importing = false,
                     error = error.message ?: "The WAV could not be imported.",
                     importStatus = null,
+                )
+            }
+        }
+    }
+
+    fun toggleClipMuted(clipId: String) {
+        editClip("Clip mute updated") { current ->
+            val clip = current.clips.firstOrNull { it.id == clipId } ?: error("Clip not found: $clipId")
+            ProjectClipEditor.setClipMuted(current, clipId, !clip.muted, System.currentTimeMillis())
+        }
+    }
+
+    fun removeClip(clipId: String) {
+        editClip("Clip removed") { current ->
+            ProjectClipEditor.removeClip(current, clipId, System.currentTimeMillis())
+        }
+    }
+
+    private fun editClip(status: String, transform: (GuitarProject) -> GuitarProject) {
+        val current = _state.value.project ?: return
+        if (_state.value.importing || _state.value.editingClip) return
+        viewModelScope.launch {
+            _state.value = _state.value.copy(editingClip = true, error = null, clipStatus = null)
+            runCatching {
+                withContext(Dispatchers.IO) { repository.save(transform(current)) }
+            }.onSuccess { saved ->
+                _state.value = _state.value.copy(
+                    editingClip = false,
+                    project = saved,
+                    clipStatus = status,
+                )
+            }.onFailure { error ->
+                _state.value = _state.value.copy(
+                    editingClip = false,
+                    error = error.message ?: "Clip edit failed.",
                 )
             }
         }
