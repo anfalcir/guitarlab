@@ -2,7 +2,7 @@ name: GuitarLab Android CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, dev/parallel-m3-m5 ]
   pull_request:
     branches: [ main ]
   workflow_dispatch:
@@ -94,7 +94,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: guitarlab-alpha03-software-gate
+          name: guitarlab-alpha04-software-gate
           if-no-files-found: warn
           retention-days: 30
           path: |
@@ -188,19 +188,21 @@ jobs:
         shell: bash
         run: |
           mkdir -p deliverables
-          cp app/build/outputs/apk/release/app-release.apk deliverables/GuitarLabStudio-M2-0.2.0-alpha03-homologacao.apk
+          cp app/build/outputs/apk/release/app-release.apk deliverables/GuitarLabStudio-M2-M3-0.2.0-alpha04-homologacao.apk
           sha256sum deliverables/*.apk > deliverables/SHA256SUMS.txt
           {
             echo "commit=${GITHUB_SHA}"
-            echo "versionName=0.2.0-alpha03"
-            echo "versionCode=4"
+            echo "versionName=0.2.0-alpha04"
+            echo "versionCode=5"
+            echo "milestones=M2-software-plus-M3-codec"
+            echo "hardwareGate=PocketAmp-M2-open"
             echo "certificateSha256=${EXPECTED_CERT_SHA256}"
           } > deliverables/BUILD_IDENTITY.txt
 
       - name: Upload signed homologation APK
         uses: actions/upload-artifact@v4
         with:
-          name: GuitarLabStudio-M2-alpha03-homologacao
+          name: GuitarLabStudio-M2-M3-alpha04-homologacao
           if-no-files-found: error
           retention-days: 90
           path: deliverables/
