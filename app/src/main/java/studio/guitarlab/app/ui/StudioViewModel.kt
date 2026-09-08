@@ -1,7 +1,6 @@
 package studio.guitarlab.app.ui
 
 import android.app.Application
-import android.content.Intent
 import android.net.Uri
 import android.provider.OpenableColumns
 import androidx.lifecycle.AndroidViewModel
@@ -13,25 +12,33 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import studio.guitarlab.core.codec.FileSeekableByteSource
 import studio.guitarlab.core.codec.WavMetadataReader
+import studio.guitarlab.core.codec.WavPcmDecoder
+import studio.guitarlab.core.codec.WaveformEnvelopeBuilder
 import studio.guitarlab.core.model.AudioClip
 import studio.guitarlab.core.model.GuitarProject
 import studio.guitarlab.core.project.FileProjectRepository
 import studio.guitarlab.core.project.ProjectClipEditor
-import studio.guitarlab.platform.codec.android.AndroidAudioDocumentSourceFactory
+import studio.guitarlab.core.project.ProjectManagedMediaStore
+import studio.guitarlab.core.project.WaveformCacheStore
 
 data class StudioUiState(
     val loading: Boolean = true,
     val importing: Boolean = false,
     val editingClip: Boolean = false,
     val project: GuitarProject? = null,
+    val waveforms: Map<String, List<Float>> = emptyMap(),
     val error: String? = null,
     val importStatus: String? = null,
     val clipStatus: String? = null,
 )
 
 class StudioViewModel(application: Application) : AndroidViewModel(application) {
-    private val repository = FileProjectRepository(application.filesDir)
+    private val rootDirectory = application.filesDir
+    private val repository = FileProjectRepository(rootDirectory)
+    private val mediaStore = ProjectManagedMediaStore(rootDirectory)
+    private val waveformCache = WaveformCacheStore(rootDirectory)
     private val _state = MutableStateFlow(StudioUiState())
     val state: StateFlow<StudioUiState> = _state.asStateFlow()
 
@@ -40,10 +47,12 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch {
             _state.value = StudioUiState(loading = true)
             runCatching {
-                withContext(Dispatchers.IO) { repository.load(projectId) }
-                    ?: error("Project not found: $projectId")
-            }.onSuccess { project ->
-                _state.value = StudioUiState(loading = false, project = project)
+                withContext(Dispatchers.IO) {
+                    val project = repository.load(projectId) ?: error("Project not found: $projectId")
+                    project to loadWaveforms(project)
+                }
+            }.onSuccess { (project, waveforms) ->
+                _state.value = StudioUiState(loading = false, project = project, waveforms = waveforms)
             }.onFailure { error ->
                 _state.value = StudioUiState(
                     loading = false,
@@ -61,51 +70,68 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
         }
 
         viewModelScope.launch {
-            _state.value = _state.value.copy(importing = true, error = null, importStatus = "Validating WAV…", clipStatus = null)
+            _state.value = _state.value.copy(
+                importing = true,
+                error = null,
+                importStatus = "Copying into project storage…",
+                clipStatus = null,
+            )
             runCatching {
                 withContext(Dispatchers.IO) {
                     val context = getApplication<Application>()
-                    runCatching {
-                        context.contentResolver.takePersistableUriPermission(
-                            uri,
-                            Intent.FLAG_GRANT_READ_URI_PERMISSION,
-                        )
-                    }
+                    val displayName = queryDisplayName(uri)?.takeIf { it.isNotBlank() } ?: "Imported WAV.wav"
+                    val input = context.contentResolver.openInputStream(uri)
+                        ?: error("Android could not read the selected audio document.")
+                    val asset = input.use { mediaStore.ingest(current.id, displayName, it) }
 
-                    val metadata = AndroidAudioDocumentSourceFactory.open(context, uri).use { source ->
-                        WavMetadataReader().read(source)
-                    }
-                    require(metadata.totalFrames > 0) { "Selected WAV contains no complete audio frames." }
+                    try {
+                        val metadata = FileSeekableByteSource(asset.file).use { source ->
+                            WavMetadataReader().read(source)
+                        }
+                        require(metadata.totalFrames > 0) { "Selected WAV contains no complete audio frames." }
 
-                    val name = queryDisplayName(uri)
-                        ?.takeIf { it.isNotBlank() }
-                        ?: "Imported WAV"
-                    val clip = AudioClip(
-                        id = UUID.randomUUID().toString(),
-                        trackId = trackId,
-                        name = name,
-                        sourceUri = uri.toString(),
-                        startFrame = 0,
-                        sourceStartFrame = 0,
-                        lengthFrames = metadata.totalFrames,
-                        sourceFormat = metadata.fileFormat.name,
-                        sourceSampleRateHz = metadata.sampleRateHz,
-                        sourceChannelCount = metadata.channelCount,
-                        sourceBitsPerSample = metadata.bitsPerSample,
-                        sourceEncoding = metadata.sampleEncoding.name,
-                    )
-                    repository.save(
-                        current.copy(
-                            clips = current.clips + clip,
-                            updatedAtEpochMs = System.currentTimeMillis(),
+                        val clipId = UUID.randomUUID().toString()
+                        val envelope = FileSeekableByteSource(asset.file).use { source ->
+                            WaveformEnvelopeBuilder.build(WavPcmDecoder(source), WAVEFORM_POINTS)
+                        }
+                        waveformCache.write(current.id, clipId, envelope)
+
+                        val clip = AudioClip(
+                            id = clipId,
+                            trackId = trackId,
+                            name = displayName,
+                            sourceUri = "managed://${asset.relativePath}",
+                            managedSourcePath = asset.relativePath,
+                            originUri = uri.toString(),
+                            startFrame = 0,
+                            sourceStartFrame = 0,
+                            lengthFrames = metadata.totalFrames,
+                            sourceTotalFrames = metadata.totalFrames,
+                            sourceFormat = metadata.fileFormat.name,
+                            sourceSampleRateHz = metadata.sampleRateHz,
+                            sourceChannelCount = metadata.channelCount,
+                            sourceBitsPerSample = metadata.bitsPerSample,
+                            sourceEncoding = metadata.sampleEncoding.name,
                         )
-                    ) to metadata
+                        val saved = repository.save(
+                            current.copy(
+                                clips = current.clips + clip,
+                                updatedAtEpochMs = System.currentTimeMillis(),
+                            )
+                        )
+                        Triple(saved, metadata, envelope.peaks)
+                    } catch (error: Throwable) {
+                        mediaStore.discardUncommitted(current.id, asset.relativePath)
+                        throw error
+                    }
                 }
-            }.onSuccess { (saved, metadata) ->
+            }.onSuccess { (saved, metadata, peaks) ->
+                val imported = saved.clips.last()
                 _state.value = StudioUiState(
                     loading = false,
                     project = saved,
-                    importStatus = "Imported ${metadata.channelCount}ch • ${metadata.sampleRateHz} Hz • ${metadata.totalFrames} frames",
+                    waveforms = _state.value.waveforms + (imported.id to peaks),
+                    importStatus = "Imported safely • ${metadata.channelCount}ch • ${metadata.sampleRateHz} Hz • immutable project copy",
                 )
             }.onFailure { error ->
                 _state.value = _state.value.copy(
@@ -138,9 +164,11 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
             runCatching {
                 withContext(Dispatchers.IO) { repository.save(transform(current)) }
             }.onSuccess { saved ->
+                val validClipIds = saved.clips.map { it.id }.toSet()
                 _state.value = _state.value.copy(
                     editingClip = false,
                     project = saved,
+                    waveforms = _state.value.waveforms.filterKeys { it in validClipIds },
                     clipStatus = status,
                 )
             }.onFailure { error ->
@@ -148,6 +176,25 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                     editingClip = false,
                     error = error.message ?: "Clip edit failed.",
                 )
+            }
+        }
+    }
+
+    private fun loadWaveforms(project: GuitarProject): Map<String, List<Float>> = buildMap {
+        project.clips.forEach { clip ->
+            val cached = waveformCache.read(project.id, clip.id)
+            if (cached != null) {
+                put(clip.id, cached.peaks)
+                return@forEach
+            }
+            val managedPath = clip.managedSourcePath ?: return@forEach
+            runCatching {
+                val file = mediaStore.resolve(project.id, managedPath)
+                val envelope = FileSeekableByteSource(file).use { source ->
+                    WaveformEnvelopeBuilder.build(WavPcmDecoder(source), WAVEFORM_POINTS)
+                }
+                waveformCache.write(project.id, clip.id, envelope)
+                put(clip.id, envelope.peaks)
             }
         }
     }
@@ -161,5 +208,9 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                 if (index >= 0) cursor.getString(index) else null
             }
         }.getOrNull()
+    }
+
+    private companion object {
+        const val WAVEFORM_POINTS = 320
     }
 }
