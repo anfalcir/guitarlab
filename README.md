@@ -12,20 +12,19 @@ Read first:
 - [`docs/CODEC_SUPPORT_MATRIX.md`](docs/CODEC_SUPPORT_MATRIX.md) — planned vs implemented vs verified audio formats
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — module boundaries and design rules
 - [`docs/MANAGED_MEDIA_POLICY.md`](docs/MANAGED_MEDIA_POLICY.md) — immutable source/derived-media rules
-- [`docs/TIMELINE_INTERACTION_GUIDELINES.md`](docs/TIMELINE_INTERACTION_GUIDELINES.md) — marker/transport UX contract
-- [`docs/STUDIO_WORKSPACE_GUIDELINES.md`](docs/STUDIO_WORKSPACE_GUIDELINES.md) — single-screen timeline-first Studio contract
 - [`docs/STUDIO_OPTIONS_AND_MIXER.md`](docs/STUDIO_OPTIONS_AND_MIXER.md) — Options, routing and Mixer contract
-- [`docs/M4_COMMERCIAL_POLISH_CHECKPOINT.md`](docs/M4_COMMERCIAL_POLISH_CHECKPOINT.md) — current product-facing Studio/Mixer checkpoint
+- [`docs/M4_COMMERCIAL_POLISH_CHECKPOINT.md`](docs/M4_COMMERCIAL_POLISH_CHECKPOINT.md) — M4 product-facing Studio/Mixer checkpoint
+- [`docs/M5_RECORDING_IMPLEMENTATION_PLAN.md`](docs/M5_RECORDING_IMPLEMENTATION_PLAN.md) — M5 recording architecture and gates
+- [`docs/M5_CAPTURE_ENGINE_CHECKPOINT.md`](docs/M5_CAPTURE_ENGINE_CHECKPOINT.md) — Android capture-engine checkpoint
 - [`docs/TEST_AND_HOMOLOGATION_PLAN.md`](docs/TEST_AND_HOMOLOGATION_PLAN.md) — CI/device/hardware validation
-- [`docs/DECISIONS.md`](docs/DECISIONS.md) — durable decisions
 - [`docs/CURRENT_STATE.md`](docs/CURRENT_STATE.md) — exact development/gate status
 
 ## Current development state
-Stable `main` remains the signed `0.2.0-alpha03` baseline. Active work is isolated on `dev/parallel-m3-m5` in draft PR #1. The branch app version is `0.2.0-alpha07`, versionCode 8.
+Stable `main` remains the signed `0.2.0-alpha03` baseline. Active work is isolated on `dev/parallel-m3-m5` in draft PR #1. The branch app version is `0.2.0-alpha08`, versionCode 9.
 
-M2 Pocket Amp physical homologation is **PASS / CLOSED** for Samsung SM-X230 on Android 16/API 36. M3 established the WAV codec/import foundation. M4 is still in progress and includes the real managed-WAV playback/loop/trim path, single-screen immersive Studio, Options/routing, persisted track/Master mix and real per-track/Master metering.
+M2 Pocket Amp physical homologation is **PASS / CLOSED** for Samsung SM-X230 on Android 16/API 36. M3 established the WAV codec/import foundation. The signed M4 alpha07 candidate is currently under physical/UI validation while development continues on M5.
 
-The active M4 checkpoint is the commercial-polish/Mixer V3 pass: pt-BR product UI, icon-first navigation, top-bar transport, persistent Mixer pinning, fixed Master + scrolling track strips, live gain/pan during playback, latched clip indicators, synchronized 20-color track identity, track rename/reorder/color/delete and new-track creation. Recording/monitoring remains M5; the Record transport remains disabled even though Arm metadata is user-operable.
+M5.A is software-green and established project-managed recording transactions plus a streaming float-WAV writer and the mandatory 5-second Record countdown policy. M5.B adds the Android capture engine, input-route enforcement, live input metering and configurable monitoring. The complete Studio Record workflow, duplex coordination and physical M5 gate remain pending subsequent checkpoints.
 
 WAV-first does **not** mean WAV-only: multi-format import/export remains explicit product scope and is tracked in the codec matrix.
 

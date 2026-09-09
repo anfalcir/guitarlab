@@ -31,6 +31,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import studio.guitarlab.core.audio.MonitoringMode
 
 @Composable
 fun SettingsScreen(
@@ -45,6 +46,7 @@ fun SettingsScreen(
     var outputChoices by remember { mutableStateOf(routingStore.outputChoices()) }
     var selectedInput by remember { mutableStateOf(routingStore.selectedInputSignature()) }
     var selectedOutput by remember { mutableStateOf(routingStore.selectedOutputSignature()) }
+    var monitoringMode by remember { mutableStateOf(routingStore.monitoringMode()) }
 
     fun refreshAudioDevices() {
         inputChoices = routingStore.inputChoices()
@@ -77,7 +79,7 @@ fun SettingsScreen(
             item {
                 OptionSection(
                     title = "Áudio",
-                    subtitle = "Escolha a entrada de gravação e a saída principal do Studio.",
+                    subtitle = "Entrada, saída e monitoramento usados pelo Studio.",
                 ) {
                     AudioDeviceSelector(
                         title = "Entrada de gravação",
@@ -97,7 +99,14 @@ fun SettingsScreen(
                             routingStore.selectOutput(signature)
                         },
                     )
-                    OptionRow("Taxa de amostragem", "Automática", "Usa a configuração do projeto quando definida")
+                    MonitoringSelector(
+                        mode = monitoringMode,
+                        onSelect = { mode ->
+                            monitoringMode = mode
+                            routingStore.selectMonitoringMode(mode)
+                        },
+                    )
+                    OptionRow("Taxa de amostragem", "Automática", "Durante a gravação o Studio respeita a taxa já estabelecida pelo projeto")
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         OutlinedButton(onClick = ::refreshAudioDevices) {
                             Icon(Icons.Default.Refresh, contentDescription = null)
@@ -155,6 +164,62 @@ fun SettingsScreen(
 }
 
 @Composable
+private fun MonitoringSelector(mode: MonitoringMode, onSelect: (MonitoringMode) -> Unit) {
+    var menuOpen by remember { mutableStateOf(false) }
+    val label = when (mode) {
+        MonitoringMode.OFF -> "Desligado"
+        MonitoringMode.AUTO -> "Automático"
+        MonitoringMode.ON -> "Ligado"
+    }
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.72f),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text("Monitoramento de entrada", style = MaterialTheme.typography.bodyMedium)
+                Text(
+                    when (mode) {
+                        MonitoringMode.OFF -> "Não envia a entrada de volta para a saída pelo app"
+                        MonitoringMode.AUTO -> "Evita retorno duplicado em interfaces USB e ativa somente em rotas seguras"
+                        MonitoringMode.ON -> "Força o retorno da entrada pela saída principal"
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Box(Modifier.padding(start = 12.dp)) {
+                OutlinedButton(onClick = { menuOpen = true }) { Text(label) }
+                DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                    MonitoringMode.entries.forEach { candidate ->
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    when (candidate) {
+                                        MonitoringMode.OFF -> "Desligado"
+                                        MonitoringMode.AUTO -> "Automático"
+                                        MonitoringMode.ON -> "Ligado"
+                                    }
+                                )
+                            },
+                            onClick = {
+                                menuOpen = false
+                                onSelect(candidate)
+                            },
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun AudioDeviceSelector(
     title: String,
     selectedSignature: String?,
@@ -184,21 +249,9 @@ private fun AudioDeviceSelector(
             Box(Modifier.padding(start = 12.dp)) {
                 OutlinedButton(onClick = { menuOpen = true }) { Text(selectedLabel, maxLines = 1) }
                 DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                    DropdownMenuItem(
-                        text = { Text("Automático") },
-                        onClick = {
-                            menuOpen = false
-                            onSelect(null)
-                        },
-                    )
+                    DropdownMenuItem(text = { Text("Automático") }, onClick = { menuOpen = false; onSelect(null) })
                     choices.forEach { choice ->
-                        DropdownMenuItem(
-                            text = { Text(choice.label) },
-                            onClick = {
-                                menuOpen = false
-                                onSelect(choice.signature)
-                            },
-                        )
+                        DropdownMenuItem(text = { Text(choice.label) }, onClick = { menuOpen = false; onSelect(choice.signature) })
                     }
                 }
             }

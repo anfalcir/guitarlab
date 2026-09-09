@@ -4,6 +4,7 @@ import android.content.Context
 import android.media.AudioDeviceInfo
 import android.media.AudioManager
 import android.os.Build
+import studio.guitarlab.core.audio.MonitoringMode
 
 data class StudioAudioDeviceChoice(
     val signature: String,
@@ -17,14 +18,10 @@ class StudioAudioRoutingStore(context: Context) {
     private val preferences = appContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
     fun inputChoices(): List<StudioAudioDeviceChoice> =
-        audioManager.getDevices(AudioManager.GET_DEVICES_INPUTS)
-            .map(::toChoice)
-            .sortedBy { it.label.lowercase() }
+        audioManager.getDevices(AudioManager.GET_DEVICES_INPUTS).map(::toChoice).sortedBy { it.label.lowercase() }
 
     fun outputChoices(): List<StudioAudioDeviceChoice> =
-        audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
-            .map(::toChoice)
-            .sortedBy { it.label.lowercase() }
+        audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS).map(::toChoice).sortedBy { it.label.lowercase() }
 
     fun selectedInputSignature(): String? = preferences.getString(KEY_INPUT_SIGNATURE, null)
     fun selectedOutputSignature(): String? = preferences.getString(KEY_OUTPUT_SIGNATURE, null)
@@ -37,6 +34,15 @@ class StudioAudioRoutingStore(context: Context) {
         preferences.edit().putString(KEY_OUTPUT_SIGNATURE, signature).apply()
     }
 
+    fun monitoringMode(): MonitoringMode {
+        val stored = preferences.getString(KEY_MONITORING_MODE, MonitoringMode.AUTO.name)
+        return runCatching { MonitoringMode.valueOf(stored ?: MonitoringMode.AUTO.name) }.getOrDefault(MonitoringMode.AUTO)
+    }
+
+    fun selectMonitoringMode(mode: MonitoringMode) {
+        preferences.edit().putString(KEY_MONITORING_MODE, mode.name).apply()
+    }
+
     fun resolveSelectedInputDeviceId(): Int? = resolveSelectedInputDevice()?.id
     fun resolveSelectedOutputDeviceId(): Int? = resolveSelectedOutputDevice()?.id
 
@@ -45,6 +51,9 @@ class StudioAudioRoutingStore(context: Context) {
 
     fun resolveSelectedOutputDevice(): AudioDeviceInfo? =
         resolveSelectedDevice(AudioManager.GET_DEVICES_OUTPUTS, selectedOutputSignature())
+
+    fun isSelectedInputUnavailable(): Boolean =
+        !selectedInputSignature().isNullOrBlank() && resolveSelectedInputDevice() == null
 
     fun isSelectedOutputUnavailable(): Boolean =
         !selectedOutputSignature().isNullOrBlank() && resolveSelectedOutputDevice() == null
@@ -75,5 +84,6 @@ class StudioAudioRoutingStore(context: Context) {
         const val PREFS_NAME = "studio_audio_routing"
         const val KEY_INPUT_SIGNATURE = "input_signature"
         const val KEY_OUTPUT_SIGNATURE = "output_signature"
+        const val KEY_MONITORING_MODE = "monitoring_mode"
     }
 }
