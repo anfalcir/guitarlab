@@ -11,12 +11,19 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -53,15 +60,15 @@ fun HomeScreen(
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
                 Text("GuitarLab", style = MaterialTheme.typography.headlineLarge)
-                Text("Practice • record • compare", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Pratique · grave · compare", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            OutlinedButton(onClick = onSettings) { Text("Options") }
+            AppIconButton(icon = Icons.Default.Tune, contentDescription = "Opções", onClick = onSettings)
         }
 
         Surface(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(22.dp),
-            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.42f),
+            color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.34f),
             tonalElevation = 0.dp,
         ) {
             Row(
@@ -70,14 +77,17 @@ fun HomeScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
                 Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                    Text("Your guitar workspace", style = MaterialTheme.typography.headlineSmall)
+                    Text("Seu espaço para tocar e evoluir", style = MaterialTheme.typography.headlineSmall)
                     Text(
-                        "Open a project and stay focused on the timeline — transport, mixer and editing stay organized around the music.",
+                        "Abra um projeto e trabalhe direto na música, com timeline, mixer e edição no mesmo fluxo.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                Button(onClick = onNewProject, modifier = Modifier.padding(start = 20.dp)) { Text("New project") }
+                Button(onClick = onNewProject, modifier = Modifier.padding(start = 20.dp)) {
+                    Icon(Icons.Default.Add, contentDescription = null)
+                    Text("Novo projeto", modifier = Modifier.padding(start = 6.dp))
+                }
             }
         }
 
@@ -87,11 +97,11 @@ fun HomeScreen(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
-                Text("Recent projects", style = MaterialTheme.typography.titleLarge)
-                Text("Continue where you stopped", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Projetos recentes", style = MaterialTheme.typography.titleLarge)
+                Text("Continue de onde parou", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             if (state.projects.isNotEmpty()) {
-                Text("${state.projects.size} total", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("${state.projects.size} no total", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
 
@@ -128,9 +138,9 @@ private fun EmptyProjectsState(onNewProject: () -> Unit, modifier: Modifier = Mo
             modifier = Modifier.fillMaxWidth().padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Text("No projects yet", style = MaterialTheme.typography.titleLarge)
-            Text("Create a blank project or start from the Guitar template.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Button(onClick = onNewProject) { Text("Create first project") }
+            Text("Nenhum projeto ainda", style = MaterialTheme.typography.titleLarge)
+            Text("Crie um projeto vazio ou comece pelo template de guitarra.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Button(onClick = onNewProject) { Text("Criar primeiro projeto") }
         }
     }
 }
@@ -159,22 +169,30 @@ private fun ProjectRow(
                 shape = RoundedCornerShape(12.dp),
                 color = MaterialTheme.colorScheme.primaryContainer,
             ) {
-                Text("♫", modifier = Modifier.padding(horizontal = 13.dp, vertical = 9.dp), style = MaterialTheme.typography.titleLarge)
+                Icon(Icons.Default.MusicNote, contentDescription = null, modifier = Modifier.padding(12.dp))
             }
             Column(Modifier.weight(1f).padding(start = 14.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                 Text(project.name, style = MaterialTheme.typography.titleMedium)
                 val modified = DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT).format(Date(project.updatedAtEpochMs))
-                Text("$modified  •  ${project.tracks.size} tracks  •  ${project.clips.size} clips", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            Box {
                 Text(
-                    text = "•••",
-                    modifier = Modifier.clip(RoundedCornerShape(10.dp)).clickable { menuOpen = true }.padding(horizontal = 10.dp, vertical = 8.dp),
+                    "$modified  ·  ${project.tracks.size} ${if (project.tracks.size == 1) "pista" else "pistas"}  ·  ${project.clips.size} ${if (project.clips.size == 1) "clipe" else "clipes"}",
+                    style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+            }
+            Box {
+                AppIconButton(icon = Icons.Default.MoreVert, contentDescription = "Mais ações", onClick = { menuOpen = true })
                 DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                    DropdownMenuItem(text = { Text("Duplicate") }, onClick = { menuOpen = false; onDuplicate() })
-                    DropdownMenuItem(text = { Text("Delete") }, onClick = { menuOpen = false; onDelete() })
+                    DropdownMenuItem(
+                        text = { Text("Duplicar") },
+                        leadingIcon = { Icon(Icons.Default.ContentCopy, contentDescription = null) },
+                        onClick = { menuOpen = false; onDuplicate() },
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Excluir") },
+                        leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+                        onClick = { menuOpen = false; onDelete() },
+                    )
                 }
             }
         }

@@ -8,9 +8,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -19,6 +20,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
@@ -33,49 +35,50 @@ fun NewProjectScreen(
     var selected by remember { mutableStateOf(ProjectTemplate.GUITAR) }
 
     Column(
-        modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 20.dp),
-        verticalArrangement = Arrangement.spacedBy(22.dp),
+        modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 18.dp),
+        verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text("New project", style = MaterialTheme.typography.headlineMedium)
-            Text(
-                "Choose a starting point. You can change the track structure later.",
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text("Novo projeto", style = MaterialTheme.typography.headlineMedium)
+                Text("Escolha um ponto de partida. A estrutura pode ser ajustada depois.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            AppIconButton(icon = Icons.Default.ArrowBack, contentDescription = "Voltar", onClick = onBack)
         }
 
         OutlinedTextField(
             value = name,
             onValueChange = { name = it },
-            label = { Text("Project name") },
-            placeholder = { Text("e.g. Hero practice") },
+            label = { Text("Nome do projeto") },
+            placeholder = { Text("Ex.: Estudo Hero") },
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
         )
 
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text("Start from", style = MaterialTheme.typography.titleMedium)
+            Text("Começar com", style = MaterialTheme.typography.titleMedium)
             TemplateOption(
-                title = "Guitar Template",
-                description = "Backing, reference guitars and your double-tracked guitars already organized.",
+                title = "Template de guitarra",
+                description = "Base, guitarras de referência e suas guitarras já organizadas.",
                 selected = selected == ProjectTemplate.GUITAR,
                 onClick = { selected = ProjectTemplate.GUITAR },
             )
             TemplateOption(
-                title = "Blank Project",
-                description = "An empty workspace for building the project exactly as you want.",
+                title = "Projeto vazio",
+                description = "Uma área limpa para montar as pistas do jeito que você quiser.",
                 selected = selected == ProjectTemplate.BLANK,
                 onClick = { selected = ProjectTemplate.BLANK },
             )
         }
 
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            OutlinedButton(onClick = onBack) { Text("Cancel") }
-            Button(
-                enabled = name.isNotBlank(),
-                onClick = { onCreate(name.trim(), selected) },
-            ) { Text("Create project") }
-        }
+        Button(
+            enabled = name.isNotBlank(),
+            onClick = { onCreate(name.trim(), selected) },
+        ) { Text("Criar projeto") }
     }
 }
 
@@ -90,11 +93,11 @@ private fun TemplateOption(
     Surface(
         modifier = Modifier.fillMaxWidth().clip(shape).clickable(onClick = onClick),
         shape = shape,
-        color = if (selected) {
-            MaterialTheme.colorScheme.primaryContainer
-        } else {
-            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.42f)
-        },
+        color = if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.42f),
+        border = androidx.compose.foundation.BorderStroke(
+            if (selected) 1.5.dp else 1.dp,
+            if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.45f),
+        ),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 15.dp),
@@ -106,11 +109,7 @@ private fun TemplateOption(
             )
             Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
                 Text(title, style = MaterialTheme.typography.titleMedium)
-                Text(
-                    description,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                Text(description, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }

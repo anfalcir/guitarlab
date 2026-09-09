@@ -9,64 +9,66 @@ Last updated: 2026-09-09
 ## Active development
 - branch: `dev/parallel-m3-m5`
 - draft PR: #1
-- branch app version: `0.2.0-alpha06`, versionCode 7.
-- alpha06 is the current M4 consolidation candidate line. It supersedes the historical alpha05 package for validating the current Studio redesign, routing and Mixer/Master work.
+- branch app version: `0.2.0-alpha07`, versionCode 8.
+- alpha06 remains the last signed M4 artifact; alpha07 is the active commercial-polish/Mixer V3 software checkpoint and must pass its own CI before a new signed candidate is produced.
 
 ## Gates
 - M2 software diagnostics: CI-green.
 - M2 Pocket Amp physical homologation on Samsung SM-X230 / Android 16 API 36: **PASS / HOMOLOGATED**.
 - M3 WAV codec core/Android path: software-green; tested tablet evidence exists for PCM24/44.1 kHz/stereo direct seek.
-- M4: **IN PROGRESS**. Current software feature checkpoint is green; signed alpha06 build/signing validation and physical consolidation are the remaining gates.
+- M4: **IN PROGRESS**. Physical consolidation remains pending.
 
-## M2 homologation closure
-Physical Pocket Amp evidence covers the complete planned M2 checklist for the target tablet/interface combination: correct USB routing, Play, Record, Duplex, hot-unplug handling, idle reconnect, permission-denied safety and repeated stability. See `M2_HOMOLOGATION_EVIDENCE.md`. M2 is not an open merge blocker.
+## M4 foundations already established
+- single-screen, timeline-first Studio with immersive fullscreen;
+- immutable project-managed WAV import, waveform cache and non-destructive trim;
+- real managed-WAV Android playback with hardware-clock playhead, seek/start, Stop and loop;
+- global audio input/output preferences with stable signatures and safe output fallback;
+- persisted track gain, pan, mute and solo;
+- persisted project Master gain;
+- real per-track and Master peak/RMS metering with deterministic peak hold/decay;
+- bottom Mixer Dock and centralized Options Center.
 
-## M4 completed software foundations
-- persisted Studio workspace and track lanes;
-- single-screen, timeline-first Studio layout with no whole-screen vertical scroll;
-- Graphite Studio visual direction and immersive fullscreen shell;
-- immutable project-managed WAV import and technical metadata;
-- non-destructive `AudioClip`, waveform cache/rendering and trim core;
-- explicit marker heads; loop markers render only while loop is enabled;
-- trim draft with visible Apply/Cancel controls and immutable-source bounds;
-- STOPPED-only editing and deterministic transport ownership;
-- real Android managed-WAV playback driven by `AudioTrack.playbackHeadPosition`;
-- play-from-playhead, Stop and loop wrapping;
-- synchronized timeline/mixer track selection;
-- persisted track gain, pan, mute and solo with real playback behavior;
-- Options Center for global audio I/O, export workflow placement and diagnostics;
-- persisted audio device preferences using stable signatures rather than raw Android device IDs;
-- selected main output applied to playback with controlled fallback to Android Auto routing;
-- bottom Mixer Dock with hidden/visible and temporary/pinned states;
-- persistent project Master gain;
-- real per-track and Master Peak/RMS metering with deterministic peak hold/decay.
+## Alpha07 commercial-polish checkpoint
+The active checkpoint turns the M4 Studio from an engineering-oriented UI into a product-facing workspace while preserving the established audio/media invariants:
+- pt-BR user-facing UI across Home, project creation, Studio, Options and diagnostic screens;
+- icon-first navigation/actions where the meaning is unambiguous, with accessibility descriptions;
+- transport moved to the center of the Studio top bar;
+- persistent mixer pin preference; pinned mixer shows only Close, which also unpins;
+- Mixer V3 with fixed Master strip at the right and horizontally scrolling track strips at the left;
+- professional M/S/R state buttons: Mute red, Solo amber/yellow, Arm red, no checkmarks;
+- Arm metadata is user-operable preparation only; real recording/monitoring remains M5 and the Record transport remains disabled;
+- live track volume/pan and live Master gain during playback, with persistence on gesture completion;
+- gentle snap around 0 dB / center pan plus an explicit neutral reference mark;
+- latched per-track and Master CLIP indicators that survive Stop, clear by tapping the indicator, and reset at the start of a new playback/record attempt;
+- 20-color track palette synchronized across sidebar, clips/waveforms and Mixer;
+- track settings for rename, color, reorder and safe delete; new-track creation;
+- clip actions reduced to scissors (trim) and trash (delete); clip mute action removed from the clip card;
+- timeline marker rail and ruler share the exact same horizontal origin as track waveforms, eliminating the previous sidebar-width desynchronization;
+- richer Graphite palette using teal identity plus blue/amber semantic accents and track colors instead of a mostly monochrome teal presentation;
+- normal creative UI no longer exposes M2/M3/homologation/development wording; technical diagnostics remain available under advanced tools.
 
-## Latest completed software gate
-GitHub Actions run #211 completed **SUCCESS** for commit `b96b0fb846c2ba89732bed3dabe500734880e156`, covering the persistent Master + per-track metering/ballistics checkpoint.
+See `M4_COMMERCIAL_POLISH_CHECKPOINT.md` and `STUDIO_OPTIONS_AND_MIXER.md`.
 
-## Current M4 candidate checkpoint
-The branch is now prepared as `0.2.0-alpha06` / versionCode 7 for signed M4 consolidation. The candidate scope intentionally includes the modern single-workspace Studio, immersive fullscreen, Options/routing, track mix, Master and meters in addition to the earlier playback/loop/trim foundation.
+## Compatibility and safety
+- `AudioTrack.colorIndex` is additive metadata with default `-1`; schema-v1 projects without the field remain loadable.
+- project-owned media stays immutable during ordinary editing.
+- track deletion is blocked while the track still owns clips.
+- live mix changes update the running playback engine without rewriting source media.
+- structural edits remain STOPPED-only; live volume/pan/Master are the explicit transport-time exception.
 
 ## Signed candidate status
-The existing signed `0.2.0-alpha05` package is historical and must not be used to approve the current branch UI/Mixer scope. A signed alpha06 package must be produced by the controlled CI signing path, signer fingerprint verified, package identity/hashes inspected, and only then supplied for physical tablet homologation.
-
-## Remaining M4 consolidation gate
-Before PR #1 can merge to `main`:
-1. alpha06 software + signed homologation jobs must be green;
-2. inspect artifact identity, versionCode/versionName, APK hash and signer verification evidence;
-3. physically validate `M4_ALPHA06_HOMOLOGATION_CHECKLIST.md` on Samsung SM-X230;
-4. preserve immutable-source behavior and verify no P0/P1 regression;
-5. persist physical evidence in repository/PR;
-6. only then mark PR #1 ready and merge to `main`, followed by post-merge CI.
+- signed alpha06 is historical evidence for the immediately preceding M4 state.
+- alpha07 is **not yet a signed/physical candidate** until its branch-head software CI is green.
+- after software green, generate a signed alpha07 artifact through the controlled CI path, inspect identity/hash/signer evidence, then run the updated physical M4 checklist on the Samsung SM-X230.
 
 ## Intentional limitations
 - user-facing import currently begins with WAV;
 - compressed formats remain planned/unverified;
-- resampling is not production-enabled;
+- production resampling is not enabled;
 - playback requires managed mono/stereo WAV clips at the project/playback sample rate;
-- record/arm/monitoring remain M5 scope;
-- export command placement exists in Options, but export engine remains unimplemented/gated;
-- no live mixer automation while playback is active.
+- real recording, monitoring and record transport belong to M5;
+- Arm state does not claim capture capability;
+- export engine remains unimplemented/gated.
 
-## Branch policy
-Routine development uses software CI only. Signed homologation is explicit. `main` stays stable until the current M4 physical consolidation gate is green.
+## Merge policy
+PR #1 remains draft. Do not merge to `main` until the latest signed M4 candidate passes the physical tablet gate with no P0/P1 regression and the evidence is persisted in the repository/PR.

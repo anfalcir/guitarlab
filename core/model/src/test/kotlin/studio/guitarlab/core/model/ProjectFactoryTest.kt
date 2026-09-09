@@ -9,18 +9,26 @@ class ProjectFactoryTest {
     private val factory = ProjectFactory(idGenerator = { "id-${nextId++}" }, clock = { 1234L })
 
     @Test fun blankProjectStartsEmpty() {
-        val project = factory.create("Blank", ProjectTemplate.BLANK)
-        assertTrue(project.groups.isEmpty()); assertTrue(project.tracks.isEmpty()); assertTrue(ProjectValidator.validate(project).isEmpty())
-    }
-    @Test fun guitarTemplateHasThreeGroupsAndFiveTracks() {
-        val project = factory.create("Practice", ProjectTemplate.GUITAR)
-        assertEquals(listOf("Backing", "Reference Guitars", "My Guitars"), project.groups.sortedBy { it.order }.map { it.name })
-        assertEquals(listOf("Backing Track", "Guitar L", "Guitar R", "My Guitar L", "My Guitar R"), project.tracks.sortedBy { it.order }.map { it.name })
+        val project = factory.create("Vazio", ProjectTemplate.BLANK)
+        assertTrue(project.groups.isEmpty())
+        assertTrue(project.tracks.isEmpty())
         assertTrue(ProjectValidator.validate(project).isEmpty())
     }
+
+    @Test fun guitarTemplateHasThreeGroupsAndFiveTracks() {
+        val project = factory.create("Estudo", ProjectTemplate.GUITAR)
+        assertEquals(listOf("Base", "Guitarras de referência", "Minhas guitarras"), project.groups.sortedBy { it.order }.map { it.name })
+        assertEquals(listOf("Base", "Guitarra Ref. E", "Guitarra Ref. D", "Minha Guitarra E", "Minha Guitarra D"), project.tracks.sortedBy { it.order }.map { it.name })
+        assertTrue(ProjectValidator.validate(project).isEmpty())
+    }
+
     @Test fun doubleTrackingDefaultsAreMonoAndHardPanned() {
-        val project = factory.create("Practice", ProjectTemplate.GUITAR)
-        val left = project.tracks.first { it.name == "My Guitar L" }; val right = project.tracks.first { it.name == "My Guitar R" }
-        assertEquals(ChannelLayout.MONO, left.channelLayout); assertEquals(ChannelLayout.MONO, right.channelLayout); assertEquals(-1f, left.pan); assertEquals(1f, right.pan)
+        val project = factory.create("Estudo", ProjectTemplate.GUITAR)
+        val left = project.tracks.first { it.name == "Minha Guitarra E" }
+        val right = project.tracks.first { it.name == "Minha Guitarra D" }
+        assertEquals(ChannelLayout.MONO, left.channelLayout)
+        assertEquals(ChannelLayout.MONO, right.channelLayout)
+        assertEquals(-1f, left.pan)
+        assertEquals(1f, right.pan)
     }
 }

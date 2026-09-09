@@ -15,8 +15,9 @@ fun WaveformMini(
     peaks: List<Float>,
     modifier: Modifier = Modifier,
     muted: Boolean = false,
+    color: Color = MaterialTheme.colorScheme.primary,
 ) {
-    val color = if (muted) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.primary
+    val waveformColor = if (muted) MaterialTheme.colorScheme.onSurfaceVariant else color
     Canvas(modifier.fillMaxWidth().height(18.dp)) {
         if (peaks.isEmpty()) return@Canvas
         val centerY = size.height / 2f
@@ -25,7 +26,7 @@ fun WaveformMini(
             val amplitude = rawPeak.coerceIn(0f, 1f) * centerY
             val x = (index + 0.5f) * step
             drawLine(
-                color = color,
+                color = waveformColor,
                 start = Offset(x, centerY - amplitude),
                 end = Offset(x, centerY + amplitude),
                 strokeWidth = step.coerceAtMost(2f).coerceAtLeast(1f),

@@ -1,73 +1,129 @@
 # Studio Options Center and Mixer Dock
 
-This document is a normative UX/architecture contract for GuitarLab Studio options, routing and mixer presentation.
+This document is the normative UX/architecture contract for GuitarLab Studio options, routing and mixer presentation.
 
-## Options Center principle
-The Studio editing canvas stays focused on music. Low-frequency setup, routing, export and engineering commands are centralized in one `Options` center rather than scattered across the timeline.
+## Product-facing principle
+The creative canvas stays focused on music. Normal user-facing UI is pt-BR and uses clear conventional icons for frequent navigation/actions where that reduces visual noise without reducing communication or accessibility. Engineering milestone/homologation labels are reserved for documentation and advanced diagnostics, not normal Studio workflows.
 
-Options groups:
-- Audio I/O: one global recording input, one main output route, project/sample-rate context and monitoring setup when implemented;
-- Export: mix export, track export, range/full-project selection and portable project package when implemented;
-- Project & Studio: low-frequency workflow preferences;
-- Import & codecs: capability/status and codec diagnostics;
-- Advanced / diagnostics: M2/M3 engineering tools.
+## Options Center
+Low-frequency setup, routing, export and technical tools are centralized in `Opções` rather than scattered across the timeline.
+
+Groups:
+- Áudio: one global recording input, one main output route and project/sample-rate context;
+- Exportação: mix/track/package workflows when implemented;
+- Projeto e Studio: low-frequency workflow preferences;
+- Importação: user-visible file capability;
+- Ferramentas avançadas: audio/codec diagnostics.
 
 ## Audio routing scope
 Recording input is global to the Studio. Per-track input routing is intentionally not exposed in current scope.
 
-Main output selection also belongs in Options. The Master strip may summarize route state but must not duplicate the route selector.
+Main output selection belongs in Options. The Master strip summarizes the main output concept but does not duplicate the route selector.
 
-Android audio device IDs are session-ephemeral. Persisted route preferences use device signature information and are revalidated against currently enumerated devices. Current playback resolves the selected output at runtime and attempts `AudioTrack.setPreferredDevice`; unavailable/rejected routes fall back to Android Auto with an explicit status rather than crashing.
+Android audio device IDs are session-ephemeral. Persisted route preferences use device signature information and are revalidated against currently enumerated devices. Playback resolves the selected output at runtime and attempts `AudioTrack.setPreferredDevice`; unavailable/rejected routes fall back to Android Auto rather than crashing.
 
 ## Export placement
-Export is a command workflow, not a permanent timeline control. Planned targets remain mix/stems/ranges, WAV 16/24/32-float, FLAC 16/24, MP3, AAC/M4A, Opus and applicable sample-rate/encoding parameters. No export action is enabled before the engine exists and passes its gate.
+Export is a command workflow, not a permanent timeline control. Planned targets remain mix/stems/ranges and the formats tracked in `CODEC_SUPPORT_MATRIX.md`. No export action is enabled before the export engine exists and passes its gate.
 
-## Mixer Dock
-The Mixer is a bottom dock with horizontal channel strips and a distinct Master strip.
-
-Independent user-visible states:
+## Mixer Dock states
+Independent states:
 - hidden/visible;
 - temporary/pinned.
 
-Temporary mode may close with `X`. Pinned mode remains anchored while track selection changes. Timeline and Mixer share one selected-track concept.
+Pinning is a persistent Studio UI preference, not project-audio metadata.
+- temporary Mixer shows PushPin + Close;
+- pinned Mixer shows only Close;
+- Close on a pinned Mixer closes and unpins it;
+- pin state survives navigation to Options and back.
 
-## Track strip scope — current state
+Timeline and Mixer share one selected-track concept.
+
+## Mixer V3 layout
+The Mixer is a bottom dock with two regions:
+- left: horizontally scrolling track strips;
+- right: fixed Master strip outside the track scroll container.
+
+This guarantees that Master remains reachable regardless of track count.
+
+## Track strip scope
 Implemented and real:
-- track name/identity;
-- gain -60..+12 dB, persisted;
-- pan L100..R100, persisted;
-- Mute and Solo, persisted and honored by playback;
-- live post-track-bus peak/RMS metering with peak hold/decay presentation.
+- track identity/name/color;
+- gain -60..+12 dB;
+- pan L100..R100;
+- Mute and Solo state/persistence and playback behavior;
+- Arm metadata state (preparation for M5 only);
+- post-track-bus Peak/RMS metering with peak hold/decay;
+- latched clipping indicator.
 
-Still gated:
-- record arm behavior and monitoring until M5;
-- live-safe automation/parameter changes during playback;
-- EQ/processing until a real DSP path exists.
+M/S/R presentation:
+- Mute active = red;
+- Solo active = amber/yellow;
+- Arm active = record red;
+- inactive = subdued neutral outline/foreground;
+- no appended checkmark glyphs.
 
-## Master strip scope — current state
-Implemented and real:
-- project-persisted master gain -60..+12 dB;
-- live Master peak/RMS measured after track sum + master gain and before output clamp;
-- visible clipping when signal exceeds 0 dBFS;
-- peak hold/decay presentation;
-- route summary text.
+## Live mix contract
+Track gain/pan and Master gain are explicit live-safe controls during playback.
 
-Output-device selection itself remains in Options.
+Track processing order:
+1. immutable clip decode;
+2. clip gain;
+3. live track gain + pan;
+4. track Peak/RMS meter;
+5. track sum;
+6. live Master gain;
+7. Master Peak/RMS meter;
+8. final clamp/output.
 
-## Meter semantics
-Track meters measure the audible track bus after clip+track gain/pan and before Master. Master measures the final mix after Master gain and before clamp. Meter display state is transient; it is never serialized into a project. `MeterBallisticsPolicy` supplies immediate attack, 750 ms peak hold and elapsed-time decay.
+Drag preview updates the running playback engine immediately. Persistence occurs at gesture completion to avoid a write per slider pixel. Project saves are serialized against the latest stored project snapshot to avoid stale live-mix writes overwriting unrelated project edits.
 
-## Master persistence compatibility
-`GuitarProject.masterGainDb` is additive metadata with a default of 0 dB. Existing schema-v1 JSON without this property decodes at unity, and round-trip tests protect the compatibility contract. Project validation enforces the supported gain range.
+Faders show a neutral reference and use narrow soft snapping:
+- track/Master gain: 0 dB;
+- pan: center.
+
+The snap region is intentionally small so it assists neutral positioning without blocking fine nearby adjustments.
+
+## Structural edit contract
+Structural edits remain STOPPED-only in M4:
+- trim/remove clip;
+- add/rename/reorder/recolor/delete track;
+- Mute/Solo/Arm changes;
+- timeline marker edits.
+
+Live gain/pan/Master are the deliberate exception. Real record/capture/monitoring remains M5, and the Record transport remains disabled until that gate exists.
+
+## Meter and clip-latch semantics
+`MeterBallisticsPolicy` remains transient and provides immediate attack, peak hold and elapsed-time decay.
+
+Clipping uses a separate latch:
+- track latch triggers above 0 dBFS after track mix;
+- Master latch triggers above 0 dBFS after Master gain and before clamp;
+- latch survives Stop even though moving meters reset;
+- tapping the `CLIP` badge clears it directly;
+- a new playback/record attempt clears all latches before the new run.
+
+No separate dismiss X is used for clip warnings.
+
+## Track colors and management
+`AudioTrack.colorIndex` selects one of 20 Graphite-compatible track colors shared across:
+- sidebar identity stripe/border;
+- timeline clip/card;
+- waveform;
+- corresponding Mixer strip.
+
+The field is additive with default `-1`, preserving legacy schema-v1 projects. Tracks without an explicit color derive a stable visual color from current track order until the user chooses one.
+
+Track settings support rename, color, move up/down and safe delete. Track deletion is blocked while clips still belong to that track. New generic mono tracks can be added from the timeline sidebar header.
 
 ## Visual direction
-Graphite Studio:
-- near-black background;
-- layered graphite surfaces;
-- restrained teal product identity;
-- semantic timeline colors reserved for playhead, loop, trim and record;
-- compact track colors/accents;
-- no floating explanatory prose in the creative canvas.
+Graphite remains the foundation, but the UI is intentionally richer than the alpha06 teal-monochrome pass:
+- near-black layered graphite surfaces;
+- teal GuitarLab identity;
+- blue secondary/navigation accents;
+- amber attention/Solo accents;
+- red/coral record/mute/error semantics;
+- 20 track identity colors;
+- semantic timeline colors reserved for playhead, loop and trim.
 
 ## Fullscreen
 The Android shell uses immersive fullscreen. System bars are hidden during normal use and may be revealed transiently using standard edge gestures.

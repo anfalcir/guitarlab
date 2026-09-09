@@ -2,17 +2,18 @@ package studio.guitarlab.app.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.IconButton
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.FiberManualRecord
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Repeat
+import androidx.compose.material.icons.filled.SkipPrevious
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import studio.guitarlab.app.ui.theme.StudioLoop
 import studio.guitarlab.app.ui.theme.StudioRecord
@@ -30,48 +31,44 @@ fun TransportBar(
     onToggleLoop: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val editingEnabled = TransportPolicy.timelineEditingEnabled(state)
+    val markerEditingEnabled = TransportPolicy.timelineEditingEnabled(state)
     Surface(
         modifier = modifier,
+        shape = MaterialTheme.shapes.large,
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.38f),
         tonalElevation = 0.dp,
-        shape = MaterialTheme.shapes.medium,
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.34f),
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 4.dp),
-            horizontalArrangement = Arrangement.Center,
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp),
+            horizontalArrangement = Arrangement.spacedBy(1.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            TransportButton("|◀", "Return to timeline start", editingEnabled, onReturnToStart)
-            TransportButton(
-                if (state.mode == TransportMode.STOPPED) "▶" else "■",
-                if (state.mode == TransportMode.STOPPED) "Play" else "Stop",
-                engineReady || state.mode == TransportMode.PLAYING,
-                onPlayStop,
+            AppIconButton(
+                icon = Icons.Default.SkipPrevious,
+                contentDescription = "Voltar ao início",
+                enabled = markerEditingEnabled,
+                onClick = onReturnToStart,
             )
-            TransportButton("●", "Record", false, onRecord, StudioRecord)
-            TransportButton("↻", "Loop", editingEnabled, onToggleLoop, if (state.loopEnabled) StudioLoop else null)
+            AppIconButton(
+                icon = if (state.mode == TransportMode.STOPPED) Icons.Default.PlayArrow else Icons.Default.Stop,
+                contentDescription = if (state.mode == TransportMode.STOPPED) "Reproduzir" else "Parar",
+                enabled = engineReady || state.mode == TransportMode.PLAYING,
+                onClick = onPlayStop,
+            )
+            AppIconButton(
+                icon = Icons.Default.FiberManualRecord,
+                contentDescription = "Gravar",
+                enabled = false,
+                tint = StudioRecord,
+                onClick = onRecord,
+            )
+            AppIconButton(
+                icon = Icons.Default.Repeat,
+                contentDescription = if (state.loopEnabled) "Desativar loop" else "Ativar loop",
+                enabled = markerEditingEnabled,
+                tint = if (state.loopEnabled) StudioLoop else MaterialTheme.colorScheme.onSurface,
+                onClick = onToggleLoop,
+            )
         }
-    }
-}
-
-@Composable
-private fun TransportButton(
-    symbol: String,
-    description: String,
-    enabled: Boolean,
-    onClick: () -> Unit,
-    accent: androidx.compose.ui.graphics.Color? = null,
-) {
-    IconButton(
-        onClick = onClick,
-        enabled = enabled,
-        modifier = Modifier.semantics { contentDescription = description },
-    ) {
-        Text(
-            symbol,
-            style = MaterialTheme.typography.titleLarge,
-            color = accent ?: MaterialTheme.colorScheme.onSurface,
-        )
     }
 }

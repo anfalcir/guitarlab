@@ -28,24 +28,38 @@ object BuiltInRoles {
     const val GENERIC = "builtin.generic"
 
     val definitions = listOf(
-        TrackRoleDefinition(BACKING, "Backing Track", true, ChannelLayout.STEREO),
-        TrackRoleDefinition(REFERENCE_GUITAR, "Reference Guitar", true, ChannelLayout.MONO),
-        TrackRoleDefinition(REFERENCE_GUITAR_L, "Reference Guitar L", true, ChannelLayout.MONO, -1f),
-        TrackRoleDefinition(REFERENCE_GUITAR_R, "Reference Guitar R", true, ChannelLayout.MONO, 1f),
-        TrackRoleDefinition(RECORDED_GUITAR, "Recorded Guitar", true, ChannelLayout.MONO),
-        TrackRoleDefinition(RECORDED_GUITAR_L, "Recorded Guitar L", true, ChannelLayout.MONO, -1f),
-        TrackRoleDefinition(RECORDED_GUITAR_R, "Recorded Guitar R", true, ChannelLayout.MONO, 1f),
-        TrackRoleDefinition(GUITAR, "Guitar", true, ChannelLayout.MONO),
-        TrackRoleDefinition(BASS, "Bass", true, ChannelLayout.MONO),
-        TrackRoleDefinition(DRUMS, "Drums", true, ChannelLayout.STEREO),
-        TrackRoleDefinition(VOCALS, "Vocals", true, ChannelLayout.MONO),
-        TrackRoleDefinition(CLICK, "Click", true, ChannelLayout.MONO),
-        TrackRoleDefinition(GENERIC, "Generic", true, ChannelLayout.MONO)
+        TrackRoleDefinition(BACKING, "Base", true, ChannelLayout.STEREO),
+        TrackRoleDefinition(REFERENCE_GUITAR, "Guitarra de referência", true, ChannelLayout.MONO),
+        TrackRoleDefinition(REFERENCE_GUITAR_L, "Guitarra de referência E", true, ChannelLayout.MONO, -1f),
+        TrackRoleDefinition(REFERENCE_GUITAR_R, "Guitarra de referência D", true, ChannelLayout.MONO, 1f),
+        TrackRoleDefinition(RECORDED_GUITAR, "Guitarra gravada", true, ChannelLayout.MONO),
+        TrackRoleDefinition(RECORDED_GUITAR_L, "Guitarra gravada E", true, ChannelLayout.MONO, -1f),
+        TrackRoleDefinition(RECORDED_GUITAR_R, "Guitarra gravada D", true, ChannelLayout.MONO, 1f),
+        TrackRoleDefinition(GUITAR, "Guitarra", true, ChannelLayout.MONO),
+        TrackRoleDefinition(BASS, "Baixo", true, ChannelLayout.MONO),
+        TrackRoleDefinition(DRUMS, "Bateria", true, ChannelLayout.STEREO),
+        TrackRoleDefinition(VOCALS, "Voz", true, ChannelLayout.MONO),
+        TrackRoleDefinition(CLICK, "Metrônomo", true, ChannelLayout.MONO),
+        TrackRoleDefinition(GENERIC, "Genérica", true, ChannelLayout.MONO)
     )
 }
 
 @Serializable data class TrackGroup(val id: String, val name: String, val collapsed: Boolean = false, val order: Int)
-@Serializable data class AudioTrack(val id: String, val name: String, val groupId: String? = null, val roleId: String? = null, val roleSource: RoleSource = RoleSource.NONE, val channelLayout: ChannelLayout = ChannelLayout.MONO, val pan: Float = 0f, val gainDb: Float = 0f, val muted: Boolean = false, val solo: Boolean = false, val armed: Boolean = false, val order: Int)
+@Serializable data class AudioTrack(
+    val id: String,
+    val name: String,
+    val groupId: String? = null,
+    val roleId: String? = null,
+    val roleSource: RoleSource = RoleSource.NONE,
+    val channelLayout: ChannelLayout = ChannelLayout.MONO,
+    val pan: Float = 0f,
+    val gainDb: Float = 0f,
+    val muted: Boolean = false,
+    val solo: Boolean = false,
+    val armed: Boolean = false,
+    val order: Int,
+    val colorIndex: Int = -1,
+)
 
 /**
  * Imported media is copied into project-managed source storage. Neither the external original nor

@@ -10,9 +10,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
@@ -56,14 +60,14 @@ fun SettingsScreen(
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text("Options", style = MaterialTheme.typography.headlineMedium)
+                Text("Opções", style = MaterialTheme.typography.headlineMedium)
                 Text(
-                    if (projectId == null) "App setup and tools" else "Studio setup, project commands and tools",
+                    if (projectId == null) "Preferências do aplicativo" else "Áudio, projeto e ferramentas do Studio",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            OutlinedButton(onClick = onBack) { Text("Back") }
+            AppIconButton(icon = Icons.Default.ArrowBack, contentDescription = "Voltar", onClick = onBack)
         }
 
         LazyColumn(
@@ -72,11 +76,11 @@ fun SettingsScreen(
         ) {
             item {
                 OptionSection(
-                    title = "Audio I/O",
-                    subtitle = "Recording input and main output are global Studio choices, not per-track controls.",
+                    title = "Áudio",
+                    subtitle = "Escolha a entrada de gravação e a saída principal do Studio.",
                 ) {
                     AudioDeviceSelector(
-                        title = "Recording input",
+                        title = "Entrada de gravação",
                         selectedSignature = selectedInput,
                         choices = inputChoices,
                         onSelect = { signature ->
@@ -85,7 +89,7 @@ fun SettingsScreen(
                         },
                     )
                     AudioDeviceSelector(
-                        title = "Main output",
+                        title = "Saída principal",
                         selectedSignature = selectedOutput,
                         choices = outputChoices,
                         onSelect = { signature ->
@@ -93,64 +97,57 @@ fun SettingsScreen(
                             routingStore.selectOutput(signature)
                         },
                     )
-                    OptionRow("Project sample rate", "Auto / project setting", "32-bit float internal processing")
+                    OptionRow("Taxa de amostragem", "Automática", "Usa a configuração do projeto quando definida")
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedButton(onClick = ::refreshAudioDevices) { Text("Refresh devices") }
-                        Button(onClick = onAudioDiagnostics) { Text("Audio diagnostics") }
+                        OutlinedButton(onClick = ::refreshAudioDevices) {
+                            Icon(Icons.Default.Refresh, contentDescription = null)
+                            Text("Atualizar", modifier = Modifier.padding(start = 6.dp))
+                        }
+                        Button(onClick = onAudioDiagnostics) { Text("Diagnóstico de áudio") }
                     }
-                    Text(
-                        "Device choices are stored by a stable descriptor (type/product/address), not by Android's temporary device ID. If the selected device is unavailable, the Studio falls back safely until it reconnects.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
                 }
             }
 
             item {
                 OptionSection(
-                    title = "Export",
-                    subtitle = "Export commands live here instead of occupying the timeline.",
+                    title = "Exportação",
+                    subtitle = "As opções de exportação ficam centralizadas aqui.",
                 ) {
-                    OptionRow("Mix export", "WAV / FLAC / compressed targets", "Format, bit depth, sample rate and range will be chosen here")
-                    OptionRow("Export tracks", "Planned", "Individual track export will use the same centralized workflow")
-                    OptionRow("Project package", "Planned", "Portable GuitarLab project/media package")
-                    OutlinedButton(onClick = { }, enabled = false) { Text("Export project") }
-                    Text(
-                        "Export remains disabled until the export engine is implemented and software-gated; the Studio will not expose a fake command.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                    OptionRow("Mix final", "Em breve", "Formato, qualidade, taxa de amostragem e intervalo")
+                    OptionRow("Pistas separadas", "Em breve", "Exportação individual das pistas")
+                    OptionRow("Pacote do projeto", "Em breve", "Projeto portátil com mídias")
+                    OutlinedButton(onClick = { }, enabled = false) { Text("Exportar projeto") }
                 }
             }
 
             item {
                 OptionSection(
-                    title = "Project & Studio",
-                    subtitle = "Low-frequency commands and preferences stay out of the editing canvas.",
+                    title = "Projeto e Studio",
+                    subtitle = "Preferências que não precisam ocupar a área de edição.",
                 ) {
-                    OptionRow("Autosave", "On", "Project edits are persisted automatically")
-                    OptionRow("Mixer dock", "Show / hide / pin", "The mixer can be temporary or fixed at the bottom of the Studio")
-                    OptionRow("New project behavior", "Ask every time", "Blank or Guitar template")
+                    OptionRow("Salvamento automático", "Ativo", "Alterações do projeto são salvas automaticamente")
+                    OptionRow("Mixer", "Flutuante ou fixo", "O estado fixado é mantido ao navegar pelo aplicativo")
+                    OptionRow("Novo projeto", "Perguntar sempre", "Projeto vazio ou template de guitarra")
                 }
             }
 
             item {
                 OptionSection(
-                    title = "Import & codecs",
-                    subtitle = "Codec capability and technical validation tools.",
+                    title = "Importação",
+                    subtitle = "Formatos de áudio disponíveis no Studio.",
                 ) {
-                    OptionRow("Import", "WAV vertical slice", "Other V1 formats remain tracked by the codec support matrix")
-                    Button(onClick = onCodecDiagnostics) { Text("Codec diagnostics") }
+                    OptionRow("Importar áudio", "WAV", "Outros formatos serão habilitados conforme suporte completo")
+                    Button(onClick = onCodecDiagnostics) { Text("Diagnóstico de arquivos") }
                 }
             }
 
             item {
                 OptionSection(
-                    title = "Advanced / diagnostics",
-                    subtitle = "Engineering tools stay available without polluting normal Studio workflows.",
+                    title = "Ferramentas avançadas",
+                    subtitle = "Diagnósticos técnicos para suporte e solução de problemas.",
                 ) {
-                    TextButton(onClick = onAudioDiagnostics) { Text("Open M2 audio diagnostics") }
-                    TextButton(onClick = onCodecDiagnostics) { Text("Open M3 codec diagnostics") }
+                    TextButton(onClick = onAudioDiagnostics) { Text("Diagnóstico de dispositivos de áudio") }
+                    TextButton(onClick = onCodecDiagnostics) { Text("Diagnóstico de codecs e arquivos") }
                 }
             }
         }
@@ -165,7 +162,7 @@ private fun AudioDeviceSelector(
     onSelect: (String?) -> Unit,
 ) {
     var menuOpen by remember { mutableStateOf(false) }
-    val selectedLabel = choices.firstOrNull { it.signature == selectedSignature }?.label ?: "Auto"
+    val selectedLabel = choices.firstOrNull { it.signature == selectedSignature }?.label ?: "Automático"
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
@@ -179,7 +176,7 @@ private fun AudioDeviceSelector(
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(title, style = MaterialTheme.typography.bodyMedium)
                 Text(
-                    if (selectedSignature == null) "Let Android choose the active route" else "Preferred device; revalidated on reconnect",
+                    if (selectedSignature == null) "O Android escolhe a rota ativa" else "Dispositivo preferido",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -188,7 +185,7 @@ private fun AudioDeviceSelector(
                 OutlinedButton(onClick = { menuOpen = true }) { Text(selectedLabel, maxLines = 1) }
                 DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                     DropdownMenuItem(
-                        text = { Text("Auto") },
+                        text = { Text("Automático") },
                         onClick = {
                             menuOpen = false
                             onSelect(null)
@@ -249,7 +246,7 @@ private fun OptionRow(title: String, value: String, detail: String) {
                 Text(detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Box(Modifier.padding(start = 12.dp)) {
-                Text(value, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                Text(value, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.secondary)
             }
         }
     }

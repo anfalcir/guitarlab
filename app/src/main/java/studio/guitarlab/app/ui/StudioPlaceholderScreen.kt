@@ -2,6 +2,7 @@ package studio.guitarlab.app.ui
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -16,22 +17,33 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ContentCut
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -53,99 +65,87 @@ import studio.guitarlab.core.project.TransportState
 import studio.guitarlab.core.project.TrimControlPolicy
 import studio.guitarlab.core.project.TrimControlState
 
+private val TrackSidebarWidth = 186.dp
+private val TrackLaneGap = 6.dp
+
 @Composable
 fun StudioPlaceholderScreen(
-    projectId: String,
-    onBack: () -> Unit,
     viewModel: StudioViewModel = viewModel(),
     selectedTrackId: String? = null,
     onSelectTrack: (String) -> Unit = {},
-    onShowMixer: (String) -> Unit = {},
 ) {
     val state by viewModel.state.collectAsState()
     var pendingTrackId by remember { mutableStateOf<String?>(null) }
+    var settingsTrackId by remember { mutableStateOf<String?>(null) }
     val wavPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         val trackId = pendingTrackId
         pendingTrackId = null
         if (uri != null && trackId != null) viewModel.importWav(trackId, uri)
     }
 
-    LaunchedEffect(projectId) { viewModel.load(projectId) }
-
-    Column(
-        modifier = Modifier.fillMaxSize().padding(horizontal = 14.dp, vertical = 10.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        StudioHeader(project = state.project, fallbackId = projectId, onBack = onBack)
-
-        Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
-            when {
-                state.loading -> CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-                state.error != null && state.project == null -> CompactStatus(
-                    text = state.error.orEmpty(),
-                    error = true,
-                    modifier = Modifier.align(Alignment.TopStart),
-                )
-                state.project != null -> ProjectWorkspace(
-                    project = state.project!!,
-                    waveforms = state.waveforms,
-                    timelineControls = state.timelineControls,
-                    trimControls = state.trimControls,
-                    transport = state.transport,
-                    transportEngineReady = state.transportEngineReady,
-                    importing = state.importing,
-                    editingClip = state.editingClip,
-                    importStatus = state.importStatus,
-                    error = state.error,
-                    selectedTrackId = selectedTrackId,
-                    onSelectTrack = onSelectTrack,
-                    onShowMixer = onShowMixer,
-                    onImportWav = { trackId ->
-                        if (!state.importing && !state.editingClip && state.trimControls == null && TransportPolicy.timelineEditingEnabled(state.transport)) {
-                            pendingTrackId = trackId
-                            wavPicker.launch(arrayOf("audio/wav", "audio/x-wav", "audio/wave", "application/octet-stream"))
-                        }
-                    },
-                    onReturnToStart = viewModel::returnToStart,
-                    onPlayStop = viewModel::togglePlayStop,
-                    onRecord = viewModel::startRecording,
-                    onToggleLoop = viewModel::toggleLoop,
-                    onPlayheadFrameChanged = viewModel::setPlayheadFrame,
-                    onLoopStartFrameChanged = viewModel::setLoopStartFrame,
-                    onLoopEndFrameChanged = viewModel::setLoopEndFrame,
-                    onBeginTrim = viewModel::beginTrim,
-                    onTrimStartFrameChanged = viewModel::setTrimStartFrame,
-                    onTrimEndFrameChanged = viewModel::setTrimEndFrame,
-                    onApplyTrim = viewModel::applyTrim,
-                    onCancelTrim = viewModel::cancelTrim,
-                    onToggleClipMuted = viewModel::toggleClipMuted,
-                    onRemoveClip = viewModel::removeClip,
-                    modifier = Modifier.fillMaxSize(),
-                )
-            }
+    Box(modifier = Modifier.fillMaxSize().padding(horizontal = 14.dp, vertical = 8.dp)) {
+        when {
+            state.loading -> CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+            state.error != null && state.project == null -> CompactStatus(
+                text = state.error.orEmpty(),
+                error = true,
+                modifier = Modifier.align(Alignment.TopStart),
+            )
+            state.project != null -> ProjectWorkspace(
+                project = state.project!!,
+                waveforms = state.waveforms,
+                timelineControls = state.timelineControls,
+                trimControls = state.trimControls,
+                transport = state.transport,
+                importing = state.importing,
+                editingClip = state.editingClip,
+                error = state.error,
+                selectedTrackId = selectedTrackId,
+                onSelectTrack = onSelectTrack,
+                onOpenTrackSettings = { settingsTrackId = it },
+                onAddTrack = viewModel::addTrack,
+                onImportWav = { trackId ->
+                    if (!state.importing && !state.editingClip && state.trimControls == null && TransportPolicy.timelineEditingEnabled(state.transport)) {
+                        pendingTrackId = trackId
+                        wavPicker.launch(arrayOf("audio/wav", "audio/x-wav", "audio/wave", "application/octet-stream"))
+                    }
+                },
+                onPlayheadFrameChanged = viewModel::setPlayheadFrame,
+                onLoopStartFrameChanged = viewModel::setLoopStartFrame,
+                onLoopEndFrameChanged = viewModel::setLoopEndFrame,
+                onBeginTrim = viewModel::beginTrim,
+                onTrimStartFrameChanged = viewModel::setTrimStartFrame,
+                onTrimEndFrameChanged = viewModel::setTrimEndFrame,
+                onApplyTrim = viewModel::applyTrim,
+                onCancelTrim = viewModel::cancelTrim,
+                onRemoveClip = viewModel::removeClip,
+                modifier = Modifier.fillMaxSize(),
+            )
         }
     }
-}
 
-@Composable
-private fun StudioHeader(project: GuitarProject?, fallbackId: String, onBack: () -> Unit) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
-            Text(project?.name ?: "Project ${fallbackId.take(8)}…", style = MaterialTheme.typography.titleLarge)
-            project?.let {
-                val sampleRate = it.sampleRate.fixedHz?.let { hz -> "$hz Hz" } ?: "Auto rate"
-                Text(
-                    "${it.tracks.size} tracks • ${it.clips.size} clips • $sampleRate",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-        OutlinedButton(onClick = onBack) { Text("Home") }
+    val project = state.project
+    val settingsTrack = settingsTrackId?.let { id -> project?.tracks?.firstOrNull { it.id == id } }
+    if (settingsTrack != null && project != null) {
+        val sorted = project.tracks.sortedBy { it.order }
+        val index = sorted.indexOfFirst { it.id == settingsTrack.id }
+        TrackSettingsDialog(
+            track = settingsTrack,
+            hasClips = project.clips.any { it.trackId == settingsTrack.id },
+            canMoveUp = index > 0,
+            canMoveDown = index in 0 until sorted.lastIndex,
+            onDismiss = { settingsTrackId = null },
+            onSave = { name, colorIndex ->
+                viewModel.updateTrackProperties(settingsTrack.id, name, colorIndex)
+                settingsTrackId = null
+            },
+            onMoveUp = { viewModel.moveTrack(settingsTrack.id, -1) },
+            onMoveDown = { viewModel.moveTrack(settingsTrack.id, 1) },
+            onDelete = {
+                viewModel.deleteTrack(settingsTrack.id)
+                settingsTrackId = null
+            },
+        )
     }
 }
 
@@ -156,19 +156,14 @@ private fun ProjectWorkspace(
     timelineControls: TimelineControlState,
     trimControls: TrimControlState?,
     transport: TransportState,
-    transportEngineReady: Boolean,
     importing: Boolean,
     editingClip: Boolean,
-    importStatus: String?,
     error: String?,
     selectedTrackId: String?,
     onSelectTrack: (String) -> Unit,
-    onShowMixer: (String) -> Unit,
+    onOpenTrackSettings: (String) -> Unit,
+    onAddTrack: () -> Unit,
     onImportWav: (String) -> Unit,
-    onReturnToStart: () -> Unit,
-    onPlayStop: () -> Unit,
-    onRecord: () -> Unit,
-    onToggleLoop: () -> Unit,
     onPlayheadFrameChanged: (Long) -> Unit,
     onLoopStartFrameChanged: (Long) -> Unit,
     onLoopEndFrameChanged: (Long) -> Unit,
@@ -177,7 +172,6 @@ private fun ProjectWorkspace(
     onTrimEndFrameChanged: (Long) -> Unit,
     onApplyTrim: () -> Unit,
     onCancelTrim: () -> Unit,
-    onToggleClipMuted: (String) -> Unit,
     onRemoveClip: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -188,39 +182,65 @@ private fun ProjectWorkspace(
     val trimActive = trimControls != null
     val clipEditingEnabled = !importing && !editingClip && timelineEditingEnabled && !trimActive
 
-    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
         if (error != null) {
             CompactStatus(text = error, error = true)
         } else if (importing) {
-            CompactStatus(text = "Importing audio into project-managed storage…")
-        } else if (!importStatus.isNullOrBlank() && project.clips.isEmpty()) {
-            CompactStatus(text = importStatus)
+            CompactStatus(text = "Importando áudio…")
         }
 
         Surface(
             modifier = Modifier.fillMaxWidth().weight(1f),
             shape = RoundedCornerShape(12.dp),
-            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.22f),
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.20f),
             tonalElevation = 0.dp,
         ) {
             Column(modifier = Modifier.fillMaxSize().padding(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                TimelineMarkerRail(
-                    projectEndFrame = projectEndFrame,
-                    playheadFrame = timelineControls.playheadFrame,
-                    loopStartFrame = timelineControls.loopStartFrame,
-                    loopEndFrame = timelineControls.loopEndFrame,
-                    showLoopMarkers = transport.loopEnabled,
-                    enabled = timelineEditingEnabled,
-                    onPlayheadFrameChanged = onPlayheadFrameChanged,
-                    onLoopStartFrameChanged = onLoopStartFrameChanged,
-                    onLoopEndFrameChanged = onLoopEndFrameChanged,
-                    trimStartFrame = trimControls?.startFrame,
-                    trimEndFrame = trimControls?.endFrame,
-                    onTrimStartFrameChanged = if (trimActive) onTrimStartFrameChanged else null,
-                    onTrimEndFrameChanged = if (trimActive) onTrimEndFrameChanged else null,
+                Row(
                     modifier = Modifier.fillMaxWidth(),
-                )
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(TrackLaneGap),
+                ) {
+                    Surface(
+                        modifier = Modifier.width(TrackSidebarWidth).height(62.dp),
+                        shape = RoundedCornerShape(8.dp),
+                        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.82f),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.38f)),
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                        ) {
+                            Text("Pistas", style = MaterialTheme.typography.labelLarge)
+                            AppIconButton(
+                                icon = Icons.Default.Add,
+                                contentDescription = "Adicionar pista",
+                                enabled = clipEditingEnabled,
+                                onClick = onAddTrack,
+                            )
+                        }
+                    }
+                    TimelineMarkerRail(
+                        projectEndFrame = projectEndFrame,
+                        playheadFrame = timelineControls.playheadFrame,
+                        loopStartFrame = timelineControls.loopStartFrame,
+                        loopEndFrame = timelineControls.loopEndFrame,
+                        showLoopMarkers = transport.loopEnabled,
+                        enabled = timelineEditingEnabled,
+                        onPlayheadFrameChanged = onPlayheadFrameChanged,
+                        onLoopStartFrameChanged = onLoopStartFrameChanged,
+                        onLoopEndFrameChanged = onLoopEndFrameChanged,
+                        trimStartFrame = trimControls?.startFrame,
+                        trimEndFrame = trimControls?.endFrame,
+                        onTrimStartFrameChanged = if (trimActive) onTrimStartFrameChanged else null,
+                        onTrimEndFrameChanged = if (trimActive) onTrimEndFrameChanged else null,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+
                 TimelineRuler(project, projectEndFrame)
+
                 LazyColumn(
                     modifier = Modifier.fillMaxWidth().weight(1f),
                     verticalArrangement = Arrangement.spacedBy(4.dp),
@@ -237,10 +257,9 @@ private fun ProjectWorkspace(
                             canEditClip = clipEditingEnabled,
                             activeTrimClipId = trimControls?.clipId,
                             onSelect = { onSelectTrack(track.id) },
-                            onShowMixer = { onShowMixer(track.id) },
+                            onSettings = { onOpenTrackSettings(track.id) },
                             onImportWav = { onImportWav(track.id) },
                             onBeginTrim = onBeginTrim,
-                            onToggleMuted = onToggleClipMuted,
                             onRemove = onRemoveClip,
                         )
                     }
@@ -251,23 +270,11 @@ private fun ProjectWorkspace(
         if (trimControls != null && trimClip != null) {
             TrimActionBar(
                 clipName = trimClip.name,
-                startFrame = trimControls.startFrame,
-                endFrame = trimControls.endFrame,
                 enabled = !editingClip && timelineEditingEnabled,
                 onApply = onApplyTrim,
                 onCancel = onCancelTrim,
             )
         }
-
-        TransportBar(
-            state = transport,
-            engineReady = transportEngineReady && !trimActive,
-            onReturnToStart = onReturnToStart,
-            onPlayStop = onPlayStop,
-            onRecord = onRecord,
-            onToggleLoop = onToggleLoop,
-            modifier = Modifier.fillMaxWidth(),
-        )
     }
 }
 
@@ -276,7 +283,10 @@ private fun TimelineRuler(project: GuitarProject, projectEndFrame: Long) {
     val sampleRate = project.sampleRate.fixedHz
         ?: project.clips.firstOrNull { it.sourceSampleRateHz != null }?.sourceSampleRateHz
         ?: 48_000
-    Row(modifier = Modifier.fillMaxWidth().padding(start = 156.dp, end = 8.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(start = TrackSidebarWidth + TrackLaneGap, end = 8.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
         for (step in 0..4) {
             val frame = projectEndFrame * step / 4
             Text(
@@ -299,64 +309,64 @@ private fun StudioTrackLane(
     canEditClip: Boolean,
     activeTrimClipId: String?,
     onSelect: () -> Unit,
-    onShowMixer: () -> Unit,
+    onSettings: () -> Unit,
     onImportWav: () -> Unit,
     onBeginTrim: (String) -> Unit,
-    onToggleMuted: (String) -> Unit,
     onRemove: (String) -> Unit,
 ) {
+    val trackColor = track.resolvedStudioColor()
     Row(
-        modifier = Modifier.fillMaxWidth().height(68.dp),
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        modifier = Modifier.fillMaxWidth().height(72.dp),
+        horizontalArrangement = Arrangement.spacedBy(TrackLaneGap),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Surface(
-            modifier = Modifier.width(150.dp).fillMaxHeight().clickable(onClick = onSelect),
+            modifier = Modifier.width(TrackSidebarWidth).fillMaxHeight().clickable(onClick = onSelect),
             shape = RoundedCornerShape(8.dp),
-            color = if (selected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.34f) else MaterialTheme.colorScheme.surface.copy(alpha = 0.88f),
-            border = androidx.compose.foundation.BorderStroke(
-                1.dp,
-                if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.42f),
-            ),
+            color = if (selected) trackColor.copy(alpha = 0.11f) else MaterialTheme.colorScheme.surface.copy(alpha = 0.86f),
+            border = BorderStroke(if (selected) 1.5.dp else 1.dp, if (selected) trackColor else MaterialTheme.colorScheme.outline.copy(alpha = 0.38f)),
         ) {
-            Row(
-                modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp, vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
+            Row(modifier = Modifier.fillMaxSize()) {
+                Box(Modifier.width(4.dp).fillMaxHeight().background(trackColor))
+                Column(
+                    modifier = Modifier.weight(1f).fillMaxHeight().padding(start = 8.dp, end = 2.dp, top = 6.dp, bottom = 6.dp),
+                    verticalArrangement = Arrangement.Center,
+                ) {
                     Text(track.name, style = MaterialTheme.typography.bodyMedium, maxLines = 1)
                     Text(
-                        "${roleName(track.roleId)}  ${if (track.muted) "M" else ""}${if (track.solo) " S" else ""}",
+                        roleName(track.roleId),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
                     )
                 }
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    TextButton(
-                        onClick = onImportWav,
+                Row(
+                    modifier = Modifier.padding(end = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(0.dp),
+                ) {
+                    AppIconButton(
+                        icon = Icons.Default.Add,
+                        contentDescription = "Importar áudio",
                         enabled = canImport,
-                        contentPadding = PaddingValues(horizontal = 5.dp, vertical = 0.dp),
-                        modifier = Modifier.height(28.dp),
-                    ) { Text("+") }
-                    if (selected) {
-                        TextButton(
-                            onClick = onShowMixer,
-                            contentPadding = PaddingValues(horizontal = 5.dp, vertical = 0.dp),
-                            modifier = Modifier.height(28.dp),
-                        ) { Text("≡") }
-                    }
+                        onClick = onImportWav,
+                    )
+                    AppIconButton(
+                        icon = Icons.Default.Settings,
+                        contentDescription = "Configurar pista",
+                        enabled = canEditClip,
+                        onClick = onSettings,
+                    )
                 }
             }
         }
 
         BoxWithConstraints(
-            modifier = Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.surface.copy(alpha = 0.72f)),
+            modifier = Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.surface.copy(alpha = 0.70f)),
         ) {
             if (clips.isEmpty()) {
                 Text(
-                    "No audio",
+                    "Sem áudio",
                     modifier = Modifier.align(Alignment.CenterStart).padding(start = 10.dp),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -373,12 +383,12 @@ private fun StudioTrackLane(
                     TimelineClipCard(
                         clip = clip,
                         peaks = waveforms[clip.id],
+                        trackColor = trackColor,
                         trimming = activeTrimClipId == clip.id,
                         canEdit = canEditClip,
                         onTrim = { onBeginTrim(clip.id) },
-                        onMute = { onToggleMuted(clip.id) },
                         onRemove = { onRemove(clip.id) },
-                        modifier = Modifier.offset(x = x).padding(vertical = 4.dp).width(clipWidth).height(60.dp).align(Alignment.CenterStart),
+                        modifier = Modifier.offset(x = x).padding(vertical = 4.dp).width(clipWidth).height(64.dp).align(Alignment.CenterStart),
                     )
                 }
             }
@@ -390,17 +400,18 @@ private fun StudioTrackLane(
 private fun TimelineClipCard(
     clip: AudioClip,
     peaks: List<Float>?,
+    trackColor: Color,
     trimming: Boolean,
     canEdit: Boolean,
     onTrim: () -> Unit,
-    onMute: () -> Unit,
     onRemove: () -> Unit,
     modifier: Modifier,
 ) {
     Surface(
         modifier = modifier,
         shape = RoundedCornerShape(7.dp),
-        color = if (trimming) StudioTrim.copy(alpha = 0.22f) else MaterialTheme.colorScheme.primaryContainer.copy(alpha = if (clip.muted) 0.40f else 0.82f),
+        color = if (trimming) StudioTrim.copy(alpha = 0.20f) else trackColor.copy(alpha = if (clip.muted) 0.10f else 0.20f),
+        border = BorderStroke(1.dp, if (trimming) StudioTrim else trackColor.copy(alpha = 0.72f)),
         tonalElevation = 0.dp,
     ) {
         Column(modifier = Modifier.fillMaxSize().padding(horizontal = 7.dp, vertical = 3.dp)) {
@@ -410,13 +421,23 @@ private fun TimelineClipCard(
                     modifier = Modifier.weight(1f),
                     style = MaterialTheme.typography.labelMedium,
                     maxLines = 1,
-                    color = if (clip.muted) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onPrimaryContainer,
+                    color = if (clip.muted) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
                 )
-                TextButton(onClick = onTrim, enabled = canEdit, contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp), modifier = Modifier.height(28.dp)) { Text("Trim", style = MaterialTheme.typography.labelSmall) }
-                TextButton(onClick = onMute, enabled = canEdit, contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp), modifier = Modifier.height(28.dp)) { Text(if (clip.muted) "U" else "M", style = MaterialTheme.typography.labelSmall) }
-                TextButton(onClick = onRemove, enabled = canEdit, contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp), modifier = Modifier.height(28.dp)) { Text("×", style = MaterialTheme.typography.labelMedium) }
+                AppIconButton(
+                    icon = Icons.Default.ContentCut,
+                    contentDescription = "Cortar clipe",
+                    enabled = canEdit,
+                    onClick = onTrim,
+                )
+                AppIconButton(
+                    icon = Icons.Default.Delete,
+                    contentDescription = "Excluir clipe",
+                    enabled = canEdit,
+                    tint = MaterialTheme.colorScheme.error,
+                    onClick = onRemove,
+                )
             }
-            peaks?.let { WaveformMini(peaks = it, muted = clip.muted, modifier = Modifier.fillMaxWidth().height(20.dp)) }
+            peaks?.let { WaveformMini(peaks = it, muted = clip.muted, color = trackColor, modifier = Modifier.fillMaxWidth().height(20.dp)) }
         }
     }
 }
@@ -424,8 +445,6 @@ private fun TimelineClipCard(
 @Composable
 private fun TrimActionBar(
     clipName: String,
-    startFrame: Long,
-    endFrame: Long,
     enabled: Boolean,
     onApply: () -> Unit,
     onCancel: () -> Unit,
@@ -442,21 +461,82 @@ private fun TrimActionBar(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text("Trim • $clipName", style = MaterialTheme.typography.labelLarge)
+                Text("Corte • $clipName", style = MaterialTheme.typography.labelLarge)
                 Text(
-                    "$startFrame – $endFrame frames • source remains unchanged",
+                    "Ajuste os marcadores amarelos e confirme.",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            OutlinedButton(onClick = onCancel, enabled = enabled) { Text("Cancel") }
+            OutlinedButton(onClick = onCancel, enabled = enabled) { Text("Cancelar") }
             Button(
                 onClick = onApply,
                 enabled = enabled,
                 colors = ButtonDefaults.buttonColors(containerColor = StudioTrim, contentColor = Color.White),
-            ) { Text("✓ Apply trim") }
+            ) { Text("Aplicar corte") }
         }
     }
+}
+
+@Composable
+private fun TrackSettingsDialog(
+    track: AudioTrack,
+    hasClips: Boolean,
+    canMoveUp: Boolean,
+    canMoveDown: Boolean,
+    onDismiss: () -> Unit,
+    onSave: (String, Int) -> Unit,
+    onMoveUp: () -> Unit,
+    onMoveDown: () -> Unit,
+    onDelete: () -> Unit,
+) {
+    var name by remember(track.id, track.name) { mutableStateOf(track.name) }
+    var colorIndex by remember(track.id, track.colorIndex) {
+        mutableIntStateOf(if (track.colorIndex in StudioTrackPalette.indices) track.colorIndex else track.order % StudioTrackPalette.size)
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Configurar pista") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    singleLine = true,
+                    label = { Text("Nome") },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Text("Cor", style = MaterialTheme.typography.labelLarge)
+                StudioTrackPalette.chunked(5).forEachIndexed { rowIndex, colors ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        colors.forEachIndexed { columnIndex, color ->
+                            val index = rowIndex * 5 + columnIndex
+                            Surface(
+                                modifier = Modifier.size(30.dp).clip(CircleShape).clickable { colorIndex = index },
+                                shape = CircleShape,
+                                color = color,
+                                border = BorderStroke(if (colorIndex == index) 3.dp else 1.dp, if (colorIndex == index) MaterialTheme.colorScheme.onSurface else color.copy(alpha = 0.55f)),
+                            ) {}
+                        }
+                    }
+                }
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text("Ordem", modifier = Modifier.weight(1f), style = MaterialTheme.typography.labelLarge)
+                    AppIconButton(icon = Icons.Default.KeyboardArrowUp, contentDescription = "Mover pista para cima", enabled = canMoveUp, onClick = onMoveUp)
+                    AppIconButton(icon = Icons.Default.KeyboardArrowDown, contentDescription = "Mover pista para baixo", enabled = canMoveDown, onClick = onMoveDown)
+                    AppIconButton(icon = Icons.Default.Delete, contentDescription = "Excluir pista", enabled = !hasClips, tint = MaterialTheme.colorScheme.error, onClick = onDelete)
+                }
+                if (hasClips) {
+                    Text("Remova os clipes antes de excluir esta pista.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        },
+        confirmButton = {
+            Button(onClick = { onSave(name, colorIndex) }, enabled = name.isNotBlank()) { Text("Salvar") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } },
+    )
 }
 
 @Composable
@@ -477,7 +557,7 @@ private fun CompactStatus(text: String, error: Boolean = false, modifier: Modifi
 }
 
 private fun roleName(roleId: String?): String {
-    if (roleId == null) return "No role"
+    if (roleId == null) return "Sem função"
     return BuiltInRoles.definitions.firstOrNull { it.id == roleId }?.name ?: roleId
 }
 

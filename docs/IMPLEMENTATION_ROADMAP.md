@@ -24,47 +24,53 @@ Completed sequence:
 7. clip-management basics + non-destructive trim core;
 8. waveform envelope/cache/rendering;
 9. marker-head interaction foundation + semantic colors;
-10. transport safety and STOPPED-only editing;
+10. transport safety and STOPPED-owned structural editing;
 11. real managed-WAV playback engine with hardware-clock playhead, stop and loop;
 12. mustard trim marker draft/apply/cancel with immutable-source bounds;
-13. single-screen timeline-first Studio redesign, loop-marker visibility fix and explicit trim confirmation;
+13. single-screen timeline-first Studio redesign and loop-marker visibility fix;
 14. Graphite Studio visual refresh + immersive fullscreen;
 15. Mixer Dock with shared track selection and persisted gain/pan/mute/solo;
 16. Options Center with global input/output setup, export placement and diagnostics;
 17. stable-signature Android audio route preferences and runtime re-resolution;
 18. selected main output applied to playback with controlled Auto fallback;
-19. real master gain and master peak/RMS metering — software green in CI run #203;
-20. per-track meters + peak hold/decay + durable project master gain with legacy compatibility — current checkpoint.
+19. real Master gain and Master peak/RMS metering;
+20. per-track meters + peak hold/decay + durable project Master gain with legacy compatibility;
+21. alpha06 software/signing candidate produced through controlled CI;
+22. commercial-polish/Mixer V3 checkpoint: pt-BR product UI, icon-first navigation, top-bar transport, persistent mixer pinning, fixed Master + scrolling tracks, live track gain/pan + Master during playback, latched clip warnings, 20-color synchronized track identity, track management and new-track creation.
 
 Next M4 gates:
-21. CI-green validation of the current mixer/meter/persistence checkpoint;
-22. prepare a new signed consolidation build from current branch head (the older alpha05 artifact predates recent Studio/Mixer work);
-23. physical Samsung SM-X230 validation of workspace/fullscreen, routing, playback/loop/seek, trim, mixer controls, track/master meters and stability;
-24. close any P0/P1 regressions found in the physical pass;
-25. mark PR #1 ready and merge to `main` only after the M4 consolidation gate is green.
+23. branch-head alpha07 CI: unit tests + Android Lint + debug APK;
+24. close any software regression before signing;
+25. prepare signed alpha07 consolidation artifact through the controlled signing path;
+26. inspect artifact version/identity/hash/signer evidence;
+27. physically validate `M4_ALPHA07_HOMOLOGATION_CHECKLIST.md` on Samsung SM-X230;
+28. close any P0/P1 regression found in the physical pass;
+29. persist evidence, mark PR #1 ready and merge to `main` only after the M4 consolidation gate is green.
 
 M4 invariants:
 - managed source media is immutable;
 - hardware-presented frames own playhead progression;
-- marker/import/clip/mix edits are STOPPED-only in the current engine;
+- structural edits (timeline/trim/clip/track structure, M/S/R) remain STOPPED-only;
+- track gain/pan and Master gain are explicit live-safe exceptions and may change during PLAYING/RECORDING UI state, with engine preview + persistence at gesture completion;
 - loop markers are visible only while loop is enabled;
 - trim is an explicit draft transaction with Apply/Cancel;
 - global input/output setup belongs in Options, not per-track routing;
 - raw Android device IDs are not durable route identity;
-- master gain is project metadata and defaults to 0 dB for legacy projects;
+- Master gain is project metadata and defaults to 0 dB for legacy projects;
+- track color metadata is additive and defaults to a stable visual fallback for legacy projects;
 - sample-rate mismatch remains unsupported until derived-media resampling passes its own gate;
-- recording remains disabled until M5.
+- real recording remains disabled until M5.
 
-M4 exit gate: supported managed import, persist/reopen, waveform render, reliable real playback/seek/loop, non-destructive trim, functional track/master mixing controls, stable output routing behavior, useful metering, and no project/source corruption.
+M4 exit gate: supported managed import, persist/reopen, waveform render, reliable playback/seek/loop, non-destructive trim, functional live-safe core mixing, stable output routing, useful metering/clip-latch behavior, track management, coherent commercial UI and no project/source corruption.
 
 ## M5 — Recording workflow
-Planned: arm tracks, record project-managed takes, monitoring, timeline placement, disconnect-safe finalization. Recording uses canonical red record semantics and the global Studio input selected in Options.
+Planned: armed tracks become actual capture targets, record project-managed takes, monitoring, timeline placement and disconnect-safe finalization. Recording uses canonical red record semantics and the global Studio input selected in Options. M4 Arm state is metadata preparation only.
 
 ## M6 — Latency, synchronization and compensation
 Planned: measured I/O/round-trip behavior, alignment and compensation.
 
 ## M7 — Mixing and editing maturity
-Planned beyond the M4 core mixer: automation/live-safe parameter changes, advanced metering, fades/split, optional processing, larger-project performance and workflow refinement.
+Planned beyond the M4 core mixer: automation, advanced meters, fades/split, optional processing, larger-project performance and workflow refinement.
 
 ## M8 — Multi-format interoperability and export
 Planned and required: complete import matrix, validated resampling, WAV/FLAC and approved compressed export, mix/stems/ranges.

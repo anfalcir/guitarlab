@@ -7,21 +7,28 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Equalizer
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import studio.guitarlab.core.model.GuitarProject
 import studio.guitarlab.core.project.TransportPolicy
 
 @Composable
@@ -32,8 +39,10 @@ fun StudioShellScreen(
     viewModel: StudioViewModel = viewModel(),
 ) {
     val state by viewModel.state.collectAsState()
-    var mixerVisible by rememberSaveable(projectId) { mutableStateOf(false) }
-    var mixerPinned by rememberSaveable(projectId) { mutableStateOf(false) }
+    val context = LocalContext.current
+    val uiPreferences = remember(context) { StudioUiPreferencesStore(context) }
+    var mixerPinned by rememberSaveable(projectId) { mutableStateOf(uiPreferences.mixerPinned()) }
+    var mixerVisible by rememberSaveable(projectId) { mutableStateOf(uiPreferences.mixerPinned()) }
     var selectedTrackId by rememberSaveable(projectId) { mutableStateOf<String?>(null) }
 
     LaunchedEffect(projectId) { viewModel.load(projectId) }
@@ -42,35 +51,36 @@ fun StudioShellScreen(
         if (selectedTrackId !in ids) selectedTrackId = ids.firstOrNull()
     }
 
-    val editingEnabled = !state.importing &&
+    val structuralControlsEnabled = !state.importing &&
         !state.editingClip &&
         state.trimControls == null &&
         TransportPolicy.timelineEditingEnabled(state.transport)
+    val mixControlsEnabled = !state.importing && !state.editingClip && state.trimControls == null
 
     Column(Modifier.fillMaxSize()) {
+        StudioTopBar(
+            project = state.project,
+            transport = {
+                TransportBar(
+                    state = state.transport,
+                    engineReady = state.transportEngineReady && state.trimControls == null,
+                    onReturnToStart = viewModel::returnToStart,
+                    onPlayStop = viewModel::togglePlayStop,
+                    onRecord = viewModel::startRecording,
+                    onToggleLoop = viewModel::toggleLoop,
+                )
+            },
+            onMixer = { mixerVisible = true },
+            onOptions = onOptions,
+            onHome = onBack,
+        )
+
         Box(Modifier.fillMaxWidth().weight(1f)) {
             StudioPlaceholderScreen(
-                projectId = projectId,
-                onBack = onBack,
                 viewModel = viewModel,
                 selectedTrackId = selectedTrackId,
                 onSelectTrack = { selectedTrackId = it },
-                onShowMixer = { trackId ->
-                    selectedTrackId = trackId
-                    mixerVisible = true
-                },
             )
-            Surface(
-                modifier = Modifier.align(Alignment.TopEnd).padding(top = 8.dp, end = 118.dp),
-                shape = MaterialTheme.shapes.medium,
-                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f),
-                tonalElevation = 2.dp,
-            ) {
-                Row(horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.CenterVertically) {
-                    TextButton(onClick = { mixerVisible = true }) { Text("Mixer") }
-                    TextButton(onClick = onOptions) { Text("Options") }
-                }
-            }
         }
 
         val project = state.project
@@ -79,19 +89,82 @@ fun StudioShellScreen(
                 tracks = project.tracks,
                 selectedTrackId = selectedTrackId,
                 pinned = mixerPinned,
-                editingEnabled = editingEnabled,
+                mixControlsEnabled = mixControlsEnabled,
+                structuralControlsEnabled = structuralControlsEnabled,
                 masterGainDb = state.masterGainDb,
                 masterMeter = state.masterMeter,
                 trackMeters = state.trackMeters,
+                masterClipLatched = state.masterClipLatched,
+                trackClipLatched = state.trackClipLatched,
                 onSelectTrack = { selectedTrackId = it },
-                onTogglePinned = { mixerPinned = !mixerPinned },
-                onClose = { if (!mixerPinned) mixerVisible = false },
-                onGainChanged = viewModel::setTrackGainDb,
-                onPanChanged = viewModel::setTrackPan,
+                onPin = {
+                    mixerPinned = true
+                    mixerVisible = true
+                    uiPreferences.setMixerPinned(true)
+                },
+                onClose = {
+                    if (mixerPinned) {
+                        mixerPinned = false
+                        uiPreferences.setMixerPinned(false)
+                    }
+                    mixerVisible = false
+                },
+                onGainPreview = viewModel::previewTrackGainDb,
+                onGainCommit = viewModel::commitTrackGainDb,
+                onPanPreview = viewModel::previewTrackPan,
+                onPanCommit = viewModel::commitTrackPan,
                 onToggleMute = viewModel::toggleTrackMuted,
                 onToggleSolo = viewModel::toggleTrackSolo,
-                onMasterGainChanged = viewModel::setMasterGainDb,
+                onToggleArm = viewModel::toggleTrackArmed,
+                onMasterGainPreview = viewModel::previewMasterGainDb,
+                onMasterGainCommit = viewModel::commitMasterGainDb,
+                onClearTrackClip = viewModel::clearTrackClipIndicator,
+                onClearMasterClip = viewModel::clearMasterClipIndicator,
             )
+        }
+    }
+}
+
+@Composable
+private fun StudioTopBar(
+    project: GuitarProject?,
+    transport: @Composable () -> Unit,
+    onMixer: () -> Unit,
+    onOptions: () -> Unit,
+    onHome: () -> Unit,
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.background,
+        tonalElevation = 0.dp,
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 7.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(
+                modifier = Modifier.widthIn(min = 180.dp, max = 320.dp),
+                verticalArrangement = Arrangement.spacedBy(1.dp),
+            ) {
+                Text(project?.name ?: "GuitarLab", style = MaterialTheme.typography.titleLarge, maxLines = 1)
+                project?.let {
+                    Text(
+                        "${it.tracks.size} ${if (it.tracks.size == 1) "pista" else "pistas"} · ${it.clips.size} ${if (it.clips.size == 1) "clipe" else "clipes"}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+
+            Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                transport()
+            }
+
+            Row(horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.CenterVertically) {
+                AppIconButton(icon = Icons.Default.Equalizer, contentDescription = "Mixer", onClick = onMixer)
+                AppIconButton(icon = Icons.Default.Tune, contentDescription = "Opções", onClick = onOptions)
+                AppIconButton(icon = Icons.Default.Home, contentDescription = "Início", onClick = onHome)
+            }
         }
     }
 }

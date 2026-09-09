@@ -55,7 +55,7 @@ class StudioAudioRoutingStore(context: Context) {
     }
 
     private fun toChoice(device: AudioDeviceInfo): StudioAudioDeviceChoice {
-        val product = device.productName?.toString()?.takeIf { it.isNotBlank() } ?: "Audio device"
+        val product = device.productName?.toString()?.takeIf { it.isNotBlank() } ?: "Dispositivo de áudio"
         val address = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) device.address.orEmpty() else ""
         val label = if (address.isBlank()) product else "$product • $address"
         return StudioAudioDeviceChoice(

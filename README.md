@@ -15,18 +15,19 @@ Read first:
 - [`docs/TIMELINE_INTERACTION_GUIDELINES.md`](docs/TIMELINE_INTERACTION_GUIDELINES.md) — marker/transport UX contract
 - [`docs/STUDIO_WORKSPACE_GUIDELINES.md`](docs/STUDIO_WORKSPACE_GUIDELINES.md) — single-screen timeline-first Studio contract
 - [`docs/STUDIO_OPTIONS_AND_MIXER.md`](docs/STUDIO_OPTIONS_AND_MIXER.md) — Options, routing and Mixer contract
+- [`docs/M4_COMMERCIAL_POLISH_CHECKPOINT.md`](docs/M4_COMMERCIAL_POLISH_CHECKPOINT.md) — current product-facing Studio/Mixer checkpoint
 - [`docs/TEST_AND_HOMOLOGATION_PLAN.md`](docs/TEST_AND_HOMOLOGATION_PLAN.md) — CI/device/hardware validation
 - [`docs/DECISIONS.md`](docs/DECISIONS.md) — durable decisions
 - [`docs/CURRENT_STATE.md`](docs/CURRENT_STATE.md) — exact development/gate status
 
 ## Current development state
-Stable `main` remains the signed `0.2.0-alpha03` baseline. Active work is isolated on `dev/parallel-m3-m5` in draft PR #1. The branch app version is `0.2.0-alpha05`, versionCode 6, but branch code has moved beyond the historical signed alpha05 artifact.
+Stable `main` remains the signed `0.2.0-alpha03` baseline. Active work is isolated on `dev/parallel-m3-m5` in draft PR #1. The branch app version is `0.2.0-alpha07`, versionCode 8.
 
-M2 Pocket Amp physical homologation is **PASS / CLOSED** for Samsung SM-X230 on Android 16/API 36. M3 established the WAV codec/import foundation. M4 is still in progress and now includes the real playback/trim path plus a substantially redesigned single-screen Studio, immersive fullscreen, Options Center, output routing, functional track mixer and Master.
+M2 Pocket Amp physical homologation is **PASS / CLOSED** for Samsung SM-X230 on Android 16/API 36. M3 established the WAV codec/import foundation. M4 is still in progress and includes the real managed-WAV playback/loop/trim path, single-screen immersive Studio, Options/routing, persisted track/Master mix and real per-track/Master metering.
 
-The current M4 software checkpoint adds per-track metering, peak hold/decay and durable project master gain. Run #203 was green for the immediately preceding master-gain/master-meter checkpoint. The current branch head still requires its own CI gate and later a new signed physical consolidation candidate.
+The active M4 checkpoint is the commercial-polish/Mixer V3 pass: pt-BR product UI, icon-first navigation, top-bar transport, persistent Mixer pinning, fixed Master + scrolling track strips, live gain/pan during playback, latched clip indicators, synchronized 20-color track identity, track rename/reorder/color/delete and new-track creation. Recording/monitoring remains M5; the Record transport remains disabled even though Arm metadata is user-operable.
 
-WAV-first does **not** mean WAV-only: multi-format import/export remains explicit product scope and is tracked in the codec matrix. Recording remains M5 and must not be inferred from the presence of arm metadata or the red transport affordance.
+WAV-first does **not** mean WAV-only: multi-format import/export remains explicit product scope and is tracked in the codec matrix.
 
 ## Build
 GitHub Actions in `.github/workflows/android-ci.yml` is the canonical remote executor. Routine CI performs source materialization, JDK/Android setup, unit tests, Android Lint, debug APK assembly and artifact upload.

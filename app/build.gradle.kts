@@ -11,8 +11,8 @@ android {
         applicationId = "studio.guitarlab.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 7
-        versionName = "0.2.0-alpha06"
+        versionCode = 8
+        versionName = "0.2.0-alpha07"
     }
 
     buildFeatures {
@@ -74,6 +74,7 @@ dependencies {
     androidTestImplementation(composeBom)
 
     implementation(libs.compose.material3)
+    implementation(libs.compose.material.icons.extended)
     implementation(libs.compose.ui)
     implementation(libs.compose.ui.tooling.preview)
     implementation(libs.activity.compose)

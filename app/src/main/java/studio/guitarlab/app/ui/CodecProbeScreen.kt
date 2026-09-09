@@ -4,12 +4,14 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -24,11 +26,11 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlin.math.abs
+import kotlin.math.sqrt
 import studio.guitarlab.core.codec.SampleRateStrategy
 import studio.guitarlab.core.codec.WavPcmDecoder
 import studio.guitarlab.platform.codec.android.AndroidAudioDocumentSourceFactory
-import kotlin.math.abs
-import kotlin.math.sqrt
 
 private data class CodecProbeUiResult(
     val success: Boolean,
@@ -53,7 +55,7 @@ fun CodecProbeScreen(onBack: () -> Unit) {
                         WavPcmDecoder(source).use { decoder ->
                             val metadata = decoder.metadata
                             val probeFrames = minOf(metadata.totalFrames, 8_192L).toInt()
-                            require(probeFrames > 0) { "WAV contains no complete audio frames" }
+                            require(probeFrames > 0) { "O WAV não contém frames completos de áudio." }
 
                             val buffer = FloatArray(probeFrames * metadata.channelCount)
                             val readFrames = decoder.readInterleaved(buffer, frameCount = probeFrames)
@@ -80,31 +82,30 @@ fun CodecProbeScreen(onBack: () -> Unit) {
                             val expectedSeekEnd = midpoint + seekRead
                             val seekExact = seekEndedAt == expectedSeekEnd
                             val initialDecodeExact = readFrames == probeFrames
-                            val bitDepth = metadata.bitsPerSample?.toString() ?: "n/a"
+                            val bitDepth = metadata.bitsPerSample?.toString() ?: "n/d"
                             val sampleRatePlan = SampleRateStrategy.plan(metadata.sampleRateHz, 48_000)
                             val pass = initialDecodeExact && seekExact
 
                             CodecProbeUiResult(
                                 success = pass,
                                 text = buildString {
-                                    appendLine("M3 WAV codec probe")
-                                    appendLine("accessMode=${source.accessMode}")
-                                    appendLine("fileBytes=${source.sizeBytes}")
-                                    appendLine("format=${metadata.fileFormat}")
-                                    appendLine("sampleRate=${metadata.sampleRateHz}Hz")
-                                    appendLine("channels=${metadata.channelCount}")
-                                    appendLine("encoding=${metadata.sampleEncoding}")
-                                    appendLine("bits=$bitDepth")
-                                    appendLine("frames=${metadata.totalFrames}")
-                                    appendLine("durationUs=${metadata.durationUs}")
-                                    appendLine("decodedFrames=$readFrames/$probeFrames")
-                                    appendLine("peakPct=${(peak * 100).toInt()}")
-                                    appendLine("rmsPct=${(rms * 100).toInt()}")
-                                    appendLine("projectRatePlan=${sampleRatePlan.action} ${sampleRatePlan.sourceRateHz}->${sampleRatePlan.targetRateHz}")
-                                    appendLine("seekRequested=$midpoint")
-                                    appendLine("seekRead=$seekRead/$seekRequestFrames")
-                                    appendLine("seekEndedAt=$seekEndedAt expected=$expectedSeekEnd")
-                                    append("checks=decodeExact:$initialDecodeExact seekExact:$seekExact")
+                                    appendLine("Acesso: ${source.accessMode}")
+                                    appendLine("Tamanho: ${source.sizeBytes} bytes")
+                                    appendLine("Formato: ${metadata.fileFormat}")
+                                    appendLine("Taxa: ${metadata.sampleRateHz} Hz")
+                                    appendLine("Canais: ${metadata.channelCount}")
+                                    appendLine("Codificação: ${metadata.sampleEncoding}")
+                                    appendLine("Bits: $bitDepth")
+                                    appendLine("Frames: ${metadata.totalFrames}")
+                                    appendLine("Duração: ${metadata.durationUs} µs")
+                                    appendLine("Leitura: $readFrames/$probeFrames frames")
+                                    appendLine("Pico: ${(peak * 100).toInt()}%")
+                                    appendLine("RMS: ${(rms * 100).toInt()}%")
+                                    appendLine("Plano de taxa: ${sampleRatePlan.action} ${sampleRatePlan.sourceRateHz}→${sampleRatePlan.targetRateHz}")
+                                    appendLine("Seek solicitado: $midpoint")
+                                    appendLine("Seek lido: $seekRead/$seekRequestFrames")
+                                    appendLine("Seek final: $seekEndedAt · esperado: $expectedSeekEnd")
+                                    append("Verificações: leitura exata=$initialDecodeExact · seek exato=$seekExact")
                                 },
                             )
                         }
@@ -112,7 +113,7 @@ fun CodecProbeScreen(onBack: () -> Unit) {
                 }.getOrElse { error ->
                     CodecProbeUiResult(
                         success = false,
-                        text = "M3 WAV codec probe failed safely: ${error.message ?: error::class.java.simpleName}",
+                        text = "A análise falhou com segurança: ${error.message ?: error::class.java.simpleName}",
                     )
                 }
             }
@@ -124,21 +125,29 @@ fun CodecProbeScreen(onBack: () -> Unit) {
         modifier = Modifier.fillMaxSize().padding(28.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        Text("Codec Diagnostics", style = MaterialTheme.typography.headlineMedium)
-        Text(
-            "M3 development gate. Select a WAV file to validate Android document access, bounded decoding, metadata, sample-rate planning and frame-accurate random seek. Cloud/document providers that cannot seek directly are copied to a temporary app cache file and removed after the probe. Other V1 formats remain unadvertised until their own gates pass.",
-        )
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text("Diagnóstico de arquivos", style = MaterialTheme.typography.headlineMedium)
+                Text(
+                    "Analise um WAV para conferir leitura, metadados e posicionamento preciso.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            AppIconButton(icon = Icons.Default.ArrowBack, contentDescription = "Voltar", onClick = onBack)
+        }
+
         Button(
             enabled = !running,
             onClick = { launcher.launch(arrayOf("audio/wav", "audio/x-wav", "audio/wave", "application/octet-stream")) },
         ) {
-            Text(if (running) "Running…" else "Select WAV and run probe")
+            Text(if (running) "Analisando…" else "Selecionar WAV e analisar")
         }
+
         result?.let { probe ->
-            Surface(modifier = Modifier.fillMaxWidth(), tonalElevation = 1.dp) {
+            Surface(modifier = Modifier.fillMaxWidth(), tonalElevation = 1.dp, shape = MaterialTheme.shapes.medium) {
                 Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
-                        if (probe.success) "PASS" else "FAIL",
+                        if (probe.success) "APROVADO" else "FALHA",
                         style = MaterialTheme.typography.titleLarge,
                         color = if (probe.success) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
                     )
@@ -146,6 +155,5 @@ fun CodecProbeScreen(onBack: () -> Unit) {
                 }
             }
         }
-        OutlinedButton(onClick = onBack) { Text("Back") }
     }
 }
