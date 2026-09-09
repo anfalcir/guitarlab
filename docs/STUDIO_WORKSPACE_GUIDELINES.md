@@ -1,63 +1,53 @@
 # Studio Workspace Guidelines
 
+Updated: 2026-09-09
+
 This document is a normative UI/UX contract for the GuitarLab Studio workspace on tablet.
 
 ## One-workspace rule
-The Studio is a working surface, not a vertically stacked diagnostics page. On the target tablet, the normal editing workflow must remain concentrated in one workspace without requiring page-level vertical scrolling.
-
-The fixed hierarchy is:
-1. compact project header;
-2. one central timeline surface containing marker heads, time ruler, tracks, clips and waveforms;
-3. contextual trim confirmation bar only while trim is active;
-4. one transport bar.
-
-If a project grows beyond the available screen height, only the track/timeline body may scroll internally. Header, contextual edit confirmation and transport remain anchored.
+The Studio is a working surface, not a vertically stacked diagnostics page. Header, timeline, contextual editing and transport remain concentrated in one workspace. If tracks overflow, only the timeline body scrolls internally.
 
 ## No duplicated representations
-A track or clip must not be represented in a second permanent section merely to repeat information already visible in the timeline.
-
-Therefore:
-- there is no separate permanent `Track structure` section below the timeline;
-- there is no separate permanent `Clips` manager duplicating timeline clips/waveforms;
-- import belongs to the destination track row;
-- clip actions belong to the clip itself;
-- technical/debug checkpoint prose is not part of the normal Studio workspace.
+Do not add permanent duplicate track/clip managers. Import belongs to the destination track, clip actions stay contextual, and development/debug prose belongs in diagnostics/documentation.
 
 ## Timeline-first composition
-The timeline is the primary content area and must consume most of the screen. Each track has a compact control/header lane at left and its audio lane at right. Clips are positioned using their timeline start/length and show their waveform when available.
+Each track has a compact sidebar/control area and an aligned audio lane. Clips use real timeline start/length and waveform data. Time labels derive from project duration/sample rate.
 
-Time labels must derive from project duration/sample rate. Hard-coded decorative time labels that do not correspond to the project are not allowed.
+## Drag/reorder contract
+- long press begins drag only while structural editing is permitted;
+- track and waveform drag share one coordinator owned by the workspace;
+- do not use `Popup` for drag ghosts;
+- ghost follows the pointer continuously and is drawn above every lane;
+- reorder destination uses a separate insertion line/gap and position label;
+- clip migration highlights and names the target track;
+- destination calculations use current measured lane bounds from `LazyListState.layoutInfo`;
+- edge autoscroll is continuous, proportional, capped and retargets after each scroll;
+- cancel and same-origin drop perform no mutation/history entry;
+- completed drop performs exactly one metadata mutation and Undo/Redo restores snapshots.
 
-## Contextual actions
-Actions should appear where they are relevant and should not require the user to search another section of the screen.
-- `+` on a track imports audio into that track.
-- Trim/Mute/Remove are attached to the clip.
-- Trim confirmation appears in a dedicated contextual action bar while trim is active.
+Drag must remain disabled during import, active Trim, history mutation and incompatible transport/recording state. Gesture closures must not depend on stale derived values; use central current state or `rememberUpdatedState` where needed.
 
-## Trim confirmation
-Entering trim creates a draft only. The user must always have an obvious, persistent confirmation surface while the draft exists:
-- `✓ Apply trim` is a filled, high-affordance button;
-- `Cancel` is a separate secondary button;
-- both remain visible without scrolling;
-- playback stays disabled until Apply or Cancel;
-- applying trim changes clip metadata only and never rewrites managed source audio.
+## Contextual track actions
+- `+` imports audio into an empty destination track;
+- the three-dot sidebar menu owns content actions, including `Limpar pista`;
+- `Limpar pista` removes clips/content but preserves track identity, role, color, order and mix;
+- `Configurar pista` owns track properties and structural `Excluir pista`;
+- `Excluir pista` is disabled while clips exist and explains that the user must clear the track first;
+- legacy ordering arrows are not allowed.
 
-A small text link is not sufficient affordance for committing an edit.
+## Configurar pista
+Wide/landscape dialogs use two balanced columns: name/function/compact color palette at left and `Áudio fonte` metadata at right. Narrow/portrait dialogs stack the same sections. Internal dialog scrolling is used only when content cannot fit.
 
-## Loop visibility
-Loop boundary markers are contextual controls. `L◀` and `L▶` are visible only when loop is enabled. When loop is disabled, both markers and loop-specific visual clutter disappear. Loop state remains available from the transport control.
+Source metadata should show, when available: filename, format, sample rate, channels, bit depth, encoding and duration. An empty track shows an intentional compact empty state. Track names remain 1–24 characters; `Salvar` and `Cancelar` stay clear in pt-BR.
 
-## Marker rules
-The canonical marker rules from `TIMELINE_INTERACTION_GUIDELINES.md` remain binding:
-- playhead blue;
-- loop green;
-- trim muted mustard;
-- record red;
-- >=48 dp marker interaction target;
-- editing only while transport is stopped.
+## Trim contract
+Trim draft lives only in the active waveform. It starts around 35%/65%, uses safe non-destructive source clamps, readable time bubbles near markers and explicit Apply/Cancel. No Trim guide crosses unrelated lanes.
+
+## Loop/playhead
+Playhead crosses all lanes. Loop guides cross lanes only while Loop is active. Marker heads retain ergonomic touch targets and canonical semantic colors.
 
 ## Status and diagnostics
-Normal success/debug prose must not occupy permanent Studio real estate. Only actionable/transient status is shown compactly, such as import progress or an operation error. Development checkpoint text belongs in repository documentation and diagnostics, not in the production workspace.
+Transient success/error feedback must not reserve permanent structural space. Debug/checkpoint prose is never part of the production Studio workspace.
 
-## Tablet ergonomics
-Primary controls must remain readable and tappable without precision gestures. The design favors compact density, not tiny controls: fewer sections, less duplicated text, larger functional canvas and clear contextual actions.
+## Tablet ergonomics and orientation
+Primary controls remain readable/tappable without precision gestures. Landscape and portrait preserve the open project and use responsive layout rather than separate product behavior.

@@ -1,6 +1,8 @@
 # Architectural and Product Decisions
 
-This log records decisions that must survive chat/context loss.
+Updated: 2026-09-09
+
+This log records decisions that must survive chat/context loss. Historical decisions remain binding unless a later numbered decision explicitly supersedes them.
 
 ## D-001 — Android-first
 GuitarLab targets Android/tablet as the primary environment.
@@ -12,10 +14,10 @@ Users may start blank or from the Guitar template.
 Built-in/custom roles organize tracks without making structure rigid.
 
 ## D-004 — Non-destructive clip model
-Move/trim/gain/mute change metadata, never source audio.
+Move, trim, gain and mute change metadata, never immutable source audio.
 
 ## D-005 — Multi-format interoperability is product scope
-WAV-first is staged validation only. Planned import includes WAV, FLAC, AIFF, MP3, AAC/M4A, OGG Vorbis and Opus; export includes high-quality WAV/FLAC plus validated compressed formats.
+WAV-first is staged validation only. Broader import/export remains governed by `CODEC_SUPPORT_MATRIX.md`.
 
 ## D-006 — Sample-rate mismatches are explicit
 Never change speed/pitch accidentally. Mismatches require validated resampling.
@@ -23,62 +25,80 @@ Never change speed/pitch accidentally. Mismatches require validated resampling.
 ## D-007 — Capability claims follow gates
 Planned/partial features are not advertised as supported.
 
-## D-008 — M2 target hardware gate is closed
-The M2 Pocket Amp gate is HOMOLOGATED/PASS for Samsung SM-X230 on Android 16/API 36 with the tested Pocket Amp USB audio path. Future hardware combinations require separate compatibility evidence.
+## D-008 — M2 hardware gate is closed
+Pocket Amp + Samsung SM-X230 / Android 16(API 36) is PASS/CLOSED for the tested USB audio path. Other hardware combinations require their own evidence.
 
 ## D-009 — Production audio is distinct from diagnostics
-M2 probes do not substitute for Studio transport/recording architecture.
+Diagnostic probes never substitute for Studio transport/recording architecture.
 
-## D-010 — Imported media is project-managed and immutable
-External documents are read-only origins; successful imports create immutable internal source copies. Edits are metadata; waveform/proxy/resampling/render outputs are separate derivatives.
+## D-010 — Imported/recorded media is project-managed and immutable
+External documents are read-only origins; accepted source media is promoted to managed immutable storage. Waveforms/proxies/renders are derivatives.
 
 ## D-011 — Graphite Studio visual language
-The creative UI uses near-black layered graphite surfaces, restrained teal product identity and semantic functional colors rather than generic Material-card prose.
+Use near-black layered graphite surfaces, restrained product identity and semantic functional colors.
 
 ## D-012 — Build/signing continuity
-GitHub Actions is canonical; signing secrets are CI-only and signer identity is verified.
+GitHub Actions is canonical. Signing secrets are CI-only and signer identity is cryptographically verified.
 
 ## D-013 — Documentation is canonical project context
-Scope, roadmap, decisions, gates and state live in the repository.
+Repository documentation defines scope, roadmap, decisions, active gates and current state; historical candidate files are evidence, not current truth.
 
 ## D-014 — Timeline controls use explicit marker heads
-Playhead and Loop use clear top marker heads with >=48dp targets; guide lines are visual only. Trim uses equally ergonomic local handles inside the active waveform. Playhead is blue, loop green, trim mustard and recording red.
+Playhead and Loop use clear top marker heads with ergonomic targets. Trim handles stay local to the active waveform. Playhead is blue, loop green, trim mustard and recording red.
 
-## D-015 — Timeline edits are STOPPED-only
-Marker movement, clip edits, import and current mix edits are locked while PLAYING/RECORDING. There is no separate Pause state; Play toggles to Stop.
+## D-015 — Structural timeline edits require compatible stopped state
+Marker movement, clip structural edits and import are blocked during incompatible transport/recording states. Live mix controls follow their own safe policy.
 
 ## D-016 — Playhead follows the audio hardware clock
-M4 playback uses Android `AudioTrack` over immutable managed WAV media. UI time follows hardware-presented frames rather than an arbitrary timer. Sample-rate mismatch remains rejected until resampling is validated.
+Playback UI follows hardware-presented frames, not an arbitrary timer.
 
-## D-017 — Trim is a staged, non-destructive waveform edit
-Trim opens at 35%/65% with mustard local waveform handles, precise boundary times and a draft/apply/cancel transaction. Apply persists clip metadata once; neither edge may expose frames outside immutable source bounds.
+## D-017 — Trim is staged and non-destructive
+Trim opens around 35%/65%, shows precise local boundary bubbles, clamps to immutable source bounds and persists metadata only when applied.
 
-## D-018 — Studio is timeline-first and single-screen
-The Studio must not require whole-screen vertical scrolling for its normal workflow. Timeline, transport and contextual editing stay in one workspace; track overflow may scroll only inside the track region. Duplicate clip/track representations and floating explanatory prose are prohibited.
+## D-018 — Studio is timeline-first and single-workspace
+Normal editing does not page-scroll the whole Studio. Track overflow scrolls only inside the timeline body; duplicate permanent representations and development prose are prohibited.
 
-## D-019 — Loop markers exist only while loop is enabled
-L◀/L▶ are contextual controls, not permanent timeline clutter.
+## D-019 — Loop markers are contextual
+Loop-specific markers disappear when Loop is disabled.
 
-## D-020 — Options Center owns low-frequency commands and setup
-Global audio I/O, export workflow, project/Studio preferences, codec capability/status and advanced diagnostics belong in Options. The creative timeline must not duplicate these controls.
+## D-020 — Options Center owns low-frequency setup/commands
+Global audio I/O, monitoring, export configuration, project/Studio preferences and diagnostics live in Options rather than cluttering the creative timeline.
 
-## D-021 — Input is global; output routing is global and revalidated
-Current scope exposes one global recording input and one main output. Per-track input routing is intentionally deferred. Android numeric audio device IDs are ephemeral and must never be persisted as durable identity; saved route preferences use a stable device signature and are re-resolved at runtime.
+## D-021 — Input/output routing is globally resolved and revalidated
+Current scope exposes one global recording input and one main output. Durable preferences use stable signatures, never ephemeral Android device IDs.
 
-## D-022 — Mixer Dock has independent visibility and pinning
-The bottom Mixer may be hidden/visible and temporary/pinned independently. Timeline and Mixer share one selected-track concept. Output selection remains in Options; Master may summarize route state only.
+## D-022 — Mixer Dock has independent visibility/pinning
+Timeline and Mixer share selected-track identity; Master remains fixed while track strips can scroll.
 
-## D-023 — Mixer controls must control real engine state
-Track gain/pan/mute/solo are editable because they are persisted and honored by playback. Record Arm is functional in M5 and exactly one armed track is required per take. No decorative EQ, meter or monitor control is enabled before its engine path exists.
+## D-023 — Mixer controls operate real engine state
+Gain/pan/mute/solo and Arm are functional state, not decoration. Exactly one armed track targets each recording take.
 
-## D-021 — M5 recording is transactional and single-target
-The current global input maps to exactly one armed track. Capture starts only after a visible five-second countdown and zero-time revalidation. A take is referenced by project metadata only after valid WAV finalization and atomic promotion to immutable managed storage; zero-frame failures leave no clip.
+## D-024 — M5 recording is transactional and single-target
+Capture begins only after visible countdown and zero-time revalidation. Metadata references a take only after valid WAV finalization and atomic promotion; zero-frame failures create no clip.
 
-## D-024 — Master gain is durable project metadata
-Master gain is part of `GuitarProject`, defaults to 0 dB for legacy JSON, is validated to -60..+12 dB and is applied after track summing. This additive field remains backward-compatible with existing schema-v1 JSON through serializer defaults.
+## D-025 — Master gain is durable project metadata
+Master gain is validated, backward-compatible project state applied after track summing.
 
-## D-025 — Metering is post-bus and non-persistent
-Track meters represent each audible post-track-mix bus before Master. Master meter is measured after summing and master gain, before final output clamp so overload remains observable. Meter ballistics use immediate attack, peak hold and time-based decay. Meter display state is transient and never stored in project JSON.
+## D-026 — Metering is post-bus and non-persistent
+Track/Master meter display is transient; overload remains observable before final output clamp.
 
-## D-026 — Android shell uses immersive fullscreen
-System status/navigation bars stay hidden during normal use and may be revealed transiently with standard system edge gestures.
+## D-027 — Android shell uses immersive fullscreen
+System bars stay hidden during normal use and may be revealed transiently with standard system gestures.
+
+## D-028 — Drag/drop belongs to a shared workspace coordinator
+Track reorder and clip migration share one workspace-level drag state. Drag ghosts must stay in the Compose tree above the LazyColumn; `Popup` is prohibited. Ghost position follows the pointer continuously, independently from snapped destination indicators.
+
+## D-029 — Drag autoscroll is continuous and geometry-driven
+Edge autoscroll runs in a coroutine/frame loop with bounded proportional speed. Targets are recalculated from current `LazyListState.layoutInfo` bounds after scrolling; preview motion never records project history.
+
+## D-030 — Completed drop is one atomic metadata mutation
+Track drop uses `ProjectTrackEditor.reorderTrack`; clip migration uses `ProjectClipEditor.moveClipToTrack`. Cancel and same-origin drop are exact no-ops. Stable IDs, source references and clip metadata are preserved.
+
+## D-031 — Clear and delete are different operations
+`Limpar pista` removes only track content and preserves track identity/function/color/order/mix. `Excluir pista` is structural, exists in `Configurar pista`, and is enabled only when the track is empty.
+
+## D-032 — Track Settings is responsive and metadata-aware
+Wide layouts use balanced identity/color and source-metadata columns; narrow layouts stack them. Source filename/format/sample rate/channels/bit depth/encoding/duration are shown when available, with a compact empty state otherwise.
+
+## D-033 — M5 closure requires alpha11 physical approval
+Software-green and signed identity are necessary but insufficient. M5 remains OPEN and PR #1 remains draft until explicit alpha11 physical approval with zero repeatable P0/P1. M6 is blocked until then and starts with measured round-trip latency/synchronization/jitter/loopback work.

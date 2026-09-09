@@ -1,34 +1,22 @@
 # M5 alpha09 — checklist de homologação física
 
-## Identidade
+Status: **HISTÓRICO — alpha09 aprovado fisicamente com achados menores**.
 
-- [ ] Confirmar `0.2.0-alpha09`, versionCode 10, SHA-256 e certificado do APK.
-- [ ] Instalar sobre a versão anterior e também em instalação limpa.
+Identidade histórica: `0.2.0-alpha09`, versionCode 10. Este checklist registra a etapa que consolidou a UX M5 e não é mais um gate ativo.
 
-## Regressão funcional M5
+## Resultado consolidado
 
-- [ ] Permissão de microfone concedida/negada; Arm único; countdown cancelável de 5 s.
-- [ ] Captura, Stop, take gerenciado, waveform, persistência e duplex com backing.
-- [ ] Desconexão de rota preserva apenas take parcial válido e não corrompe o projeto.
+O alpha09 foi amplamente aprovado em validação física. Permaneceram achados de UX que motivaram o alpha10, sem invalidar a base de gravação/captura já homologada nessa etapa.
 
-## UX consolidada
+Foram validados ou mantidos como baseline de regressão:
+- permissão, Arm único e countdown de 5 s;
+- captura, Stop, take gerenciado, waveform, persistência e duplex com backing;
+- REC/Arm simbólico, Pan bipolar e Mixer;
+- Undo/Redo sem deslocar estruturalmente a timeline;
+- sidebar contextual e waveform limpa;
+- orientação mantendo o projeto aberto;
+- Playhead/Loop globais e Trim local não destrutivo.
 
-- [ ] REC/Arm é símbolo vermelho: discreto desligado, vivo armado.
-- [ ] Pan parte do centro e preenche corretamente para E/D; Volume/Pan e valores são legíveis sem linha desperdiçada.
-- [ ] Mixer tem altura confortável e Gain/Pan/Master funcionam durante Play e REC.
-- [ ] Undo/Redo ficam depois de Loop e suas mensagens aparecem como popup temporário sem mover a timeline.
-- [ ] Pista vazia mostra `+`; pista populada mostra três pontos e as quatro ações corretas.
-- [ ] Waveform não contém título nem botões e ocupa a altura útil da faixa.
-- [ ] Engrenagem exibe dados do áudio fonte: nome, formato, sample rate, canais e bit depth disponíveis.
-- [ ] Long press + drag na sidebar reordena pista e conteúdo; Undo restaura a ordem.
-- [ ] Long press + drag na waveform move o clipe para outra pista, sem duplicar nem alterar a fonte; Undo restaura.
-- [ ] Rotação paisagem/retrato mantém projeto, tela, seleção e estado fixado do mixer.
-- [ ] Playhead cruza todas as pistas; Loop cruza todas as pistas somente ativo; handles não se sobrepõem.
-- [ ] Primeira ativação do Loop começa em 0–10%.
-- [ ] Trim nasce em 35–65%, aparece somente na waveform ativa, mantém Apply/Cancel e clamp seguro.
+O alpha10 corrigiu e aprovou a apresentação do Trim e a separação entre `Limpar pista` e `Excluir pista`, porém revelou falhas remanescentes nos drags de pista/waveform e no layout de `Configurar pista`.
 
-## Gate
-
-- [ ] Zero P0.
-- [ ] Zero P1 reproduzível.
-- [ ] Evidências registradas com Samsung SM-X230 e Pocket Amp, além do microfone interno.
+O único gate ativo agora é `M5_ALPHA11_FINAL_HOMOLOGATION_CHECKLIST.md`. A M5 permanece OPEN até aprovação física explícita do alpha11.
