@@ -5,6 +5,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.scrollBy
@@ -18,6 +19,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -25,13 +27,15 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ContentCut
-import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.CallSplit
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.ContentCut
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Settings
@@ -51,18 +55,19 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
@@ -72,28 +77,46 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Popup
 import androidx.compose.ui.zIndex
-import kotlinx.coroutines.launch
 import androidx.lifecycle.viewmodel.compose.viewModel
-import studio.guitarlab.app.ui.theme.StudioTrim
+import kotlinx.coroutines.delay
 import studio.guitarlab.app.ui.theme.StudioLoop
 import studio.guitarlab.app.ui.theme.StudioPlayhead
+import studio.guitarlab.app.ui.theme.StudioTrim
 import studio.guitarlab.core.model.AudioClip
 import studio.guitarlab.core.model.AudioTrack
 import studio.guitarlab.core.model.BuiltInRoles
 import studio.guitarlab.core.model.GuitarProject
+import studio.guitarlab.core.project.RecordingSessionPhase
 import studio.guitarlab.core.project.TimelineControlPolicy
 import studio.guitarlab.core.project.TimelineControlState
+import studio.guitarlab.core.project.TimelineDragPolicy
 import studio.guitarlab.core.project.TransportPolicy
 import studio.guitarlab.core.project.TransportState
 import studio.guitarlab.core.project.TrimControlPolicy
 import studio.guitarlab.core.project.TrimControlState
-import studio.guitarlab.core.project.RecordingSessionPhase
 
 private val TrackSidebarWidth = 224.dp
 private val TrackLaneGap = 6.dp
 private val TrackLaneHeight = 96.dp
+
+enum class WorkspaceDragKind { TRACK, CLIP }
+
+private data class WorkspaceDragState(
+    val kind: WorkspaceDragKind,
+    val itemId: String,
+    val sourceTrackId: String,
+    val sourceIndex: Int,
+    val pointer: Offset,
+    val grabOffset: Offset,
+    val itemSize: IntSize,
+    val color: Color,
+    val label: String,
+    val secondaryLabel: String? = null,
+    val peaks: List<Float>? = null,
+    val targetIndex: Int? = null,
+    val targetTrackId: String? = null,
+)
 
 @Composable
 fun StudioPlaceholderScreen(
@@ -163,6 +186,7 @@ fun StudioPlaceholderScreen(
         TrackSettingsDialog(
             track = settingsTrack,
             clips = project.clips.filter { it.trackId == settingsTrack.id },
+            sampleRate = project.sampleRate.fixedHz ?: clipSampleRate(project),
             onDismiss = { settingsTrackId = null },
             onSave = { name, colorIndex ->
                 viewModel.updateTrackProperties(settingsTrack.id, name, colorIndex)
@@ -265,58 +289,194 @@ private fun ProjectWorkspace(
                 TimelineRuler(project, projectEndFrame)
 
                 val orderedTracks = project.tracks.sortedBy { it.order }
+                val orderedIds = orderedTracks.map { it.id }
                 val trackListState = rememberLazyListState()
-                val dragScope = rememberCoroutineScope()
-                Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
-                  LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    state = trackListState,
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                    contentPadding = PaddingValues(bottom = 2.dp),
-                  ) {
-                    items(orderedTracks, key = { it.id }) { track ->
-                        val trackIndex = orderedTracks.indexOfFirst { it.id == track.id }
-                        StudioTrackLane(
-                            track = track,
-                            clips = project.clips.filter { it.trackId == track.id },
-                            waveforms = waveforms,
-                            projectEndFrame = projectEndFrame,
-                            selected = track.id == selectedTrackId,
-                            canImport = clipEditingEnabled,
-                            canEditClip = clipEditingEnabled,
-                            activeTrimClipId = trimControls?.clipId,
-                            trimControls = trimControls,
-                            sampleRate = project.sampleRate.fixedHz ?: clipSampleRate(project),
-                            onTrimStartFrameChanged = onTrimStartFrameChanged,
-                            onTrimEndFrameChanged = onTrimEndFrameChanged,
-                            onSelect = { onSelectTrack(track.id) },
-                            onSettings = { onOpenTrackSettings(track.id) },
-                            onImportWav = { onImportWav(track.id) },
-                            onBeginTrim = onBeginTrim,
-                            onRemove = onRemoveClip,
-                            onClearTrack = { onClearTrack(track.id) },
-                            onDuplicate = onDuplicateClip,
-                            onSplit = onSplitClip,
-                            trackIndex = trackIndex,
-                            trackCount = orderedTracks.size,
-                            onReorder = { onReorderTrack(track.id, it) },
-                            onMoveClip = { clipId, targetIndex -> onMoveClipToTrack(clipId, orderedTracks[targetIndex].id) },
-                            onAutoScroll = { direction ->
-                                if ((direction < 0 && trackListState.canScrollBackward) || (direction > 0 && trackListState.canScrollForward)) {
-                                    dragScope.launch { trackListState.scrollBy(direction * 52f) }
-                                }
-                            },
+                var dragState by remember { mutableStateOf<WorkspaceDragState?>(null) }
+                var workspaceWindowOrigin by remember { mutableStateOf(Offset.Zero) }
+                var workspaceSize by remember { mutableStateOf(IntSize.Zero) }
+                val density = LocalDensity.current
+                val edgeZonePx = with(density) { 72.dp.toPx() }
+                val maxScrollStepPx = with(density) { 18.dp.toPx() }
+
+                fun visibleLanes(): List<TimelineDragPolicy.LaneBounds> =
+                    trackListState.layoutInfo.visibleItemsInfo.mapNotNull { item ->
+                        val track = orderedTracks.getOrNull(item.index) ?: return@mapNotNull null
+                        TimelineDragPolicy.LaneBounds(
+                            trackId = track.id,
+                            topPx = item.offset.toFloat(),
+                            bottomPx = item.offset.toFloat() + item.size,
+                            order = item.index,
                         )
                     }
-                  }
-                  GlobalTimelineLines(
-                      playheadFrame = timelineControls.playheadFrame,
-                      loopStartFrame = timelineControls.loopStartFrame,
-                      loopEndFrame = timelineControls.loopEndFrame,
-                      projectEndFrame = projectEndFrame,
-                      showLoop = transport.loopEnabled,
-                      modifier = Modifier.fillMaxSize(),
-                  )
+
+                fun retarget(state: WorkspaceDragState): WorkspaceDragState {
+                    val lanes = visibleLanes()
+                    return when (state.kind) {
+                        WorkspaceDragKind.TRACK -> state.copy(
+                            targetIndex = TimelineDragPolicy.trackTargetIndex(
+                                sourceTrackId = state.sourceTrackId,
+                                pointerYPx = state.pointer.y,
+                                visibleLanes = lanes,
+                                orderedTrackIds = orderedIds,
+                            ),
+                            targetTrackId = null,
+                        )
+                        WorkspaceDragKind.CLIP -> state.copy(
+                            targetTrackId = TimelineDragPolicy.clipTargetTrackId(state.pointer.y, lanes),
+                            targetIndex = null,
+                        )
+                    }
+                }
+
+                fun beginTrackDrag(track: AudioTrack, trackIndex: Int, itemOriginWindow: Offset, touch: Offset, itemSize: IntSize) {
+                    if (!clipEditingEnabled) return
+                    val origin = itemOriginWindow - workspaceWindowOrigin
+                    val state = WorkspaceDragState(
+                        kind = WorkspaceDragKind.TRACK,
+                        itemId = track.id,
+                        sourceTrackId = track.id,
+                        sourceIndex = trackIndex,
+                        pointer = origin + touch,
+                        grabOffset = touch,
+                        itemSize = itemSize,
+                        color = track.resolvedStudioColor(),
+                        label = track.name,
+                        secondaryLabel = roleName(track.roleId),
+                    )
+                    dragState = retarget(state)
+                    onSelectTrack(track.id)
+                }
+
+                fun beginClipDrag(clip: AudioClip, trackIndex: Int, color: Color, peaks: List<Float>?, itemOriginWindow: Offset, touch: Offset, itemSize: IntSize) {
+                    if (!clipEditingEnabled) return
+                    val origin = itemOriginWindow - workspaceWindowOrigin
+                    val state = WorkspaceDragState(
+                        kind = WorkspaceDragKind.CLIP,
+                        itemId = clip.id,
+                        sourceTrackId = clip.trackId,
+                        sourceIndex = trackIndex,
+                        pointer = origin + touch,
+                        grabOffset = touch,
+                        itemSize = itemSize,
+                        color = color,
+                        label = clip.name,
+                        peaks = peaks,
+                    )
+                    dragState = retarget(state)
+                }
+
+                fun dragBy(amount: Offset) {
+                    val current = dragState ?: return
+                    dragState = retarget(current.copy(pointer = current.pointer + amount))
+                }
+
+                fun cancelDrag() {
+                    dragState = null
+                }
+
+                fun commitDrag() {
+                    val current = dragState ?: return
+                    dragState = null
+                    when (current.kind) {
+                        WorkspaceDragKind.TRACK -> {
+                            val target = current.targetIndex ?: current.sourceIndex
+                            if (target != current.sourceIndex) onReorderTrack(current.itemId, target)
+                        }
+                        WorkspaceDragKind.CLIP -> {
+                            val targetTrackId = current.targetTrackId
+                            if (targetTrackId != null && targetTrackId != current.sourceTrackId) {
+                                onMoveClipToTrack(current.itemId, targetTrackId)
+                            }
+                        }
+                    }
+                }
+
+                LaunchedEffect(dragState?.kind, dragState?.itemId) {
+                    while (dragState != null) {
+                        val current = dragState ?: break
+                        val auto = TimelineDragPolicy.autoScroll(
+                            pointerYPx = current.pointer.y,
+                            viewportTopPx = 0f,
+                            viewportBottomPx = workspaceSize.height.toFloat(),
+                            edgeZonePx = edgeZonePx,
+                            maxStepPx = maxScrollStepPx,
+                            canScrollBackward = trackListState.canScrollBackward,
+                            canScrollForward = trackListState.canScrollForward,
+                        )
+                        if (auto.deltaPx != 0f) {
+                            trackListState.scrollBy(auto.deltaPx)
+                            dragState?.let { dragState = retarget(it) }
+                        }
+                        delay(16L)
+                    }
+                }
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                        .onGloballyPositioned { coordinates ->
+                            workspaceWindowOrigin = coordinates.positionInWindow()
+                            workspaceSize = coordinates.size
+                        },
+                ) {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        state = trackListState,
+                        userScrollEnabled = dragState == null,
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                        contentPadding = PaddingValues(bottom = 2.dp),
+                    ) {
+                        items(orderedTracks, key = { it.id }) { track ->
+                            val trackIndex = orderedTracks.indexOfFirst { it.id == track.id }
+                            StudioTrackLane(
+                                track = track,
+                                clips = project.clips.filter { it.trackId == track.id },
+                                waveforms = waveforms,
+                                projectEndFrame = projectEndFrame,
+                                selected = track.id == selectedTrackId,
+                                canImport = clipEditingEnabled,
+                                canEditClip = clipEditingEnabled && dragState == null,
+                                activeTrimClipId = trimControls?.clipId,
+                                trimControls = trimControls,
+                                sampleRate = project.sampleRate.fixedHz ?: clipSampleRate(project),
+                                onTrimStartFrameChanged = onTrimStartFrameChanged,
+                                onTrimEndFrameChanged = onTrimEndFrameChanged,
+                                onSelect = { onSelectTrack(track.id) },
+                                onSettings = { onOpenTrackSettings(track.id) },
+                                onImportWav = { onImportWav(track.id) },
+                                onBeginTrim = onBeginTrim,
+                                onRemove = onRemoveClip,
+                                onClearTrack = { onClearTrack(track.id) },
+                                onDuplicate = onDuplicateClip,
+                                onSplit = onSplitClip,
+                                trackIndex = trackIndex,
+                                draggingTrackId = dragState?.takeIf { it.kind == WorkspaceDragKind.TRACK }?.itemId,
+                                draggingClipId = dragState?.takeIf { it.kind == WorkspaceDragKind.CLIP }?.itemId,
+                                onStartTrackDrag = { origin, touch, size -> beginTrackDrag(track, trackIndex, origin, touch, size) },
+                                onStartClipDrag = { clip, color, peaks, origin, touch, size -> beginClipDrag(clip, trackIndex, color, peaks, origin, touch, size) },
+                                onDrag = ::dragBy,
+                                onDragEnd = ::commitDrag,
+                                onDragCancel = ::cancelDrag,
+                            )
+                        }
+                    }
+
+                    GlobalTimelineLines(
+                        playheadFrame = timelineControls.playheadFrame,
+                        loopStartFrame = timelineControls.loopStartFrame,
+                        loopEndFrame = timelineControls.loopEndFrame,
+                        projectEndFrame = projectEndFrame,
+                        showLoop = transport.loopEnabled,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+
+                    DragOverlay(
+                        drag = dragState,
+                        visibleLanes = visibleLanes(),
+                        orderedTracks = orderedTracks,
+                        modifier = Modifier.fillMaxSize().zIndex(20f),
+                    )
                 }
             }
         }
@@ -343,6 +503,110 @@ private fun ProjectWorkspace(
                     style = MaterialTheme.typography.displayMedium,
                     color = MaterialTheme.colorScheme.onErrorContainer,
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun DragOverlay(
+    drag: WorkspaceDragState?,
+    visibleLanes: List<TimelineDragPolicy.LaneBounds>,
+    orderedTracks: List<AudioTrack>,
+    modifier: Modifier = Modifier,
+) {
+    if (drag == null) return
+    val density = LocalDensity.current
+    val ghostX = drag.pointer.x - drag.grabOffset.x
+    val ghostY = drag.pointer.y - drag.grabOffset.y
+    val orderedIds = orderedTracks.map { it.id }
+
+    Box(modifier = modifier) {
+        if (drag.kind == WorkspaceDragKind.TRACK) {
+            val indicatorY = drag.targetIndex?.let {
+                TimelineDragPolicy.insertionIndicatorYPx(it, visibleLanes, orderedIds)
+            }
+            if (indicatorY != null) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .offset { IntOffset(0, indicatorY.toInt()) }
+                        .height(3.dp)
+                        .background(drag.color),
+                )
+                Surface(
+                    modifier = Modifier
+                        .offset { IntOffset(with(density) { 8.dp.roundToPx() }, (indicatorY - with(density) { 28.dp.toPx() }).toInt()) },
+                    shape = RoundedCornerShape(5.dp),
+                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
+                    border = BorderStroke(1.dp, drag.color),
+                ) {
+                    Text(
+                        "Posição ${(drag.targetIndex ?: drag.sourceIndex) + 1}",
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = drag.color,
+                    )
+                }
+            }
+        } else {
+            val targetBounds = visibleLanes.firstOrNull { it.trackId == drag.targetTrackId }
+            if (targetBounds != null) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .offset { IntOffset(0, targetBounds.topPx.toInt()) }
+                        .height(with(density) { targetBounds.heightPx.toDp() })
+                        .border(2.dp, drag.color, RoundedCornerShape(8.dp)),
+                )
+                val targetName = orderedTracks.firstOrNull { it.id == drag.targetTrackId }?.name ?: "pista"
+                Surface(
+                    modifier = Modifier.offset { IntOffset(with(density) { (TrackSidebarWidth + 10.dp).roundToPx() }, (targetBounds.topPx + 6f).toInt()) },
+                    shape = RoundedCornerShape(5.dp),
+                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
+                    border = BorderStroke(1.dp, drag.color),
+                ) {
+                    Text(
+                        "Mover para $targetName",
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                        style = MaterialTheme.typography.labelMedium,
+                    )
+                }
+            }
+        }
+
+        Surface(
+            modifier = Modifier
+                .offset { IntOffset(ghostX.toInt(), ghostY.toInt()) }
+                .width(with(density) { drag.itemSize.width.toDp() })
+                .height(with(density) { drag.itemSize.height.toDp() }),
+            shape = RoundedCornerShape(8.dp),
+            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.98f),
+            border = BorderStroke(2.dp, drag.color),
+            tonalElevation = 12.dp,
+        ) {
+            if (drag.kind == WorkspaceDragKind.CLIP) {
+                Box(Modifier.fillMaxSize().padding(6.dp)) {
+                    drag.peaks?.let { WaveformMini(peaks = it, color = drag.color, modifier = Modifier.fillMaxSize()) }
+                    Text(
+                        drag.label,
+                        modifier = Modifier.align(Alignment.BottomStart),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                    )
+                }
+            } else {
+                Column(
+                    modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 10.dp),
+                    verticalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Text(drag.label, style = MaterialTheme.typography.titleSmall, maxLines = 1)
+                    drag.secondaryLabel?.let {
+                        Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+                    }
+                    Text("Arraste e solte", style = MaterialTheme.typography.labelMedium, color = drag.color)
+                }
             }
         }
     }
@@ -382,10 +646,10 @@ private fun GlobalTimelineLines(
         val timelineWidth = (size.width - sidebarPx).coerceAtLeast(1f)
         fun x(frame: Long): Float = sidebarPx + TimelineControlPolicy.frameToFraction(frame, projectEndFrame) * timelineWidth
         if (showLoop) {
-            drawLine(StudioLoop.copy(alpha = 0.62f), start = androidx.compose.ui.geometry.Offset(x(loopStartFrame), 0f), end = androidx.compose.ui.geometry.Offset(x(loopStartFrame), size.height), strokeWidth = 2f)
-            drawLine(StudioLoop.copy(alpha = 0.62f), start = androidx.compose.ui.geometry.Offset(x(loopEndFrame), 0f), end = androidx.compose.ui.geometry.Offset(x(loopEndFrame), size.height), strokeWidth = 2f)
+            drawLine(StudioLoop.copy(alpha = 0.62f), start = Offset(x(loopStartFrame), 0f), end = Offset(x(loopStartFrame), size.height), strokeWidth = 2f)
+            drawLine(StudioLoop.copy(alpha = 0.62f), start = Offset(x(loopEndFrame), 0f), end = Offset(x(loopEndFrame), size.height), strokeWidth = 2f)
         }
-        drawLine(StudioPlayhead.copy(alpha = 0.78f), start = androidx.compose.ui.geometry.Offset(x(playheadFrame), 0f), end = androidx.compose.ui.geometry.Offset(x(playheadFrame), size.height), strokeWidth = 2f)
+        drawLine(StudioPlayhead.copy(alpha = 0.78f), start = Offset(x(playheadFrame), 0f), end = Offset(x(playheadFrame), size.height), strokeWidth = 2f)
     }
 }
 
@@ -427,52 +691,45 @@ private fun StudioTrackLane(
     onDuplicate: (String) -> Unit,
     onSplit: (String) -> Unit,
     trackIndex: Int,
-    trackCount: Int,
-    onReorder: (Int) -> Unit,
-    onMoveClip: (String, Int) -> Unit,
-    onAutoScroll: (Int) -> Unit,
+    draggingTrackId: String?,
+    draggingClipId: String?,
+    onStartTrackDrag: (Offset, Offset, IntSize) -> Unit,
+    onStartClipDrag: (AudioClip, Color, List<Float>?, Offset, Offset, IntSize) -> Unit,
+    onDrag: (Offset) -> Unit,
+    onDragEnd: () -> Unit,
+    onDragCancel: () -> Unit,
 ) {
-    var trackDragY by remember(track.id) { mutableFloatStateOf(0f) }
-    var trackOrigin by remember(track.id) { mutableStateOf(IntOffset.Zero) }
+    var trackOrigin by remember(track.id) { mutableStateOf(Offset.Zero) }
     var trackMeasuredSize by remember(track.id) { mutableStateOf(IntSize.Zero) }
     var clipMenuExpanded by remember(track.id) { mutableStateOf(false) }
+    val currentTrackOrigin by rememberUpdatedState(trackOrigin)
+    val currentTrackSize by rememberUpdatedState(trackMeasuredSize)
     val primaryClip = clips.minByOrNull { it.startFrame }
-    val density = LocalDensity.current
-    val rowStepPx = with(density) { (TrackLaneHeight + 4.dp).toPx() }
-    val trackDropIndex = (trackIndex + kotlin.math.round(trackDragY / rowStepPx).toInt()).coerceIn(0, trackCount - 1)
     val trackColor = track.resolvedStudioColor()
     val trackNameStyle = if (track.name.length > 34) MaterialTheme.typography.labelLarge else MaterialTheme.typography.bodyMedium
+
     Row(
         modifier = Modifier.fillMaxWidth().height(TrackLaneHeight),
         horizontalArrangement = Arrangement.spacedBy(TrackLaneGap),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Surface(
-            modifier = Modifier.width(TrackSidebarWidth).fillMaxHeight()
-                .zIndex(if (trackDragY != 0f) 2f else 0f)
-                .alpha(if (trackDragY != 0f) 0.30f else 1f)
+            modifier = Modifier
+                .width(TrackSidebarWidth)
+                .fillMaxHeight()
+                .alpha(if (draggingTrackId == track.id) 0.28f else 1f)
                 .onGloballyPositioned { coordinates ->
-                    val origin = coordinates.positionInWindow()
-                    trackOrigin = IntOffset(origin.x.toInt(), origin.y.toInt())
+                    trackOrigin = coordinates.positionInWindow()
                     trackMeasuredSize = coordinates.size
                 }
-                .pointerInput(track.id, canEditClip, trackIndex, trackCount) {
+                .pointerInput(track.id, canEditClip) {
                     if (canEditClip) detectDragGesturesAfterLongPress(
-                        onDragStart = { onSelect() },
-                        onDragCancel = { trackDragY = 0f },
-                        onDragEnd = {
-                            val target = (trackIndex + kotlin.math.round(trackDragY / rowStepPx).toInt()).coerceIn(0, trackCount - 1)
-                            trackDragY = 0f
-                            if (target != trackIndex) onReorder(target)
-                        },
+                        onDragStart = { touch -> onStartTrackDrag(currentTrackOrigin, touch, currentTrackSize) },
+                        onDragCancel = onDragCancel,
+                        onDragEnd = onDragEnd,
                         onDrag = { change, amount ->
                             change.consume()
-                            trackDragY += amount.y
-                            val edge = 24.dp.toPx()
-                            when {
-                                change.position.y < edge -> { onAutoScroll(-1); trackDragY -= rowStepPx * 0.12f }
-                                change.position.y > size.height - edge -> { onAutoScroll(1); trackDragY += rowStepPx * 0.12f }
-                            }
+                            onDrag(amount)
                         },
                     )
                 }
@@ -579,34 +836,13 @@ private fun StudioTrackLane(
                         onTrimStartFrameChanged = onTrimStartFrameChanged,
                         onTrimEndFrameChanged = onTrimEndFrameChanged,
                         canEdit = canEditClip,
-                        onTrim = { onBeginTrim(clip.id) },
-                        onRemove = { onRemove(clip.id) },
-                        onDuplicate = { onDuplicate(clip.id) },
-                        onSplit = { onSplit(clip.id) },
-                        trackIndex = trackIndex,
-                        trackCount = trackCount,
-                        onMoveTrack = { target -> onMoveClip(clip.id, target) },
-                        onAutoScroll = onAutoScroll,
+                        dragging = draggingClipId == clip.id,
+                        onStartDrag = { origin, touch, size -> onStartClipDrag(clip, trackColor, waveforms[clip.id], origin, touch, size) },
+                        onDrag = onDrag,
+                        onDragEnd = onDragEnd,
+                        onDragCancel = onDragCancel,
                         modifier = Modifier.offset(x = x).width(clipWidth).fillMaxHeight().padding(vertical = 5.dp).align(Alignment.CenterStart),
                     )
-                }
-            }
-        }
-    }
-    if (trackDragY != 0f && trackMeasuredSize != IntSize.Zero) {
-        val snappedY = trackOrigin.y + ((trackDropIndex - trackIndex) * rowStepPx).toInt()
-        Popup(alignment = Alignment.TopStart, offset = IntOffset(trackOrigin.x, snappedY)) {
-            Surface(
-                modifier = Modifier.width(with(density) { trackMeasuredSize.width.toDp() }).height(TrackLaneHeight),
-                shape = RoundedCornerShape(8.dp),
-                color = MaterialTheme.colorScheme.surface,
-                border = BorderStroke(2.dp, trackColor),
-                tonalElevation = 10.dp,
-            ) {
-                Column(Modifier.padding(horizontal = 12.dp, vertical = 10.dp), verticalArrangement = Arrangement.SpaceBetween) {
-                    Text(track.name, style = MaterialTheme.typography.titleSmall, maxLines = 1)
-                    Text(roleName(track.roleId), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
-                    Text("Solte na posição ${trackDropIndex + 1}", style = MaterialTheme.typography.labelMedium, color = trackColor)
                 }
             }
         }
@@ -624,46 +860,33 @@ private fun TimelineClipCard(
     onTrimStartFrameChanged: (Long) -> Unit,
     onTrimEndFrameChanged: (Long) -> Unit,
     canEdit: Boolean,
-    onTrim: () -> Unit,
-    onRemove: () -> Unit,
-    onDuplicate: () -> Unit,
-    onSplit: () -> Unit,
-    trackIndex: Int,
-    trackCount: Int,
-    onMoveTrack: (Int) -> Unit,
-    onAutoScroll: (Int) -> Unit,
+    dragging: Boolean,
+    onStartDrag: (Offset, Offset, IntSize) -> Unit,
+    onDrag: (Offset) -> Unit,
+    onDragEnd: () -> Unit,
+    onDragCancel: () -> Unit,
     modifier: Modifier,
 ) {
-    var clipDragY by remember(clip.id) { mutableFloatStateOf(0f) }
-    var clipOrigin by remember(clip.id) { mutableStateOf(IntOffset.Zero) }
+    var clipOrigin by remember(clip.id) { mutableStateOf(Offset.Zero) }
     var clipMeasuredSize by remember(clip.id) { mutableStateOf(IntSize.Zero) }
-    val density = LocalDensity.current
-    val rowStepPx = with(density) { (TrackLaneHeight + 4.dp).toPx() }
-    val clipDropIndex = (trackIndex + kotlin.math.round(clipDragY / rowStepPx).toInt()).coerceIn(0, trackCount - 1)
+    val currentClipOrigin by rememberUpdatedState(clipOrigin)
+    val currentClipSize by rememberUpdatedState(clipMeasuredSize)
+
     Surface(
         modifier = modifier
-            .alpha(if (clipDragY != 0f) 0.24f else 1f)
+            .alpha(if (dragging) 0.22f else 1f)
             .onGloballyPositioned { coordinates ->
-                val origin = coordinates.positionInWindow()
-                clipOrigin = IntOffset(origin.x.toInt(), origin.y.toInt())
+                clipOrigin = coordinates.positionInWindow()
                 clipMeasuredSize = coordinates.size
             }
-            .pointerInput(clip.id, canEdit, trackIndex, trackCount) {
-                if (canEdit) detectDragGesturesAfterLongPress(
-                    onDragCancel = { clipDragY = 0f },
-                    onDragEnd = {
-                        val target = (trackIndex + kotlin.math.round(clipDragY / rowStepPx).toInt()).coerceIn(0, trackCount - 1)
-                        clipDragY = 0f
-                        if (target != trackIndex) onMoveTrack(target)
-                    },
+            .pointerInput(clip.id, canEdit, trimming) {
+                if (canEdit && !trimming) detectDragGesturesAfterLongPress(
+                    onDragStart = { touch -> onStartDrag(currentClipOrigin, touch, currentClipSize) },
+                    onDragCancel = onDragCancel,
+                    onDragEnd = onDragEnd,
                     onDrag = { change, amount ->
                         change.consume()
-                        clipDragY += amount.y
-                        val edge = 24.dp.toPx()
-                        when {
-                            change.position.y < edge -> { onAutoScroll(-1); clipDragY -= rowStepPx * 0.12f }
-                            change.position.y > size.height - edge -> { onAutoScroll(1); clipDragY += rowStepPx * 0.12f }
-                        }
+                        onDrag(amount)
                     },
                 )
             },
@@ -687,32 +910,6 @@ private fun TimelineClipCard(
                     )
                 } else {
                     WaveformMini(peaks = it, muted = clip.muted, color = trackColor, modifier = Modifier.fillMaxSize())
-                }
-            }
-        }
-    }
-    if (clipDragY != 0f && clipMeasuredSize != IntSize.Zero) {
-        val snappedY = clipOrigin.y + ((clipDropIndex - trackIndex) * rowStepPx).toInt()
-        Popup(alignment = Alignment.TopStart, offset = IntOffset(clipOrigin.x, snappedY)) {
-            Surface(
-                modifier = Modifier
-                    .width(with(density) { clipMeasuredSize.width.toDp() })
-                    .height(with(density) { clipMeasuredSize.height.toDp() }),
-                shape = RoundedCornerShape(7.dp),
-                color = MaterialTheme.colorScheme.surface,
-                border = BorderStroke(2.dp, trackColor),
-                tonalElevation = 12.dp,
-            ) {
-                Box(Modifier.fillMaxSize().padding(6.dp)) {
-                    peaks?.let { WaveformMini(peaks = it, muted = clip.muted, color = trackColor, modifier = Modifier.fillMaxSize()) }
-                    Surface(
-                        modifier = Modifier.align(Alignment.TopEnd),
-                        shape = RoundedCornerShape(5.dp),
-                        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f),
-                        border = BorderStroke(1.dp, trackColor),
-                    ) {
-                        Text("Mover para pista ${clipDropIndex + 1}", modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp), style = MaterialTheme.typography.labelMedium)
-                    }
                 }
             }
         }
@@ -741,7 +938,7 @@ private fun TrimWaveformEditor(
         Canvas(Modifier.fillMaxSize()) {
             drawRect(
                 color = StudioTrim.copy(alpha = 0.24f),
-                topLeft = androidx.compose.ui.geometry.Offset(size.width * startFraction, 0f),
+                topLeft = Offset(size.width * startFraction, 0f),
                 size = androidx.compose.ui.geometry.Size(size.width * (endFraction - startFraction), size.height),
             )
         }
@@ -835,6 +1032,7 @@ private fun TrimActionBar(
 private fun TrackSettingsDialog(
     track: AudioTrack,
     clips: List<AudioClip>,
+    sampleRate: Int,
     onDismiss: () -> Unit,
     onSave: (String, Int) -> Unit,
     onDelete: () -> Unit,
@@ -844,67 +1042,174 @@ private fun TrackSettingsDialog(
     var colorIndex by remember(track.id, track.colorIndex) {
         mutableIntStateOf(if (track.colorIndex in StudioTrackPalette.indices) track.colorIndex else track.order % StudioTrackPalette.size)
     }
+    val validName = name.trim().length in 1..24
+    val scrollState = rememberScrollState()
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Configurar pista") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    singleLine = true,
-                    label = { Text("Nome") },
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                Text("Cor", style = MaterialTheme.typography.labelLarge)
-                StudioTrackPalette.chunked(5).forEachIndexed { rowIndex, colors ->
-                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        colors.forEachIndexed { columnIndex, color ->
-                            val index = rowIndex * 5 + columnIndex
-                            Surface(
-                                modifier = Modifier.size(30.dp).clip(CircleShape).clickable { colorIndex = index },
-                                shape = CircleShape,
-                                color = color,
-                                border = BorderStroke(if (colorIndex == index) 3.dp else 1.dp, if (colorIndex == index) MaterialTheme.colorScheme.onSurface else color.copy(alpha = 0.55f)),
-                            ) {}
-                        }
+            BoxWithConstraints(
+                modifier = Modifier.fillMaxWidth().heightIn(max = 560.dp).verticalScroll(scrollState),
+            ) {
+                val wide = maxWidth >= 560.dp
+                if (wide) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(18.dp),
+                        verticalAlignment = Alignment.Top,
+                    ) {
+                        TrackSettingsIdentityColumn(
+                            track = track,
+                            name = name,
+                            onNameChange = { if (it.length <= 24) name = it },
+                            colorIndex = colorIndex,
+                            onColorChange = { colorIndex = it },
+                            hasClips = hasClips,
+                            onDelete = onDelete,
+                            modifier = Modifier.weight(1f),
+                        )
+                        TrackSourceMetadata(
+                            clips = clips,
+                            sampleRate = sampleRate,
+                            modifier = Modifier.weight(1f),
+                        )
                     }
-                }
-                if (clips.isNotEmpty()) {
-                    Text("Áudio fonte", style = MaterialTheme.typography.labelLarge)
-                    clips.sortedBy { it.startFrame }.forEach { clip ->
-                        val format = listOfNotNull(
-                            clip.sourceFormat,
-                            clip.sourceSampleRateHz?.let { "$it Hz" },
-                            clip.sourceChannelCount?.let { "$it canal(is)" },
-                            clip.sourceBitsPerSample?.let { "$it-bit" },
-                        ).joinToString(" · ")
-                        Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
-                            Text(clip.name, style = MaterialTheme.typography.bodyMedium, maxLines = 1)
-                            if (format.isNotBlank()) Text(format, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
+                } else {
+                    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                        TrackSettingsIdentityColumn(
+                            track = track,
+                            name = name,
+                            onNameChange = { if (it.length <= 24) name = it },
+                            colorIndex = colorIndex,
+                            onColorChange = { colorIndex = it },
+                            hasClips = hasClips,
+                            onDelete = onDelete,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        TrackSourceMetadata(
+                            clips = clips,
+                            sampleRate = sampleRate,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
                     }
-                }
-                if (hasClips) {
-                    Text("Use “Limpar pista” no menu de três pontos antes de excluir a pista.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                OutlinedButton(
-                    onClick = onDelete,
-                    enabled = !hasClips,
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
-                ) {
-                    Icon(Icons.Default.Delete, contentDescription = null)
-                    Text("Excluir pista", modifier = Modifier.padding(start = 8.dp))
                 }
             }
         },
         confirmButton = {
-            Button(onClick = { onSave(name, colorIndex) }, enabled = name.isNotBlank()) { Text("Salvar") }
+            Button(onClick = { onSave(name.trim(), colorIndex) }, enabled = validName) { Text("Salvar") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } },
     )
+}
+
+@Composable
+private fun TrackSettingsIdentityColumn(
+    track: AudioTrack,
+    name: String,
+    onNameChange: (String) -> Unit,
+    colorIndex: Int,
+    onColorChange: (Int) -> Unit,
+    hasClips: Boolean,
+    onDelete: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        OutlinedTextField(
+            value = name,
+            onValueChange = onNameChange,
+            singleLine = true,
+            label = { Text("Nome") },
+            supportingText = { Text("1–24 caracteres") },
+            isError = name.trim().length !in 1..24,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text("Função", style = MaterialTheme.typography.labelLarge)
+            Text(roleName(track.roleId), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        Text("Cor", style = MaterialTheme.typography.labelLarge)
+        StudioTrackPalette.chunked(5).forEachIndexed { rowIndex, colors ->
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                colors.forEachIndexed { columnIndex, color ->
+                    val index = rowIndex * 5 + columnIndex
+                    Surface(
+                        modifier = Modifier.size(28.dp).clip(CircleShape).clickable { onColorChange(index) },
+                        shape = CircleShape,
+                        color = color,
+                        border = BorderStroke(
+                            if (colorIndex == index) 3.dp else 1.dp,
+                            if (colorIndex == index) MaterialTheme.colorScheme.onSurface else color.copy(alpha = 0.55f),
+                        ),
+                    ) {}
+                }
+            }
+        }
+        if (hasClips) {
+            Text(
+                "Use “Limpar pista” no menu de três pontos antes de excluir a pista.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        OutlinedButton(
+            onClick = onDelete,
+            enabled = !hasClips,
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
+        ) {
+            Icon(Icons.Default.Delete, contentDescription = null)
+            Text("Excluir pista", modifier = Modifier.padding(start = 8.dp))
+        }
+    }
+}
+
+@Composable
+private fun TrackSourceMetadata(
+    clips: List<AudioClip>,
+    sampleRate: Int,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("Áudio fonte", style = MaterialTheme.typography.titleSmall)
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(9.dp),
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.30f),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.30f)),
+        ) {
+            if (clips.isEmpty()) {
+                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text("Nenhum áudio nesta pista", style = MaterialTheme.typography.bodyMedium)
+                    Text("Importe ou grave um take para exibir os metadados da fonte.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            } else {
+                Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    clips.sortedBy { it.startFrame }.forEach { clip ->
+                        Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                            MetadataLine("Arquivo", clip.name)
+                            MetadataLine("Formato", clip.sourceFormat ?: "—")
+                            MetadataLine("Sample rate", clip.sourceSampleRateHz?.let { "$it Hz" } ?: "—")
+                            MetadataLine("Canais", clip.sourceChannelCount?.toString() ?: "—")
+                            MetadataLine("Bit depth", clip.sourceBitsPerSample?.let { "$it-bit" } ?: "—")
+                            MetadataLine("Encoding", clip.sourceEncoding ?: "—")
+                            val durationFrames = clip.sourceTotalFrames ?: clip.lengthFrames
+                            val durationRate = clip.sourceSampleRateHz ?: sampleRate
+                            MetadataLine("Duração", formatPreciseTime(durationFrames, durationRate))
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MetadataLine(label: String, value: String) {
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(label, modifier = Modifier.width(88.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(value, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, maxLines = 2)
+    }
 }
 
 @Composable
