@@ -65,8 +65,9 @@ import studio.guitarlab.core.project.TransportState
 import studio.guitarlab.core.project.TrimControlPolicy
 import studio.guitarlab.core.project.TrimControlState
 
-private val TrackSidebarWidth = 186.dp
+private val TrackSidebarWidth = 224.dp
 private val TrackLaneGap = 6.dp
+private val TrackLaneHeight = 96.dp
 
 @Composable
 fun StudioPlaceholderScreen(
@@ -315,8 +316,9 @@ private fun StudioTrackLane(
     onRemove: (String) -> Unit,
 ) {
     val trackColor = track.resolvedStudioColor()
+    val trackNameStyle = if (track.name.length > 34) MaterialTheme.typography.labelLarge else MaterialTheme.typography.bodyMedium
     Row(
-        modifier = Modifier.fillMaxWidth().height(72.dp),
+        modifier = Modifier.fillMaxWidth().height(TrackLaneHeight),
         horizontalArrangement = Arrangement.spacedBy(TrackLaneGap),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -329,34 +331,48 @@ private fun StudioTrackLane(
             Row(modifier = Modifier.fillMaxSize()) {
                 Box(Modifier.width(4.dp).fillMaxHeight().background(trackColor))
                 Column(
-                    modifier = Modifier.weight(1f).fillMaxHeight().padding(start = 8.dp, end = 2.dp, top = 6.dp, bottom = 6.dp),
-                    verticalArrangement = Arrangement.Center,
+                    modifier = Modifier.weight(1f).fillMaxHeight().padding(start = 8.dp, end = 4.dp, top = 5.dp, bottom = 5.dp),
+                    verticalArrangement = Arrangement.SpaceEvenly,
                 ) {
-                    Text(track.name, style = MaterialTheme.typography.bodyMedium, maxLines = 1)
-                    Text(
-                        roleName(track.roleId),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                    )
-                }
-                Row(
-                    modifier = Modifier.padding(end = 2.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(0.dp),
-                ) {
-                    AppIconButton(
-                        icon = Icons.Default.Add,
-                        contentDescription = "Importar áudio",
-                        enabled = canImport,
-                        onClick = onImportWav,
-                    )
-                    AppIconButton(
-                        icon = Icons.Default.Settings,
-                        contentDescription = "Configurar pista",
-                        enabled = canEditClip,
-                        onClick = onSettings,
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(2.dp),
+                    ) {
+                        Text(
+                            text = track.name,
+                            modifier = Modifier.weight(1f),
+                            style = trackNameStyle,
+                            maxLines = 2,
+                            softWrap = true,
+                        )
+                        AppIconButton(
+                            icon = Icons.Default.Add,
+                            contentDescription = "Importar áudio",
+                            enabled = canImport,
+                            onClick = onImportWav,
+                        )
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(2.dp),
+                    ) {
+                        Text(
+                            text = roleName(track.roleId),
+                            modifier = Modifier.weight(1f),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 2,
+                            softWrap = true,
+                        )
+                        AppIconButton(
+                            icon = Icons.Default.Settings,
+                            contentDescription = "Configurar pista",
+                            enabled = canEditClip,
+                            onClick = onSettings,
+                        )
+                    }
                 }
             }
         }
