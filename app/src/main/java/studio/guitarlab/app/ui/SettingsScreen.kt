@@ -1,7 +1,5 @@
 package studio.guitarlab.app.ui
 
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -26,19 +24,16 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
 import studio.guitarlab.core.audio.MonitoringMode
 import studio.guitarlab.core.codec.AudioImportFormatPolicy
-import studio.guitarlab.platform.codec.android.MasterExportFormat
 
 @Composable
 fun SettingsScreen(
@@ -46,30 +41,19 @@ fun SettingsScreen(
     onBack: () -> Unit,
     onAudioDiagnostics: () -> Unit,
     onCodecDiagnostics: () -> Unit,
-    viewModel: StudioViewModel = viewModel(),
 ) {
     val context = LocalContext.current
-    val state by viewModel.state.collectAsState()
-    LaunchedEffect(projectId) { projectId?.let(viewModel::load) }
-    val projectName = state.project?.name?.replace(Regex("[^A-Za-z0-9._ -]"), "_")?.trim()?.ifBlank { "GuitarLab" } ?: "GuitarLab"
-    val projectLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
-        if (uri != null) viewModel.exportProjectPackage(uri)
-    }
-    val wavLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("audio/wav")) { uri ->
-        if (uri != null) viewModel.exportMaster(uri, MasterExportFormat.WAV_FLOAT32)
-    }
-    val flacLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("audio/flac")) { uri ->
-        if (uri != null) viewModel.exportMaster(uri, MasterExportFormat.FLAC)
-    }
-    val mp3Launcher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("audio/mpeg")) { uri ->
-        if (uri != null) viewModel.exportMaster(uri, MasterExportFormat.MP3)
-    }
     val routingStore = remember(context) { StudioAudioRoutingStore(context) }
     var inputChoices by remember { mutableStateOf(routingStore.inputChoices()) }
     var outputChoices by remember { mutableStateOf(routingStore.outputChoices()) }
     var selectedInput by remember { mutableStateOf(routingStore.selectedInputSignature()) }
     var selectedOutput by remember { mutableStateOf(routingStore.selectedOutputSignature()) }
     var monitoringMode by remember { mutableStateOf(routingStore.monitoringMode()) }
+
+    LaunchedEffect(Unit) {
+        inputChoices = routingStore.inputChoices()
+        outputChoices = routingStore.outputChoices()
+    }
 
     fun refreshAudioDevices() {
         inputChoices = routingStore.inputChoices()
@@ -142,34 +126,19 @@ fun SettingsScreen(
 
             item {
                 OptionSection(
-                    title = "Salvar e exportar",
-                    subtitle = "Projeto editável e master final no mesmo fluxo de saída.",
-                ) {
-                    OptionRow("Projeto GuitarLab", ".guitarlab", "Pacote portátil com project.json, fontes originais e proxies necessários")
-                    OutlinedButton(
-                        onClick = { projectLauncher.launch("$projectName.guitarlab") },
-                        enabled = projectId != null && state.project != null && !state.exporting,
-                    ) { Text("Salvar cópia do projeto") }
-                    OptionRow("WAV master", "32-bit float", "Máxima qualidade para arquivo, edição ou masterização posterior")
-                    OptionRow("FLAC master", "Lossless", "Compactação sem perdas; encoder do dispositivo é validado no momento da exportação")
-                    OptionRow("MP3 master", "320 kbps", "Arquivo prático para compartilhamento")
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedButton(onClick = { wavLauncher.launch("$projectName-master.wav") }, enabled = state.project != null && !state.exporting) { Text("WAV") }
-                        OutlinedButton(onClick = { flacLauncher.launch("$projectName-master.flac") }, enabled = state.project != null && !state.exporting) { Text("FLAC") }
-                        OutlinedButton(onClick = { mp3Launcher.launch("$projectName-master.mp3") }, enabled = state.project != null && !state.exporting) { Text("MP3") }
-                    }
-                    state.exportStatus?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-                }
-            }
-
-            item {
-                OptionSection(
                     title = "Projeto e Studio",
                     subtitle = "Preferências que não precisam ocupar a área de edição.",
                 ) {
                     OptionRow("Salvamento automático", "Ativo", "Alterações do projeto são salvas automaticamente")
                     OptionRow("Mixer", "Flutuante ou fixo", "O estado fixado é mantido ao navegar pelo aplicativo")
                     OptionRow("Novo projeto", "Perguntar sempre", "Projeto vazio ou template de guitarra")
+                    if (projectId != null) {
+                        Text(
+                            "Para salvar uma cópia portátil do projeto ou exportar o master, use o botão Compartilhar na barra superior do Studio.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
             }
 
