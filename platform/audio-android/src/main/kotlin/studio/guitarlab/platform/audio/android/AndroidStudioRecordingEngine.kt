@@ -245,6 +245,7 @@ class AndroidStudioRecordingEngine(context: Context) : AutoCloseable {
     }
 
     private fun openInput(request: StudioRecordingRequest): OpenedInput? {
+        if (appContext.checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) return null
         val device = request.preferredInputDevice
         val advertisedRates = device?.sampleRates?.filter { it in 8_000..384_000 }.orEmpty()
         val rates = request.preferredSampleRateHz?.let(::listOf) ?: run {
@@ -269,7 +270,7 @@ class AndroidStudioRecordingEngine(context: Context) : AutoCloseable {
             if (minBytes <= 0) continue
             val bytesPerFrame = encoding.bytesPerSample * channelCount
             val bufferBytes = max(minBytes * 2, bytesPerFrame * 512)
-            val recorder = runCatching {
+            val recorder = try {
                 AudioRecord.Builder()
                     .setAudioSource(source)
                     .setAudioFormat(
@@ -277,7 +278,13 @@ class AndroidStudioRecordingEngine(context: Context) : AutoCloseable {
                     )
                     .setBufferSizeInBytes(bufferBytes)
                     .build()
-            }.getOrNull() ?: continue
+            } catch (_: SecurityException) {
+                return null
+            } catch (_: IllegalArgumentException) {
+                continue
+            } catch (_: UnsupportedOperationException) {
+                continue
+            }
             if (recorder.state != AudioRecord.STATE_INITIALIZED) {
                 runCatching { recorder.release() }
                 continue
