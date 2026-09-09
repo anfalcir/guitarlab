@@ -1,6 +1,7 @@
 package studio.guitarlab.app.ui
 
 import android.app.Application
+import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import java.util.UUID
@@ -15,6 +16,7 @@ import studio.guitarlab.core.model.GuitarProject
 import studio.guitarlab.core.model.ProjectFactory
 import studio.guitarlab.core.model.ProjectTemplate
 import studio.guitarlab.core.project.FileProjectRepository
+import studio.guitarlab.core.project.ProjectBundleReader
 
 data class HomeUiState(
     val loading: Boolean = true,
@@ -24,6 +26,7 @@ data class HomeUiState(
 
 class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = FileProjectRepository(application.filesDir)
+    private val bundleReader = ProjectBundleReader(application.filesDir)
     private val factory = ProjectFactory()
 
     private val _state = MutableStateFlow(HomeUiState())
@@ -54,6 +57,29 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 onCreated(project.id)
             }.onFailure { error ->
                 _state.update { it.copy(error = error.message ?: "Não foi possível criar o projeto.") }
+            }
+        }
+    }
+
+    fun importProject(uri: Uri, onImported: (String) -> Unit) {
+        viewModelScope.launch {
+            _state.update { it.copy(loading = true, error = null) }
+            runCatching {
+                withContext(Dispatchers.IO) {
+                    val input = getApplication<Application>().contentResolver.openInputStream(uri)
+                        ?: error("O Android não conseguiu abrir o arquivo GuitarLab.")
+                    input.use { bundleReader.read(it) }
+                }
+            }.onSuccess { project ->
+                refresh()
+                onImported(project.id)
+            }.onFailure { error ->
+                _state.update { current ->
+                    current.copy(
+                        loading = false,
+                        error = error.message ?: "Não foi possível restaurar o projeto GuitarLab.",
+                    )
+                }
             }
         }
     }
