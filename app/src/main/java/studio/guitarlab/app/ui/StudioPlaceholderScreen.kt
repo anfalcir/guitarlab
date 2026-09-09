@@ -435,8 +435,8 @@ private fun ProjectWorkspace(
                                 waveforms = waveforms,
                                 projectEndFrame = projectEndFrame,
                                 selected = track.id == selectedTrackId,
-                                canImport = clipEditingEnabled,
-                                canEditClip = clipEditingEnabled && dragState == null,
+                                canImport = clipEditingEnabled && dragState == null,
+                                canEditClip = clipEditingEnabled,
                                 activeTrimClipId = trimControls?.clipId,
                                 trimControls = trimControls,
                                 sampleRate = project.sampleRate.fixedHz ?: clipSampleRate(project),
@@ -707,6 +707,8 @@ private fun StudioTrackLane(
     val primaryClip = clips.minByOrNull { it.startFrame }
     val trackColor = track.resolvedStudioColor()
     val trackNameStyle = if (track.name.length > 34) MaterialTheme.typography.labelLarge else MaterialTheme.typography.bodyMedium
+    val dragInProgress = draggingTrackId != null || draggingClipId != null
+    val controlsEnabled = canEditClip && !dragInProgress
 
     Row(
         modifier = Modifier.fillMaxWidth().height(TrackLaneHeight),
@@ -733,7 +735,7 @@ private fun StudioTrackLane(
                         },
                     )
                 }
-                .clickable(onClick = onSelect),
+                .clickable(enabled = !dragInProgress, onClick = onSelect),
             shape = RoundedCornerShape(8.dp),
             color = if (selected) trackColor.copy(alpha = 0.11f) else MaterialTheme.colorScheme.surface.copy(alpha = 0.86f),
             border = BorderStroke(if (selected) 1.5.dp else 1.dp, if (selected) trackColor else MaterialTheme.colorScheme.outline.copy(alpha = 0.38f)),
@@ -768,7 +770,7 @@ private fun StudioTrackLane(
                                 AppIconButton(
                                     icon = Icons.Default.MoreVert,
                                     contentDescription = "Ações do áudio",
-                                    enabled = canEditClip,
+                                    enabled = controlsEnabled,
                                     onClick = { clipMenuExpanded = true },
                                 )
                                 DropdownMenu(expanded = clipMenuExpanded, onDismissRequest = { clipMenuExpanded = false }) {
@@ -799,7 +801,7 @@ private fun StudioTrackLane(
                         AppIconButton(
                             icon = Icons.Default.Settings,
                             contentDescription = "Configurar pista",
-                            enabled = canEditClip,
+                            enabled = controlsEnabled,
                             onClick = onSettings,
                         )
                     }
@@ -1047,119 +1049,194 @@ private fun TrackSettingsDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Configurar pista") },
+        title = {
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text("Configurar pista")
+                Text(
+                    "Identidade e informações da faixa",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        },
         text = {
-            BoxWithConstraints(
+            Column(
                 modifier = Modifier.fillMaxWidth().heightIn(max = 560.dp).verticalScroll(scrollState),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
-                val wide = maxWidth >= 560.dp
-                if (wide) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(18.dp),
-                        verticalAlignment = Alignment.Top,
-                    ) {
-                        TrackSettingsIdentityColumn(
-                            track = track,
-                            name = name,
-                            onNameChange = { if (it.length <= 24) name = it },
-                            colorIndex = colorIndex,
-                            onColorChange = { colorIndex = it },
-                            hasClips = hasClips,
-                            onDelete = onDelete,
-                            modifier = Modifier.weight(1f),
-                        )
-                        TrackSourceMetadata(
-                            clips = clips,
-                            sampleRate = sampleRate,
-                            modifier = Modifier.weight(1f),
-                        )
+                BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+                    val wide = maxWidth >= 520.dp
+                    if (wide) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            TrackNameField(
+                                name = name,
+                                onNameChange = { if (it.length <= 24) name = it },
+                                modifier = Modifier.weight(1.35f),
+                            )
+                            TrackRoleCard(track = track, modifier = Modifier.weight(0.85f))
+                        }
+                    } else {
+                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            TrackNameField(
+                                name = name,
+                                onNameChange = { if (it.length <= 24) name = it },
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                            TrackRoleCard(track = track, modifier = Modifier.fillMaxWidth())
+                        }
                     }
-                } else {
-                    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                        TrackSettingsIdentityColumn(
-                            track = track,
-                            name = name,
-                            onNameChange = { if (it.length <= 24) name = it },
-                            colorIndex = colorIndex,
-                            onColorChange = { colorIndex = it },
-                            hasClips = hasClips,
-                            onDelete = onDelete,
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                        TrackSourceMetadata(
-                            clips = clips,
-                            sampleRate = sampleRate,
-                            modifier = Modifier.fillMaxWidth(),
+                }
+
+                TrackColorSection(
+                    colorIndex = colorIndex,
+                    onColorChange = { colorIndex = it },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+
+                TrackSourceMetadata(
+                    clips = clips,
+                    sampleRate = sampleRate,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+
+                if (hasClips) {
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(8.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.26f),
+                    ) {
+                        Text(
+                            "Para excluir esta pista, use primeiro “Limpar pista” no menu de áudio. A pista só pode ser excluída quando estiver vazia.",
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                 }
+            }
+        },
+        dismissButton = {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                OutlinedButton(
+                    onClick = onDelete,
+                    enabled = !hasClips,
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                ) {
+                    Icon(Icons.Default.Delete, contentDescription = null)
+                    Text("Excluir pista", modifier = Modifier.padding(start = 6.dp))
+                }
+                TextButton(onClick = onDismiss) { Text("Cancelar") }
             }
         },
         confirmButton = {
             Button(onClick = { onSave(name.trim(), colorIndex) }, enabled = validName) { Text("Salvar") }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } },
     )
 }
 
 @Composable
-private fun TrackSettingsIdentityColumn(
-    track: AudioTrack,
+private fun TrackNameField(
     name: String,
     onNameChange: (String) -> Unit,
-    colorIndex: Int,
-    onColorChange: (Int) -> Unit,
-    hasClips: Boolean,
-    onDelete: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        OutlinedTextField(
-            value = name,
-            onValueChange = onNameChange,
-            singleLine = true,
-            label = { Text("Nome") },
-            supportingText = { Text("1–24 caracteres") },
-            isError = name.trim().length !in 1..24,
-            modifier = Modifier.fillMaxWidth(),
-        )
-        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text("Função", style = MaterialTheme.typography.labelLarge)
-            Text(roleName(track.roleId), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-        Text("Cor", style = MaterialTheme.typography.labelLarge)
-        StudioTrackPalette.chunked(5).forEachIndexed { rowIndex, colors ->
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                colors.forEachIndexed { columnIndex, color ->
-                    val index = rowIndex * 5 + columnIndex
-                    Surface(
-                        modifier = Modifier.size(28.dp).clip(CircleShape).clickable { onColorChange(index) },
-                        shape = CircleShape,
-                        color = color,
-                        border = BorderStroke(
-                            if (colorIndex == index) 3.dp else 1.dp,
-                            if (colorIndex == index) MaterialTheme.colorScheme.onSurface else color.copy(alpha = 0.55f),
-                        ),
-                    ) {}
-                }
-            }
-        }
-        if (hasClips) {
+    OutlinedTextField(
+        value = name,
+        onValueChange = onNameChange,
+        singleLine = true,
+        label = { Text("Nome da pista") },
+        supportingText = { Text("1–24 caracteres") },
+        isError = name.trim().length !in 1..24,
+        modifier = modifier,
+    )
+}
+
+@Composable
+private fun TrackRoleCard(track: AudioTrack, modifier: Modifier = Modifier) {
+    Surface(
+        modifier = modifier.heightIn(min = 62.dp),
+        shape = RoundedCornerShape(9.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.30f),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.30f)),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
             Text(
-                "Use “Limpar pista” no menu de três pontos antes de excluir a pista.",
-                style = MaterialTheme.typography.bodySmall,
+                "Função",
+                style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            Text(
+                roleName(track.roleId),
+                style = MaterialTheme.typography.bodyMedium,
+                maxLines = 2,
+            )
         }
-        OutlinedButton(
-            onClick = onDelete,
-            enabled = !hasClips,
-            modifier = Modifier.fillMaxWidth(),
-            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
+    }
+}
+
+@Composable
+private fun TrackColorSection(
+    colorIndex: Int,
+    onColorChange: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(9.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.22f),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.26f)),
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(9.dp),
         ) {
-            Icon(Icons.Default.Delete, contentDescription = null)
-            Text("Excluir pista", modifier = Modifier.padding(start = 8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Text("Cor da pista", style = MaterialTheme.typography.titleSmall)
+                Text(
+                    "Selecione uma identidade visual",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+                val colorsPerRow = if (maxWidth >= 430.dp) 10 else 5
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    StudioTrackPalette.chunked(colorsPerRow).forEachIndexed { rowIndex, colors ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                        ) {
+                            colors.forEachIndexed { columnIndex, color ->
+                                val index = rowIndex * colorsPerRow + columnIndex
+                                Surface(
+                                    modifier = Modifier.size(30.dp).clip(CircleShape).clickable { onColorChange(index) },
+                                    shape = CircleShape,
+                                    color = color,
+                                    border = BorderStroke(
+                                        if (colorIndex == index) 3.dp else 1.dp,
+                                        if (colorIndex == index) MaterialTheme.colorScheme.onSurface else color.copy(alpha = 0.55f),
+                                    ),
+                                ) {}
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }
