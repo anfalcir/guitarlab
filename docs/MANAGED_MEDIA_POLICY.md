@@ -1,49 +1,62 @@
 # Managed Media Policy
 
+Updated: 2026-09-09
+
 This document is normative for GuitarLab Studio media handling.
 
 ## Core invariant
-GuitarLab never edits the user's external source file. A successful import creates a complete app-controlled project copy, and normal Studio work uses that copy. The internal managed source is also immutable.
+GuitarLab never edits the user's external source file. A successful import creates a complete project-managed source copy. That managed source is authoritative and immutable after commit. Ordinary editing is non-destructive metadata work.
 
 ## Storage classes
-- `projects/<project>/media/source/`: authoritative project-managed source assets. Immutable after commit.
-- `projects/<project>/media/derived/`: disposable/regenerable derived data such as waveform envelopes, resampled working files, proxies, freezes and renders.
-- `project.json`: metadata only. It references source assets and stores non-destructive edit state; it is not an audio container.
+- `projects/<project>/media/source/`: authoritative byte-preserved project-managed sources.
+- `projects/<project>/media/proxy/`: derived PCM WAV editing proxies used when the native source is not directly consumable by the Studio WAV engine.
+- `projects/<project>/media/derived/` and waveform cache locations: regenerable derivatives such as envelopes/future renders/resampled files.
+- `project.json`: project/edit metadata. It is not an audio container.
+
+`managedSourcePath` always means authoritative managed source. `managedEditProxyPath` means optional derivative. Code resolving playback/waveform/edit media must prefer the proxy when present and otherwise use the managed source.
 
 ## Import transaction
 1. Open the external document read-only.
-2. Copy all bytes to a temporary `.part` file under the project's managed source directory.
-3. Flush/sync and finalize the copy atomically where supported.
-4. Validate/decode the finalized managed copy, never the external file as the durable project dependency.
-5. Generate optional derived caches from the managed copy.
-6. Persist the project clip reference only after source validation succeeds.
-7. If the transaction fails before project commit, delete only the uncommitted copy/cache created by that failed transaction.
+2. Detect the supported source format from document name/MIME policy.
+3. Copy all source bytes into managed source storage transactionally.
+4. Preserve that source unchanged after commit.
+5. When required, decode to a temporary PCM WAV and commit it separately as an edit proxy.
+6. Validate metadata/audio and generate waveform from the editing representation.
+7. Persist the clip only after source/proxy validation succeeds.
+8. On failure before commit, remove only assets created by that failed transaction.
 
-After successful commit the external URI is provenance only. Moving/deleting the original external file must not break the project.
+After success the external URI is provenance only. Moving/deleting the external document must not break the project.
 
 ## Editing semantics
-The following operations are metadata-only and may not alter managed source bytes:
-- move;
-- trim;
-- split;
-- clip gain;
-- mute;
-- fades when implemented;
-- time placement and range selection.
-
-Trim changes `sourceStartFrame` and `lengthFrames`; when total source frames are known, validation must keep the view inside source bounds.
+Move, trim, split, duplicate, clip gain, mute, track migration and future fades are metadata-only. They may not rewrite authoritative source bytes. Trim changes `sourceStartFrame` and `lengthFrames` inside validated bounds.
 
 ## Derived data
-Waveforms and future proxies/resampled files are derived artifacts. They must be safe to delete and regenerate. Corrupt/missing derived data must never imply source corruption.
+Proxies, waveforms and renders are derived. Their corruption must never be reported as authoritative-source corruption. Proxies may be regenerated from the managed source when a deterministic decoder path is available.
+
+## Portable project packages
+`.guitarlab` is a versioned ZIP package, not a destructive save format. The current bundle contains:
+- `manifest.properties` with format/version/project identity/schema;
+- `project.json`;
+- each referenced managed source exactly once;
+- each referenced edit proxy exactly once when present.
+
+Restore rules:
+- validate manifest and project before publishing;
+- reject unsupported bundle versions/inconsistent identities;
+- constrain every extracted path to a temporary project root;
+- apply entry/uncompressed-size bounds;
+- verify referenced media exists;
+- assign a new project identity so restore cannot silently overwrite an existing project;
+- publish the validated directory only after all checks pass.
 
 ## Deletion and garbage collection
-Removing a clip removes its project reference, not by rewriting the source. Automatic orphan-source cleanup is a separate future concern and must prove that no live project reference remains before deleting a managed source. Until then, preferring an orphan over accidental source deletion is the safer policy.
+Removing a clip removes its project reference, not by rewriting source media. Orphan cleanup remains conservative: prefer retained orphan media over accidental deletion until reference-safe garbage collection is implemented and tested.
 
-## Export
-Export always creates a new destination. It never overwrites a project-managed source as an editing shortcut.
+## Master export
+Master export is separate from edit proxies. It renders the current project/timeline/mix into a new destination and never replaces a managed source or proxy. The alpha13 render pipeline produces a floating-point master representation before format encoding.
 
 ## Backward compatibility
-Older development projects may contain direct external `sourceUri` references. These are legacy state. New imports use `managedSourcePath`; future migration may ingest legacy external sources into managed storage, but must never mutate the external originals during migration.
+Legacy projects may still contain external `sourceUri` references. New imports use managed source storage. Compatibility readers must tolerate missing `managedEditProxyPath` and resolve existing managed WAV sources directly.
 
 ## Test expectations
-Software gates must cover copy integrity, empty-input rollback, path traversal rejection, trim bounds, waveform determinism/cache round-trip, project persistence and no write path to finalized source assets. Device validation must additionally confirm a project reopens after the original external file is moved or made unavailable.
+Software gates cover source/proxy persistence compatibility, rollback, package round-trip, manifest/version validation, ZIP traversal rejection, referenced-media validation and WAV Float32 writer behavior. Device validation must additionally prove projects remain usable after external originals disappear and that requested imports/exports work on the target Android device.

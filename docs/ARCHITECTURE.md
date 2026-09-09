@@ -5,27 +5,43 @@ Updated: 2026-09-09
 ## Repository/branch policy
 - `main` is the stable signed baseline.
 - `dev/parallel-m3-m5` is the active integration branch attached to draft PR #1.
-- PR #1 stays draft through the M5 physical gate; its old M4/alpha07 description is historical and must not be interpreted as current architecture status.
+- PR #1 remains draft through the M5 physical gate.
 
 ## Core boundaries
-- `core:model`: immutable project/track/clip metadata contracts.
-- `core:project`: deterministic project editors, history, managed media, recording/session and timeline policies.
-- `core:codec`: WAV metadata/decoder/waveform primitives.
-- `platform:audio-android`: playback/capture engines and Android routing.
-- `app`: Compose presentation, ViewModels and orchestration.
+- `core:model`: immutable project/track/clip metadata contracts, including managed source/proxy references.
+- `core:project`: deterministic editors/history, project repository, managed media, portable project bundle writer/reader, recording/session and timeline policies.
+- `core:codec`: WAV metadata/decoder/waveform primitives, import-format policy and Float32 WAV writer.
+- `platform:codec-android`: Android compressed-format decode-to-proxy and master encoder adapters.
+- `platform:audio-android`: playback/capture engines, routing and offline master renderer.
+- `app`: Compose presentation, ViewModels, SAF launchers and orchestration.
 
-## Managed-media invariant
-Imported/recorded source media is promoted into project-managed immutable storage. Trim, split, duplicate, reorder and cross-track clip migration are metadata operations and must not rewrite source bytes.
+## Managed-media architecture
+An imported document has two distinct identities:
+1. **authoritative source** — byte-preserved project-managed native original, immutable after commit;
+2. **editing representation** — optional managed PCM WAV proxy, derived/regenerable and never authoritative.
 
-## Timeline interaction architecture (alpha11)
-Drag state belongs to the workspace/timeline layer, not individual LazyColumn cells. It carries stable item identity, origin lane/index, workspace pointer coordinates, measured size, computed target and edge-scroll behavior. Track and clip flows share this coordinator.
+`AudioClip.managedSourcePath` refers to the source; `managedEditProxyPath` optionally refers to the editing representation. Playback/waveform/render paths resolve proxy first when present, otherwise source. Non-destructive edits stay in project metadata.
 
-The dragged ghost is rendered in the same Compose tree as a high-z overlay above all lanes. `Popup` is prohibited for drag ghosts. Pointer motion and destination snapping are separate concepts: the ghost follows the pointer continuously while insertion/target indicators may snap to lanes.
+## Portable project architecture
+The portable `.guitarlab` package is a versioned ZIP container with manifest, `project.json`, referenced sources and referenced proxies. The reader stages extraction into a temporary project directory, blocks traversal/out-of-root paths, applies size/entry bounds, validates manifest/project/media consistency, assigns a new project ID and only then publishes it into managed storage.
 
-Destination calculation uses current `LazyListState.layoutInfo` bounds. Edge autoscroll runs continuously in a coroutine/frame loop and retargets after scroll. Drop performs exactly one project mutation; cancellation performs none. Core editors are exact no-ops when dropping at the original destination, preventing unnecessary history entries.
+This makes `Salvar cópia do projeto` a true round-trip persistence path, not merely an export archive.
+
+## Master-render architecture
+Final audio export is intentionally separated from editing proxies. `StudioMasterRenderer` consumes the current timeline/project mix state and produces a floating-point master WAV. Format adapters then either keep that Float32 WAV or encode a delivery copy such as FLAC/MP3. Source and proxy files are never used as destructive export targets.
+
+## Studio output UX
+The Studio top bar owns a dedicated Share action before Home. It opens `Salvar e exportar`, with two semantic groups:
+- editable project: `.guitarlab`;
+- master final: WAV 32-bit float, FLAC, MP3 320 kbps.
+
+Options remains responsible for routes, monitoring, Studio preferences, import information and diagnostics. Output actions are deliberately not duplicated there.
+
+## Timeline interaction architecture
+Drag state belongs to the workspace/timeline layer rather than individual LazyColumn cells. Track and clip flows share stable identity, workspace pointer coordinates, overlay rendering, destination calculation and edge-autoscroll behavior. The ghost follows the pointer continuously while drop targeting may snap to lanes. One completed drop performs one project mutation; cancellation performs none.
 
 ## Track settings architecture
-`Configurar pista` is responsive: balanced identity/color and source-metadata columns in landscape/wide layouts, stacked sections in narrow layouts, with internal scroll only when required. Structural delete is separate from content clearing and remains disabled for non-empty tracks.
+`Configurar pista` is responsive. Name/function, palette and source metadata remain readable across wide/narrow layouts. Content clearing and structural track deletion are separate. Tracks with content use an edit-pencil affordance.
 
 ## M5/M6 boundary
-M5 owns reliable capture and consolidated Studio behavior. M6 begins only after M5 PASS/CLOSED and starts with measured round-trip latency, synchronization, take compensation, jitter and loopback work.
+M5 now owns the complete reliable capture + Studio consolidation + requested media I/O/persistence/export gate. M6 starts only after M5 PASS/CLOSED and begins with measured round-trip latency, synchronization, take compensation, jitter and loopback work.

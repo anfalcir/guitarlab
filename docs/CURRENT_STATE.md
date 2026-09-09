@@ -1,36 +1,44 @@
-# Current state
+# Current State — GuitarLab Studio
 
 Updated: 2026-09-09
 
-## Repository truth
-- stable baseline: `main`, signed `0.2.0-alpha03`;
-- active branch: `dev/parallel-m3-m5` in draft PR #1;
-- active candidate line: `0.2.0-alpha12`, versionCode 13;
-- canonical CI: diff sanity, unit tests, Android Lint, debug APK; signed homologation only on explicit gate;
-- certificate SHA-256 is locked to `0762D4F3ECB8E1A9AAA4BDB1E098A666C9BA9BF8B71C4F14B0E7A7065404E181`.
+## Active branch and gate
+- Repository: `anfalcir/guitarlab`
+- Branch: `dev/parallel-m3-m5`
+- Draft PR: #1
+- Candidate: `0.2.0-alpha13`, versionCode 14
+- M2: PASS/CLOSED on Samsung SM-X230 Android 16/API 36 + Pocket Amp USB
+- M3/M4: absorbed into the active integration branch
+- M5: implementation consolidated; **OPEN pending alpha13 physical homologation**
+- M6: BLOCKED until explicit M5 closure
 
-## Milestones
-- M2: PASS/CLOSED physically on Samsung SM-X230 / Android 16/API 36 + Pocket Amp USB.
-- M3: WAV codec/import foundation implemented.
-- M4: managed media, waveform, playback, timeline, Mixer/Master, metering, routing/options and product polish implemented.
-- M5.A/B/C: recording transaction, capture engine, routing enforcement, countdown, managed take finalization, waveform insertion, duplex/backing and coordinator implemented.
-- M5 final status: **OPEN — alpha11 rejected physically; awaiting alpha12 validation**. Do not mark PASS/CLOSED yet.
-- M6: blocked until M5 closes; first scope is measured round-trip latency, synchronization, take-position compensation, jitter and loopback.
+## What alpha13 consolidates
+Alpha13 replaces alpha12 as the final M5 physical candidate. It contains the previously corrected M5 interaction/UX work plus the media I/O/persistence/export scope intentionally pulled forward before M6:
 
-## Physical evidence carried forward
-- alpha09: broadly approved, with minor UX corrections identified.
-- alpha10: Trim approved; distinction `Limpar pista` vs `Excluir pista` approved; both drag flows rejected; `Configurar pista` layout rejected/incomplete.
-- video evidence `125843.mp4` reproduces the alpha10 drag failure: item detaches, ghost shifts/snaps and does not follow the pointer continuously.
-- alpha11: software-green and correctly signed, but **physically rejected** on 2026-09-09 from video evidence `125888.mp4`. Both track-sidebar drag and clip/waveform drag flash briefly and cancel immediately, returning to origin. Track Settings was also rejected visually because the two-column arrangement left large unused space beside the color palette, separated the role label/value awkwardly and placed `Excluir pista` inside the content rather than with the final actions.
+1. workspace-level track and clip drag coordinator, continuous overlay and edge autoscroll;
+2. responsive `Configurar pista`, with source metadata, safe clear/delete semantics and edit pencil for tracks with content;
+3. M5 capture/recording/countdown/managed-take/duplex behavior and established Mixer/Master/Trim/Loop/Undo/Redo contracts;
+4. audio import detection for WAV PCM, FLAC, AIFF/AIFC PCM, MP3, AAC/M4A, OGG/Vorbis and Opus;
+5. immutable original managed source plus optional derived PCM WAV edit proxy;
+6. portable `.guitarlab` package save and Home-screen restore as an independent project, with manifest/version checks, referenced-media checks, ZIP traversal defense and bounded extraction;
+7. offline master render in floating point;
+8. WAV 32-bit float output, FLAC output through Android encoder path, and MP3 320 kbps output through the available Android encoder path;
+9. a single `Compartilhar` entry in the Studio top bar, immediately before Home, opening the `Salvar e exportar` modal. Output actions no longer live in Options.
 
-## Alpha12 corrective scope
-- preserve the shared workspace drag coordinator, overlay ghost, real-bounds targeting and autoscroll architecture introduced in alpha11;
-- fix the immediate drag cancellation root cause: entering drag state must not change the `pointerInput` key or disable/recreate the detector that owns the active pointer stream;
-- keep drag permission stable for the lifetime of the gesture while disabling unrelated controls independently;
-- track and clip drag must remain active after long press instead of flashing/cancelling;
-- Track Settings uses one clear hierarchy: Name + Role, full-width responsive color palette, full-width source metadata, then footer actions `Excluir pista`, `Cancelar`, `Salvar`;
-- delete remains disabled while the track contains clips and guidance to use `Limpar pista` remains visible;
-- preserve approved Trim, recording, mixer, loop/playhead and clear/delete behavior.
+## Media capability status
+Code existence is not the same as final support claim. `docs/CODEC_SUPPORT_MATRIX.md` is authoritative.
 
-## Active gate
-Use only `M5_ALPHA12_FINAL_HOMOLOGATION_CHECKLIST.md`. M5 closes only after green CI + signed identity verification + explicit physical approval with zero repeatable P0/P1.
+- WAV import/decoder core already has prior partial Android evidence; alpha13 adds the Float32 master writer to the physical gate.
+- FLAC/MP3/M4A/OGG/Opus compressed imports use Android media decoding to a managed PCM proxy and still require representative alpha13 target-device validation.
+- AIFF/AIFC PCM has a dedicated import path; compressed AIFF-C is not claimed.
+- FLAC export and MP3 export are physically gated. In particular, MP3 encoding is device-capability dependent in the current Android implementation and is not considered product-verified until it succeeds on the target Samsung.
+- Source/project sample-rate mismatch remains explicit and blocked where transparent resampling has not been validated. M6 does not inherit an implicit resampler claim.
+
+## Persistence contract
+The authoritative edit state remains `project.json` inside managed project storage. Autosave continues normally. The portable `.guitarlab` file is a versioned ZIP package containing manifest, project metadata and referenced managed source/proxy media. Opening a package creates a new project identity rather than silently overwriting an existing project.
+
+## Current software evidence
+The media I/O + portable-project foundation immediately preceding alpha13 promotion passed unit tests, Android Lint and debug APK assembly. The alpha13 candidate itself must repeat that software gate and then pass the controlled signed-release identity gate.
+
+## Physical closure rule
+M5 closes only when `docs/M5_ALPHA13_FINAL_HOMOLOGATION_CHECKLIST.md` is completed on Samsung SM-X230 with no repeatable P0/P1 and the user explicitly approves closure. Until then PR #1 stays draft and M6 stays blocked.

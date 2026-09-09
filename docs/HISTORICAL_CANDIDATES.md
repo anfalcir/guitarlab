@@ -2,25 +2,33 @@
 
 Updated: 2026-09-09
 
-This file classifies candidate/checkpoint documents so old wording such as `pending`, `alpha08`, `alpha09`, `M4` or `M5` is not mistaken for current state. Historical documents preserve contemporaneous evidence and are not blindly rewritten.
+Historical documents preserve contemporaneous evidence and do not override current sources.
 
 ## Superseded M4 candidates
 - ALPHA05_BUILD_NOTE.md — historical build note;
 - ALPHA05_CANDIDATE.md — historical candidate;
 - ALPHA06_CANDIDATE.md — historical candidate;
-- M4_ALPHA05_HOMOLOGATION_CHECKLIST.md — historical gate;
-- M4_ALPHA06_HOMOLOGATION_CHECKLIST.md — historical gate;
-- M4_ALPHA07_HOMOLOGATION_CHECKLIST.md — historical M4 gate, superseded by later integrated M5 branch state;
-- all `M4_*_CHECKPOINT.md` files — historical implementation evidence, not active gates.
+- M4_ALPHA05/06/07 homologation checklists — historical gates;
+- all `M4_*_CHECKPOINT.md` files — implementation evidence.
 
 ## Superseded M5 candidates
 - M5_ALPHA08_HOMOLOGATION_CHECKLIST.md — historical/superseded;
-- M5_ALPHA09_HOMOLOGATION_CHECKLIST.md — historical; alpha09 was broadly approved with minor findings;
+- M5_ALPHA09_HOMOLOGATION_CHECKLIST.md — historical; alpha09 broadly approved with minor UX findings;
 - M5C_ALPHA09_UX_CONSOLIDATION.md — historical approval record;
-- M5_ALPHA10_CORRECTIVE_CHECKPOINT.md — historical alpha10 corrective record; Trim and clear/delete accepted, drag + Track Settings still failed;
-- M5C foundation/mixer/coordinator plan/checkpoint files — implementation history, not pending architecture work.
+- M5_ALPHA10_CORRECTIVE_CHECKPOINT.md — Trim and clear/delete accepted; drag + Track Settings still failed;
+- M5_ALPHA11_FINAL_HOMOLOGATION_CHECKLIST.md — alpha11 software/signed candidate physically rejected for drag gesture cancellation;
+- M5_ALPHA12_FINAL_HOMOLOGATION_CHECKLIST.md — alpha12 corrected drag lifetime/Track Settings but was superseded before physical closure when media I/O, project round-trip and master export were intentionally pulled forward into M5;
+- M5C foundation/mixer/coordinator files — implementation history, not pending architecture work.
 
 ## Current sources
-Current truth is `CURRENT_STATE.md`, `IMPLEMENTATION_ROADMAP.md`, `ARCHITECTURE.md`, `TEST_AND_HOMOLOGATION_PLAN.md`, `TIMELINE_INTERACTION_GUIDELINES.md` and `M5_ALPHA11_FINAL_HOMOLOGATION_CHECKLIST.md`.
+Current truth is:
+- `CURRENT_STATE.md`;
+- `IMPLEMENTATION_ROADMAP.md`;
+- `ARCHITECTURE.md`;
+- `DECISIONS.md`;
+- `CODEC_SUPPORT_MATRIX.md`;
+- `MANAGED_MEDIA_POLICY.md`;
+- `TEST_AND_HOMOLOGATION_PLAN.md`;
+- `M5_ALPHA13_FINAL_HOMOLOGATION_CHECKLIST.md`.
 
-A historical occurrence of words like `pending` remains valid only when clearly describing what was pending at that historical checkpoint. It must not override current sources.
+Alpha13 is the active M5 physical candidate. A historical occurrence of `pending`, `alpha11`, `alpha12` or earlier milestone language remains valid only as evidence of that historical checkpoint.

@@ -62,7 +62,7 @@ Normal editing does not page-scroll the whole Studio. Track overflow scrolls onl
 Loop-specific markers disappear when Loop is disabled.
 
 ## D-020 — Options Center owns low-frequency setup/commands
-Global audio I/O, monitoring, export configuration, project/Studio preferences and diagnostics live in Options rather than cluttering the creative timeline.
+Global audio I/O, monitoring, project/Studio preferences and diagnostics live in Options rather than cluttering the creative timeline. The former assignment of final save/export actions to Options is superseded by D-037.
 
 ## D-021 — Input/output routing is globally resolved and revalidated
 Current scope exposes one global recording input and one main output. Durable preferences use stable signatures, never ephemeral Android device IDs.
@@ -100,5 +100,23 @@ Track drop uses `ProjectTrackEditor.reorderTrack`; clip migration uses `ProjectC
 ## D-032 — Track Settings is responsive and metadata-aware
 Wide layouts use balanced identity/color and source-metadata columns; narrow layouts stack them. Source filename/format/sample rate/channels/bit depth/encoding/duration are shown when available, with a compact empty state otherwise.
 
-## D-033 — M5 closure requires alpha11 physical approval
-Software-green and signed identity are necessary but insufficient. M5 remains OPEN and PR #1 remains draft until explicit alpha11 physical approval with zero repeatable P0/P1. M6 is blocked until then and starts with measured round-trip latency/synchronization/jitter/loopback work.
+## D-033 — M5 physical approval is mandatory
+Software-green and signed identity are necessary but insufficient. The historical alpha11-specific wording is superseded by D-038. M5/PR #1 stay open/draft until the active physical candidate passes with zero repeatable P0/P1 and the user explicitly closes M5.
+
+## D-034 — Native original and edit proxy are distinct
+Every successful import preserves the project-managed native original as authoritative immutable source. A format that cannot be consumed directly by the Studio WAV path receives a separate managed PCM WAV proxy. The proxy is derivative/regenerable and never replaces or redefines the original source.
+
+## D-035 — `.guitarlab` is a versioned round-trip project package
+Portable project save contains a versioned manifest, `project.json` and referenced managed media. Restore validates format/version/project/media, blocks ZIP path traversal, stages into temporary storage and assigns a new project identity before publication. A portable save must be reopenable by GuitarLab; it is not a one-way backup archive.
+
+## D-036 — Master export is an offline render pipeline
+Final output renders current timeline/trim/placement/clip gain/track mix/Mute/Solo/Pan/Master state into a floating-point master representation, then encodes the selected delivery format. Export never mutates source/proxy media. Alpha13 requested outputs are WAV 32-bit float, FLAC and MP3 320 kbps.
+
+## D-037 — Share owns project save and final export UX
+A Share icon lives immediately before Home in the Studio top bar. It opens `Salvar e exportar`, semantically separating editable `.guitarlab` persistence from final-audio masters. Options continues to own setup/preferences/diagnostics and must not duplicate these output actions as primary commands.
+
+## D-038 — Media I/O/persistence/export were intentionally pulled forward into M5
+Alpha12 was superseded before physical closure. Alpha13 consolidates drag/Track Settings corrections with multi-format import, managed source/proxy architecture, portable project round-trip and requested master exports. M5 closes only after the alpha13 physical checklist passes. M6 remains blocked and starts with measured latency/synchronization/jitter/loopback.
+
+## D-039 — Encoder/support claims remain device-gated
+A code path does not establish universal Android support. In particular, the current MP3 export requests a device-exposed Android MP3 encoder and is not considered verified until target-device homologation succeeds. FLAC/other new import/export paths likewise advance from IMPLEMENTED to ANDROID VERIFIED only through the codec matrix gate.

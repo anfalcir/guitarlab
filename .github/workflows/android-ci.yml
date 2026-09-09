@@ -222,7 +222,7 @@ jobs:
             echo "versionName=${APP_VERSION_NAME}"
             echo "versionCode=${APP_VERSION_CODE}"
             echo "milestone=M5-final-physical-homologation-candidate"
-            echo "gate=alpha11-awaiting-physical-validation"
+            echo "gate=alpha13-awaiting-physical-validation"
             echo "hardwareBaseline=M2-PocketAmp-SM-X230-pass"
             echo "certificateSha256=${EXPECTED_CERT_SHA256}"
           } > deliverables/BUILD_IDENTITY.txt
