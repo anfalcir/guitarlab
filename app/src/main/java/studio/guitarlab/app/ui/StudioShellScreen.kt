@@ -17,6 +17,9 @@ import androidx.compose.material.icons.filled.Equalizer
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -34,6 +37,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import studio.guitarlab.core.model.GuitarProject
 import studio.guitarlab.core.project.TransportPolicy
+import studio.guitarlab.core.project.RecordingSessionPhase
 
 @Composable
 fun StudioShellScreen(
@@ -48,6 +52,7 @@ fun StudioShellScreen(
     var mixerPinned by rememberSaveable(projectId) { mutableStateOf(uiPreferences.mixerPinned()) }
     var mixerVisible by rememberSaveable(projectId) { mutableStateOf(uiPreferences.mixerPinned()) }
     var selectedTrackId by rememberSaveable(projectId) { mutableStateOf<String?>(null) }
+    val snackbarHostState = remember { SnackbarHostState() }
     val recordPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
         viewModel.onRecordPermissionResult(it)
     }
@@ -57,6 +62,18 @@ fun StudioShellScreen(
         val ids = state.project?.tracks?.map { it.id }.orEmpty()
         if (selectedTrackId !in ids) selectedTrackId = ids.firstOrNull()
     }
+    val transientMessage = if (state.project != null) {
+        state.error ?: if (!state.importing && state.recordingSession.phase == RecordingSessionPhase.IDLE) {
+            state.clipStatus ?: state.importStatus
+        } else null
+    } else null
+    LaunchedEffect(transientMessage) {
+        transientMessage?.let { message ->
+            snackbarHostState.currentSnackbarData?.dismiss()
+            snackbarHostState.showSnackbar(message = message, duration = SnackbarDuration.Short)
+            viewModel.dismissTransientMessage(message)
+        }
+    }
 
     val structuralControlsEnabled = !state.importing &&
         !state.editingClip &&
@@ -65,7 +82,8 @@ fun StudioShellScreen(
         TransportPolicy.timelineEditingEnabled(state.transport)
     val mixControlsEnabled = !state.importing && !state.editingClip && !state.historyBusy && state.trimControls == null
 
-    Column(Modifier.fillMaxSize()) {
+    Box(Modifier.fillMaxSize()) {
+      Column(Modifier.fillMaxSize()) {
         StudioTopBar(
             project = state.project,
             transport = {
@@ -142,6 +160,11 @@ fun StudioShellScreen(
                 onClearMasterClip = viewModel::clearMasterClipIndicator,
             )
         }
+      }
+      SnackbarHost(
+          hostState = snackbarHostState,
+          modifier = Modifier.align(Alignment.TopCenter).padding(top = 76.dp).widthIn(max = 560.dp),
+      )
     }
 }
 

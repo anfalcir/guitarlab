@@ -64,7 +64,7 @@ M4 invariants:
 M4 exit gate: supported managed import, persist/reopen, waveform render, reliable playback/seek/loop, non-destructive trim, functional live-safe core mixing, stable output routing, useful metering/clip-latch behavior, track management, coherent commercial UI and no project/source corruption.
 
 ## M5 — Recording workflow
-Software implementation: one armed track becomes the target of the global Studio input; REC runs a cancelable five-second countdown, revalidates state at zero, captures to a transaction, finalizes safely into immutable managed media, inserts the clip/waveform and may reproduce compatible backing concurrently. Route loss preserves only valid partial audio. Physical closure requires the signed alpha08 checklist; fine latency compensation remains M6.
+Software implementation: one armed track becomes the target of the global Studio input; REC runs a cancelable five-second countdown, revalidates state at zero, captures to a transaction, finalizes safely into immutable managed media, inserts the clip/waveform and may reproduce compatible backing concurrently. Route loss preserves only valid partial audio. The alpha09 UX consolidation is the current physical candidate contract; fine latency compensation remains M6.
 
 ## M6 — Latency, synchronization and compensation
 Planned: measured I/O/round-trip behavior, alignment and compensation.

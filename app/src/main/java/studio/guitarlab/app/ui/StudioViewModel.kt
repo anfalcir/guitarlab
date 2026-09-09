@@ -34,6 +34,7 @@ import studio.guitarlab.core.model.RoleSource
 import studio.guitarlab.core.model.TrackNamePolicy
 import studio.guitarlab.core.project.FileProjectRepository
 import studio.guitarlab.core.project.ProjectClipEditor
+import studio.guitarlab.core.project.ProjectTrackEditor
 import studio.guitarlab.core.project.ProjectHistory
 import studio.guitarlab.core.project.ProjectManagedMediaStore
 import studio.guitarlab.core.project.ProjectRecordingMediaStore
@@ -290,7 +291,15 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
 
     fun toggleLoop() {
         if (_state.value.trimControls != null || _state.value.historyBusy) return
-        _state.value = _state.value.copy(transport = TransportPolicy.toggleLoop(_state.value.transport))
+        val current = _state.value
+        val project = current.project ?: return
+        val projectEnd = TimelineControlPolicy.projectEndFrame(project)
+        val controls = current.timelineControls
+        val firstActivation = !current.transport.loopEnabled && controls.loopStartFrame == 0L && controls.loopEndFrame >= projectEnd
+        _state.value = current.copy(
+            transport = TransportPolicy.toggleLoop(current.transport),
+            timelineControls = if (firstActivation) controls.copy(loopEndFrame = (projectEnd / 10L).coerceAtLeast(1L)) else controls,
+        )
     }
 
     fun undo() {
@@ -627,6 +636,37 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                 newRightClipId = UUID.randomUUID().toString(),
                 nowEpochMs = System.currentTimeMillis(),
             )
+        }
+    }
+
+    fun moveClipToTrack(clipId: String, targetTrackId: String) {
+        val current = _state.value.project ?: return
+        val clip = current.clips.firstOrNull { it.id == clipId } ?: return
+        if (clip.trackId == targetTrackId) return
+        editClip("Clipe movido para outra pista") { latest ->
+            ProjectClipEditor.moveClipToTrack(latest, clipId, targetTrackId, System.currentTimeMillis())
+        }
+    }
+
+    fun reorderTrack(trackId: String, targetIndex: Int) {
+        val current = _state.value
+        val project = current.project ?: return
+        if (!structuralEditingAllowed(current)) return
+        val boundedTarget = targetIndex.coerceIn(0, project.tracks.lastIndex)
+        viewModelScope.launch {
+            runCatching {
+                saveLatest(project.id) { latest ->
+                    ProjectTrackEditor.reorderTrack(latest, trackId, boundedTarget, System.currentTimeMillis())
+                }
+            }.onSuccess { applySavedProject(it, "Pistas reordenadas") }
+                .onFailure { error -> _state.value = _state.value.copy(error = error.message ?: "Não foi possível reordenar a pista.") }
+        }
+    }
+
+    fun dismissTransientMessage(message: String) {
+        val current = _state.value
+        if (message == current.error || message == current.clipStatus || message == current.importStatus) {
+            _state.value = current.copy(error = null, clipStatus = null, importStatus = null)
         }
     }
 

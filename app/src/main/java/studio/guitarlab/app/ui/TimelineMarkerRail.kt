@@ -82,16 +82,21 @@ private fun TimelineMarker(
     val markerWidth = 48.dp
     val density = LocalDensity.current
     val markerWidthPx = with(density) { markerWidth.toPx() }
+    val markerTop = when (kind) {
+        TimelineMarkerKind.PLAYHEAD, TimelineMarkerKind.RECORD_HEAD -> 30.dp
+        else -> 2.dp
+    }
+    val markerTopPx = with(density) { markerTop.roundToPx() }
     val x = (fraction * widthPx - markerWidthPx / 2f).coerceIn(-markerWidthPx / 2f, widthPx - markerWidthPx / 2f)
     val color = markerColor(kind)
     val label = markerLabel(kind)
 
     Box(
-        modifier = Modifier.offset { IntOffset(x.roundToInt(), 0) }.width(markerWidth).height(62.dp),
+        modifier = Modifier.offset { IntOffset(x.roundToInt(), markerTopPx) }.width(markerWidth).height(32.dp),
         contentAlignment = Alignment.TopCenter,
     ) {
         Box(
-            modifier = Modifier.width(markerWidth).height(38.dp).draggable(
+            modifier = Modifier.width(markerWidth).height(32.dp).draggable(
                 enabled = enabled,
                 orientation = Orientation.Horizontal,
                 state = rememberDraggableState { deltaPx ->
@@ -120,14 +125,6 @@ private fun TimelineMarker(
                     drawPath(path, color)
                 }
             }
-        }
-        Canvas(Modifier.padding(top = 37.dp).width(2.dp).height(25.dp)) {
-            drawLine(
-                color = color.copy(alpha = 0.86f),
-                start = Offset(size.width / 2f, 0f),
-                end = Offset(size.width / 2f, size.height),
-                strokeWidth = size.width,
-            )
         }
     }
 }
