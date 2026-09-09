@@ -543,13 +543,13 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                         ),
                         nowEpochMs = System.currentTimeMillis(),
                     )
-                    val persisted = repository.save(saved)
-                    projectHistory.record(before, persisted)
-                    val clip = persisted.clips.first { it.id == transaction.id }
+                    val clip = saved.clips.first { it.id == transaction.id }
                     val envelope = FileSeekableByteSource(transaction.finalFile).use { source ->
                         WaveformEnvelopeBuilder.build(WavPcmDecoder(source), WAVEFORM_POINTS)
                     }
-                    waveformCache.write(persisted.id, clip.id, envelope)
+                    waveformCache.write(saved.id, clip.id, envelope)
+                    val persisted = repository.save(saved)
+                    projectHistory.record(before, persisted)
                     Triple(persisted, clip, envelope.peaks)
                 }
             }.onSuccess { (saved, clip, peaks) ->
@@ -1073,14 +1073,16 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
         if (!structuralEditingAllowed(currentState)) return
         viewModelScope.launch {
             _state.value = _state.value.copy(editingClip = true, error = null, clipStatus = null)
-            runCatching { saveLatest(current.id, transform) }
-                .onSuccess { saved ->
-                    val validClipIds = saved.clips.map { it.id }.toSet()
+            runCatching {
+                val saved = saveLatest(current.id, transform)
+                saved to withContext(Dispatchers.IO) { loadWaveforms(saved) }
+            }
+                .onSuccess { (saved, waveforms) ->
                     val end = TimelineControlPolicy.projectEndFrame(saved)
                     _state.value = _state.value.copy(
                         editingClip = false,
                         project = saved,
-                        waveforms = _state.value.waveforms.filterKeys { it in validClipIds },
+                        waveforms = waveforms,
                         timelineControls = TimelineControlPolicy.normalizedForProject(_state.value.timelineControls, end),
                         transportEngineReady = playbackReadiness(saved).ready,
                         masterGainDb = saved.masterGainDb,
