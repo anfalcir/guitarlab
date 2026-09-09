@@ -1,6 +1,6 @@
 # Current State
 
-Last updated: 2026-09-08
+Last updated: 2026-09-09
 
 ## Stable baseline
 - `main`: signed baseline `0.2.0-alpha03`, versionCode 4.
@@ -9,14 +9,14 @@ Last updated: 2026-09-08
 ## Active development
 - branch: `dev/parallel-m3-m5`
 - draft PR: #1
-- branch app version: `0.2.0-alpha05`, versionCode 6.
-- current branch has moved materially beyond the signed alpha05 artifact: Studio single-screen redesign, immersive fullscreen, Options Center, global audio routing, Mixer Dock, real track mix controls, master gain and live metering are newer branch work.
+- branch app version: `0.2.0-alpha06`, versionCode 7.
+- alpha06 is the current M4 consolidation candidate line. It supersedes the historical alpha05 package for validating the current Studio redesign, routing and Mixer/Master work.
 
 ## Gates
 - M2 software diagnostics: CI-green.
 - M2 Pocket Amp physical homologation on Samsung SM-X230 / Android 16 API 36: **PASS / HOMOLOGATED**.
 - M3 WAV codec core/Android path: software-green; tested tablet evidence exists for PCM24/44.1 kHz/stereo direct seek.
-- M4: **IN PROGRESS**. Software checkpoints continue; physical consolidation remains pending.
+- M4: **IN PROGRESS**. Current software feature checkpoint is green; signed alpha06 build/signing validation and physical consolidation are the remaining gates.
 
 ## M2 homologation closure
 Physical Pocket Amp evidence covers the complete planned M2 checklist for the target tablet/interface combination: correct USB routing, Play, Record, Duplex, hot-unplug handling, idle reconnect, permission-denied safety and repeated stability. See `M2_HOMOLOGATION_EVIDENCE.md`. M2 is not an open merge blocker.
@@ -37,31 +37,27 @@ Physical Pocket Amp evidence covers the complete planned M2 checklist for the ta
 - Options Center for global audio I/O, export workflow placement and diagnostics;
 - persisted audio device preferences using stable signatures rather than raw Android device IDs;
 - selected main output applied to playback with controlled fallback to Android Auto routing;
-- real master gain and master peak/RMS metering;
-- current checkpoint adds per-track post-track-mix meters, deterministic peak hold/decay and persistent project master gain with legacy-project compatibility.
+- bottom Mixer Dock with hidden/visible and temporary/pinned states;
+- persistent project Master gain;
+- real per-track and Master Peak/RMS metering with deterministic peak hold/decay.
 
-## Latest completed software gate before the current checkpoint
-GitHub Actions run #203 completed **SUCCESS** for commit `db1cf825fac15aa5efb66365345008bb8a84e08a` (master gain + master metering checkpoint).
+## Latest completed software gate
+GitHub Actions run #211 completed **SUCCESS** for commit `b96b0fb846c2ba89732bed3dabe500734880e156`, covering the persistent Master + per-track metering/ballistics checkpoint.
 
-## Current M4 checkpoint
-The active checkpoint hardens the Mixer rather than adding decorative controls:
-- per-track meters are measured from each audible track bus after clip+track gain/pan and before master gain;
-- Master remains measured after summing tracks and applying master gain, before output clamp;
-- meter presentation uses deterministic attack, peak hold and time-based decay;
-- master gain is moved from session-only state into durable `GuitarProject` metadata;
-- legacy project JSON without `masterGainDb` loads at unity (`0 dB`) through the existing additive/default-compatible serializer behavior;
-- project validation enforces track/master gain bounds.
+## Current M4 candidate checkpoint
+The branch is now prepared as `0.2.0-alpha06` / versionCode 7 for signed M4 consolidation. The candidate scope intentionally includes the modern single-workspace Studio, immersive fullscreen, Options/routing, track mix, Master and meters in addition to the earlier playback/loop/trim foundation.
 
 ## Signed candidate status
-The existing `0.2.0-alpha05` signed package is a valid historical M4 playback/trim candidate, but it predates the subsequent Studio redesign, Options/routing and Mixer/Master work. It must not be treated as the final physical candidate for the current branch head. A newer signed consolidation build will be required after the current software checkpoint is green.
+The existing signed `0.2.0-alpha05` package is historical and must not be used to approve the current branch UI/Mixer scope. A signed alpha06 package must be produced by the controlled CI signing path, signer fingerprint verified, package identity/hashes inspected, and only then supplied for physical tablet homologation.
 
 ## Remaining M4 consolidation gate
 Before PR #1 can merge to `main`:
-1. current software checkpoint must be CI-green;
-2. produce a new signed M4 consolidation candidate from the then-current branch head;
-3. physically validate on the Samsung SM-X230: workspace ergonomics/fullscreen, managed import, Play/Stop/seek/loop, trim Apply/Cancel, edit locking, mixer gain/pan/mute/solo, output routing/fallback, master gain/meters and stability;
+1. alpha06 software + signed homologation jobs must be green;
+2. inspect artifact identity, versionCode/versionName, APK hash and signer verification evidence;
+3. physically validate `M4_ALPHA06_HOMOLOGATION_CHECKLIST.md` on Samsung SM-X230;
 4. preserve immutable-source behavior and verify no P0/P1 regression;
-5. only then mark PR #1 ready and merge to `main`.
+5. persist physical evidence in repository/PR;
+6. only then mark PR #1 ready and merge to `main`, followed by post-merge CI.
 
 ## Intentional limitations
 - user-facing import currently begins with WAV;
@@ -69,6 +65,7 @@ Before PR #1 can merge to `main`:
 - resampling is not production-enabled;
 - playback requires managed mono/stereo WAV clips at the project/playback sample rate;
 - record/arm/monitoring remain M5 scope;
+- export command placement exists in Options, but export engine remains unimplemented/gated;
 - no live mixer automation while playback is active.
 
 ## Branch policy
