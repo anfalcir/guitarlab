@@ -62,7 +62,8 @@ object AndroidMasterAudioEncoder {
                     val index = codec.dequeueInputBuffer(TIMEOUT_US)
                     if (index >= 0) {
                         val buffer = codec.getInputBuffer(index) ?: error("Encoder input buffer unavailable")
-                        buffer.clear().order(ByteOrder.LITTLE_ENDIAN)
+                        buffer.clear()
+                        buffer.order(ByteOrder.LITTLE_ENDIAN)
                         val maxFrames = buffer.remaining() / (channels * 2)
                         val floats = FloatArray(maxFrames * channels)
                         val frames = decoder.readInterleaved(floats, frameCount = maxFrames)
