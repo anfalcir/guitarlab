@@ -1,0 +1,53 @@
+name: Alpha14 payload runner
+
+on:
+  push:
+    branches: [ dev/parallel-m3-m5 ]
+    paths: [ '.github/workflows/alpha14-run-payload.yml' ]
+
+permissions:
+  contents: write
+
+jobs:
+  integrate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 3
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.6.1'
+      - name: Install SDK
+        run: sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0"
+      - name: Extract and execute reviewed payload
+        shell: bash
+        run: |
+          python3 -c 'from pathlib import Path; s=Path(".github/workflows/alpha14-stereo-import-integration.yml").read_text(); a=s.index("          python3 - <<'"'"'PY'"'"'\n")+len("          python3 - <<'"'"'PY'"'"'\n"); b=s.index("\n          PY\n      - name: Materialize split source", a); raw=s[a:b]; code="\n".join((line[10:] if line.startswith("          ") else line) for line in raw.splitlines()); exec(compile(code,"alpha14_payload.py","exec"))'
+      - name: Materialize split source
+        run: |
+          chmod +x scripts/materialize_ci_sources.sh
+          scripts/materialize_ci_sources.sh
+      - name: Diff sanity
+        run: git diff --check
+      - name: Unit tests
+        run: gradle --no-daemon --console=plain test
+      - name: Android Lint
+        run: gradle --no-daemon --console=plain lint
+      - name: Assemble debug APK
+        run: gradle --no-daemon --console=plain assembleDebug
+      - name: Commit alpha14
+        shell: bash
+        run: |
+          git config user.name "GuitarLab CI Integrator"
+          git config user.email "actions@users.noreply.github.com"
+          git add app core docs
+          git commit -m "release: promote M5 alpha14 stereo ingress candidate [sign-homologation]"
+          git pull --rebase origin dev/parallel-m3-m5
+          git push origin HEAD:dev/parallel-m3-m5
