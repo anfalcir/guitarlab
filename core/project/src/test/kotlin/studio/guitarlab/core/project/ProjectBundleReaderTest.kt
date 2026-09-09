@@ -4,6 +4,7 @@ import java.io.ByteArrayOutputStream
 import java.io.File
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
+import kotlin.io.path.createTempDirectory
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -16,8 +17,8 @@ import studio.guitarlab.core.model.ProjectTemplate
 
 class ProjectBundleReaderTest {
     @Test fun writerAndReaderRestoreIndependentProjectWithMedia() {
-        val root = createTempDir(prefix = "guitarlab-restore-")
-        val sourceRoot = createTempDir(prefix = "guitarlab-source-")
+        val root = createTempDirectory("guitarlab-restore-").toFile()
+        val sourceRoot = createTempDirectory("guitarlab-source-").toFile()
         try {
             File(sourceRoot, "media/source").mkdirs()
             File(sourceRoot, "media/proxy").mkdirs()
@@ -64,7 +65,7 @@ class ProjectBundleReaderTest {
     }
 
     @Test fun pathTraversalPackageIsRejectedWithoutPublishingProject() {
-        val root = createTempDir(prefix = "guitarlab-traversal-")
+        val root = createTempDirectory("guitarlab-traversal-").toFile()
         try {
             val bytes = ByteArrayOutputStream().also { raw ->
                 ZipOutputStream(raw).use { zip ->
@@ -79,6 +80,25 @@ class ProjectBundleReaderTest {
             }
             assertTrue(File(root, "projects").listFiles().orEmpty().none { !it.name.startsWith(".import-") })
             assertTrue(!File(root, "escape.txt").exists())
+        } finally {
+            root.deleteRecursively()
+        }
+    }
+
+    @Test fun wrongManifestVersionIsRejected() {
+        val root = createTempDirectory("guitarlab-manifest-").toFile()
+        try {
+            val bytes = ByteArrayOutputStream().also { raw ->
+                ZipOutputStream(raw).use { zip ->
+                    zip.putNextEntry(ZipEntry("manifest.properties"))
+                    zip.write("format=guitarlab-project\nbundleVersion=999\nprojectId=p1\n".toByteArray())
+                    zip.closeEntry()
+                    zip.putNextEntry(ZipEntry("project.json"))
+                    zip.write("{}".toByteArray())
+                    zip.closeEntry()
+                }
+            }.toByteArray()
+            assertFailsWith<IllegalArgumentException> { ProjectBundleReader(root).read(bytes.inputStream()) }
         } finally {
             root.deleteRecursively()
         }
