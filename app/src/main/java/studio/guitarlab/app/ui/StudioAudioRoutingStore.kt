@@ -3,6 +3,7 @@ package studio.guitarlab.app.ui
 import android.content.Context
 import android.media.AudioDeviceInfo
 import android.media.AudioManager
+import android.os.Build
 
 data class StudioAudioDeviceChoice(
     val signature: String,
@@ -46,7 +47,7 @@ class StudioAudioRoutingStore(context: Context) {
 
     private fun toChoice(device: AudioDeviceInfo): StudioAudioDeviceChoice {
         val product = device.productName?.toString()?.takeIf { it.isNotBlank() } ?: "Audio device"
-        val address = device.address.orEmpty()
+        val address = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) device.address.orEmpty() else ""
         val label = if (address.isBlank()) product else "$product • $address"
         return StudioAudioDeviceChoice(
             signature = buildString {
