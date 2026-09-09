@@ -60,6 +60,16 @@ jobs:
           chmod +x scripts/materialize_ci_sources.sh
           scripts/materialize_ci_sources.sh
 
+      - name: Read app version
+        shell: bash
+        run: |
+          VERSION_NAME="$(sed -n 's/.*versionName = "\([^"]*\)".*/\1/p' app/build.gradle.kts | head -n1)"
+          VERSION_CODE="$(sed -n 's/.*versionCode = \([0-9][0-9]*\).*/\1/p' app/build.gradle.kts | head -n1)"
+          test -n "$VERSION_NAME"
+          test -n "$VERSION_CODE"
+          echo "APP_VERSION_NAME=$VERSION_NAME" >> "$GITHUB_ENV"
+          echo "APP_VERSION_CODE=$VERSION_CODE" >> "$GITHUB_ENV"
+
       - name: Unit tests
         shell: bash
         run: |
@@ -94,7 +104,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: guitarlab-alpha05-software-gate
+          name: guitarlab-${{ env.APP_VERSION_NAME }}-software-gate
           if-no-files-found: warn
           retention-days: 30
           path: |
@@ -205,7 +215,7 @@ jobs:
             echo "commit=${GITHUB_SHA}"
             echo "versionName=${APP_VERSION_NAME}"
             echo "versionCode=${APP_VERSION_CODE}"
-            echo "milestones=M2-homologated-plus-M3-codec-plus-M4-playback-trim"
+            echo "milestones=M2-homologated-plus-M3-codec-plus-M4-studio-mixer-routing-metering"
             echo "hardwareGate=M2-PocketAmp-SM-X230-pass"
             echo "m4Gate=tablet-consolidation-pending"
             echo "certificateSha256=${EXPECTED_CERT_SHA256}"
