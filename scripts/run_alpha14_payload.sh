@@ -8,7 +8,15 @@ end_marker = "\n          PY\n      - name: Materialize split source"
 start = source.index(start_marker) + len(start_marker)
 end = source.index(end_marker, start)
 raw = source[start:end]
-code = "\n".join(line[10:] if line.startswith("          ") else line for line in raw.splitlines())
+out = []
+in_triple = False
+for line in raw.splitlines():
+    if not in_triple and line.startswith("          "):
+        line = line[10:]
+    out.append(line)
+    if line.count("'''") % 2 == 1:
+        in_triple = not in_triple
+code = "\n".join(out)
 compile(code, 'alpha14_payload.py', 'exec')
 exec(code, {'__name__': '__main__'})
 PY
