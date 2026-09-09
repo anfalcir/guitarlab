@@ -11,14 +11,21 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 
 @Composable
@@ -28,6 +35,20 @@ fun SettingsScreen(
     onAudioDiagnostics: () -> Unit,
     onCodecDiagnostics: () -> Unit,
 ) {
+    val context = LocalContext.current
+    val routingStore = remember(context) { StudioAudioRoutingStore(context) }
+    var inputChoices by remember { mutableStateOf(routingStore.inputChoices()) }
+    var outputChoices by remember { mutableStateOf(routingStore.outputChoices()) }
+    var selectedInput by remember { mutableStateOf(routingStore.selectedInputSignature()) }
+    var selectedOutput by remember { mutableStateOf(routingStore.selectedOutputSignature()) }
+
+    fun refreshAudioDevices() {
+        inputChoices = routingStore.inputChoices()
+        outputChoices = routingStore.outputChoices()
+        if (selectedInput != null && inputChoices.none { it.signature == selectedInput }) selectedInput = null
+        if (selectedOutput != null && outputChoices.none { it.signature == selectedOutput }) selectedOutput = null
+    }
+
     Column(Modifier.fillMaxSize().padding(horizontal = 22.dp, vertical = 16.dp)) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
@@ -52,12 +73,36 @@ fun SettingsScreen(
             item {
                 OptionSection(
                     title = "Audio I/O",
-                    subtitle = "One place for recording input, monitoring and main output routing.",
+                    subtitle = "Recording input and main output are global Studio choices, not per-track controls.",
                 ) {
-                    OptionRow("Recording input", "Auto / selected audio interface", "Global for the Studio; not configured per track")
-                    OptionRow("Main output", "Auto / selected output device", "Revalidated when USB devices reconnect")
+                    AudioDeviceSelector(
+                        title = "Recording input",
+                        selectedSignature = selectedInput,
+                        choices = inputChoices,
+                        onSelect = { signature ->
+                            selectedInput = signature
+                            routingStore.selectInput(signature)
+                        },
+                    )
+                    AudioDeviceSelector(
+                        title = "Main output",
+                        selectedSignature = selectedOutput,
+                        choices = outputChoices,
+                        onSelect = { signature ->
+                            selectedOutput = signature
+                            routingStore.selectOutput(signature)
+                        },
+                    )
                     OptionRow("Project sample rate", "Auto / project setting", "32-bit float internal processing")
-                    Button(onClick = onAudioDiagnostics) { Text("Audio diagnostics") }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(onClick = ::refreshAudioDevices) { Text("Refresh devices") }
+                        Button(onClick = onAudioDiagnostics) { Text("Audio diagnostics") }
+                    }
+                    Text(
+                        "Device choices are stored by a stable descriptor (type/product/address), not by Android's temporary device ID. If the selected device is unavailable, the Studio falls back safely until it reconnects.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
             }
 
@@ -106,6 +151,58 @@ fun SettingsScreen(
                 ) {
                     TextButton(onClick = onAudioDiagnostics) { Text("Open M2 audio diagnostics") }
                     TextButton(onClick = onCodecDiagnostics) { Text("Open M3 codec diagnostics") }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AudioDeviceSelector(
+    title: String,
+    selectedSignature: String?,
+    choices: List<StudioAudioDeviceChoice>,
+    onSelect: (String?) -> Unit,
+) {
+    var menuOpen by remember { mutableStateOf(false) }
+    val selectedLabel = choices.firstOrNull { it.signature == selectedSignature }?.label ?: "Auto"
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.72f),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(title, style = MaterialTheme.typography.bodyMedium)
+                Text(
+                    if (selectedSignature == null) "Let Android choose the active route" else "Preferred device; revalidated on reconnect",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Box(Modifier.padding(start = 12.dp)) {
+                OutlinedButton(onClick = { menuOpen = true }) { Text(selectedLabel, maxLines = 1) }
+                DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                    DropdownMenuItem(
+                        text = { Text("Auto") },
+                        onClick = {
+                            menuOpen = false
+                            onSelect(null)
+                        },
+                    )
+                    choices.forEach { choice ->
+                        DropdownMenuItem(
+                            text = { Text(choice.label) },
+                            onClick = {
+                                menuOpen = false
+                                onSelect(choice.signature)
+                            },
+                        )
+                    }
                 }
             }
         }

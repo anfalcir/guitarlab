@@ -1,0 +1,69 @@
+package studio.guitarlab.app.ui
+
+import android.content.Context
+import android.media.AudioDeviceInfo
+import android.media.AudioManager
+
+data class StudioAudioDeviceChoice(
+    val signature: String,
+    val label: String,
+    val deviceId: Int,
+)
+
+class StudioAudioRoutingStore(context: Context) {
+    private val appContext = context.applicationContext
+    private val audioManager = appContext.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+    private val preferences = appContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+
+    fun inputChoices(): List<StudioAudioDeviceChoice> =
+        audioManager.getDevices(AudioManager.GET_DEVICES_INPUTS)
+            .map(::toChoice)
+            .sortedBy { it.label.lowercase() }
+
+    fun outputChoices(): List<StudioAudioDeviceChoice> =
+        audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
+            .map(::toChoice)
+            .sortedBy { it.label.lowercase() }
+
+    fun selectedInputSignature(): String? = preferences.getString(KEY_INPUT_SIGNATURE, null)
+    fun selectedOutputSignature(): String? = preferences.getString(KEY_OUTPUT_SIGNATURE, null)
+
+    fun selectInput(signature: String?) {
+        preferences.edit().putString(KEY_INPUT_SIGNATURE, signature).apply()
+    }
+
+    fun selectOutput(signature: String?) {
+        preferences.edit().putString(KEY_OUTPUT_SIGNATURE, signature).apply()
+    }
+
+    fun resolveSelectedInputDeviceId(): Int? = resolveSelected(inputChoices(), selectedInputSignature())
+    fun resolveSelectedOutputDeviceId(): Int? = resolveSelected(outputChoices(), selectedOutputSignature())
+
+    private fun resolveSelected(choices: List<StudioAudioDeviceChoice>, signature: String?): Int? {
+        if (signature.isNullOrBlank()) return null
+        return choices.firstOrNull { it.signature == signature }?.deviceId
+    }
+
+    private fun toChoice(device: AudioDeviceInfo): StudioAudioDeviceChoice {
+        val product = device.productName?.toString()?.takeIf { it.isNotBlank() } ?: "Audio device"
+        val address = device.address.orEmpty()
+        val label = if (address.isBlank()) product else "$product • $address"
+        return StudioAudioDeviceChoice(
+            signature = buildString {
+                append(device.type)
+                append('|')
+                append(product)
+                append('|')
+                append(address)
+            },
+            label = label,
+            deviceId = device.id,
+        )
+    }
+
+    private companion object {
+        const val PREFS_NAME = "studio_audio_routing"
+        const val KEY_INPUT_SIGNATURE = "input_signature"
+        const val KEY_OUTPUT_SIGNATURE = "output_signature"
+    }
+}
