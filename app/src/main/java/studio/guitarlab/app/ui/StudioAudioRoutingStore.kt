@@ -37,12 +37,21 @@ class StudioAudioRoutingStore(context: Context) {
         preferences.edit().putString(KEY_OUTPUT_SIGNATURE, signature).apply()
     }
 
-    fun resolveSelectedInputDeviceId(): Int? = resolveSelected(inputChoices(), selectedInputSignature())
-    fun resolveSelectedOutputDeviceId(): Int? = resolveSelected(outputChoices(), selectedOutputSignature())
+    fun resolveSelectedInputDeviceId(): Int? = resolveSelectedInputDevice()?.id
+    fun resolveSelectedOutputDeviceId(): Int? = resolveSelectedOutputDevice()?.id
 
-    private fun resolveSelected(choices: List<StudioAudioDeviceChoice>, signature: String?): Int? {
+    fun resolveSelectedInputDevice(): AudioDeviceInfo? =
+        resolveSelectedDevice(AudioManager.GET_DEVICES_INPUTS, selectedInputSignature())
+
+    fun resolveSelectedOutputDevice(): AudioDeviceInfo? =
+        resolveSelectedDevice(AudioManager.GET_DEVICES_OUTPUTS, selectedOutputSignature())
+
+    fun isSelectedOutputUnavailable(): Boolean =
+        !selectedOutputSignature().isNullOrBlank() && resolveSelectedOutputDevice() == null
+
+    private fun resolveSelectedDevice(deviceFlag: Int, signature: String?): AudioDeviceInfo? {
         if (signature.isNullOrBlank()) return null
-        return choices.firstOrNull { it.signature == signature }?.deviceId
+        return audioManager.getDevices(deviceFlag).firstOrNull { toChoice(it).signature == signature }
     }
 
     private fun toChoice(device: AudioDeviceInfo): StudioAudioDeviceChoice {
