@@ -3,6 +3,7 @@ package studio.guitarlab.core.project
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.util.zip.ZipInputStream
+import kotlin.io.path.createTempDirectory
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -13,7 +14,7 @@ import studio.guitarlab.core.model.ProjectTemplate
 
 class ProjectBundleWriterTest {
     @Test fun packageContainsProjectOriginalAndProxyExactlyOnce() {
-        val root = createTempDir(prefix = "guitarlab-bundle-")
+        val root = createTempDirectory("guitarlab-bundle-").toFile()
         try {
             File(root, "media/source").mkdirs()
             File(root, "media/proxy").mkdirs()
