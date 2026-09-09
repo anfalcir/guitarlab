@@ -1,5 +1,7 @@
 package studio.guitarlab.app.ui
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -15,6 +17,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Tune
@@ -24,6 +27,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -48,6 +52,9 @@ fun HomeScreen(
     onSettings: () -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val projectPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) viewModel.importProject(uri, onOpenProject)
+    }
 
     Column(
         modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 18.dp),
@@ -84,9 +91,22 @@ fun HomeScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                Button(onClick = onNewProject, modifier = Modifier.padding(start = 20.dp)) {
-                    Icon(Icons.Default.Add, contentDescription = null)
-                    Text("Novo projeto", modifier = Modifier.padding(start = 6.dp))
+                Row(
+                    modifier = Modifier.padding(start = 20.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    OutlinedButton(
+                        onClick = { projectPicker.launch(arrayOf("application/octet-stream", "application/zip", "*/*")) },
+                        enabled = !state.loading,
+                    ) {
+                        Icon(Icons.Default.FolderOpen, contentDescription = null)
+                        Text("Abrir projeto", modifier = Modifier.padding(start = 6.dp))
+                    }
+                    Button(onClick = onNewProject, enabled = !state.loading) {
+                        Icon(Icons.Default.Add, contentDescription = null)
+                        Text("Novo projeto", modifier = Modifier.padding(start = 6.dp))
+                    }
                 }
             }
         }
@@ -139,7 +159,7 @@ private fun EmptyProjectsState(onNewProject: () -> Unit, modifier: Modifier = Mo
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Text("Nenhum projeto ainda", style = MaterialTheme.typography.titleLarge)
-            Text("Crie um projeto vazio ou comece pelo template de guitarra.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("Crie um projeto vazio ou abra um arquivo .guitarlab salvo anteriormente.", color = MaterialTheme.colorScheme.onSurfaceVariant)
             Button(onClick = onNewProject) { Text("Criar primeiro projeto") }
         }
     }
