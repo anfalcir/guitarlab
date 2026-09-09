@@ -55,10 +55,6 @@ fun TimelineMarkerRail(
     onLoopStartFrameChanged: (Long) -> Unit,
     onLoopEndFrameChanged: (Long) -> Unit,
     modifier: Modifier = Modifier,
-    trimStartFrame: Long? = null,
-    trimEndFrame: Long? = null,
-    onTrimStartFrameChanged: ((Long) -> Unit)? = null,
-    onTrimEndFrameChanged: ((Long) -> Unit)? = null,
 ) {
     BoxWithConstraints(
         modifier = modifier.height(62.dp).alpha(if (enabled) 1f else 0.52f),
@@ -68,12 +64,6 @@ fun TimelineMarkerRail(
         if (showLoopMarkers) {
             TimelineMarker(TimelineMarkerKind.LOOP_START, loopStartFrame, projectEndFrame, widthPx, enabled, onLoopStartFrameChanged)
             TimelineMarker(TimelineMarkerKind.LOOP_END, loopEndFrame, projectEndFrame, widthPx, enabled, onLoopEndFrameChanged)
-        }
-        if (trimStartFrame != null && onTrimStartFrameChanged != null) {
-            TimelineMarker(TimelineMarkerKind.TRIM_START, trimStartFrame, projectEndFrame, widthPx, enabled, onTrimStartFrameChanged)
-        }
-        if (trimEndFrame != null && onTrimEndFrameChanged != null) {
-            TimelineMarker(TimelineMarkerKind.TRIM_END, trimEndFrame, projectEndFrame, widthPx, enabled, onTrimEndFrameChanged)
         }
         TimelineMarker(TimelineMarkerKind.PLAYHEAD, playheadFrame, projectEndFrame, widthPx, enabled, onPlayheadFrameChanged)
     }

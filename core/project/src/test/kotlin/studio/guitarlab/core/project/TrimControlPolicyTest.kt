@@ -19,20 +19,20 @@ class TrimControlPolicyTest {
 
     @Test
     fun derivesCurrentVisibleEdges() {
-        assertEquals(TrimControlState("c1", 10_000, 18_000), TrimControlPolicy.fromClip(clip))
+        assertEquals(TrimControlState("c1", 12_800, 15_200), TrimControlPolicy.fromClip(clip))
     }
 
     @Test
     fun startCannotExposeBeforeSourceZeroOrCrossEnd() {
         val state = TrimControlPolicy.fromClip(clip)
         assertEquals(8_000, TrimControlPolicy.moveStart(state, 0, clip).startFrame)
-        assertEquals(17_999, TrimControlPolicy.moveStart(state, 99_999, clip).startFrame)
+        assertEquals(15_199, TrimControlPolicy.moveStart(state, 99_999, clip).startFrame)
     }
 
     @Test
     fun endCannotCrossStartOrExposePastSourceEnd() {
         val state = TrimControlPolicy.fromClip(clip)
-        assertEquals(10_001, TrimControlPolicy.moveEnd(state, 0, clip).endFrame)
+        assertEquals(12_801, TrimControlPolicy.moveEnd(state, 0, clip).endFrame)
         assertEquals(28_000, TrimControlPolicy.moveEnd(state, 99_999, clip).endFrame)
     }
 }

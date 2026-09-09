@@ -10,11 +10,19 @@ data class TrimControlState(
 )
 
 object TrimControlPolicy {
-    fun fromClip(clip: AudioClip): TrimControlState = TrimControlState(
-        clipId = clip.id,
-        startFrame = clip.startFrame,
-        endFrame = clip.startFrame + clip.lengthFrames,
-    )
+    /** Opens a fresh trim draft around the useful middle of the visible clip (35%..65%). */
+    fun fromClip(clip: AudioClip): TrimControlState {
+        require(clip.lengthFrames > 0L) { "Trim requires a non-empty clip." }
+        val visibleStart = clip.startFrame
+        val visibleEnd = clip.startFrame + clip.lengthFrames
+        val start = visibleStart + (clip.lengthFrames * 35L / 100L)
+        val end = visibleStart + (clip.lengthFrames * 65L / 100L)
+        return TrimControlState(
+            clipId = clip.id,
+            startFrame = start.coerceIn(minimumStartFrame(clip), visibleEnd - 1L),
+            endFrame = end.coerceIn((start + 1L).coerceAtMost(visibleEnd), maximumEndFrame(clip)),
+        )
+    }
 
     fun minimumStartFrame(clip: AudioClip): Long = max(0L, clip.startFrame - clip.sourceStartFrame)
 

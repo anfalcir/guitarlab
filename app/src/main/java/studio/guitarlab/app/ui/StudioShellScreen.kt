@@ -1,5 +1,9 @@
 package studio.guitarlab.app.ui
 
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -44,6 +48,9 @@ fun StudioShellScreen(
     var mixerPinned by rememberSaveable(projectId) { mutableStateOf(uiPreferences.mixerPinned()) }
     var mixerVisible by rememberSaveable(projectId) { mutableStateOf(uiPreferences.mixerPinned()) }
     var selectedTrackId by rememberSaveable(projectId) { mutableStateOf<String?>(null) }
+    val recordPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
+        viewModel.onRecordPermissionResult(it)
+    }
 
     LaunchedEffect(projectId) { viewModel.load(projectId) }
     LaunchedEffect(state.project?.tracks) {
@@ -65,11 +72,19 @@ fun StudioShellScreen(
                 TransportBar(
                     state = state.transport,
                     engineReady = state.transportEngineReady && state.trimControls == null,
+                    recordEnabled = state.project != null && !state.importing && !state.editingClip && !state.historyBusy && state.trimControls == null,
+                    recordingPhase = state.recordingSession.phase,
                     canUndo = state.canUndo && !state.historyBusy,
                     canRedo = state.canRedo && !state.historyBusy,
                     onReturnToStart = viewModel::returnToStart,
                     onPlayStop = viewModel::togglePlayStop,
-                    onRecord = viewModel::startRecording,
+                    onRecord = {
+                        if (context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+                            viewModel.startRecording()
+                        } else {
+                            recordPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                        }
+                    },
                     onToggleLoop = viewModel::toggleLoop,
                     onUndo = viewModel::undo,
                     onRedo = viewModel::redo,

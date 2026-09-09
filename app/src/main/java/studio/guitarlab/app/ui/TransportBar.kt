@@ -22,11 +22,14 @@ import studio.guitarlab.app.ui.theme.StudioRecord
 import studio.guitarlab.core.project.TransportMode
 import studio.guitarlab.core.project.TransportPolicy
 import studio.guitarlab.core.project.TransportState
+import studio.guitarlab.core.project.RecordingSessionPhase
 
 @Composable
 fun TransportBar(
     state: TransportState,
     engineReady: Boolean,
+    recordEnabled: Boolean,
+    recordingPhase: RecordingSessionPhase,
     canUndo: Boolean,
     canRedo: Boolean,
     onReturnToStart: () -> Unit,
@@ -63,8 +66,13 @@ fun TransportBar(
             )
             AppIconButton(
                 icon = Icons.Default.FiberManualRecord,
-                contentDescription = "Gravar",
-                enabled = false,
+                contentDescription = when (recordingPhase) {
+                    RecordingSessionPhase.COUNTDOWN -> "Cancelar contagem da gravação"
+                    RecordingSessionPhase.CAPTURING -> "Parar gravação"
+                    RecordingSessionPhase.FINALIZING -> "Finalizando gravação"
+                    RecordingSessionPhase.IDLE -> "Gravar"
+                },
+                enabled = recordEnabled && recordingPhase != RecordingSessionPhase.FINALIZING,
                 tint = StudioRecord,
                 onClick = onRecord,
             )

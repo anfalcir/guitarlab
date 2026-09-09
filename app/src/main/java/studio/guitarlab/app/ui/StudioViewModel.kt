@@ -1,12 +1,16 @@
 package studio.guitarlab.app.ui
 
 import android.app.Application
+import android.Manifest
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.provider.OpenableColumns
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import java.util.UUID
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -32,6 +36,14 @@ import studio.guitarlab.core.project.FileProjectRepository
 import studio.guitarlab.core.project.ProjectClipEditor
 import studio.guitarlab.core.project.ProjectHistory
 import studio.guitarlab.core.project.ProjectManagedMediaStore
+import studio.guitarlab.core.project.ProjectRecordingMediaStore
+import studio.guitarlab.core.project.RecordingMediaTransaction
+import studio.guitarlab.core.project.RecordedTakeMetadata
+import studio.guitarlab.core.project.RecordedTakeProjectIntegrator
+import studio.guitarlab.core.project.RecordingSessionPhase
+import studio.guitarlab.core.project.RecordingSessionPolicy
+import studio.guitarlab.core.project.RecordingSessionState
+import studio.guitarlab.core.project.RecordingTargetPolicy
 import studio.guitarlab.core.project.TimelineControlPolicy
 import studio.guitarlab.core.project.TimelineControlState
 import studio.guitarlab.core.project.TransportMode
@@ -41,6 +53,11 @@ import studio.guitarlab.core.project.TrimControlPolicy
 import studio.guitarlab.core.project.TrimControlState
 import studio.guitarlab.core.project.WaveformCacheStore
 import studio.guitarlab.platform.audio.android.AndroidStudioPlaybackEngine
+import studio.guitarlab.platform.audio.android.AndroidStudioRecordingEngine
+import studio.guitarlab.platform.audio.android.StudioRecordingConfig
+import studio.guitarlab.platform.audio.android.StudioRecordingListener
+import studio.guitarlab.platform.audio.android.StudioRecordingRequest
+import studio.guitarlab.platform.audio.android.StudioRecordingResult
 import studio.guitarlab.platform.audio.android.StudioPlaybackClip
 import studio.guitarlab.platform.audio.android.StudioPlaybackListener
 import studio.guitarlab.platform.audio.android.StudioPlaybackMeter
@@ -60,6 +77,10 @@ data class StudioUiState(
     val trimControls: TrimControlState? = null,
     val transport: TransportState = TransportState(),
     val transportEngineReady: Boolean = false,
+    val recordingSession: RecordingSessionState = RecordingSessionState(),
+    val recordingConfig: StudioRecordingConfig? = null,
+    val recordingPeak: Float = 0f,
+    val recordingRms: Float = 0f,
     val masterGainDb: Float = 0f,
     val masterMeter: MeterBallisticsState = MeterBallisticsState(),
     val trackMeters: Map<String, MeterBallisticsState> = emptyMap(),
@@ -78,9 +99,13 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
     private val rootDirectory = application.filesDir
     private val repository = FileProjectRepository(rootDirectory)
     private val mediaStore = ProjectManagedMediaStore(rootDirectory)
+    private val recordingMediaStore = ProjectRecordingMediaStore(rootDirectory)
     private val waveformCache = WaveformCacheStore(rootDirectory)
     private val audioRoutingStore = StudioAudioRoutingStore(application)
     private val playbackEngine = AndroidStudioPlaybackEngine()
+    private val recordingEngine = AndroidStudioRecordingEngine(application)
+    private var recordingTransaction: RecordingMediaTransaction? = null
+    private var countdownJob: Job? = null
     private val projectSaveMutex = Mutex()
     private val projectHistory = ProjectHistory()
     private val trackMixDrafts = mutableMapOf<String, TrackMixDraft>()
@@ -331,7 +356,238 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
 
     fun startRecording() {
         val current = _state.value
-        _state.value = current.copy(masterClipLatched = false, trackClipLatched = emptySet())
+        when (current.recordingSession.phase) {
+            RecordingSessionPhase.COUNTDOWN -> cancelRecordingCountdown()
+            RecordingSessionPhase.CAPTURING -> stopRecording()
+            RecordingSessionPhase.FINALIZING -> Unit
+            RecordingSessionPhase.IDLE -> beginRecordingCountdown(current)
+        }
+    }
+
+    fun onRecordPermissionResult(granted: Boolean) {
+        if (granted) startRecording() else {
+            _state.value = _state.value.copy(error = "A permissão do microfone é necessária para gravar.")
+        }
+    }
+
+    private fun beginRecordingCountdown(current: StudioUiState) {
+        val project = current.project ?: return
+        if (!structuralEditingAllowed(current)) return
+        if (getApplication<Application>().checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            _state.value = current.copy(error = "Autorize o microfone para iniciar a gravação.")
+            return
+        }
+        val session = runCatching {
+            RecordingTargetPolicy.resolve(project)
+            RecordingSessionPolicy.begin(project, current.timelineControls.playheadFrame)
+        }.getOrElse { error ->
+            _state.value = current.copy(error = error.message ?: "Não foi possível preparar a gravação.")
+            return
+        }
+        countdownJob?.cancel()
+        _state.value = current.copy(
+            recordingSession = session,
+            masterClipLatched = false,
+            trackClipLatched = emptySet(),
+            recordingPeak = 0f,
+            recordingRms = 0f,
+            error = null,
+            clipStatus = "Gravação inicia em ${session.countdownSecondsRemaining}",
+        )
+        countdownJob = viewModelScope.launch {
+            while (_state.value.recordingSession.phase == RecordingSessionPhase.COUNTDOWN &&
+                _state.value.recordingSession.countdownSecondsRemaining > 0
+            ) {
+                delay(1_000)
+                val state = _state.value
+                if (state.recordingSession.phase != RecordingSessionPhase.COUNTDOWN) return@launch
+                val ticked = RecordingSessionPolicy.tickCountdown(state.recordingSession)
+                _state.value = state.copy(
+                    recordingSession = ticked,
+                    clipStatus = if (ticked.countdownSecondsRemaining > 0) "Gravação inicia em ${ticked.countdownSecondsRemaining}" else "Iniciando gravação…",
+                )
+            }
+            if (_state.value.recordingSession.readyToOpenCapture) openRecordingCapture()
+        }
+    }
+
+    private fun cancelRecordingCountdown() {
+        countdownJob?.cancel()
+        countdownJob = null
+        val state = _state.value
+        if (state.recordingSession.phase != RecordingSessionPhase.COUNTDOWN) return
+        _state.value = state.copy(
+            recordingSession = RecordingSessionPolicy.cancelCountdown(state.recordingSession),
+            clipStatus = "Gravação cancelada",
+        )
+    }
+
+    private fun openRecordingCapture() {
+        val state = _state.value
+        val project = state.project ?: return
+        val session = state.recordingSession
+        if (!session.readyToOpenCapture) return
+        val target = runCatching { RecordingTargetPolicy.resolve(project) }.getOrElse { error ->
+            resetRecording(error.message ?: "A pista armada mudou durante a contagem.")
+            return
+        }
+        if (target.trackId != session.targetTrackId ||
+            getApplication<Application>().checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED
+        ) {
+            resetRecording("A permissão ou a pista armada mudou durante a contagem.")
+            return
+        }
+        val selectedInputSignature = audioRoutingStore.selectedInputSignature()
+        val selectedInput = audioRoutingStore.resolveSelectedInputDevice()
+        if (!selectedInputSignature.isNullOrBlank() && selectedInput == null) {
+            resetRecording("A entrada selecionada não está disponível.")
+            return
+        }
+        val transaction = runCatching {
+            recordingMediaStore.cleanupInterrupted(project.id)
+            recordingMediaStore.begin(project.id, "take-${System.currentTimeMillis()}.wav")
+        }.getOrElse { error ->
+            resetRecording(error.message ?: "Não foi possível abrir a transação da gravação.")
+            return
+        }
+        recordingTransaction = transaction
+        val request = StudioRecordingRequest(
+            temporaryFile = transaction.temporaryFile,
+            preferredSampleRateHz = target.preferredSampleRateHz,
+            preferredInputDevice = selectedInput,
+            preferredInputRequested = !selectedInputSignature.isNullOrBlank(),
+            monitoringMode = audioRoutingStore.monitoringMode(),
+            preferredOutputDevice = audioRoutingStore.resolveSelectedOutputDevice(),
+        )
+        runCatching {
+            recordingEngine.start(request, recordingListener)
+        }.onFailure { error ->
+            recordingMediaStore.discard(transaction)
+            recordingTransaction = null
+            resetRecording(error.message ?: "Não foi possível iniciar a captura.")
+        }
+    }
+
+    private fun stopRecording() {
+        val state = _state.value
+        if (state.recordingSession.phase != RecordingSessionPhase.CAPTURING) return
+        _state.value = state.copy(
+            recordingSession = RecordingSessionPolicy.beginFinalizing(state.recordingSession),
+            clipStatus = "Finalizando take…",
+        )
+        recordingEngine.stop()
+    }
+
+    private val recordingListener = object : StudioRecordingListener {
+        override fun onStarted(config: StudioRecordingConfig) = viewModelScope.launch {
+            val state = _state.value
+            if (!state.recordingSession.readyToOpenCapture) return@launch
+            _state.value = state.copy(
+                recordingSession = RecordingSessionPolicy.markCaptureStarted(state.recordingSession),
+                recordingConfig = config,
+                transport = TransportPolicy.startRecording(state.transport),
+                clipStatus = "Gravando • ${config.sampleRateHz} Hz • ${config.channelCount} canal(is)",
+            )
+        }.let { Unit }
+
+        override fun onProgress(framesCaptured: Long, peak: Float, rms: Float) = viewModelScope.launch {
+            val state = _state.value
+            if (state.recordingSession.phase != RecordingSessionPhase.CAPTURING) return@launch
+            val targetId = state.recordingSession.targetTrackId
+            _state.value = state.copy(
+                recordingSession = RecordingSessionPolicy.updateCapturedFrames(state.recordingSession, framesCaptured),
+                recordingPeak = peak,
+                recordingRms = rms,
+                trackClipLatched = if (peak > 1f && targetId != null) state.trackClipLatched + targetId else state.trackClipLatched,
+            )
+        }.let { Unit }
+
+        override fun onStopped(result: StudioRecordingResult) {
+            finalizeRecording(result)
+        }
+
+        override fun onError(message: String) = viewModelScope.launch {
+            recordingTransaction?.let(recordingMediaStore::discard)
+            recordingTransaction = null
+            resetRecording(message)
+        }.let { Unit }
+
+        override fun onWarning(message: String) = viewModelScope.launch {
+            _state.value = _state.value.copy(clipStatus = message)
+        }.let { Unit }
+    }
+
+    private fun finalizeRecording(result: StudioRecordingResult) {
+        val transaction = recordingTransaction ?: return resetRecording("A transação do take foi perdida.")
+        recordingTransaction = null
+        viewModelScope.launch {
+            runCatching {
+                withContext(Dispatchers.IO) {
+                    recordingMediaStore.commit(transaction)
+                    val before = repository.load(transaction.projectId) ?: error("Projeto não encontrado ao finalizar o take.")
+                    val session = _state.value.recordingSession
+                    val targetTrackId = requireNotNull(session.targetTrackId) { "A pista do take não está mais disponível." }
+                    val saved = RecordedTakeProjectIntegrator.integrate(
+                        project = before,
+                        targetTrackId = targetTrackId,
+                        take = RecordedTakeMetadata(
+                            clipId = transaction.id,
+                            displayName = "Take ${before.clips.count { it.trackId == targetTrackId } + 1}",
+                            managedRelativePath = transaction.relativePath,
+                            timelineStartFrame = session.timelineStartFrame,
+                            sampleRateHz = result.sampleRateHz,
+                            channelCount = result.channelCount,
+                            framesCaptured = result.framesCaptured,
+                        ),
+                        nowEpochMs = System.currentTimeMillis(),
+                    )
+                    val persisted = repository.save(saved)
+                    projectHistory.record(before, persisted)
+                    val clip = persisted.clips.first { it.id == transaction.id }
+                    val envelope = FileSeekableByteSource(transaction.finalFile).use { source ->
+                        WaveformEnvelopeBuilder.build(WavPcmDecoder(source), WAVEFORM_POINTS)
+                    }
+                    waveformCache.write(persisted.id, clip.id, envelope)
+                    Triple(persisted, clip, envelope.peaks)
+                }
+            }.onSuccess { (saved, clip, peaks) ->
+                val state = _state.value
+                val end = TimelineControlPolicy.projectEndFrame(saved)
+                _state.value = state.copy(
+                    project = saved,
+                    waveforms = state.waveforms + (clip.id to peaks),
+                    timelineControls = TimelineControlPolicy.normalizedForProject(state.timelineControls.copy(playheadFrame = clip.startFrame + clip.lengthFrames), end),
+                    transport = state.transport.copy(mode = TransportMode.STOPPED),
+                    recordingSession = RecordingSessionPolicy.reset(),
+                    recordingConfig = null,
+                    recordingPeak = 0f,
+                    recordingRms = 0f,
+                    transportEngineReady = playbackReadiness(saved).ready,
+                    canUndo = projectHistory.canUndo,
+                    canRedo = projectHistory.canRedo,
+                    clipStatus = if (result.partial) "Take parcial preservado com segurança" else "Take gravado com sucesso",
+                    error = result.message?.takeIf { result.partial },
+                )
+            }.onFailure { error ->
+                recordingMediaStore.discard(transaction)
+                resetRecording(error.message ?: "Não foi possível integrar o take ao projeto.")
+            }
+        }
+    }
+
+    private fun resetRecording(message: String) {
+        countdownJob?.cancel()
+        countdownJob = null
+        val state = _state.value
+        _state.value = state.copy(
+            transport = state.transport.copy(mode = TransportMode.STOPPED),
+            recordingSession = RecordingSessionPolicy.reset(),
+            recordingConfig = null,
+            recordingPeak = 0f,
+            recordingRms = 0f,
+            clipStatus = null,
+            error = message,
+        )
     }
 
     fun toggleClipMuted(clipId: String) {
@@ -514,6 +770,9 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     override fun onCleared() {
+        countdownJob?.cancel()
+        recordingEngine.close()
+        recordingTransaction?.let(recordingMediaStore::discard)
         playbackEngine.close()
         super.onCleared()
     }

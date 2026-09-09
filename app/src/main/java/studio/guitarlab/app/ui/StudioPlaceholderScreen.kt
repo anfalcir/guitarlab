@@ -3,6 +3,7 @@ package studio.guitarlab.app.ui
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -37,6 +38,8 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RangeSlider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -64,6 +67,7 @@ import studio.guitarlab.core.project.TransportPolicy
 import studio.guitarlab.core.project.TransportState
 import studio.guitarlab.core.project.TrimControlPolicy
 import studio.guitarlab.core.project.TrimControlState
+import studio.guitarlab.core.project.RecordingSessionPhase
 
 private val TrackSidebarWidth = 224.dp
 private val TrackLaneGap = 6.dp
@@ -101,6 +105,9 @@ fun StudioPlaceholderScreen(
                 importing = state.importing,
                 editingClip = state.editingClip,
                 error = state.error,
+                status = state.clipStatus ?: state.importStatus,
+                recordingPhase = state.recordingSession.phase,
+                countdownSeconds = state.recordingSession.countdownSecondsRemaining,
                 selectedTrackId = selectedTrackId,
                 onSelectTrack = onSelectTrack,
                 onOpenTrackSettings = { settingsTrackId = it },
@@ -160,6 +167,9 @@ private fun ProjectWorkspace(
     importing: Boolean,
     editingClip: Boolean,
     error: String?,
+    status: String?,
+    recordingPhase: RecordingSessionPhase,
+    countdownSeconds: Int,
     selectedTrackId: String?,
     onSelectTrack: (String) -> Unit,
     onOpenTrackSettings: (String) -> Unit,
@@ -188,6 +198,8 @@ private fun ProjectWorkspace(
             CompactStatus(text = error, error = true)
         } else if (importing) {
             CompactStatus(text = "Importando áudio…")
+        } else if (status != null) {
+            CompactStatus(text = status)
         }
 
         Surface(
@@ -232,10 +244,6 @@ private fun ProjectWorkspace(
                         onPlayheadFrameChanged = onPlayheadFrameChanged,
                         onLoopStartFrameChanged = onLoopStartFrameChanged,
                         onLoopEndFrameChanged = onLoopEndFrameChanged,
-                        trimStartFrame = trimControls?.startFrame,
-                        trimEndFrame = trimControls?.endFrame,
-                        onTrimStartFrameChanged = if (trimActive) onTrimStartFrameChanged else null,
-                        onTrimEndFrameChanged = if (trimActive) onTrimEndFrameChanged else null,
                         modifier = Modifier.weight(1f),
                     )
                 }
@@ -257,6 +265,10 @@ private fun ProjectWorkspace(
                             canImport = clipEditingEnabled,
                             canEditClip = clipEditingEnabled,
                             activeTrimClipId = trimControls?.clipId,
+                            trimControls = trimControls,
+                            sampleRate = project.sampleRate.fixedHz ?: clipSampleRate(project),
+                            onTrimStartFrameChanged = onTrimStartFrameChanged,
+                            onTrimEndFrameChanged = onTrimEndFrameChanged,
                             onSelect = { onSelectTrack(track.id) },
                             onSettings = { onOpenTrackSettings(track.id) },
                             onImportWav = { onImportWav(track.id) },
@@ -275,6 +287,22 @@ private fun ProjectWorkspace(
                 onApply = onApplyTrim,
                 onCancel = onCancelTrim,
             )
+        }
+
+        if (recordingPhase == RecordingSessionPhase.COUNTDOWN) {
+            Surface(
+                modifier = Modifier.align(Alignment.CenterHorizontally),
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.errorContainer,
+                tonalElevation = 8.dp,
+            ) {
+                Text(
+                    countdownSeconds.coerceAtLeast(1).toString(),
+                    modifier = Modifier.padding(horizontal = 28.dp, vertical = 14.dp),
+                    style = MaterialTheme.typography.displayMedium,
+                    color = MaterialTheme.colorScheme.onErrorContainer,
+                )
+            }
         }
     }
 }
@@ -309,6 +337,10 @@ private fun StudioTrackLane(
     canImport: Boolean,
     canEditClip: Boolean,
     activeTrimClipId: String?,
+    trimControls: TrimControlState?,
+    sampleRate: Int,
+    onTrimStartFrameChanged: (Long) -> Unit,
+    onTrimEndFrameChanged: (Long) -> Unit,
     onSelect: () -> Unit,
     onSettings: () -> Unit,
     onImportWav: () -> Unit,
@@ -401,6 +433,10 @@ private fun StudioTrackLane(
                         peaks = waveforms[clip.id],
                         trackColor = trackColor,
                         trimming = activeTrimClipId == clip.id,
+                        trimControls = trimControls?.takeIf { it.clipId == clip.id },
+                        sampleRate = sampleRate,
+                        onTrimStartFrameChanged = onTrimStartFrameChanged,
+                        onTrimEndFrameChanged = onTrimEndFrameChanged,
                         canEdit = canEditClip,
                         onTrim = { onBeginTrim(clip.id) },
                         onRemove = { onRemove(clip.id) },
@@ -418,6 +454,10 @@ private fun TimelineClipCard(
     peaks: List<Float>?,
     trackColor: Color,
     trimming: Boolean,
+    trimControls: TrimControlState?,
+    sampleRate: Int,
+    onTrimStartFrameChanged: (Long) -> Unit,
+    onTrimEndFrameChanged: (Long) -> Unit,
     canEdit: Boolean,
     onTrim: () -> Unit,
     onRemove: () -> Unit,
@@ -426,7 +466,7 @@ private fun TimelineClipCard(
     Surface(
         modifier = modifier,
         shape = RoundedCornerShape(7.dp),
-        color = if (trimming) StudioTrim.copy(alpha = 0.20f) else trackColor.copy(alpha = if (clip.muted) 0.10f else 0.20f),
+        color = trackColor.copy(alpha = if (clip.muted) 0.10f else 0.20f),
         border = BorderStroke(1.dp, if (trimming) StudioTrim else trackColor.copy(alpha = 0.72f)),
         tonalElevation = 0.dp,
     ) {
@@ -453,7 +493,68 @@ private fun TimelineClipCard(
                     onClick = onRemove,
                 )
             }
-            peaks?.let { WaveformMini(peaks = it, muted = clip.muted, color = trackColor, modifier = Modifier.fillMaxWidth().height(20.dp)) }
+            peaks?.let {
+                if (trimming && trimControls != null) {
+                    TrimWaveformEditor(
+                        clip = clip,
+                        trim = trimControls,
+                        peaks = it,
+                        trackColor = trackColor,
+                        sampleRate = sampleRate,
+                        onStartChanged = onTrimStartFrameChanged,
+                        onEndChanged = onTrimEndFrameChanged,
+                        modifier = Modifier.fillMaxWidth().height(34.dp),
+                    )
+                } else {
+                    WaveformMini(peaks = it, muted = clip.muted, color = trackColor, modifier = Modifier.fillMaxWidth().height(20.dp))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TrimWaveformEditor(
+    clip: AudioClip,
+    trim: TrimControlState,
+    peaks: List<Float>,
+    trackColor: Color,
+    sampleRate: Int,
+    onStartChanged: (Long) -> Unit,
+    onEndChanged: (Long) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val clipEnd = clip.startFrame + clip.lengthFrames
+    val startFraction = ((trim.startFrame - clip.startFrame).toFloat() / clip.lengthFrames.coerceAtLeast(1L)).coerceIn(0f, 1f)
+    val endFraction = ((trim.endFrame - clip.startFrame).toFloat() / clip.lengthFrames.coerceAtLeast(1L)).coerceIn(startFraction, 1f)
+    Box(modifier) {
+        Canvas(Modifier.fillMaxSize()) {
+            drawRect(
+                color = StudioTrim.copy(alpha = 0.24f),
+                topLeft = androidx.compose.ui.geometry.Offset(size.width * startFraction, 0f),
+                size = androidx.compose.ui.geometry.Size(size.width * (endFraction - startFraction), size.height),
+            )
+        }
+        WaveformMini(peaks = peaks, color = trackColor, modifier = Modifier.fillMaxSize())
+        RangeSlider(
+            value = startFraction..endFraction,
+            onValueChange = { range ->
+                val start = clip.startFrame + (clip.lengthFrames * range.start).toLong()
+                val end = clip.startFrame + (clip.lengthFrames * range.endInclusive).toLong()
+                onStartChanged(start.coerceAtMost(clipEnd - 1L))
+                onEndChanged(end.coerceAtLeast(start + 1L))
+            },
+            valueRange = 0f..1f,
+            colors = SliderDefaults.colors(
+                thumbColor = StudioTrim,
+                activeTrackColor = StudioTrim.copy(alpha = 0.58f),
+                inactiveTrackColor = Color.Transparent,
+            ),
+            modifier = Modifier.fillMaxSize(),
+        )
+        Row(Modifier.fillMaxWidth().align(Alignment.BottomCenter), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(formatPreciseTime(trim.startFrame, sampleRate), style = MaterialTheme.typography.labelSmall, color = StudioTrim)
+            Text(formatPreciseTime(trim.endFrame, sampleRate), style = MaterialTheme.typography.labelSmall, color = StudioTrim)
         }
     }
 }
@@ -583,3 +684,11 @@ private fun formatTimelineTime(frame: Long, sampleRate: Int): String {
     val seconds = totalSeconds % 60
     return "%02d:%02d".format(minutes, seconds)
 }
+
+private fun formatPreciseTime(frame: Long, sampleRate: Int): String {
+    val millis = if (sampleRate > 0) frame * 1_000L / sampleRate else 0L
+    return "%02d:%02d.%03d".format(millis / 60_000L, (millis / 1_000L) % 60L, millis % 1_000L)
+}
+
+private fun clipSampleRate(project: GuitarProject): Int =
+    project.clips.firstNotNullOfOrNull { it.sourceSampleRateHz } ?: 48_000
