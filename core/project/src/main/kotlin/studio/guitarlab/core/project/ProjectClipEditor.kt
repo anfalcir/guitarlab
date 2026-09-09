@@ -25,6 +25,71 @@ object ProjectClipEditor {
         )
     }
 
+    /** Moves clip ownership between lanes without touching or copying its immutable source media. */
+    fun moveClipToTrack(project: GuitarProject, clipId: String, targetTrackId: String, nowEpochMs: Long): GuitarProject {
+        require(project.tracks.any { it.id == targetTrackId }) { "Target track '$targetTrackId' not found." }
+        require(project.clips.any { it.id == clipId }) { "Clip '$clipId' not found." }
+        return project.copy(
+            clips = project.clips.map { clip -> if (clip.id == clipId) clip.copy(trackId = targetTrackId) else clip },
+            updatedAtEpochMs = nowEpochMs,
+        )
+    }
+
+    /**
+     * Duplicates clip metadata only. The duplicate intentionally references the same managed source bytes.
+     * Callers choose the destination timeline frame so UI policy stays outside the project model.
+     */
+    fun duplicateClip(
+        project: GuitarProject,
+        clipId: String,
+        newClipId: String,
+        startFrame: Long,
+        nowEpochMs: Long,
+        targetTrackId: String? = null,
+    ): GuitarProject {
+        require(newClipId.isNotBlank()) { "New clip id must not be blank." }
+        require(project.clips.none { it.id == newClipId }) { "Clip '$newClipId' already exists." }
+        require(startFrame >= 0) { "Clip start frame must be non-negative." }
+        val source = project.clips.firstOrNull { it.id == clipId } ?: error("Clip '$clipId' not found.")
+        val destinationTrackId = targetTrackId ?: source.trackId
+        require(project.tracks.any { it.id == destinationTrackId }) { "Target track '$destinationTrackId' not found." }
+        val duplicate = source.copy(id = newClipId, trackId = destinationTrackId, startFrame = startFrame)
+        return project.copy(clips = project.clips + duplicate, updatedAtEpochMs = nowEpochMs)
+    }
+
+    /**
+     * Splits one clip into two contiguous metadata ranges. Both halves keep the same immutable source.
+     * The right half advances sourceStartFrame by exactly the left-half duration.
+     */
+    fun splitClipAtTimelineFrame(
+        project: GuitarProject,
+        clipId: String,
+        splitFrame: Long,
+        newRightClipId: String,
+        nowEpochMs: Long,
+    ): GuitarProject {
+        require(newRightClipId.isNotBlank()) { "New clip id must not be blank." }
+        require(project.clips.none { it.id == newRightClipId }) { "Clip '$newRightClipId' already exists." }
+        val source = project.clips.firstOrNull { it.id == clipId } ?: error("Clip '$clipId' not found.")
+        require(source.startFrame <= Long.MAX_VALUE - source.lengthFrames) { "Clip timeline range overflows." }
+        val endFrame = source.startFrame + source.lengthFrames
+        require(splitFrame > source.startFrame && splitFrame < endFrame) { "Split frame must be inside the clip." }
+
+        val leftLength = splitFrame - source.startFrame
+        val rightLength = endFrame - splitFrame
+        val left = source.copy(lengthFrames = leftLength)
+        val right = source.copy(
+            id = newRightClipId,
+            startFrame = splitFrame,
+            sourceStartFrame = source.sourceStartFrame + leftLength,
+            lengthFrames = rightLength,
+        )
+        return project.copy(
+            clips = project.clips.flatMap { clip -> if (clip.id == clipId) listOf(left, right) else listOf(clip) },
+            updatedAtEpochMs = nowEpochMs,
+        )
+    }
+
     /** Non-destructive trim: source media is never rewritten. */
     fun trimClip(
         project: GuitarProject,
