@@ -5,6 +5,7 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.provider.OpenableColumns
+import java.io.File
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import java.util.UUID
@@ -21,6 +22,8 @@ import kotlinx.coroutines.withContext
 import studio.guitarlab.core.audio.MeterBallisticsPolicy
 import studio.guitarlab.core.audio.MeterBallisticsState
 import studio.guitarlab.core.audio.TrackMixPolicy
+import studio.guitarlab.core.codec.AudioImportFormat
+import studio.guitarlab.core.codec.AudioImportFormatPolicy
 import studio.guitarlab.core.codec.FileSeekableByteSource
 import studio.guitarlab.core.codec.WavMetadataReader
 import studio.guitarlab.core.codec.WavPcmDecoder
@@ -37,6 +40,7 @@ import studio.guitarlab.core.project.ProjectClipEditor
 import studio.guitarlab.core.project.ProjectTrackEditor
 import studio.guitarlab.core.project.ProjectHistory
 import studio.guitarlab.core.project.ProjectManagedMediaStore
+import studio.guitarlab.core.project.ProjectBundleWriter
 import studio.guitarlab.core.project.ProjectRecordingMediaStore
 import studio.guitarlab.core.project.RecordingMediaTransaction
 import studio.guitarlab.core.project.RecordedTakeMetadata
@@ -66,10 +70,18 @@ import studio.guitarlab.platform.audio.android.StudioPlaybackRequest
 import studio.guitarlab.platform.audio.android.StudioPlaybackRoutingStatus
 import studio.guitarlab.platform.audio.android.StudioPlaybackTrackMeter
 import studio.guitarlab.platform.audio.android.StudioPlaybackTrackMix
+import studio.guitarlab.platform.audio.android.StudioMasterRenderClip
+import studio.guitarlab.platform.audio.android.StudioMasterRenderRequest
+import studio.guitarlab.platform.audio.android.StudioMasterRenderTrack
+import studio.guitarlab.platform.audio.android.StudioMasterRenderer
+import studio.guitarlab.platform.codec.android.AndroidAudioImportTranscoder
+import studio.guitarlab.platform.codec.android.AndroidMasterAudioEncoder
+import studio.guitarlab.platform.codec.android.MasterExportFormat
 
 data class StudioUiState(
     val loading: Boolean = true,
     val importing: Boolean = false,
+    val exporting: Boolean = false,
     val editingClip: Boolean = false,
     val historyBusy: Boolean = false,
     val project: GuitarProject? = null,
@@ -91,6 +103,7 @@ data class StudioUiState(
     val canRedo: Boolean = false,
     val error: String? = null,
     val importStatus: String? = null,
+    val exportStatus: String? = null,
     val clipStatus: String? = null,
 )
 
@@ -142,10 +155,10 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-    fun importWav(trackId: String, uri: Uri) {
+    fun importAudio(trackId: String, uri: Uri) {
         val currentState = _state.value
         val current = currentState.project ?: return
-        if (!TransportPolicy.timelineEditingEnabled(currentState.transport) || currentState.trimControls != null || currentState.historyBusy) return
+        if (!TransportPolicy.timelineEditingEnabled(currentState.transport) || currentState.trimControls != null || currentState.historyBusy || currentState.exporting) return
         if (current.tracks.none { it.id == trackId }) {
             _state.value = currentState.copy(error = "A pista selecionada não existe mais.")
             return
@@ -155,65 +168,86 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
             runCatching {
                 withContext(Dispatchers.IO) {
                     val context = getApplication<Application>()
-                    val displayName = queryDisplayName(uri)?.takeIf { it.isNotBlank() } ?: "Áudio importado.wav"
+                    val displayName = queryDisplayName(uri)?.takeIf { it.isNotBlank() } ?: "Áudio importado"
+                    val mimeType = context.contentResolver.getType(uri)
+                    val originalFormat = AudioImportFormatPolicy.detect(displayName, mimeType)
+                        ?: error("Formato não suportado. Use ${AudioImportFormatPolicy.supportedExtensionsDescription}.")
                     val input = context.contentResolver.openInputStream(uri) ?: error("O Android não conseguiu ler o arquivo selecionado.")
-                    val asset = input.use { mediaStore.ingest(current.id, displayName, it) }
+                    val sourceAsset = input.use { mediaStore.ingest(current.id, displayName, it) }
+                    var proxyPath: String? = null
                     try {
-                        val metadata = FileSeekableByteSource(asset.file).use { WavMetadataReader().read(it) }
-                        require(metadata.totalFrames > 0) { "O WAV selecionado não contém áudio completo." }
+                        val editingFile = if (originalFormat == AudioImportFormat.WAV_PCM) {
+                            sourceAsset.file
+                        } else {
+                            AndroidAudioImportTranscoder.prepare(context, uri, originalFormat).use { prepared ->
+                                val proxyName = AudioImportFormatPolicy.managedWavName(displayName)
+                                val proxy = prepared.wavFile.inputStream().buffered().use { mediaStore.ingestEditProxy(current.id, proxyName, it) }
+                                proxyPath = proxy.relativePath
+                                proxy.file
+                            }
+                        }
+                        val metadata = FileSeekableByteSource(editingFile).use { WavMetadataReader().read(it) }
+                        require(metadata.totalFrames > 0) { "O arquivo selecionado não contém áudio completo." }
                         val clipId = UUID.randomUUID().toString()
-                        val envelope = FileSeekableByteSource(asset.file).use { source ->
+                        val envelope = FileSeekableByteSource(editingFile).use { source ->
                             WaveformEnvelopeBuilder.build(WavPcmDecoder(source), WAVEFORM_POINTS)
                         }
                         waveformCache.write(current.id, clipId, envelope)
+                        val sourceBits = if (originalFormat == AudioImportFormat.WAV_PCM) metadata.bitsPerSample else null
+                        val sourceEncoding = if (originalFormat == AudioImportFormat.WAV_PCM) metadata.sampleEncoding.name else "COMPRESSED"
                         val clip = AudioClip(
                             id = clipId,
                             trackId = trackId,
                             name = displayName,
-                            sourceUri = "managed://${asset.relativePath}",
-                            managedSourcePath = asset.relativePath,
+                            sourceUri = "managed://${sourceAsset.relativePath}",
+                            managedSourcePath = sourceAsset.relativePath,
+                            managedEditProxyPath = proxyPath,
                             originUri = uri.toString(),
                             startFrame = 0,
                             sourceStartFrame = 0,
                             lengthFrames = metadata.totalFrames,
                             sourceTotalFrames = metadata.totalFrames,
-                            sourceFormat = metadata.fileFormat.name,
+                            sourceFormat = originalFormat.displayName,
                             sourceSampleRateHz = metadata.sampleRateHz,
                             sourceChannelCount = metadata.channelCount,
-                            sourceBitsPerSample = metadata.bitsPerSample,
-                            sourceEncoding = metadata.sampleEncoding.name,
+                            sourceBitsPerSample = sourceBits,
+                            sourceEncoding = sourceEncoding,
                         )
                         val saved = saveLatest(current.id) { latest ->
                             latest.copy(clips = latest.clips + clip, updatedAtEpochMs = System.currentTimeMillis())
                         }
                         Triple(saved, metadata, envelope.peaks)
                     } catch (error: Throwable) {
-                        mediaStore.discardUncommitted(current.id, asset.relativePath)
+                        proxyPath?.let { mediaStore.discardUncommitted(current.id, it) }
+                        mediaStore.discardUncommitted(current.id, sourceAsset.relativePath)
                         throw error
                     }
                 }
             }.onSuccess { (saved, metadata, peaks) ->
                 val imported = saved.clips.last()
-                val end = TimelineControlPolicy.projectEndFrame(saved)
+                val endFrame = TimelineControlPolicy.projectEndFrame(saved)
                 val previous = _state.value
                 _state.value = previous.copy(
                     loading = false,
                     importing = false,
                     project = saved,
                     waveforms = previous.waveforms + (imported.id to peaks),
-                    timelineControls = TimelineControlPolicy.normalizedForProject(previous.timelineControls, end),
+                    timelineControls = TimelineControlPolicy.normalizedForProject(previous.timelineControls, endFrame),
                     transportEngineReady = playbackReadiness(saved).ready,
                     masterGainDb = saved.masterGainDb,
                     canUndo = projectHistory.canUndo,
                     canRedo = projectHistory.canRedo,
-                    importStatus = "Áudio importado • ${metadata.channelCount} canal(is) • ${metadata.sampleRateHz} Hz",
+                    importStatus = "${imported.sourceFormat} importado • ${metadata.channelCount} canal(is) • ${metadata.sampleRateHz} Hz",
                     error = null,
                 )
             }.onFailure { error ->
-                _state.value = _state.value.copy(importing = false, error = error.message ?: "Não foi possível importar o WAV.", importStatus = null)
+                _state.value = _state.value.copy(importing = false, error = error.message ?: "Não foi possível importar o áudio.", importStatus = null)
             }
         }
     }
+
+    @Deprecated("Use importAudio")
+    fun importWav(trackId: String, uri: Uri) = importAudio(trackId, uri)
 
     fun setPlayheadFrame(frame: Long) = editTimelineMarker { state, end -> TimelineControlPolicy.movePlayhead(state, frame, end) }
     fun setLoopStartFrame(frame: Long) = editTimelineMarker { state, end -> TimelineControlPolicy.moveLoopStart(state, frame, end) }
@@ -881,9 +915,9 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                 clips = project.clips.mapNotNull { clip ->
                     val sourceTrack = tracksById[clip.trackId] ?: return@mapNotNull null
                     if (clip.muted || sourceTrack.id !in audibleTrackIds) return@mapNotNull null
-                    val managedPath = requireNotNull(clip.managedSourcePath) { "O clipe '${clip.name}' não está no armazenamento do projeto." }
+                    val managedPath = editingMediaPath(clip)
                     StudioPlaybackClip(
-                        file = mediaStore.resolve(project.id, managedPath),
+                        file = mediaStore.resolveEditable(project.id, managedPath),
                         trackId = sourceTrack.id,
                         timelineStartFrame = clip.startFrame,
                         sourceStartFrame = clip.sourceStartFrame,
@@ -1029,9 +1063,9 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
             project.clips.mapNotNull { clip ->
                 val track = tracksById[clip.trackId] ?: return@mapNotNull null
                 if (clip.muted || track.id !in audibleTrackIds || clip.sourceSampleRateHz != sampleRateHz) return@mapNotNull null
-                val managedPath = clip.managedSourcePath ?: return@mapNotNull null
+                val managedPath = editingMediaPathOrNull(clip) ?: return@mapNotNull null
                 StudioPlaybackClip(
-                    file = mediaStore.resolve(project.id, managedPath),
+                    file = mediaStore.resolveEditable(project.id, managedPath),
                     trackId = track.id,
                     timelineStartFrame = clip.startFrame,
                     sourceStartFrame = clip.sourceStartFrame,
@@ -1263,8 +1297,8 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
             TrackMixPolicy.isAudible(track.muted, track.solo, anySolo)
         }
         if (audible.isEmpty()) return PlaybackReadiness(false, reason = "Adicione ou desative o mute de uma pista com áudio para reproduzir.")
-        if (audible.any { it.managedSourcePath.isNullOrBlank() || it.sourceFormat != "WAV" }) {
-            return PlaybackReadiness(false, reason = "A reprodução atual exige clipes WAV armazenados no projeto.")
+        if (audible.any { editingMediaPathOrNull(it).isNullOrBlank() }) {
+            return PlaybackReadiness(false, reason = "Há clipes sem mídia de edição disponível no projeto.")
         }
         if (audible.any { it.sourceChannelCount !in 1..2 }) {
             return PlaybackReadiness(false, reason = "A reprodução atual suporta fontes mono ou estéreo.")
@@ -1280,15 +1314,100 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
     private fun loadWaveforms(project: GuitarProject): Map<String, List<Float>> = buildMap {
         project.clips.forEach { clip ->
             waveformCache.read(project.id, clip.id)?.let { put(clip.id, it.peaks); return@forEach }
-            val managedPath = clip.managedSourcePath ?: return@forEach
+            val managedPath = editingMediaPathOrNull(clip) ?: return@forEach
             runCatching {
-                val file = mediaStore.resolve(project.id, managedPath)
+                val file = mediaStore.resolveEditable(project.id, managedPath)
                 val envelope = FileSeekableByteSource(file).use { source -> WaveformEnvelopeBuilder.build(WavPcmDecoder(source), WAVEFORM_POINTS) }
                 waveformCache.write(project.id, clip.id, envelope)
                 put(clip.id, envelope.peaks)
             }
         }
     }
+
+    fun exportProjectPackage(uri: Uri) {
+        val project = _state.value.project ?: return
+        if (_state.value.importing || _state.value.exporting || _state.value.historyBusy) return
+        viewModelScope.launch {
+            _state.value = _state.value.copy(exporting = true, exportStatus = "Salvando projeto…", error = null)
+            runCatching {
+                withContext(Dispatchers.IO) {
+                    val output = getApplication<Application>().contentResolver.openOutputStream(uri, "w")
+                        ?: error("O Android não conseguiu criar o arquivo do projeto.")
+                    output.use { ProjectBundleWriter().write(project, mediaStore.projectDirectoryForExport(project.id), it) }
+                }
+            }.onSuccess {
+                _state.value = _state.value.copy(exporting = false, exportStatus = "Projeto GuitarLab salvo com sucesso")
+            }.onFailure { error ->
+                _state.value = _state.value.copy(exporting = false, exportStatus = null, error = error.message ?: "Não foi possível salvar o projeto.")
+            }
+        }
+    }
+
+    fun exportMaster(uri: Uri, format: MasterExportFormat) {
+        val state = _state.value
+        val project = state.project ?: return
+        if (state.importing || state.exporting || state.historyBusy || state.trimControls != null || !TransportPolicy.timelineEditingEnabled(state.transport)) return
+        viewModelScope.launch {
+            _state.value = _state.value.copy(exporting = true, exportStatus = "Renderizando ${format.name}…", error = null)
+            runCatching {
+                withContext(Dispatchers.IO) {
+                    val readiness = playbackReadiness(project)
+                    val rate = readiness.sampleRateHz ?: error(readiness.reason ?: "Projeto sem áudio exportável.")
+                    require(readiness.ready) { readiness.reason ?: "Projeto sem áudio exportável." }
+                    val request = masterRenderRequest(project, rate)
+                    val floatWav = File.createTempFile("guitarlab-master-", ".wav", getApplication<Application>().cacheDir)
+                    val encoded = if (format == MasterExportFormat.WAV_FLOAT32) floatWav else File.createTempFile("guitarlab-master-", ".${format.extension}", getApplication<Application>().cacheDir)
+                    try {
+                        StudioMasterRenderer.renderFloatWav(request, floatWav)
+                        if (format != MasterExportFormat.WAV_FLOAT32) AndroidMasterAudioEncoder.encode(floatWav, encoded, format)
+                        val source = if (format == MasterExportFormat.WAV_FLOAT32) floatWav else encoded
+                        val output = getApplication<Application>().contentResolver.openOutputStream(uri, "w")
+                            ?: error("O Android não conseguiu criar o arquivo exportado.")
+                        output.use { target -> source.inputStream().buffered().use { it.copyTo(target) } }
+                    } finally {
+                        floatWav.delete()
+                        if (encoded != floatWav) encoded.delete()
+                    }
+                }
+            }.onSuccess {
+                _state.value = _state.value.copy(exporting = false, exportStatus = "Master ${format.name} exportado com sucesso")
+            }.onFailure { error ->
+                _state.value = _state.value.copy(exporting = false, exportStatus = null, error = error.message ?: "Não foi possível exportar o master.")
+            }
+        }
+    }
+
+    private fun masterRenderRequest(project: GuitarProject, sampleRateHz: Int): StudioMasterRenderRequest {
+        val anySolo = project.tracks.any { it.solo }
+        val audibleTracks = project.tracks.filter { TrackMixPolicy.isAudible(it.muted, it.solo, anySolo) }
+        val audibleIds = audibleTracks.map { it.id }.toSet()
+        val clips = project.clips.mapNotNull { clip ->
+            if (clip.muted || clip.trackId !in audibleIds) return@mapNotNull null
+            val path = editingMediaPathOrNull(clip) ?: return@mapNotNull null
+            StudioMasterRenderClip(
+                file = mediaStore.resolveEditable(project.id, path),
+                trackId = clip.trackId,
+                timelineStartFrame = clip.startFrame,
+                sourceStartFrame = clip.sourceStartFrame,
+                lengthFrames = clip.lengthFrames,
+                gainDb = clip.gainDb,
+            )
+        }
+        require(clips.isNotEmpty()) { "Não há áudio audível para exportar." }
+        return StudioMasterRenderRequest(
+            sampleRateHz = sampleRateHz,
+            projectEndFrame = TimelineControlPolicy.projectEndFrame(project),
+            clips = clips,
+            trackMixes = audibleTracks.map { StudioMasterRenderTrack(it.id, it.gainDb, it.pan) },
+            masterGainDb = project.masterGainDb,
+        )
+    }
+
+    private fun editingMediaPath(clip: AudioClip): String = requireNotNull(editingMediaPathOrNull(clip)) {
+        "O clipe '${clip.name}' não possui mídia de edição gerenciada."
+    }
+
+    private fun editingMediaPathOrNull(clip: AudioClip): String? = clip.managedEditProxyPath ?: clip.managedSourcePath
 
     private fun queryDisplayName(uri: Uri): String? {
         val resolver = getApplication<Application>().contentResolver

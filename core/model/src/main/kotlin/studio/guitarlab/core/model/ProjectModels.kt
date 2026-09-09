@@ -78,6 +78,7 @@ object BuiltInRoles {
     val gainDb: Float = 0f,
     val muted: Boolean = false,
     val managedSourcePath: String? = null,
+    val managedEditProxyPath: String? = null,
     val originUri: String? = null,
     val sourceFormat: String? = null,
     val sourceSampleRateHz: Int? = null,

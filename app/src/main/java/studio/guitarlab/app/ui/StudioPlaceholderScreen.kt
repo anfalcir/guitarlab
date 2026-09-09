@@ -37,7 +37,7 @@ import androidx.compose.material.icons.filled.CallSplit
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.ContentCut
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -127,10 +127,10 @@ fun StudioPlaceholderScreen(
     val state by viewModel.state.collectAsState()
     var pendingTrackId by remember { mutableStateOf<String?>(null) }
     var settingsTrackId by remember { mutableStateOf<String?>(null) }
-    val wavPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+    val audioPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         val trackId = pendingTrackId
         pendingTrackId = null
-        if (uri != null && trackId != null) viewModel.importWav(trackId, uri)
+        if (uri != null && trackId != null) viewModel.importAudio(trackId, uri)
     }
 
     Box(modifier = Modifier.fillMaxSize().padding(horizontal = 14.dp, vertical = 8.dp)) {
@@ -158,7 +158,7 @@ fun StudioPlaceholderScreen(
                 onImportWav = { trackId ->
                     if (!state.importing && !state.editingClip && state.trimControls == null && TransportPolicy.timelineEditingEnabled(state.transport)) {
                         pendingTrackId = trackId
-                        wavPicker.launch(arrayOf("audio/wav", "audio/x-wav", "audio/wave", "application/octet-stream"))
+                        audioPicker.launch(studio.guitarlab.core.codec.AudioImportFormatPolicy.pickerMimeTypes)
                     }
                 },
                 onPlayheadFrameChanged = viewModel::setPlayheadFrame,
@@ -768,7 +768,7 @@ private fun StudioTrackLane(
                                 )
                             } else {
                                 AppIconButton(
-                                    icon = Icons.Default.MoreVert,
+                                    icon = Icons.Default.Edit,
                                     contentDescription = "Ações do áudio",
                                     enabled = controlsEnabled,
                                     onClick = { clipMenuExpanded = true },

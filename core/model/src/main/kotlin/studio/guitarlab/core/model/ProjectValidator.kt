@@ -43,6 +43,11 @@ object ProjectValidator {
                     issues += ValidationIssue("clip.managed-source.path", "O caminho interno do clipe '${clip.name}' é inválido.")
                 }
             }
+            clip.managedEditProxyPath?.let { path ->
+                if (!path.startsWith("media/proxy/") || path.contains("..") || path.startsWith('/')) {
+                    issues += ValidationIssue("clip.managed-proxy.path", "O caminho interno do proxy do clipe '${clip.name}' é inválido.")
+                }
+            }
         }
 
         val customRoleIds = project.customRoles.map { it.id }

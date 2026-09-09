@@ -14,24 +14,36 @@ data class ManagedMediaAsset(
 )
 
 /**
- * Owns project-managed audio sources. Import always copies external media into the project.
- * Finalized source files are treated as immutable: this API exposes no overwrite operation.
- * Edits such as trim/move/gain stay in project metadata; derived/cache files live elsewhere.
+ * Owns project-managed audio. Imported originals live under media/source and are immutable.
+ * Derived PCM editing proxies live under media/proxy and may be regenerated from the source.
+ * Timeline edits are metadata-only and never rewrite either file in place.
  */
 class ProjectManagedMediaStore(
     private val rootDirectory: File,
     private val idFactory: () -> String = { UUID.randomUUID().toString() },
 ) {
-    fun ingest(
-        projectId: String,
-        suggestedName: String,
-        input: InputStream,
-    ): ManagedMediaAsset {
+    fun ingest(projectId: String, suggestedName: String, input: InputStream): ManagedMediaAsset =
+        ingestInto(projectId, SOURCE_DIRECTORY, suggestedName, input)
+
+    fun ingestEditProxy(projectId: String, suggestedName: String, input: InputStream): ManagedMediaAsset =
+        ingestInto(projectId, PROXY_DIRECTORY, suggestedName, input)
+
+    fun resolve(projectId: String, relativePath: String): File = resolveManaged(projectId, relativePath, SOURCE_DIRECTORY)
+
+    fun resolveEditable(projectId: String, relativePath: String): File =
+        resolveManaged(projectId, relativePath, SOURCE_DIRECTORY, PROXY_DIRECTORY)
+
+    /** Only for rollback of an import transaction that failed before the project references it. */
+    fun discardUncommitted(projectId: String, relativePath: String) {
+        runCatching { resolveEditable(projectId, relativePath).delete() }
+    }
+
+    private fun ingestInto(projectId: String, directoryName: String, suggestedName: String, input: InputStream): ManagedMediaAsset {
         val projectDirectory = projectDirectory(projectId)
-        val sourceDirectory = File(projectDirectory, SOURCE_DIRECTORY).also { it.mkdirs() }
+        val mediaDirectory = File(projectDirectory, directoryName).also { it.mkdirs() }
         val safeName = sanitizeFileName(suggestedName).ifBlank { "audio.bin" }
-        val destination = File(sourceDirectory, "${idFactory()}-$safeName")
-        val temporary = File(sourceDirectory, ".${destination.name}.part")
+        val destination = File(mediaDirectory, "${idFactory()}-$safeName")
+        val temporary = File(mediaDirectory, ".${destination.name}.part")
 
         try {
             var copied = 0L
@@ -46,20 +58,16 @@ class ProjectManagedMediaStore(
                 }
                 output.fd.sync()
             }
-            require(copied > 0L) { "Imported audio source is empty." }
+            require(copied > 0L) { "Managed audio asset is empty." }
 
             try {
-                Files.move(
-                    temporary.toPath(),
-                    destination.toPath(),
-                    StandardCopyOption.ATOMIC_MOVE,
-                )
+                Files.move(temporary.toPath(), destination.toPath(), StandardCopyOption.ATOMIC_MOVE)
             } catch (_: Exception) {
                 Files.move(temporary.toPath(), destination.toPath())
             }
 
             return ManagedMediaAsset(
-                relativePath = "$SOURCE_DIRECTORY/${destination.name}",
+                relativePath = "$directoryName/${destination.name}",
                 file = destination,
                 byteCount = copied,
             )
@@ -70,20 +78,17 @@ class ProjectManagedMediaStore(
         }
     }
 
-    fun resolve(projectId: String, relativePath: String): File {
-        require(relativePath.startsWith("$SOURCE_DIRECTORY/")) { "Managed source path is outside the source area." }
-        require(!relativePath.contains("..")) { "Managed source path must not traverse directories." }
+    private fun resolveManaged(projectId: String, relativePath: String, vararg allowedDirectories: String): File {
+        require(allowedDirectories.any { relativePath.startsWith("$it/") }) { "Managed media path is outside the allowed media area." }
+        require(!relativePath.contains("..")) { "Managed media path must not traverse directories." }
         val projectDirectory = projectDirectory(projectId).canonicalFile
         val candidate = File(projectDirectory, relativePath).canonicalFile
-        require(candidate.path.startsWith(projectDirectory.path + File.separator)) { "Managed source escaped project storage." }
-        require(candidate.isFile) { "Managed source file is missing: $relativePath" }
+        require(candidate.path.startsWith(projectDirectory.path + File.separator)) { "Managed media escaped project storage." }
+        require(candidate.isFile) { "Managed media file is missing: $relativePath" }
         return candidate
     }
 
-    /** Only for rollback of an import transaction that failed before the project references it. */
-    fun discardUncommitted(projectId: String, relativePath: String) {
-        runCatching { resolve(projectId, relativePath).delete() }
-    }
+    fun projectDirectoryForExport(projectId: String): File = projectDirectory(projectId)
 
     private fun projectDirectory(projectId: String): File =
         File(File(rootDirectory, "projects"), sanitizeProjectId(projectId)).also { it.mkdirs() }
@@ -98,5 +103,6 @@ class ProjectManagedMediaStore(
 
     private companion object {
         const val SOURCE_DIRECTORY = "media/source"
+        const val PROXY_DIRECTORY = "media/proxy"
     }
 }

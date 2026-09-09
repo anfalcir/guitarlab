@@ -16,8 +16,8 @@ import studio.guitarlab.core.codec.AudioCodecException
 import studio.guitarlab.core.codec.AudioImportFormat
 
 /**
- * Normalizes external audio into an immutable PCM16 WAV before it enters the project media store.
- * This deliberately keeps playback, waveform, trim and recording on the already-validated WAV path.
+ * Creates a disposable PCM16 WAV editing proxy while the original imported source remains immutable.
+ * The proxy is derived media: playback, waveform and trim can use it without replacing the source.
  */
 object AndroidAudioImportTranscoder {
     data class PreparedAudio(
@@ -357,6 +357,6 @@ object AndroidAudioImportTranscoder {
         }
     }
 
-    private const val WAV_HEADER_BYTES = 44L
+    private const val WAV_HEADER_BYTES = 44
     private const val CODEC_TIMEOUT_US = 10_000L
 }
