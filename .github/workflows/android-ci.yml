@@ -186,6 +186,7 @@ jobs:
           PASSWORD="$(awk -F= '$1=="password" {sub(/^password=/,""); print; exit}' "$CREDS")"
           test -n "$ALIAS"
           test -n "$PASSWORD"
+          echo "::add-mask::$PASSWORD"
           {
             echo "GUITARLAB_KEYSTORE_PATH=$KEYSTORE"
             echo "GUITARLAB_KEY_ALIAS=$ALIAS"
@@ -222,7 +223,7 @@ jobs:
             echo "versionName=${APP_VERSION_NAME}"
             echo "versionCode=${APP_VERSION_CODE}"
             echo "milestone=M5-final-physical-homologation-candidate"
-            echo "gate=alpha13-awaiting-physical-validation"
+            echo "gate=alpha14-awaiting-physical-validation"
             echo "hardwareBaseline=M2-PocketAmp-SM-X230-pass"
             echo "certificateSha256=${EXPECTED_CERT_SHA256}"
           } > deliverables/BUILD_IDENTITY.txt
