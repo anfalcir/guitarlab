@@ -1,6 +1,7 @@
 package studio.guitarlab.platform.audio.android
 
 import android.media.AudioAttributes
+import android.media.AudioDeviceInfo
 import android.media.AudioFormat
 import android.media.AudioTrack
 import java.io.File
@@ -29,12 +30,22 @@ data class StudioPlaybackRequest(
     val loopStartFrame: Long,
     val loopEndFrame: Long,
     val clips: List<StudioPlaybackClip>,
+    val preferredOutputDevice: AudioDeviceInfo? = null,
+    val preferredOutputRequested: Boolean = false,
+)
+
+data class StudioPlaybackRoutingStatus(
+    val requestedPreferredOutput: Boolean,
+    val usingPreferredOutput: Boolean,
+    val fellBackToAuto: Boolean,
+    val deviceLabel: String? = null,
 )
 
 interface StudioPlaybackListener {
     fun onPosition(frame: Long)
     fun onStopped(frame: Long)
     fun onError(message: String)
+    fun onRouting(status: StudioPlaybackRoutingStatus) {}
 }
 
 class AndroidStudioPlaybackEngine : AutoCloseable {
@@ -97,6 +108,8 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
                 .setPerformanceMode(AudioTrack.PERFORMANCE_MODE_LOW_LATENCY)
                 .build()
             require(track.state == AudioTrack.STATE_INITIALIZED) { "Android AudioTrack failed to initialize." }
+
+            applyOutputRouting(track, request, listener)
 
             var renderFrame = normalizedStart(request)
             var totalWrittenFrames = 0L
@@ -161,6 +174,45 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
             listener.onStopped(lastTimelineFrame)
             synchronized(this) { worker = null }
         }
+    }
+
+    private fun applyOutputRouting(
+        track: AudioTrack,
+        request: StudioPlaybackRequest,
+        listener: StudioPlaybackListener,
+    ) {
+        if (!request.preferredOutputRequested) {
+            listener.onRouting(
+                StudioPlaybackRoutingStatus(
+                    requestedPreferredOutput = false,
+                    usingPreferredOutput = false,
+                    fellBackToAuto = false,
+                )
+            )
+            return
+        }
+
+        val preferred = request.preferredOutputDevice
+        if (preferred == null) {
+            listener.onRouting(
+                StudioPlaybackRoutingStatus(
+                    requestedPreferredOutput = true,
+                    usingPreferredOutput = false,
+                    fellBackToAuto = true,
+                )
+            )
+            return
+        }
+
+        val accepted = runCatching { track.setPreferredDevice(preferred) }.getOrDefault(false)
+        listener.onRouting(
+            StudioPlaybackRoutingStatus(
+                requestedPreferredOutput = true,
+                usingPreferredOutput = accepted,
+                fellBackToAuto = !accepted,
+                deviceLabel = preferred.productName?.toString(),
+            )
+        )
     }
 
     private fun normalizedStart(request: StudioPlaybackRequest): Long =
