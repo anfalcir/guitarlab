@@ -1,0 +1,40 @@
+name: Apply M5 Media IO
+
+on:
+  push:
+    branches:
+      - dev/parallel-m3-m5
+    paths:
+      - '.github/workflows/apply-m5-media-io.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout branch head
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - name: Apply reviewed media I/O patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          gzip -dc .github/patches/m5-media-io.patch.gz > "$RUNNER_TEMP/m5-media-io.patch"
+          git apply --check -p2 "$RUNNER_TEMP/m5-media-io.patch"
+          git apply -p2 "$RUNNER_TEMP/m5-media-io.patch"
+          rm -f .github/patches/m5-media-io.patch.gz
+          rm -f .github/workflows/apply-m5-media-io.yml
+          rm -f .github/workflows/source-snapshot.yml
+          git diff --check
+      - name: Commit implementation
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "GuitarLab CI"
+          git config user.email "actions@users.noreply.github.com"
+          git add -A
+          git commit -m "feat: implement definitive M5 media I/O foundation"
+          git push origin HEAD:dev/parallel-m3-m5
