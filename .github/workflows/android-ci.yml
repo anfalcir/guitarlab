@@ -34,6 +34,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Diff sanity
+        shell: bash
+        run: git diff --check HEAD^ --
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -208,23 +214,23 @@ jobs:
         shell: bash
         run: |
           mkdir -p deliverables
-          APK_NAME="GuitarLabStudio-M2-M3-M4-${APP_VERSION_NAME}-homologacao.apk"
+          APK_NAME="GuitarLabStudio-${APP_VERSION_NAME}-homologacao.apk"
           cp app/build/outputs/apk/release/app-release.apk "deliverables/${APK_NAME}"
           sha256sum deliverables/*.apk > deliverables/SHA256SUMS.txt
           {
             echo "commit=${GITHUB_SHA}"
             echo "versionName=${APP_VERSION_NAME}"
             echo "versionCode=${APP_VERSION_CODE}"
-            echo "milestones=M2-homologated-plus-M3-codec-plus-M4-studio-mixer-routing-metering"
-            echo "hardwareGate=M2-PocketAmp-SM-X230-pass"
-            echo "m4Gate=tablet-consolidation-pending"
+            echo "milestone=M5-final-physical-homologation-candidate"
+            echo "gate=alpha11-awaiting-physical-validation"
+            echo "hardwareBaseline=M2-PocketAmp-SM-X230-pass"
             echo "certificateSha256=${EXPECTED_CERT_SHA256}"
           } > deliverables/BUILD_IDENTITY.txt
 
       - name: Upload signed homologation APK
         uses: actions/upload-artifact@v4
         with:
-          name: GuitarLabStudio-M2-M3-M4-${{ env.APP_VERSION_NAME }}-homologacao
+          name: GuitarLabStudio-${{ env.APP_VERSION_NAME }}-homologacao
           if-no-files-found: error
           retention-days: 90
           path: deliverables/

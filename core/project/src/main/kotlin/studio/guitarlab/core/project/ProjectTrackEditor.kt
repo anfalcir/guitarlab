@@ -19,6 +19,7 @@ object ProjectTrackEditor {
         require(targetIndex in ordered.indices) { "Target track index is out of bounds." }
         val sourceIndex = ordered.indexOfFirst { it.id == trackId }
         require(sourceIndex >= 0) { "Track '$trackId' not found." }
+        if (sourceIndex == targetIndex) return project
 
         val moved = ordered.removeAt(sourceIndex)
         ordered.add(targetIndex, moved)

@@ -28,17 +28,14 @@ object ProjectClipEditor {
     /** Moves clip ownership between lanes without touching or copying its immutable source media. */
     fun moveClipToTrack(project: GuitarProject, clipId: String, targetTrackId: String, nowEpochMs: Long): GuitarProject {
         require(project.tracks.any { it.id == targetTrackId }) { "Target track '$targetTrackId' not found." }
-        require(project.clips.any { it.id == clipId }) { "Clip '$clipId' not found." }
+        val target = project.clips.firstOrNull { it.id == clipId } ?: error("Clip '$clipId' not found.")
+        if (target.trackId == targetTrackId) return project
         return project.copy(
             clips = project.clips.map { clip -> if (clip.id == clipId) clip.copy(trackId = targetTrackId) else clip },
             updatedAtEpochMs = nowEpochMs,
         )
     }
 
-    /**
-     * Duplicates clip metadata only. The duplicate intentionally references the same managed source bytes.
-     * Callers choose the destination timeline frame so UI policy stays outside the project model.
-     */
     fun duplicateClip(
         project: GuitarProject,
         clipId: String,
@@ -57,10 +54,6 @@ object ProjectClipEditor {
         return project.copy(clips = project.clips + duplicate, updatedAtEpochMs = nowEpochMs)
     }
 
-    /**
-     * Splits one clip into two contiguous metadata ranges. Both halves keep the same immutable source.
-     * The right half advances sourceStartFrame by exactly the left-half duration.
-     */
     fun splitClipAtTimelineFrame(
         project: GuitarProject,
         clipId: String,
@@ -74,7 +67,6 @@ object ProjectClipEditor {
         require(source.startFrame <= Long.MAX_VALUE - source.lengthFrames) { "Clip timeline range overflows." }
         val endFrame = source.startFrame + source.lengthFrames
         require(splitFrame > source.startFrame && splitFrame < endFrame) { "Split frame must be inside the clip." }
-
         val leftLength = splitFrame - source.startFrame
         val rightLength = endFrame - splitFrame
         val left = source.copy(lengthFrames = leftLength)
@@ -112,11 +104,6 @@ object ProjectClipEditor {
         )
     }
 
-    /**
-     * DAW-style edge trim expressed in timeline frames.
-     * Moving the left edge also moves sourceStartFrame by the same delta so audiovisual timing stays stable.
-     * The immutable managed source path/URI is intentionally untouched.
-     */
     fun trimClipToTimelineEdges(
         project: GuitarProject,
         clipId: String,
@@ -136,13 +123,11 @@ object ProjectClipEditor {
         }
         return project.copy(
             clips = project.clips.map { clip ->
-                if (clip.id == clipId) {
-                    clip.copy(
-                        startFrame = timelineStartFrame,
-                        sourceStartFrame = newSourceStart,
-                        lengthFrames = newLength,
-                    )
-                } else clip
+                if (clip.id == clipId) clip.copy(
+                    startFrame = timelineStartFrame,
+                    sourceStartFrame = newSourceStart,
+                    lengthFrames = newLength,
+                ) else clip
             },
             updatedAtEpochMs = nowEpochMs,
         )
