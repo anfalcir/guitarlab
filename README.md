@@ -20,13 +20,14 @@ Read first:
 - [`docs/CURRENT_STATE.md`](docs/CURRENT_STATE.md) — exact development/gate status
 - [`docs/M5C_ALPHA09_UX_CONSOLIDATION.md`](docs/M5C_ALPHA09_UX_CONSOLIDATION.md) — alpha09 Studio UX contract
 - [`docs/M5_ALPHA09_HOMOLOGATION_CHECKLIST.md`](docs/M5_ALPHA09_HOMOLOGATION_CHECKLIST.md) — physical alpha09 acceptance gate
+- [`docs/M5_ALPHA10_CORRECTIVE_CHECKPOINT.md`](docs/M5_ALPHA10_CORRECTIVE_CHECKPOINT.md) — post-homologation UX corrections
 
 ## Current development state
-Stable `main` remains the signed `0.2.0-alpha03` baseline. Active work is isolated on `dev/parallel-m3-m5` in draft PR #1. The branch app version is `0.2.0-alpha09`, versionCode 10.
+Stable `main` remains the signed `0.2.0-alpha03` baseline. Active work is isolated on `dev/parallel-m3-m5` in draft PR #1. The branch app version is `0.2.0-alpha10`, versionCode 11.
 
 M2 Pocket Amp physical homologation is **PASS / CLOSED** for Samsung SM-X230 on Android 16/API 36. M3 established the WAV codec/import foundation. The signed M4 alpha07 candidate is currently under physical/UI validation while development continues on M5.
 
-M5.A established project-managed recording transactions and the float-WAV writer. M5.B added the Android capture engine, input-route enforcement, live metering and monitoring. M5.C integrates permission, the mandatory visible/cancelable five-second countdown, exact-one-arm targeting, capture, safe partial takes, atomic promotion, automatic clip/waveform insertion and compatible backing playback. The alpha09 line consolidates the Studio UX found incomplete during alpha08 testing; physical M5 support remains gated by its signed checklist.
+M5.A established project-managed recording transactions and the float-WAV writer. M5.B added the Android capture engine, input-route enforcement, live metering and monitoring. M5.C integrates permission, the mandatory visible/cancelable five-second countdown, exact-one-arm targeting, capture, safe partial takes, atomic promotion, automatic clip/waveform insertion and compatible backing playback. Alpha09 passed physical validation with minor UX findings; alpha10 is the corrective candidate for Trim readability and professional drag/drop feedback.
 
 WAV-first does **not** mean WAV-only: multi-format import/export remains explicit product scope and is tracked in the codec matrix.
 

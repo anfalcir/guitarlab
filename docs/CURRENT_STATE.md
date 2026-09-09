@@ -6,7 +6,7 @@ Updated: 2026-09-09
 
 - stable baseline: `main`, signed `0.2.0-alpha03`;
 - active integration: `dev/parallel-m3-m5`, draft PR #1;
-- active app line: `0.2.0-alpha09`, versionCode 10;
+- active app line: `0.2.0-alpha10`, versionCode 11;
 - alpha09 consolidates the Studio UX gaps confirmed in the alpha08 tablet screenshot: overlay Snackbar feedback, clean full-height waveforms, contextual sidebar actions, source metadata, drag reorder/move and full-lane playhead/loop guides;
 - CI is the canonical executor: source materialization, Unit Tests, Android Lint, Debug APK and artifacts;
 - signing secrets exist only in CI and the certificate fingerprint is locked.

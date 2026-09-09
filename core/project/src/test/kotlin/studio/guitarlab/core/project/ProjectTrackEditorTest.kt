@@ -42,8 +42,20 @@ class ProjectTrackEditorTest {
     }
 
     @Test
+    fun clearTrackContentsPreservesTrackAndOtherLanes() {
+        val withOtherClip = project().copy(
+            clips = project().clips + AudioClip(id = "clip-a", trackId = "a", name = "Other", sourceUri = "managed://other.wav", startFrame = 0, lengthFrames = 20),
+        )
+        val edited = ProjectTrackEditor.clearTrackContents(withOtherClip, "b", 14)
+        assertEquals(listOf("a", "b", "c"), edited.tracks.sortedBy { it.order }.map { it.id })
+        assertEquals(listOf("clip-a"), edited.clips.map { it.id })
+        assertEquals(14, edited.updatedAtEpochMs)
+    }
+
+    @Test
     fun rejectsUnknownTrackAndOutOfBoundsTarget() {
         assertFailsWith<IllegalArgumentException> { ProjectTrackEditor.reorderTrack(project(), "missing", 0, 12) }
         assertFailsWith<IllegalArgumentException> { ProjectTrackEditor.reorderTrack(project(), "a", 3, 13) }
+        assertFailsWith<IllegalArgumentException> { ProjectTrackEditor.clearTrackContents(project(), "missing", 14) }
     }
 }

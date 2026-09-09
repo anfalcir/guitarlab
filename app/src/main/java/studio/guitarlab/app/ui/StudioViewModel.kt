@@ -612,6 +612,10 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
         ProjectClipEditor.removeClip(current, clipId, System.currentTimeMillis())
     }
 
+    fun clearTrackContents(trackId: String) = editClip("Pista limpa") { current ->
+        ProjectTrackEditor.clearTrackContents(current, trackId, System.currentTimeMillis())
+    }
+
     fun duplicateClip(clipId: String) {
         val source = _state.value.project?.clips?.firstOrNull { it.id == clipId } ?: return
         val newId = UUID.randomUUID().toString()

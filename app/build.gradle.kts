@@ -11,8 +11,8 @@ android {
         applicationId = "studio.guitarlab.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 10
-        versionName = "0.2.0-alpha09"
+        versionCode = 11
+        versionName = "0.2.0-alpha10"
     }
 
     buildFeatures {
