@@ -1,0 +1,33 @@
+name: GuitarLab Source Snapshot
+
+on:
+  push:
+    branches:
+      - dev/parallel-m3-m5
+    paths:
+      - '.github/workflows/source-snapshot.yml'
+      - 'app/**'
+      - 'core/**'
+      - 'platform/**'
+
+permissions:
+  contents: read
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Package source snapshot
+        run: |
+          mkdir -p snapshot
+          cp -a app core platform docs gradle.properties settings.gradle.kts build.gradle.kts gradle snapshot/ 2>/dev/null || true
+          tar -czf guitarlab-source-snapshot.tar.gz snapshot
+      - name: Upload source snapshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: guitarlab-source-snapshot
+          path: guitarlab-source-snapshot.tar.gz
+          if-no-files-found: error
+          retention-days: 1
