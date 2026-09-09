@@ -53,9 +53,10 @@ fun StudioShellScreen(
 
     val structuralControlsEnabled = !state.importing &&
         !state.editingClip &&
+        !state.historyBusy &&
         state.trimControls == null &&
         TransportPolicy.timelineEditingEnabled(state.transport)
-    val mixControlsEnabled = !state.importing && !state.editingClip && state.trimControls == null
+    val mixControlsEnabled = !state.importing && !state.editingClip && !state.historyBusy && state.trimControls == null
 
     Column(Modifier.fillMaxSize()) {
         StudioTopBar(
@@ -64,10 +65,14 @@ fun StudioShellScreen(
                 TransportBar(
                     state = state.transport,
                     engineReady = state.transportEngineReady && state.trimControls == null,
+                    canUndo = state.canUndo && !state.historyBusy,
+                    canRedo = state.canRedo && !state.historyBusy,
                     onReturnToStart = viewModel::returnToStart,
                     onPlayStop = viewModel::togglePlayStop,
                     onRecord = viewModel::startRecording,
                     onToggleLoop = viewModel::toggleLoop,
+                    onUndo = viewModel::undo,
+                    onRedo = viewModel::redo,
                 )
             },
             onMixer = { mixerVisible = true },

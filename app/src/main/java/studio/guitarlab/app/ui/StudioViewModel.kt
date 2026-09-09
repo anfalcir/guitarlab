@@ -27,8 +27,10 @@ import studio.guitarlab.core.model.BuiltInRoles
 import studio.guitarlab.core.model.ChannelLayout
 import studio.guitarlab.core.model.GuitarProject
 import studio.guitarlab.core.model.RoleSource
+import studio.guitarlab.core.model.TrackNamePolicy
 import studio.guitarlab.core.project.FileProjectRepository
 import studio.guitarlab.core.project.ProjectClipEditor
+import studio.guitarlab.core.project.ProjectHistory
 import studio.guitarlab.core.project.ProjectManagedMediaStore
 import studio.guitarlab.core.project.TimelineControlPolicy
 import studio.guitarlab.core.project.TimelineControlState
@@ -51,6 +53,7 @@ data class StudioUiState(
     val loading: Boolean = true,
     val importing: Boolean = false,
     val editingClip: Boolean = false,
+    val historyBusy: Boolean = false,
     val project: GuitarProject? = null,
     val waveforms: Map<String, List<Float>> = emptyMap(),
     val timelineControls: TimelineControlState = TimelineControlState(),
@@ -62,6 +65,8 @@ data class StudioUiState(
     val trackMeters: Map<String, MeterBallisticsState> = emptyMap(),
     val masterClipLatched: Boolean = false,
     val trackClipLatched: Set<String> = emptySet(),
+    val canUndo: Boolean = false,
+    val canRedo: Boolean = false,
     val error: String? = null,
     val importStatus: String? = null,
     val clipStatus: String? = null,
@@ -77,6 +82,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
     private val audioRoutingStore = StudioAudioRoutingStore(application)
     private val playbackEngine = AndroidStudioPlaybackEngine()
     private val projectSaveMutex = Mutex()
+    private val projectHistory = ProjectHistory()
     private val trackMixDrafts = mutableMapOf<String, TrackMixDraft>()
     private val _state = MutableStateFlow(StudioUiState())
     val state: StateFlow<StudioUiState> = _state.asStateFlow()
@@ -84,6 +90,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
     fun load(projectId: String) {
         if (_state.value.project?.id == projectId && !_state.value.loading) return
         playbackEngine.stop()
+        projectHistory.clear()
         trackMixDrafts.clear()
         viewModelScope.launch {
             _state.value = StudioUiState(loading = true)
@@ -112,7 +119,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
     fun importWav(trackId: String, uri: Uri) {
         val currentState = _state.value
         val current = currentState.project ?: return
-        if (!TransportPolicy.timelineEditingEnabled(currentState.transport) || currentState.trimControls != null) return
+        if (!TransportPolicy.timelineEditingEnabled(currentState.transport) || currentState.trimControls != null || currentState.historyBusy) return
         if (current.tracks.none { it.id == trackId }) {
             _state.value = currentState.copy(error = "A pista selecionada não existe mais.")
             return
@@ -171,6 +178,8 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                     timelineControls = TimelineControlPolicy.normalizedForProject(previous.timelineControls, end),
                     transportEngineReady = playbackReadiness(saved).ready,
                     masterGainDb = saved.masterGainDb,
+                    canUndo = projectHistory.canUndo,
+                    canRedo = projectHistory.canRedo,
                     importStatus = "Áudio importado • ${metadata.channelCount} canal(is) • ${metadata.sampleRateHz} Hz",
                     error = null,
                 )
@@ -187,7 +196,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
     fun beginTrim(clipId: String) {
         val current = _state.value
         val project = current.project ?: return
-        if (current.importing || current.editingClip || !TransportPolicy.timelineEditingEnabled(current.transport)) return
+        if (current.importing || current.editingClip || current.historyBusy || !TransportPolicy.timelineEditingEnabled(current.transport)) return
         val clip = project.clips.firstOrNull { it.id == clipId } ?: return
         _state.value = current.copy(trimControls = TrimControlPolicy.fromClip(clip), clipStatus = "Modo de corte ativo", error = null)
     }
@@ -195,7 +204,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
     fun setTrimStartFrame(frame: Long) {
         val current = _state.value
         val trim = current.trimControls ?: return
-        if (!TransportPolicy.timelineEditingEnabled(current.transport)) return
+        if (!TransportPolicy.timelineEditingEnabled(current.transport) || current.historyBusy) return
         val clip = current.project?.clips?.firstOrNull { it.id == trim.clipId } ?: return
         _state.value = current.copy(trimControls = TrimControlPolicy.moveStart(trim, frame, clip))
     }
@@ -203,14 +212,14 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
     fun setTrimEndFrame(frame: Long) {
         val current = _state.value
         val trim = current.trimControls ?: return
-        if (!TransportPolicy.timelineEditingEnabled(current.transport)) return
+        if (!TransportPolicy.timelineEditingEnabled(current.transport) || current.historyBusy) return
         val clip = current.project?.clips?.firstOrNull { it.id == trim.clipId } ?: return
         _state.value = current.copy(trimControls = TrimControlPolicy.moveEnd(trim, frame, clip))
     }
 
     fun cancelTrim() {
         val current = _state.value
-        if (!TransportPolicy.timelineEditingEnabled(current.transport)) return
+        if (!TransportPolicy.timelineEditingEnabled(current.transport) || current.historyBusy) return
         _state.value = current.copy(trimControls = null, clipStatus = null)
     }
 
@@ -218,7 +227,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
         val current = _state.value
         val project = current.project ?: return
         val trim = current.trimControls ?: return
-        if (current.importing || current.editingClip || !TransportPolicy.timelineEditingEnabled(current.transport)) return
+        if (current.importing || current.editingClip || current.historyBusy || !TransportPolicy.timelineEditingEnabled(current.transport)) return
         viewModelScope.launch {
             _state.value = current.copy(editingClip = true, error = null)
             runCatching {
@@ -239,6 +248,8 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                     trimControls = null,
                     timelineControls = TimelineControlPolicy.normalizedForProject(_state.value.timelineControls, end),
                     transportEngineReady = playbackReadiness(saved).ready,
+                    canUndo = projectHistory.canUndo,
+                    canRedo = projectHistory.canRedo,
                     clipStatus = "Corte aplicado",
                 )
             }.onFailure { error ->
@@ -248,17 +259,60 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun returnToStart() {
-        if (!TransportPolicy.timelineEditingEnabled(_state.value.transport)) return
+        if (!TransportPolicy.timelineEditingEnabled(_state.value.transport) || _state.value.historyBusy) return
         setPlayheadFrame(0L)
     }
 
     fun toggleLoop() {
-        if (_state.value.trimControls != null) return
+        if (_state.value.trimControls != null || _state.value.historyBusy) return
         _state.value = _state.value.copy(transport = TransportPolicy.toggleLoop(_state.value.transport))
+    }
+
+    fun undo() {
+        val currentState = _state.value
+        val currentProject = currentState.project ?: return
+        if (!structuralEditingAllowed(currentState) || !projectHistory.canUndo) return
+        val target = projectHistory.undo(currentProject) ?: return
+        _state.value = currentState.copy(historyBusy = true, error = null)
+        viewModelScope.launch {
+            runCatching { persistHistorySnapshot(target) }
+                .onSuccess { (saved, waveforms) -> applyHistorySnapshot(saved, waveforms, "Alteração desfeita") }
+                .onFailure { error ->
+                    projectHistory.redo(target)
+                    _state.value = _state.value.copy(
+                        historyBusy = false,
+                        canUndo = projectHistory.canUndo,
+                        canRedo = projectHistory.canRedo,
+                        error = error.message ?: "Não foi possível desfazer a alteração.",
+                    )
+                }
+        }
+    }
+
+    fun redo() {
+        val currentState = _state.value
+        val currentProject = currentState.project ?: return
+        if (!structuralEditingAllowed(currentState) || !projectHistory.canRedo) return
+        val target = projectHistory.redo(currentProject) ?: return
+        _state.value = currentState.copy(historyBusy = true, error = null)
+        viewModelScope.launch {
+            runCatching { persistHistorySnapshot(target) }
+                .onSuccess { (saved, waveforms) -> applyHistorySnapshot(saved, waveforms, "Alteração refeita") }
+                .onFailure { error ->
+                    projectHistory.undo(target)
+                    _state.value = _state.value.copy(
+                        historyBusy = false,
+                        canUndo = projectHistory.canUndo,
+                        canRedo = projectHistory.canRedo,
+                        error = error.message ?: "Não foi possível refazer a alteração.",
+                    )
+                }
+        }
     }
 
     fun togglePlayStop() {
         val current = _state.value
+        if (current.historyBusy) return
         when (current.transport.mode) {
             TransportMode.PLAYING -> {
                 playbackEngine.stop()
@@ -292,6 +346,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun previewTrackGainDb(trackId: String, gainDb: Float) {
+        if (_state.value.historyBusy) return
         val track = _state.value.project?.tracks?.firstOrNull { it.id == trackId } ?: return
         val previous = trackMixDrafts[trackId] ?: TrackMixDraft(track.gainDb, track.pan)
         val draft = previous.copy(gainDb = gainDb.coerceIn(-60f, 12f))
@@ -304,6 +359,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun previewTrackPan(trackId: String, pan: Float) {
+        if (_state.value.historyBusy) return
         val track = _state.value.project?.tracks?.firstOrNull { it.id == trackId } ?: return
         val previous = trackMixDrafts[trackId] ?: TrackMixDraft(track.gainDb, track.pan)
         val draft = previous.copy(pan = pan.coerceIn(-1f, 1f))
@@ -328,9 +384,8 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun updateTrackProperties(trackId: String, name: String, colorIndex: Int) {
-        val normalizedName = name.trim()
-        if (normalizedName.isBlank()) {
-            _state.value = _state.value.copy(error = "O nome da pista não pode ficar vazio.")
+        val normalizedName = runCatching { TrackNamePolicy.requireValid(name) }.getOrElse { error ->
+            _state.value = _state.value.copy(error = error.message ?: "Nome de pista inválido.")
             return
         }
         editTrackStructural("Pista atualizada", trackId) {
@@ -375,7 +430,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                     val number = latest.tracks.size + 1
                     val newTrack = AudioTrack(
                         id = UUID.randomUUID().toString(),
-                        name = "Nova pista $number",
+                        name = TrackNamePolicy.requireValid("Nova pista $number"),
                         roleId = BuiltInRoles.GENERIC,
                         roleSource = RoleSource.USER,
                         channelLayout = ChannelLayout.MONO,
@@ -421,13 +476,14 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun previewMasterGainDb(gainDb: Float) {
+        if (_state.value.historyBusy) return
         playbackEngine.setMasterGainDb(gainDb.coerceIn(-60f, 12f))
     }
 
     fun commitMasterGainDb(gainDb: Float) {
         val currentState = _state.value
         val project = currentState.project ?: return
-        if (currentState.importing || currentState.editingClip || currentState.trimControls != null) return
+        if (currentState.importing || currentState.editingClip || currentState.historyBusy || currentState.trimControls != null) return
         val normalized = gainDb.coerceIn(-60f, 12f)
         viewModelScope.launch {
             runCatching {
@@ -436,7 +492,13 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                 }
             }.onSuccess { saved ->
                 val state = _state.value
-                _state.value = state.copy(project = saved, masterGainDb = saved.masterGainDb, error = null)
+                _state.value = state.copy(
+                    project = saved,
+                    masterGainDb = saved.masterGainDb,
+                    canUndo = projectHistory.canUndo,
+                    canRedo = projectHistory.canRedo,
+                    error = null,
+                )
             }.onFailure { error ->
                 _state.value = _state.value.copy(error = error.message ?: "Não foi possível atualizar o Master.")
             }
@@ -623,7 +685,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
     private fun editTimelineMarker(transform: (TimelineControlState, Long) -> TimelineControlState) {
         val current = _state.value
         val project = current.project ?: return
-        if (!TransportPolicy.timelineEditingEnabled(current.transport) || current.trimControls != null) return
+        if (!TransportPolicy.timelineEditingEnabled(current.transport) || current.trimControls != null || current.historyBusy) return
         val end = TimelineControlPolicy.projectEndFrame(project)
         _state.value = current.copy(timelineControls = transform(current.timelineControls, end))
     }
@@ -645,6 +707,8 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                         timelineControls = TimelineControlPolicy.normalizedForProject(_state.value.timelineControls, end),
                         transportEngineReady = playbackReadiness(saved).ready,
                         masterGainDb = saved.masterGainDb,
+                        canUndo = projectHistory.canUndo,
+                        canRedo = projectHistory.canRedo,
                         clipStatus = status,
                     )
                 }
@@ -677,7 +741,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
     private fun commitTrackMix(trackId: String, transform: (AudioTrack) -> AudioTrack) {
         val currentState = _state.value
         val project = currentState.project ?: return
-        if (currentState.importing || currentState.editingClip || currentState.trimControls != null) return
+        if (currentState.importing || currentState.editingClip || currentState.historyBusy || currentState.trimControls != null) return
         viewModelScope.launch {
             runCatching {
                 saveLatest(project.id) { latest ->
@@ -699,6 +763,8 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                     project = saved,
                     transportEngineReady = playbackReadiness(saved).ready,
                     masterGainDb = saved.masterGainDb,
+                    canUndo = projectHistory.canUndo,
+                    canRedo = projectHistory.canRedo,
                     error = null,
                 )
             }.onFailure { error -> _state.value = _state.value.copy(error = error.message ?: "Não foi possível salvar a mixagem da pista.") }
@@ -711,19 +777,57 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
             project = saved,
             transportEngineReady = playbackReadiness(saved).ready,
             masterGainDb = saved.masterGainDb,
+            canUndo = projectHistory.canUndo,
+            canRedo = projectHistory.canRedo,
+            clipStatus = status,
+            error = null,
+        )
+    }
+
+    private fun applyHistorySnapshot(saved: GuitarProject, waveforms: Map<String, List<Float>>, status: String) {
+        trackMixDrafts.clear()
+        saved.tracks.forEach { trackMixDrafts[it.id] = TrackMixDraft(it.gainDb, it.pan) }
+        playbackEngine.setMasterGainDb(saved.masterGainDb)
+        val state = _state.value
+        val end = TimelineControlPolicy.projectEndFrame(saved)
+        _state.value = state.copy(
+            historyBusy = false,
+            project = saved,
+            waveforms = waveforms,
+            trimControls = null,
+            timelineControls = TimelineControlPolicy.normalizedForProject(state.timelineControls, end),
+            transportEngineReady = playbackReadiness(saved).ready,
+            masterGainDb = saved.masterGainDb,
+            masterMeter = MeterBallisticsPolicy.reset(),
+            trackMeters = emptyMap(),
+            masterClipLatched = false,
+            trackClipLatched = emptySet(),
+            canUndo = projectHistory.canUndo,
+            canRedo = projectHistory.canRedo,
             clipStatus = status,
             error = null,
         )
     }
 
     private fun structuralEditingAllowed(state: StudioUiState): Boolean =
-        !state.importing && !state.editingClip && state.trimControls == null && TransportPolicy.timelineEditingEnabled(state.transport)
+        !state.importing && !state.editingClip && !state.historyBusy && state.trimControls == null && TransportPolicy.timelineEditingEnabled(state.transport)
 
     private suspend fun saveLatest(projectId: String, transform: (GuitarProject) -> GuitarProject): GuitarProject =
         projectSaveMutex.withLock {
             withContext(Dispatchers.IO) {
                 val latest = repository.load(projectId) ?: error("Projeto não encontrado: $projectId")
-                repository.save(transform(latest))
+                val updated = transform(latest)
+                val saved = repository.save(updated)
+                projectHistory.record(latest, saved)
+                saved
+            }
+        }
+
+    private suspend fun persistHistorySnapshot(snapshot: GuitarProject): Pair<GuitarProject, Map<String, List<Float>>> =
+        projectSaveMutex.withLock {
+            withContext(Dispatchers.IO) {
+                val saved = repository.save(snapshot.copy(updatedAtEpochMs = System.currentTimeMillis()))
+                saved to loadWaveforms(saved)
             }
         }
 

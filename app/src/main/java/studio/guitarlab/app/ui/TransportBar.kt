@@ -6,9 +6,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.FiberManualRecord
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Redo
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.filled.Undo
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
@@ -25,10 +27,14 @@ import studio.guitarlab.core.project.TransportState
 fun TransportBar(
     state: TransportState,
     engineReady: Boolean,
+    canUndo: Boolean,
+    canRedo: Boolean,
     onReturnToStart: () -> Unit,
     onPlayStop: () -> Unit,
     onRecord: () -> Unit,
     onToggleLoop: () -> Unit,
+    onUndo: () -> Unit,
+    onRedo: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val markerEditingEnabled = TransportPolicy.timelineEditingEnabled(state)
@@ -68,6 +74,18 @@ fun TransportBar(
                 enabled = markerEditingEnabled,
                 tint = if (state.loopEnabled) StudioLoop else MaterialTheme.colorScheme.onSurface,
                 onClick = onToggleLoop,
+            )
+            AppIconButton(
+                icon = Icons.Default.Undo,
+                contentDescription = "Desfazer",
+                enabled = markerEditingEnabled && canUndo,
+                onClick = onUndo,
+            )
+            AppIconButton(
+                icon = Icons.Default.Redo,
+                contentDescription = "Refazer",
+                enabled = markerEditingEnabled && canRedo,
+                onClick = onRedo,
             )
         }
     }
