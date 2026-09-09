@@ -36,6 +36,9 @@ fun MixerDock(
     selectedTrackId: String?,
     pinned: Boolean,
     editingEnabled: Boolean,
+    masterGainDb: Float,
+    masterPeak: Float,
+    masterRms: Float,
     onSelectTrack: (String) -> Unit,
     onTogglePinned: () -> Unit,
     onClose: () -> Unit,
@@ -43,6 +46,7 @@ fun MixerDock(
     onPanChanged: (String, Float) -> Unit,
     onToggleMute: (String) -> Unit,
     onToggleSolo: (String) -> Unit,
+    onMasterGainChanged: (Float) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Surface(
@@ -60,7 +64,7 @@ fun MixerDock(
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("Mixer", style = MaterialTheme.typography.titleMedium)
                     Text(
-                        if (editingEnabled) "Track mix" else "Locked during transport",
+                        if (editingEnabled) "Track + master mix" else "Locked during transport",
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -87,7 +91,13 @@ fun MixerDock(
                         onToggleSolo = { onToggleSolo(track.id) },
                     )
                 }
-                MasterStrip()
+                MasterStrip(
+                    gainDb = masterGainDb,
+                    peak = masterPeak,
+                    rms = masterRms,
+                    editingEnabled = editingEnabled,
+                    onGainChanged = onMasterGainChanged,
+                )
             }
         }
     }
@@ -149,27 +159,59 @@ private fun MixerTrackStrip(
 }
 
 @Composable
-private fun MasterStrip() {
+private fun MasterStrip(
+    gainDb: Float,
+    peak: Float,
+    rms: Float,
+    editingEnabled: Boolean,
+    onGainChanged: (Float) -> Unit,
+) {
+    var gainDraft by remember(gainDb) { mutableFloatStateOf(gainDb) }
     Surface(
-        modifier = Modifier.width(152.dp).fillMaxHeight(),
+        modifier = Modifier.width(184.dp).fillMaxHeight(),
         shape = RoundedCornerShape(12.dp),
         color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.32f),
         border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.secondary),
     ) {
         Column(
             Modifier.fillMaxHeight().padding(10.dp),
-            verticalArrangement = Arrangement.SpaceBetween,
+            verticalArrangement = Arrangement.spacedBy(5.dp),
         ) {
-            Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                Text("MASTER", style = MaterialTheme.typography.labelLarge)
-                Text("Routing in Options", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            Box(
-                Modifier.fillMaxWidth().height(52.dp).background(MaterialTheme.colorScheme.background.copy(alpha = 0.58f), RoundedCornerShape(8.dp)),
-                contentAlignment = Alignment.Center,
-            ) { Text("0.0 dB", style = MaterialTheme.typography.titleSmall) }
-            Text("Main output", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("MASTER", style = MaterialTheme.typography.labelLarge)
+            Text("Routing in Options", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+            Text("${gainDraft.formatDb()} dB", style = MaterialTheme.typography.labelMedium)
+            Slider(
+                value = gainDraft,
+                onValueChange = { gainDraft = it },
+                onValueChangeFinished = { onGainChanged(gainDraft) },
+                enabled = editingEnabled,
+                valueRange = -60f..12f,
+            )
+
+            MeterRow("PK", peak)
+            MeterRow("RMS", rms)
+            Text(
+                if (peak > 1f) "CLIP" else "Main output",
+                style = MaterialTheme.typography.labelMedium,
+                color = if (peak > 1f) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
+    }
+}
+
+@Composable
+private fun MeterRow(label: String, value: Float) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(label, modifier = Modifier.width(30.dp), style = MaterialTheme.typography.labelSmall)
+        Box(
+            Modifier.weight(1f).height(9.dp).background(MaterialTheme.colorScheme.background.copy(alpha = 0.62f), RoundedCornerShape(5.dp)),
+        ) {
+            Box(
+                Modifier.fillMaxWidth(value.coerceIn(0f, 1f)).fillMaxHeight().background(MaterialTheme.colorScheme.primary, RoundedCornerShape(5.dp)),
+            )
+        }
+        Text("${(value * 100).toInt()}%", modifier = Modifier.width(34.dp), style = MaterialTheme.typography.labelSmall)
     }
 }
 

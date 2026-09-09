@@ -80,6 +80,9 @@ fun StudioShellScreen(
                 selectedTrackId = selectedTrackId,
                 pinned = mixerPinned,
                 editingEnabled = editingEnabled,
+                masterGainDb = state.masterGainDb,
+                masterPeak = state.masterPeak,
+                masterRms = state.masterRms,
                 onSelectTrack = { selectedTrackId = it },
                 onTogglePinned = { mixerPinned = !mixerPinned },
                 onClose = { if (!mixerPinned) mixerVisible = false },
@@ -87,6 +90,7 @@ fun StudioShellScreen(
                 onPanChanged = viewModel::setTrackPan,
                 onToggleMute = viewModel::toggleTrackMuted,
                 onToggleSolo = viewModel::toggleTrackSolo,
+                onMasterGainChanged = viewModel::setMasterGainDb,
             )
         }
     }

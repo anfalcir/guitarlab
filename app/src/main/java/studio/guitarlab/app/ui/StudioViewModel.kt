@@ -34,6 +34,7 @@ import studio.guitarlab.core.project.WaveformCacheStore
 import studio.guitarlab.platform.audio.android.AndroidStudioPlaybackEngine
 import studio.guitarlab.platform.audio.android.StudioPlaybackClip
 import studio.guitarlab.platform.audio.android.StudioPlaybackListener
+import studio.guitarlab.platform.audio.android.StudioPlaybackMeter
 import studio.guitarlab.platform.audio.android.StudioPlaybackRequest
 import studio.guitarlab.platform.audio.android.StudioPlaybackRoutingStatus
 
@@ -47,6 +48,9 @@ data class StudioUiState(
     val trimControls: TrimControlState? = null,
     val transport: TransportState = TransportState(),
     val transportEngineReady: Boolean = false,
+    val masterGainDb: Float = 0f,
+    val masterPeak: Float = 0f,
+    val masterRms: Float = 0f,
     val error: String? = null,
     val importStatus: String? = null,
     val clipStatus: String? = null,
@@ -138,13 +142,15 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
             }.onSuccess { (saved, metadata, peaks) ->
                 val imported = saved.clips.last()
                 val end = TimelineControlPolicy.projectEndFrame(saved)
+                val previous = _state.value
                 _state.value = StudioUiState(
                     loading = false,
                     project = saved,
-                    waveforms = _state.value.waveforms + (imported.id to peaks),
-                    timelineControls = TimelineControlPolicy.normalizedForProject(_state.value.timelineControls, end),
-                    transport = _state.value.transport,
+                    waveforms = previous.waveforms + (imported.id to peaks),
+                    timelineControls = TimelineControlPolicy.normalizedForProject(previous.timelineControls, end),
+                    transport = previous.transport,
                     transportEngineReady = playbackReadiness(saved).ready,
+                    masterGainDb = previous.masterGainDb,
                     importStatus = "Imported safely • ${metadata.channelCount}ch • ${metadata.sampleRateHz} Hz • immutable project copy",
                 )
             }.onFailure { error ->
@@ -280,6 +286,12 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
         editTrack("Track solo updated", trackId) { it.copy(solo = !it.solo) }
     }
 
+    fun setMasterGainDb(gainDb: Float) {
+        val current = _state.value
+        if (current.importing || current.editingClip || current.trimControls != null || !TransportPolicy.timelineEditingEnabled(current.transport)) return
+        _state.value = current.copy(masterGainDb = gainDb.coerceIn(-60f, 12f))
+    }
+
     override fun onCleared() {
         playbackEngine.close()
         super.onCleared()
@@ -308,6 +320,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                 loopEndFrame = current.timelineControls.loopEndFrame,
                 preferredOutputDevice = preferredOutput,
                 preferredOutputRequested = !selectedOutputSignature.isNullOrBlank(),
+                masterGainDb = current.masterGainDb,
                 clips = project.clips.mapNotNull { clip ->
                     val sourceTrack = tracksById[clip.trackId] ?: return@mapNotNull null
                     if (clip.muted || !TrackMixPolicy.isAudible(sourceTrack.muted, sourceTrack.solo, anySolo)) return@mapNotNull null
@@ -331,6 +344,8 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
         _state.value = current.copy(
             timelineControls = TimelineControlPolicy.movePlayhead(current.timelineControls, requestedStart, end),
             transport = current.transport.copy(mode = TransportMode.PLAYING),
+            masterPeak = 0f,
+            masterRms = 0f,
             error = null,
         )
         runCatching {
@@ -350,6 +365,8 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                         _state.value = state.copy(
                             transport = state.transport.copy(mode = TransportMode.STOPPED),
                             timelineControls = state.timelineControls.copy(playheadFrame = frame),
+                            masterPeak = 0f,
+                            masterRms = 0f,
                         )
                     }
                 }
@@ -357,7 +374,12 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                 override fun onError(message: String) {
                     viewModelScope.launch {
                         val state = _state.value
-                        _state.value = state.copy(transport = state.transport.copy(mode = TransportMode.STOPPED), error = message)
+                        _state.value = state.copy(
+                            transport = state.transport.copy(mode = TransportMode.STOPPED),
+                            masterPeak = 0f,
+                            masterRms = 0f,
+                            error = message,
+                        )
                     }
                 }
 
@@ -374,10 +396,21 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                         }
                     }
                 }
+
+                override fun onMasterMeter(meter: StudioPlaybackMeter) {
+                    viewModelScope.launch {
+                        val state = _state.value
+                        if (state.transport.mode == TransportMode.PLAYING) {
+                            _state.value = state.copy(masterPeak = meter.peak, masterRms = meter.rms)
+                        }
+                    }
+                }
             })
         }.onFailure { error ->
             _state.value = _state.value.copy(
                 transport = _state.value.transport.copy(mode = TransportMode.STOPPED),
+                masterPeak = 0f,
+                masterRms = 0f,
                 error = error.message ?: "Studio playback could not start.",
             )
         }

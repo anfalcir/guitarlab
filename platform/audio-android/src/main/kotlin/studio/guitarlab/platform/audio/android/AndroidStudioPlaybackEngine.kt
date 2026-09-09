@@ -5,8 +5,11 @@ import android.media.AudioDeviceInfo
 import android.media.AudioFormat
 import android.media.AudioTrack
 import java.io.File
+import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.pow
+import kotlin.math.sqrt
 import studio.guitarlab.core.audio.PlaybackClockPolicy
 import studio.guitarlab.core.audio.TrackMixPolicy
 import studio.guitarlab.core.codec.FileSeekableByteSource
@@ -32,6 +35,7 @@ data class StudioPlaybackRequest(
     val clips: List<StudioPlaybackClip>,
     val preferredOutputDevice: AudioDeviceInfo? = null,
     val preferredOutputRequested: Boolean = false,
+    val masterGainDb: Float = 0f,
 )
 
 data class StudioPlaybackRoutingStatus(
@@ -41,11 +45,17 @@ data class StudioPlaybackRoutingStatus(
     val deviceLabel: String? = null,
 )
 
+data class StudioPlaybackMeter(
+    val peak: Float,
+    val rms: Float,
+)
+
 interface StudioPlaybackListener {
     fun onPosition(frame: Long)
     fun onStopped(frame: Long)
     fun onError(message: String)
     fun onRouting(status: StudioPlaybackRoutingStatus) {}
+    fun onMasterMeter(meter: StudioPlaybackMeter) {}
 }
 
 class AndroidStudioPlaybackEngine : AutoCloseable {
@@ -58,6 +68,7 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
         require(request.sampleRateHz > 0) { "Playback sample rate must be positive." }
         require(request.projectEndFrame > 0) { "Project must contain playable timeline frames." }
         require(request.startFrame in 0..request.projectEndFrame) { "Playback start is outside the project timeline." }
+        require(request.masterGainDb in -60f..12f) { "Master gain must be between -60 dB and +12 dB." }
         if (request.loopEnabled) {
             require(request.loopStartFrame >= 0 && request.loopEndFrame > request.loopStartFrame) { "Invalid loop range." }
             require(request.loopEndFrame <= request.projectEndFrame) { "Loop range exceeds project end." }
@@ -114,6 +125,7 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
             var renderFrame = normalizedStart(request)
             var totalWrittenFrames = 0L
             val mix = FloatArray(CHUNK_FRAMES * 2)
+            val masterLinear = 10.0.pow(request.masterGainDb / 20.0).toFloat()
             track.play()
 
             while (running) {
@@ -127,9 +139,20 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
                 val framesToRender = min(CHUNK_FRAMES.toLong(), boundary - renderFrame).toInt()
                 java.util.Arrays.fill(mix, 0, framesToRender * 2, 0f)
                 readers.forEach { it.mixInto(renderFrame, framesToRender, mix) }
-                for (index in 0 until framesToRender * 2) mix[index] = mix[index].coerceIn(-1f, 1f)
 
-                val samplesWritten = track.write(mix, 0, framesToRender * 2, AudioTrack.WRITE_BLOCKING)
+                var peak = 0f
+                var sumSquares = 0.0
+                val sampleCount = framesToRender * 2
+                for (index in 0 until sampleCount) {
+                    val mastered = mix[index] * masterLinear
+                    peak = max(peak, abs(mastered))
+                    sumSquares += mastered.toDouble() * mastered.toDouble()
+                    mix[index] = mastered.coerceIn(-1f, 1f)
+                }
+                val rms = if (sampleCount > 0) sqrt(sumSquares / sampleCount).toFloat() else 0f
+                listener.onMasterMeter(StudioPlaybackMeter(peak = peak, rms = rms))
+
+                val samplesWritten = track.write(mix, 0, sampleCount, AudioTrack.WRITE_BLOCKING)
                 if (samplesWritten < 0) error("AudioTrack write failed with code $samplesWritten.")
                 val writtenFrames = samplesWritten / 2
                 if (writtenFrames <= 0) error("AudioTrack made no playback progress.")
@@ -171,6 +194,7 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
             runCatching { track?.flush() }
             runCatching { track?.release() }
             readers.forEach { runCatching { it.close() } }
+            listener.onMasterMeter(StudioPlaybackMeter(peak = 0f, rms = 0f))
             listener.onStopped(lastTimelineFrame)
             synchronized(this) { worker = null }
         }
