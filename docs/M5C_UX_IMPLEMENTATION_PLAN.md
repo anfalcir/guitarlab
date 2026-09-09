@@ -35,11 +35,11 @@ Status: implementation plan for the alpha08 development line. Every sub-checkpoi
 - Long-press drag on the sidebar reorders the whole track and its content.
 - Long-press drag on the waveform moves the clip to another track without copying source media.
 
-## Marker geometry
-- One compact marker rail is used; no visible empty stacked rails.
-- Logical touch lanes inside that compact rail are: Trim (top), Loop (middle), Playhead (bottom), preventing overlapping heads.
-- Playhead and Loop guide lines extend through all track lanes.
-- Trim guides extend only through the track/clip currently being trimmed.
+## Marker geometry — final contract
+- One compact upper rail is used only for Playhead and Loop; no Trim marker exists in that rail.
+- Playhead and Loop guide lines may extend through all track lanes.
+- Trim is edited exclusively inside the active clip waveform, initialized at 35%/65%, with local handles and precise time labels.
+- Only the selected trim interval receives the translucent `StudioTrim` fill; no Trim guide crosses unrelated tracks.
 - Newly enabled Loop gets a useful non-zero range, with the right edge initialized around 10% of project duration subject to safe minimum/maximum bounds.
 - Marker semantic colors and 48dp touch affordances remain unchanged.
 

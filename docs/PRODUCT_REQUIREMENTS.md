@@ -53,6 +53,9 @@ Target V1 interoperability includes WAV, FLAC, AIFF, MP3, AAC/M4A, OGG Vorbis an
 - Low-latency playback/capture path for production use; diagnostics may use simpler probe paths.
 - Duplex must avoid startup-starvation artifacts and report meaningful underruns.
 - Hotplug/disconnect must fail in a controlled manner without app crashes.
+- Record always uses a visible and cancelable five-second countdown, then revalidates permission, route, project and exactly one armed track at zero.
+- Finalized takes enter immutable managed storage atomically. Zero-frame attempts create no clip; valid partial captures may be preserved after route loss.
+- A successful take creates its AudioClip and waveform automatically at the REC start position.
 
 ## Transport and monitoring
 - Canonical transport states are STOPPED, PLAYING and RECORDING; there is no separate pause button.
@@ -76,6 +79,7 @@ Planned targets include high-quality WAV (16/24-bit and 32-bit float where pract
 - No fake enabled controls for features that are not implemented.
 - Directly manipulated timeline positions use explicit top marker heads with at least 48 dp touch targets; the thin guide line is not the primary drag target.
 - Semantic timeline colors are restrained: playhead blue, loop green, trim muted mustard, recording red; color is never the only cue.
+- The upper marker rail contains only Playhead and Loop. Trim is local to the active waveform, initialized at 35%/65%, with both precise times and selected-region-only fill.
 
 ## Reliability and security
 - Unit tests, Android Lint and debug assembly are mandatory software gates.

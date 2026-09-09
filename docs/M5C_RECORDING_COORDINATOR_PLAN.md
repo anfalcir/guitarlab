@@ -27,9 +27,9 @@ Integration is non-destructive and metadata-only:
 - the managed source is referenced through both `managedSourcePath` and `managed://` source URI;
 - sample-rate mismatch is rejected before the clip is committed.
 
-## Next integration gate
+## Integrated Studio gate
 
-The Studio layer will consume this policy to implement:
+The Studio layer consumes this policy and implements:
 1. RECORD_AUDIO permission handoff;
 2. visible/cancelable 5-second countdown;
 3. revalidation of armed track and selected input at zero;

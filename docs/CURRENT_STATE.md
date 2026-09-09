@@ -1,71 +1,51 @@
-# Current State
+# Current state
 
-Last updated: 2026-09-09
+Updated: 2026-09-09
 
-## Stable baseline
-- `main`: signed baseline `0.2.0-alpha03`, versionCode 4.
-- `main` remains intentionally unchanged until the active consolidation line is physically validated.
+## Repository truth
 
-## Active development
-- branch: `dev/parallel-m3-m5`
-- draft PR: #1
-- branch app version: `0.2.0-alpha08`, versionCode 9.
-- signed M4 candidate: `0.2.0-alpha07`, versionCode 8, commit `3ec18f20bfe910fd88bd3f64027b5176c4e97807`; physical/UI validation is in progress on Samsung SM-X230.
+- stable baseline: `main`, signed `0.2.0-alpha03`;
+- active integration: `dev/parallel-m3-m5`, draft PR #1;
+- active app line: `0.2.0-alpha08`, versionCode 9;
+- CI is the canonical executor: source materialization, Unit Tests, Android Lint, Debug APK and artifacts;
+- signing secrets exist only in CI and the certificate fingerprint is locked.
 
-## Gates
-- M2 Pocket Amp physical homologation on Samsung SM-X230 / Android 16 API 36: **PASS / HOMOLOGATED**.
-- M3 WAV codec core/Android path: software-green; tested tablet evidence exists for PCM24/44.1 kHz/stereo direct seek.
-- M4 alpha07: software/signing gates **PASS**; physical consolidation pending user validation.
-- M5.A recording media/core: software-green (run #220).
-- M5.B Android capture engine: implementation checkpoint; branch-head CI required before calling it software-green.
+## Milestones
 
-## M4 line under physical validation
-Alpha07 includes the commercial-polish/Mixer V3 pass: pt-BR UI, icon-first navigation, top-bar transport, persistent Mixer pinning, fixed Master + scrolling track strips, live gain/pan/Master, latched CLIP indicators, synchronized 20-color track identity, track management, simplified clip actions and corrected timeline-marker alignment.
+- M2: physically homologated on Samsung SM-X230 / Android 16/API 36 with Pocket Amp USB. PASS/CLOSED.
+- M3: WAV codec/import foundation implemented; broader formats remain governed by `CODEC_SUPPORT_MATRIX.md`.
+- M4: managed media, waveform cache, playback, timeline, Mixer, Master, meters, Options/routing and commercial polish implemented. Remaining visual validation is bundled into the next physical candidate.
+- M5.A: recording transaction, streaming float-WAV writer, countdown policy and state machine software-green.
+- M5.B: Android capture engine, input preference enforcement, input metering and monitoring implemented.
+- M5.C: Studio coordinator integrated for permission, countdown, revalidation, capture, finalization, automatic clip/waveform, safe partial takes and backing playback. Awaiting final CI and signed physical gate.
 
-Any additional M4 layout/theme corrections found during alpha07 validation will be folded into the alpha08/M5 line and revalidated during the M5 physical gate.
+## M5 invariants
 
-## M5 recording line
-M5 turns the homologated M2 input/duplex foundation plus M4 managed media/timeline/mixer into real Studio recording.
+- one global input targets exactly one armed track;
+- REC is rejected with zero or multiple armed tracks;
+- capture never begins during the five-second countdown;
+- project, permission, arm and selected route are revalidated at zero;
+- zero-frame/invalid capture creates no clip;
+- route loss after valid frames may preserve a clearly identified partial take;
+- media is promoted atomically to immutable `media/source/` before metadata references it;
+- recorded source is WAV, 32-bit float, mono/stereo at the negotiated/required rate;
+- backing may run alongside capture; fine round-trip latency compensation remains M6.
 
-Established in M5.A:
-- `0.2.0-alpha08` / versionCode 9;
-- mandatory deterministic 5-second Record countdown policy (`5 → 4 → 3 → 2 → 1`);
-- streaming 32-bit IEEE-float WAV writer;
-- project-owned temporary recording transaction;
-- atomic promotion into `media/source/` only after a valid take;
-- interrupted `.recording.part.wav` cleanup;
-- unit-tested WAV round-trip and recording-store behavior.
+## Studio contract
 
-M5.B adds:
-- Android `AudioRecord` capture engine;
-- FLOAT32 preferred with PCM16 fallback converted to normalized float;
-- mono-first input negotiation with stereo fallback;
-- exact project sample-rate requirement when provided;
-- global preferred input from Options with stable-signature re-resolution;
-- explicitly selected missing input fails instead of silently recording another device;
-- route-change detection during capture;
-- live input Peak/RMS reporting;
-- valid partial-take result when interruption happens after frames exist;
-- `Desligado / Automático / Ligado` software-monitoring preference;
-- conservative AUTO policy to avoid USB double-monitoring and Bluetooth live-monitor latency.
+- canonical transport: return, play/stop, REC, loop, undo, redo;
+- structural edits are STOPPED-only; live gain/pan/Master remain available during transport;
+- track names are 1–24 characters, fully shown in up to two lines, without marquee/ellipsis;
+- upper marker rail contains only Playhead and Loop;
+- Trim exists only inside the active waveform, opens at 35%/65%, shows both precise times and colors only the selected interval;
+- Trim, Split, Duplicate, Delete and Undo/Redo preserve managed source bytes;
+- Options owns global input, main output, monitoring, export placement and diagnostics;
+- Mixer is a bottom dock with horizontally scrolling tracks and fixed Master.
 
-## Safety boundaries
-- M5.B does not yet advertise complete user recording support: the Studio coordinator still has to bind permission, Arm, countdown, transport, backing playback, take commit, clip insertion and waveform generation.
-- finalized project-managed sources remain immutable.
-- empty/invalid captures must not become project clips.
-- fine round-trip latency placement/compensation remains M6.
-- export and compressed codecs remain gated separately.
+## Next gate
 
-## Next checkpoint
-M5.C — Studio recording coordinator:
-- permission flow from Studio;
-- armed-track validation;
-- 5-second countdown/cancel;
-- capture + optional backing playback coordination;
-- input meter/clip latch in Studio;
-- Stop/finalize/validate/commit take;
-- create `AudioClip` metadata + waveform for armed track(s);
-- safe partial recovery and cleanup.
-
-## Merge policy
-PR #1 remains draft. Do not merge to `main` until the applicable signed physical gate is green with no P0/P1 regression and evidence is persisted in the repository/PR.
+1. complete CI for the final M5 integration HEAD;
+2. produce an explicit signed homologation APK from that exact green HEAD;
+3. execute `M5_ALPHA08_HOMOLOGATION_CHECKLIST.md` on Samsung SM-X230 + Pocket Amp;
+4. close M5 only with zero P0 and zero repeatable P1;
+5. retain diagnostics, APK identity, signer fingerprint and SHA-256 as evidence.

@@ -85,5 +85,11 @@ Physical tablet evidence required before closing M4 consolidation:
 
 Recording remains M5 and must not be considered implemented because arm metadata or a disabled record affordance exists.
 
+## M5 recording gate
+
+Software evidence must cover the recording session state machine, exact-one-arm policy, fixed/Auto sample-rate resolution, managed transaction commit/rollback, WAV finalization, 35/65 Trim defaults and boundary clamping. The app gate must pass Unit Tests, Android Lint and Debug APK assembly.
+
+Physical evidence is defined in `M5_ALPHA08_HOMOLOGATION_CHECKLIST.md`. M5 is implemented in software only after the complete coordinator is green; it is physically supported only after the signed APK passes Samsung SM-X230 + Pocket Amp without P0/P1.
+
 ## Regression severity
 P0: data loss/security/project corruption. P1: crash/wrong route/destructive source mutation/core workflow unusable. No milestone closes with known in-scope P0/P1.

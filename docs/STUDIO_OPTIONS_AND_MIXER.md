@@ -16,7 +16,7 @@ Groups:
 - Ferramentas avançadas: audio/codec diagnostics.
 
 ## Audio routing scope
-Recording input is global to the Studio. Per-track input routing is intentionally not exposed in current scope.
+Recording input is global to the Studio. Per-track input routing is intentionally not exposed in current scope. Because there is one physical input, M5 records into exactly one armed track per take and rejects ambiguous multi-arm starts.
 
 Main output selection belongs in Options. The Master strip summarizes the main output concept but does not duplicate the route selector.
 
@@ -90,7 +90,7 @@ Structural edits remain STOPPED-only in M4:
 - Mute/Solo/Arm changes;
 - timeline marker edits.
 
-Live gain/pan/Master are the deliberate exception. Real record/capture/monitoring remains M5, and the Record transport remains disabled until that gate exists.
+Live gain/pan/Master are the deliberate exception. Record, capture and monitoring are implemented by M5.C.
 
 ## Meter and clip-latch semantics
 `MeterBallisticsPolicy` remains transient and provides immediate attack, peak hold and elapsed-time decay.

@@ -5,7 +5,7 @@ This document is a normative UX contract for GuitarLab Studio timeline and trans
 ## Core rule: interact with the marker head, not the line
 Any timeline position that users are expected to change directly must expose a clear draggable marker head at the top of its vertical guide. The guide line is visual orientation only; it is never the only or primary interaction target.
 
-This applies to playhead/current execution position, recording head, loop in/out, trim start/end and future punch/range controls.
+This applies to playhead/current execution position, recording head and loop in/out. Trim is the deliberate exception: its two handles live directly inside the active waveform.
 
 ## Touch target and drag behavior
 - marker heads must provide at least a 48 dp touch/drag target even if the visible glyph is smaller;
@@ -69,7 +69,7 @@ Marker UX never changes the non-destructive media policy:
 
 ## Visual hierarchy
 - transport has one clear primary location;
-- marker heads sit directly above the timeline they control;
+- Playhead/Loop marker heads sit directly above the timeline; Trim handles sit inside the active waveform;
 - inactive contextual markers disappear;
 - semantic color is used in compact accents, not large permanent blocks;
 - controls remain readable and touch-friendly on tablet;

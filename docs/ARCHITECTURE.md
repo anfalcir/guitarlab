@@ -35,7 +35,7 @@ After commit, normal Studio work does not require the original external file or 
 ## Clip and mix model
 An `AudioClip` is a non-destructive view over an immutable source. Move/trim/clip gain/mute change metadata only.
 
-`AudioTrack` carries persistent gain, pan, mute, solo, arm, order and color metadata. Arm remains metadata-only until M5 activates capture semantics.
+`AudioTrack` carries persistent gain, pan, mute, solo, arm, order and color metadata. M5 activates Arm as the recording target; the current single global input requires exactly one armed track.
 
 M4 playback processing is bus-oriented:
 1. each clip decodes from immutable managed media;
@@ -61,9 +61,9 @@ Track color is presentation metadata only. The same resolved track color is used
 
 Structural timeline/clip/track edits remain STOPPED-only in M4. Live gain/pan/Master are explicit transport-time exceptions because the Android playback engine now exposes thread-safe runtime mix setters. This exception is narrow and does not enable trim, clip deletion, track structure changes or M/S/R mutation during active transport.
 
-The canonical transport is return-to-start, play→stop, record affordance and loop; there is no separate Pause state. Play is backed by the real M4 engine. Record remains disabled until M5.
+The canonical transport is return-to-start, play→stop, record and loop; there is no separate Pause state. Play uses the M4 engine and Record uses the M5 coordinator over the Android capture engine.
 
-`TimelineMarkerRail` uses explicit top marker heads with >=48 dp drag targets. Playhead is blue, loop green, trim muted mustard and record red. Loop heads render only when loop is enabled. Trim uses a draft/apply/cancel transaction and never mutates source bytes.
+`TimelineMarkerRail` is reserved for Playhead and Loop with >=48 dp drag targets. Trim handles are local to the active waveform, open at 35%/65%, show precise times and keep draft/apply/cancel semantics without mutating source bytes.
 
 The marker rail, ruler and every waveform lane now share one timeline origin: all start after the exact same fixed sidebar width and inter-lane gap. Marker frame→fraction mapping therefore maps to the same horizontal waveform geometry instead of spanning the sidebar.
 

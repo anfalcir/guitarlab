@@ -27,6 +27,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ContentCut
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.CallSplit
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
@@ -127,6 +129,8 @@ fun StudioPlaceholderScreen(
                 onApplyTrim = viewModel::applyTrim,
                 onCancelTrim = viewModel::cancelTrim,
                 onRemoveClip = viewModel::removeClip,
+                onDuplicateClip = viewModel::duplicateClip,
+                onSplitClip = viewModel::splitClipAtPlayhead,
                 modifier = Modifier.fillMaxSize(),
             )
         }
@@ -184,6 +188,8 @@ private fun ProjectWorkspace(
     onApplyTrim: () -> Unit,
     onCancelTrim: () -> Unit,
     onRemoveClip: (String) -> Unit,
+    onDuplicateClip: (String) -> Unit,
+    onSplitClip: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val baseProjectEndFrame = TimelineControlPolicy.projectEndFrame(project)
@@ -274,6 +280,8 @@ private fun ProjectWorkspace(
                             onImportWav = { onImportWav(track.id) },
                             onBeginTrim = onBeginTrim,
                             onRemove = onRemoveClip,
+                            onDuplicate = onDuplicateClip,
+                            onSplit = onSplitClip,
                         )
                     }
                 }
@@ -346,6 +354,8 @@ private fun StudioTrackLane(
     onImportWav: () -> Unit,
     onBeginTrim: (String) -> Unit,
     onRemove: (String) -> Unit,
+    onDuplicate: (String) -> Unit,
+    onSplit: (String) -> Unit,
 ) {
     val trackColor = track.resolvedStudioColor()
     val trackNameStyle = if (track.name.length > 34) MaterialTheme.typography.labelLarge else MaterialTheme.typography.bodyMedium
@@ -440,6 +450,8 @@ private fun StudioTrackLane(
                         canEdit = canEditClip,
                         onTrim = { onBeginTrim(clip.id) },
                         onRemove = { onRemove(clip.id) },
+                        onDuplicate = { onDuplicate(clip.id) },
+                        onSplit = { onSplit(clip.id) },
                         modifier = Modifier.offset(x = x).padding(vertical = 4.dp).width(clipWidth).height(64.dp).align(Alignment.CenterStart),
                     )
                 }
@@ -461,6 +473,8 @@ private fun TimelineClipCard(
     canEdit: Boolean,
     onTrim: () -> Unit,
     onRemove: () -> Unit,
+    onDuplicate: () -> Unit,
+    onSplit: () -> Unit,
     modifier: Modifier,
 ) {
     Surface(
@@ -478,6 +492,18 @@ private fun TimelineClipCard(
                     style = MaterialTheme.typography.labelMedium,
                     maxLines = 1,
                     color = if (clip.muted) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
+                )
+                AppIconButton(
+                    icon = Icons.Default.ContentCopy,
+                    contentDescription = "Duplicar clipe",
+                    enabled = canEdit,
+                    onClick = onDuplicate,
+                )
+                AppIconButton(
+                    icon = Icons.Default.CallSplit,
+                    contentDescription = "Dividir no cursor",
+                    enabled = canEdit,
+                    onClick = onSplit,
                 )
                 AppIconButton(
                     icon = Icons.Default.ContentCut,

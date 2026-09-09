@@ -475,6 +475,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
             recordingSession = RecordingSessionPolicy.beginFinalizing(state.recordingSession),
             clipStatus = "Finalizando take…",
         )
+        playbackEngine.stop()
         recordingEngine.stop()
     }
 
@@ -488,6 +489,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                 transport = TransportPolicy.startRecording(state.transport),
                 clipStatus = "Gravando • ${config.sampleRateHz} Hz • ${config.channelCount} canal(is)",
             )
+            startBackingPlaybackForRecording(config.sampleRateHz)
         }.let { Unit }
 
         override fun onProgress(framesCaptured: Long, peak: Float, rms: Float) = viewModelScope.launch {
@@ -599,6 +601,33 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
 
     fun removeClip(clipId: String) = editClip("Clipe removido") { current ->
         ProjectClipEditor.removeClip(current, clipId, System.currentTimeMillis())
+    }
+
+    fun duplicateClip(clipId: String) {
+        val source = _state.value.project?.clips?.firstOrNull { it.id == clipId } ?: return
+        val newId = UUID.randomUUID().toString()
+        editClip("Clipe duplicado") { current ->
+            ProjectClipEditor.duplicateClip(
+                project = current,
+                clipId = clipId,
+                newClipId = newId,
+                startFrame = source.startFrame + source.lengthFrames,
+                nowEpochMs = System.currentTimeMillis(),
+            )
+        }
+    }
+
+    fun splitClipAtPlayhead(clipId: String) {
+        val splitFrame = _state.value.timelineControls.playheadFrame
+        editClip("Clipe dividido") { current ->
+            ProjectClipEditor.splitClipAtTimelineFrame(
+                project = current,
+                clipId = clipId,
+                splitFrame = splitFrame,
+                newRightClipId = UUID.randomUUID().toString(),
+                nowEpochMs = System.currentTimeMillis(),
+            )
+        }
     }
 
     fun previewTrackGainDb(trackId: String, gainDb: Float) {
@@ -938,6 +967,95 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                 trackMeters = emptyMap(),
                 error = error.message ?: "Não foi possível iniciar a reprodução.",
             )
+        }
+    }
+
+    private fun startBackingPlaybackForRecording(sampleRateHz: Int) {
+        val state = _state.value
+        val project = state.project ?: return
+        val end = TimelineControlPolicy.projectEndFrame(project)
+        if (end <= 0L || project.clips.isEmpty()) return
+        val anySolo = project.tracks.any { it.solo }
+        val tracksById = project.tracks.associateBy { it.id }
+        val audibleTrackIds = project.tracks
+            .filter { TrackMixPolicy.isAudible(it.muted, it.solo, anySolo) }
+            .map { it.id }
+            .toSet()
+        val clips = runCatching {
+            project.clips.mapNotNull { clip ->
+                val track = tracksById[clip.trackId] ?: return@mapNotNull null
+                if (clip.muted || track.id !in audibleTrackIds || clip.sourceSampleRateHz != sampleRateHz) return@mapNotNull null
+                val managedPath = clip.managedSourcePath ?: return@mapNotNull null
+                StudioPlaybackClip(
+                    file = mediaStore.resolve(project.id, managedPath),
+                    trackId = track.id,
+                    timelineStartFrame = clip.startFrame,
+                    sourceStartFrame = clip.sourceStartFrame,
+                    lengthFrames = clip.lengthFrames,
+                    gainDb = clip.gainDb,
+                )
+            }
+        }.getOrElse {
+            _state.value = state.copy(clipStatus = "Gravando sem backing: não foi possível preparar a reprodução.")
+            return
+        }
+        if (clips.isEmpty()) return
+        val outputSignature = audioRoutingStore.selectedOutputSignature()
+        val request = StudioPlaybackRequest(
+            sampleRateHz = sampleRateHz,
+            startFrame = state.recordingSession.timelineStartFrame.coerceAtMost(end),
+            projectEndFrame = end,
+            loopEnabled = state.transport.loopEnabled,
+            loopStartFrame = state.timelineControls.loopStartFrame,
+            loopEndFrame = state.timelineControls.loopEndFrame,
+            clips = clips,
+            trackMixes = project.tracks.filter { it.id in audibleTrackIds }.map {
+                StudioPlaybackTrackMix(it.id, it.gainDb, it.pan)
+            },
+            preferredOutputDevice = audioRoutingStore.resolveSelectedOutputDevice(),
+            preferredOutputRequested = !outputSignature.isNullOrBlank(),
+            masterGainDb = project.masterGainDb,
+        )
+        runCatching {
+            playbackEngine.start(request, object : StudioPlaybackListener {
+                override fun onPosition(frame: Long) {
+                    viewModelScope.launch {
+                        val current = _state.value
+                        if (current.recordingSession.phase == RecordingSessionPhase.CAPTURING) {
+                            _state.value = current.copy(timelineControls = current.timelineControls.copy(playheadFrame = frame))
+                        }
+                    }
+                }
+
+                override fun onStopped(frame: Long) = Unit
+
+                override fun onError(message: String) {
+                    viewModelScope.launch {
+                        val current = _state.value
+                        if (current.recordingSession.phase == RecordingSessionPhase.CAPTURING) {
+                            _state.value = current.copy(clipStatus = "Gravação continua sem backing: $message")
+                        }
+                    }
+                }
+
+                override fun onMasterMeter(meter: StudioPlaybackMeter) {
+                    viewModelScope.launch {
+                        val current = _state.value
+                        if (current.recordingSession.phase == RecordingSessionPhase.CAPTURING) {
+                            _state.value = current.copy(
+                                masterMeter = MeterBallisticsPolicy.update(
+                                    current.masterMeter,
+                                    meter.peak,
+                                    meter.rms,
+                                    System.currentTimeMillis(),
+                                )
+                            )
+                        }
+                    }
+                }
+            })
+        }.onFailure {
+            _state.value = _state.value.copy(clipStatus = "Gravando sem backing: ${it.message ?: "saída indisponível"}")
         }
     }
 

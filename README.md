@@ -24,7 +24,7 @@ Stable `main` remains the signed `0.2.0-alpha03` baseline. Active work is isolat
 
 M2 Pocket Amp physical homologation is **PASS / CLOSED** for Samsung SM-X230 on Android 16/API 36. M3 established the WAV codec/import foundation. The signed M4 alpha07 candidate is currently under physical/UI validation while development continues on M5.
 
-M5.A is software-green and established project-managed recording transactions plus a streaming float-WAV writer and the mandatory 5-second Record countdown policy. M5.B adds the Android capture engine, input-route enforcement, live input metering and configurable monitoring. The complete Studio Record workflow, duplex coordination and physical M5 gate remain pending subsequent checkpoints.
+M5.A established project-managed recording transactions and the float-WAV writer. M5.B added the Android capture engine, input-route enforcement, live metering and monitoring. M5.C now integrates permission, the mandatory visible/cancelable five-second countdown, exact-one-arm targeting, capture, safe partial takes, atomic promotion, automatic clip/waveform insertion and compatible backing playback. Physical M5 support remains gated by the signed alpha08 checklist.
 
 WAV-first does **not** mean WAV-only: multi-format import/export remains explicit product scope and is tracked in the codec matrix.
 

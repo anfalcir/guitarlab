@@ -42,7 +42,7 @@ GitHub Actions is canonical; signing secrets are CI-only and signer identity is 
 Scope, roadmap, decisions, gates and state live in the repository.
 
 ## D-014 — Timeline controls use explicit marker heads
-Manipulable positions use clear top marker heads with >=48dp targets; guide lines are visual only. Playhead blue, loop green, trim mustard, recording red.
+Playhead and Loop use clear top marker heads with >=48dp targets; guide lines are visual only. Trim uses equally ergonomic local handles inside the active waveform. Playhead is blue, loop green, trim mustard and recording red.
 
 ## D-015 — Timeline edits are STOPPED-only
 Marker movement, clip edits, import and current mix edits are locked while PLAYING/RECORDING. There is no separate Pause state; Play toggles to Stop.
@@ -50,8 +50,8 @@ Marker movement, clip edits, import and current mix edits are locked while PLAYI
 ## D-016 — Playhead follows the audio hardware clock
 M4 playback uses Android `AudioTrack` over immutable managed WAV media. UI time follows hardware-presented frames rather than an arbitrary timer. Sample-rate mismatch remains rejected until resampling is validated.
 
-## D-017 — Trim is a staged, non-destructive marker edit
-Trim uses mustard T◀/T▶ heads and a draft/apply/cancel transaction. Apply persists clip metadata once; neither edge may expose frames outside immutable source bounds.
+## D-017 — Trim is a staged, non-destructive waveform edit
+Trim opens at 35%/65% with mustard local waveform handles, precise boundary times and a draft/apply/cancel transaction. Apply persists clip metadata once; neither edge may expose frames outside immutable source bounds.
 
 ## D-018 — Studio is timeline-first and single-screen
 The Studio must not require whole-screen vertical scrolling for its normal workflow. Timeline, transport and contextual editing stay in one workspace; track overflow may scroll only inside the track region. Duplicate clip/track representations and floating explanatory prose are prohibited.
@@ -69,7 +69,10 @@ Current scope exposes one global recording input and one main output. Per-track 
 The bottom Mixer may be hidden/visible and temporary/pinned independently. Timeline and Mixer share one selected-track concept. Output selection remains in Options; Master may summarize route state only.
 
 ## D-023 — Mixer controls must control real engine state
-Track gain/pan/mute/solo are editable only because they are persisted and honored by playback. Record arm remains gated until M5. No decorative EQ, meter or monitor control is enabled before its engine path exists.
+Track gain/pan/mute/solo are editable because they are persisted and honored by playback. Record Arm is functional in M5 and exactly one armed track is required per take. No decorative EQ, meter or monitor control is enabled before its engine path exists.
+
+## D-021 — M5 recording is transactional and single-target
+The current global input maps to exactly one armed track. Capture starts only after a visible five-second countdown and zero-time revalidation. A take is referenced by project metadata only after valid WAV finalization and atomic promotion to immutable managed storage; zero-frame failures leave no clip.
 
 ## D-024 — Master gain is durable project metadata
 Master gain is part of `GuitarProject`, defaults to 0 dB for legacy JSON, is validated to -60..+12 dB and is applied after track summing. This additive field remains backward-compatible with existing schema-v1 JSON through serializer defaults.
