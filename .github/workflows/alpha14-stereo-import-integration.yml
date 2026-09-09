@@ -1,0 +1,667 @@
+name: Alpha14 stereo import integration
+
+on:
+  push:
+    branches: [ dev/parallel-m3-m5 ]
+    paths: [ '.github/workflows/alpha14-stereo-import-integration.yml' ]
+
+permissions:
+  contents: write
+
+jobs:
+  integrate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.6.1'
+      - name: Install SDK
+        run: sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0"
+      - name: Apply reviewed alpha14 patch
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          def read(path): return Path(path).read_text()
+          def write(path, text):
+              Path(path).parent.mkdir(parents=True, exist_ok=True)
+              Path(path).write_text(text)
+          def rep(text, old, new, label):
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"{label}: expected exactly one anchor, found {count}")
+              return text.replace(old, new, 1)
+
+          # 1) True per-channel waveform envelopes, backward-compatible aggregate.
+          p = 'core/codec/src/main/kotlin/studio/guitarlab/core/codec/WaveformEnvelope.kt'
+          t = read(p)
+          t = '''package studio.guitarlab.core.codec
+
+import kotlin.math.abs
+
+data class WaveformEnvelope(
+    val peaks: List<Float>,
+    val channelPeaks: List<List<Float>> = emptyList(),
+)
+
+object WaveformEnvelopeBuilder {
+    fun build(decoder: AudioFrameDecoder, targetPoints: Int = 320): WaveformEnvelope {
+        require(targetPoints > 0) { "targetPoints must be positive" }
+        val totalFrames = decoder.metadata.totalFrames
+        val channels = decoder.metadata.channelCount
+        if (totalFrames == 0L) return WaveformEnvelope(emptyList(), List(channels) { emptyList() })
+
+        val pointCount = minOf(targetPoints.toLong(), totalFrames).toInt()
+        val framesPerPoint = (totalFrames + pointCount - 1L) / pointCount
+        val peaks = ArrayList<Float>(pointCount)
+        val perChannel = List(channels) { ArrayList<Float>(pointCount) }
+        val bufferFrames = minOf(4096L, framesPerPoint).toInt().coerceAtLeast(1)
+        val buffer = FloatArray(bufferFrames * channels)
+
+        decoder.seekToFrame(0L)
+        var consumed = 0L
+        repeat(pointCount) {
+            var remaining = minOf(framesPerPoint, totalFrames - consumed)
+            var aggregatePeak = 0f
+            val channelPeak = FloatArray(channels)
+            while (remaining > 0L) {
+                val requested = minOf(bufferFrames.toLong(), remaining).toInt()
+                val framesRead = decoder.readInterleaved(buffer, 0, requested)
+                if (framesRead <= 0) break
+                repeat(framesRead) { frame ->
+                    repeat(channels) { channel ->
+                        val value = abs(buffer[frame * channels + channel])
+                        aggregatePeak = maxOf(aggregatePeak, value)
+                        channelPeak[channel] = maxOf(channelPeak[channel], value)
+                    }
+                }
+                consumed += framesRead
+                remaining -= framesRead
+            }
+            peaks += aggregatePeak.coerceIn(0f, 1f)
+            repeat(channels) { channel -> perChannel[channel] += channelPeak[channel].coerceIn(0f, 1f) }
+        }
+        return WaveformEnvelope(peaks, perChannel.map { it.toList() })
+    }
+}
+'''
+          write(p, t)
+
+          # 2) Waveform cache v1 remains readable; new files append optional channel envelopes.
+          p = 'core/project/src/main/kotlin/studio/guitarlab/core/project/WaveformCacheStore.kt'
+          t = read(p)
+          t = rep(t,
+'''            output.writeInt(envelope.peaks.size)
+            envelope.peaks.forEach(output::writeFloat)
+''',
+'''            output.writeInt(envelope.peaks.size)
+            envelope.peaks.forEach(output::writeFloat)
+            output.writeInt(envelope.channelPeaks.size)
+            envelope.channelPeaks.forEach { channel ->
+                output.writeInt(channel.size)
+                channel.forEach(output::writeFloat)
+            }
+''', 'cache write')
+          t = rep(t,
+'''            val count = input.readInt()
+            require(count in 0..MAX_POINTS) { "Invalid waveform cache point count." }
+            WaveformEnvelope(List(count) { input.readFloat().coerceIn(0f, 1f) })
+''',
+'''            val count = input.readInt()
+            require(count in 0..MAX_POINTS) { "Invalid waveform cache point count." }
+            val peaks = List(count) { input.readFloat().coerceIn(0f, 1f) }
+            val channelPeaks = if (input.available() >= Int.SIZE_BYTES) {
+                val channels = input.readInt()
+                require(channels in 0..2) { "Invalid waveform cache channel count." }
+                List(channels) {
+                    val channelCount = input.readInt()
+                    require(channelCount in 0..MAX_POINTS) { "Invalid waveform cache channel point count." }
+                    List(channelCount) { input.readFloat().coerceIn(0f, 1f) }
+                }
+            } else emptyList()
+            WaveformEnvelope(peaks, channelPeaks)
+''', 'cache read')
+          write(p, t)
+
+          # 3) Derived, non-destructive stereo -> dual mono proxy splitter.
+          write('core/codec/src/main/kotlin/studio/guitarlab/core/codec/StereoWavChannelSplitter.kt', '''package studio.guitarlab.core.codec
+
+import java.io.File
+
+data class StereoWavSplitResult(
+    val totalFrames: Long,
+    val sampleRateHz: Int,
+)
+
+object StereoWavChannelSplitter {
+    fun split(input: File, leftOutput: File, rightOutput: File): StereoWavSplitResult {
+        FileSeekableByteSource(input).use { source ->
+            val decoder = WavPcmDecoder(source)
+            val metadata = decoder.metadata
+            require(metadata.channelCount == 2) { "A separação L/R exige uma fonte estéreo de 2 canais." }
+            require(metadata.totalFrames > 0L) { "A fonte estéreo não contém áudio." }
+            val interleaved = FloatArray(BUFFER_FRAMES * 2)
+            val left = FloatArray(BUFFER_FRAMES)
+            val right = FloatArray(BUFFER_FRAMES)
+            FloatWavFileWriter(leftOutput, metadata.sampleRateHz, 1).use { leftWriter ->
+                FloatWavFileWriter(rightOutput, metadata.sampleRateHz, 1).use { rightWriter ->
+                    decoder.seekToFrame(0L)
+                    while (true) {
+                        val frames = decoder.readInterleaved(interleaved, 0, BUFFER_FRAMES)
+                        if (frames <= 0) break
+                        repeat(frames) { frame ->
+                            left[frame] = interleaved[frame * 2]
+                            right[frame] = interleaved[frame * 2 + 1]
+                        }
+                        leftWriter.writeInterleaved(left, frames)
+                        rightWriter.writeInterleaved(right, frames)
+                    }
+                }
+            }
+            return StereoWavSplitResult(metadata.totalFrames, metadata.sampleRateHz)
+        }
+    }
+
+    private const val BUFFER_FRAMES = 4096
+}
+''')
+
+          # 4) ViewModel: visible progress, stereo prompt state, true channel envelopes, transactional L/R split.
+          p = 'app/src/main/java/studio/guitarlab/app/ui/StudioViewModel.kt'
+          t = read(p)
+          t = rep(t, 'import studio.guitarlab.core.codec.WaveformEnvelopeBuilder\n', 'import studio.guitarlab.core.codec.WaveformEnvelopeBuilder\nimport studio.guitarlab.core.codec.StereoWavChannelSplitter\n', 'vm splitter import')
+          t = rep(t,
+'''data class StudioUiState(
+    val loading: Boolean = true,
+    val importing: Boolean = false,
+''',
+'''data class StereoImportPrompt(
+    val clipId: String,
+    val fileName: String,
+    val leftTrackName: String? = null,
+    val rightTrackName: String? = null,
+) {
+    val hasGuitarPair: Boolean get() = leftTrackName != null && rightTrackName != null
+}
+
+data class StudioUiState(
+    val loading: Boolean = true,
+    val importing: Boolean = false,
+''', 'vm prompt class')
+          t = rep(t, '    val waveforms: Map<String, List<Float>> = emptyMap(),\n', '    val waveforms: Map<String, List<Float>> = emptyMap(),\n    val waveformChannels: Map<String, List<List<Float>>> = emptyMap(),\n', 'vm waveform channels state')
+          t = rep(t, '    val importStatus: String? = null,\n', '    val importStatus: String? = null,\n    val stereoImportPrompt: StereoImportPrompt? = null,\n', 'vm prompt state')
+          t = rep(t,
+'''                    project to loadWaveforms(project)
+                }
+            }.onSuccess { (project, waveforms) ->
+''',
+'''                    Triple(project, loadWaveforms(project), loadWaveformChannels(project))
+                }
+            }.onSuccess { (project, waveforms, waveformChannels) ->
+''', 'vm load triple')
+          t = rep(t, '                    waveforms = waveforms,\n                    timelineControls = TimelineControlPolicy.normalizedForProject', '                    waveforms = waveforms,\n                    waveformChannels = waveformChannels,\n                    timelineControls = TimelineControlPolicy.normalizedForProject', 'vm load state channels')
+          t = rep(t,
+'''                        Triple(saved, metadata, envelope.peaks)
+''',
+'''                        ImportOutcome(saved, metadata.channelCount, metadata.sampleRateHz, envelope.peaks, envelope.channelPeaks)
+''', 'vm import outcome return')
+          t = rep(t,
+'''            }.onSuccess { (saved, metadata, peaks) ->
+                val imported = saved.clips.last()
+''',
+'''            }.onSuccess { outcome ->
+                val saved = outcome.project
+                val imported = saved.clips.last()
+''', 'vm import success')
+          t = rep(t,
+'''                    waveforms = previous.waveforms + (imported.id to peaks),
+                    timelineControls = TimelineControlPolicy.normalizedForProject(previous.timelineControls, endFrame),
+''',
+'''                    waveforms = previous.waveforms + (imported.id to outcome.peaks),
+                    waveformChannels = if (outcome.channelPeaks.size == 2) previous.waveformChannels + (imported.id to outcome.channelPeaks) else previous.waveformChannels,
+                    timelineControls = TimelineControlPolicy.normalizedForProject(previous.timelineControls, endFrame),
+''', 'vm import waveform state')
+          t = rep(t,
+'''                    importStatus = "${imported.sourceFormat} importado • ${metadata.channelCount} canal(is) • ${metadata.sampleRateHz} Hz",
+                    error = null,
+''',
+'''                    importStatus = "${imported.sourceFormat} importado • ${outcome.channelCount} canal(is) • ${outcome.sampleRateHz} Hz",
+                    stereoImportPrompt = if (outcome.channelCount == 2) stereoPromptFor(saved, imported) else null,
+                    error = null,
+''', 'vm import prompt result')
+          # add ImportOutcome helper before TrackMixDraft
+          t = rep(t,
+'''private data class TrackMixDraft(val gainDb: Float, val pan: Float)
+''',
+'''private data class ImportOutcome(
+    val project: GuitarProject,
+    val channelCount: Int,
+    val sampleRateHz: Int,
+    val peaks: List<Float>,
+    val channelPeaks: List<List<Float>>,
+)
+
+private data class TrackMixDraft(val gainDb: Float, val pan: Float)
+''', 'vm outcome class')
+          # add methods before deprecated importWav
+          anchor = '''    @Deprecated("Use importAudio")
+    fun importWav(trackId: String, uri: Uri) = importAudio(trackId, uri)
+'''
+          methods = '''    fun keepStereoImport() {
+        val current = _state.value
+        if (current.stereoImportPrompt == null) return
+        _state.value = current.copy(stereoImportPrompt = null, importStatus = "Áudio estéreo mantido na pista")
+    }
+
+    fun separateStereoClip(clipId: String) {
+        val current = _state.value
+        val project = current.project ?: return
+        val clip = project.clips.firstOrNull { it.id == clipId } ?: return
+        if (clip.sourceChannelCount != 2 || !structuralEditingAllowed(current)) return
+        viewModelScope.launch {
+            _state.value = current.copy(importing = true, importStatus = "Separando canais L/R…", stereoImportPrompt = null, error = null)
+            runCatching {
+                withContext(Dispatchers.IO) {
+                    val editingFile = mediaStore.resolveEditable(project.id, editingMediaPath(clip))
+                    val leftTemp = File.createTempFile("guitarlab-L-", ".wav", getApplication<Application>().cacheDir)
+                    val rightTemp = File.createTempFile("guitarlab-R-", ".wav", getApplication<Application>().cacheDir)
+                    var leftProxyPath: String? = null
+                    var rightProxyPath: String? = null
+                    try {
+                        StereoWavChannelSplitter.split(editingFile, leftTemp, rightTemp)
+                        val leftProxy = leftTemp.inputStream().buffered().use { mediaStore.ingestEditProxy(project.id, "${clip.name}-L.wav", it) }
+                        leftProxyPath = leftProxy.relativePath
+                        val rightProxy = rightTemp.inputStream().buffered().use { mediaStore.ingestEditProxy(project.id, "${clip.name}-R.wav", it) }
+                        rightProxyPath = rightProxy.relativePath
+                        val saved = saveLatest(project.id) { latest ->
+                            val sourceClip = latest.clips.firstOrNull { it.id == clipId } ?: error("O clipe estéreo não existe mais.")
+                            val sourceTrack = latest.tracks.firstOrNull { it.id == sourceClip.trackId } ?: error("A pista de origem não existe mais.")
+                            val pair = guitarPairFor(latest, sourceTrack)
+                            val leftTrack: AudioTrack
+                            val rightTrack: AudioTrack
+                            val tracks: List<AudioTrack>
+                            if (pair != null) {
+                                leftTrack = pair.first
+                                rightTrack = pair.second
+                                tracks = latest.tracks
+                            } else {
+                                leftTrack = sourceTrack.copy(channelLayout = ChannelLayout.MONO, pan = -1f)
+                                rightTrack = sourceTrack.copy(
+                                    id = UUID.randomUUID().toString(),
+                                    name = "${sourceTrack.name} D",
+                                    channelLayout = ChannelLayout.MONO,
+                                    pan = 1f,
+                                    order = sourceTrack.order + 1,
+                                )
+                                tracks = latest.tracks.map { track ->
+                                    when {
+                                        track.id == sourceTrack.id -> leftTrack
+                                        track.order > sourceTrack.order -> track.copy(order = track.order + 1)
+                                        else -> track
+                                    }
+                                } + rightTrack
+                            }
+                            val leftClip = sourceClip.copy(
+                                id = UUID.randomUUID().toString(),
+                                trackId = leftTrack.id,
+                                name = "${sourceClip.name} · L",
+                                managedEditProxyPath = leftProxy.relativePath,
+                                sourceChannelCount = 1,
+                                sourceBitsPerSample = 32,
+                                sourceEncoding = "IEEE_FLOAT · canal L derivado",
+                            )
+                            val rightClip = sourceClip.copy(
+                                id = UUID.randomUUID().toString(),
+                                trackId = rightTrack.id,
+                                name = "${sourceClip.name} · R",
+                                managedEditProxyPath = rightProxy.relativePath,
+                                sourceChannelCount = 1,
+                                sourceBitsPerSample = 32,
+                                sourceEncoding = "IEEE_FLOAT · canal R derivado",
+                            )
+                            latest.copy(
+                                tracks = tracks.sortedBy { it.order },
+                                clips = latest.clips.filterNot { it.id == sourceClip.id } + leftClip + rightClip,
+                                updatedAtEpochMs = System.currentTimeMillis(),
+                            )
+                        }
+                        val waveforms = loadWaveforms(saved)
+                        Triple(saved, waveforms, loadWaveformChannels(saved))
+                    } catch (error: Throwable) {
+                        leftProxyPath?.let { mediaStore.discardUncommitted(project.id, it) }
+                        rightProxyPath?.let { mediaStore.discardUncommitted(project.id, it) }
+                        throw error
+                    } finally {
+                        leftTemp.delete()
+                        rightTemp.delete()
+                    }
+                }
+            }.onSuccess { (saved, waveforms, waveformChannels) ->
+                val end = TimelineControlPolicy.projectEndFrame(saved)
+                _state.value = _state.value.copy(
+                    importing = false,
+                    project = saved,
+                    waveforms = waveforms,
+                    waveformChannels = waveformChannels,
+                    timelineControls = TimelineControlPolicy.normalizedForProject(_state.value.timelineControls, end),
+                    transportEngineReady = playbackReadiness(saved).ready,
+                    canUndo = projectHistory.canUndo,
+                    canRedo = projectHistory.canRedo,
+                    importStatus = "Estéreo separado em L/R mono com sincronismo preservado",
+                    error = null,
+                )
+            }.onFailure { error ->
+                _state.value = _state.value.copy(importing = false, error = error.message ?: "Não foi possível separar os canais estéreo.", importStatus = null)
+            }
+        }
+    }
+
+''' + anchor
+          t = rep(t, anchor, methods, 'vm stereo methods')
+          # add helpers before loadWaveforms
+          anchor2 = '''    private fun loadWaveforms(project: GuitarProject): Map<String, List<Float>> = buildMap {
+'''
+          helpers = '''    private fun stereoPromptFor(project: GuitarProject, clip: AudioClip): StereoImportPrompt {
+        val track = project.tracks.firstOrNull { it.id == clip.trackId }
+        val pair = track?.let { guitarPairFor(project, it) }
+        return StereoImportPrompt(
+            clipId = clip.id,
+            fileName = clip.name,
+            leftTrackName = pair?.first?.name,
+            rightTrackName = pair?.second?.name,
+        )
+    }
+
+    private fun guitarPairFor(project: GuitarProject, sourceTrack: AudioTrack): Pair<AudioTrack, AudioTrack>? {
+        val roles = when (sourceTrack.roleId) {
+            BuiltInRoles.REFERENCE_GUITAR, BuiltInRoles.REFERENCE_GUITAR_L, BuiltInRoles.REFERENCE_GUITAR_R ->
+                BuiltInRoles.REFERENCE_GUITAR_L to BuiltInRoles.REFERENCE_GUITAR_R
+            BuiltInRoles.RECORDED_GUITAR, BuiltInRoles.RECORDED_GUITAR_L, BuiltInRoles.RECORDED_GUITAR_R ->
+                BuiltInRoles.RECORDED_GUITAR_L to BuiltInRoles.RECORDED_GUITAR_R
+            else -> return null
+        }
+        val left = project.tracks.firstOrNull { it.roleId == roles.first && (sourceTrack.groupId == null || it.groupId == sourceTrack.groupId) }
+            ?: project.tracks.firstOrNull { it.roleId == roles.first }
+        val right = project.tracks.firstOrNull { it.roleId == roles.second && (sourceTrack.groupId == null || it.groupId == sourceTrack.groupId) }
+            ?: project.tracks.firstOrNull { it.roleId == roles.second }
+        return if (left != null && right != null) left to right else null
+    }
+
+    private fun loadWaveformChannels(project: GuitarProject): Map<String, List<List<Float>>> = buildMap {
+        project.clips.forEach { clip ->
+            val cached = waveformCache.read(project.id, clip.id)
+            if (cached != null && cached.channelPeaks.size > 1) {
+                put(clip.id, cached.channelPeaks)
+                return@forEach
+            }
+            if (clip.sourceChannelCount != 2) return@forEach
+            val managedPath = editingMediaPathOrNull(clip) ?: return@forEach
+            runCatching {
+                val file = mediaStore.resolveEditable(project.id, managedPath)
+                val envelope = FileSeekableByteSource(file).use { source -> WaveformEnvelopeBuilder.build(WavPcmDecoder(source), WAVEFORM_POINTS) }
+                waveformCache.write(project.id, clip.id, envelope)
+                if (envelope.channelPeaks.size == 2) put(clip.id, envelope.channelPeaks)
+            }
+        }
+    }
+
+''' + anchor2
+          t = rep(t, anchor2, helpers, 'vm waveform channel helper')
+          write(p, t)
+
+          # 5) Studio UI: processing overlay, stereo decision dialog, true dual waveform, explicit split action.
+          p = 'app/src/main/java/studio/guitarlab/app/ui/StudioPlaceholderScreen.kt'
+          t = read(p)
+          t = rep(t, '                waveforms = state.waveforms,\n', '                waveforms = state.waveforms,\n                waveformChannels = state.waveformChannels,\n', 'ui workspace channels call')
+          t = rep(t, '                onSplitClip = viewModel::splitClipAtPlayhead,\n', '                onSplitClip = viewModel::splitClipAtPlayhead,\n                onSplitStereo = viewModel::separateStereoClip,\n', 'ui split callback')
+          # Overlay after main when block but before box closes: anchor unique around project workspace modifier.
+          t = rep(t,
+'''                modifier = Modifier.fillMaxSize(),
+            )
+        }
+    }
+
+    val project = state.project
+''',
+'''                modifier = Modifier.fillMaxSize(),
+            )
+        }
+        if (state.importing) {
+            ImportProcessingOverlay(
+                message = state.importStatus ?: "Processando áudio…",
+                modifier = Modifier.fillMaxSize().zIndex(20f),
+            )
+        }
+    }
+
+    val project = state.project
+''', 'ui import overlay')
+          # stereo decision after settings dialog block
+          anchor = '''    if (settingsTrack != null && project != null) {
+        TrackSettingsDialog(
+'''
+          # easier insert dialog after whole known end using next ProjectWorkspace annotation
+          t = rep(t,
+'''    }
+}
+
+@Composable
+private fun ProjectWorkspace(
+''',
+'''    }
+
+    state.stereoImportPrompt?.let { prompt ->
+        AlertDialog(
+            onDismissRequest = {},
+            title = { Text("Áudio estéreo detectado") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("${prompt.fileName} possui dois canais independentes (L/R).")
+                    if (prompt.hasGuitarPair) {
+                        Text("Esta é uma função de guitarra. O GuitarLab pode distribuir L para ${prompt.leftTrackName} e R para ${prompt.rightTrackName}, mantendo início, duração e sincronismo.")
+                    } else {
+                        Text("Você pode manter o arquivo estéreo nesta pista — recomendado para Base — ou separá-lo em duas pistas mono L/R.")
+                    }
+                }
+            },
+            confirmButton = {
+                Button(onClick = { viewModel.separateStereoClip(prompt.clipId) }) {
+                    Text(if (prompt.hasGuitarPair) "Distribuir L/R" else "Separar em 2 mono")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = viewModel::keepStereoImport) { Text("Manter estéreo") }
+            },
+        )
+    }
+}
+
+@Composable
+private fun ProjectWorkspace(
+''', 'ui stereo dialog')
+          t = rep(t, '    waveforms: Map<String, List<Float>>,\n    timelineControls:', '    waveforms: Map<String, List<Float>>,\n    waveformChannels: Map<String, List<List<Float>>>,\n    timelineControls:', 'ui workspace signature')
+          t = rep(t, '    onSplitClip: (String) -> Unit,\n    onReorderTrack:', '    onSplitClip: (String) -> Unit,\n    onSplitStereo: (String) -> Unit,\n    onReorderTrack:', 'ui workspace split signature')
+          t = rep(t, '                                waveforms = waveforms,\n                                projectEndFrame', '                                waveforms = waveforms,\n                                waveformChannels = waveformChannels,\n                                projectEndFrame', 'ui lane channels call')
+          t = rep(t, '                                onSplit = onSplitClip,\n                                onReorderTrack', '                                onSplit = onSplitClip,\n                                onSplitStereo = onSplitStereo,\n                                onReorderTrack', 'ui lane split call')
+          t = rep(t, '    waveforms: Map<String, List<Float>>,\n    projectEndFrame:', '    waveforms: Map<String, List<Float>>,\n    waveformChannels: Map<String, List<List<Float>>>,\n    projectEndFrame:', 'ui lane signature channels')
+          t = rep(t, '    onSplit: (String) -> Unit,\n    trackIndex:', '    onSplit: (String) -> Unit,\n    onSplitStereo: (String) -> Unit,\n    trackIndex:', 'ui lane signature split')
+          t = rep(t,
+'''                                        ClipMenuItem(Icons.Default.CallSplit, "Dividir no cursor$suffix") { clipMenuExpanded = false; onSplit(clip.id) }
+                                        ClipMenuItem(Icons.Default.ContentCut, "Cortar$suffix") { clipMenuExpanded = false; onBeginTrim(clip.id) }
+''',
+'''                                        ClipMenuItem(Icons.Default.CallSplit, "Dividir no cursor$suffix") { clipMenuExpanded = false; onSplit(clip.id) }
+                                        if (clip.sourceChannelCount == 2) {
+                                            ClipMenuItem(Icons.Default.CallSplit, "Separar estéreo em 2 pistas mono$suffix") { clipMenuExpanded = false; onSplitStereo(clip.id) }
+                                        }
+                                        ClipMenuItem(Icons.Default.ContentCut, "Cortar$suffix") { clipMenuExpanded = false; onBeginTrim(clip.id) }
+''', 'ui stereo menu')
+          t = rep(t, '                        peaks = waveforms[clip.id],\n                        trackColor', '                        peaks = waveforms[clip.id],\n                        channelPeaks = waveformChannels[clip.id],\n                        trackColor', 'ui clip channel call')
+          t = rep(t, '    peaks: List<Float>?,\n    trackColor:', '    peaks: List<Float>?,\n    channelPeaks: List<List<Float>>?,\n    trackColor:', 'ui clip channel signature')
+          t = rep(t, '                        peaks = it,\n                        trackColor = trackColor,\n                        sampleRate', '                        peaks = it,\n                        channelPeaks = channelPeaks,\n                        trackColor = trackColor,\n                        sampleRate', 'ui trim channels call')
+          t = rep(t,
+'''                } else {
+                    WaveformMini(peaks = it, muted = clip.muted, color = trackColor, modifier = Modifier.fillMaxSize())
+                }
+''',
+'''                } else {
+                    if (channelPeaks?.size == 2) StereoWaveformMini(channelPeaks, clip.muted, trackColor, Modifier.fillMaxSize())
+                    else WaveformMini(peaks = it, muted = clip.muted, color = trackColor, modifier = Modifier.fillMaxSize())
+                }
+''', 'ui stereo render')
+          t = rep(t, '    peaks: List<Float>,\n    trackColor:', '    peaks: List<Float>,\n    channelPeaks: List<List<Float>>?,\n    trackColor:', 'ui trim signature channels')
+          t = rep(t, '        WaveformMini(peaks = peaks, color = trackColor, modifier = Modifier.fillMaxSize())\n        RangeSlider(', '        if (channelPeaks?.size == 2) StereoWaveformMini(channelPeaks, false, trackColor, Modifier.fillMaxSize())\n        else WaveformMini(peaks = peaks, color = trackColor, modifier = Modifier.fillMaxSize())\n        RangeSlider(', 'ui trim stereo render')
+          # add composables before TimelineRuler
+          t = rep(t,
+'''@Composable
+private fun TimelineRuler(project: GuitarProject, projectEndFrame: Long) {
+''',
+'''@Composable
+private fun ImportProcessingOverlay(message: String, modifier: Modifier = Modifier) {
+    Box(modifier.background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.48f)), contentAlignment = Alignment.Center) {
+        Surface(
+            shape = RoundedCornerShape(14.dp),
+            color = MaterialTheme.colorScheme.surface,
+            tonalElevation = 12.dp,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)),
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 22.dp, vertical = 18.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                CircularProgressIndicator(modifier = Modifier.size(28.dp), strokeWidth = 3.dp)
+                Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Text("Preparando áudio", style = MaterialTheme.typography.titleSmall)
+                    Text(message, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun StereoWaveformMini(channelPeaks: List<List<Float>>, muted: Boolean, color: Color, modifier: Modifier = Modifier) {
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        channelPeaks.take(2).forEachIndexed { index, peaks ->
+            Box(Modifier.weight(1f).fillMaxWidth()) {
+                WaveformMini(peaks = peaks, muted = muted, color = color, modifier = Modifier.fillMaxSize())
+                Text(
+                    if (index == 0) "L" else "R",
+                    modifier = Modifier.align(Alignment.TopStart).padding(start = 2.dp),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = color.copy(alpha = 0.78f),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun TimelineRuler(project: GuitarProject, projectEndFrame: Long) {
+''', 'ui new composables')
+          write(p, t)
+
+          # 6) Tests: channel envelopes and exact L/R extraction.
+          write('core/codec/src/test/kotlin/studio/guitarlab/core/codec/StereoWavChannelSplitterTest.kt', '''package studio.guitarlab.core.codec
+
+import java.nio.file.Files
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertTrue
+
+class StereoWavChannelSplitterTest {
+    @Test
+    fun `split creates independent synchronized mono channels`() {
+        val dir = Files.createTempDirectory("guitarlab-stereo-split-").toFile()
+        try {
+            val input = dir.resolve("stereo.wav")
+            FloatWavFileWriter(input, 48_000, 2).use { writer ->
+                writer.writeInterleaved(floatArrayOf(0.1f, 0.9f, 0.2f, 0.8f, 0.3f, 0.7f), 3)
+            }
+            val left = dir.resolve("left.wav")
+            val right = dir.resolve("right.wav")
+            val result = StereoWavChannelSplitter.split(input, left, right)
+            assertEquals(3L, result.totalFrames)
+            assertEquals(48_000, result.sampleRateHz)
+            val leftDecoder = FileSeekableByteSource(left).use { source ->
+                val decoder = WavPcmDecoder(source)
+                val values = FloatArray(3)
+                assertEquals(3, decoder.readInterleaved(values, 0, 3))
+                values.toList()
+            }
+            val rightDecoder = FileSeekableByteSource(right).use { source ->
+                val decoder = WavPcmDecoder(source)
+                val values = FloatArray(3)
+                assertEquals(3, decoder.readInterleaved(values, 0, 3))
+                values.toList()
+            }
+            assertTrue(kotlin.math.abs(leftDecoder[0] - 0.1f) < 0.0001f)
+            assertTrue(kotlin.math.abs(leftDecoder[2] - 0.3f) < 0.0001f)
+            assertTrue(kotlin.math.abs(rightDecoder[0] - 0.9f) < 0.0001f)
+            assertTrue(kotlin.math.abs(rightDecoder[2] - 0.7f) < 0.0001f)
+        } finally {
+            dir.deleteRecursively()
+        }
+    }
+}
+''')
+
+          # 7) Promote alpha14 and update canonical documentation/roadmap to reflect pulled-forward stereo semantics.
+          p = 'app/build.gradle.kts'; t = read(p)
+          t = t.replace('versionCode = 14', 'versionCode = 15').replace('versionName = "0.2.0-alpha13"', 'versionName = "0.2.0-alpha14"')
+          if 'versionCode = 15' not in t or '0.2.0-alpha14' not in t: raise SystemExit('version promotion failed')
+          write(p, t)
+
+          p = 'docs/DECISIONS.md'; t = read(p)
+          t += '''\n## D-040 — Import processing is always visible\nAfter Android document selection returns to GuitarLab, ingest/transcode/waveform preparation must expose a blocking progress surface with an explicit current operation. Silent background import is prohibited because it is indistinguishable from a missed command or freeze.\n\n## D-041 — Stereo waveforms preserve channel identity\nA two-channel source is visualized as two real envelopes, L above R. The previous aggregate-only waveform remains a compatibility/drag/overview representation but must not be the sole visual representation for stereo clips.\n\n## D-042 — Stereo import is role-aware and non-destructive\nA successful stereo import triggers an explicit decision. Backing/stereo-oriented tracks default conceptually to keeping both channels in one stereo clip. Guitar-role tracks with an existing L/R role pair offer direct synchronized distribution of source L/R into those two mono tracks. The immutable managed original remains shared; channel separation creates derived mono PCM proxies only.\n\n## D-043 — Timeline split and stereo separation are distinct commands\n`Dividir no cursor` remains a temporal clip edit. `Separar estéreo em 2 pistas mono` is a separate channel-routing command, available only for two-channel clips. They must never share ambiguous wording or behavior.\n'''
+          write(p, t)
+
+          p = 'docs/IMPLEMENTATION_ROADMAP.md'; t = read(p)
+          t = t.replace('physical alpha13 checklist', 'physical alpha14 checklist').replace('alpha13 software gate on the exact candidate commit', 'alpha14 software gate on the exact candidate commit').replace('between alpha13 signing and physical homologation', 'between alpha14 signing and physical homologation')
+          t = t.replace('- dedicated Share icon/modal for project persistence and final audio export.\n', '- dedicated Share icon/modal for project persistence and final audio export;\n- visible import-processing feedback after SAF selection;\n- real per-channel stereo waveform display;\n- role-aware stereo import decision and synchronized guitar L/R distribution;\n- explicit non-destructive `Separar estéreo em 2 pistas mono`, distinct from temporal split.\n')
+          t = t.replace('- fades/crossfades and advanced clip polish;\n', '- fades/crossfades and advanced clip polish (stereo L/R separation is no longer pending here; it was pulled into M5);\n')
+          write(p, t)
+
+          p = 'docs/CURRENT_STATE.md'; t = read(p)
+          t = t.replace('0.2.0-alpha13', '0.2.0-alpha14').replace('versionCode 14', 'versionCode 15').replace('alpha13', 'alpha14')
+          t += '''\n\n## Alpha14 corrective scope\nPhysical alpha13 validation exposed two M5 media-ingress gaps: no visible progress after SAF selection and aggregate-only stereo waveform rendering. Alpha14 closes both and pulls the already-modeled guitar L/R semantics into import: every stereo clip gets a keep-vs-separate decision, guitar-role pairs can receive synchronized L/R mono derivatives, and the pencil menu exposes stereo separation separately from temporal split. M6 remains blocked.\n'''
+          write(p, t)
+
+          p = 'docs/CODEC_SUPPORT_MATRIX.md'; t = read(p)
+          t += '''\n\n## Stereo ingest/display gate (alpha14)\nAll imported two-channel formats that reach the managed WAV editing path must preserve both channels, expose separate L/R waveform envelopes, and support non-destructive channel separation. Guitar-role L/R distribution and generic dual-mono separation are part of the alpha14 target-device gate; source originals remain immutable.\n'''
+          write(p, t)
+
+          write('docs/M5_ALPHA14_FINAL_HOMOLOGATION_CHECKLIST.md', '''# M5 alpha14 final homologation checklist\n\nCandidate: `0.2.0-alpha14` / versionCode 15. M5 remains OPEN until physical PASS.\n\n## Import UX\n- Select a representative FLAC/MP3/WAV stereo file through Android SAF.\n- Immediately after returning to GuitarLab, verify a blocking `Preparando áudio` progress surface is visible until processing completes.\n- Verify no duplicate import can be triggered while processing.\n\n## Stereo integrity\n- Confirm two visibly distinct channel envelopes labelled L and R are rendered for a stereo source.\n- Base: choose `Manter estéreo`; confirm one stereo clip remains and playback preserves both channels.\n- Pencil menu: confirm `Dividir no cursor` remains temporal split and `Separar estéreo em 2 pistas mono` appears separately only for stereo clips.\n- Generic/stereo track: separate L/R and confirm synchronized mono tracks, left/right pan and source start/duration preservation.\n- Guitar template: import stereo into Guitarra Ref. E or D; confirm dialog proposes distribution to Guitarra Ref. E/D and creates synchronized mono clips in both existing tracks.\n- Repeat for Minhas Guitarras L/R role pair.\n\n## Regression\n- Drag track and clip, including edge autoscroll.\n- Trim, temporal split, duplicate, clear/delete, Undo/Redo.\n- Save `.guitarlab`, close/reopen, verify stereo or separated state persists.\n- Export WAV 32f, FLAC and MP3 and verify audible result.\n- Track Settings, Share modal, Mixer/Master, REC/Arm remain functional.\n\nPASS requires zero repeatable P0/P1 and explicit user approval. M6 does not start before this gate closes.\n''')
+          PY
+      - name: Materialize split source
+        run: |
+          chmod +x scripts/materialize_ci_sources.sh
+          scripts/materialize_ci_sources.sh
+      - name: Verify diff
+        run: git diff --check
+      - name: Test
+        run: gradle --no-daemon --console=plain test
+      - name: Lint
+        run: gradle --no-daemon --console=plain lint
+      - name: Assemble debug
+        run: gradle --no-daemon --console=plain assembleDebug
+      - name: Commit integrated alpha14
+        shell: bash
+        run: |
+          git config user.name "GuitarLab CI Integrator"
+          git config user.email "actions@users.noreply.github.com"
+          git add app core docs
+          git commit -m "release: promote M5 alpha14 stereo ingress candidate [sign-homologation]"
+          git pull --rebase origin dev/parallel-m3-m5
+          git push origin HEAD:dev/parallel-m3-m5
