@@ -35,6 +35,7 @@ import studio.guitarlab.platform.audio.android.AndroidStudioPlaybackEngine
 import studio.guitarlab.platform.audio.android.StudioPlaybackClip
 import studio.guitarlab.platform.audio.android.StudioPlaybackListener
 import studio.guitarlab.platform.audio.android.StudioPlaybackRequest
+import studio.guitarlab.platform.audio.android.StudioPlaybackRoutingStatus
 
 data class StudioUiState(
     val loading: Boolean = true,
@@ -56,6 +57,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
     private val repository = FileProjectRepository(rootDirectory)
     private val mediaStore = ProjectManagedMediaStore(rootDirectory)
     private val waveformCache = WaveformCacheStore(rootDirectory)
+    private val audioRoutingStore = StudioAudioRoutingStore(application)
     private val playbackEngine = AndroidStudioPlaybackEngine()
     private val _state = MutableStateFlow(StudioUiState())
     val state: StateFlow<StudioUiState> = _state.asStateFlow()
@@ -294,6 +296,8 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
         val requestedStart = if (!current.transport.loopEnabled && current.timelineControls.playheadFrame >= end) 0L else current.timelineControls.playheadFrame
         val anySolo = project.tracks.any { it.solo }
         val tracksById = project.tracks.associateBy { it.id }
+        val selectedOutputSignature = audioRoutingStore.selectedOutputSignature()
+        val preferredOutput = audioRoutingStore.resolveSelectedOutputDevice()
         val request = runCatching {
             StudioPlaybackRequest(
                 sampleRateHz = readiness.sampleRateHz,
@@ -302,6 +306,8 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                 loopEnabled = current.transport.loopEnabled,
                 loopStartFrame = current.timelineControls.loopStartFrame,
                 loopEndFrame = current.timelineControls.loopEndFrame,
+                preferredOutputDevice = preferredOutput,
+                preferredOutputRequested = !selectedOutputSignature.isNullOrBlank(),
                 clips = project.clips.mapNotNull { clip ->
                     val sourceTrack = tracksById[clip.trackId] ?: return@mapNotNull null
                     if (clip.muted || !TrackMixPolicy.isAudible(sourceTrack.muted, sourceTrack.solo, anySolo)) return@mapNotNull null
@@ -352,6 +358,20 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                     viewModelScope.launch {
                         val state = _state.value
                         _state.value = state.copy(transport = state.transport.copy(mode = TransportMode.STOPPED), error = message)
+                    }
+                }
+
+                override fun onRouting(status: StudioPlaybackRoutingStatus) {
+                    viewModelScope.launch {
+                        val state = _state.value
+                        val routeStatus = when {
+                            status.usingPreferredOutput -> "Output • ${status.deviceLabel ?: "preferred device"}"
+                            status.fellBackToAuto -> "Preferred output unavailable • using Android Auto routing"
+                            else -> null
+                        }
+                        if (routeStatus != null && state.transport.mode == TransportMode.PLAYING) {
+                            _state.value = state.copy(clipStatus = routeStatus)
+                        }
                     }
                 }
             })
