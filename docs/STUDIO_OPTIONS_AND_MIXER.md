@@ -3,78 +3,71 @@
 This document is a normative UX/architecture contract for GuitarLab Studio options, routing and mixer presentation.
 
 ## Options Center principle
-The Studio editing canvas must stay focused on music. Low-frequency setup, routing, export and engineering commands are centralized in one `Options` center rather than scattered across the timeline.
+The Studio editing canvas stays focused on music. Low-frequency setup, routing, export and engineering commands are centralized in one `Options` center rather than scattered across the timeline.
 
-The Options center groups:
-- Audio I/O: one global recording input, one main output route, project/sample-rate context, monitoring-related setup when implemented;
-- Export: mix export, track export and portable project package commands and their parameters;
-- Project & Studio: autosave, new-project defaults, mixer presentation preferences and other low-frequency workflow settings;
+Options groups:
+- Audio I/O: one global recording input, one main output route, project/sample-rate context and monitoring setup when implemented;
+- Export: mix export, track export, range/full-project selection and portable project package when implemented;
+- Project & Studio: low-frequency workflow preferences;
 - Import & codecs: capability/status and codec diagnostics;
 - Advanced / diagnostics: M2/M3 engineering tools.
 
 ## Audio routing scope
-For the current product scope, recording input is global to the Studio session. Per-track input routing is intentionally not exposed. This matches the current single-guitar-interface workflow and avoids premature routing complexity.
+Recording input is global to the Studio. Per-track input routing is intentionally not exposed in current scope.
 
-Main output routing is also configured in Options. The mixer master strip may show the selected route, but route selection itself belongs to Options.
+Main output selection also belongs in Options. The Master strip may summarize route state but must not duplicate the route selector.
 
-Android audio device IDs are session-ephemeral. Persisted preferences must never depend on a raw numeric Android device ID being stable across USB disconnect/reconnect. Route preferences must be revalidated against currently enumerated devices.
+Android audio device IDs are session-ephemeral. Persisted route preferences use device signature information and are revalidated against currently enumerated devices. Current playback resolves the selected output at runtime and attempts `AudioTrack.setPreferredDevice`; unavailable/rejected routes fall back to Android Auto with an explicit status rather than crashing.
 
 ## Export placement
-Export is a command workflow, not a permanent timeline control. It belongs in Options so the main Studio remains clean.
-
-The final export workflow is expected to cover:
-- mix export;
-- individual track export;
-- range/full-project selection;
-- WAV 16/24/32-float;
-- FLAC 16/24;
-- MP3;
-- AAC/M4A;
-- Opus;
-- target sample rate and applicable encoding parameters.
-
-No export button may be enabled before the export engine is implemented and software-gated.
+Export is a command workflow, not a permanent timeline control. Planned targets remain mix/stems/ranges, WAV 16/24/32-float, FLAC 16/24, MP3, AAC/M4A, Opus and applicable sample-rate/encoding parameters. No export action is enabled before the engine exists and passes its gate.
 
 ## Mixer Dock
-The mixer is a bottom dock with horizontal channel strips and a fixed semantic Master strip.
+The Mixer is a bottom dock with horizontal channel strips and a distinct Master strip.
 
-User-visible states are independent:
+Independent user-visible states:
 - hidden/visible;
 - temporary/pinned.
 
-Temporary mode may be closed with `X`. Pinned mode remains anchored at the bottom while the user changes timeline selection. Unpinning restores the ability to close it.
+Temporary mode may close with `X`. Pinned mode remains anchored while track selection changes. Timeline and Mixer share one selected-track concept.
 
-Selecting a track in the mixer changes mixer focus. Timeline-to-mixer selection synchronization is the target interaction model and must not create a second independent project selection concept.
-
-## Track strip scope
-The model already carries gain, pan, mute, solo and record-arm fields. The mixer visual model is therefore:
+## Track strip scope — current state
+Implemented and real:
 - track name/identity;
-- level/gain;
-- pan;
-- mute;
-- solo;
-- record arm when the recording engine is active;
-- meter when engine metering is available.
+- gain -60..+12 dB, persisted;
+- pan L100..R100, persisted;
+- Mute and Solo, persisted and honored by playback;
+- live post-track-bus peak/RMS metering with peak hold/decay presentation.
 
-Controls must not be made editable merely because the UI exists. A control becomes interactive only when its underlying engine path and persistence semantics are wired and tested.
+Still gated:
+- record arm behavior and monitoring until M5;
+- live-safe automation/parameter changes during playback;
+- EQ/processing until a real DSP path exists.
 
-## Master strip scope
-The Master strip is always visually distinct and includes:
-- master level/meter;
-- main output route summary;
-- future master processing only when backed by a real engine.
+## Master strip scope — current state
+Implemented and real:
+- project-persisted master gain -60..+12 dB;
+- live Master peak/RMS measured after track sum + master gain and before output clamp;
+- visible clipping when signal exceeds 0 dBFS;
+- peak hold/decay presentation;
+- route summary text.
 
-Output-device selection itself stays in Options to avoid duplicate routing configuration surfaces.
+Output-device selection itself remains in Options.
+
+## Meter semantics
+Track meters measure the audible track bus after clip+track gain/pan and before Master. Master measures the final mix after Master gain and before clamp. Meter display state is transient; it is never serialized into a project. `MeterBallisticsPolicy` supplies immediate attack, 750 ms peak hold and elapsed-time decay.
+
+## Master persistence compatibility
+`GuitarProject.masterGainDb` is additive metadata with a default of 0 dB. Existing schema-v1 JSON without this property decodes at unity, and round-trip tests protect the compatibility contract. Project validation enforces the supported gain range.
 
 ## Visual direction
-The product uses a Graphite Studio visual language:
+Graphite Studio:
 - near-black background;
 - layered graphite surfaces;
 - restrained teal product identity;
 - semantic timeline colors reserved for playhead, loop, trim and record;
-- track colors as compact accents, not large decorative fields;
-- modern cards and clear hierarchy on Home;
-- no floating explanatory prose in the Studio editing canvas.
+- compact track colors/accents;
+- no floating explanatory prose in the creative canvas.
 
 ## Fullscreen
-The Android shell uses immersive fullscreen. System bars remain hidden during normal use and may be revealed transiently by the standard edge swipe gesture.
+The Android shell uses immersive fullscreen. System bars are hidden during normal use and may be revealed transiently using standard edge gestures.

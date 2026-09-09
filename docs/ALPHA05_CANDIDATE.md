@@ -1,26 +1,32 @@
-# GuitarLab Studio 0.2.0-alpha05 — signed M4 consolidation candidate
+# GuitarLab Studio 0.2.0-alpha05 — historical signed M4 playback/trim candidate
 
 Version: `0.2.0-alpha05`
 Version code: `6`
-Purpose: physical consolidation gate for M4 Studio playback + loop + non-destructive trim on the Samsung SM-X230 / Android 16 baseline.
+Status: **historical signed candidate; no longer represents current branch head**.
 
-Included scope:
-- M2 Pocket Amp hardware gate already homologated and retained as regression baseline;
+This package was prepared for the M4 playback + loop + non-destructive trim consolidation gate on Samsung SM-X230 / Android 16. Its package identity/signature/hash were internally verified.
+
+Included at that time:
+- M2 Pocket Amp hardware gate already homologated;
 - M3 managed WAV import/codec foundation;
 - immutable project-managed media copies;
 - waveform cache/rendering;
 - real Android managed-WAV playback;
 - hardware-clock-driven playhead;
-- Stop, start-from-playhead and real loop wrapping;
+- Stop, start-from-playhead and loop wrapping;
 - STOPPED-only editing;
-- explicit top marker heads;
-- mustard T◀/T▶ trim markers with draft/apply/cancel;
-- metadata-only trim preserving immutable managed source media.
+- marker heads and mustard trim draft/apply/cancel.
 
-Not included/claimed:
-- Studio recording (M5);
-- production resampling;
-- verified compressed import formats beyond the existing WAV slice;
-- final release readiness.
+Subsequent branch work is **not** contained in this APK:
+- single-screen Studio redesign;
+- loop-marker contextual visibility fix;
+- stronger trim confirmation UX;
+- Graphite Studio refinement and immersive fullscreen;
+- Options Center;
+- global input/output selection and output fallback routing;
+- Mixer Dock and real track gain/pan/mute/solo;
+- Master gain/meters and per-track metering work.
 
-Physical procedure is defined in `M4_ALPHA05_HOMOLOGATION_CHECKLIST.md`. A green CI/signed APK only establishes the software/signing gate; PR #1 remains draft until the physical M4 checklist passes.
+Therefore alpha05 must not be used as final physical evidence for the current M4 branch state. A newer signed consolidation candidate is required after the current software checkpoint is green.
+
+Recording (M5), production resampling, compressed-format verification and final release readiness remain outside this historical candidate.

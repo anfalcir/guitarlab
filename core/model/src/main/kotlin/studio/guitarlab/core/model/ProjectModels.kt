@@ -81,6 +81,7 @@ object BuiltInRoles {
     val createdAtEpochMs: Long,
     val updatedAtEpochMs: Long,
     val sampleRate: SampleRateConfig = SampleRateConfig(),
+    val masterGainDb: Float = 0f,
     val groups: List<TrackGroup> = emptyList(),
     val tracks: List<AudioTrack> = emptyList(),
     val clips: List<AudioClip> = emptyList(),

@@ -17,6 +17,7 @@ import studio.guitarlab.core.codec.WavPcmDecoder
 
 data class StudioPlaybackClip(
     val file: File,
+    val trackId: String,
     val timelineStartFrame: Long,
     val sourceStartFrame: Long,
     val lengthFrames: Long,
@@ -50,12 +51,18 @@ data class StudioPlaybackMeter(
     val rms: Float,
 )
 
+data class StudioPlaybackTrackMeter(
+    val trackId: String,
+    val meter: StudioPlaybackMeter,
+)
+
 interface StudioPlaybackListener {
     fun onPosition(frame: Long)
     fun onStopped(frame: Long)
     fun onError(message: String)
     fun onRouting(status: StudioPlaybackRoutingStatus) {}
     fun onMasterMeter(meter: StudioPlaybackMeter) {}
+    fun onTrackMeters(meters: List<StudioPlaybackTrackMeter>) {}
 }
 
 class AndroidStudioPlaybackEngine : AutoCloseable {
@@ -125,6 +132,8 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
             var renderFrame = normalizedStart(request)
             var totalWrittenFrames = 0L
             val mix = FloatArray(CHUNK_FRAMES * 2)
+            val trackBuffers = linkedMapOf<String, FloatArray>()
+            readers.forEach { reader -> trackBuffers.getOrPut(reader.trackId) { FloatArray(CHUNK_FRAMES * 2) } }
             val masterLinear = 10.0.pow(request.masterGainDb / 20.0).toFloat()
             track.play()
 
@@ -137,12 +146,20 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
                 }
 
                 val framesToRender = min(CHUNK_FRAMES.toLong(), boundary - renderFrame).toInt()
-                java.util.Arrays.fill(mix, 0, framesToRender * 2, 0f)
-                readers.forEach { it.mixInto(renderFrame, framesToRender, mix) }
+                val sampleCount = framesToRender * 2
+                java.util.Arrays.fill(mix, 0, sampleCount, 0f)
+                trackBuffers.values.forEach { java.util.Arrays.fill(it, 0, sampleCount, 0f) }
+                readers.forEach { reader -> reader.mixInto(renderFrame, framesToRender, trackBuffers.getValue(reader.trackId)) }
+
+                val trackMeters = ArrayList<StudioPlaybackTrackMeter>(trackBuffers.size)
+                trackBuffers.forEach { (trackId, buffer) ->
+                    trackMeters += StudioPlaybackTrackMeter(trackId, meterFor(buffer, sampleCount))
+                    for (index in 0 until sampleCount) mix[index] += buffer[index]
+                }
+                listener.onTrackMeters(trackMeters)
 
                 var peak = 0f
                 var sumSquares = 0.0
-                val sampleCount = framesToRender * 2
                 for (index in 0 until sampleCount) {
                     val mastered = mix[index] * masterLinear
                     peak = max(peak, abs(mastered))
@@ -194,10 +211,23 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
             runCatching { track?.flush() }
             runCatching { track?.release() }
             readers.forEach { runCatching { it.close() } }
+            listener.onTrackMeters(emptyList())
             listener.onMasterMeter(StudioPlaybackMeter(peak = 0f, rms = 0f))
             listener.onStopped(lastTimelineFrame)
             synchronized(this) { worker = null }
         }
+    }
+
+    private fun meterFor(samples: FloatArray, sampleCount: Int): StudioPlaybackMeter {
+        var peak = 0f
+        var sumSquares = 0.0
+        for (index in 0 until sampleCount) {
+            val sample = samples[index]
+            peak = max(peak, abs(sample))
+            sumSquares += sample.toDouble() * sample.toDouble()
+        }
+        val rms = if (sampleCount > 0) sqrt(sumSquares / sampleCount).toFloat() else 0f
+        return StudioPlaybackMeter(peak = peak, rms = rms)
     }
 
     private fun applyOutputRouting(
@@ -246,6 +276,7 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
         private val clip: StudioPlaybackClip,
         expectedSampleRateHz: Int,
     ) : AutoCloseable {
+        val trackId: String = clip.trackId
         private val source = FileSeekableByteSource(clip.file)
         private val decoder = WavPcmDecoder(source)
         private val channels = decoder.metadata.channelCount

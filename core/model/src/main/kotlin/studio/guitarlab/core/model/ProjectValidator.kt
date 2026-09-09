@@ -7,6 +7,7 @@ object ProjectValidator {
         val issues = mutableListOf<ValidationIssue>()
         if (project.schemaVersion <= 0) issues += ValidationIssue("schema.invalid", "Schema version must be positive.")
         if (project.name.isBlank()) issues += ValidationIssue("project.name.blank", "Project name must not be blank.")
+        if (project.masterGainDb !in -60f..12f) issues += ValidationIssue("project.master-gain.range", "Master gain must be between -60 dB and +12 dB.")
         if (project.groups.map { it.id }.distinct().size != project.groups.size) issues += ValidationIssue("group.id.duplicate", "Group IDs must be unique inside a project.")
         if (project.tracks.map { it.id }.distinct().size != project.tracks.size) issues += ValidationIssue("track.id.duplicate", "Track IDs must be unique inside a project.")
         if (project.clips.map { it.id }.distinct().size != project.clips.size) issues += ValidationIssue("clip.id.duplicate", "Clip IDs must be unique inside a project.")
@@ -19,6 +20,7 @@ object ProjectValidator {
             if (track.groupId != null && track.groupId !in groupIds) issues += ValidationIssue("track.group.missing", "Track '${track.name}' references a missing group.")
             if (track.roleId != null && track.roleId !in validRoles) issues += ValidationIssue("track.role.missing", "Track '${track.name}' references an unknown role.")
             if (track.pan !in -1f..1f) issues += ValidationIssue("track.pan.range", "Track '${track.name}' pan must be between -1 and +1.")
+            if (track.gainDb !in -60f..12f) issues += ValidationIssue("track.gain.range", "Track '${track.name}' gain must be between -60 dB and +12 dB.")
         }
 
         project.clips.forEach { clip ->

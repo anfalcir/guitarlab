@@ -12,6 +12,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import studio.guitarlab.core.audio.MeterBallisticsPolicy
+import studio.guitarlab.core.audio.MeterBallisticsState
 import studio.guitarlab.core.audio.TrackMixPolicy
 import studio.guitarlab.core.codec.FileSeekableByteSource
 import studio.guitarlab.core.codec.WavMetadataReader
@@ -37,6 +39,7 @@ import studio.guitarlab.platform.audio.android.StudioPlaybackListener
 import studio.guitarlab.platform.audio.android.StudioPlaybackMeter
 import studio.guitarlab.platform.audio.android.StudioPlaybackRequest
 import studio.guitarlab.platform.audio.android.StudioPlaybackRoutingStatus
+import studio.guitarlab.platform.audio.android.StudioPlaybackTrackMeter
 
 data class StudioUiState(
     val loading: Boolean = true,
@@ -49,8 +52,8 @@ data class StudioUiState(
     val transport: TransportState = TransportState(),
     val transportEngineReady: Boolean = false,
     val masterGainDb: Float = 0f,
-    val masterPeak: Float = 0f,
-    val masterRms: Float = 0f,
+    val masterMeter: MeterBallisticsState = MeterBallisticsState(),
+    val trackMeters: Map<String, MeterBallisticsState> = emptyMap(),
     val error: String? = null,
     val importStatus: String? = null,
     val clipStatus: String? = null,
@@ -84,6 +87,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                     waveforms = waveforms,
                     timelineControls = TimelineControlPolicy.normalizedForProject(TimelineControlState(), end),
                     transportEngineReady = playbackReadiness(project).ready,
+                    masterGainDb = project.masterGainDb,
                 )
             }.onFailure { error ->
                 _state.value = StudioUiState(loading = false, error = error.message ?: "Unable to load project.")
@@ -150,7 +154,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                     timelineControls = TimelineControlPolicy.normalizedForProject(previous.timelineControls, end),
                     transport = previous.transport,
                     transportEngineReady = playbackReadiness(saved).ready,
-                    masterGainDb = previous.masterGainDb,
+                    masterGainDb = saved.masterGainDb,
                     importStatus = "Imported safely • ${metadata.channelCount}ch • ${metadata.sampleRateHz} Hz • immutable project copy",
                 )
             }.onFailure { error ->
@@ -287,9 +291,27 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun setMasterGainDb(gainDb: Float) {
-        val current = _state.value
-        if (current.importing || current.editingClip || current.trimControls != null || !TransportPolicy.timelineEditingEnabled(current.transport)) return
-        _state.value = current.copy(masterGainDb = gainDb.coerceIn(-60f, 12f))
+        val currentState = _state.value
+        val project = currentState.project ?: return
+        if (currentState.importing || currentState.editingClip || currentState.trimControls != null || !TransportPolicy.timelineEditingEnabled(currentState.transport)) return
+        val normalized = gainDb.coerceIn(-60f, 12f)
+        viewModelScope.launch {
+            _state.value = _state.value.copy(editingClip = true, error = null, clipStatus = null)
+            runCatching {
+                withContext(Dispatchers.IO) {
+                    repository.save(project.copy(masterGainDb = normalized, updatedAtEpochMs = System.currentTimeMillis()))
+                }
+            }.onSuccess { saved ->
+                _state.value = _state.value.copy(
+                    editingClip = false,
+                    project = saved,
+                    masterGainDb = saved.masterGainDb,
+                    clipStatus = "Master level updated",
+                )
+            }.onFailure { error ->
+                _state.value = _state.value.copy(editingClip = false, error = error.message ?: "Master level update failed.")
+            }
+        }
     }
 
     override fun onCleared() {
@@ -327,6 +349,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                     val managedPath = requireNotNull(clip.managedSourcePath) { "Clip '${clip.name}' is not project-managed." }
                     StudioPlaybackClip(
                         file = mediaStore.resolve(project.id, managedPath),
+                        trackId = sourceTrack.id,
                         timelineStartFrame = clip.startFrame,
                         sourceStartFrame = clip.sourceStartFrame,
                         lengthFrames = clip.lengthFrames,
@@ -344,8 +367,8 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
         _state.value = current.copy(
             timelineControls = TimelineControlPolicy.movePlayhead(current.timelineControls, requestedStart, end),
             transport = current.transport.copy(mode = TransportMode.PLAYING),
-            masterPeak = 0f,
-            masterRms = 0f,
+            masterMeter = MeterBallisticsPolicy.reset(),
+            trackMeters = emptyMap(),
             error = null,
         )
         runCatching {
@@ -365,8 +388,8 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                         _state.value = state.copy(
                             transport = state.transport.copy(mode = TransportMode.STOPPED),
                             timelineControls = state.timelineControls.copy(playheadFrame = frame),
-                            masterPeak = 0f,
-                            masterRms = 0f,
+                            masterMeter = MeterBallisticsPolicy.reset(),
+                            trackMeters = emptyMap(),
                         )
                     }
                 }
@@ -376,8 +399,8 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                         val state = _state.value
                         _state.value = state.copy(
                             transport = state.transport.copy(mode = TransportMode.STOPPED),
-                            masterPeak = 0f,
-                            masterRms = 0f,
+                            masterMeter = MeterBallisticsPolicy.reset(),
+                            trackMeters = emptyMap(),
                             error = message,
                         )
                     }
@@ -401,16 +424,48 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                     viewModelScope.launch {
                         val state = _state.value
                         if (state.transport.mode == TransportMode.PLAYING) {
-                            _state.value = state.copy(masterPeak = meter.peak, masterRms = meter.rms)
+                            _state.value = state.copy(
+                                masterMeter = MeterBallisticsPolicy.update(
+                                    previous = state.masterMeter,
+                                    rawPeak = meter.peak,
+                                    rawRms = meter.rms,
+                                    nowMs = System.currentTimeMillis(),
+                                )
+                            )
                         }
+                    }
+                }
+
+                override fun onTrackMeters(meters: List<StudioPlaybackTrackMeter>) {
+                    viewModelScope.launch {
+                        val state = _state.value
+                        if (state.transport.mode != TransportMode.PLAYING) return@launch
+                        val now = System.currentTimeMillis()
+                        val incoming = meters.associateBy { it.trackId }
+                        val trackIds = state.project?.tracks?.map { it.id }.orEmpty()
+                        val next = buildMap {
+                            trackIds.forEach { trackId ->
+                                val raw = incoming[trackId]?.meter ?: StudioPlaybackMeter(0f, 0f)
+                                put(
+                                    trackId,
+                                    MeterBallisticsPolicy.update(
+                                        previous = state.trackMeters[trackId] ?: MeterBallisticsState(),
+                                        rawPeak = raw.peak,
+                                        rawRms = raw.rms,
+                                        nowMs = now,
+                                    )
+                                )
+                            }
+                        }
+                        _state.value = state.copy(trackMeters = next)
                     }
                 }
             })
         }.onFailure { error ->
             _state.value = _state.value.copy(
                 transport = _state.value.transport.copy(mode = TransportMode.STOPPED),
-                masterPeak = 0f,
-                masterRms = 0f,
+                masterMeter = MeterBallisticsPolicy.reset(),
+                trackMeters = emptyMap(),
                 error = error.message ?: "Studio playback could not start.",
             )
         }
@@ -440,6 +495,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                         waveforms = _state.value.waveforms.filterKeys { it in validClipIds },
                         timelineControls = TimelineControlPolicy.normalizedForProject(_state.value.timelineControls, end),
                         transportEngineReady = playbackReadiness(saved).ready,
+                        masterGainDb = saved.masterGainDb,
                         clipStatus = status,
                     )
                 }
@@ -469,6 +525,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                     editingClip = false,
                     project = saved,
                     transportEngineReady = playbackReadiness(saved).ready,
+                    masterGainDb = saved.masterGainDb,
                     clipStatus = status,
                 )
             }.onFailure { error ->
