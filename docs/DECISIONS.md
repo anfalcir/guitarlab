@@ -120,3 +120,15 @@ Alpha12 was superseded before physical closure. Alpha13 consolidates drag/Track 
 
 ## D-039 — Encoder/support claims remain device-gated
 A code path does not establish universal Android support. In particular, the current MP3 export requests a device-exposed Android MP3 encoder and is not considered verified until target-device homologation succeeds. FLAC/other new import/export paths likewise advance from IMPLEMENTED to ANDROID VERIFIED only through the codec matrix gate.
+
+## D-040 — Import processing is always visible
+After Android document selection returns to GuitarLab, ingest/transcode/waveform preparation must expose a blocking progress surface with an explicit current operation. Silent background import is prohibited because it is indistinguishable from a missed command or freeze.
+
+## D-041 — Stereo waveforms preserve channel identity
+A two-channel source is visualized as two real envelopes, L above R. The previous aggregate-only waveform remains a compatibility/drag/overview representation but must not be the sole visual representation for stereo clips.
+
+## D-042 — Stereo import is role-aware and non-destructive
+A successful stereo import triggers an explicit decision. Backing/stereo-oriented tracks default conceptually to keeping both channels in one stereo clip. Guitar-role tracks with an existing L/R role pair offer direct synchronized distribution of source L/R into those two mono tracks. The immutable managed original remains shared; channel separation creates derived mono PCM proxies only.
+
+## D-043 — Timeline split and stereo separation are distinct commands
+`Dividir no cursor` remains a temporal clip edit. `Separar estéreo em 2 pistas mono` is a separate channel-routing command, available only for two-channel clips. They must never share ambiguous wording or behavior.

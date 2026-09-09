@@ -144,6 +144,7 @@ fun StudioPlaceholderScreen(
             state.project != null -> ProjectWorkspace(
                 project = state.project!!,
                 waveforms = state.waveforms,
+                waveformChannels = state.waveformChannels,
                 timelineControls = state.timelineControls,
                 trimControls = state.trimControls,
                 transport = state.transport,
@@ -173,9 +174,16 @@ fun StudioPlaceholderScreen(
                 onClearTrack = viewModel::clearTrackContents,
                 onDuplicateClip = viewModel::duplicateClip,
                 onSplitClip = viewModel::splitClipAtPlayhead,
+                onSplitStereo = viewModel::separateStereoClip,
                 onReorderTrack = viewModel::reorderTrack,
                 onMoveClipToTrack = viewModel::moveClipToTrack,
                 modifier = Modifier.fillMaxSize(),
+            )
+        }
+        if (state.importing) {
+            ImportProcessingOverlay(
+                message = state.importStatus ?: "Processando áudio…",
+                modifier = Modifier.fillMaxSize().zIndex(20f),
             )
         }
     }
@@ -198,12 +206,38 @@ fun StudioPlaceholderScreen(
             },
         )
     }
+
+    state.stereoImportPrompt?.let { prompt ->
+        AlertDialog(
+            onDismissRequest = {},
+            title = { Text("Áudio estéreo detectado") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("${prompt.fileName} possui dois canais independentes (L/R).")
+                    if (prompt.hasGuitarPair) {
+                        Text("Esta é uma função de guitarra. O GuitarLab pode distribuir L para ${prompt.leftTrackName} e R para ${prompt.rightTrackName}, mantendo início, duração e sincronismo.")
+                    } else {
+                        Text("Você pode manter o arquivo estéreo nesta pista — recomendado para Base — ou separá-lo em duas pistas mono L/R.")
+                    }
+                }
+            },
+            confirmButton = {
+                Button(onClick = { viewModel.separateStereoClip(prompt.clipId) }) {
+                    Text(if (prompt.hasGuitarPair) "Distribuir L/R" else "Separar em 2 mono")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = viewModel::keepStereoImport) { Text("Manter estéreo") }
+            },
+        )
+    }
 }
 
 @Composable
 private fun ProjectWorkspace(
     project: GuitarProject,
     waveforms: Map<String, List<Float>>,
+    waveformChannels: Map<String, List<List<Float>>>,
     timelineControls: TimelineControlState,
     trimControls: TrimControlState?,
     transport: TransportState,
@@ -228,6 +262,7 @@ private fun ProjectWorkspace(
     onClearTrack: (String) -> Unit,
     onDuplicateClip: (String) -> Unit,
     onSplitClip: (String) -> Unit,
+    onSplitStereo: (String) -> Unit,
     onReorderTrack: (String, Int) -> Unit,
     onMoveClipToTrack: (String, String) -> Unit,
     modifier: Modifier = Modifier,
@@ -433,6 +468,7 @@ private fun ProjectWorkspace(
                                 track = track,
                                 clips = project.clips.filter { it.trackId == track.id },
                                 waveforms = waveforms,
+                                waveformChannels = waveformChannels,
                                 projectEndFrame = projectEndFrame,
                                 selected = track.id == selectedTrackId,
                                 canImport = clipEditingEnabled && dragState == null,
@@ -450,6 +486,7 @@ private fun ProjectWorkspace(
                                 onClearTrack = { onClearTrack(track.id) },
                                 onDuplicate = onDuplicateClip,
                                 onSplit = onSplitClip,
+                                onSplitStereo = onSplitStereo,
                                 trackIndex = trackIndex,
                                 draggingTrackId = dragState?.takeIf { it.kind == WorkspaceDragKind.TRACK }?.itemId,
                                 draggingClipId = dragState?.takeIf { it.kind == WorkspaceDragKind.CLIP }?.itemId,
@@ -613,6 +650,47 @@ private fun DragOverlay(
 }
 
 @Composable
+private fun ImportProcessingOverlay(message: String, modifier: Modifier = Modifier) {
+    Box(modifier.background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.48f)), contentAlignment = Alignment.Center) {
+        Surface(
+            shape = RoundedCornerShape(14.dp),
+            color = MaterialTheme.colorScheme.surface,
+            tonalElevation = 12.dp,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)),
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 22.dp, vertical = 18.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                CircularProgressIndicator(modifier = Modifier.size(28.dp), strokeWidth = 3.dp)
+                Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Text("Preparando áudio", style = MaterialTheme.typography.titleSmall)
+                    Text(message, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun StereoWaveformMini(channelPeaks: List<List<Float>>, muted: Boolean, color: Color, modifier: Modifier = Modifier) {
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        channelPeaks.take(2).forEachIndexed { index, peaks ->
+            Box(Modifier.weight(1f).fillMaxWidth()) {
+                WaveformMini(peaks = peaks, muted = muted, color = color, modifier = Modifier.fillMaxSize())
+                Text(
+                    if (index == 0) "L" else "R",
+                    modifier = Modifier.align(Alignment.TopStart).padding(start = 2.dp),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = color.copy(alpha = 0.78f),
+                )
+            }
+        }
+    }
+}
+
+@Composable
 private fun TimelineRuler(project: GuitarProject, projectEndFrame: Long) {
     val sampleRate = project.sampleRate.fixedHz
         ?: project.clips.firstOrNull { it.sourceSampleRateHz != null }?.sourceSampleRateHz
@@ -673,6 +751,7 @@ private fun StudioTrackLane(
     track: AudioTrack,
     clips: List<AudioClip>,
     waveforms: Map<String, List<Float>>,
+    waveformChannels: Map<String, List<List<Float>>>,
     projectEndFrame: Long,
     selected: Boolean,
     canImport: Boolean,
@@ -690,6 +769,7 @@ private fun StudioTrackLane(
     onClearTrack: () -> Unit,
     onDuplicate: (String) -> Unit,
     onSplit: (String) -> Unit,
+    onSplitStereo: (String) -> Unit,
     trackIndex: Int,
     draggingTrackId: String?,
     draggingClipId: String?,
@@ -778,6 +858,9 @@ private fun StudioTrackLane(
                                         val suffix = if (clips.size > 1) " · ${clip.name}" else ""
                                         ClipMenuItem(Icons.Default.ContentCopy, "Duplicar$suffix") { clipMenuExpanded = false; onDuplicate(clip.id) }
                                         ClipMenuItem(Icons.Default.CallSplit, "Dividir no cursor$suffix") { clipMenuExpanded = false; onSplit(clip.id) }
+                                        if (clip.sourceChannelCount == 2) {
+                                            ClipMenuItem(Icons.Default.CallSplit, "Separar estéreo em 2 pistas mono$suffix") { clipMenuExpanded = false; onSplitStereo(clip.id) }
+                                        }
                                         ClipMenuItem(Icons.Default.ContentCut, "Cortar$suffix") { clipMenuExpanded = false; onBeginTrim(clip.id) }
                                     }
                                     ClipMenuItem(Icons.Default.Delete, "Limpar pista", destructive = true) { clipMenuExpanded = false; onClearTrack() }
@@ -831,6 +914,7 @@ private fun StudioTrackLane(
                     TimelineClipCard(
                         clip = clip,
                         peaks = waveforms[clip.id],
+                        channelPeaks = waveformChannels[clip.id],
                         trackColor = trackColor,
                         trimming = activeTrimClipId == clip.id,
                         trimControls = trimControls?.takeIf { it.clipId == clip.id },
@@ -855,6 +939,7 @@ private fun StudioTrackLane(
 private fun TimelineClipCard(
     clip: AudioClip,
     peaks: List<Float>?,
+    channelPeaks: List<List<Float>>?,
     trackColor: Color,
     trimming: Boolean,
     trimControls: TrimControlState?,
@@ -904,6 +989,7 @@ private fun TimelineClipCard(
                         clip = clip,
                         trim = trimControls,
                         peaks = it,
+                        channelPeaks = channelPeaks,
                         trackColor = trackColor,
                         sampleRate = sampleRate,
                         onStartChanged = onTrimStartFrameChanged,
@@ -911,7 +997,8 @@ private fun TimelineClipCard(
                         modifier = Modifier.fillMaxSize(),
                     )
                 } else {
-                    WaveformMini(peaks = it, muted = clip.muted, color = trackColor, modifier = Modifier.fillMaxSize())
+                    if (channelPeaks?.size == 2) StereoWaveformMini(channelPeaks, clip.muted, trackColor, Modifier.fillMaxSize())
+                    else WaveformMini(peaks = it, muted = clip.muted, color = trackColor, modifier = Modifier.fillMaxSize())
                 }
             }
         }
@@ -923,6 +1010,7 @@ private fun TrimWaveformEditor(
     clip: AudioClip,
     trim: TrimControlState,
     peaks: List<Float>,
+    channelPeaks: List<List<Float>>?,
     trackColor: Color,
     sampleRate: Int,
     onStartChanged: (Long) -> Unit,
@@ -944,7 +1032,8 @@ private fun TrimWaveformEditor(
                 size = androidx.compose.ui.geometry.Size(size.width * (endFraction - startFraction), size.height),
             )
         }
-        WaveformMini(peaks = peaks, color = trackColor, modifier = Modifier.fillMaxSize())
+        if (channelPeaks?.size == 2) StereoWaveformMini(channelPeaks, false, trackColor, Modifier.fillMaxSize())
+        else WaveformMini(peaks = peaks, color = trackColor, modifier = Modifier.fillMaxSize())
         RangeSlider(
             value = startFraction..endFraction,
             onValueChange = { range ->

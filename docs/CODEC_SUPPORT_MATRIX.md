@@ -38,3 +38,7 @@ Representative files on Samsung SM-X230 must cover WAV, FLAC, AIFF, MP3, M4A/AAC
 
 ## Validation rule
 Every format progresses through implementation, malformed/error handling, project-managed source/proxy integrity, software gate and representative target-device validation. Documentation must distinguish those states explicitly.
+
+
+## Stereo ingest/display gate (alpha14)
+All imported two-channel formats that reach the managed WAV editing path must preserve both channels, expose separate L/R waveform envelopes, and support non-destructive channel separation. Guitar-role L/R distribution and generic dual-mono separation are part of the alpha14 target-device gate; source originals remain immutable.

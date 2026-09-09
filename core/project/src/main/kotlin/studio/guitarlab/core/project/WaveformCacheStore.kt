@@ -15,6 +15,11 @@ class WaveformCacheStore(private val rootDirectory: File) {
             output.writeInt(MAGIC)
             output.writeInt(envelope.peaks.size)
             envelope.peaks.forEach(output::writeFloat)
+            output.writeInt(envelope.channelPeaks.size)
+            envelope.channelPeaks.forEach { channel ->
+                output.writeInt(channel.size)
+                channel.forEach(output::writeFloat)
+            }
         }
         try {
             Files.move(
@@ -35,7 +40,17 @@ class WaveformCacheStore(private val rootDirectory: File) {
             require(input.readInt() == MAGIC) { "Invalid waveform cache magic." }
             val count = input.readInt()
             require(count in 0..MAX_POINTS) { "Invalid waveform cache point count." }
-            WaveformEnvelope(List(count) { input.readFloat().coerceIn(0f, 1f) })
+            val peaks = List(count) { input.readFloat().coerceIn(0f, 1f) }
+            val channelPeaks = if (input.available() >= Int.SIZE_BYTES) {
+                val channels = input.readInt()
+                require(channels in 0..2) { "Invalid waveform cache channel count." }
+                List(channels) {
+                    val channelCount = input.readInt()
+                    require(channelCount in 0..MAX_POINTS) { "Invalid waveform cache channel point count." }
+                    List(channelCount) { input.readFloat().coerceIn(0f, 1f) }
+                }
+            } else emptyList()
+            WaveformEnvelope(peaks, channelPeaks)
         }
     }.getOrNull()
 

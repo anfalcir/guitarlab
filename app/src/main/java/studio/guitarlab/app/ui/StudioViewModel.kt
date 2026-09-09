@@ -28,6 +28,7 @@ import studio.guitarlab.core.codec.FileSeekableByteSource
 import studio.guitarlab.core.codec.WavMetadataReader
 import studio.guitarlab.core.codec.WavPcmDecoder
 import studio.guitarlab.core.codec.WaveformEnvelopeBuilder
+import studio.guitarlab.core.codec.StereoWavChannelSplitter
 import studio.guitarlab.core.model.AudioClip
 import studio.guitarlab.core.model.AudioTrack
 import studio.guitarlab.core.model.BuiltInRoles
@@ -78,6 +79,15 @@ import studio.guitarlab.platform.codec.android.AndroidAudioImportTranscoder
 import studio.guitarlab.platform.codec.android.AndroidMasterAudioEncoder
 import studio.guitarlab.platform.codec.android.MasterExportFormat
 
+data class StereoImportPrompt(
+    val clipId: String,
+    val fileName: String,
+    val leftTrackName: String? = null,
+    val rightTrackName: String? = null,
+) {
+    val hasGuitarPair: Boolean get() = leftTrackName != null && rightTrackName != null
+}
+
 data class StudioUiState(
     val loading: Boolean = true,
     val importing: Boolean = false,
@@ -86,6 +96,7 @@ data class StudioUiState(
     val historyBusy: Boolean = false,
     val project: GuitarProject? = null,
     val waveforms: Map<String, List<Float>> = emptyMap(),
+    val waveformChannels: Map<String, List<List<Float>>> = emptyMap(),
     val timelineControls: TimelineControlState = TimelineControlState(),
     val trimControls: TrimControlState? = null,
     val transport: TransportState = TransportState(),
@@ -103,8 +114,17 @@ data class StudioUiState(
     val canRedo: Boolean = false,
     val error: String? = null,
     val importStatus: String? = null,
+    val stereoImportPrompt: StereoImportPrompt? = null,
     val exportStatus: String? = null,
     val clipStatus: String? = null,
+)
+
+private data class ImportOutcome(
+    val project: GuitarProject,
+    val channelCount: Int,
+    val sampleRateHz: Int,
+    val peaks: List<Float>,
+    val channelPeaks: List<List<Float>>,
 )
 
 private data class TrackMixDraft(val gainDb: Float, val pan: Float)
@@ -136,15 +156,16 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
             runCatching {
                 withContext(Dispatchers.IO) {
                     val project = repository.load(projectId) ?: error("Projeto não encontrado: $projectId")
-                    project to loadWaveforms(project)
+                    Triple(project, loadWaveforms(project), loadWaveformChannels(project))
                 }
-            }.onSuccess { (project, waveforms) ->
+            }.onSuccess { (project, waveforms, waveformChannels) ->
                 project.tracks.forEach { trackMixDrafts[it.id] = TrackMixDraft(it.gainDb, it.pan) }
                 val end = TimelineControlPolicy.projectEndFrame(project)
                 _state.value = StudioUiState(
                     loading = false,
                     project = project,
                     waveforms = waveforms,
+                    waveformChannels = waveformChannels,
                     timelineControls = TimelineControlPolicy.normalizedForProject(TimelineControlState(), end),
                     transportEngineReady = playbackReadiness(project).ready,
                     masterGainDb = project.masterGainDb,
@@ -216,14 +237,15 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                         val saved = saveLatest(current.id) { latest ->
                             latest.copy(clips = latest.clips + clip, updatedAtEpochMs = System.currentTimeMillis())
                         }
-                        Triple(saved, metadata, envelope.peaks)
+                        ImportOutcome(saved, metadata.channelCount, metadata.sampleRateHz, envelope.peaks, envelope.channelPeaks)
                     } catch (error: Throwable) {
                         proxyPath?.let { mediaStore.discardUncommitted(current.id, it) }
                         mediaStore.discardUncommitted(current.id, sourceAsset.relativePath)
                         throw error
                     }
                 }
-            }.onSuccess { (saved, metadata, peaks) ->
+            }.onSuccess { outcome ->
+                val saved = outcome.project
                 val imported = saved.clips.last()
                 val endFrame = TimelineControlPolicy.projectEndFrame(saved)
                 val previous = _state.value
@@ -231,17 +253,128 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                     loading = false,
                     importing = false,
                     project = saved,
-                    waveforms = previous.waveforms + (imported.id to peaks),
+                    waveforms = previous.waveforms + (imported.id to outcome.peaks),
+                    waveformChannels = if (outcome.channelPeaks.size == 2) previous.waveformChannels + (imported.id to outcome.channelPeaks) else previous.waveformChannels,
                     timelineControls = TimelineControlPolicy.normalizedForProject(previous.timelineControls, endFrame),
                     transportEngineReady = playbackReadiness(saved).ready,
                     masterGainDb = saved.masterGainDb,
                     canUndo = projectHistory.canUndo,
                     canRedo = projectHistory.canRedo,
-                    importStatus = "${imported.sourceFormat} importado • ${metadata.channelCount} canal(is) • ${metadata.sampleRateHz} Hz",
+                    importStatus = "${imported.sourceFormat} importado • ${outcome.channelCount} canal(is) • ${outcome.sampleRateHz} Hz",
+                    stereoImportPrompt = if (outcome.channelCount == 2) stereoPromptFor(saved, imported) else null,
                     error = null,
                 )
             }.onFailure { error ->
                 _state.value = _state.value.copy(importing = false, error = error.message ?: "Não foi possível importar o áudio.", importStatus = null)
+            }
+        }
+    }
+
+    fun keepStereoImport() {
+        val current = _state.value
+        if (current.stereoImportPrompt == null) return
+        _state.value = current.copy(stereoImportPrompt = null, importStatus = "Áudio estéreo mantido na pista")
+    }
+
+    fun separateStereoClip(clipId: String) {
+        val current = _state.value
+        val project = current.project ?: return
+        val clip = project.clips.firstOrNull { it.id == clipId } ?: return
+        if (clip.sourceChannelCount != 2 || !structuralEditingAllowed(current)) return
+        viewModelScope.launch {
+            _state.value = current.copy(importing = true, importStatus = "Separando canais L/R…", stereoImportPrompt = null, error = null)
+            runCatching {
+                withContext(Dispatchers.IO) {
+                    val editingFile = mediaStore.resolveEditable(project.id, editingMediaPath(clip))
+                    val leftTemp = File.createTempFile("guitarlab-L-", ".wav", getApplication<Application>().cacheDir)
+                    val rightTemp = File.createTempFile("guitarlab-R-", ".wav", getApplication<Application>().cacheDir)
+                    var leftProxyPath: String? = null
+                    var rightProxyPath: String? = null
+                    try {
+                        StereoWavChannelSplitter.split(editingFile, leftTemp, rightTemp)
+                        val leftProxy = leftTemp.inputStream().buffered().use { mediaStore.ingestEditProxy(project.id, "${clip.name}-L.wav", it) }
+                        leftProxyPath = leftProxy.relativePath
+                        val rightProxy = rightTemp.inputStream().buffered().use { mediaStore.ingestEditProxy(project.id, "${clip.name}-R.wav", it) }
+                        rightProxyPath = rightProxy.relativePath
+                        val saved = saveLatest(project.id) { latest ->
+                            val sourceClip = latest.clips.firstOrNull { it.id == clipId } ?: error("O clipe estéreo não existe mais.")
+                            val sourceTrack = latest.tracks.firstOrNull { it.id == sourceClip.trackId } ?: error("A pista de origem não existe mais.")
+                            val pair = guitarPairFor(latest, sourceTrack)
+                            val leftTrack: AudioTrack
+                            val rightTrack: AudioTrack
+                            val tracks: List<AudioTrack>
+                            if (pair != null) {
+                                leftTrack = pair.first
+                                rightTrack = pair.second
+                                tracks = latest.tracks
+                            } else {
+                                leftTrack = sourceTrack.copy(channelLayout = ChannelLayout.MONO, pan = -1f)
+                                rightTrack = sourceTrack.copy(
+                                    id = UUID.randomUUID().toString(),
+                                    name = "${sourceTrack.name} D",
+                                    channelLayout = ChannelLayout.MONO,
+                                    pan = 1f,
+                                    order = sourceTrack.order + 1,
+                                )
+                                tracks = latest.tracks.map { track ->
+                                    when {
+                                        track.id == sourceTrack.id -> leftTrack
+                                        track.order > sourceTrack.order -> track.copy(order = track.order + 1)
+                                        else -> track
+                                    }
+                                } + rightTrack
+                            }
+                            val leftClip = sourceClip.copy(
+                                id = UUID.randomUUID().toString(),
+                                trackId = leftTrack.id,
+                                name = "${sourceClip.name} · L",
+                                managedEditProxyPath = leftProxy.relativePath,
+                                sourceChannelCount = 1,
+                                sourceBitsPerSample = 32,
+                                sourceEncoding = "IEEE_FLOAT · canal L derivado",
+                            )
+                            val rightClip = sourceClip.copy(
+                                id = UUID.randomUUID().toString(),
+                                trackId = rightTrack.id,
+                                name = "${sourceClip.name} · R",
+                                managedEditProxyPath = rightProxy.relativePath,
+                                sourceChannelCount = 1,
+                                sourceBitsPerSample = 32,
+                                sourceEncoding = "IEEE_FLOAT · canal R derivado",
+                            )
+                            latest.copy(
+                                tracks = tracks.sortedBy { it.order },
+                                clips = latest.clips.filterNot { it.id == sourceClip.id } + leftClip + rightClip,
+                                updatedAtEpochMs = System.currentTimeMillis(),
+                            )
+                        }
+                        val waveforms = loadWaveforms(saved)
+                        Triple(saved, waveforms, loadWaveformChannels(saved))
+                    } catch (error: Throwable) {
+                        leftProxyPath?.let { mediaStore.discardUncommitted(project.id, it) }
+                        rightProxyPath?.let { mediaStore.discardUncommitted(project.id, it) }
+                        throw error
+                    } finally {
+                        leftTemp.delete()
+                        rightTemp.delete()
+                    }
+                }
+            }.onSuccess { (saved, waveforms, waveformChannels) ->
+                val end = TimelineControlPolicy.projectEndFrame(saved)
+                _state.value = _state.value.copy(
+                    importing = false,
+                    project = saved,
+                    waveforms = waveforms,
+                    waveformChannels = waveformChannels,
+                    timelineControls = TimelineControlPolicy.normalizedForProject(_state.value.timelineControls, end),
+                    transportEngineReady = playbackReadiness(saved).ready,
+                    canUndo = projectHistory.canUndo,
+                    canRedo = projectHistory.canRedo,
+                    importStatus = "Estéreo separado em L/R mono com sincronismo preservado",
+                    error = null,
+                )
+            }.onFailure { error ->
+                _state.value = _state.value.copy(importing = false, error = error.message ?: "Não foi possível separar os canais estéreo.", importStatus = null)
             }
         }
     }
@@ -1309,6 +1442,50 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
             return PlaybackReadiness(false, reason = "Há clipes com taxa de amostragem diferente da taxa do projeto.")
         }
         return PlaybackReadiness(true, projectRate)
+    }
+
+    private fun stereoPromptFor(project: GuitarProject, clip: AudioClip): StereoImportPrompt {
+        val track = project.tracks.firstOrNull { it.id == clip.trackId }
+        val pair = track?.let { guitarPairFor(project, it) }
+        return StereoImportPrompt(
+            clipId = clip.id,
+            fileName = clip.name,
+            leftTrackName = pair?.first?.name,
+            rightTrackName = pair?.second?.name,
+        )
+    }
+
+    private fun guitarPairFor(project: GuitarProject, sourceTrack: AudioTrack): Pair<AudioTrack, AudioTrack>? {
+        val roles = when (sourceTrack.roleId) {
+            BuiltInRoles.REFERENCE_GUITAR, BuiltInRoles.REFERENCE_GUITAR_L, BuiltInRoles.REFERENCE_GUITAR_R ->
+                BuiltInRoles.REFERENCE_GUITAR_L to BuiltInRoles.REFERENCE_GUITAR_R
+            BuiltInRoles.RECORDED_GUITAR, BuiltInRoles.RECORDED_GUITAR_L, BuiltInRoles.RECORDED_GUITAR_R ->
+                BuiltInRoles.RECORDED_GUITAR_L to BuiltInRoles.RECORDED_GUITAR_R
+            else -> return null
+        }
+        val left = project.tracks.firstOrNull { it.roleId == roles.first && (sourceTrack.groupId == null || it.groupId == sourceTrack.groupId) }
+            ?: project.tracks.firstOrNull { it.roleId == roles.first }
+        val right = project.tracks.firstOrNull { it.roleId == roles.second && (sourceTrack.groupId == null || it.groupId == sourceTrack.groupId) }
+            ?: project.tracks.firstOrNull { it.roleId == roles.second }
+        return if (left != null && right != null) left to right else null
+    }
+
+    private fun loadWaveformChannels(project: GuitarProject): Map<String, List<List<Float>>> = buildMap {
+        project.clips.forEach { clip ->
+            val cached = waveformCache.read(project.id, clip.id)
+            if (cached != null && cached.channelPeaks.size > 1) {
+                put(clip.id, cached.channelPeaks)
+                return@forEach
+            }
+            if (clip.sourceChannelCount != 2) return@forEach
+            val managedPath = editingMediaPathOrNull(clip) ?: return@forEach
+            runCatching {
+                val file = mediaStore.resolveEditable(project.id, managedPath)
+                val envelope = FileSeekableByteSource(file).use { source -> WaveformEnvelopeBuilder.build(WavPcmDecoder(source), WAVEFORM_POINTS) }
+                waveformCache.write(project.id, clip.id, envelope)
+                if (envelope.channelPeaks.size == 2) put(clip.id, envelope.channelPeaks)
+            }
+        }
     }
 
     private fun loadWaveforms(project: GuitarProject): Map<String, List<Float>> = buildMap {

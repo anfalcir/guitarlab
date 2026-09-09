@@ -29,17 +29,21 @@ Timeline, playback, non-destructive clip operations, Track Settings, Mixer/Maste
 - portable `.guitarlab` save/open with versioned manifest and safe extraction;
 - offline float master rendering;
 - output paths for WAV 32-bit float, FLAC and MP3 320 kbps;
-- dedicated Share icon/modal for project persistence and final audio export.
+- dedicated Share icon/modal for project persistence and final audio export;
+- visible import-processing feedback after SAF selection;
+- real per-channel stereo waveform display;
+- role-aware stereo import decision and synchronized guitar L/R distribution;
+- explicit non-destructive `Separar estéreo em 2 pistas mono`, distinct from temporal split.
 
 ### Remaining M5 work
 Only closure gates remain:
-1. alpha13 software gate on the exact candidate commit;
+1. alpha14 software gate on the exact candidate commit;
 2. signed APK certificate/hash/identity validation;
-3. physical alpha13 checklist on target Samsung, including representative media import, portable save/open and all three requested master formats;
+3. physical alpha14 checklist on target Samsung, including representative media import, portable save/open and all three requested master formats;
 4. corrective alpha only if a repeatable P0/P1 is found;
 5. explicit user declaration of M5 PASS/CLOSED.
 
-No new product feature should be added between alpha13 signing and physical homologation unless required to fix a gate failure.
+No new product feature should be added between alpha14 signing and physical homologation unless required to fix a gate failure.
 
 ## M6 — Measured latency and synchronization — BLOCKED
 Begins only after M5 closure. Planned order:
@@ -55,7 +59,7 @@ M6 does **not** own unfinished import/export/project-save work; that was pulled 
 ## M7 — Production audio polish
 After M6 synchronization is proven:
 - validated sample-rate conversion for mismatched source/project rates;
-- fades/crossfades and advanced clip polish;
+- fades/crossfades and advanced clip polish (stereo L/R separation is no longer pending here; it was pulled into M5);
 - export refinements such as additional formats/bit-depth options only when explicitly prioritized;
 - performance/memory work for larger sessions.
 
