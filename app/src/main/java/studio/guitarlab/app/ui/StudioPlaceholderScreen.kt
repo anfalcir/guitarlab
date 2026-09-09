@@ -3,6 +3,7 @@ package studio.guitarlab.app.ui
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -57,6 +58,9 @@ fun StudioPlaceholderScreen(
     projectId: String,
     onBack: () -> Unit,
     viewModel: StudioViewModel = viewModel(),
+    selectedTrackId: String? = null,
+    onSelectTrack: (String) -> Unit = {},
+    onShowMixer: (String) -> Unit = {},
 ) {
     val state by viewModel.state.collectAsState()
     var pendingTrackId by remember { mutableStateOf<String?>(null) }
@@ -93,6 +97,9 @@ fun StudioPlaceholderScreen(
                     editingClip = state.editingClip,
                     importStatus = state.importStatus,
                     error = state.error,
+                    selectedTrackId = selectedTrackId,
+                    onSelectTrack = onSelectTrack,
+                    onShowMixer = onShowMixer,
                     onImportWav = { trackId ->
                         if (!state.importing && !state.editingClip && state.trimControls == null && TransportPolicy.timelineEditingEnabled(state.transport)) {
                             pendingTrackId = trackId
@@ -154,6 +161,9 @@ private fun ProjectWorkspace(
     editingClip: Boolean,
     importStatus: String?,
     error: String?,
+    selectedTrackId: String?,
+    onSelectTrack: (String) -> Unit,
+    onShowMixer: (String) -> Unit,
     onImportWav: (String) -> Unit,
     onReturnToStart: () -> Unit,
     onPlayStop: () -> Unit,
@@ -222,9 +232,12 @@ private fun ProjectWorkspace(
                             clips = project.clips.filter { it.trackId == track.id },
                             waveforms = waveforms,
                             projectEndFrame = projectEndFrame,
+                            selected = track.id == selectedTrackId,
                             canImport = clipEditingEnabled,
                             canEditClip = clipEditingEnabled,
                             activeTrimClipId = trimControls?.clipId,
+                            onSelect = { onSelectTrack(track.id) },
+                            onShowMixer = { onShowMixer(track.id) },
                             onImportWav = { onImportWav(track.id) },
                             onBeginTrim = onBeginTrim,
                             onToggleMuted = onToggleClipMuted,
@@ -281,9 +294,12 @@ private fun StudioTrackLane(
     clips: List<AudioClip>,
     waveforms: Map<String, List<Float>>,
     projectEndFrame: Long,
+    selected: Boolean,
     canImport: Boolean,
     canEditClip: Boolean,
     activeTrimClipId: String?,
+    onSelect: () -> Unit,
+    onShowMixer: () -> Unit,
     onImportWav: () -> Unit,
     onBeginTrim: (String) -> Unit,
     onToggleMuted: (String) -> Unit,
@@ -295,9 +311,13 @@ private fun StudioTrackLane(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Surface(
-            modifier = Modifier.width(150.dp).fillMaxHeight(),
+            modifier = Modifier.width(150.dp).fillMaxHeight().clickable(onClick = onSelect),
             shape = RoundedCornerShape(8.dp),
-            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.88f),
+            color = if (selected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.34f) else MaterialTheme.colorScheme.surface.copy(alpha = 0.88f),
+            border = androidx.compose.foundation.BorderStroke(
+                1.dp,
+                if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.42f),
+            ),
         ) {
             Row(
                 modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp, vertical = 6.dp),
@@ -307,17 +327,27 @@ private fun StudioTrackLane(
                 Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
                     Text(track.name, style = MaterialTheme.typography.bodyMedium, maxLines = 1)
                     Text(
-                        roleName(track.roleId),
+                        "${roleName(track.roleId)}  ${if (track.muted) "M" else ""}${if (track.solo) " S" else ""}",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
                     )
                 }
-                TextButton(
-                    onClick = onImportWav,
-                    enabled = canImport,
-                    contentPadding = PaddingValues(horizontal = 5.dp, vertical = 0.dp),
-                ) { Text("+") }
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    TextButton(
+                        onClick = onImportWav,
+                        enabled = canImport,
+                        contentPadding = PaddingValues(horizontal = 5.dp, vertical = 0.dp),
+                        modifier = Modifier.height(28.dp),
+                    ) { Text("+") }
+                    if (selected) {
+                        TextButton(
+                            onClick = onShowMixer,
+                            contentPadding = PaddingValues(horizontal = 5.dp, vertical = 0.dp),
+                            modifier = Modifier.height(28.dp),
+                        ) { Text("≡") }
+                    }
+                }
             }
         }
 

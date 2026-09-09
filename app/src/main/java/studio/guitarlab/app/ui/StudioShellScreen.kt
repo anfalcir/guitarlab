@@ -16,13 +16,13 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import studio.guitarlab.core.project.TransportPolicy
 
 @Composable
 fun StudioShellScreen(
@@ -34,7 +34,7 @@ fun StudioShellScreen(
     val state by viewModel.state.collectAsState()
     var mixerVisible by rememberSaveable(projectId) { mutableStateOf(false) }
     var mixerPinned by rememberSaveable(projectId) { mutableStateOf(false) }
-    var selectedTrackId by remember(projectId) { mutableStateOf<String?>(null) }
+    var selectedTrackId by rememberSaveable(projectId) { mutableStateOf<String?>(null) }
 
     LaunchedEffect(projectId) { viewModel.load(projectId) }
     LaunchedEffect(state.project?.tracks) {
@@ -42,9 +42,24 @@ fun StudioShellScreen(
         if (selectedTrackId !in ids) selectedTrackId = ids.firstOrNull()
     }
 
+    val editingEnabled = !state.importing &&
+        !state.editingClip &&
+        state.trimControls == null &&
+        TransportPolicy.timelineEditingEnabled(state.transport)
+
     Column(Modifier.fillMaxSize()) {
         Box(Modifier.fillMaxWidth().weight(1f)) {
-            StudioPlaceholderScreen(projectId = projectId, onBack = onBack, viewModel = viewModel)
+            StudioPlaceholderScreen(
+                projectId = projectId,
+                onBack = onBack,
+                viewModel = viewModel,
+                selectedTrackId = selectedTrackId,
+                onSelectTrack = { selectedTrackId = it },
+                onShowMixer = { trackId ->
+                    selectedTrackId = trackId
+                    mixerVisible = true
+                },
+            )
             Surface(
                 modifier = Modifier.align(Alignment.TopEnd).padding(top = 8.dp, end = 118.dp),
                 shape = MaterialTheme.shapes.medium,
@@ -64,9 +79,14 @@ fun StudioShellScreen(
                 tracks = project.tracks,
                 selectedTrackId = selectedTrackId,
                 pinned = mixerPinned,
+                editingEnabled = editingEnabled,
                 onSelectTrack = { selectedTrackId = it },
                 onTogglePinned = { mixerPinned = !mixerPinned },
                 onClose = { if (!mixerPinned) mixerVisible = false },
+                onGainChanged = viewModel::setTrackGainDb,
+                onPanChanged = viewModel::setTrackPan,
+                onToggleMute = viewModel::toggleTrackMuted,
+                onToggleSolo = viewModel::toggleTrackSolo,
             )
         }
     }

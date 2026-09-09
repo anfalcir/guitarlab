@@ -15,10 +15,15 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -30,13 +35,18 @@ fun MixerDock(
     tracks: List<AudioTrack>,
     selectedTrackId: String?,
     pinned: Boolean,
+    editingEnabled: Boolean,
     onSelectTrack: (String) -> Unit,
     onTogglePinned: () -> Unit,
     onClose: () -> Unit,
+    onGainChanged: (String, Float) -> Unit,
+    onPanChanged: (String, Float) -> Unit,
+    onToggleMute: (String) -> Unit,
+    onToggleSolo: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Surface(
-        modifier = modifier.fillMaxWidth().height(218.dp),
+        modifier = modifier.fillMaxWidth().height(238.dp),
         shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
         color = MaterialTheme.colorScheme.surface,
         tonalElevation = 2.dp,
@@ -50,7 +60,7 @@ fun MixerDock(
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("Mixer", style = MaterialTheme.typography.titleMedium)
                     Text(
-                        "Track controls",
+                        if (editingEnabled) "Track mix" else "Locked during transport",
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -69,7 +79,12 @@ fun MixerDock(
                     MixerTrackStrip(
                         track = track,
                         selected = track.id == selectedTrackId,
+                        editingEnabled = editingEnabled,
                         onSelect = { onSelectTrack(track.id) },
+                        onGainChanged = { onGainChanged(track.id, it) },
+                        onPanChanged = { onPanChanged(track.id, it) },
+                        onToggleMute = { onToggleMute(track.id) },
+                        onToggleSolo = { onToggleSolo(track.id) },
                     )
                 }
                 MasterStrip()
@@ -79,36 +94,55 @@ fun MixerDock(
 }
 
 @Composable
-private fun MixerTrackStrip(track: AudioTrack, selected: Boolean, onSelect: () -> Unit) {
+private fun MixerTrackStrip(
+    track: AudioTrack,
+    selected: Boolean,
+    editingEnabled: Boolean,
+    onSelect: () -> Unit,
+    onGainChanged: (Float) -> Unit,
+    onPanChanged: (Float) -> Unit,
+    onToggleMute: () -> Unit,
+    onToggleSolo: () -> Unit,
+) {
+    var gainDraft by remember(track.id, track.gainDb) { mutableFloatStateOf(track.gainDb) }
+    var panDraft by remember(track.id, track.pan) { mutableFloatStateOf(track.pan) }
     val borderColor = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
     Surface(
-        modifier = Modifier.width(136.dp).fillMaxHeight().clip(RoundedCornerShape(12.dp)).clickable(onClick = onSelect),
+        modifier = Modifier.width(168.dp).fillMaxHeight().clip(RoundedCornerShape(12.dp)).clickable(onClick = onSelect),
         shape = RoundedCornerShape(12.dp),
         color = if (selected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.26f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.34f),
         border = androidx.compose.foundation.BorderStroke(1.dp, borderColor),
     ) {
         Column(
             Modifier.fillMaxHeight().padding(10.dp),
-            verticalArrangement = Arrangement.SpaceBetween,
+            verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-            Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                Text(track.name, style = MaterialTheme.typography.labelLarge, maxLines = 1)
-                Text(
-                    "${if (track.muted) "M" else "·"}  ${if (track.solo) "S" else "·"}  ${if (track.armed) "R" else "·"}",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(track.name, modifier = Modifier.weight(1f), style = MaterialTheme.typography.labelLarge, maxLines = 1)
+                Text(if (track.armed) "R" else "", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.error)
             }
-            Box(
-                Modifier.fillMaxWidth().height(52.dp).background(MaterialTheme.colorScheme.background.copy(alpha = 0.58f), RoundedCornerShape(8.dp)),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text("${track.gainDb.formatDb()} dB", style = MaterialTheme.typography.titleSmall)
+
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                TextButton(onClick = onToggleMute, enabled = editingEnabled) { Text(if (track.muted) "M✓" else "M") }
+                TextButton(onClick = onToggleSolo, enabled = editingEnabled) { Text(if (track.solo) "S✓" else "S") }
             }
-            Text(
-                "Pan ${track.pan.formatPan()}",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+
+            Text("${gainDraft.formatDb()} dB", style = MaterialTheme.typography.labelMedium)
+            Slider(
+                value = gainDraft,
+                onValueChange = { gainDraft = it },
+                onValueChangeFinished = { onGainChanged(gainDraft) },
+                enabled = editingEnabled,
+                valueRange = -60f..12f,
+            )
+
+            Text("Pan ${panDraft.formatPan()}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Slider(
+                value = panDraft,
+                onValueChange = { panDraft = it },
+                onValueChangeFinished = { onPanChanged(panDraft) },
+                enabled = editingEnabled,
+                valueRange = -1f..1f,
             )
         }
     }
@@ -128,7 +162,7 @@ private fun MasterStrip() {
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
                 Text("MASTER", style = MaterialTheme.typography.labelLarge)
-                Text("Output routing in Options", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Routing in Options", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Box(
                 Modifier.fillMaxWidth().height(52.dp).background(MaterialTheme.colorScheme.background.copy(alpha = 0.58f), RoundedCornerShape(8.dp)),

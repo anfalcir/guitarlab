@@ -2,13 +2,12 @@ package studio.guitarlab.platform.audio.android
 
 import android.media.AudioAttributes
 import android.media.AudioFormat
-import android.media.AudioManager
 import android.media.AudioTrack
 import java.io.File
 import kotlin.math.max
 import kotlin.math.min
-import kotlin.math.pow
 import studio.guitarlab.core.audio.PlaybackClockPolicy
+import studio.guitarlab.core.audio.TrackMixPolicy
 import studio.guitarlab.core.codec.FileSeekableByteSource
 import studio.guitarlab.core.codec.WavPcmDecoder
 
@@ -18,6 +17,7 @@ data class StudioPlaybackClip(
     val sourceStartFrame: Long,
     val lengthFrames: Long,
     val gainDb: Float = 0f,
+    val pan: Float = 0f,
     val muted: Boolean = false,
 )
 
@@ -150,7 +150,6 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
                 listener.onPosition(lastTimelineFrame)
             }
         } catch (_: InterruptedException) {
-            // Expected when Stop interrupts the playback worker.
         } catch (error: Throwable) {
             listener.onError(error.message ?: "Studio playback failed.")
         } finally {
@@ -174,7 +173,7 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
         private val source = FileSeekableByteSource(clip.file)
         private val decoder = WavPcmDecoder(source)
         private val channels = decoder.metadata.channelCount
-        private val gain = 10.0.pow(clip.gainDb.toDouble() / 20.0).toFloat()
+        private val stereoGain = TrackMixPolicy.channelGains(clip.gainDb, clip.pan)
 
         init {
             require(decoder.metadata.sampleRateHz == expectedSampleRateHz) {
@@ -199,13 +198,13 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
             for (frame in 0 until decoded) {
                 val dst = (destinationFrameOffset + frame) * 2
                 if (channels == 1) {
-                    val sample = temp[frame] * gain
-                    destinationStereo[dst] += sample
-                    destinationStereo[dst + 1] += sample
+                    val sample = temp[frame]
+                    destinationStereo[dst] += sample * stereoGain.left
+                    destinationStereo[dst + 1] += sample * stereoGain.right
                 } else {
                     val src = frame * 2
-                    destinationStereo[dst] += temp[src] * gain
-                    destinationStereo[dst + 1] += temp[src + 1] * gain
+                    destinationStereo[dst] += temp[src] * stereoGain.left
+                    destinationStereo[dst + 1] += temp[src + 1] * stereoGain.right
                 }
             }
         }

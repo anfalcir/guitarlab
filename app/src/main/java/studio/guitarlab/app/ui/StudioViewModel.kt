@@ -12,11 +12,13 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import studio.guitarlab.core.audio.TrackMixPolicy
 import studio.guitarlab.core.codec.FileSeekableByteSource
 import studio.guitarlab.core.codec.WavMetadataReader
 import studio.guitarlab.core.codec.WavPcmDecoder
 import studio.guitarlab.core.codec.WaveformEnvelopeBuilder
 import studio.guitarlab.core.model.AudioClip
+import studio.guitarlab.core.model.AudioTrack
 import studio.guitarlab.core.model.GuitarProject
 import studio.guitarlab.core.project.FileProjectRepository
 import studio.guitarlab.core.project.ProjectClipEditor
@@ -247,7 +249,6 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun startRecording() {
-        // M5 gate: recording is intentionally not armed by the M4 playback engine.
     }
 
     fun toggleClipMuted(clipId: String) {
@@ -259,6 +260,22 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
 
     fun removeClip(clipId: String) = editClip("Clip removed") { current ->
         ProjectClipEditor.removeClip(current, clipId, System.currentTimeMillis())
+    }
+
+    fun setTrackGainDb(trackId: String, gainDb: Float) {
+        editTrack("Track level updated", trackId) { it.copy(gainDb = gainDb.coerceIn(-60f, 12f)) }
+    }
+
+    fun setTrackPan(trackId: String, pan: Float) {
+        editTrack("Track pan updated", trackId) { it.copy(pan = pan.coerceIn(-1f, 1f)) }
+    }
+
+    fun toggleTrackMuted(trackId: String) {
+        editTrack("Track mute updated", trackId) { it.copy(muted = !it.muted) }
+    }
+
+    fun toggleTrackSolo(trackId: String) {
+        editTrack("Track solo updated", trackId) { it.copy(solo = !it.solo) }
     }
 
     override fun onCleared() {
@@ -275,6 +292,8 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
         }
         val end = TimelineControlPolicy.projectEndFrame(project)
         val requestedStart = if (!current.transport.loopEnabled && current.timelineControls.playheadFrame >= end) 0L else current.timelineControls.playheadFrame
+        val anySolo = project.tracks.any { it.solo }
+        val tracksById = project.tracks.associateBy { it.id }
         val request = runCatching {
             StudioPlaybackRequest(
                 sampleRateHz = readiness.sampleRateHz,
@@ -283,15 +302,18 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                 loopEnabled = current.transport.loopEnabled,
                 loopStartFrame = current.timelineControls.loopStartFrame,
                 loopEndFrame = current.timelineControls.loopEndFrame,
-                clips = project.clips.filterNot { it.muted }.map { clip ->
+                clips = project.clips.mapNotNull { clip ->
+                    val sourceTrack = tracksById[clip.trackId] ?: return@mapNotNull null
+                    if (clip.muted || !TrackMixPolicy.isAudible(sourceTrack.muted, sourceTrack.solo, anySolo)) return@mapNotNull null
                     val managedPath = requireNotNull(clip.managedSourcePath) { "Clip '${clip.name}' is not project-managed." }
                     StudioPlaybackClip(
                         file = mediaStore.resolve(project.id, managedPath),
                         timelineStartFrame = clip.startFrame,
                         sourceStartFrame = clip.sourceStartFrame,
                         lengthFrames = clip.lengthFrames,
-                        gainDb = clip.gainDb,
-                        muted = clip.muted,
+                        gainDb = clip.gainDb + sourceTrack.gainDb,
+                        pan = sourceTrack.pan,
+                        muted = false,
                     )
                 },
             )
@@ -372,9 +394,45 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
+    private fun editTrack(status: String, trackId: String, transform: (AudioTrack) -> AudioTrack) {
+        val currentState = _state.value
+        val current = currentState.project ?: return
+        if (currentState.importing || currentState.editingClip || currentState.trimControls != null || !TransportPolicy.timelineEditingEnabled(currentState.transport)) return
+        val target = current.tracks.firstOrNull { it.id == trackId } ?: return
+        val updated = transform(target)
+        viewModelScope.launch {
+            _state.value = _state.value.copy(editingClip = true, error = null, clipStatus = null)
+            runCatching {
+                withContext(Dispatchers.IO) {
+                    repository.save(
+                        current.copy(
+                            tracks = current.tracks.map { if (it.id == trackId) updated else it },
+                            updatedAtEpochMs = System.currentTimeMillis(),
+                        )
+                    )
+                }
+            }.onSuccess { saved ->
+                _state.value = _state.value.copy(
+                    editingClip = false,
+                    project = saved,
+                    transportEngineReady = playbackReadiness(saved).ready,
+                    clipStatus = status,
+                )
+            }.onFailure { error ->
+                _state.value = _state.value.copy(editingClip = false, error = error.message ?: "Track mix update failed.")
+            }
+        }
+    }
+
     private fun playbackReadiness(project: GuitarProject): PlaybackReadiness {
-        val audible = project.clips.filterNot { it.muted }
-        if (audible.isEmpty()) return PlaybackReadiness(false, reason = "Add or unmute a managed WAV clip before playback.")
+        val anySolo = project.tracks.any { it.solo }
+        val tracksById = project.tracks.associateBy { it.id }
+        val audible = project.clips.filter { clip ->
+            if (clip.muted) return@filter false
+            val track = tracksById[clip.trackId] ?: return@filter false
+            TrackMixPolicy.isAudible(track.muted, track.solo, anySolo)
+        }
+        if (audible.isEmpty()) return PlaybackReadiness(false, reason = "Add or unmute a playable track before playback.")
         if (audible.any { it.managedSourcePath.isNullOrBlank() || it.sourceFormat != "WAV" }) {
             return PlaybackReadiness(false, reason = "M4 playback currently requires project-managed WAV clips.")
         }
