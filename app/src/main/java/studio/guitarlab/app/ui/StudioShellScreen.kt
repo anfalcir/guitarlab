@@ -44,6 +44,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import studio.guitarlab.core.model.GuitarProject
@@ -114,7 +117,12 @@ fun StudioShellScreen(
         TransportPolicy.timelineEditingEnabled(state.transport)
     val mixControlsEnabled = !state.importing && !state.editingClip && !state.historyBusy && !state.exporting && state.trimControls == null
 
-    Box(Modifier.fillMaxSize()) {
+    Box(
+        Modifier
+            .fillMaxSize()
+            .semantics { testTagsAsResourceId = true }
+            .testTag(if (state.project != null) "studio-loaded" else "studio-loading"),
+    ) {
         Column(Modifier.fillMaxSize()) {
             val topBarProject = state.project
             val topBarEnd = topBarProject?.let(TimelineControlPolicy::projectEndFrame) ?: 0L
@@ -290,7 +298,7 @@ private fun StudioTopBar(
 
             Row(horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.CenterVertically) {
                 AppIconButton(icon = Icons.Default.Equalizer, contentDescription = "Mixer", onClick = onMixer)
-                AppIconButton(icon = Icons.Default.Tune, contentDescription = "Opções", onClick = onOptions)
+                AppIconButton(icon = Icons.Default.Tune, contentDescription = "Opções", onClick = onOptions, modifier = Modifier.testTag("studio-options"))
                 AppIconButton(icon = Icons.Default.Share, contentDescription = "Salvar e exportar", enabled = project != null, onClick = onShare)
                 AppIconButton(icon = Icons.Default.Home, contentDescription = "Início", onClick = onHome)
             }
