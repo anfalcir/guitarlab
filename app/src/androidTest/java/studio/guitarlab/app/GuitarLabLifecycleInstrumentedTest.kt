@@ -1,7 +1,5 @@
 package studio.guitarlab.app
 
-import androidx.compose.ui.test.assertDoesNotExist
-import androidx.compose.ui.test.assertExists
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.hasSetTextAction
@@ -87,6 +85,15 @@ class GuitarLabLifecycleInstrumentedTest {
             composeRule.onNodeWithContentDescription("Voltar").performClick()
             waitForTag("studio-loaded")
             assertEquals(projectName, repository.load(projectId)?.name)
+
+            // Renaming intentionally lives only on Home. Prove the Studio pencil/control is absent
+            // while the Home overflow action remains available and opens the shared dialog.
+            composeRule.onNodeWithContentDescription("Início").performClick()
+            composeRule.onNodeWithText(projectName).assertIsDisplayed()
+            composeRule.onNodeWithContentDescription("Mais ações").performClick()
+            composeRule.onNodeWithText("Renomear").assertIsDisplayed().performClick()
+            composeRule.onNodeWithText("Renomear projeto").assertIsDisplayed()
+            composeRule.onNodeWithText("Cancelar").performClick()
         } finally {
             projectId?.let { runCatching { repository.delete(it) } }
         }

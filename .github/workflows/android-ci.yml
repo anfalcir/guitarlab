@@ -186,6 +186,10 @@ jobs:
           chmod +x scripts/materialize_ci_sources.sh
           scripts/materialize_ci_sources.sh
 
+      - name: Compile Android instrumentation tests
+        shell: bash
+        run: gradle --no-daemon --console=plain --stacktrace :app:compileDebugAndroidTestKotlin
+
       - name: Enable KVM
         shell: bash
         run: |
