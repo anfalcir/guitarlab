@@ -89,6 +89,7 @@ class ProjectBundleReader(
         val root = destination.canonicalFile
         var totalBytes = 0L
         var entries = 0
+        val extractedPaths = mutableSetOf<String>()
         ZipInputStream(input.buffered()).use { zip ->
             var entry = zip.nextEntry
             while (entry != null) {
@@ -97,6 +98,10 @@ class ProjectBundleReader(
                 val name = entry.name.replace('\\', '/')
                 require(name.isNotBlank() && !name.startsWith("/") && !name.contains("../")) {
                     "Pacote GuitarLab contém caminho inválido."
+                }
+                val normalizedName = name.trimEnd('/')
+                require(normalizedName.isNotBlank() && extractedPaths.add(normalizedName)) {
+                    "Pacote GuitarLab contém caminho duplicado."
                 }
                 val target = File(root, name).canonicalFile
                 require(target.path == root.path || target.path.startsWith(root.path + File.separator)) {
