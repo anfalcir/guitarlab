@@ -222,9 +222,9 @@ jobs:
             echo "commit=${GITHUB_SHA}"
             echo "versionName=${APP_VERSION_NAME}"
             echo "versionCode=${APP_VERSION_CODE}"
-            echo "milestone=M6-physical-homologation-candidate"
+            echo "milestone=M7-physical-homologation-candidate"
             echo "gate=alpha1-awaiting-physical-validation"
-            echo "hardwareBaseline=M5-alpha14-physical-pass"
+            echo "hardwareBaseline=M6-alpha1-physical-pass"
             echo "certificateSha256=${EXPECTED_CERT_SHA256}"
           } > deliverables/BUILD_IDENTITY.txt
 
