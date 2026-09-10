@@ -1,6 +1,6 @@
 # Implementation Roadmap
 
-Updated: 2026-09-09
+Updated: 2026-09-10
 
 ## M1 — Project/model foundation — CLOSED
 Project model, templates, persistence baseline and repository structure.
@@ -42,10 +42,22 @@ Closed after explicit user physical approval of `0.3.0-alpha1`. Loopback calibra
 7. zero repeatable P0/P1 plus explicit user M7 PASS/CLOSED.
 
 ## M8 — Release hardening
-- migration/compatibility matrix;
-- accessibility/device-size polish;
-- crash/edge-case hardening;
-- packaging, release notes and distribution gate.
+### M8.A — Compatibility + edge cases — IN PROGRESS
+- exact-source CI snapshot for reproducible Work/CI QA;
+- global regression matrix and evidence discipline;
+- project duplication now copies managed original/proxy media transactionally;
+- malformed/truncated package cleanup regression;
+- M7 editing-domain, fade and frame-overflow validation;
+- expanded SRC conversion matrix and deterministic master render tests.
+
+### M8.B — UX + accessibility + performance — PENDING
+- instrumented Compose accessibility and multi-configuration layout suite;
+- bounded large-session benchmarks and memory evidence;
+- lifecycle/process-recreation tests.
+
+### M8.C — Release Candidate — BLOCKED
+- blocked until M8.A/B automated gates are complete and the residual M7 physical gate passes;
+- packaging, release notes and distribution identity remain required.
 
 ## Gate discipline
 Each milestone advances only after software and required physical gates pass. `CURRENT_STATE.md` and this roadmap are canonical.
