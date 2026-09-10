@@ -733,6 +733,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
         val transaction = recordingTransaction ?: return resetRecording("A transação do take foi perdida.")
         recordingTransaction = null
         viewModelScope.launch {
+            var committed = false
             runCatching {
                 withContext(Dispatchers.IO) {
                     recordingMediaStore.commit(transaction)
@@ -772,8 +773,12 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                         WaveformEnvelopeBuilder.build(WavPcmDecoder(source), WAVEFORM_POINTS)
                     }
                     waveformCache.write(saved.id, clip.id, envelope)
-                    val persisted = repository.save(saved)
-                    projectHistory.record(before, persisted)
+                    val persisted = withContext(NonCancellable) {
+                        repository.save(saved).also {
+                            committed = true
+                            projectHistory.record(before, it)
+                        }
+                    }
                     Triple(persisted, clip, envelope.peaks)
                 }
             }.onSuccess { (saved, clip, peaks) ->
@@ -799,7 +804,10 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                     error = result.message?.takeIf { result.partial },
                 )
             }.onFailure { error ->
-                recordingMediaStore.discard(transaction)
+                if (!committed) {
+                    waveformCache.remove(transaction.projectId, transaction.id)
+                    recordingMediaStore.discard(transaction)
+                }
                 resetRecording(error.message ?: "Não foi possível integrar o take ao projeto.")
             }
         }
