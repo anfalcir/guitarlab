@@ -44,6 +44,20 @@ jobs:
           chmod +x scripts/materialize_ci_sources.sh
           scripts/materialize_ci_sources.sh
 
+      - name: Improve anchor diagnostics
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('tools/m7_integrate.py')
+          t = p.read_text()
+          old = 'raise SystemExit(f"{path}: anchor not found enough times ({found} < {count})")'
+          new = 'raise SystemExit(f"{path}: anchor not found enough times ({found} < {count}); anchor={old[:180]!r}")'
+          if old not in t:
+              raise SystemExit('diagnostic anchor not found')
+          p.write_text(t.replace(old, new, 1))
+          PY
+
       - name: Integrate M7 sources
         shell: bash
         run: python3 tools/m7_integrate.py
