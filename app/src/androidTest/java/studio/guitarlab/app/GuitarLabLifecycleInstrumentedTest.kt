@@ -65,21 +65,21 @@ class GuitarLabLifecycleInstrumentedTest {
             assertEquals(projectName, repository.load(projectId)?.name)
 
             // Studio intentionally has continuously changing UI (meters/clock), so Compose/Espresso
-            // may never become globally idle. Observe the exported test tag through UiAutomator,
-            // which validates the real accessibility tree without requiring Compose idleness.
-            assertTrue("Studio must load the persisted project", waitForResource("studio-loaded"))
+            // may never become globally idle. Observe the actual persisted project title through
+            // UiAutomator; this validates user-visible Studio state without synthetic test tags.
+            assertTrue("Studio must render the persisted project", waitForText(projectName))
             assertFalse("Rename must stay out of Studio", device.hasObject(By.desc("Renomear projeto")))
 
             // Recreate the Activity from Studio. The saveable route must survive Android
             // configuration recreation and still render the persisted project state.
             composeRule.activityRule.scenario.recreate()
-            assertTrue("Studio route must survive Activity recreation", waitForResource("studio-loaded"))
+            assertTrue("Studio route must survive Activity recreation", waitForText(projectName))
             assertEquals(projectName, repository.load(projectId)?.name)
 
             // Project-scoped Options embeds the project id in the saveable route. Recreate there,
             // then return to Studio. AppRouteCodec JVM tests separately prove exact project-id
             // encode/decode; this path proves Android route save/restore + repository persistence.
-            val options = device.wait(Until.findObject(By.res("studio-options")), UI_TIMEOUT_MS)
+            val options = device.wait(Until.findObject(By.desc("Opções")), UI_TIMEOUT_MS)
             assertNotNull("Studio must expose Options after recreation", options)
             options!!.click()
             composeRule.onNodeWithText("Opções").assertIsDisplayed()
@@ -88,7 +88,7 @@ class GuitarLabLifecycleInstrumentedTest {
             composeRule.waitForIdle()
             composeRule.onNodeWithText("Opções").assertIsDisplayed()
             composeRule.onNodeWithContentDescription("Voltar").performClick()
-            assertTrue("Back from project-scoped Options must restore Studio", waitForResource("studio-loaded"))
+            assertTrue("Back from project-scoped Options must restore Studio", waitForText(projectName))
             assertEquals(projectName, repository.load(projectId)?.name)
 
             // Renaming intentionally lives only on Home. Prove the Studio pencil/control is absent
@@ -123,8 +123,8 @@ class GuitarLabLifecycleInstrumentedTest {
         return null
     }
 
-    private fun waitForResource(resourceName: String): Boolean =
-        device.wait(Until.hasObject(By.res(resourceName)), UI_TIMEOUT_MS)
+    private fun waitForText(text: String): Boolean =
+        device.wait(Until.hasObject(By.text(text)), UI_TIMEOUT_MS)
 
     private companion object {
         const val UI_TIMEOUT_MS = 10_000L
