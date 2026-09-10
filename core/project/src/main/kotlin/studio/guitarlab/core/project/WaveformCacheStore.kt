@@ -11,25 +11,29 @@ class WaveformCacheStore(private val rootDirectory: File) {
     fun write(projectId: String, clipId: String, envelope: WaveformEnvelope) {
         val destination = cacheFile(projectId, clipId).also { it.parentFile?.mkdirs() }
         val temporary = File(destination.parentFile, ".${destination.name}.part")
-        DataOutputStream(temporary.outputStream().buffered()).use { output ->
-            output.writeInt(MAGIC)
-            output.writeInt(envelope.peaks.size)
-            envelope.peaks.forEach(output::writeFloat)
-            output.writeInt(envelope.channelPeaks.size)
-            envelope.channelPeaks.forEach { channel ->
-                output.writeInt(channel.size)
-                channel.forEach(output::writeFloat)
-            }
-        }
         try {
-            Files.move(
-                temporary.toPath(),
-                destination.toPath(),
-                StandardCopyOption.REPLACE_EXISTING,
-                StandardCopyOption.ATOMIC_MOVE,
-            )
-        } catch (_: Exception) {
-            Files.move(temporary.toPath(), destination.toPath(), StandardCopyOption.REPLACE_EXISTING)
+            DataOutputStream(temporary.outputStream().buffered()).use { output ->
+                output.writeInt(MAGIC)
+                output.writeInt(envelope.peaks.size)
+                envelope.peaks.forEach(output::writeFloat)
+                output.writeInt(envelope.channelPeaks.size)
+                envelope.channelPeaks.forEach { channel ->
+                    output.writeInt(channel.size)
+                    channel.forEach(output::writeFloat)
+                }
+            }
+            try {
+                Files.move(
+                    temporary.toPath(),
+                    destination.toPath(),
+                    StandardCopyOption.REPLACE_EXISTING,
+                    StandardCopyOption.ATOMIC_MOVE,
+                )
+            } catch (_: Exception) {
+                Files.move(temporary.toPath(), destination.toPath(), StandardCopyOption.REPLACE_EXISTING)
+            }
+        } finally {
+            temporary.delete()
         }
     }
 
@@ -58,11 +62,25 @@ class WaveformCacheStore(private val rootDirectory: File) {
         cacheFile(projectId, clipId).delete()
     }
 
+    /** Removes only regenerable waveform entries not referenced by the current project snapshot. */
+    fun prune(projectId: String, retainedClipIds: Set<String>): Int {
+        val retainedNames = retainedClipIds.mapTo(mutableSetOf()) { "${sanitize(it)}.glwf" }
+        val directory = cacheDirectory(projectId)
+        var removed = 0
+        directory.listFiles().orEmpty().forEach { file ->
+            if (file.isFile && file.extension == "glwf" && file.name !in retainedNames && file.delete()) removed++
+        }
+        return removed
+    }
+
     private fun cacheFile(projectId: String, clipId: String): File {
         val safeProject = sanitize(projectId)
         val safeClip = sanitize(clipId)
-        return File(rootDirectory, "projects/$safeProject/media/derived/waveform/$safeClip.glwf")
+        return File(cacheDirectory(projectId), "$safeClip.glwf")
     }
+
+    private fun cacheDirectory(projectId: String): File =
+        File(rootDirectory, "projects/${sanitize(projectId)}/media/derived/waveform")
 
     private fun sanitize(value: String): String = value.replace(Regex("[^A-Za-z0-9._-]"), "_")
 
