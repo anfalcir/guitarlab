@@ -44,18 +44,43 @@ jobs:
           chmod +x scripts/materialize_ci_sources.sh
           scripts/materialize_ci_sources.sh
 
-      - name: Improve anchor diagnostics
+      - name: Harden integrator anchors
         shell: bash
         run: |
           python3 - <<'PY'
           from pathlib import Path
           p = Path('tools/m7_integrate.py')
           t = p.read_text()
-          old = 'raise SystemExit(f"{path}: anchor not found enough times ({found} < {count})")'
-          new = 'raise SystemExit(f"{path}: anchor not found enough times ({found} < {count}); anchor={old[:180]!r}")'
-          if old not in t:
-              raise SystemExit('diagnostic anchor not found')
-          p.write_text(t.replace(old, new, 1))
+          diag_old = 'raise SystemExit(f"{path}: anchor not found enough times ({found} < {count})")'
+          diag_new = 'raise SystemExit(f"{path}: anchor not found enough times ({found} < {count}); anchor={old[:180]!r}")'
+          if diag_old in t:
+              t = t.replace(diag_old, diag_new, 1)
+          start = "replace(p, '''                            sourceSampleRateHz = metadata.sampleRateHz,"
+          end = "''')\n# Import status should report"
+          a = t.find(start)
+          b = t.find(end, a)
+          if a < 0 or b < 0:
+              raise SystemExit('StudioViewModel source metadata replacement block not found')
+          corrected = '''replace(p, '''\"\"\"                            sourceTotalFrames = metadata.totalFrames,
+                            sourceFormat = originalFormat.displayName,
+                            sourceSampleRateHz = metadata.sampleRateHz,
+                            sourceChannelCount = metadata.channelCount,
+                            sourceBitsPerSample = sourceBits,
+                            sourceEncoding = sourceEncoding,
+\"\"\"''', '''\"\"\"                            sourceTotalFrames = sourceMetadata.totalFrames,
+                            sourceFormat = originalFormat.displayName,
+                            sourceSampleRateHz = sourceMetadata.sampleRateHz,
+                            sourceChannelCount = sourceMetadata.channelCount,
+                            sourceBitsPerSample = sourceBits,
+                            sourceEncoding = sourceEncoding,
+                            editingSampleRateHz = metadata.sampleRateHz,
+                            editingTotalFrames = metadata.totalFrames,
+\"\"\"''')
+'''
+          # turn escaped triple markers back into the integrator's native triple-single-quoted literals
+          corrected = corrected.replace("'''\\\"\\\"\\\"", "'''").replace("\\\"\\\"\\\"'''", "'''")
+          t = t[:a] + corrected + t[b+4:]
+          p.write_text(t)
           PY
 
       - name: Integrate M7 sources
