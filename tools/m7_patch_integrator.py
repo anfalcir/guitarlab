@@ -8,6 +8,7 @@ diag_new = 'raise SystemExit(f"{path}: anchor not found enough times ({found} < 
 if diag_old in t:
     t = t.replace(diag_old, diag_new, 1)
 
+# StudioViewModel source/editing-rate metadata block: actual source field order on M6 baseline.
 start = "replace(p, '''                            sourceSampleRateHz = metadata.sampleRateHz,"
 end_marker = "# Import status should report"
 a = t.find(start)
@@ -31,4 +32,12 @@ replacement = """replace(p, '''                            sourceTotalFrames = m
 ''')
 """
 t = t[:a] + replacement + t[b:]
+
+# StudioTrackLane's actual signature places trackIndex immediately after onSplitStereo.
+bad = "replace(p, '''    onSplitStereo: (String) -> Unit,\n    onTrackDragStart:''', '''    onSplitStereo: (String) -> Unit,\n    onOpenFades: (String) -> Unit,\n    onCrossfade: (String) -> Unit,\n    onTrackDragStart:''')"
+good = "replace(p, '''    onSplitStereo: (String) -> Unit,\n    trackIndex: Int,''', '''    onSplitStereo: (String) -> Unit,\n    onOpenFades: (String) -> Unit,\n    onCrossfade: (String) -> Unit,\n    trackIndex: Int,''')"
+if bad not in t:
+    raise SystemExit('StudioTrackLane callback transform anchor not found in integrator')
+t = t.replace(bad, good, 1)
+
 p.write_text(t)
