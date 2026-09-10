@@ -1,5 +1,6 @@
 package studio.guitarlab.core.project
 
+import java.io.File
 import studio.guitarlab.core.model.ProjectFactory
 import studio.guitarlab.core.model.ProjectTemplate
 import java.nio.file.Files
