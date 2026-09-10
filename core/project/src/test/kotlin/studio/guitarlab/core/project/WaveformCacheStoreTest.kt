@@ -40,4 +40,19 @@ class WaveformCacheStoreTest {
             assertTrue(unrelated.isFile)
         } finally { root.deleteRecursively() }
     }
+
+    @Test
+    fun distinctUnsafeClipIdsNeverShareACacheFile() {
+        val root = Files.createTempDirectory("guitarlab-waveform-key").toFile()
+        try {
+            val store = WaveformCacheStore(root)
+            val first = WaveformEnvelope(listOf(0.1f))
+            val second = WaveformEnvelope(listOf(0.9f))
+            store.write("project", "a/b", first)
+            store.write("project", "a?b", second)
+
+            assertEquals(first, store.read("project", "a/b"))
+            assertEquals(second, store.read("project", "a?b"))
+        } finally { root.deleteRecursively() }
+    }
 }
