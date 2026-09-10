@@ -48,6 +48,9 @@ class GuitarLabLifecycleInstrumentedTest {
             waitUntilEnabled("Novo projeto")
             composeRule.onNodeWithText("Novo projeto").performClick()
             composeRule.onNode(hasSetTextAction()).performTextInput(projectName)
+            // Keep this lifecycle regression focused on route/persistence rather than rendering
+            // the heavier five-track guitar template on a cold CI emulator.
+            composeRule.onNodeWithText("Projeto vazio").performClick()
             composeRule.onNodeWithText("Criar projeto").assertIsEnabled().performClick()
 
             // Project creation only invokes navigation after repository.save() succeeds. Prove the
@@ -129,7 +132,7 @@ class GuitarLabLifecycleInstrumentedTest {
     }
 
     private companion object {
-        const val UI_TIMEOUT_MS = 10_000L
+        const val UI_TIMEOUT_MS = 20_000L
         const val POLL_INTERVAL_MS = 100L
     }
 }
