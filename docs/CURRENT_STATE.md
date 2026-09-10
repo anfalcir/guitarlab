@@ -11,6 +11,7 @@ Updated: 2026-09-09
 - M5: PASS/CLOSED
 - M6: **PASS/CLOSED by explicit user physical approval of 0.3.0-alpha1**
 - M7: implementation candidate `0.4.0-alpha1`, versionCode 17; **OPEN pending physical homologation**
+- M7 integration gate: unit tests, Android Lint and debug APK assembly passed on the validated integration run. Exact final-candidate signing/packaging remains required before physical delivery.
 
 ## M7 production audio polish
 M7 closes the previously documented production-audio-polish block: mismatched sample-rate conversion, non-destructive fades/crossfades, render parity and larger-session memory discipline. It also incorporates the approved workflow polish of Rename + shared `Salvar e exportar` directly from each project row on Home.
