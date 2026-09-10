@@ -7,6 +7,7 @@ Updated: 2026-09-09
 - Branch: `dev/parallel-m3-m5` (historical branch name retained to avoid destabilizing the active PR)
 - Draft PR: #1
 - Candidate under construction: `0.3.0-alpha1`, versionCode 16
+- M6 implementation baseline: `62868366c515becb0314b644d794728f775d83d1`; exact signed candidate SHA is established only after the final CI/signing gate closes.
 - M2: PASS/CLOSED on Samsung SM-X230 Android 16/API 36 + Pocket Amp USB
 - M3/M4: absorbed
 - M5: **PASS/CLOSED by user physical approval of alpha14**
