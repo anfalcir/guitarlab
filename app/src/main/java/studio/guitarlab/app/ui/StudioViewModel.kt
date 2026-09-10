@@ -73,9 +73,8 @@ import studio.guitarlab.platform.audio.android.StudioPlaybackRequest
 import studio.guitarlab.platform.audio.android.StudioPlaybackRoutingStatus
 import studio.guitarlab.platform.audio.android.StudioPlaybackTrackMeter
 import studio.guitarlab.platform.audio.android.StudioPlaybackTrackMix
-import studio.guitarlab.platform.audio.android.StudioMasterRenderClip
 import studio.guitarlab.platform.audio.android.StudioMasterRenderRequest
-import studio.guitarlab.platform.audio.android.StudioMasterRenderTrack
+import studio.guitarlab.platform.audio.android.StudioMasterRenderRequestFactory
 import studio.guitarlab.platform.audio.android.StudioMasterRenderer
 import studio.guitarlab.platform.codec.android.AndroidAudioImportTranscoder
 import studio.guitarlab.platform.codec.android.AndroidMasterAudioEncoder
@@ -1670,31 +1669,9 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     private fun masterRenderRequest(project: GuitarProject, sampleRateHz: Int): StudioMasterRenderRequest {
-        val anySolo = project.tracks.any { it.solo }
-        val audibleTracks = project.tracks.filter { TrackMixPolicy.isAudible(it.muted, it.solo, anySolo) }
-        val audibleIds = audibleTracks.map { it.id }.toSet()
-        val clips = project.clips.mapNotNull { clip ->
-            if (clip.muted || clip.trackId !in audibleIds) return@mapNotNull null
-            val path = editingMediaPathOrNull(clip) ?: return@mapNotNull null
-            StudioMasterRenderClip(
-                file = mediaStore.resolveEditable(project.id, path),
-                trackId = clip.trackId,
-                timelineStartFrame = clip.startFrame,
-                sourceStartFrame = clip.sourceStartFrame,
-                lengthFrames = clip.lengthFrames,
-                gainDb = clip.gainDb,
-                fadeInFrames = clip.fadeInFrames,
-                fadeOutFrames = clip.fadeOutFrames,
-            )
+        return StudioMasterRenderRequestFactory.create(project, sampleRateHz) {
+            mediaStore.resolveEditable(project.id, it)
         }
-        require(clips.isNotEmpty()) { "Não há áudio audível para exportar." }
-        return StudioMasterRenderRequest(
-            sampleRateHz = sampleRateHz,
-            projectEndFrame = TimelineControlPolicy.projectEndFrame(project),
-            clips = clips,
-            trackMixes = audibleTracks.map { StudioMasterRenderTrack(it.id, it.gainDb, it.pan) },
-            masterGainDb = project.masterGainDb,
-        )
     }
 
     private fun editingMediaPath(clip: AudioClip): String = requireNotNull(editingMediaPathOrNull(clip)) {
