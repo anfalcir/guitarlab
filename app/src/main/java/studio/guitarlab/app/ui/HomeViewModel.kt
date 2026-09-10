@@ -68,8 +68,8 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                     repository.save(project)
                 }
             }.onSuccess { project ->
-                refresh()
                 onCreated(project.id)
+                refresh()
             }.onFailure { error ->
                 _state.update { it.copy(error = error.message ?: "Não foi possível criar o projeto.") }
             }
@@ -86,8 +86,8 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                     input.use { bundleReader.read(it) }
                 }
             }.onSuccess { project ->
-                refresh()
                 onImported(project.id)
+                refresh()
             }.onFailure { error ->
                 _state.update { current ->
                     current.copy(
