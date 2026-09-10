@@ -8,6 +8,7 @@ import kotlinx.coroutines.withContext
 import studio.guitarlab.core.project.FileProjectRepository
 import studio.guitarlab.core.project.ProjectBundleWriter
 import studio.guitarlab.core.project.ProjectManagedMediaStore
+import studio.guitarlab.core.project.StagedFilePublisher
 import studio.guitarlab.platform.audio.android.StudioMasterRenderRequestFactory
 import studio.guitarlab.platform.audio.android.StudioMasterRenderer
 import studio.guitarlab.platform.codec.android.AndroidMasterAudioEncoder
@@ -25,9 +26,7 @@ class ProjectExportService(private val context: Context) {
                 ProjectBundleWriter().write(project, mediaStore.projectDirectoryForExport(project.id), it)
             }
             require(staged.length() > 0L) { "O pacote GuitarLab gerado está vazio." }
-            val output = context.contentResolver.openOutputStream(uri, "w")
-                ?: error("O Android não conseguiu criar o arquivo do projeto.")
-            output.use { target -> staged.inputStream().buffered().use { it.copyTo(target) } }
+            publishStaged(uri, staged, "O Android não conseguiu criar o arquivo do projeto.")
         } finally {
             staged.delete()
         }
@@ -46,12 +45,23 @@ class ProjectExportService(private val context: Context) {
             StudioMasterRenderer.renderFloatWav(request, floatWav)
             if (format != MasterExportFormat.WAV_FLOAT32) AndroidMasterAudioEncoder.encode(floatWav, encoded, format)
             val source = if (format == MasterExportFormat.WAV_FLOAT32) floatWav else encoded
-            val output = context.contentResolver.openOutputStream(uri, "w") ?: error("O Android não conseguiu criar o arquivo exportado.")
-            output.use { target -> source.inputStream().buffered().use { it.copyTo(target) } }
+            publishStaged(uri, source, "O Android não conseguiu criar o arquivo exportado.")
         } finally {
             floatWav.delete()
             if (encoded != floatWav) encoded.delete()
         }
     }
 
+    private suspend fun publishStaged(uri: Uri, source: File, openError: String) {
+        val resolver = context.contentResolver
+        StagedFilePublisher.publish(
+            source = source,
+            openDestination = {
+                resolver.openOutputStream(uri, "wt") ?: error(openError)
+            },
+            resetDestination = {
+                resolver.openOutputStream(uri, "wt")?.use { } ?: error("Não foi possível limpar o arquivo parcial.")
+            },
+        )
+    }
 }
