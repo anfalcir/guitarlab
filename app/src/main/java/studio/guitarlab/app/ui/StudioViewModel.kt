@@ -219,17 +219,28 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                         }
                         var finalEditingFile = editingFile
                         var finalProxyPath = proxyPath
-                        var resampleTemp: File? = null
                         if (sourceMetadata.sampleRateHz != targetRate) {
-                            resampleTemp = File.createTempFile("guitarlab-resample-", ".wav", getApplication<Application>().cacheDir)
-                            WavSampleRateConverter.convert(editingFile, resampleTemp, targetRate)
-                            val resampledProxy = resampleTemp.inputStream().buffered().use { mediaStore.ingestEditProxy(current.id, "${displayName}-sr${targetRate}.wav", it) }
-                            finalProxyPath?.let { oldPath -> if (oldPath != resampledProxy.relativePath) mediaStore.discardUncommitted(current.id, oldPath) }
-                            finalProxyPath = resampledProxy.relativePath
-                            proxyPath = finalProxyPath
-                            finalEditingFile = resampledProxy.file
+                            val resampleTemp = File.createTempFile("guitarlab-resample-", ".wav", getApplication<Application>().cacheDir)
+                            try {
+                                WavSampleRateConverter.convert(editingFile, resampleTemp, targetRate)
+                                val resampledProxy = resampleTemp.inputStream().buffered().use {
+                                    mediaStore.ingestEditProxy(current.id, "${displayName}-sr${targetRate}.wav", it)
+                                }
+                                val supersededProxyPath = finalProxyPath
+                                // Register ownership before any cleanup that may fail so the outer
+                                // rollback always knows which newly-created proxy it must remove.
+                                finalProxyPath = resampledProxy.relativePath
+                                proxyPath = resampledProxy.relativePath
+                                finalEditingFile = resampledProxy.file
+                                supersededProxyPath?.let { oldPath ->
+                                    if (oldPath != resampledProxy.relativePath) {
+                                        mediaStore.discardUncommitted(current.id, oldPath)
+                                    }
+                                }
+                            } finally {
+                                resampleTemp.delete()
+                            }
                         }
-                        resampleTemp?.delete()
                         val metadata = FileSeekableByteSource(finalEditingFile).use { WavMetadataReader().read(it) }
                         val clipId = UUID.randomUUID().toString().also { importedClipId = it }
                         val envelope = FileSeekableByteSource(finalEditingFile).use { source -> WaveformEnvelopeBuilder.build(WavPcmDecoder(source), WAVEFORM_POINTS) }
