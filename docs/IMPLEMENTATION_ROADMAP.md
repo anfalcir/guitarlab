@@ -15,37 +15,31 @@ Codec/import work was consolidated into M5.
 Timeline, playback, editing, Mixer/Master and project interaction foundations are integrated.
 
 ## M5 — Reliable recording + Studio consolidation + Media I/O — PASS/CLOSED
-Closed after user physical approval of `0.2.0-alpha14`. Recording, managed takes, media import, stereo L/R handling, portable project persistence, master export, drag/edit UX and M5 corrective gates are no longer pending.
+Closed after user physical approval of `0.2.0-alpha14`.
 
-## M6 — Measured latency and synchronization — ACTIVE PHYSICAL GATE
-### Implemented
-- reproducible loopback round-trip measurement harness;
-- simultaneous AudioTrack/AudioRecord measurement with monotonic audio timestamp correlation;
-- repeated-pass median latency, confidence, jitter and drift characterization;
-- route + sample-rate scoped persistence of accepted calibration;
-- measured frame-domain take-placement compensation with timeline-zero handling;
-- safe zero-compensation fallback when calibration is missing/rejected;
-- exact marker time labels and top-bar remaining/total transport indication;
-- live Mute/Solo during PLAY and REC;
-- persistent project renaming.
+## M6 — Measured latency and synchronization — PASS/CLOSED
+Closed after explicit user physical approval of `0.3.0-alpha1`. Loopback calibration, route-scoped compensation, clocks, live Mute/Solo and project rename are no longer pending.
 
-### Remaining M6 work
-Only closure gates remain:
-1. exact-candidate unit/Lint/debug/signing gates;
-2. physical loopback calibration on Samsung SM-X230 + Pocket Amp route;
-3. repeat calibration and verify jitter/drift acceptance behavior;
-4. record known transient against backing and verify compensated take placement;
-5. verify route change does not reuse an unrelated calibration;
-6. regress PLAY/REC, loop, marker clocks, live Mute/Solo, rename, import/export and M5 core behavior;
-7. corrective alpha only for repeatable P0/P1;
-8. explicit user declaration M6 PASS/CLOSED.
+## M7 — Production audio polish — ACTIVE PHYSICAL GATE
+### Implemented for alpha1
+- validated offline band-limited sample-rate conversion for mismatched imported source/project rates;
+- immutable original retained while converted audio is stored only as managed editing proxy;
+- additive editing-rate metadata for backwards-compatible project persistence;
+- non-destructive clip fade-in/fade-out controls;
+- crossfade over overlapping clips on the same track;
+- identical fade envelope in realtime playback and offline master rendering;
+- bounded-memory resampling and reusable render scratch buffers for larger-session stability;
+- Home project menu: Rename plus the same shared `Salvar e exportar` modal used in Studio;
+- Home export covers `.guitarlab`, WAV 32-bit float, FLAC and MP3 320 kbps through the established managed-media/render pipeline.
 
-## M7 — Production audio polish
-Begins only after M6 closes:
-- validated sample-rate conversion for mismatched source/project rates;
-- fades/crossfades and advanced clip polish;
-- export refinements when explicitly prioritized;
-- performance/memory work for larger sessions.
+### M7 closure gates
+1. exact-candidate unit tests, Android Lint, debug build and signed release;
+2. import mismatched 44.1/48 kHz representatives and verify duration/pitch/playback/export;
+3. verify fades and overlapping crossfade audibly and in exported master;
+4. stress a larger multi-track session for responsiveness/memory regressions;
+5. verify Home rename and Home `Salvar e exportar` round trip;
+6. regression of M5/M6 audio, recording, latency compensation and project persistence;
+7. zero repeatable P0/P1 plus explicit user M7 PASS/CLOSED.
 
 ## M8 — Release hardening
 - migration/compatibility matrix;

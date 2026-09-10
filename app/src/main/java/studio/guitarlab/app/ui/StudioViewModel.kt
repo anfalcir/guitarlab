@@ -30,6 +30,7 @@ import studio.guitarlab.core.codec.WavMetadataReader
 import studio.guitarlab.core.codec.WavPcmDecoder
 import studio.guitarlab.core.codec.WaveformEnvelopeBuilder
 import studio.guitarlab.core.codec.StereoWavChannelSplitter
+import studio.guitarlab.core.codec.WavSampleRateConverter
 import studio.guitarlab.core.model.AudioClip
 import studio.guitarlab.core.model.AudioTrack
 import studio.guitarlab.core.model.BuiltInRoles
@@ -210,32 +211,51 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                                 proxy.file
                             }
                         }
-                        val metadata = FileSeekableByteSource(editingFile).use { WavMetadataReader().read(it) }
-                        require(metadata.totalFrames > 0) { "O arquivo selecionado não contém áudio completo." }
-                        val clipId = UUID.randomUUID().toString()
-                        val envelope = FileSeekableByteSource(editingFile).use { source ->
-                            WaveformEnvelopeBuilder.build(WavPcmDecoder(source), WAVEFORM_POINTS)
+                        val sourceMetadata = FileSeekableByteSource(editingFile).use { WavMetadataReader().read(it) }
+                        require(sourceMetadata.totalFrames > 0) { "O arquivo selecionado não contém áudio completo." }
+                        val existingRate = current.clips.firstNotNullOfOrNull { it.editingSampleRateHz ?: it.sourceSampleRateHz }
+                        val targetRate = current.sampleRate.fixedHz ?: existingRate ?: when (sourceMetadata.sampleRateHz) {
+                            44_100, 48_000, 88_200, 96_000 -> sourceMetadata.sampleRateHz
+                            else -> 48_000
                         }
+                        var finalEditingFile = editingFile
+                        var finalProxyPath = proxyPath
+                        var resampleTemp: File? = null
+                        if (sourceMetadata.sampleRateHz != targetRate) {
+                            resampleTemp = File.createTempFile("guitarlab-resample-", ".wav", getApplication<Application>().cacheDir)
+                            WavSampleRateConverter.convert(editingFile, resampleTemp, targetRate)
+                            val resampledProxy = resampleTemp.inputStream().buffered().use { mediaStore.ingestEditProxy(current.id, "${displayName}-sr${targetRate}.wav", it) }
+                            finalProxyPath?.let { oldPath -> if (oldPath != resampledProxy.relativePath) mediaStore.discardUncommitted(current.id, oldPath) }
+                            finalProxyPath = resampledProxy.relativePath
+                            proxyPath = finalProxyPath
+                            finalEditingFile = resampledProxy.file
+                        }
+                        resampleTemp?.delete()
+                        val metadata = FileSeekableByteSource(finalEditingFile).use { WavMetadataReader().read(it) }
+                        val clipId = UUID.randomUUID().toString()
+                        val envelope = FileSeekableByteSource(finalEditingFile).use { source -> WaveformEnvelopeBuilder.build(WavPcmDecoder(source), WAVEFORM_POINTS) }
                         waveformCache.write(current.id, clipId, envelope)
-                        val sourceBits = if (originalFormat == AudioImportFormat.WAV_PCM) metadata.bitsPerSample else null
-                        val sourceEncoding = if (originalFormat == AudioImportFormat.WAV_PCM) metadata.sampleEncoding.name else "COMPRESSED"
+                        val sourceBits = if (originalFormat == AudioImportFormat.WAV_PCM) sourceMetadata.bitsPerSample else null
+                        val sourceEncoding = if (originalFormat == AudioImportFormat.WAV_PCM) sourceMetadata.sampleEncoding.name else "COMPRESSED"
                         val clip = AudioClip(
                             id = clipId,
                             trackId = trackId,
                             name = displayName,
                             sourceUri = "managed://${sourceAsset.relativePath}",
                             managedSourcePath = sourceAsset.relativePath,
-                            managedEditProxyPath = proxyPath,
+                            managedEditProxyPath = finalProxyPath,
                             originUri = uri.toString(),
                             startFrame = 0,
                             sourceStartFrame = 0,
                             lengthFrames = metadata.totalFrames,
-                            sourceTotalFrames = metadata.totalFrames,
+                            sourceTotalFrames = sourceMetadata.totalFrames,
                             sourceFormat = originalFormat.displayName,
-                            sourceSampleRateHz = metadata.sampleRateHz,
-                            sourceChannelCount = metadata.channelCount,
+                            sourceSampleRateHz = sourceMetadata.sampleRateHz,
+                            sourceChannelCount = sourceMetadata.channelCount,
                             sourceBitsPerSample = sourceBits,
                             sourceEncoding = sourceEncoding,
+                            editingSampleRateHz = metadata.sampleRateHz,
+                            editingTotalFrames = metadata.totalFrames,
                         )
                         val saved = saveLatest(current.id) { latest ->
                             latest.copy(clips = latest.clips + clip, updatedAtEpochMs = System.currentTimeMillis())
@@ -263,7 +283,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                     masterGainDb = saved.masterGainDb,
                     canUndo = projectHistory.canUndo,
                     canRedo = projectHistory.canRedo,
-                    importStatus = "${imported.sourceFormat} importado • ${outcome.channelCount} canal(is) • ${outcome.sampleRateHz} Hz",
+                    importStatus = if (imported.sourceSampleRateHz != imported.editingSampleRateHz) "${imported.sourceFormat} importado • ${outcome.channelCount} canal(is) • ${imported.sourceSampleRateHz} → ${imported.editingSampleRateHz} Hz" else "${imported.sourceFormat} importado • ${outcome.channelCount} canal(is) • ${outcome.sampleRateHz} Hz",
                     stereoImportPrompt = if (outcome.channelCount == 2) stereoPromptFor(saved, imported) else null,
                     error = null,
                 )
@@ -335,6 +355,8 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                                 sourceChannelCount = 1,
                                 sourceBitsPerSample = 32,
                                 sourceEncoding = "IEEE_FLOAT · canal L derivado",
+                                editingSampleRateHz = sourceClip.editingSampleRateHz ?: sourceClip.sourceSampleRateHz,
+                                editingTotalFrames = sourceClip.editingTotalFrames ?: sourceClip.lengthFrames,
                             )
                             val rightClip = sourceClip.copy(
                                 id = UUID.randomUUID().toString(),
@@ -344,6 +366,8 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                                 sourceChannelCount = 1,
                                 sourceBitsPerSample = 32,
                                 sourceEncoding = "IEEE_FLOAT · canal R derivado",
+                                editingSampleRateHz = sourceClip.editingSampleRateHz ?: sourceClip.sourceSampleRateHz,
+                                editingTotalFrames = sourceClip.editingTotalFrames ?: sourceClip.lengthFrames,
                             )
                             latest.copy(
                                 tracks = tracks.sortedBy { it.order },
@@ -836,6 +860,23 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
+    fun setClipFades(clipId: String, fadeInFrames: Long, fadeOutFrames: Long) {
+        editClip("Fades do clipe atualizados") { current ->
+            ProjectClipEditor.setClipFades(current, clipId, fadeInFrames, fadeOutFrames, System.currentTimeMillis())
+        }
+    }
+
+    fun crossfadeWithNext(clipId: String) {
+        val project = _state.value.project ?: return
+        val clip = project.clips.firstOrNull { it.id == clipId } ?: return
+        val next = project.clips.filter { it.trackId == clip.trackId && it.id != clip.id && it.startFrame >= clip.startFrame }
+            .minByOrNull { it.startFrame } ?: run {
+                _state.value = _state.value.copy(error = "Não há outro clipe sobreposto à direita para crossfade.")
+                return
+            }
+        editClip("Crossfade aplicado") { current -> ProjectClipEditor.crossfadeOverlappingClips(current, clipId, next.id, System.currentTimeMillis()) }
+    }
+
     fun moveClipToTrack(clipId: String, targetTrackId: String) {
         val current = _state.value.project ?: return
         val clip = current.clips.firstOrNull { it.id == clipId } ?: return
@@ -1084,6 +1125,8 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                         gainDb = clip.gainDb,
                         pan = 0f,
                         muted = false,
+                        fadeInFrames = clip.fadeInFrames,
+                        fadeOutFrames = clip.fadeOutFrames,
                     )
                 },
             )
@@ -1216,7 +1259,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
         val clips = runCatching {
             project.clips.mapNotNull { clip ->
                 val track = tracksById[clip.trackId] ?: return@mapNotNull null
-                if (clip.muted || clip.sourceSampleRateHz != sampleRateHz) return@mapNotNull null
+                if (clip.muted || (clip.editingSampleRateHz ?: clip.sourceSampleRateHz) != sampleRateHz) return@mapNotNull null
                 val managedPath = editingMediaPathOrNull(clip) ?: return@mapNotNull null
                 StudioPlaybackClip(
                     file = mediaStore.resolveEditable(project.id, managedPath),
@@ -1225,6 +1268,8 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                     sourceStartFrame = clip.sourceStartFrame,
                     lengthFrames = clip.lengthFrames,
                     gainDb = clip.gainDb,
+                    fadeInFrames = clip.fadeInFrames,
+                    fadeOutFrames = clip.fadeOutFrames,
                 )
             }
         }.getOrElse {
@@ -1506,10 +1551,10 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
         if (audible.any { it.sourceChannelCount !in 1..2 }) {
             return PlaybackReadiness(false, reason = "A reprodução atual suporta fontes mono ou estéreo.")
         }
-        val firstRate = audible.first().sourceSampleRateHz ?: return PlaybackReadiness(false, reason = "A taxa de amostragem do áudio é desconhecida.")
+        val firstRate = audible.first().let { it.editingSampleRateHz ?: it.sourceSampleRateHz } ?: return PlaybackReadiness(false, reason = "A taxa de amostragem do áudio é desconhecida.")
         val projectRate = project.sampleRate.fixedHz ?: firstRate
-        if (audible.any { it.sourceSampleRateHz != projectRate }) {
-            return PlaybackReadiness(false, reason = "Há clipes com taxa de amostragem diferente da taxa do projeto.")
+        if (audible.any { (it.editingSampleRateHz ?: it.sourceSampleRateHz) != projectRate }) {
+            return PlaybackReadiness(false, reason = "Há clipes sem proxy convertido para a taxa do projeto.")
         }
         return PlaybackReadiness(true, projectRate)
     }
@@ -1638,6 +1683,8 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                 sourceStartFrame = clip.sourceStartFrame,
                 lengthFrames = clip.lengthFrames,
                 gainDb = clip.gainDb,
+                fadeInFrames = clip.fadeInFrames,
+                fadeOutFrames = clip.fadeOutFrames,
             )
         }
         require(clips.isNotEmpty()) { "Não há áudio audível para exportar." }

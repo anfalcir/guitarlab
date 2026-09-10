@@ -324,7 +324,7 @@ private fun StudioTopBar(
 }
 
 @Composable
-private fun RenameProjectDialog(
+fun RenameProjectDialog(
     currentName: String,
     onDismiss: () -> Unit,
     onConfirm: (String) -> Unit,
@@ -355,7 +355,7 @@ private fun RenameProjectDialog(
 }
 
 @Composable
-private fun SaveAndExportDialog(
+fun SaveAndExportDialog(
     projectName: String,
     busy: Boolean,
     onDismiss: () -> Unit,

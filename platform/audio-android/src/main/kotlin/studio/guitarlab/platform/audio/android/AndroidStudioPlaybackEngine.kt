@@ -12,6 +12,7 @@ import kotlin.math.min
 import kotlin.math.pow
 import kotlin.math.sqrt
 import studio.guitarlab.core.audio.PlaybackClockPolicy
+import studio.guitarlab.core.audio.ClipFadePolicy
 import studio.guitarlab.core.audio.TrackMixPolicy
 import studio.guitarlab.core.codec.FileSeekableByteSource
 import studio.guitarlab.core.codec.WavPcmDecoder
@@ -25,6 +26,8 @@ data class StudioPlaybackClip(
     val gainDb: Float = 0f,
     val pan: Float = 0f,
     val muted: Boolean = false,
+    val fadeInFrames: Long = 0,
+    val fadeOutFrames: Long = 0,
 )
 
 data class StudioPlaybackTrackMix(
@@ -335,6 +338,7 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
         private val decoder = WavPcmDecoder(source)
         private val channels = decoder.metadata.channelCount
         private val stereoGain = TrackMixPolicy.channelGains(clip.gainDb, clip.pan)
+        private var scratch = FloatArray(0)
 
         init {
             require(decoder.metadata.sampleRateHz == expectedSampleRateHz) {
@@ -353,19 +357,24 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
             val requested = (overlapEnd - overlapStart).toInt()
             val sourceFrame = clip.sourceStartFrame + (overlapStart - clip.timelineStartFrame)
             decoder.seekToFrame(sourceFrame)
-            val temp = FloatArray(requested * channels)
-            val decoded = decoder.readInterleaved(temp, frameCount = requested)
+            val requiredSamples = requested * channels
+            if (scratch.size < requiredSamples) scratch = FloatArray(requiredSamples)
+            val decoded = decoder.readInterleaved(scratch, frameCount = requested)
             val destinationFrameOffset = (overlapStart - renderStartFrame).toInt()
             for (frame in 0 until decoded) {
                 val dst = (destinationFrameOffset + frame) * 2
                 if (channels == 1) {
-                    val sample = temp[frame]
+                    val localFrame = overlapStart - clip.timelineStartFrame + frame
+                    val envelope = ClipFadePolicy.gain(localFrame, clip.lengthFrames, clip.fadeInFrames, clip.fadeOutFrames)
+                    val sample = scratch[frame] * envelope
                     destinationStereo[dst] += sample * stereoGain.left
                     destinationStereo[dst + 1] += sample * stereoGain.right
                 } else {
                     val src = frame * 2
-                    destinationStereo[dst] += temp[src] * stereoGain.left
-                    destinationStereo[dst + 1] += temp[src + 1] * stereoGain.right
+                    val localFrame = overlapStart - clip.timelineStartFrame + frame
+                    val envelope = ClipFadePolicy.gain(localFrame, clip.lengthFrames, clip.fadeInFrames, clip.fadeOutFrames)
+                    destinationStereo[dst] += scratch[src] * stereoGain.left * envelope
+                    destinationStereo[dst + 1] += scratch[src + 1] * stereoGain.right * envelope
                 }
             }
         }

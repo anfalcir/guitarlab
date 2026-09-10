@@ -82,6 +82,45 @@ object ProjectClipEditor {
         )
     }
 
+    fun setClipFades(
+        project: GuitarProject,
+        clipId: String,
+        fadeInFrames: Long,
+        fadeOutFrames: Long,
+        nowEpochMs: Long,
+    ): GuitarProject {
+        require(fadeInFrames >= 0L && fadeOutFrames >= 0L) { "Fade durations must be non-negative." }
+        val source = project.clips.firstOrNull { it.id == clipId } ?: error("Clip '$clipId' not found.")
+        require(fadeInFrames <= source.lengthFrames && fadeOutFrames <= source.lengthFrames) { "Fade exceeds clip duration." }
+        return project.copy(
+            clips = project.clips.map { if (it.id == clipId) it.copy(fadeInFrames = fadeInFrames, fadeOutFrames = fadeOutFrames) else it },
+            updatedAtEpochMs = nowEpochMs,
+        )
+    }
+
+    fun crossfadeOverlappingClips(project: GuitarProject, firstClipId: String, secondClipId: String, nowEpochMs: Long): GuitarProject {
+        val a = project.clips.firstOrNull { it.id == firstClipId } ?: error("Clip '$firstClipId' not found.")
+        val b = project.clips.firstOrNull { it.id == secondClipId } ?: error("Clip '$secondClipId' not found.")
+        require(a.trackId == b.trackId) { "Crossfade requires clips on the same track." }
+        val ordered = listOf(a, b).sortedBy { it.startFrame }
+        val left = ordered[0]
+        val right = ordered[1]
+        val overlapStart = maxOf(left.startFrame, right.startFrame)
+        val overlapEnd = minOf(left.startFrame + left.lengthFrames, right.startFrame + right.lengthFrames)
+        require(overlapEnd > overlapStart) { "Crossfade requires overlapping clips." }
+        val overlap = overlapEnd - overlapStart
+        return project.copy(
+            clips = project.clips.map { clip ->
+                when (clip.id) {
+                    left.id -> clip.copy(fadeOutFrames = overlap.coerceAtMost(clip.lengthFrames))
+                    right.id -> clip.copy(fadeInFrames = overlap.coerceAtMost(clip.lengthFrames))
+                    else -> clip
+                }
+            },
+            updatedAtEpochMs = nowEpochMs,
+        )
+    }
+
     /** Non-destructive trim: source media is never rewritten. */
     fun trimClip(
         project: GuitarProject,
@@ -93,8 +132,8 @@ object ProjectClipEditor {
         require(sourceStartFrame >= 0) { "Clip source start frame must be non-negative." }
         require(lengthFrames > 0) { "Clip length must be positive." }
         val target = project.clips.firstOrNull { it.id == clipId } ?: error("Clip '$clipId' not found.")
-        target.sourceTotalFrames?.let { total ->
-            require(sourceStartFrame + lengthFrames <= total) { "Trim exceeds immutable source bounds." }
+        (target.editingTotalFrames ?: target.sourceTotalFrames)?.let { total ->
+            require(sourceStartFrame + lengthFrames <= total) { "Trim exceeds editing-media bounds." }
         }
         return project.copy(
             clips = project.clips.map { clip ->
@@ -118,8 +157,8 @@ object ProjectClipEditor {
         val newSourceStart = target.sourceStartFrame + leftDelta
         val newLength = timelineEndFrame - timelineStartFrame
         require(newSourceStart >= 0) { "Trim would expose audio before immutable source frame zero." }
-        target.sourceTotalFrames?.let { total ->
-            require(newSourceStart + newLength <= total) { "Trim exceeds immutable source bounds." }
+        (target.editingTotalFrames ?: target.sourceTotalFrames)?.let { total ->
+            require(newSourceStart + newLength <= total) { "Trim exceeds editing-media bounds." }
         }
         return project.copy(
             clips = project.clips.map { clip ->

@@ -86,6 +86,11 @@ object BuiltInRoles {
     val sourceBitsPerSample: Int? = null,
     val sourceEncoding: String? = null,
     val sourceTotalFrames: Long? = null,
+    /** Editing/proxy domain. Defaults keep schema-1 projects readable. */
+    val editingSampleRateHz: Int? = null,
+    val editingTotalFrames: Long? = null,
+    val fadeInFrames: Long = 0,
+    val fadeOutFrames: Long = 0,
 )
 
 @Serializable data class GuitarProject(

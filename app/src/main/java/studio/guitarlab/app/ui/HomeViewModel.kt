@@ -17,17 +17,21 @@ import studio.guitarlab.core.model.ProjectFactory
 import studio.guitarlab.core.model.ProjectTemplate
 import studio.guitarlab.core.project.FileProjectRepository
 import studio.guitarlab.core.project.ProjectBundleReader
+import studio.guitarlab.platform.codec.android.MasterExportFormat
 
 data class HomeUiState(
     val loading: Boolean = true,
     val projects: List<GuitarProject> = emptyList(),
     val error: String? = null,
+    val exportBusy: Boolean = false,
+    val message: String? = null,
 )
 
 class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = FileProjectRepository(application.filesDir)
     private val bundleReader = ProjectBundleReader(application.filesDir)
     private val factory = ProjectFactory()
+    private val exportService = ProjectExportService(application)
 
     private val _state = MutableStateFlow(HomeUiState())
     val state: StateFlow<HomeUiState> = _state.asStateFlow()
@@ -88,6 +92,43 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             withContext(Dispatchers.IO) { repository.delete(projectId) }
             refresh()
+        }
+    }
+
+    fun renameProject(projectId: String, name: String) {
+        val normalized = name.trim().replace(Regex("\\s+"), " ")
+        if (normalized.isBlank() || normalized.length > 80) {
+            _state.update { it.copy(error = "O nome do projeto deve ter entre 1 e 80 caracteres.") }
+            return
+        }
+        viewModelScope.launch {
+            runCatching {
+                withContext(Dispatchers.IO) {
+                    val project = repository.load(projectId) ?: error("Projeto não encontrado.")
+                    repository.save(project.copy(name = normalized, updatedAtEpochMs = System.currentTimeMillis()))
+                }
+            }.onSuccess { refresh() }
+                .onFailure { error -> _state.update { it.copy(error = error.message ?: "Não foi possível renomear o projeto.") } }
+        }
+    }
+
+    fun saveProjectPackage(projectId: String, uri: Uri) = launchExport("Projeto GuitarLab salvo com sucesso") {
+        exportService.saveProject(projectId, uri)
+    }
+
+    fun exportMaster(projectId: String, uri: Uri, format: MasterExportFormat) = launchExport("Master ${format.name} exportado com sucesso") {
+        exportService.exportMaster(projectId, uri, format)
+    }
+
+    fun clearMessage() { _state.update { it.copy(message = null, error = null) } }
+
+    private fun launchExport(success: String, action: suspend () -> Unit) {
+        if (_state.value.exportBusy) return
+        viewModelScope.launch {
+            _state.update { it.copy(exportBusy = true, error = null, message = null) }
+            runCatching { action() }
+                .onSuccess { _state.update { it.copy(exportBusy = false, message = success) } }
+                .onFailure { error -> _state.update { it.copy(exportBusy = false, error = error.message ?: "Não foi possível exportar o projeto.") } }
         }
     }
 

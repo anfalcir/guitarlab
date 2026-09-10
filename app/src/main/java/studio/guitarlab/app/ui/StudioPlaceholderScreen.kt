@@ -127,6 +127,7 @@ fun StudioPlaceholderScreen(
     val state by viewModel.state.collectAsState()
     var pendingTrackId by remember { mutableStateOf<String?>(null) }
     var settingsTrackId by remember { mutableStateOf<String?>(null) }
+    var fadeClipId by remember { mutableStateOf<String?>(null) }
     val audioPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         val trackId = pendingTrackId
         pendingTrackId = null
@@ -175,6 +176,8 @@ fun StudioPlaceholderScreen(
                 onDuplicateClip = viewModel::duplicateClip,
                 onSplitClip = viewModel::splitClipAtPlayhead,
                 onSplitStereo = viewModel::separateStereoClip,
+                onOpenFades = { fadeClipId = it },
+                onCrossfade = viewModel::crossfadeWithNext,
                 onReorderTrack = viewModel::reorderTrack,
                 onMoveClipToTrack = viewModel::moveClipToTrack,
                 modifier = Modifier.fillMaxSize(),
@@ -205,6 +208,17 @@ fun StudioPlaceholderScreen(
                 settingsTrackId = null
             },
         )
+    }
+
+    fadeClipId?.let { id ->
+        project?.clips?.firstOrNull { it.id == id }?.let { clip ->
+            ClipFadeDialog(
+                clip = clip,
+                sampleRateHz = clip.editingSampleRateHz ?: clip.sourceSampleRateHz ?: project.sampleRate.fixedHz ?: 48_000,
+                onDismiss = { fadeClipId = null },
+                onApply = { fadeIn, fadeOut -> viewModel.setClipFades(clip.id, fadeIn, fadeOut); fadeClipId = null },
+            )
+        }
     }
 
     state.stereoImportPrompt?.let { prompt ->
@@ -263,6 +277,8 @@ private fun ProjectWorkspace(
     onDuplicateClip: (String) -> Unit,
     onSplitClip: (String) -> Unit,
     onSplitStereo: (String) -> Unit,
+    onOpenFades: (String) -> Unit,
+    onCrossfade: (String) -> Unit,
     onReorderTrack: (String, Int) -> Unit,
     onMoveClipToTrack: (String, String) -> Unit,
     modifier: Modifier = Modifier,
@@ -488,6 +504,8 @@ private fun ProjectWorkspace(
                                 onDuplicate = onDuplicateClip,
                                 onSplit = onSplitClip,
                                 onSplitStereo = onSplitStereo,
+                                onOpenFades = onOpenFades,
+                                onCrossfade = onCrossfade,
                                 trackIndex = trackIndex,
                                 draggingTrackId = dragState?.takeIf { it.kind == WorkspaceDragKind.TRACK }?.itemId,
                                 draggingClipId = dragState?.takeIf { it.kind == WorkspaceDragKind.CLIP }?.itemId,
@@ -771,6 +789,8 @@ private fun StudioTrackLane(
     onDuplicate: (String) -> Unit,
     onSplit: (String) -> Unit,
     onSplitStereo: (String) -> Unit,
+    onOpenFades: (String) -> Unit,
+    onCrossfade: (String) -> Unit,
     trackIndex: Int,
     draggingTrackId: String?,
     draggingClipId: String?,
@@ -862,6 +882,8 @@ private fun StudioTrackLane(
                                         if (clip.sourceChannelCount == 2) {
                                             ClipMenuItem(Icons.Default.CallSplit, "Separar estéreo em 2 pistas mono$suffix") { clipMenuExpanded = false; onSplitStereo(clip.id) }
                                         }
+                                        ClipMenuItem(Icons.Default.Edit, "Fades…$suffix") { clipMenuExpanded = false; onOpenFades(clip.id) }
+                                        ClipMenuItem(Icons.Default.CallSplit, "Crossfade com próximo$suffix") { clipMenuExpanded = false; onCrossfade(clip.id) }
                                         ClipMenuItem(Icons.Default.ContentCut, "Cortar$suffix") { clipMenuExpanded = false; onBeginTrim(clip.id) }
                                     }
                                     ClipMenuItem(Icons.Default.Delete, "Limpar pista", destructive = true) { clipMenuExpanded = false; onClearTrack() }
@@ -1394,6 +1416,37 @@ private fun CompactStatus(text: String, error: Boolean = false, modifier: Modifi
             maxLines = 2,
         )
     }
+}
+
+
+@Composable
+private fun ClipFadeDialog(
+    clip: AudioClip,
+    sampleRateHz: Int,
+    onDismiss: () -> Unit,
+    onApply: (Long, Long) -> Unit,
+) {
+    fun framesToMs(frames: Long): Float = frames * 1000f / sampleRateHz.coerceAtLeast(1)
+    fun msToFrames(ms: Float): Long = (ms * sampleRateHz / 1000f).toLong().coerceAtLeast(0L)
+    val maxMs = (clip.lengthFrames * 1000f / sampleRateHz.coerceAtLeast(1)).coerceAtMost(5000f).coerceAtLeast(10f)
+    var fadeInMs by remember(clip.id) { mutableStateOf(framesToMs(clip.fadeInFrames).coerceIn(0f, maxMs)) }
+    var fadeOutMs by remember(clip.id) { mutableStateOf(framesToMs(clip.fadeOutFrames).coerceIn(0f, maxMs)) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Fades do clipe") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                Text(clip.name, style = MaterialTheme.typography.bodyMedium)
+                Text("Fade in · ${fadeInMs.toInt()} ms")
+                androidx.compose.material3.Slider(value = fadeInMs, onValueChange = { fadeInMs = it }, valueRange = 0f..maxMs)
+                Text("Fade out · ${fadeOutMs.toInt()} ms")
+                androidx.compose.material3.Slider(value = fadeOutMs, onValueChange = { fadeOutMs = it }, valueRange = 0f..maxMs)
+                Text("A edição é não destrutiva e usa a mesma curva na reprodução e na exportação.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        },
+        confirmButton = { Button(onClick = { onApply(msToFrames(fadeInMs), msToFrames(fadeOutMs)) }) { Text("Aplicar") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } },
+    )
 }
 
 private fun roleName(roleId: String?): String {

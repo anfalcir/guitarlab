@@ -4,43 +4,28 @@ Updated: 2026-09-09
 
 ## Active branch and gate
 - Repository: `anfalcir/guitarlab`
-- Branch: `dev/parallel-m3-m5` (historical branch name retained to avoid destabilizing the active PR)
+- Branch: `dev/parallel-m3-m5` (historical branch name retained while PR #1 stays active)
 - Draft PR: #1
-- Current M6 physical candidate: `0.3.0-alpha1`, versionCode 16
-- Exact signed candidate commit: `89654674764c2152d0fe8b1b6d8857f5b8bac966`
-- GitHub Actions signed candidate run: #388 / ID `34422221979`
-- APK SHA-256: `241aa1ea9c130ae78f55db3d6a568f416594b48bd26ee9171b59f7e83a4c335c`
-- Homologation artifact ZIP SHA-256: `7a2e901f2bdade9b3e9ce0abfb42cbe46c8059bb8df83e59b93f3bf46bfa9fa0`
-- Signing certificate SHA-256: `0762D4F3ECB8E1A9AAA4BDB1E098A666C9BA9BF8B71C4F14B0E7A7065404E181`
-- BUILD_IDENTITY milestone: `M6-physical-homologation-candidate`
-- BUILD_IDENTITY gate: `alpha1-awaiting-physical-validation`
-- M2: PASS/CLOSED on Samsung SM-X230 Android 16/API 36 + Pocket Amp USB
+- M2: PASS/CLOSED
 - M3/M4: absorbed
-- M5: **PASS/CLOSED by user physical approval of alpha14**
-- M6: implementation complete in software; **OPEN pending M6 physical homologation**
+- M5: PASS/CLOSED
+- M6: **PASS/CLOSED by explicit user physical approval of 0.3.0-alpha1**
+- M7: implementation candidate `0.4.0-alpha1`, versionCode 17; **OPEN pending physical homologation**
 
-## M6 scope implemented
-1. frame-derived exact time labels on playhead and loop markers;
-2. top-bar transport summary with `Restante` and `Total`;
-3. route-scoped round-trip latency calibration harness using simultaneous AudioTrack/AudioRecord loopback and Android monotonic audio timestamps;
-4. repeated measurements, median latency, confidence, jitter and drift characterization;
-5. only stable/accepted calibrations are eligible for automatic take-placement compensation;
-6. compensation is applied in the frame domain at take finalization, including source trimming when an earlier shift would cross timeline zero;
-7. calibration persistence is keyed to explicitly selected input route + output route + sample rate; automatic/unidentified routes are not accepted as reusable calibration identities;
-8. Mute/Solo are live mixer controls during PLAY and REC; structural edits and REC-arm changes remain guarded;
-9. project rename is persistent and immediately reflected by Studio/Home/export naming.
+## M7 production audio polish
+M7 closes the previously documented production-audio-polish block: mismatched sample-rate conversion, non-destructive fades/crossfades, render parity and larger-session memory discipline. It also incorporates the approved workflow polish of Rename + shared `Salvar e exportar` directly from each project row on Home.
 
-## Software/signing gate
-The exact candidate commit passed unit tests, Android Lint and debug APK assembly. The push workflow also passed the signed homologation job, verified the official signing certificate, packaged the deliverable, and destroyed the restored signing bundle after use. A separate PR-triggered CI run (#389 / ID `34422224173`) also passed the software gate on the same candidate commit.
+### Sample-rate contract
+The imported native source remains immutable. When the source rate differs from the project/editing rate, GuitarLab creates a project-managed 32-bit-float WAV proxy using bounded-memory windowed-sinc conversion. Timeline/sourceStart/length editing then operates in the editing-proxy frame domain, while native-source rate/format metadata remains provenance.
 
-## M6 physical gate
-The software must not invent a latency value. Physical homologation must run `Calibrar latência` with a real loopback/return path on the target route, verify the reported stability, then record a known transient against backing and confirm compensated placement. Repeatability, route changes, Mute/Solo during PLAY/REC, marker time labels and project rename are part of the M6 checklist.
+### Fade/crossfade contract
+Fade in/out are clip metadata and do not rewrite source audio. Realtime playback and offline master rendering use the same deterministic envelope. Crossfade requires actual overlap between two clips on the same track and maps the overlap to left fade-out + right fade-in.
 
-## Safety rule
-An absent or rejected calibration produces **zero automatic compensation**. A stored calibration is route/sample-rate specific and is not reused for a different route.
+### Performance contract
+The resampler is chunk-bounded and playback/master ClipReaders reuse scratch arrays rather than allocating a new decode buffer on every render chunk. M7 physical stress remains required before claiming large-session verification.
 
-## Closure rule
-M6 remains OPEN until the signed alpha1 candidate is physically validated on the target setup with zero repeatable P0/P1 and explicit user approval. Do not begin the next milestone before that gate closes.
+### Home project actions
+The three-dot project menu now offers Rename, Salvar e exportar, Duplicate and Delete. Home invokes the same `RenameProjectDialog` and `SaveAndExportDialog` components as Studio. Project persistence and master export use the same managed project/media contracts.
 
 Canonical roadmap: `docs/IMPLEMENTATION_ROADMAP.md`.
-Active physical checklist: `docs/M6_ALPHA1_HOMOLOGATION_CHECKLIST.md`.
+Active checklist: `docs/M7_ALPHA1_HOMOLOGATION_CHECKLIST.md`.
