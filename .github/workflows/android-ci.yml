@@ -66,6 +66,29 @@ jobs:
           chmod +x scripts/materialize_ci_sources.sh
           scripts/materialize_ci_sources.sh
 
+      - name: Upload exact source snapshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: guitarlab-source-${{ github.sha }}
+          if-no-files-found: error
+          retention-days: 30
+          include-hidden-files: true
+          path: |
+            .github/
+            .source-parts/
+            app/src/
+            app/build.gradle.kts
+            core/
+            platform/
+            scripts/
+            docs/
+            README.md
+            .gitignore
+            build.gradle.kts
+            gradle.properties
+            gradle/
+            settings.gradle.kts
+
       - name: Read app version
         shell: bash
         run: |
