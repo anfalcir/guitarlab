@@ -103,4 +103,14 @@ class ProjectBundleReaderTest {
             root.deleteRecursively()
         }
     }
+
+    @Test fun zeroByteAndTruncatedPackagesFailWithoutPublishedOrTemporaryProject() {
+        listOf(byteArrayOf(), byteArrayOf(0x50, 0x4b, 0x03, 0x04)).forEach { bytes ->
+            val root = createTempDirectory("guitarlab-corrupt-").toFile()
+            try {
+                assertFailsWith<Throwable> { ProjectBundleReader(root).read(bytes.inputStream()) }
+                assertTrue(File(root, "projects").listFiles().orEmpty().isEmpty())
+            } finally { root.deleteRecursively() }
+        }
+    }
 }
