@@ -3,7 +3,7 @@ package studio.guitarlab.platform.audio.android
 import java.io.File
 import kotlin.io.path.createTempDirectory
 import kotlin.math.abs
-import kotlin.test.Test
+import org.junit.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import studio.guitarlab.core.codec.FileSeekableByteSource
