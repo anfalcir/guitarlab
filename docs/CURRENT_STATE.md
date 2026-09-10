@@ -1,6 +1,6 @@
 # Current State — GuitarLab Studio
 
-Updated: 2026-09-09
+Updated: 2026-09-10
 
 ## Active branch and gate
 - Repository: `anfalcir/guitarlab`
@@ -10,8 +10,9 @@ Updated: 2026-09-09
 - M3/M4: absorbed
 - M5: PASS/CLOSED
 - M6: **PASS/CLOSED by explicit user physical approval of 0.3.0-alpha1**
-- M7: implementation candidate `0.4.0-alpha1`, versionCode 17; **OPEN pending physical homologation**
-- M7 integration gate: unit tests, Android Lint and debug APK assembly passed on the validated clean tree. The current commit is the exact signed homologation candidate and must not advance before artifact audit/physical delivery.
+- M7: implementation candidate `0.4.0-alpha2`, versionCode 18; **OPEN pending physical homologation**
+- M8.A: **IN PROGRESS**. Global digital regression started; compatibility, malformed packages, M7 editing-domain validation and duplicate-project media integrity have objective coverage.
+- Digital regression checkpoint: CI run #452 passed 127 tests, Android Lint and debug APK assembly on commit `e686ccf62bdf79008e962a1a401ba69b46b3d5d9`. A final signed alpha2 identity supersedes this checkpoint only after its own green gate.
 
 ## M7 production audio polish
 M7 closes the previously documented production-audio-polish block: mismatched sample-rate conversion, non-destructive fades/crossfades, render parity and larger-session memory discipline. It also incorporates the approved workflow polish of Rename + shared `Salvar e exportar` directly from each project row on Home.
@@ -30,3 +31,4 @@ The three-dot project menu now offers Rename, Salvar e exportar, Duplicate and D
 
 Canonical roadmap: `docs/IMPLEMENTATION_ROADMAP.md`.
 Active checklist: `docs/M7_ALPHA1_HOMOLOGATION_CHECKLIST.md`.
+Global matrix: `docs/M8_GLOBAL_DIGITAL_REGRESSION.md`.
