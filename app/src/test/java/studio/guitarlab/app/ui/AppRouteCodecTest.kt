@@ -1,7 +1,7 @@
 package studio.guitarlab.app.ui
 
-import kotlin.test.Test
 import kotlin.test.assertEquals
+import org.junit.Test
 
 class AppRouteCodecTest {
     @Test
