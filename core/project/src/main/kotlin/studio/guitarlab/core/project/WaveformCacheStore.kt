@@ -64,7 +64,7 @@ class WaveformCacheStore(private val rootDirectory: File) {
 
     /** Removes only regenerable waveform entries not referenced by the current project snapshot. */
     fun prune(projectId: String, retainedClipIds: Set<String>): Int {
-        val retainedNames = retainedClipIds.mapTo(mutableSetOf()) { "${sanitize(it)}.glwf" }
+        val retainedNames = retainedClipIds.mapTo(mutableSetOf()) { "${ManagedStorageKey.from(it)}.glwf" }
         val directory = cacheDirectory(projectId)
         var removed = 0
         directory.listFiles().orEmpty().forEach { file ->
@@ -74,15 +74,12 @@ class WaveformCacheStore(private val rootDirectory: File) {
     }
 
     private fun cacheFile(projectId: String, clipId: String): File {
-        val safeProject = sanitize(projectId)
-        val safeClip = sanitize(clipId)
+        val safeClip = ManagedStorageKey.from(clipId)
         return File(cacheDirectory(projectId), "$safeClip.glwf")
     }
 
     private fun cacheDirectory(projectId: String): File =
-        File(rootDirectory, "projects/${sanitize(projectId)}/media/derived/waveform")
-
-    private fun sanitize(value: String): String = value.replace(Regex("[^A-Za-z0-9._-]"), "_")
+        File(rootDirectory, "projects/${ManagedStorageKey.from(projectId)}/media/derived/waveform")
 
     private companion object {
         const val MAGIC = 0x474C5746 // GLWF
