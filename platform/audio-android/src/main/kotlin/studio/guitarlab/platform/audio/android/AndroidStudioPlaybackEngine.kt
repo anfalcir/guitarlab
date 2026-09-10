@@ -12,10 +12,6 @@ import kotlin.math.min
 import kotlin.math.pow
 import kotlin.math.sqrt
 import studio.guitarlab.core.audio.PlaybackClockPolicy
-import studio.guitarlab.core.audio.ClipFadePolicy
-import studio.guitarlab.core.audio.TrackMixPolicy
-import studio.guitarlab.core.codec.FileSeekableByteSource
-import studio.guitarlab.core.codec.WavPcmDecoder
 
 data class StudioPlaybackClip(
     val file: File,
@@ -137,10 +133,13 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
 
     private fun runPlayback(request: StudioPlaybackRequest, listener: StudioPlaybackListener) {
         var lastTimelineFrame = request.startFrame
-        val readers = mutableListOf<ClipReader>()
+        val readers = mutableListOf<StudioPcmClipReader>()
         var track: AudioTrack? = null
         try {
-            request.clips.filterNot { it.muted }.forEach { readers += ClipReader(it, request.sampleRateHz) }
+            request.clips.filterNot { it.muted }.forEach { clip -> readers += StudioPcmClipReader(StudioPcmClip(
+                clip.file, clip.trackId, clip.timelineStartFrame, clip.sourceStartFrame, clip.lengthFrames,
+                clip.gainDb, clip.pan, clip.fadeInFrames, clip.fadeOutFrames,
+            ), request.sampleRateHz) }
             require(readers.isNotEmpty()) { "Não há clipes WAV gerenciados disponíveis para reprodução." }
 
             val channelMask = AudioFormat.CHANNEL_OUT_STEREO
@@ -205,10 +204,10 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
                     val mastered = mix[index] * masterLinear
                     peak = max(peak, abs(mastered))
                     sumSquares += mastered.toDouble() * mastered.toDouble()
-                    mix[index] = mastered.coerceIn(-1f, 1f)
                 }
                 val rms = if (sampleCount > 0) sqrt(sumSquares / sampleCount).toFloat() else 0f
                 listener.onMasterMeter(StudioPlaybackMeter(peak = peak, rms = rms))
+                StudioPcmMixKernel.applyMaster(mix, sampleCount, runtimeMasterGainDb)
 
                 val samplesWritten = track.write(mix, 0, sampleCount, AudioTrack.WRITE_BLOCKING)
                 if (samplesWritten < 0) error("Falha ao enviar áudio para a saída Android: código $samplesWritten.")
@@ -266,13 +265,7 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
             java.util.Arrays.fill(samples, 0, sampleCount, 0f)
             return
         }
-        val gain = TrackMixPolicy.channelGains(runtime.gainDb, runtime.pan)
-        var index = 0
-        while (index + 1 < sampleCount) {
-            samples[index] *= gain.left
-            samples[index + 1] *= gain.right
-            index += 2
-        }
+        StudioPcmMixKernel.applyTrack(samples, sampleCount, runtime.gainDb, runtime.pan, audible = true)
     }
 
     private fun meterFor(samples: FloatArray, sampleCount: Int): StudioPlaybackMeter {
@@ -328,62 +321,6 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
 
     private fun normalizedStart(request: StudioPlaybackRequest): Long =
         if (request.loopEnabled && request.startFrame >= request.loopEndFrame) request.loopStartFrame else request.startFrame
-
-    private class ClipReader(
-        private val clip: StudioPlaybackClip,
-        expectedSampleRateHz: Int,
-    ) : AutoCloseable {
-        val trackId: String = clip.trackId
-        private val source = FileSeekableByteSource(clip.file)
-        private val decoder = WavPcmDecoder(source)
-        private val channels = decoder.metadata.channelCount
-        private val stereoGain = TrackMixPolicy.channelGains(clip.gainDb, clip.pan)
-        private var scratch = FloatArray(0)
-
-        init {
-            require(decoder.metadata.sampleRateHz == expectedSampleRateHz) {
-                "A reprodução exige que a fonte e o projeto tenham a mesma taxa de amostragem enquanto o resampler não estiver ativo."
-            }
-            require(channels in 1..2) { "A reprodução atual suporta fontes WAV mono ou estéreo." }
-        }
-
-        fun mixInto(renderStartFrame: Long, frameCount: Int, destinationStereo: FloatArray) {
-            val renderEndFrame = renderStartFrame + frameCount
-            val clipEndFrame = clip.timelineStartFrame + clip.lengthFrames
-            val overlapStart = max(renderStartFrame, clip.timelineStartFrame)
-            val overlapEnd = min(renderEndFrame, clipEndFrame)
-            if (overlapStart >= overlapEnd) return
-
-            val requested = (overlapEnd - overlapStart).toInt()
-            val sourceFrame = clip.sourceStartFrame + (overlapStart - clip.timelineStartFrame)
-            decoder.seekToFrame(sourceFrame)
-            val requiredSamples = requested * channels
-            if (scratch.size < requiredSamples) scratch = FloatArray(requiredSamples)
-            val decoded = decoder.readInterleaved(scratch, frameCount = requested)
-            val destinationFrameOffset = (overlapStart - renderStartFrame).toInt()
-            for (frame in 0 until decoded) {
-                val dst = (destinationFrameOffset + frame) * 2
-                if (channels == 1) {
-                    val localFrame = overlapStart - clip.timelineStartFrame + frame
-                    val envelope = ClipFadePolicy.gain(localFrame, clip.lengthFrames, clip.fadeInFrames, clip.fadeOutFrames)
-                    val sample = scratch[frame] * envelope
-                    destinationStereo[dst] += sample * stereoGain.left
-                    destinationStereo[dst + 1] += sample * stereoGain.right
-                } else {
-                    val src = frame * 2
-                    val localFrame = overlapStart - clip.timelineStartFrame + frame
-                    val envelope = ClipFadePolicy.gain(localFrame, clip.lengthFrames, clip.fadeInFrames, clip.fadeOutFrames)
-                    destinationStereo[dst] += scratch[src] * stereoGain.left * envelope
-                    destinationStereo[dst + 1] += scratch[src + 1] * stereoGain.right * envelope
-                }
-            }
-        }
-
-        override fun close() {
-            decoder.close()
-            source.close()
-        }
-    }
 
     private companion object {
         const val CHUNK_FRAMES = 1024
