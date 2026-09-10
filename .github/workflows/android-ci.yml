@@ -109,6 +109,17 @@ jobs:
           tail -n 250 ci-diagnostics/unit-tests.log > ci-diagnostics/unit-tests-tail.log
           exit $STATUS
 
+      - name: Collect reproducible performance evidence
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p ci-diagnostics
+          : > ci-diagnostics/performance-evidence.txt
+          find . -type f -path '*/build/test-results/test/*.xml' -print0 \
+            | xargs -0 -r grep -hoE 'GUITARLAB_(RENDER_)?PERF\|[^<]+' \
+            | sort -u \
+            | tee ci-diagnostics/performance-evidence.txt
+
       - name: Android Lint
         shell: bash
         run: |

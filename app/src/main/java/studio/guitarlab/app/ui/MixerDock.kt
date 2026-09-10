@@ -38,8 +38,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import kotlin.math.abs
 import kotlin.math.log10
@@ -192,13 +194,40 @@ private fun MixerTrackStrip(
                 )
             }
 
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                MixerStateButton("M", track.muted, StudioMute, mixControlsEnabled, onToggleMute)
-                MixerStateButton("S", track.solo, StudioSolo, mixControlsEnabled, onToggleSolo)
-                MixerArmButton(track.armed, structuralControlsEnabled, onToggleArm)
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                MixerStateButton(
+                    label = "M",
+                    active = track.muted,
+                    activeColor = StudioMute,
+                    enabled = mixControlsEnabled,
+                    contentDescription = "Mute da pista ${track.name}",
+                    onClick = onToggleMute,
+                )
+                MixerStateButton(
+                    label = "S",
+                    active = track.solo,
+                    activeColor = StudioSolo,
+                    enabled = mixControlsEnabled,
+                    contentDescription = "Solo da pista ${track.name}",
+                    onClick = onToggleSolo,
+                )
+                MixerArmButton(
+                    active = track.armed,
+                    enabled = structuralControlsEnabled,
+                    contentDescription = "Gravação da pista ${track.name}",
+                    onClick = onToggleArm,
+                )
             }
 
-            MeterRow("PK", meter.peak, accent, meter.heldPeak, clipLatched, onClearClip)
+            MeterRow(
+                label = "PK",
+                value = meter.peak,
+                accent = accent,
+                heldPeak = meter.heldPeak,
+                clipLatched = clipLatched,
+                onClearClip = onClearClip,
+                clipContentDescription = "Limpar clipping da pista ${track.name}",
+            )
             MeterRow("RMS", meter.rms, accent)
 
             LabeledVolumeSlider(
@@ -252,7 +281,15 @@ private fun MasterStrip(
         ) {
             Text("MASTER", style = MaterialTheme.typography.labelLarge)
             Text("Saída principal", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            MeterRow("PK", meter.peak, accent, meter.heldPeak, clipLatched, onClearClip)
+            MeterRow(
+                label = "PK",
+                value = meter.peak,
+                accent = accent,
+                heldPeak = meter.heldPeak,
+                clipLatched = clipLatched,
+                onClearClip = onClearClip,
+                clipContentDescription = "Limpar clipping do Master",
+            )
             MeterRow("RMS", meter.rms, accent)
             LabeledVolumeSlider(
                 value = gainDraft,
@@ -276,6 +313,7 @@ private fun MixerStateButton(
     active: Boolean,
     activeColor: Color,
     enabled: Boolean,
+    contentDescription: String,
     onClick: () -> Unit,
 ) {
     val inactive = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.58f)
@@ -284,7 +322,11 @@ private fun MixerStateButton(
     Surface(
         modifier = Modifier.size(width = 38.dp, height = 30.dp)
             .clip(RoundedCornerShape(8.dp))
-            .clickable(enabled = enabled, onClick = onClick),
+            .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
+            .semantics {
+                this.contentDescription = contentDescription
+                stateDescription = if (active) "Ativado" else "Desativado"
+            },
         shape = RoundedCornerShape(8.dp),
         color = if (active) activeColor.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surface.copy(alpha = 0.44f),
         border = BorderStroke(if (active) 1.5.dp else 1.dp, border),
@@ -296,14 +338,22 @@ private fun MixerStateButton(
 }
 
 @Composable
-private fun MixerArmButton(active: Boolean, enabled: Boolean, onClick: () -> Unit) {
+private fun MixerArmButton(
+    active: Boolean,
+    enabled: Boolean,
+    contentDescription: String,
+    onClick: () -> Unit,
+) {
     val vivid = StudioRecord
     val dim = vivid.copy(alpha = if (enabled) 0.27f else 0.16f)
     Surface(
         modifier = Modifier.size(width = 38.dp, height = 30.dp)
             .clip(RoundedCornerShape(8.dp))
-            .clickable(enabled = enabled, onClick = onClick)
-            .semantics { contentDescription = if (active) "Desarmar gravação da pista" else "Armar gravação da pista" },
+            .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
+            .semantics {
+                this.contentDescription = contentDescription
+                stateDescription = if (active) "Armada" else "Desarmada"
+            },
         shape = RoundedCornerShape(8.dp),
         color = if (active) vivid.copy(alpha = 0.14f) else MaterialTheme.colorScheme.surface.copy(alpha = 0.44f),
         border = BorderStroke(if (active) 1.5.dp else 1.dp, if (active) vivid else vivid.copy(alpha = 0.18f)),
@@ -450,6 +500,7 @@ private fun MeterRow(
     heldPeak: Float? = null,
     clipLatched: Boolean = false,
     onClearClip: (() -> Unit)? = null,
+    clipContentDescription: String? = null,
 ) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
         Text(label, modifier = Modifier.width(28.dp), style = MaterialTheme.typography.labelSmall)
@@ -468,7 +519,9 @@ private fun MeterRow(
         }
         if (clipLatched && onClearClip != null) {
             Surface(
-                modifier = Modifier.clip(RoundedCornerShape(5.dp)).clickable(onClick = onClearClip),
+                modifier = Modifier.clip(RoundedCornerShape(5.dp))
+                    .clickable(role = Role.Button, onClick = onClearClip)
+                    .semantics { contentDescription = clipContentDescription ?: "Limpar indicador de clipping" },
                 shape = RoundedCornerShape(5.dp),
                 color = MaterialTheme.colorScheme.error.copy(alpha = 0.16f),
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.error),
