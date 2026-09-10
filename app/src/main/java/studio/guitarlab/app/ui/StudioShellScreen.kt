@@ -18,7 +18,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Archive
 import androidx.compose.material.icons.filled.Equalizer
-import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Tune
@@ -67,7 +66,6 @@ fun StudioShellScreen(
     var mixerVisible by rememberSaveable(projectId) { mutableStateOf(uiPreferences.mixerPinned()) }
     var selectedTrackId by rememberSaveable(projectId) { mutableStateOf<String?>(null) }
     var exportDialogVisible by rememberSaveable(projectId) { mutableStateOf(false) }
-    var renameDialogVisible by rememberSaveable(projectId) { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
     val recordPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
         viewModel.onRecordPermissionResult(it)
@@ -152,7 +150,6 @@ fun StudioShellScreen(
                 onMixer = { mixerVisible = true },
                 onOptions = onOptions,
                 onShare = { exportDialogVisible = true },
-                onRename = { renameDialogVisible = true },
                 onHome = onBack,
             )
 
@@ -210,17 +207,6 @@ fun StudioShellScreen(
         )
     }
 
-    if (renameDialogVisible && state.project != null) {
-        RenameProjectDialog(
-            currentName = state.project!!.name,
-            onDismiss = { renameDialogVisible = false },
-            onConfirm = { newName ->
-                viewModel.renameProject(newName)
-                renameDialogVisible = false
-            },
-        )
-    }
-
     if (exportDialogVisible && state.project != null) {
         SaveAndExportDialog(
             projectName = state.project!!.name,
@@ -255,7 +241,6 @@ private fun StudioTopBar(
     onMixer: () -> Unit,
     onOptions: () -> Unit,
     onShare: () -> Unit,
-    onRename: () -> Unit,
     onHome: () -> Unit,
 ) {
     Surface(
@@ -271,21 +256,11 @@ private fun StudioTopBar(
                 modifier = Modifier.widthIn(min = 180.dp, max = 320.dp),
                 verticalArrangement = Arrangement.spacedBy(1.dp),
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        project?.name ?: "GuitarLab",
-                        modifier = Modifier.weight(1f, fill = false),
-                        style = MaterialTheme.typography.titleLarge,
-                        maxLines = 1,
-                    )
-                    if (project != null) {
-                        AppIconButton(
-                            icon = Icons.Default.Edit,
-                            contentDescription = "Renomear projeto",
-                            onClick = onRename,
-                        )
-                    }
-                }
+                Text(
+                    project?.name ?: "GuitarLab",
+                    style = MaterialTheme.typography.titleLarge,
+                    maxLines = 1,
+                )
                 project?.let {
                     Text(
                         "${it.tracks.size} ${if (it.tracks.size == 1) "pista" else "pistas"} · ${it.clips.size} ${if (it.clips.size == 1) "clipe" else "clipes"}",
