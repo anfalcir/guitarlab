@@ -7,6 +7,8 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import studio.guitarlab.core.model.GuitarProject
 import studio.guitarlab.core.model.ProjectTemplate
+import studio.guitarlab.core.model.AudioClip
+import studio.guitarlab.core.model.AudioTrack
 
 class ProjectHistoryTest {
     private fun project(name: String, updated: Long = 1): GuitarProject = GuitarProject(
@@ -57,5 +59,33 @@ class ProjectHistoryTest {
         history.record(a, a)
         assertFalse(history.canUndo)
         assertNull(history.undo(a))
+    }
+
+    @Test fun longMixedEditSequenceUndoRedoRestoresExactSnapshotsAndBranchesCorrectly() {
+        val history = ProjectHistory(capacity = 16)
+        val initial = project("Initial").copy(
+            tracks = listOf(AudioTrack("t1", "Track", order = 0), AudioTrack("t2", "Other", order = 1)),
+            clips = listOf(AudioClip("c1", "t1", "Take", "managed://media/source/a.wav", 0, lengthFrames = 100, sourceTotalFrames = 200)),
+        )
+        val states = mutableListOf(initial)
+        fun edit(next: GuitarProject) { history.record(states.last(), next); states += next }
+        edit(ProjectClipEditor.trimClip(states.last(), "c1", 10, 90, 2))
+        edit(ProjectClipEditor.moveClip(states.last(), "c1", 50, 3))
+        edit(ProjectClipEditor.splitClipAtTimelineFrame(states.last(), "c1", 100, "c2", 4))
+        edit(ProjectClipEditor.setClipFades(states.last(), "c1", 10, 20, 5))
+        edit(states.last().copy(name = "Renamed", updatedAtEpochMs = 6))
+        var cursor = states.last()
+        for (index in states.lastIndex - 1 downTo 0) {
+            cursor = history.undo(cursor)!!
+            assertEquals(states[index], cursor)
+        }
+        for (index in 1..states.lastIndex) {
+            cursor = history.redo(cursor)!!
+            assertEquals(states[index], cursor)
+        }
+        cursor = history.undo(cursor)!!
+        val branched = cursor.copy(name = "Branch", updatedAtEpochMs = 7)
+        history.record(cursor, branched)
+        assertFalse(history.canRedo)
     }
 }
