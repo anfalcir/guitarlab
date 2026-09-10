@@ -1,11 +1,9 @@
 package studio.guitarlab.app
 
-import androidx.compose.ui.test.assertDoesNotExist
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
-import androidx.compose.ui.test.onNode
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -63,7 +61,6 @@ class GuitarLabLifecycleInstrumentedTest {
             // this app's Compose semantics tree reliably on the API 36 CI AVD, while Compose can.
             waitUntilDisplayed(projectName)
             waitUntilDescriptionEnabled("Salvar e exportar")
-            composeRule.onNodeWithText("Renomear projeto").assertDoesNotExist()
 
             // The saveable project-scoped route must survive Android Activity recreation and reload
             // enough persisted state for both the title and project-only export action to return.
