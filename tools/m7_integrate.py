@@ -612,7 +612,7 @@ fun HomeScreen(viewModel: HomeViewModel, onNewProject: () -> Unit, onOpenProject
                 Text("$modified  ·  ${project.tracks.size} ${if (project.tracks.size == 1) "pista" else "pistas"}  ·  ${project.clips.size} ${if (project.clips.size == 1) "clipe" else "clipes"}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Box {
-                AppIconButton(Icons.Default.MoreVert, "Mais ações") { menuOpen = true }
+                AppIconButton(icon = Icons.Default.MoreVert, contentDescription = "Mais ações", onClick = { menuOpen = true })
                 DropdownMenu(menuOpen, { menuOpen = false }) {
                     DropdownMenuItem({ Text("Renomear") }, { menuOpen = false; onRename() }, leadingIcon = { Icon(Icons.Default.Edit, null) })
                     DropdownMenuItem({ Text("Salvar e exportar") }, { menuOpen = false; onExport() }, leadingIcon = { Icon(Icons.Default.Share, null) })
