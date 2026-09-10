@@ -6,6 +6,7 @@ object ProjectValidator {
     fun validate(project: GuitarProject): List<ValidationIssue> {
         val issues = mutableListOf<ValidationIssue>()
         if (project.schemaVersion <= 0) issues += ValidationIssue("schema.invalid", "A versão do projeto deve ser positiva.")
+        if (project.id.isBlank()) issues += ValidationIssue("project.id.blank", "O ID do projeto não pode ficar vazio.")
         if (project.name.isBlank()) issues += ValidationIssue("project.name.blank", "O nome do projeto não pode ficar vazio.")
         if (project.masterGainDb !in -60f..12f) issues += ValidationIssue("project.master-gain.range", "O ganho Master deve ficar entre -60 dB e +12 dB.")
         if (project.groups.map { it.id }.distinct().size != project.groups.size) issues += ValidationIssue("group.id.duplicate", "Os IDs dos grupos devem ser únicos.")
