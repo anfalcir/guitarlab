@@ -1,8 +1,11 @@
 package studio.guitarlab.app
 
+import androidx.compose.ui.test.assertDoesNotExist
+import androidx.compose.ui.test.assertExists
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.hasSetTextAction
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
@@ -10,12 +13,8 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import androidx.test.uiautomator.By
-import androidx.test.uiautomator.UiDevice
-import androidx.test.uiautomator.Until
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
-import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -28,7 +27,6 @@ class GuitarLabLifecycleInstrumentedTest {
     val composeRule = createAndroidComposeRule<MainActivity>()
 
     private val instrumentation by lazy { InstrumentationRegistry.getInstrumentation() }
-    private val device by lazy { UiDevice.getInstance(instrumentation) }
 
     @Test
     fun optionsRouteSurvivesActivityRecreation() {
@@ -63,30 +61,31 @@ class GuitarLabLifecycleInstrumentedTest {
             projectId = persisted!!.id
             assertEquals(projectName, repository.load(projectId)?.name)
 
-            // Studio exposes a resource-backed test tag only after state.project is loaded.
-            // This avoids requiring the continuously updating Studio composition to become idle.
-            assertTrue("Studio must load the persisted project", waitForResource("studio-loaded"))
+            // Repository persistence completes on IO before the navigation/recomposition callback
+            // necessarily becomes observable. Poll through Compose Test itself so the Compose test
+            // scheduler can advance while we wait for the loaded Studio semantics node.
+            waitForTag("studio-loaded")
+            composeRule.onNodeWithContentDescription("Renomear projeto").assertDoesNotExist()
 
             // Recreate the Activity from Studio. The saveable route must survive Android
             // configuration recreation and still render the persisted project state.
             composeRule.activityRule.scenario.recreate()
-            assertTrue("Studio route must survive Activity recreation", waitForResource("studio-loaded"))
+            waitForTag("studio-loaded")
             assertEquals(projectName, repository.load(projectId)?.name)
 
             // Project-scoped Options embeds the project id in the saveable route. Recreate there,
             // then return to Studio. AppRouteCodec JVM tests separately prove exact project-id
             // encode/decode; this path proves Android route save/restore + repository persistence.
-            val options = device.wait(Until.findObject(By.res("studio-options")), UI_TIMEOUT_MS)
-            assertNotNull("Studio must expose Options after recreation", options)
-            options!!.click()
-            composeRule.waitForIdle()
+            composeRule.onNodeWithTag("studio-options", useUnmergedTree = true)
+                .assertIsDisplayed()
+                .performClick()
             composeRule.onNodeWithText("Opções").assertIsDisplayed()
 
             composeRule.activityRule.scenario.recreate()
             composeRule.waitForIdle()
             composeRule.onNodeWithText("Opções").assertIsDisplayed()
             composeRule.onNodeWithContentDescription("Voltar").performClick()
-            assertTrue("Back from project-scoped Options must restore Studio", waitForResource("studio-loaded"))
+            waitForTag("studio-loaded")
             assertEquals(projectName, repository.load(projectId)?.name)
         } finally {
             projectId?.let { runCatching { repository.delete(it) } }
@@ -110,8 +109,13 @@ class GuitarLabLifecycleInstrumentedTest {
         return null
     }
 
-    private fun waitForResource(resourceName: String): Boolean =
-        device.wait(Until.hasObject(By.res(resourceName)), UI_TIMEOUT_MS)
+    private fun waitForTag(tag: String) {
+        composeRule.waitUntil(timeoutMillis = UI_TIMEOUT_MS) {
+            runCatching {
+                composeRule.onNodeWithTag(tag, useUnmergedTree = true).assertExists()
+            }.isSuccess
+        }
+    }
 
     private companion object {
         const val UI_TIMEOUT_MS = 10_000L
