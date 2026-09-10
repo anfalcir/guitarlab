@@ -13,6 +13,7 @@ android {
         targetSdk = 36
         versionCode = 18
         versionName = "0.4.0-alpha2"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     buildFeatures {
@@ -88,5 +89,7 @@ dependencies {
 
     debugImplementation(libs.compose.ui.tooling)
     androidTestImplementation(libs.compose.ui.test.junit4)
+    androidTestImplementation(libs.androidx.test.ext.junit)
+    androidTestImplementation(libs.androidx.test.runner)
     debugImplementation(libs.compose.ui.test.manifest)
 }
