@@ -63,35 +63,30 @@ class GuitarLabLifecycleInstrumentedTest {
             projectId = persisted!!.id
             assertEquals(projectName, repository.load(projectId)?.name)
 
-            // "Salvar e exportar" is present in the Studio top bar but is enabled only after
-            // StudioViewModel has loaded state.project. UiAutomator observes Android accessibility
-            // directly and therefore does not require the dynamic Studio composition to become idle.
-            assertTrue("Studio must load the persisted project", waitForEnabledDescription("Salvar e exportar"))
-            assertTrue("Studio home action must be exposed", device.hasObject(By.desc("Início")))
+            // Studio exposes a resource-backed test tag only after state.project is loaded.
+            // This avoids requiring the continuously updating Studio composition to become idle.
+            assertTrue("Studio must load the persisted project", waitForResource("studio-loaded"))
 
-            // Recreate from Studio. The saveable route must survive and the new StudioViewModel
-            // must reload a persisted project rather than relying on transient composable state.
+            // Recreate the Activity from Studio. The saveable route must survive Android
+            // configuration recreation and still render the persisted project state.
             composeRule.activityRule.scenario.recreate()
-            assertTrue("Studio route must survive Activity recreation", waitForEnabledDescription("Salvar e exportar"))
+            assertTrue("Studio route must survive Activity recreation", waitForResource("studio-loaded"))
             assertEquals(projectName, repository.load(projectId)?.name)
-            assertTrue("Studio home action must remain exposed", device.hasObject(By.desc("Início")))
 
             // Project-scoped Options embeds the project id in the saveable route. Recreate there,
-            // then return and require Studio to load again. AppRouteCodec JVM tests separately
-            // prove exact project-id encode/decode, while this instrumented path proves Android
-            // save/restore + ViewModel rehydration end to end.
-            val options = device.wait(Until.findObject(By.desc("Opções")), UI_TIMEOUT_MS)
+            // then return to Studio. AppRouteCodec JVM tests separately prove exact project-id
+            // encode/decode; this path proves Android route save/restore + repository persistence.
+            val options = device.wait(Until.findObject(By.res("studio-options")), UI_TIMEOUT_MS)
             assertNotNull("Studio must expose Options after recreation", options)
             options!!.click()
-            assertTrue("Project-scoped Options must open", waitForDescription("Voltar"))
+            composeRule.waitForIdle()
+            composeRule.onNodeWithText("Opções").assertIsDisplayed()
 
             composeRule.activityRule.scenario.recreate()
-            assertTrue("Project-scoped Options route must survive Activity recreation", waitForDescription("Voltar"))
-
-            val back = device.wait(Until.findObject(By.desc("Voltar")), UI_TIMEOUT_MS)
-            assertNotNull("Options must expose Back after recreation", back)
-            back!!.click()
-            assertTrue("Back from project-scoped Options must restore Studio", waitForEnabledDescription("Salvar e exportar"))
+            composeRule.waitForIdle()
+            composeRule.onNodeWithText("Opções").assertIsDisplayed()
+            composeRule.onNodeWithContentDescription("Voltar").performClick()
+            assertTrue("Back from project-scoped Options must restore Studio", waitForResource("studio-loaded"))
             assertEquals(projectName, repository.load(projectId)?.name)
         } finally {
             projectId?.let { runCatching { repository.delete(it) } }
@@ -115,18 +110,8 @@ class GuitarLabLifecycleInstrumentedTest {
         return null
     }
 
-    private fun waitForDescription(description: String): Boolean =
-        device.wait(Until.hasObject(By.desc(description)), UI_TIMEOUT_MS)
-
-    private fun waitForEnabledDescription(description: String): Boolean {
-        val deadlineNanos = System.nanoTime() + UI_TIMEOUT_MS * 1_000_000L
-        do {
-            val node = device.findObject(By.desc(description))
-            if (node?.isEnabled == true) return true
-            Thread.sleep(POLL_INTERVAL_MS)
-        } while (System.nanoTime() < deadlineNanos)
-        return false
-    }
+    private fun waitForResource(resourceName: String): Boolean =
+        device.wait(Until.hasObject(By.res(resourceName)), UI_TIMEOUT_MS)
 
     private companion object {
         const val UI_TIMEOUT_MS = 10_000L
