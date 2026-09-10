@@ -44,7 +44,6 @@ import studio.guitarlab.core.project.ProjectClipEditor
 import studio.guitarlab.core.project.ProjectTrackEditor
 import studio.guitarlab.core.project.ProjectHistory
 import studio.guitarlab.core.project.ProjectManagedMediaStore
-import studio.guitarlab.core.project.ProjectBundleWriter
 import studio.guitarlab.core.project.ProjectRecordingMediaStore
 import studio.guitarlab.core.project.RecordingMediaTransaction
 import studio.guitarlab.core.project.RecordedTakeMetadata
@@ -74,11 +73,7 @@ import studio.guitarlab.platform.audio.android.StudioPlaybackRequest
 import studio.guitarlab.platform.audio.android.StudioPlaybackRoutingStatus
 import studio.guitarlab.platform.audio.android.StudioPlaybackTrackMeter
 import studio.guitarlab.platform.audio.android.StudioPlaybackTrackMix
-import studio.guitarlab.platform.audio.android.StudioMasterRenderRequest
-import studio.guitarlab.platform.audio.android.StudioMasterRenderRequestFactory
-import studio.guitarlab.platform.audio.android.StudioMasterRenderer
 import studio.guitarlab.platform.codec.android.AndroidAudioImportTranscoder
-import studio.guitarlab.platform.codec.android.AndroidMasterAudioEncoder
 import studio.guitarlab.platform.codec.android.MasterExportFormat
 
 data class StereoImportPrompt(
@@ -139,6 +134,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
     private val waveformCache = WaveformCacheStore(rootDirectory)
     private val audioRoutingStore = StudioAudioRoutingStore(application)
     private val latencyCalibrationStore = StudioLatencyCalibrationStore(application)
+    private val exportService = ProjectExportService(application)
     private var activeRecordingCompensationFrames: Long = 0L
     private val playbackEngine = AndroidStudioPlaybackEngine()
     private val recordingEngine = AndroidStudioRecordingEngine(application)
@@ -1628,11 +1624,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch {
             _state.value = _state.value.copy(exporting = true, exportStatus = "Salvando projeto…", error = null)
             runCatching {
-                withContext(Dispatchers.IO) {
-                    val output = getApplication<Application>().contentResolver.openOutputStream(uri, "w")
-                        ?: error("O Android não conseguiu criar o arquivo do projeto.")
-                    output.use { ProjectBundleWriter().write(project, mediaStore.projectDirectoryForExport(project.id), it) }
-                }
+                exportService.saveProject(project.id, uri)
             }.onSuccess {
                 _state.value = _state.value.copy(exporting = false, exportStatus = "Projeto GuitarLab salvo com sucesso")
             }.onFailure { error ->
@@ -1650,34 +1642,14 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
             runCatching {
                 withContext(Dispatchers.IO) {
                     val readiness = playbackReadiness(project)
-                    val rate = readiness.sampleRateHz ?: error(readiness.reason ?: "Projeto sem áudio exportável.")
                     require(readiness.ready) { readiness.reason ?: "Projeto sem áudio exportável." }
-                    val request = masterRenderRequest(project, rate)
-                    val floatWav = File.createTempFile("guitarlab-master-", ".wav", getApplication<Application>().cacheDir)
-                    val encoded = if (format == MasterExportFormat.WAV_FLOAT32) floatWav else File.createTempFile("guitarlab-master-", ".${format.extension}", getApplication<Application>().cacheDir)
-                    try {
-                        StudioMasterRenderer.renderFloatWav(request, floatWav)
-                        if (format != MasterExportFormat.WAV_FLOAT32) AndroidMasterAudioEncoder.encode(floatWav, encoded, format)
-                        val source = if (format == MasterExportFormat.WAV_FLOAT32) floatWav else encoded
-                        val output = getApplication<Application>().contentResolver.openOutputStream(uri, "w")
-                            ?: error("O Android não conseguiu criar o arquivo exportado.")
-                        output.use { target -> source.inputStream().buffered().use { it.copyTo(target) } }
-                    } finally {
-                        floatWav.delete()
-                        if (encoded != floatWav) encoded.delete()
-                    }
+                    exportService.exportMaster(project.id, uri, format)
                 }
             }.onSuccess {
                 _state.value = _state.value.copy(exporting = false, exportStatus = "Master ${format.name} exportado com sucesso")
             }.onFailure { error ->
                 _state.value = _state.value.copy(exporting = false, exportStatus = null, error = error.message ?: "Não foi possível exportar o master.")
             }
-        }
-    }
-
-    private fun masterRenderRequest(project: GuitarProject, sampleRateHz: Int): StudioMasterRenderRequest {
-        return StudioMasterRenderRequestFactory.create(project, sampleRateHz) {
-            mediaStore.resolveEditable(project.id, it)
         }
     }
 
