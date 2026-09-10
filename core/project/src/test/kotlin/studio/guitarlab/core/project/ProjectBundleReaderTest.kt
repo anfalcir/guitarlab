@@ -104,6 +104,27 @@ class ProjectBundleReaderTest {
         }
     }
 
+    @Test fun duplicateZipPathIsRejectedWithoutPublishingOrLeavingTemporaryData() {
+        val root = createTempDirectory("guitarlab-duplicate-path-").toFile()
+        try {
+            val bytes = ByteArrayOutputStream().also { raw ->
+                ZipOutputStream(raw).use { zip ->
+                    zip.putNextEntry(ZipEntry("project.json"))
+                    zip.write("{}".toByteArray())
+                    zip.closeEntry()
+                    // Distinct ZIP names resolve to the same normalized extraction path.
+                    zip.putNextEntry(ZipEntry("project.json/"))
+                    zip.closeEntry()
+                }
+            }.toByteArray()
+
+            assertFailsWith<IllegalArgumentException> {
+                ProjectBundleReader(root).read(bytes.inputStream())
+            }
+            assertTrue(File(root, "projects").listFiles().orEmpty().isEmpty())
+        } finally { root.deleteRecursively() }
+    }
+
     @Test fun zeroByteAndTruncatedPackagesFailWithoutPublishedOrTemporaryProject() {
         listOf(byteArrayOf(), byteArrayOf(0x50, 0x4b, 0x03, 0x04)).forEach { bytes ->
             val root = createTempDirectory("guitarlab-corrupt-").toFile()
