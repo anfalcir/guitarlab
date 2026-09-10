@@ -31,11 +31,19 @@ object ProjectValidator {
             if (clip.startFrame < 0) issues += ValidationIssue("clip.start.negative", "O início do clipe '${clip.name}' não pode ser negativo.")
             if (clip.sourceStartFrame < 0) issues += ValidationIssue("clip.source-start.negative", "O início da fonte do clipe '${clip.name}' não pode ser negativo.")
             if (clip.lengthFrames <= 0) issues += ValidationIssue("clip.length.invalid", "A duração do clipe '${clip.name}' deve ser positiva.")
+            if (clip.startFrame > Long.MAX_VALUE - clip.lengthFrames.coerceAtLeast(0L)) issues += ValidationIssue("clip.timeline.overflow", "O intervalo do clipe '${clip.name}' excede a timeline suportada.")
+            if (clip.sourceStartFrame > Long.MAX_VALUE - clip.lengthFrames.coerceAtLeast(0L)) issues += ValidationIssue("clip.source.overflow", "O intervalo de fonte do clipe '${clip.name}' excede o limite suportado.")
             if (clip.sourceSampleRateHz != null && clip.sourceSampleRateHz <= 0) issues += ValidationIssue("clip.source-rate.invalid", "A taxa de amostragem da fonte é inválida.")
             if (clip.sourceChannelCount != null && clip.sourceChannelCount !in 1..32) issues += ValidationIssue("clip.source-channels.invalid", "A quantidade de canais da fonte é inválida.")
             if (clip.sourceBitsPerSample != null && clip.sourceBitsPerSample <= 0) issues += ValidationIssue("clip.source-bits.invalid", "A profundidade de bits da fonte é inválida.")
             if (clip.sourceTotalFrames != null && clip.sourceTotalFrames <= 0) issues += ValidationIssue("clip.source-total.invalid", "A quantidade de frames da fonte é inválida.")
-            if (clip.sourceTotalFrames != null && clip.sourceStartFrame + clip.lengthFrames > clip.sourceTotalFrames) {
+            if (clip.editingSampleRateHz != null && clip.editingSampleRateHz <= 0) issues += ValidationIssue("clip.editing-rate.invalid", "A taxa de amostragem de edição é inválida.")
+            if (clip.editingTotalFrames != null && clip.editingTotalFrames <= 0) issues += ValidationIssue("clip.editing-total.invalid", "A quantidade de frames de edição é inválida.")
+            if (clip.fadeInFrames < 0 || clip.fadeOutFrames < 0 || clip.fadeInFrames > clip.lengthFrames || clip.fadeOutFrames > clip.lengthFrames) {
+                issues += ValidationIssue("clip.fade.bounds", "Os fades do clipe '${clip.name}' excedem sua duração.")
+            }
+            val editingBound = clip.editingTotalFrames ?: clip.sourceTotalFrames
+            if (editingBound != null && (clip.sourceStartFrame > editingBound || clip.lengthFrames > editingBound - clip.sourceStartFrame)) {
                 issues += ValidationIssue("clip.trim.bounds", "O corte do clipe '${clip.name}' ultrapassa os limites da fonte.")
             }
             clip.managedSourcePath?.let { path ->
