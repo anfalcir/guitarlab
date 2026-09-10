@@ -19,8 +19,18 @@ class ProjectExportService(private val context: Context) {
 
     suspend fun saveProject(projectId: String, uri: Uri) = withContext(Dispatchers.IO) {
         val project = repository.load(projectId) ?: error("Projeto não encontrado.")
-        val output = context.contentResolver.openOutputStream(uri, "w") ?: error("O Android não conseguiu criar o arquivo do projeto.")
-        output.use { ProjectBundleWriter().write(project, mediaStore.projectDirectoryForExport(project.id), it) }
+        val staged = File.createTempFile("guitarlab-project-", ".guitarlab", context.cacheDir)
+        try {
+            staged.outputStream().buffered().use {
+                ProjectBundleWriter().write(project, mediaStore.projectDirectoryForExport(project.id), it)
+            }
+            require(staged.length() > 0L) { "O pacote GuitarLab gerado está vazio." }
+            val output = context.contentResolver.openOutputStream(uri, "w")
+                ?: error("O Android não conseguiu criar o arquivo do projeto.")
+            output.use { target -> staged.inputStream().buffered().use { it.copyTo(target) } }
+        } finally {
+            staged.delete()
+        }
     }
 
     suspend fun exportMaster(projectId: String, uri: Uri, format: MasterExportFormat) = withContext(Dispatchers.IO) {
