@@ -44,18 +44,52 @@ jobs:
           chmod +x scripts/materialize_ci_sources.sh
           scripts/materialize_ci_sources.sh
 
-      - name: Harden calibration permission guard
+      - name: Harden and constrain M6 integration
         shell: bash
         run: |
           python3 - <<'PY'
           from pathlib import Path
           p = Path('tools/m6_integrate.py')
           text = p.read_text()
+
           old = '    private fun measurePass(sampleRateHz: Int, inputDevice: AudioDeviceInfo?, outputDevice: AudioDeviceInfo?): Pair<Long, Float> {\\n        val template = stimulus(STIMULUS_FRAMES)'
           new = '    private fun measurePass(sampleRateHz: Int, inputDevice: AudioDeviceInfo?, outputDevice: AudioDeviceInfo?): Pair<Long, Float> {\\n        if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {\\n            throw SecurityException(\\"Permissão de microfone necessária para medir a latência.\\")\\n        }\\n        val template = stimulus(STIMULUS_FRAMES)'
           if old not in text:
               raise SystemExit('permission guard anchor not found')
-          p.write_text(text.replace(old, new, 1))
+          text = text.replace(old, new, 1)
+
+          # The GitHub Actions token cannot mutate workflow files. Keep workflow identity
+          # changes for the connector-controlled final promotion commit instead.
+          text = '\n'.join(
+              line for line in text.splitlines()
+              if not line.startswith('replace_once(".github/workflows/android-ci.yml"')
+          ) + '\n'
+          old_cleanup = 'for relative in ["tools/m6_integrate.py", ".github/workflows/m6-integrator.yml", ".github/m6-trigger.txt"]:'
+          new_cleanup = 'for relative in ["tools/m6_integrate.py", ".github/m6-trigger.txt"]:'
+          if old_cleanup not in text:
+              raise SystemExit('cleanup anchor not found')
+          text = text.replace(old_cleanup, new_cleanup, 1)
+
+          # Automatic routes are intentionally not considered stable calibration identities.
+          old_find = '    fun find(inputSignature: String?, outputSignature: String?, sampleRateHz: Int): LatencyCalibration? {\\n        val key = key(inputSignature, outputSignature, sampleRateHz)'
+          new_find = '    fun find(inputSignature: String?, outputSignature: String?, sampleRateHz: Int): LatencyCalibration? {\\n        if (inputSignature.isNullOrBlank() || outputSignature.isNullOrBlank()) return null\\n        val key = key(inputSignature, outputSignature, sampleRateHz)'
+          if old_find not in text:
+              raise SystemExit('calibration find anchor not found')
+          text = text.replace(old_find, new_find, 1)
+
+          old_save = '    fun save(inputSignature: String?, outputSignature: String?, calibration: LatencyCalibration) {\\n        val key = key(inputSignature, outputSignature, calibration.sampleRateHz)'
+          new_save = '    fun save(inputSignature: String?, outputSignature: String?, calibration: LatencyCalibration) {\\n        if (inputSignature.isNullOrBlank() || outputSignature.isNullOrBlank()) return\\n        val key = key(inputSignature, outputSignature, calibration.sampleRateHz)'
+          if old_save not in text:
+              raise SystemExit('calibration save anchor not found')
+          text = text.replace(old_save, new_save, 1)
+
+          old_run = '    fun runLatencyCalibration() {\\n        if (calibrating) return\\n        calibrating = true'
+          new_run = '    fun runLatencyCalibration() {\\n        if (calibrating) return\\n        if (selectedInput.isNullOrBlank() || selectedOutput.isNullOrBlank()) {\\n            calibrationStatus = \\"Selecione explicitamente a entrada e a saída antes de calibrar.\\"\\n            return\\n        }\\n        calibrating = true'
+          if old_run not in text:
+              raise SystemExit('calibration explicit-route anchor not found')
+          text = text.replace(old_run, new_run, 1)
+
+          p.write_text(text)
           PY
 
       - name: Integrate and validate M6
