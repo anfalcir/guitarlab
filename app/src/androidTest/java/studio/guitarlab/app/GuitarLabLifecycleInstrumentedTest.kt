@@ -3,7 +3,6 @@ package studio.guitarlab.app
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.hasSetTextAction
-import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
@@ -11,8 +10,13 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import androidx.test.uiautomator.By
+import androidx.test.uiautomator.UiDevice
+import androidx.test.uiautomator.Until
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -25,6 +29,7 @@ class GuitarLabLifecycleInstrumentedTest {
     val composeRule = createAndroidComposeRule<MainActivity>()
 
     private val instrumentation by lazy { InstrumentationRegistry.getInstrumentation() }
+    private val device by lazy { UiDevice.getInstance(instrumentation) }
 
     @Test
     fun optionsRouteSurvivesActivityRecreation() {
@@ -59,36 +64,38 @@ class GuitarLabLifecycleInstrumentedTest {
             projectId = persisted!!.id
             assertEquals(projectName, repository.load(projectId)?.name)
 
-            // Repository persistence completes on IO before the navigation/recomposition callback
-            // necessarily becomes observable. Poll through Compose Test itself so the Compose test
-            // scheduler can advance while we wait for the loaded Studio semantics node.
-            waitForTag("studio-loaded")
-            composeRule.onNodeWithContentDescription("Renomear projeto").assertDoesNotExist()
+            // Studio intentionally has continuously changing UI (meters/clock), so Compose/Espresso
+            // may never become globally idle. Observe the exported test tag through UiAutomator,
+            // which validates the real accessibility tree without requiring Compose idleness.
+            assertTrue("Studio must load the persisted project", waitForResource("studio-loaded"))
+            assertFalse("Rename must stay out of Studio", device.hasObject(By.desc("Renomear projeto")))
 
             // Recreate the Activity from Studio. The saveable route must survive Android
             // configuration recreation and still render the persisted project state.
             composeRule.activityRule.scenario.recreate()
-            waitForTag("studio-loaded")
+            assertTrue("Studio route must survive Activity recreation", waitForResource("studio-loaded"))
             assertEquals(projectName, repository.load(projectId)?.name)
 
             // Project-scoped Options embeds the project id in the saveable route. Recreate there,
             // then return to Studio. AppRouteCodec JVM tests separately prove exact project-id
             // encode/decode; this path proves Android route save/restore + repository persistence.
-            composeRule.onNodeWithTag("studio-options", useUnmergedTree = true)
-                .assertIsDisplayed()
-                .performClick()
+            val options = device.wait(Until.findObject(By.res("studio-options")), UI_TIMEOUT_MS)
+            assertNotNull("Studio must expose Options after recreation", options)
+            options!!.click()
             composeRule.onNodeWithText("Opções").assertIsDisplayed()
 
             composeRule.activityRule.scenario.recreate()
             composeRule.waitForIdle()
             composeRule.onNodeWithText("Opções").assertIsDisplayed()
             composeRule.onNodeWithContentDescription("Voltar").performClick()
-            waitForTag("studio-loaded")
+            assertTrue("Back from project-scoped Options must restore Studio", waitForResource("studio-loaded"))
             assertEquals(projectName, repository.load(projectId)?.name)
 
             // Renaming intentionally lives only on Home. Prove the Studio pencil/control is absent
             // while the Home overflow action remains available and opens the shared dialog.
-            composeRule.onNodeWithContentDescription("Início").performClick()
+            val home = device.wait(Until.findObject(By.desc("Início")), UI_TIMEOUT_MS)
+            assertNotNull("Studio must expose Home navigation", home)
+            home!!.click()
             composeRule.onNodeWithText(projectName).assertIsDisplayed()
             composeRule.onNodeWithContentDescription("Mais ações").performClick()
             composeRule.onNodeWithText("Renomear").assertIsDisplayed().performClick()
@@ -116,13 +123,8 @@ class GuitarLabLifecycleInstrumentedTest {
         return null
     }
 
-    private fun waitForTag(tag: String) {
-        composeRule.waitUntil(timeoutMillis = UI_TIMEOUT_MS) {
-            runCatching {
-                composeRule.onNodeWithTag(tag, useUnmergedTree = true).assertExists()
-            }.isSuccess
-        }
-    }
+    private fun waitForResource(resourceName: String): Boolean =
+        device.wait(Until.hasObject(By.res(resourceName)), UI_TIMEOUT_MS)
 
     private companion object {
         const val UI_TIMEOUT_MS = 10_000L
