@@ -52,33 +52,37 @@ class GuitarLabLifecycleInstrumentedTest {
 
         try {
             waitUntilEnabled("Novo projeto")
+            assertTrue(
+                "Home accessibility tree must be visible to UiAutomator before lifecycle assertions",
+                waitForDescription("Opções"),
+            )
             composeRule.onNodeWithText("Novo projeto").performClick()
             composeRule.onNode(hasSetTextAction()).performTextInput(projectName)
             composeRule.onNodeWithText("Criar projeto").assertIsEnabled().performClick()
 
-            // Creation is asynchronous. First prove that the real repository contains the
-            // project; this is a stronger and less UI-fragile readiness signal than the
-            // project title text exported by Compose to the accessibility hierarchy.
+            // Creation is asynchronous. First prove the exact project was durably persisted.
             val persisted = waitForPersistedProject(repository, projectName)
             assertNotNull("Created Studio project must be persisted", persisted)
             projectId = persisted!!.id
             assertEquals(projectName, repository.load(projectId)?.name)
 
-            // Studio intentionally has continuously changing UI (meters/clock), so Compose/Espresso
-            // may never become globally idle. Observe the actual persisted project title through
-            // UiAutomator; this validates user-visible Studio state without synthetic test tags.
-            assertTrue("Studio must render the persisted project", waitForText(projectName))
+            // Studio intentionally has continuously changing meters/clock, so Compose/Espresso may
+            // never become globally idle. Use stable user-facing accessibility controls instead:
+            // Início proves the Studio route rendered; enabled Salvar e exportar proves project != null.
+            assertTrue("Project creation must navigate to Studio", waitForDescription("Início"))
+            assertTrue("Studio must finish loading the persisted project", waitForEnabledDescription("Salvar e exportar"))
             assertFalse("Rename must stay out of Studio", device.hasObject(By.desc("Renomear projeto")))
 
-            // Recreate the Activity from Studio. The saveable route must survive Android
-            // configuration recreation and still render the persisted project state.
+            // Recreate the Activity from Studio. The saveable project-scoped route must survive and
+            // reload a project strongly enough to enable project export again.
             composeRule.activityRule.scenario.recreate()
-            assertTrue("Studio route must survive Activity recreation", waitForText(projectName))
+            assertTrue("Studio route must survive Activity recreation", waitForDescription("Início"))
+            assertTrue("Studio project must reload after Activity recreation", waitForEnabledDescription("Salvar e exportar"))
             assertEquals(projectName, repository.load(projectId)?.name)
 
             // Project-scoped Options embeds the project id in the saveable route. Recreate there,
             // then return to Studio. AppRouteCodec JVM tests separately prove exact project-id
-            // encode/decode; this path proves Android route save/restore + repository persistence.
+            // encode/decode; this path proves Android save/restore + repository rehydration.
             val options = device.wait(Until.findObject(By.desc("Opções")), UI_TIMEOUT_MS)
             assertNotNull("Studio must expose Options after recreation", options)
             options!!.click()
@@ -88,7 +92,8 @@ class GuitarLabLifecycleInstrumentedTest {
             composeRule.waitForIdle()
             composeRule.onNodeWithText("Opções").assertIsDisplayed()
             composeRule.onNodeWithContentDescription("Voltar").performClick()
-            assertTrue("Back from project-scoped Options must restore Studio", waitForText(projectName))
+            assertTrue("Back from project-scoped Options must restore Studio", waitForDescription("Início"))
+            assertTrue("Back from project-scoped Options must reload project state", waitForEnabledDescription("Salvar e exportar"))
             assertEquals(projectName, repository.load(projectId)?.name)
 
             // Renaming intentionally lives only on Home. Prove the Studio pencil/control is absent
@@ -123,8 +128,11 @@ class GuitarLabLifecycleInstrumentedTest {
         return null
     }
 
-    private fun waitForText(text: String): Boolean =
-        device.wait(Until.hasObject(By.text(text)), UI_TIMEOUT_MS)
+    private fun waitForDescription(description: String): Boolean =
+        device.wait(Until.hasObject(By.desc(description)), UI_TIMEOUT_MS)
+
+    private fun waitForEnabledDescription(description: String): Boolean =
+        device.wait(Until.hasObject(By.desc(description).enabled(true)), UI_TIMEOUT_MS)
 
     private companion object {
         const val UI_TIMEOUT_MS = 10_000L
