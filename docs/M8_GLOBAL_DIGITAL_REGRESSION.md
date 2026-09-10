@@ -1,64 +1,74 @@
-# M8 global digital regression
+# M8 Global Digital Regression
 
 Updated: 2026-09-10
 
-Baseline: M7 alpha1 `5159de1f95ca0cfb483d0b244d8f956d49300c23`.
-Signed expanded-regression checkpoint: M7 alpha2 `ca5b9d57ed07bb9cbd27a5da61386cc764209fd0`, CI run #465.
-Latest completed software gate before cancellation/file-lifecycle hardening: commit `3bb3c8f37a826230d4cf619299054b79779176fd`, CI run #493; unit tests, Android Lint and assembleDebug PASS.
+Signed expanded-regression checkpoint: M7 alpha2 `ca5b9d57ed07bb9cbd27a5da61386cc764209fd0`, push CI #465.
+Latest functional/CI hardening baseline before this documentation synchronization: `922c1c499248800ecce2ddf447c5201d95bbe9cb`, canonical consolidated CI #545.
 
 ## Objective coverage matrix
 
-| Area | Automatic/digital evidence | Physical need | Status |
+| Area | Automatic/digital evidence | Residual physical need | Status |
 |---|---|---|---|
 | Project factory/template/roles/names | JVM model tests | none | PASS |
 | Save/load/list/delete | filesystem repository tests | none | PASS |
-| Duplicate project + managed media | source/proxy byte comparison and rollback | none | PASS |
-| `.guitarlab` writer/reader | ZIP round trip, traversal, duplicate/ambiguous paths, version, zero/truncated input and rollback | none | PASS |
+| Duplicate project + managed media | source/proxy byte comparison, collision/missing-media rollback | none | PASS |
+| `.guitarlab` writer/reader | ZIP round trip, traversal, duplicate/ambiguous paths, version, zero/truncated input, interrupted staging and rollback | none | PASS |
 | Legacy JSON compatibility | pre-M5, M5, M6, pre-M7, partial metadata and current fixtures | none for covered fixtures | PASS |
-| Trim/split/move/reorder/drag policy | frame invariants and invalid-bound tests | gesture ergonomics only | PASS logic / physical UX pending |
+| Trim/split/move/reorder/drag policy | frame invariants and invalid-bound tests | tactile gesture ergonomics only | PASS logic / physical UX residual |
 | Undo/Redo | long mixed sequence, exact snapshot recovery and branch invalidation | none | PASS |
-| Mixer policy | mute/solo truth table, gain dB and pan law | listening optional | PASS core |
-| SRC | five-rate matrix; duration, pitch, RMS, channels, immutable original | listening optional | PASS |
-| Same-rate media | byte-exact independent output | none | PASS |
-| WAV codec/waveform | PCM16/24/float decode, seek, metadata and envelope tests | none for supported WAV core | PASS |
-| Master render | deterministic PCM for placement/gain/pan/fade/crossfade/clipping/stereo | listening optional | PASS |
-| Realtime playback vs offline export | shared PCM reader/kernel; realtime-sized and offline-sized chunks are bit-exact | route/device still physical | PASS digital / physical route pending |
-| Home vs Studio export | one request factory and one export service; identical rate/mute/solo/media rules | none | PASS |
-| Recording state/placement | complete state-machine regression, managed-take tests and cancellation-safe publication | real USB capture required | PASS digital / physical capture pending |
-| Latency compensation | synthetic policy/clock/calibration tests | real route latency required | PARTIAL |
-| FLAC/MP3 Android codecs | build/lint only; device codec integration not instrumented | device validation remains | PENDING |
-| Lifecycle/process recreation | no instrumented suite yet | some device confirmation | PENDING |
-| Accessibility/responsive Compose UI | lint plus static semantics/touch-target audit; track colors are 48 dp radio controls with selected state | TalkBack/layout observation remains | PARTIAL |
-| Large-session performance | 24-track/120-clip save, bundle round trip and reopen; 2,000 deterministic fuzz projects | tablet realtime stress remains | PASS structural / physical performance pending |
+| Mixer policy | mute/solo truth table, gain dB, pan law | listening optional | PASS core |
+| Mixer accessibility | semantics/state/context + Compose instrumented callbacks/spacing | final tablet/TalkBack observation optional | PASS digital |
+| SRC | multi-rate matrix; duration, pitch, RMS, channels, immutable original | listening sanity only | PASS digital |
+| Same-rate media | independent byte-behavior regression | none | PASS |
+| WAV codec/waveform | PCM16/24/float decode, seek, metadata, waveform/envelope tests | target listening smoke only | PASS |
+| Master render | deterministic PCM for placement/gain/pan/fade/crossfade/clipping/stereo | subjective listening only | PASS |
+| Realtime vs offline | shared PCM reader/mix kernel, chunk-size parity | real route/device only | PASS digital / physical route residual |
+| Home vs Studio export | canonical request factory and shared export service | final smoke only | PASS |
+| Recording state/placement | state-machine, managed-take, cancellation and recovery tests | real USB capture | PASS digital / physical capture residual |
+| Interrupted recording | lossless abandon inventory + canonical Float32 header repair | none for file-recovery invariant | PASS |
+| Media orphan policy | missing references, retained sources/proxies/recoverable takes, safe-derived cleanup | none | PASS |
+| SAF publication | full staging first, truncating publish, cancellation/error rollback attempt | provider-specific final smoke | PASS policy |
+| Latency compensation | synthetic policy/clock/calibration tests | real-route latency/feel | PARTIAL by nature |
+| FLAC Android export | `fLaC`/STREAMINFO + API 36 native extraction/decoding, 48 kHz stereo payload | listening smoke only | PASS emulator |
+| MP3 Android export | API 36 conditional capability contract | actual Samsung encoder availability | PASS behavior / target capability residual |
+| Lifecycle recreation | App route codec + `ActivityScenario.recreate()` | none for covered recreation path | PASS emulator |
+| Process-death storage safety | interrupted import/take recovery and safe repository listing | final OS/hardware smoke only | PASS persistence invariants |
+| Large-session performance | Small 5/10, Medium 12/50, Large 24/120 save/load/bundle/reopen/render; deterministic fuzz | Samsung realtime stress | PASS structural / physical performance residual |
 
-## Defects found and corrected
+## Defects found and corrected during global regression
 
 | Severity | Reproduction | Correction | Regression evidence |
 |---|---|---|---|
-| P1 | Duplicate project persisted JSON whose managed source/proxy files were absent in the new project directory. | Transactional copy of every distinct referenced source/proxy; rollback on any failure; reject ID collision. | Byte comparison and missing-media rollback test PASS. |
-| P2 | M7 editing proxy bounds, fades and frame additions could bypass validation or overflow. | Canonical editing-domain bounds and explicit rate/total/fade/overflow validation. | Three focused model regression tests PASS. |
-| P0 | Cancellation at the repository-save boundary could invoke rollback after imported/proxy/take media had already become referenced by the persisted project. | Non-cancellable publication boundary, commit-aware rollback and failed-import waveform cleanup. | Source review plus global unit/lint/build gate; physical capture is not needed to prove the persistence invariant. |
-| P2 | Home and Studio built master requests independently; Studio omitted Home's editing-rate rejection. | Canonical request factory and shared export service for both entry points. | Solo/mute/proxy/rate/timeline factory tests PASS. |
-| P2 | Project export opened the user destination before package construction had succeeded. | Stage and validate the complete package in cache before opening the destination; unconditional temp cleanup. | Bundle failure/rollback tests and global gate. |
-| P3 | Track color controls exposed 30 dp touch targets without selected-state semantics. | 48 dp adaptive controls with radio role, description and selected state. | Android Lint PASS; final device observation remains. |
-| P3 | Initial new test harness missed imports/Android JUnit annotation. | Correct imports and JUnit variant annotation. | CI #452 PASS. |
+| P1 | Duplicate project could publish JSON referencing managed media absent from the new project directory. | Transactional copy of each referenced source/proxy, rollback on failure, collision rejection. | Byte comparison and missing-media rollback PASS. |
+| P0 | Cancellation at persistence boundary could run rollback after media had already become referenced by committed project JSON. | Non-cancellable publication boundary + commit-aware rollback. | Focused tests + global gate PASS. |
+| P1 | Legacy `discard()`/startup cleanup could delete payload-bearing interrupted recordings. | Lossless abandon semantics; only header-only temporary takes are removable; recoverable inventory retained. | Recording-store and legacy-discard regression PASS. |
+| P1 | Process kill during Float32 capture could retain samples but leave WAV data length zero. | Conservative canonical GuitarLab Float32 WAV header repair and frame-aligned truncation only when required. | Simulated interrupted-writer recovery PASS. |
+| P2 | `.import-*` staging surviving process death could appear as a ghost Home project. | Hide internal dot-directories from repository listing and clean only GuitarLab `.import-*` staging at startup. | Interrupted-import recovery tests PASS. |
+| P1 | Android encoder timestamps began at the end of the first chunk and EOS could jump back to zero. | PTS derived from chunk start frame; EOS from final decoder position. | Pure timeline tests + Android build gate PASS. |
+| P2 | SAF final publication could leave a partially written user file after error/cancellation. | Stage first; publish with truncating mode, cooperative cancellation and rollback-to-empty attempt on failure. | Publisher copy/error/cancellation tests PASS. |
+| P3 | Compact Mixer controls lacked complete contextual/state semantics and could have overlapping minimum touch regions. | Role/state/context semantics + spacing discipline; instrumented callbacks/center-distance assertions. | Compose API 36 instrumentation PASS. |
+| P1 | FLAC master path omitted native codec-specific header on Codec2 output, producing an invalid/incomplete FLAC stream. | Capture/write validated `fLaC` + STREAMINFO from output format/config before encoded frames. | API 36 instrumented `fLaC` marker + native extraction/decoding PASS. |
+| Test defect | First FLAC instrumented assertion expected `audio/flac` from Android `MediaExtractor`; native FLACExtractor intentionally exposes decoded `audio/raw`. | Test now separates container identity (`fLaC`) from extractor track MIME and verifies decoded payload/rate/channels. | Android integration gate PASS. |
 
-No reproducible P0/P1 remains after the cancellation fix. No RC is justified while the current hardening HEAD lacks a final signed green identity and the physical M7 gate remains open.
+No reproducible P0/P1 remains in the current automated scope after the listed corrections.
 
-## Quantitative audio tolerances used
+## Performance evidence policy
+CI metrics are regression evidence, not device benchmarks. Current scenarios measure save/load, bundle write, package reopen/import, JSON/bundle sizes, rough heap delta and a 1-second offline render. A previously captured Large baseline (24 tracks/120 clips) completed save+load/reopen in tens of milliseconds and offline 1-second render in sub-second runner time; exact per-run metrics are stored in `ci-diagnostics/performance-evidence.txt`.
 
-- SRC target frames: rounded exact ratio; matrix observed within exact asserted mapping.
-- 440 Hz channel: accepted 430–450 Hz by deterministic positive zero crossings.
-- 880 Hz channel: accepted 860–900 Hz.
-- RMS: 0.5-amplitude sine accepted 0.33–0.38; 0.25-amplitude sine accepted 0.16–0.20.
-- same-rate output: byte-for-byte equality.
-- rendered silence/channel isolation: absolute sample error below `1e-5`.
-- crossfade overlap: sample-domain envelope checked per overlap frame within `1e-4`.
+## CI architecture
+The canonical workflow contains:
+- `software-gate`;
+- `android-integration-gate`;
+- `homologation-apk`, which has `needs` on both.
+
+The API 36 AVD uses a pinned snapshot cache. Signing remains skipped unless explicitly requested. A documentation or candidate claim must distinguish JVM, emulator and target-device evidence.
 
 ## Remaining physical checklist
+1. Install only the final signed RC on Samsung SM-X230.
+2. Connect Pocket Amp and confirm real USB input/output plus real guitar recording/monitoring.
+3. Judge subjective latency/feel and listen for pops/dropouts/route artifacts.
+4. Validate actual Samsung MP3 encoder availability/playability.
+5. Stress one representative larger session and confirm touch/layout ergonomics.
+6. Perform one concise restart/reopen/export smoke.
 
-1. Install the final signed RC candidate on Samsung SM-X230.
-2. Connect Pocket Amp and confirm real USB input/output routing.
-3. Record and monitor guitar; judge tactile/subjective latency.
-4. Listen for pops, dropouts, pitch artifacts and crossfade quality.
-5. Stress a representative large session on the tablet and confirm physical ergonomics.
+Everything else in this matrix stays digital and should not be manually repeated.

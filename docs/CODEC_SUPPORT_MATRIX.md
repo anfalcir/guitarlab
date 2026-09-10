@@ -1,29 +1,36 @@
 # Codec Support Matrix
 
-Updated: 2026-09-09
+Updated: 2026-09-10
 
-Legend: **PLANNED** = product scope only; **IMPLEMENTED** = code path exists; **SOFTWARE VERIFIED** = automated candidate gate passed; **ANDROID VERIFIED** = representative real-device gate passed. A format is not advertised as fully supported merely because code exists.
+Legend:
+- **IMPLEMENTED** — code path exists;
+- **JVM VERIFIED** — deterministic core/software tests pass;
+- **EMULATOR VERIFIED** — Android API 36 instrumented integration passes;
+- **TARGET VERIFIED** — representative physical Samsung/Pocket Amp/device gate passes where target hardware matters;
+- **DEVICE-GATED** — availability depends on codecs exposed by the actual Android device.
 
-| Format | Import | Export | Alpha13 status | Notes |
+A capability is never promoted merely because code compiles.
+
+| Format | Import | Export | Current status | Notes |
 |---|---:|---:|---|---|
-| WAV PCM | Yes | Yes | Import ANDROID VERIFIED (partial matrix); Float32 export IMPLEMENTED | Core import handles PCM U8/S16/S24/S32 and IEEE Float32. Alpha13 physically gates WAV 32-bit float master output. |
-| FLAC | Yes | Yes | IMPLEMENTED | Import decodes to managed PCM proxy through Android media stack. Export uses Android FLAC encoder path; target-device validation required. Current render-to-encoder path quantizes to PCM16 before FLAC encoding; no 24-bit export claim is made. |
-| AIFF / AIFF-C PCM | Yes | No | IMPLEMENTED import | Dedicated PCM path supports common 8/16/24/32-bit AIFF and AIFC `NONE`, `twos`, `sowt`. Compressed AIFF-C is rejected and not claimed. |
-| MP3 | Yes | Yes | IMPLEMENTED, DEVICE-GATED | Import decodes to managed PCM proxy. Export requests MP3 320 kbps from the Android encoder exposed by the device. Android does not guarantee a platform MP3 encoder, so product support remains physically gated on the target device. |
-| AAC / M4A | Yes | Later | IMPLEMENTED import | Common mobile interchange import via Android media decoding. Final AAC/M4A export is not part of alpha13. |
-| OGG Vorbis | Yes | Optional later | IMPLEMENTED import | Import via Android media decoding; no alpha13 export claim. |
-| Opus | Yes | Later | IMPLEMENTED import | Import via Android media decoding; no alpha13 export claim. |
+| WAV PCM / Float | Yes | Yes | JVM VERIFIED; prior target workflow verified representative WAV use | Core decode supports PCM U8/S16/S24/S32 and IEEE Float32. Master WAV output is IEEE Float32. |
+| FLAC | Yes | Yes | Export **EMULATOR VERIFIED** on API 36 | Export writes native `fLaC` + STREAMINFO codec-specific data, then encoded frames. Instrumentation verifies marker, native extraction/decoding, 48 kHz stereo metadata and payload. Current encoder input is PCM16, so no 24-bit FLAC export claim is made. |
+| AIFF / AIFF-C PCM | Yes | No | IMPLEMENTED import | Dedicated PCM path supports common 8/16/24/32-bit AIFF and AIFC `NONE`, `twos`, `sowt`. Unsupported compressed AIFF-C is rejected. |
+| MP3 | Yes | Yes | Export behavior **EMULATOR VERIFIED / DEVICE-GATED** | Export requests 320 kbps from a device-exposed Android MP3 encoder. Android does not guarantee such an encoder. Instrumentation verifies successful extractable output when an encoder exists and controlled `AudioCodecException` with no leftover destination when it does not. Final availability remains Samsung-target-specific. |
+| AAC / M4A | Yes | Later | IMPLEMENTED import | Common mobile interchange import through Android media decoding. Final AAC/M4A export is outside the current scope. |
+| OGG Vorbis | Yes | Optional later | IMPLEMENTED import | Import through Android media decoding; no current export claim. |
+| Opus | Yes | Later | IMPLEMENTED import | Import through Android media decoding; no current export claim. |
 
 ## Import architecture
-A successful import preserves the byte-identical managed original as the authoritative source. WAV files that are directly compatible can be edited from that managed source. Other implemented formats are decoded to a separate PCM WAV editing proxy. The proxy is derived/regenerable and never replaces the original source.
+Successful import preserves a byte-identical project-managed native original as the authoritative source. Directly compatible WAV may be edited from that managed source. Other accepted formats decode to a separate managed PCM WAV editing proxy. The proxy is derived/regenerable and never replaces the original.
 
 ## Sample rates
-Project-relevant rates remain 44.1, 48, 88.2 and 96 kHz. The app must never change speed/pitch silently. Equal-rate sources can proceed through the established path. Source/project mismatch remains explicitly unsupported where validated resampling is absent; transparent arbitrary-rate mixing is planned after M5, not implied by alpha13.
+Project-relevant rates include 44.1, 48, 88.2 and 96 kHz. Mismatched source/project rates use validated bounded-memory conversion to a managed Float32 editing proxy; the native source remains immutable. Deterministic software regression covers 44.1→48, 48→44.1, 88.2→48, 96→48 and 44.1→96 with asserted duration/pitch/RMS/channel behavior. Equal-rate conversion has independent byte-behavior coverage. Silent speed/pitch changes are prohibited.
 
 ## Channel layouts
-Mono and stereo are the primary V1 target. Alpha13 import paths explicitly gate unsupported broader channel counts instead of silently remapping them.
+Mono and stereo are the primary V1 target. Unsupported broader layouts are rejected rather than silently remapped. Stereo editing/display keeps L/R identity and role-aware separation remains non-destructive.
 
-## WAV encoding
+## WAV encoding/decoding
 Core parsing/decoding supports:
 - PCM unsigned 8-bit;
 - PCM signed 16-bit little-endian;
@@ -33,12 +40,15 @@ Core parsing/decoding supports:
 
 Master WAV export uses IEEE 32-bit float.
 
-## Physical alpha13 codec gate
-Representative files on Samsung SM-X230 must cover WAV, FLAC, AIFF, MP3, M4A/AAC, OGG and Opus import, followed by waveform/playback/Trim. Export must cover WAV Float32, FLAC and MP3. A target failure blocks the corresponding support claim and, when it affects a requested alpha13 function, blocks M5 closure.
+## Android master-encoder rules
+- presentation timestamps are based on each input chunk's start frame and EOS is monotonic;
+- failed encoding removes the staged destination;
+- FLAC must contain a valid native stream marker/STREAMINFO before audio frames;
+- Android integration uses native extraction/decoding rather than extension/size-only checks;
+- MP3 absence is a capability result, never a reason to fabricate support.
 
-## Validation rule
-Every format progresses through implementation, malformed/error handling, project-managed source/proxy integrity, software gate and representative target-device validation. Documentation must distinguish those states explicitly.
-
-
-## Stereo ingest/display gate (alpha14)
-All imported two-channel formats that reach the managed WAV editing path must preserve both channels, expose separate L/R waveform envelopes, and support non-destructive channel separation. Guitar-role L/R distribution and generic dual-mono separation are part of the alpha14 target-device gate; source originals remain immutable.
+## Residual target-device codec gate
+Only target-specific facts remain physical:
+- whether the Samsung image exposes a compatible MP3 encoder;
+- final playability/listening smoke through the intended target workflow.
+FLAC structural validity is no longer delegated to physical homologation because it is API 36 instrumented.

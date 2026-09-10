@@ -1,6 +1,6 @@
 # Architectural and Product Decisions
 
-Updated: 2026-09-09
+Updated: 2026-09-10
 
 This log records decisions that must survive chat/context loss. Historical decisions remain binding unless a later numbered decision explicitly supersedes them.
 
@@ -101,7 +101,7 @@ Track drop uses `ProjectTrackEditor.reorderTrack`; clip migration uses `ProjectC
 Wide layouts use balanced identity/color and source-metadata columns; narrow layouts stack them. Source filename/format/sample rate/channels/bit depth/encoding/duration are shown when available, with a compact empty state otherwise.
 
 ## D-033 — M5 physical approval is mandatory
-Software-green and signed identity are necessary but insufficient. The historical alpha11-specific wording is superseded by D-038. M5/PR #1 stay open/draft until the active physical candidate passes with zero repeatable P0/P1 and the user explicitly closes M5.
+Software-green and signed identity are necessary but insufficient. Historical M5 candidate wording is superseded by the explicit M5 PASS/CLOSED state and later milestone decisions.
 
 ## D-034 — Native original and edit proxy are distinct
 Every successful import preserves the project-managed native original as authoritative immutable source. A format that cannot be consumed directly by the Studio WAV path receives a separate managed PCM WAV proxy. The proxy is derivative/regenerable and never replaces or redefines the original source.
@@ -110,16 +110,16 @@ Every successful import preserves the project-managed native original as authori
 Portable project save contains a versioned manifest, `project.json` and referenced managed media. Restore validates format/version/project/media, blocks ZIP path traversal, stages into temporary storage and assigns a new project identity before publication. A portable save must be reopenable by GuitarLab; it is not a one-way backup archive.
 
 ## D-036 — Master export is an offline render pipeline
-Final output renders current timeline/trim/placement/clip gain/track mix/Mute/Solo/Pan/Master state into a floating-point master representation, then encodes the selected delivery format. Export never mutates source/proxy media. Alpha13 requested outputs are WAV 32-bit float, FLAC and MP3 320 kbps.
+Final output renders current timeline/trim/placement/clip gain/track mix/Mute/Solo/Pan/Master state into a floating-point master representation, then encodes the selected delivery format. Export never mutates source/proxy media. Requested outputs are WAV 32-bit float, FLAC and MP3 320 kbps.
 
 ## D-037 — Share owns project save and final export UX
 A Share icon lives immediately before Home in the Studio top bar. It opens `Salvar e exportar`, semantically separating editable `.guitarlab` persistence from final-audio masters. Options continues to own setup/preferences/diagnostics and must not duplicate these output actions as primary commands.
 
 ## D-038 — Media I/O/persistence/export were intentionally pulled forward into M5
-Alpha12 was superseded before physical closure. Alpha13 consolidates drag/Track Settings corrections with multi-format import, managed source/proxy architecture, portable project round-trip and requested master exports. M5 closes only after the alpha13 physical checklist passes. M6 remains blocked and starts with measured latency/synchronization/jitter/loopback.
+Historical alpha13 wording is evidence only. M5 later closed by explicit approval of alpha14; M6 later closed by explicit approval of `0.3.0-alpha1`.
 
-## D-039 — Encoder/support claims remain device-gated
-A code path does not establish universal Android support. In particular, the current MP3 export requests a device-exposed Android MP3 encoder and is not considered verified until target-device homologation succeeds. FLAC/other new import/export paths likewise advance from IMPLEMENTED to ANDROID VERIFIED only through the codec matrix gate.
+## D-039 — Encoder/support claims remain device-gated where Android capability is optional
+A code path does not establish universal Android support. MP3 export requests a device-exposed Android MP3 encoder and remains target-capability-gated. FLAC can advance independently because API 36 instrumented native extraction/decoding now objectively verifies its current export structure.
 
 ## D-040 — Import processing is always visible
 After Android document selection returns to GuitarLab, ingest/transcode/waveform preparation must expose a blocking progress surface with an explicit current operation. Silent background import is prohibited because it is indistinguishable from a missed command or freeze.
@@ -132,3 +132,21 @@ A successful stereo import triggers an explicit decision. Backing/stereo-oriente
 
 ## D-043 — Timeline split and stereo separation are distinct commands
 `Dividir no cursor` remains a temporal clip edit. `Separar estéreo em 2 pistas mono` is a separate channel-routing command, available only for two-channel clips. They must never share ambiguous wording or behavior.
+
+## D-044 — Abandonment and cleanup are lossless by default
+Cleanup must never infer that a payload-bearing recording or authoritative source is disposable. Header-only recording temporaries may be removed; payload-bearing partial takes are retained/reported. Safe cleanup is limited to provable temporaries and derived caches.
+
+## D-045 — Process-death recovery is conservative and format-specific
+Interrupted project-import staging is internal and must never surface as a project. A Float32 recording header may be repaired only when the file exactly matches GuitarLab's canonical writer contract; otherwise it is retained untouched for diagnosis/recovery.
+
+## D-046 — External publication stages first and fails closed
+Project packages and masters are fully created/validated before opening a SAF destination. Final publication uses truncating semantics, cooperative cancellation and rollback attempts. A failed publish must not be reported as success.
+
+## D-047 — Codec integration claims use real Android semantics
+JVM/build success is insufficient for Android codec claims. FLAC export requires valid native stream metadata plus API-level extraction/decoding evidence. Tests must distinguish container identity from the decoded track MIME returned by Android extractors.
+
+## D-048 — Signed candidates require both software and Android integration gates
+The canonical CI contains a software gate and API 36 emulator gate. The signed homologation job has explicit dependencies on both; a signing request cannot bypass a failed required gate. Emulator/cache third-party actions are pinned to immutable commit SHAs.
+
+## D-049 — Physical homologation is residual, not duplicated QA
+Anything objectively established by automated model/file/JVM/emulator regression is removed from the manual checklist. The final physical pass is limited to target-hardware routing/capture, optional target codec capability, subjective latency/listening, real-device stress and ergonomics.

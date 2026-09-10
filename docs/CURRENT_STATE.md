@@ -2,36 +2,63 @@
 
 Updated: 2026-09-10
 
-## Active branch and gate
+## Active branch and gates
 - Repository: `anfalcir/guitarlab`
 - Branch: `dev/parallel-m3-m5` (historical branch name retained while PR #1 stays active)
-- Draft PR: #1
+- Draft PR: #1; `main` remains untouched by the current hardening work.
 - M2: PASS/CLOSED
 - M3/M4: absorbed
-- M5: PASS/CLOSED
-- M6: **PASS/CLOSED by explicit user physical approval of 0.3.0-alpha1**
-- M7: implementation candidate `0.4.0-alpha2`, versionCode 18; **OPEN pending physical homologation**
-- M8.A: **IN PROGRESS**. Compatibility/migration fixtures, malformed packages, editing-domain validation, duplicate-project media integrity, deterministic stress/fuzz, shared PCM render and cancellation-safe managed-media publication now have objective coverage.
-- Signed checkpoint: `0.4.0-alpha2` (versionCode 18), commit `ca5b9d57ed07bb9cbd27a5da61386cc764209fd0`, CI run #465. Latest completed software gate before the current lifecycle batch: CI run #493 on `3bb3c8f37a826230d4cf619299054b79779176fd` (tests, lint and debug assembly PASS). Do not physically homologate alpha2; wait for the consolidated signed RC candidate.
+- M5: **PASS/CLOSED by explicit user physical approval of `0.2.0-alpha14`**
+- M6: **PASS/CLOSED by explicit user physical approval of `0.3.0-alpha1`**
+- M7: implementation candidate `0.4.0-alpha2`, versionCode 18; **OPEN for one final residual physical homologation only**
+- M8.A compatibility/edge hardening: **DIGITALLY COVERED for the current scoped matrix**
+- M8.B accessibility/lifecycle/performance hardening: **DIGITALLY COVERED for the current scoped matrix; physical ergonomics/realtime hardware performance remain residual**
+- M8.C RC: **BLOCKED only on final exact-candidate signing + residual physical gate**
+- Signed expanded-regression checkpoint: `0.4.0-alpha2`, commit `ca5b9d57ed07bb9cbd27a5da61386cc764209fd0`, push CI #465.
+- Latest functional/CI hardening baseline before this documentation synchronization: `922c1c499248800ecce2ddf447c5201d95bbe9cb`, canonical CI #545. Do not physically homologate the old alpha2 checkpoint; wait for the intentionally cut final signed RC.
+
+## Canonical automated gate
+`.github/workflows/android-ci.yml` now contains both required automated jobs:
+1. **software-gate** — unit tests, performance evidence, Android Lint and debug APK;
+2. **android-integration-gate** — Android API 36 emulator instrumentation.
+
+The signed homologation job depends on both gates. The old duplicate `pull_request` execution path and standalone emulator workflow were removed; the API 36 AVD is snapshot-cached. Signing remains opt-in only.
 
 ## M7 production audio polish
-M7 closes the previously documented production-audio-polish block: mismatched sample-rate conversion, non-destructive fades/crossfades, render parity and larger-session memory discipline. It also incorporates the approved workflow polish of Rename + shared `Salvar e exportar` directly from each project row on Home.
+M7 includes validated sample-rate conversion, non-destructive fades/crossfades, realtime/offline render parity, larger-session memory discipline and shared Home/Studio save-export behavior.
 
 ### Sample-rate contract
-The imported native source remains immutable. When the source rate differs from the project/editing rate, GuitarLab creates a project-managed 32-bit-float WAV proxy using bounded-memory windowed-sinc conversion. Timeline/sourceStart/length editing then operates in the editing-proxy frame domain, while native-source rate/format metadata remains provenance.
+The imported native source remains immutable. When source rate differs from the project/editing rate, GuitarLab creates a project-managed 32-bit-float WAV proxy using bounded-memory conversion. Timeline/sourceStart/length operate in the editing-proxy frame domain while native rate/format remain provenance.
 
 ### Fade/crossfade contract
-Fade in/out are clip metadata and do not rewrite source audio. Realtime playback and offline master rendering use the same deterministic envelope. Crossfade requires actual overlap between two clips on the same track and maps the overlap to left fade-out + right fade-in.
+Fade in/out are clip metadata and never rewrite source audio. Realtime playback and offline master rendering use the same deterministic envelope. Crossfade requires actual same-track overlap and maps the overlap to left fade-out + right fade-in.
 
-### Performance contract
-The resampler is chunk-bounded and playback/master ClipReaders reuse scratch arrays rather than allocating a new decode buffer on every render chunk. M7 physical stress remains required before claiming large-session verification.
+### Managed-media and interruption contract
+Sources are authoritative and never auto-deleted as cleanup. Proxies and waveform caches are derived. Interrupted project imports remain hidden staging and are safely removable. Recording abandonment is lossless: header-only temporary takes may be removed, but payload-bearing partial recordings are retained as recoverable media. A process-killed Float32 recording with a zero-length WAV header is conservatively repaired only when it exactly matches GuitarLab's canonical recording format.
 
-### Home project actions
-The three-dot project menu now offers Rename, Salvar e exportar, Duplicate and Delete. Home invokes the same `RenameProjectDialog` and `SaveAndExportDialog` components as Studio. Project persistence and master export use the same managed project/media contracts.
+### Export/publication contract
+Project bundles and audio masters are fully staged before opening the user destination. SAF publication uses truncating write mode and attempts rollback on write error/cancellation so a partial destination is not presented as a valid completed export. Source/proxy media are never destructive export targets.
 
-### Digital hardening after alpha2
-Realtime playback and offline render now share the same PCM reader/mix kernel, with bit-exact output across realtime/offline chunk sizes. Home and Studio also share one master-request factory and one export service. Project packages are fully staged before the selected destination is opened. Import, stereo split and recorded-take publication use a non-cancellable persistence boundary so rollback cannot delete media already referenced by a committed project; pre-commit failure removes temporary media and waveform cache.
+### Codec contract
+Android master-encoder presentation timestamps start at the source chunk start and remain monotonic through EOS. FLAC export writes the required native `fLaC`/STREAMINFO codec data and is instrumented on API 36 by native extraction/decoding at 48 kHz stereo. MP3 remains target-capability-gated because Android does not guarantee an MP3 encoder; the emulator suite verifies both successful encoding when available and controlled failure when absent.
+
+### Accessibility/lifecycle contract
+Mixer Mute/Solo/Arm and CLIP clearing expose button semantics and state/context descriptions. Instrumented Compose tests cover callbacks and non-colliding M/S/Arm centers. `ActivityScenario.recreate()` verifies saveable navigation-route restoration. Persistence/media tests separately cover interrupted staging and recovery invariants.
+
+### Performance evidence
+Deterministic JVM/CI scenarios cover Small 5 tracks/10 clips, Medium 12/50 and Large 24/120 for save/load, bundle write/reopen and offline render. These numbers are regression baselines, not claims about Samsung realtime performance; final tablet stress remains physical.
+
+## Residual physical gate
+The final user homologation is deliberately limited to facts that cannot be established objectively in CI:
+- actual Samsung SM-X230 + Pocket Amp USB input/output routing and guitar capture;
+- subjective/real-route latency and monitoring feel;
+- MP3 export availability/playability on that exact Samsung device;
+- listening for hardware-route pops/dropouts/pitch or transition artifacts;
+- representative large-session responsiveness and tactile/visual ergonomics on the tablet;
+- one concise final smoke after restart/reopen.
+
+No mathematical SRC checks, malformed package tests, persistence invariants, FLAC container validation or generic lifecycle recreation should be re-delegated to physical homologation.
 
 Canonical roadmap: `docs/IMPLEMENTATION_ROADMAP.md`.
-Active checklist: `docs/M7_ALPHA1_HOMOLOGATION_CHECKLIST.md`.
+Active residual checklist: `docs/M7_ALPHA1_HOMOLOGATION_CHECKLIST.md`.
 Global matrix: `docs/M8_GLOBAL_DIGITAL_REGRESSION.md`.
