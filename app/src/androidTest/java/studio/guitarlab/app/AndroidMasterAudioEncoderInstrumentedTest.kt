@@ -31,9 +31,15 @@ class AndroidMasterAudioEncoderInstrumentedTest {
             AndroidMasterAudioEncoder.encode(source, encoded, MasterExportFormat.FLAC)
 
             assertTrue("FLAC output must be non-empty", encoded.isFile && encoded.length() > 0L)
+            assertFlacStreamMarker(encoded)
+
+            // Android's native FLACExtractor decodes FLAC and intentionally exposes
+            // its track to MediaExtractor as audio/raw. The container identity is
+            // therefore proven by the fLaC marker plus successful extraction/decoding,
+            // not by expecting audio/flac from getTrackFormat().
             assertExtractableAudio(
                 file = encoded,
-                expectedMime = MediaFormat.MIMETYPE_AUDIO_FLAC,
+                expectedMime = MediaFormat.MIMETYPE_AUDIO_RAW,
                 expectedSampleRateHz = SAMPLE_RATE_HZ,
                 expectedChannels = CHANNELS,
             )
@@ -83,6 +89,18 @@ class AndroidMasterAudioEncoderInstrumentedTest {
         }.getOrNull()
     }
 
+    private fun assertFlacStreamMarker(file: File) {
+        val marker = ByteArray(4)
+        file.inputStream().use { input ->
+            assertEquals("FLAC output must contain a complete stream marker", marker.size, input.read(marker))
+        }
+        assertEquals(
+            "FLAC output must start with the native fLaC stream marker",
+            "fLaC",
+            marker.toString(Charsets.US_ASCII),
+        )
+    }
+
     private fun assertExtractableAudio(
         file: File,
         expectedMime: String,
@@ -108,7 +126,7 @@ class AndroidMasterAudioEncoderInstrumentedTest {
             extractor.selectTrack(index)
             val firstPacket = ByteBuffer.allocate(64 * 1024)
             assertTrue(
-                "Extractor must read encoded payload, not only recognize a header",
+                "Extractor must read audio payload, not only recognize a header",
                 extractor.readSampleData(firstPacket, 0) > 0,
             )
         } finally {
