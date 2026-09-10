@@ -69,4 +69,44 @@ class FileProjectRepositoryTest {
             root.deleteRecursively()
         }
     }
+
+    @Test
+    fun unsafeAndPreviouslyCollidingIdsStayConfinedAndIndependent() {
+        val root = Files.createTempDirectory("guitarlab-storage-key").toFile()
+        try {
+            val repository = FileProjectRepository(root)
+            val slash = ProjectFactory(idGenerator = { "a/b" }, clock = { 1L })
+                .create("Slash", ProjectTemplate.BLANK)
+            val question = ProjectFactory(idGenerator = { "a?b" }, clock = { 2L })
+                .create("Question", ProjectTemplate.BLANK)
+            val parent = ProjectFactory(idGenerator = { ".." }, clock = { 3L })
+                .create("Parent", ProjectTemplate.BLANK)
+
+            repository.save(slash)
+            repository.save(question)
+            repository.save(parent)
+
+            assertEquals("Slash", repository.load("a/b")?.name)
+            assertEquals("Question", repository.load("a?b")?.name)
+            assertEquals("Parent", repository.load("..")?.name)
+            assertEquals(3, repository.list().size)
+            assertTrue(repository.delete(".."))
+            assertTrue(root.isDirectory)
+            assertTrue(File(root, "projects").isDirectory)
+            assertEquals(2, repository.list().size)
+        } finally { root.deleteRecursively() }
+    }
+
+    @Test
+    fun blankProjectIdIsRejectedWithoutWritingAtProjectsRoot() {
+        val root = Files.createTempDirectory("guitarlab-blank-id").toFile()
+        try {
+            val repository = FileProjectRepository(root)
+            val project = ProjectFactory(idGenerator = { "" }, clock = { 1L })
+                .create("Invalid", ProjectTemplate.BLANK)
+
+            assertFailsWith<IllegalArgumentException> { repository.save(project) }
+            assertTrue(!File(root, "projects/project.json").exists())
+        } finally { root.deleteRecursively() }
+    }
 }
