@@ -21,10 +21,11 @@ import studio.guitarlab.platform.codec.android.AndroidAudioImportTranscoder
 class AudioImportCodecMatrixInstrumentedTest {
     @Test
     fun allAdvertisedFormatsDecodeToNonSilentStereo48kEditingWav() {
-        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val context = instrumentation.targetContext
         fixtures.forEach { fixture ->
             val input = File(context.cacheDir, "matrix-${System.nanoTime()}-${fixture.fileName}")
-            context.assets.open("codec-fixtures/${fixture.fileName}").use { source ->
+            instrumentation.context.assets.open("codec-fixtures/${fixture.fileName}").use { source ->
                 input.outputStream().buffered().use(source::copyTo)
             }
             try {

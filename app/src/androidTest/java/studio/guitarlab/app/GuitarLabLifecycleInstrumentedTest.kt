@@ -123,16 +123,15 @@ class GuitarLabLifecycleInstrumentedTest {
     }
 
     private fun waitForPersistedProject(repository: FileProjectRepository, name: String): GuitarProject? {
-        val deadlineNanos = System.nanoTime() + UI_TIMEOUT_MS * 1_000_000L
-        do {
-            repository.list().singleOrNull { it.name == name }?.let { return it }
-            Thread.sleep(POLL_INTERVAL_MS)
-        } while (System.nanoTime() < deadlineNanos)
-        return null
+        var persisted: GuitarProject? = null
+        composeRule.waitUntil(timeoutMillis = UI_TIMEOUT_MS) {
+            repository.list().singleOrNull { it.name == name }
+                ?.also { persisted = it } != null
+        }
+        return persisted
     }
 
     private companion object {
         const val UI_TIMEOUT_MS = 20_000L
-        const val POLL_INTERVAL_MS = 100L
     }
 }
