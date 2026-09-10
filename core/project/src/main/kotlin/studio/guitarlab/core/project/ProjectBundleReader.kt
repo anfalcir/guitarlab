@@ -51,7 +51,7 @@ class ProjectBundleReader(
             sourceProjectFile.writeText(codec.encode(restored), Charsets.UTF_8)
             rewriteManifest(File(temporary, MANIFEST_FILE), manifest, restored)
 
-            val destination = File(projectsDirectory, sanitize(restoredId))
+            val destination = File(projectsDirectory, ManagedStorageKey.from(restoredId))
             require(!destination.exists()) { "Conflito inesperado ao restaurar o projeto." }
             publish(temporary, destination)
             return restored
@@ -149,8 +149,6 @@ class ProjectBundleReader(
             Files.move(source.toPath(), destination.toPath())
         }
     }
-
-    private fun sanitize(value: String): String = value.replace(Regex("[^A-Za-z0-9._-]"), "_")
 
     private companion object {
         const val PROJECT_FILE = "project.json"
