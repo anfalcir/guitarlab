@@ -15,3 +15,6 @@ M7 regression/hardening candidate; not a Release Candidate.
 ## Known limitations
 - M7 remains open until Pocket Amp/SM-X230 physical homologation.
 - Full realtime-vs-offline PCM capture parity, Android FLAC/MP3 encoder integration, lifecycle UI automation, accessibility configurations and large-session benchmarks remain M8 work.
+
+## Candidate packaging
+- Signed alpha2 homologation artifact is generated only after the exact-commit software gate passes.
