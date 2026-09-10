@@ -6,6 +6,9 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import studio.guitarlab.core.codec.FileSeekableByteSource
+import studio.guitarlab.core.codec.FloatWavFileWriter
+import studio.guitarlab.core.codec.WavMetadataReader
 
 class ProjectRecordingMediaStoreTest {
     @Test
@@ -46,6 +49,37 @@ class ProjectRecordingMediaStoreTest {
             assertEquals(listOf(recoverable.temporaryFile.canonicalFile), store.recoverableInterrupted("project-2").map { it.canonicalFile })
             assertTrue(unrelated.exists())
         } finally {
+            root.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun repairInterruptedMakesProcessKilledFloatTakeReadable() {
+        val root = createTempDirectory("guitarlab-recording-repair").toFile()
+        val scratch = File.createTempFile("guitarlab-live-recording-", ".wav")
+        try {
+            val store = ProjectRecordingMediaStore(root, idFactory = { "take-repair" })
+            val tx = store.begin("project-repair")
+            tx.temporaryFile.parentFile?.mkdirs()
+            val writer = FloatWavFileWriter(scratch, sampleRateHz = 48_000, channelCount = 1)
+            try {
+                writer.writeInterleaved(floatArrayOf(0.25f, -0.25f), frameCount = 2)
+                tx.temporaryFile.writeBytes(scratch.readBytes())
+            } finally {
+                writer.close()
+            }
+
+            val before = FileSeekableByteSource(tx.temporaryFile).use { WavMetadataReader().read(it) }
+            assertEquals(0L, before.totalFrames)
+
+            assertEquals(1, store.repairInterrupted("project-repair"))
+
+            val after = FileSeekableByteSource(tx.temporaryFile).use { WavMetadataReader().read(it) }
+            assertEquals(2L, after.totalFrames)
+            assertEquals(48_000, after.sampleRateHz)
+            assertTrue(tx.temporaryFile.isFile)
+        } finally {
+            scratch.delete()
             root.deleteRecursively()
         }
     }

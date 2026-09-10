@@ -17,6 +17,7 @@ import studio.guitarlab.core.model.ProjectFactory
 import studio.guitarlab.core.model.ProjectTemplate
 import studio.guitarlab.core.project.FileProjectRepository
 import studio.guitarlab.core.project.ProjectBundleReader
+import studio.guitarlab.core.project.ProjectRecordingMediaStore
 import studio.guitarlab.platform.codec.android.MasterExportFormat
 
 data class HomeUiState(
@@ -30,6 +31,7 @@ data class HomeUiState(
 class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = FileProjectRepository(application.filesDir)
     private val bundleReader = ProjectBundleReader(application.filesDir)
+    private val recordingMediaStore = ProjectRecordingMediaStore(application.filesDir)
     private val factory = ProjectFactory()
     private val exportService = ProjectExportService(application)
 
@@ -46,7 +48,13 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     fun refresh() {
         viewModelScope.launch {
             _state.update { it.copy(loading = true, error = null) }
-            runCatching { withContext(Dispatchers.IO) { repository.list() } }
+            runCatching {
+                withContext(Dispatchers.IO) {
+                    repository.list().also { projects ->
+                        projects.forEach { project -> runCatching { recordingMediaStore.repairInterrupted(project.id) } }
+                    }
+                }
+            }
                 .onSuccess { projects -> _state.value = HomeUiState(loading = false, projects = projects) }
                 .onFailure { error -> _state.value = HomeUiState(loading = false, error = error.message ?: "Não foi possível carregar os projetos.") }
         }

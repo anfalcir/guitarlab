@@ -4,6 +4,8 @@ import java.io.File
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 import java.util.UUID
+import studio.guitarlab.core.codec.FloatWavRecovery
+import studio.guitarlab.core.codec.FloatWavRecoveryStatus
 
 data class RecordingMediaTransaction(
     val projectId: String,
@@ -85,16 +87,27 @@ class ProjectRecordingMediaStore(
     }
 
     /**
+     * Repairs GuitarLab-owned float WAV headers left unfinished by abrupt process death.
+     * Unrecognized payload-bearing files are retained unchanged for forensic/manual recovery.
+     */
+    fun repairInterrupted(projectId: String): Int = recoverableInterrupted(projectId).count { file ->
+        runCatching { FloatWavRecovery.repairInterrupted(file).status == FloatWavRecoveryStatus.REPAIRED }
+            .getOrDefault(false)
+    }
+
+    /**
      * Removes only interrupted recording temporaries that cannot contain an audio
-     * payload. Payload-bearing .part files are deliberately retained.
+     * payload. Payload-bearing .part files are deliberately retained. Before cleanup,
+     * any canonical GuitarLab float WAV payload is repaired best-effort.
      */
     fun cleanupInterrupted(projectId: String): Int {
+        repairInterrupted(projectId)
         val directory = File(projectDirectory(projectId), RECORDING_DIRECTORY)
         if (!directory.isDirectory) return 0
         var removed = 0
         directory.listFiles().orEmpty().forEach { file ->
             if (file.isFile &&
-                file.name.endsWith(".recording.part.wav") &&
+                file.name.endsWith(RECORDING_PART_SUFFIX) &&
                 file.length() <= MIN_VALID_WAV_BYTES &&
                 file.delete()
             ) removed++
@@ -107,7 +120,7 @@ class ProjectRecordingMediaStore(
         val directory = File(projectDirectory(projectId), RECORDING_DIRECTORY)
         if (!directory.isDirectory) return emptyList()
         return directory.listFiles().orEmpty()
-            .filter { it.isFile && it.name.endsWith(".recording.part.wav") && it.length() > MIN_VALID_WAV_BYTES }
+            .filter { it.isFile && it.name.endsWith(RECORDING_PART_SUFFIX) && it.length() > MIN_VALID_WAV_BYTES }
             .sortedBy { it.name }
     }
 
@@ -124,6 +137,7 @@ class ProjectRecordingMediaStore(
     private companion object {
         const val SOURCE_DIRECTORY = "media/source"
         const val RECORDING_DIRECTORY = "media/recording"
+        const val RECORDING_PART_SUFFIX = ".recording.part.wav"
         const val MIN_VALID_WAV_BYTES = 44L
     }
 }
