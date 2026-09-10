@@ -11,8 +11,8 @@ Updated: 2026-09-10
 - M5: PASS/CLOSED
 - M6: **PASS/CLOSED by explicit user physical approval of 0.3.0-alpha1**
 - M7: implementation candidate `0.4.0-alpha2`, versionCode 18; **OPEN pending physical homologation**
-- M8.A: **IN PROGRESS**. Global digital regression started; compatibility, malformed packages, M7 editing-domain validation and duplicate-project media integrity have objective coverage.
-- Digital regression checkpoint: CI run #452 passed 127 tests, Android Lint and debug APK assembly on commit `e686ccf62bdf79008e962a1a401ba69b46b3d5d9`. A final signed alpha2 identity supersedes this checkpoint only after its own green gate.
+- M8.A: **IN PROGRESS**. Compatibility/migration fixtures, malformed packages, editing-domain validation, duplicate-project media integrity, deterministic stress/fuzz, shared PCM render and cancellation-safe managed-media publication now have objective coverage.
+- Signed checkpoint: `0.4.0-alpha2` (versionCode 18), commit `ca5b9d57ed07bb9cbd27a5da61386cc764209fd0`, CI run #465. Latest completed software gate before the current lifecycle batch: CI run #493 on `3bb3c8f37a826230d4cf619299054b79779176fd` (tests, lint and debug assembly PASS). Do not physically homologate alpha2; wait for the consolidated signed RC candidate.
 
 ## M7 production audio polish
 M7 closes the previously documented production-audio-polish block: mismatched sample-rate conversion, non-destructive fades/crossfades, render parity and larger-session memory discipline. It also incorporates the approved workflow polish of Rename + shared `Salvar e exportar` directly from each project row on Home.
@@ -28,6 +28,9 @@ The resampler is chunk-bounded and playback/master ClipReaders reuse scratch arr
 
 ### Home project actions
 The three-dot project menu now offers Rename, Salvar e exportar, Duplicate and Delete. Home invokes the same `RenameProjectDialog` and `SaveAndExportDialog` components as Studio. Project persistence and master export use the same managed project/media contracts.
+
+### Digital hardening after alpha2
+Realtime playback and offline render now share the same PCM reader/mix kernel, with bit-exact output across realtime/offline chunk sizes. Home and Studio also share one master-request factory and one export service. Project packages are fully staged before the selected destination is opened. Import, stereo split and recorded-take publication use a non-cancellable persistence boundary so rollback cannot delete media already referenced by a committed project; pre-commit failure removes temporary media and waveform cache.
 
 Canonical roadmap: `docs/IMPLEMENTATION_ROADMAP.md`.
 Active checklist: `docs/M7_ALPHA1_HOMOLOGATION_CHECKLIST.md`.
