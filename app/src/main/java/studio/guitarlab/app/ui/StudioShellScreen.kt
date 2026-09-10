@@ -18,6 +18,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Archive
 import androidx.compose.material.icons.filled.Equalizer
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Tune
@@ -26,6 +27,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -48,6 +50,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import studio.guitarlab.core.model.GuitarProject
 import studio.guitarlab.core.project.RecordingSessionPhase
 import studio.guitarlab.core.project.TransportPolicy
+import studio.guitarlab.core.project.TimelineControlPolicy
 import studio.guitarlab.platform.codec.android.MasterExportFormat
 
 @Composable
@@ -64,6 +67,7 @@ fun StudioShellScreen(
     var mixerVisible by rememberSaveable(projectId) { mutableStateOf(uiPreferences.mixerPinned()) }
     var selectedTrackId by rememberSaveable(projectId) { mutableStateOf<String?>(null) }
     var exportDialogVisible by rememberSaveable(projectId) { mutableStateOf(false) }
+    var renameDialogVisible by rememberSaveable(projectId) { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
     val recordPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
         viewModel.onRecordPermissionResult(it)
@@ -114,8 +118,15 @@ fun StudioShellScreen(
 
     Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize()) {
+            val topBarProject = state.project
+            val topBarEnd = topBarProject?.let(TimelineControlPolicy::projectEndFrame) ?: 0L
+            val topBarRate = topBarProject?.sampleRate?.fixedHz
+                ?: topBarProject?.clips?.firstNotNullOfOrNull { it.sourceSampleRateHz }
+                ?: 48_000
             StudioTopBar(
-                project = state.project,
+                project = topBarProject,
+                remainingText = formatFrameTime((topBarEnd - state.timelineControls.playheadFrame).coerceAtLeast(0L), topBarRate),
+                totalText = formatFrameTime(topBarEnd, topBarRate),
                 transport = {
                     TransportBar(
                         state = state.transport,
@@ -141,6 +152,7 @@ fun StudioShellScreen(
                 onMixer = { mixerVisible = true },
                 onOptions = onOptions,
                 onShare = { exportDialogVisible = true },
+                onRename = { renameDialogVisible = true },
                 onHome = onBack,
             )
 
@@ -198,6 +210,17 @@ fun StudioShellScreen(
         )
     }
 
+    if (renameDialogVisible && state.project != null) {
+        RenameProjectDialog(
+            currentName = state.project!!.name,
+            onDismiss = { renameDialogVisible = false },
+            onConfirm = { newName ->
+                viewModel.renameProject(newName)
+                renameDialogVisible = false
+            },
+        )
+    }
+
     if (exportDialogVisible && state.project != null) {
         SaveAndExportDialog(
             projectName = state.project!!.name,
@@ -226,10 +249,13 @@ fun StudioShellScreen(
 @Composable
 private fun StudioTopBar(
     project: GuitarProject?,
+    remainingText: String,
+    totalText: String,
     transport: @Composable () -> Unit,
     onMixer: () -> Unit,
     onOptions: () -> Unit,
     onShare: () -> Unit,
+    onRename: () -> Unit,
     onHome: () -> Unit,
 ) {
     Surface(
@@ -245,7 +271,21 @@ private fun StudioTopBar(
                 modifier = Modifier.widthIn(min = 180.dp, max = 320.dp),
                 verticalArrangement = Arrangement.spacedBy(1.dp),
             ) {
-                Text(project?.name ?: "GuitarLab", style = MaterialTheme.typography.titleLarge, maxLines = 1)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        project?.name ?: "GuitarLab",
+                        modifier = Modifier.weight(1f, fill = false),
+                        style = MaterialTheme.typography.titleLarge,
+                        maxLines = 1,
+                    )
+                    if (project != null) {
+                        AppIconButton(
+                            icon = Icons.Default.Edit,
+                            contentDescription = "Renomear projeto",
+                            onClick = onRename,
+                        )
+                    }
+                }
                 project?.let {
                     Text(
                         "${it.tracks.size} ${if (it.tracks.size == 1) "pista" else "pistas"} · ${it.clips.size} ${if (it.clips.size == 1) "clipe" else "clipes"}",
@@ -257,6 +297,22 @@ private fun StudioTopBar(
 
             Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) { transport() }
 
+            Surface(
+                shape = RoundedCornerShape(10.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.30f),
+                tonalElevation = 0.dp,
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text("Restante $remainingText", style = MaterialTheme.typography.labelMedium)
+                    Text("·", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Total $totalText", style = MaterialTheme.typography.labelMedium)
+                }
+            }
+
             Row(horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.CenterVertically) {
                 AppIconButton(icon = Icons.Default.Equalizer, contentDescription = "Mixer", onClick = onMixer)
                 AppIconButton(icon = Icons.Default.Tune, contentDescription = "Opções", onClick = onOptions)
@@ -265,6 +321,37 @@ private fun StudioTopBar(
             }
         }
     }
+}
+
+@Composable
+private fun RenameProjectDialog(
+    currentName: String,
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit,
+) {
+    var value by remember(currentName) { mutableStateOf(currentName) }
+    val normalized = value.trim().replace(Regex("\\s+"), " ")
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Renomear projeto") },
+        text = {
+            OutlinedTextField(
+                value = value,
+                onValueChange = { if (it.length <= 80) value = it },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("Nome do projeto") },
+                supportingText = { Text("${value.length}/80") },
+                singleLine = true,
+            )
+        },
+        confirmButton = {
+            Button(
+                enabled = normalized.isNotBlank() && normalized != currentName,
+                onClick = { onConfirm(normalized) },
+            ) { Text("Renomear") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } },
+    )
 }
 
 @Composable

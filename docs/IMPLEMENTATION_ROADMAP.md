@@ -2,72 +2,56 @@
 
 Updated: 2026-09-09
 
-This roadmap reflects the actual dependency order after media I/O, portable project persistence and master export were intentionally pulled forward into the final M5 gate.
-
 ## M1 — Project/model foundation — CLOSED
 Project model, templates, persistence baseline and repository structure.
 
 ## M2 — Android hardware/audio baseline — PASS/CLOSED
-Samsung SM-X230 Android 16/API36 + Pocket Amp USB physical gate established. Evidence: `M2_HOMOLOGATION_EVIDENCE.md`.
+Samsung SM-X230 Android 16/API36 + Pocket Amp USB physical gate established.
 
 ## M3 — Codec/import foundation — ABSORBED
-WAV reader/decoder/waveform primitives, codec matrix, sample-rate policy and Android document access. Later media-format work is now part of the M5 consolidated gate rather than a separate unfinished milestone.
+Codec/import work was consolidated into M5.
 
 ## M4 — Studio playback/edit/mix foundation — ABSORBED
-Timeline, playback, non-destructive clip operations, Track Settings, Mixer/Master, Loop, Trim and project interaction foundations are integrated into the active branch.
+Timeline, playback, editing, Mixer/Master and project interaction foundations are integrated.
 
-## M5 — Reliable recording + Studio consolidation + Media I/O — ACTIVE FINAL GATE
-### Completed implementation blocks
-- recording/capture engine, countdown, REC Arm targeting and managed take finalization;
-- playback/backing during recording and established monitoring/routing policies;
-- Mixer/Master, meters, pan, gain, mute/solo and UI persistence;
-- Trim, split/duplicate/remove/clear/delete, Undo/Redo and timeline controls;
-- workspace-owned track/clip drag with overlay, destination calculation and edge autoscroll;
-- responsive Track Settings, source metadata and edit-pencil affordance;
-- import policy for WAV PCM, FLAC, AIFF/AIFC PCM, MP3, AAC/M4A, OGG/Vorbis and Opus;
-- immutable native managed source + regenerable PCM WAV editing proxy;
-- portable `.guitarlab` save/open with versioned manifest and safe extraction;
-- offline float master rendering;
-- output paths for WAV 32-bit float, FLAC and MP3 320 kbps;
-- dedicated Share icon/modal for project persistence and final audio export;
-- visible import-processing feedback after SAF selection;
-- real per-channel stereo waveform display;
-- role-aware stereo import decision and synchronized guitar L/R distribution;
-- explicit non-destructive `Separar estéreo em 2 pistas mono`, distinct from temporal split.
+## M5 — Reliable recording + Studio consolidation + Media I/O — PASS/CLOSED
+Closed after user physical approval of `0.2.0-alpha14`. Recording, managed takes, media import, stereo L/R handling, portable project persistence, master export, drag/edit UX and M5 corrective gates are no longer pending.
 
-### Remaining M5 work
+## M6 — Measured latency and synchronization — ACTIVE PHYSICAL GATE
+### Implemented
+- reproducible loopback round-trip measurement harness;
+- simultaneous AudioTrack/AudioRecord measurement with monotonic audio timestamp correlation;
+- repeated-pass median latency, confidence, jitter and drift characterization;
+- route + sample-rate scoped persistence of accepted calibration;
+- measured frame-domain take-placement compensation with timeline-zero handling;
+- safe zero-compensation fallback when calibration is missing/rejected;
+- exact marker time labels and top-bar remaining/total transport indication;
+- live Mute/Solo during PLAY and REC;
+- persistent project renaming.
+
+### Remaining M6 work
 Only closure gates remain:
-1. alpha14 software gate on the exact candidate commit;
-2. signed APK certificate/hash/identity validation;
-3. physical alpha14 checklist on target Samsung, including representative media import, portable save/open and all three requested master formats;
-4. corrective alpha only if a repeatable P0/P1 is found;
-5. explicit user declaration of M5 PASS/CLOSED.
-
-No new product feature should be added between alpha14 signing and physical homologation unless required to fix a gate failure.
-
-## M6 — Measured latency and synchronization — BLOCKED
-Begins only after M5 closure. Planned order:
-1. reproducible loopback/round-trip measurement harness;
-2. capture/playback clock correlation;
-3. measured take-placement compensation;
-4. jitter/drift characterization and policy;
-5. repeatable physical validation across supported routing cases;
-6. persistence of validated latency calibration where justified.
-
-M6 does **not** own unfinished import/export/project-save work; that was pulled forward and must be closed in M5.
+1. exact-candidate unit/Lint/debug/signing gates;
+2. physical loopback calibration on Samsung SM-X230 + Pocket Amp route;
+3. repeat calibration and verify jitter/drift acceptance behavior;
+4. record known transient against backing and verify compensated take placement;
+5. verify route change does not reuse an unrelated calibration;
+6. regress PLAY/REC, loop, marker clocks, live Mute/Solo, rename, import/export and M5 core behavior;
+7. corrective alpha only for repeatable P0/P1;
+8. explicit user declaration M6 PASS/CLOSED.
 
 ## M7 — Production audio polish
-After M6 synchronization is proven:
+Begins only after M6 closes:
 - validated sample-rate conversion for mismatched source/project rates;
-- fades/crossfades and advanced clip polish (stereo L/R separation is no longer pending here; it was pulled into M5);
-- export refinements such as additional formats/bit-depth options only when explicitly prioritized;
+- fades/crossfades and advanced clip polish;
+- export refinements when explicitly prioritized;
 - performance/memory work for larger sessions.
 
 ## M8 — Release hardening
 - migration/compatibility matrix;
-- accessibility and device-size polish;
+- accessibility/device-size polish;
 - crash/edge-case hardening;
 - packaging, release notes and distribution gate.
 
 ## Gate discipline
-Each milestone advances only after its software and required physical gates pass. Historical alpha/checkpoint documents are evidence, not live planning. `CURRENT_STATE.md` and this roadmap are canonical for current work.
+Each milestone advances only after software and required physical gates pass. `CURRENT_STATE.md` and this roadmap are canonical.

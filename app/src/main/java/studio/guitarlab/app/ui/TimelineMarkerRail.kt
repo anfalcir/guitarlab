@@ -46,6 +46,7 @@ enum class TimelineMarkerKind {
 @Composable
 fun TimelineMarkerRail(
     projectEndFrame: Long,
+    sampleRateHz: Int,
     playheadFrame: Long,
     loopStartFrame: Long,
     loopEndFrame: Long,
@@ -62,10 +63,10 @@ fun TimelineMarkerRail(
         val density = LocalDensity.current
         val widthPx = with(density) { maxWidth.toPx() }.coerceAtLeast(1f)
         if (showLoopMarkers) {
-            TimelineMarker(TimelineMarkerKind.LOOP_START, loopStartFrame, projectEndFrame, widthPx, enabled, onLoopStartFrameChanged)
-            TimelineMarker(TimelineMarkerKind.LOOP_END, loopEndFrame, projectEndFrame, widthPx, enabled, onLoopEndFrameChanged)
+            TimelineMarker(TimelineMarkerKind.LOOP_START, loopStartFrame, projectEndFrame, sampleRateHz, widthPx, enabled, onLoopStartFrameChanged)
+            TimelineMarker(TimelineMarkerKind.LOOP_END, loopEndFrame, projectEndFrame, sampleRateHz, widthPx, enabled, onLoopEndFrameChanged)
         }
-        TimelineMarker(TimelineMarkerKind.PLAYHEAD, playheadFrame, projectEndFrame, widthPx, enabled, onPlayheadFrameChanged)
+        TimelineMarker(TimelineMarkerKind.PLAYHEAD, playheadFrame, projectEndFrame, sampleRateHz, widthPx, enabled, onPlayheadFrameChanged)
     }
 }
 
@@ -74,12 +75,13 @@ private fun TimelineMarker(
     kind: TimelineMarkerKind,
     frame: Long,
     projectEndFrame: Long,
+    sampleRateHz: Int,
     widthPx: Float,
     enabled: Boolean,
     onFrameChanged: (Long) -> Unit,
 ) {
     val fraction = TimelineControlPolicy.frameToFraction(frame, projectEndFrame)
-    val markerWidth = 48.dp
+    val markerWidth = 86.dp
     val density = LocalDensity.current
     val markerWidthPx = with(density) { markerWidth.toPx() }
     val markerTop = when (kind) {
@@ -109,7 +111,7 @@ private fun TimelineMarker(
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Surface(shape = RoundedCornerShape(7.dp), color = color, tonalElevation = 0.dp) {
                     Text(
-                        text = label,
+                        text = "$label ${formatFrameTime(frame, sampleRateHz)}",
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
                         style = MaterialTheme.typography.labelLarge,
                         color = Color.White,
@@ -134,6 +136,15 @@ private fun markerColor(kind: TimelineMarkerKind): Color = when (kind) {
     TimelineMarkerKind.LOOP_START, TimelineMarkerKind.LOOP_END -> StudioLoop
     TimelineMarkerKind.TRIM_START, TimelineMarkerKind.TRIM_END -> StudioTrim
     TimelineMarkerKind.RECORD_HEAD -> StudioRecord
+}
+
+internal fun formatFrameTime(frame: Long, sampleRateHz: Int): String {
+    val safeRate = sampleRateHz.coerceAtLeast(1)
+    val totalSeconds = (frame.coerceAtLeast(0L) / safeRate).coerceAtLeast(0L)
+    val hours = totalSeconds / 3600L
+    val minutes = (totalSeconds % 3600L) / 60L
+    val seconds = totalSeconds % 60L
+    return if (hours > 0L) "%d:%02d:%02d".format(hours, minutes, seconds) else "%02d:%02d".format(minutes, seconds)
 }
 
 private fun markerLabel(kind: TimelineMarkerKind): String = when (kind) {

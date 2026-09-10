@@ -193,8 +193,8 @@ private fun MixerTrackStrip(
             }
 
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                MixerStateButton("M", track.muted, StudioMute, structuralControlsEnabled, onToggleMute)
-                MixerStateButton("S", track.solo, StudioSolo, structuralControlsEnabled, onToggleSolo)
+                MixerStateButton("M", track.muted, StudioMute, mixControlsEnabled, onToggleMute)
+                MixerStateButton("S", track.solo, StudioSolo, mixControlsEnabled, onToggleSolo)
                 MixerArmButton(track.armed, structuralControlsEnabled, onToggleArm)
             }
 

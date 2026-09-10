@@ -1,5 +1,9 @@
 package studio.guitarlab.app.ui
 
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -26,12 +30,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.launch
 import studio.guitarlab.core.audio.MonitoringMode
 import studio.guitarlab.core.codec.AudioImportFormatPolicy
 
@@ -49,6 +55,45 @@ fun SettingsScreen(
     var selectedInput by remember { mutableStateOf(routingStore.selectedInputSignature()) }
     var selectedOutput by remember { mutableStateOf(routingStore.selectedOutputSignature()) }
     var monitoringMode by remember { mutableStateOf(routingStore.monitoringMode()) }
+    val latencyStore = remember(context) { StudioLatencyCalibrationStore(context) }
+    val latencyEngine = remember(context) { AndroidLatencyCalibrationEngine(context) }
+    val scope = rememberCoroutineScope()
+    var calibrating by remember { mutableStateOf(false) }
+    var calibrationStatus by remember { mutableStateOf<String?>(null) }
+    var calibrationProgress by remember { mutableStateOf(0 to 0) }
+    var pendingCalibration by remember { mutableStateOf(false) }
+
+    fun runLatencyCalibration() {
+        if (calibrating) return
+        if (selectedInput.isNullOrBlank() || selectedOutput.isNullOrBlank()) {
+            calibrationStatus = "Selecione explicitamente a entrada e a saída antes de calibrar."
+            return
+        }
+        calibrating = true
+        calibrationStatus = "Preparando medição de loopback…"
+        scope.launch {
+            runCatching {
+                latencyEngine.calibrate(
+                    sampleRateHz = 48_000,
+                    inputDevice = routingStore.resolveSelectedInputDevice(),
+                    outputDevice = routingStore.resolveSelectedOutputDevice(),
+                    onProgress = { current, total -> calibrationProgress = current to total },
+                )
+            }.onSuccess { result ->
+                latencyStore.save(selectedInput, selectedOutput, result)
+                calibrationStatus = if (result.accepted) "Calibração válida · ${result.describe()}" else "Medição instável · ${result.describe()} · repita antes de usar compensação"
+            }.onFailure { error ->
+                calibrationStatus = error.message ?: "Não foi possível medir a latência."
+            }
+            calibrating = false
+        }
+    }
+
+    val latencyPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted && pendingCalibration) runLatencyCalibration()
+        if (!granted) calibrationStatus = "Permissão de microfone necessária para calibrar."
+        pendingCalibration = false
+    }
 
     LaunchedEffect(Unit) {
         inputChoices = routingStore.inputChoices()
@@ -114,7 +159,32 @@ fun SettingsScreen(
                         },
                     )
                     OptionRow("Taxa de amostragem", "Automática", "Durante a gravação o Studio respeita a taxa já estabelecida pelo projeto")
+                    OptionRow(
+                        "Compensação de latência",
+                        latencyStore.find(selectedInput, selectedOutput, 48_000)?.takeIf { it.accepted }?.describe() ?: "Não calibrada",
+                        "M6 usa medição round-trip por loopback, vinculada à combinação entrada/saída. Uma calibração instável nunca é aplicada automaticamente.",
+                    )
+                    Text(
+                        "Para calibrar, conecte ou ative um retorno físico da saída para a entrada. O GuitarLab executa várias medições, estima jitter/drift e só aceita resultados estáveis.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    calibrationStatus?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+                    if (calibrating) {
+                        Text("Medição ${calibrationProgress.first}/${calibrationProgress.second.coerceAtLeast(1)}…", style = MaterialTheme.typography.bodySmall)
+                    }
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(
+                            enabled = !calibrating,
+                            onClick = {
+                                if (context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+                                    runLatencyCalibration()
+                                } else {
+                                    pendingCalibration = true
+                                    latencyPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                                }
+                            },
+                        ) { Text(if (calibrating) "Medindo…" else "Calibrar latência") }
                         OutlinedButton(onClick = ::refreshAudioDevices) {
                             Icon(Icons.Default.Refresh, contentDescription = null)
                             Text("Atualizar", modifier = Modifier.padding(start = 6.dp))

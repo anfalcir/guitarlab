@@ -31,6 +31,8 @@ data class StudioPlaybackTrackMix(
     val trackId: String,
     val gainDb: Float = 0f,
     val pan: Float = 0f,
+    val muted: Boolean = false,
+    val solo: Boolean = false,
 )
 
 data class StudioPlaybackRequest(
@@ -103,11 +105,16 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
     }
 
     fun setTrackMix(trackId: String, gainDb: Float, pan: Float) {
-        runtimeTrackMixes[trackId] = StudioPlaybackTrackMix(
-            trackId = trackId,
+        val current = runtimeTrackMixes[trackId] ?: StudioPlaybackTrackMix(trackId)
+        runtimeTrackMixes[trackId] = current.copy(
             gainDb = gainDb.coerceIn(-60f, 12f),
             pan = pan.coerceIn(-1f, 1f),
         )
+    }
+
+    fun setTrackAudibility(trackId: String, muted: Boolean, solo: Boolean) {
+        val current = runtimeTrackMixes[trackId] ?: StudioPlaybackTrackMix(trackId)
+        runtimeTrackMixes[trackId] = current.copy(muted = muted, solo = solo)
     }
 
     fun setMasterGainDb(gainDb: Float) {
@@ -251,6 +258,11 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
 
     private fun applyRuntimeTrackMix(trackId: String, samples: FloatArray, sampleCount: Int) {
         val runtime = runtimeTrackMixes[trackId] ?: return
+        val anySolo = runtimeTrackMixes.values.any { it.solo }
+        if (runtime.muted || (anySolo && !runtime.solo)) {
+            java.util.Arrays.fill(samples, 0, sampleCount, 0f)
+            return
+        }
         val gain = TrackMixPolicy.channelGains(runtime.gainDb, runtime.pan)
         var index = 0
         while (index + 1 < sampleCount) {

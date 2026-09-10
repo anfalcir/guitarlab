@@ -309,6 +309,7 @@ private fun ProjectWorkspace(
                     }
                     TimelineMarkerRail(
                         projectEndFrame = projectEndFrame,
+                        sampleRateHz = project.sampleRate.fixedHz ?: clipSampleRate(project),
                         playheadFrame = timelineControls.playheadFrame,
                         loopStartFrame = timelineControls.loopStartFrame,
                         loopEndFrame = timelineControls.loopEndFrame,
