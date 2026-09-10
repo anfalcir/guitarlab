@@ -11,6 +11,7 @@ import androidx.lifecycle.viewModelScope
 import java.util.UUID
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -199,6 +200,8 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                     val input = context.contentResolver.openInputStream(uri) ?: error("O Android não conseguiu ler o arquivo selecionado.")
                     val sourceAsset = input.use { mediaStore.ingest(current.id, displayName, it) }
                     var proxyPath: String? = null
+                    var importedClipId: String? = null
+                    var committed = false
                     try {
                         val editingFile = if (originalFormat == AudioImportFormat.WAV_PCM) {
                             sourceAsset.file
@@ -231,7 +234,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                         }
                         resampleTemp?.delete()
                         val metadata = FileSeekableByteSource(finalEditingFile).use { WavMetadataReader().read(it) }
-                        val clipId = UUID.randomUUID().toString()
+                        val clipId = UUID.randomUUID().toString().also { importedClipId = it }
                         val envelope = FileSeekableByteSource(finalEditingFile).use { source -> WaveformEnvelopeBuilder.build(WavPcmDecoder(source), WAVEFORM_POINTS) }
                         waveformCache.write(current.id, clipId, envelope)
                         val sourceBits = if (originalFormat == AudioImportFormat.WAV_PCM) sourceMetadata.bitsPerSample else null
@@ -256,13 +259,18 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                             editingSampleRateHz = metadata.sampleRateHz,
                             editingTotalFrames = metadata.totalFrames,
                         )
-                        val saved = saveLatest(current.id) { latest ->
-                            latest.copy(clips = latest.clips + clip, updatedAtEpochMs = System.currentTimeMillis())
+                        val saved = withContext(NonCancellable) {
+                            saveLatest(current.id) { latest ->
+                                latest.copy(clips = latest.clips + clip, updatedAtEpochMs = System.currentTimeMillis())
+                            }.also { committed = true }
                         }
                         ImportOutcome(saved, metadata.channelCount, metadata.sampleRateHz, envelope.peaks, envelope.channelPeaks)
                     } catch (error: Throwable) {
-                        proxyPath?.let { mediaStore.discardUncommitted(current.id, it) }
-                        mediaStore.discardUncommitted(current.id, sourceAsset.relativePath)
+                        if (!committed) {
+                            importedClipId?.let { waveformCache.remove(current.id, it) }
+                            proxyPath?.let { mediaStore.discardUncommitted(current.id, it) }
+                            mediaStore.discardUncommitted(current.id, sourceAsset.relativePath)
+                        }
                         throw error
                     }
                 }
@@ -312,73 +320,72 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                     val rightTemp = File.createTempFile("guitarlab-R-", ".wav", getApplication<Application>().cacheDir)
                     var leftProxyPath: String? = null
                     var rightProxyPath: String? = null
+                    var committed = false
                     try {
                         StereoWavChannelSplitter.split(editingFile, leftTemp, rightTemp)
                         val leftProxy = leftTemp.inputStream().buffered().use { mediaStore.ingestEditProxy(project.id, "${clip.name}-L.wav", it) }
                         leftProxyPath = leftProxy.relativePath
                         val rightProxy = rightTemp.inputStream().buffered().use { mediaStore.ingestEditProxy(project.id, "${clip.name}-R.wav", it) }
                         rightProxyPath = rightProxy.relativePath
-                        val saved = saveLatest(project.id) { latest ->
-                            val sourceClip = latest.clips.firstOrNull { it.id == clipId } ?: error("O clipe estéreo não existe mais.")
-                            val sourceTrack = latest.tracks.firstOrNull { it.id == sourceClip.trackId } ?: error("A pista de origem não existe mais.")
-                            val pair = guitarPairFor(latest, sourceTrack)
-                            val leftTrack: AudioTrack
-                            val rightTrack: AudioTrack
-                            val tracks: List<AudioTrack>
-                            if (pair != null) {
-                                leftTrack = pair.first
-                                rightTrack = pair.second
-                                tracks = latest.tracks
-                            } else {
-                                leftTrack = sourceTrack.copy(channelLayout = ChannelLayout.MONO, pan = -1f)
-                                rightTrack = sourceTrack.copy(
-                                    id = UUID.randomUUID().toString(),
-                                    name = "${sourceTrack.name} D",
-                                    channelLayout = ChannelLayout.MONO,
-                                    pan = 1f,
-                                    order = sourceTrack.order + 1,
+                        val saved = withContext(NonCancellable) {
+                            saveLatest(project.id) { latest ->
+                                val sourceClip = latest.clips.firstOrNull { it.id == clipId } ?: error("O clipe estéreo não existe mais.")
+                                val sourceTrack = latest.tracks.firstOrNull { it.id == sourceClip.trackId } ?: error("A pista de origem não existe mais.")
+                                val pair = guitarPairFor(latest, sourceTrack)
+                                val leftTrack: AudioTrack
+                                val rightTrack: AudioTrack
+                                val tracks: List<AudioTrack>
+                                if (pair != null) {
+                                    leftTrack = pair.first
+                                    rightTrack = pair.second
+                                    tracks = latest.tracks
+                                } else {
+                                    leftTrack = sourceTrack.copy(channelLayout = ChannelLayout.MONO, pan = -1f)
+                                    rightTrack = sourceTrack.copy(
+                                        id = UUID.randomUUID().toString(),
+                                        name = "${sourceTrack.name} D",
+                                        channelLayout = ChannelLayout.MONO,
+                                        pan = 1f,
+                                        order = sourceTrack.order + 1,
+                                    )
+                                    tracks = latest.tracks.map { track ->
+                                        when {
+                                            track.id == sourceTrack.id -> leftTrack
+                                            track.order > sourceTrack.order -> track.copy(order = track.order + 1)
+                                            else -> track
+                                        }
+                                    } + rightTrack
+                                }
+                                val leftClip = sourceClip.copy(
+                                    id = UUID.randomUUID().toString(), trackId = leftTrack.id,
+                                    name = "${sourceClip.name} · L", managedEditProxyPath = leftProxy.relativePath,
+                                    sourceChannelCount = 1, sourceBitsPerSample = 32,
+                                    sourceEncoding = "IEEE_FLOAT · canal L derivado",
+                                    editingSampleRateHz = sourceClip.editingSampleRateHz ?: sourceClip.sourceSampleRateHz,
+                                    editingTotalFrames = sourceClip.editingTotalFrames ?: sourceClip.lengthFrames,
                                 )
-                                tracks = latest.tracks.map { track ->
-                                    when {
-                                        track.id == sourceTrack.id -> leftTrack
-                                        track.order > sourceTrack.order -> track.copy(order = track.order + 1)
-                                        else -> track
-                                    }
-                                } + rightTrack
-                            }
-                            val leftClip = sourceClip.copy(
-                                id = UUID.randomUUID().toString(),
-                                trackId = leftTrack.id,
-                                name = "${sourceClip.name} · L",
-                                managedEditProxyPath = leftProxy.relativePath,
-                                sourceChannelCount = 1,
-                                sourceBitsPerSample = 32,
-                                sourceEncoding = "IEEE_FLOAT · canal L derivado",
-                                editingSampleRateHz = sourceClip.editingSampleRateHz ?: sourceClip.sourceSampleRateHz,
-                                editingTotalFrames = sourceClip.editingTotalFrames ?: sourceClip.lengthFrames,
-                            )
-                            val rightClip = sourceClip.copy(
-                                id = UUID.randomUUID().toString(),
-                                trackId = rightTrack.id,
-                                name = "${sourceClip.name} · R",
-                                managedEditProxyPath = rightProxy.relativePath,
-                                sourceChannelCount = 1,
-                                sourceBitsPerSample = 32,
-                                sourceEncoding = "IEEE_FLOAT · canal R derivado",
-                                editingSampleRateHz = sourceClip.editingSampleRateHz ?: sourceClip.sourceSampleRateHz,
-                                editingTotalFrames = sourceClip.editingTotalFrames ?: sourceClip.lengthFrames,
-                            )
-                            latest.copy(
-                                tracks = tracks.sortedBy { it.order },
-                                clips = latest.clips.filterNot { it.id == sourceClip.id } + leftClip + rightClip,
-                                updatedAtEpochMs = System.currentTimeMillis(),
-                            )
+                                val rightClip = sourceClip.copy(
+                                    id = UUID.randomUUID().toString(), trackId = rightTrack.id,
+                                    name = "${sourceClip.name} · R", managedEditProxyPath = rightProxy.relativePath,
+                                    sourceChannelCount = 1, sourceBitsPerSample = 32,
+                                    sourceEncoding = "IEEE_FLOAT · canal R derivado",
+                                    editingSampleRateHz = sourceClip.editingSampleRateHz ?: sourceClip.sourceSampleRateHz,
+                                    editingTotalFrames = sourceClip.editingTotalFrames ?: sourceClip.lengthFrames,
+                                )
+                                latest.copy(
+                                    tracks = tracks.sortedBy { it.order },
+                                    clips = latest.clips.filterNot { it.id == sourceClip.id } + leftClip + rightClip,
+                                    updatedAtEpochMs = System.currentTimeMillis(),
+                                )
+                            }.also { committed = true }
                         }
                         val waveforms = loadWaveforms(saved)
                         Triple(saved, waveforms, loadWaveformChannels(saved))
                     } catch (error: Throwable) {
-                        leftProxyPath?.let { mediaStore.discardUncommitted(project.id, it) }
-                        rightProxyPath?.let { mediaStore.discardUncommitted(project.id, it) }
+                        if (!committed) {
+                            leftProxyPath?.let { mediaStore.discardUncommitted(project.id, it) }
+                            rightProxyPath?.let { mediaStore.discardUncommitted(project.id, it) }
+                        }
                         throw error
                     } finally {
                         leftTemp.delete()
