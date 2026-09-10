@@ -10,6 +10,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import java.util.UUID
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
@@ -732,7 +733,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
     private fun finalizeRecording(result: StudioRecordingResult) {
         val transaction = recordingTransaction ?: return resetRecording("A transação do take foi perdida.")
         recordingTransaction = null
-        viewModelScope.launch {
+        viewModelScope.launch(start = CoroutineStart.UNDISPATCHED) {
             var committed = false
             runCatching {
                 withContext(Dispatchers.IO) {
@@ -1362,7 +1363,11 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
             _state.value = _state.value.copy(editingClip = true, error = null, clipStatus = null)
             runCatching {
                 val saved = saveLatest(current.id, transform)
-                saved to withContext(Dispatchers.IO) { loadWaveforms(saved) }
+                saved to withContext(Dispatchers.IO) {
+                    loadWaveforms(saved).also {
+                        waveformCache.prune(saved.id, saved.clips.mapTo(mutableSetOf()) { clip -> clip.id })
+                    }
+                }
             }
                 .onSuccess { (saved, waveforms) ->
                     val end = TimelineControlPolicy.projectEndFrame(saved)
