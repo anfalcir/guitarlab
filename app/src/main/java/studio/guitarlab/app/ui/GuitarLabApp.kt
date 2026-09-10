@@ -2,18 +2,19 @@ package studio.guitarlab.app.ui
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.collectAsState
 import androidx.lifecycle.viewmodel.compose.viewModel
 
 @Composable
-fun GuitarLabApp(homeViewModel: HomeViewModel = viewModel()) {
-    var persistedRoute by rememberSaveable { mutableStateOf(AppRouteCodec.encode(AppScreen.Home)) }
+fun GuitarLabApp(
+    homeViewModel: HomeViewModel = viewModel(),
+    navigationViewModel: AppNavigationViewModel = viewModel(),
+) {
+    val persistedRoute by navigationViewModel.persistedRoute.collectAsState()
     val screen = AppRouteCodec.decode(persistedRoute)
 
     fun navigate(destination: AppScreen) {
-        persistedRoute = AppRouteCodec.encode(destination)
+        navigationViewModel.navigate(destination)
     }
 
     fun returnTo(projectId: String?) {
