@@ -20,4 +20,6 @@ dependencies {
     implementation(project(":core:audio"))
     implementation(project(":core:codec"))
     implementation(libs.kotlinx.coroutines.android)
+    testImplementation(kotlin("test"))
+    testImplementation(libs.junit4)
 }
