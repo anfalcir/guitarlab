@@ -28,18 +28,58 @@ class ProjectRecordingMediaStoreTest {
     }
 
     @Test
-    fun cleanupInterruptedRemovesOnlyRecordingPartFiles() {
+    fun cleanupInterruptedRemovesOnlyFilesWithoutAudioPayload() {
         val root = createTempDirectory("guitarlab-recording-cleanup").toFile()
         try {
-            val store = ProjectRecordingMediaStore(root, idFactory = { "take-2" })
-            val tx = store.begin("project-2")
-            tx.temporaryFile.parentFile?.mkdirs()
-            tx.temporaryFile.writeBytes(ByteArray(60))
-            val unrelated = File(tx.temporaryFile.parentFile, "keep.txt").apply { writeText("keep") }
+            var nextId = 0
+            val store = ProjectRecordingMediaStore(root, idFactory = { "take-${++nextId}" })
+            val empty = store.begin("project-2")
+            empty.temporaryFile.parentFile?.mkdirs()
+            empty.temporaryFile.writeBytes(ByteArray(44))
+            val recoverable = store.begin("project-2")
+            recoverable.temporaryFile.writeBytes(ByteArray(60))
+            val unrelated = File(empty.temporaryFile.parentFile, "keep.txt").apply { writeText("keep") }
 
             assertEquals(1, store.cleanupInterrupted("project-2"))
-            assertFalse(tx.temporaryFile.exists())
+            assertFalse(empty.temporaryFile.exists())
+            assertTrue(recoverable.temporaryFile.exists())
+            assertEquals(listOf(recoverable.temporaryFile.canonicalFile), store.recoverableInterrupted("project-2").map { it.canonicalFile })
             assertTrue(unrelated.exists())
+        } finally {
+            root.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun abandonPreservesPartialPayloadInsteadOfSilentlyDeletingIt() {
+        val root = createTempDirectory("guitarlab-recording-abandon-partial").toFile()
+        try {
+            val store = ProjectRecordingMediaStore(root, idFactory = { "take-partial" })
+            val tx = store.begin("project-partial")
+            tx.temporaryFile.parentFile?.mkdirs()
+            tx.temporaryFile.writeBytes(ByteArray(60) { 1 })
+
+            assertEquals(RecordingAbandonResult.RECOVERABLE_PARTIAL_PRESERVED, store.abandon(tx))
+            assertTrue(tx.temporaryFile.isFile)
+            assertFalse(tx.finalFile.exists())
+        } finally {
+            root.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun abandonPreservesFinalizedButUnpublishedTake() {
+        val root = createTempDirectory("guitarlab-recording-abandon-final").toFile()
+        try {
+            val store = ProjectRecordingMediaStore(root, idFactory = { "take-final" })
+            val tx = store.begin("project-final")
+            tx.temporaryFile.parentFile?.mkdirs()
+            tx.temporaryFile.writeBytes(ByteArray(60) { 2 })
+            store.commit(tx)
+
+            assertEquals(RecordingAbandonResult.FINALIZED_UNPUBLISHED_PRESERVED, store.abandon(tx))
+            assertFalse(tx.temporaryFile.exists())
+            assertTrue(tx.finalFile.isFile)
         } finally {
             root.deleteRecursively()
         }

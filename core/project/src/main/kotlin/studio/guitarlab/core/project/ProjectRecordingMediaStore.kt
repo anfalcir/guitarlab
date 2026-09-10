@@ -13,6 +13,13 @@ data class RecordingMediaTransaction(
     val relativePath: String,
 )
 
+enum class RecordingAbandonResult {
+    NOTHING_TO_DO,
+    EMPTY_TEMP_REMOVED,
+    RECOVERABLE_PARTIAL_PRESERVED,
+    FINALIZED_UNPUBLISHED_PRESERVED,
+}
+
 /** Owns temporary and finalized project recording takes without exposing overwrite of final media. */
 class ProjectRecordingMediaStore(
     private val rootDirectory: File,
@@ -53,20 +60,55 @@ class ProjectRecordingMediaStore(
         return transaction.finalFile
     }
 
+    /**
+     * Legacy rollback entry point. It is intentionally lossless once audio payload exists:
+     * callers cannot silently delete a captured partial or finalized unpublished take.
+     */
     fun discard(transaction: RecordingMediaTransaction) {
-        runCatching { transaction.temporaryFile.delete() }
-        runCatching { transaction.finalFile.delete() }
+        abandon(transaction)
     }
 
-    /** Removes crash/interruption leftovers that were never committed into project metadata. */
+    /**
+     * Abandons an interrupted transaction without silently deleting captured audio.
+     * Empty/header-only temporary files are safe to remove. Any file with an audio
+     * payload, or an already-finalized unpublished take, is retained for recovery.
+     */
+    fun abandon(transaction: RecordingMediaTransaction): RecordingAbandonResult = when {
+        transaction.finalFile.isFile -> RecordingAbandonResult.FINALIZED_UNPUBLISHED_PRESERVED
+        transaction.temporaryFile.isFile && transaction.temporaryFile.length() > MIN_VALID_WAV_BYTES ->
+            RecordingAbandonResult.RECOVERABLE_PARTIAL_PRESERVED
+        transaction.temporaryFile.exists() -> {
+            runCatching { transaction.temporaryFile.delete() }
+            RecordingAbandonResult.EMPTY_TEMP_REMOVED
+        }
+        else -> RecordingAbandonResult.NOTHING_TO_DO
+    }
+
+    /**
+     * Removes only interrupted recording temporaries that cannot contain an audio
+     * payload. Payload-bearing .part files are deliberately retained.
+     */
     fun cleanupInterrupted(projectId: String): Int {
         val directory = File(projectDirectory(projectId), RECORDING_DIRECTORY)
         if (!directory.isDirectory) return 0
         var removed = 0
         directory.listFiles().orEmpty().forEach { file ->
-            if (file.isFile && file.name.endsWith(".recording.part.wav") && file.delete()) removed++
+            if (file.isFile &&
+                file.name.endsWith(".recording.part.wav") &&
+                file.length() <= MIN_VALID_WAV_BYTES &&
+                file.delete()
+            ) removed++
         }
         return removed
+    }
+
+    /** Non-destructive inventory of interrupted takes that still contain payload. */
+    fun recoverableInterrupted(projectId: String): List<File> {
+        val directory = File(projectDirectory(projectId), RECORDING_DIRECTORY)
+        if (!directory.isDirectory) return emptyList()
+        return directory.listFiles().orEmpty()
+            .filter { it.isFile && it.name.endsWith(".recording.part.wav") && it.length() > MIN_VALID_WAV_BYTES }
+            .sortedBy { it.name }
     }
 
     private fun projectDirectory(projectId: String): File =
