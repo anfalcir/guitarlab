@@ -74,6 +74,11 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
@@ -1326,7 +1331,7 @@ private fun TrackColorSection(
                 )
             }
             BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
-                val colorsPerRow = if (maxWidth >= 430.dp) 10 else 5
+                val colorsPerRow = if (maxWidth >= 520.dp) 10 else 5
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     StudioTrackPalette.chunked(colorsPerRow).forEachIndexed { rowIndex, colors ->
                         Row(
@@ -1336,7 +1341,15 @@ private fun TrackColorSection(
                             colors.forEachIndexed { columnIndex, color ->
                                 val index = rowIndex * colorsPerRow + columnIndex
                                 Surface(
-                                    modifier = Modifier.size(30.dp).clip(CircleShape).clickable { onColorChange(index) },
+                                    modifier = Modifier
+                                        .size(48.dp)
+                                        .clip(CircleShape)
+                                        .semantics {
+                                            contentDescription = "Cor da pista ${index + 1}"
+                                            selected = colorIndex == index
+                                            role = Role.RadioButton
+                                        }
+                                        .clickable { onColorChange(index) },
                                     shape = CircleShape,
                                     color = color,
                                     border = BorderStroke(
