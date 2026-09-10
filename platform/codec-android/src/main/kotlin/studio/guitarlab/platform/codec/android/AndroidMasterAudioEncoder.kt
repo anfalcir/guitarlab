@@ -5,9 +5,9 @@ import android.media.MediaCodec
 import android.media.MediaFormat
 import java.io.File
 import java.io.FileOutputStream
-import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import studio.guitarlab.core.codec.AudioCodecException
+import studio.guitarlab.core.codec.AudioEncodingTimeline
 import studio.guitarlab.core.codec.FileSeekableByteSource
 import studio.guitarlab.core.codec.WavPcmDecoder
 
@@ -66,9 +66,11 @@ object AndroidMasterAudioEncoder {
                         buffer.order(ByteOrder.LITTLE_ENDIAN)
                         val maxFrames = buffer.remaining() / (channels * 2)
                         val floats = FloatArray(maxFrames * channels)
+                        val startFrame = decoder.positionFrames
                         val frames = decoder.readInterleaved(floats, frameCount = maxFrames)
                         if (frames <= 0) {
-                            codec.queueInputBuffer(index, 0, 0, 0L, MediaCodec.BUFFER_FLAG_END_OF_STREAM)
+                            val endPtsUs = AudioEncodingTimeline.presentationTimeUs(decoder.positionFrames, decoder.metadata.sampleRateHz)
+                            codec.queueInputBuffer(index, 0, 0, endPtsUs, MediaCodec.BUFFER_FLAG_END_OF_STREAM)
                             inputEnded = true
                         } else {
                             var sample = 0
@@ -78,7 +80,7 @@ object AndroidMasterAudioEncoder {
                                 buffer.putShort(pcm.toShort())
                                 sample++
                             }
-                            val ptsUs = decoder.positionFrames * 1_000_000L / decoder.metadata.sampleRateHz
+                            val ptsUs = AudioEncodingTimeline.presentationTimeUs(startFrame, decoder.metadata.sampleRateHz)
                             codec.queueInputBuffer(index, 0, sampleCount * 2, ptsUs, 0)
                         }
                     }
