@@ -11,6 +11,19 @@ import studio.guitarlab.core.codec.FloatWavFileWriter
 import studio.guitarlab.core.codec.WavPcmDecoder
 
 class StudioMasterRendererRegressionTest {
+    @Test fun realtimeSizedAndOfflineSizedChunksProduceBitExactPcm() {
+        val dir = createTempDirectory("guitarlab-parity-").toFile()
+        try {
+            val source = File(dir, "source.wav")
+            val samples = FloatArray(2_048) { index -> ((index % 97) - 48) / 64f }
+            FloatWavFileWriter(source, 48_000, 1).use { it.writeInterleaved(samples, samples.size) }
+            val clip = StudioPcmClip(source, "t", 13, 7, 1_777, gainDb = -2.5f, pan = .3f, fadeInFrames = 113, fadeOutFrames = 79)
+            val realtime = renderKernel(clip, projectFrames = 1_900, chunkFrames = 127, trackGain = -3f, trackPan = -.2f, masterGain = 1.5f)
+            val offline = renderKernel(clip, projectFrames = 1_900, chunkFrames = 1_024, trackGain = -3f, trackPan = -.2f, masterGain = 1.5f)
+            assertTrue(realtime.contentEquals(offline))
+        } finally { dir.deleteRecursively() }
+    }
+
     @Test fun rendersKnownMonoPcmWithGainPanFadeTimelineAndMasterClipping() {
         val dir = createTempDirectory("guitarlab-master-").toFile()
         try {
@@ -72,5 +85,29 @@ class StudioMasterRendererRegressionTest {
                 }
             } }
         } finally { dir.deleteRecursively() }
+    }
+
+    private fun renderKernel(
+        clip: StudioPcmClip,
+        projectFrames: Int,
+        chunkFrames: Int,
+        trackGain: Float,
+        trackPan: Float,
+        masterGain: Float,
+    ): FloatArray {
+        val result = FloatArray(projectFrames * 2)
+        StudioPcmClipReader(clip, 48_000).use { reader ->
+            var start = 0
+            while (start < projectFrames) {
+                val frames = minOf(chunkFrames, projectFrames - start)
+                val chunk = FloatArray(frames * 2)
+                reader.mixInto(start.toLong(), frames, chunk)
+                StudioPcmMixKernel.applyTrack(chunk, chunk.size, trackGain, trackPan, audible = true)
+                StudioPcmMixKernel.applyMaster(chunk, chunk.size, masterGain)
+                chunk.copyInto(result, start * 2)
+                start += frames
+            }
+        }
+        return result
     }
 }
