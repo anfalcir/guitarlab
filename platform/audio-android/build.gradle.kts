@@ -17,7 +17,9 @@ android {
 }
 
 dependencies {
+    implementation(project(":core:model"))
     implementation(project(":core:audio"))
+    implementation(project(":core:project"))
     implementation(project(":core:codec"))
     implementation(libs.kotlinx.coroutines.android)
     testImplementation(kotlin("test"))
