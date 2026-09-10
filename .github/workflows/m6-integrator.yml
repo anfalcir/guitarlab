@@ -44,6 +44,20 @@ jobs:
           chmod +x scripts/materialize_ci_sources.sh
           scripts/materialize_ci_sources.sh
 
+      - name: Harden calibration permission guard
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('tools/m6_integrate.py')
+          text = p.read_text()
+          old = '    private fun measurePass(sampleRateHz: Int, inputDevice: AudioDeviceInfo?, outputDevice: AudioDeviceInfo?): Pair<Long, Float> {\\n        val template = stimulus(STIMULUS_FRAMES)'
+          new = '    private fun measurePass(sampleRateHz: Int, inputDevice: AudioDeviceInfo?, outputDevice: AudioDeviceInfo?): Pair<Long, Float> {\\n        if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {\\n            throw SecurityException(\\"Permissão de microfone necessária para medir a latência.\\")\\n        }\\n        val template = stimulus(STIMULUS_FRAMES)'
+          if old not in text:
+              raise SystemExit('permission guard anchor not found')
+          p.write_text(text.replace(old, new, 1))
+          PY
+
       - name: Integrate and validate M6
         shell: bash
         run: python3 tools/m6_integrate.py
