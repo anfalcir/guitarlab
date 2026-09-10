@@ -1,7 +1,17 @@
 # M7 alpha1 — Physical Homologation Checklist
 
 Target: Samsung SM-X230 Android 16/API36 + normal GuitarLab/Pocket Amp workflow.
-Candidate: `0.4.0-alpha1` / versionCode 17.
+Original candidate: `0.4.0-alpha1` / versionCode 17.
+Superseding regression candidate: `0.4.0-alpha2` / versionCode 18.
+
+## Digital regression already removed from the physical checklist
+- SRC matrix 44.1→48, 48→44.1, 88.2→48, 96→48 and 44.1→96: duration, pitch, RMS, stereo independence and immutable input PASS.
+- same-rate conversion: byte-exact independent copy PASS.
+- deterministic Float32 master: timeline placement, gain, hard pan, clipping, fades, overlap/crossfade and stereo routing PASS.
+- model/persistence: M7 editing-domain bounds, frame overflow, fade bounds, Undo/Redo sequence and malformed package cleanup PASS.
+- duplicate project: managed source and proxy copying plus rollback on missing media PASS.
+
+Only the sensory/hardware portions below remain for the user; file/model mathematics must not be re-delegated to physical homologation.
 
 ## A. Home project actions
 - Three-dot menu shows Renomear, Salvar e exportar, Duplicar, Excluir.
