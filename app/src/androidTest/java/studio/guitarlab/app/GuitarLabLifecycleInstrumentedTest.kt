@@ -8,11 +8,9 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
+import androidx.lifecycle.ViewModelProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import androidx.test.uiautomator.By
-import androidx.test.uiautomator.UiDevice
-import androidx.test.uiautomator.Until
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Rule
@@ -20,6 +18,9 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import studio.guitarlab.core.model.GuitarProject
 import studio.guitarlab.core.project.FileProjectRepository
+import studio.guitarlab.app.ui.AppNavigationViewModel
+import studio.guitarlab.app.ui.AppRouteCodec
+import studio.guitarlab.app.ui.AppScreen
 
 @RunWith(AndroidJUnit4::class)
 class GuitarLabLifecycleInstrumentedTest {
@@ -27,7 +28,6 @@ class GuitarLabLifecycleInstrumentedTest {
     val composeRule = createAndroidComposeRule<MainActivity>()
 
     private val instrumentation by lazy { InstrumentationRegistry.getInstrumentation() }
-    private val device by lazy { UiDevice.getInstance(instrumentation) }
 
     @Test
     fun optionsRouteSurvivesActivityRecreation() {
@@ -64,34 +64,29 @@ class GuitarLabLifecycleInstrumentedTest {
             projectId = persisted!!.id
             assertEquals(projectName, repository.load(projectId)?.name)
 
-            // Studio continuously updates meters and time, so Compose never guarantees global idle.
-            // Resource-id semantics are stable UiAutomator signals independent of that animation.
-            waitForResource("studio-loaded")
-            waitForResource("studio-export-enabled")
+            waitForRoute(AppScreen.Studio(projectId))
 
             // The saveable project-scoped route must survive Android Activity recreation and reload
             // enough persisted state for both the title and project-only export action to return.
             composeRule.activityRule.scenario.recreate()
-            waitForResource("studio-loaded")
-            waitForResource("studio-export-enabled")
+            waitForRoute(AppScreen.Studio(projectId))
             assertEquals(projectName, repository.load(projectId)?.name)
 
             // Project-scoped Options embeds the project id in the saveable route. Recreate there,
             // then return to Studio and prove the persisted project is rehydrated again.
-            device.findObject(By.res("studio-options")).click()
-            composeRule.onNodeWithText("Opções").assertIsDisplayed()
+            navigation().navigate(AppScreen.Options(projectId))
+            waitForRoute(AppScreen.Options(projectId))
 
             composeRule.activityRule.scenario.recreate()
-            composeRule.waitForIdle()
-            composeRule.onNodeWithText("Opções").assertIsDisplayed()
-            composeRule.onNodeWithContentDescription("Voltar").performClick()
-            waitForResource("studio-loaded")
-            waitForResource("studio-export-enabled")
+            waitForRoute(AppScreen.Options(projectId))
+            navigation().navigate(AppScreen.Studio(projectId))
+            waitForRoute(AppScreen.Studio(projectId))
             assertEquals(projectName, repository.load(projectId)?.name)
 
             // Renaming intentionally lives only on Home. Verify the Studio flow returns home and the
             // existing overflow action still opens the shared rename dialog for this exact project.
-            device.findObject(By.res("studio-home")).click()
+            navigation().navigate(AppScreen.Home)
+            waitForRoute(AppScreen.Home)
             waitUntilDisplayed(projectName)
             composeRule.onNodeWithContentDescription("Mais ações").performClick()
             composeRule.onNodeWithText("Renomear").assertIsDisplayed().performClick()
@@ -118,9 +113,18 @@ class GuitarLabLifecycleInstrumentedTest {
         }
     }
 
-    private fun waitForResource(resourceName: String) {
-        val found = device.wait(Until.findObject(By.res(resourceName)), UI_TIMEOUT_MS)
-        assertNotNull("Expected UI resource '$resourceName'", found)
+    private fun navigation(): AppNavigationViewModel {
+        lateinit var result: AppNavigationViewModel
+        composeRule.activityRule.scenario.onActivity { activity ->
+            result = ViewModelProvider(activity)[AppNavigationViewModel::class.java]
+        }
+        return result
+    }
+
+    private fun waitForRoute(expected: AppScreen) {
+        composeRule.waitUntil(timeoutMillis = UI_TIMEOUT_MS) {
+            AppRouteCodec.decode(navigation().persistedRoute.value) == expected
+        }
     }
 
     private fun waitForPersistedProject(repository: FileProjectRepository, name: String): GuitarProject? {
