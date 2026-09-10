@@ -193,6 +193,30 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
+      - name: Restore API 36 AVD snapshot cache
+        id: avd-cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: |
+            ~/.android/avd/*
+            ~/.android/adb*
+          key: guitarlab-avd-v1-api36-default-x86_64-pixel7
+
+      - name: Create API 36 AVD snapshot on cache miss
+        if: steps.avd-cache.outputs.cache-hit != 'true'
+        uses: ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        with:
+          api-level: 36
+          target: default
+          arch: x86_64
+          profile: pixel_7
+          avd-name: guitarlab-api36
+          force-avd-creation: false
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none -no-metrics
+          disable-animations: false
+          emulator-boot-timeout: 600
+          script: echo "Generated clean API 36 AVD snapshot for CI cache."
+
       - name: Run API 36 instrumented regression
         uses: ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
         with:
@@ -200,7 +224,9 @@ jobs:
           target: default
           arch: x86_64
           profile: pixel_7
-          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none -camera-front none -no-metrics
+          avd-name: guitarlab-api36
+          force-avd-creation: false
+          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none -no-metrics
           disable-animations: true
           emulator-boot-timeout: 600
           script: gradle --no-daemon --console=plain --stacktrace connectedDebugAndroidTest
