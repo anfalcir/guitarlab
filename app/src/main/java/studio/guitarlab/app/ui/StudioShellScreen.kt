@@ -299,8 +299,19 @@ private fun StudioTopBar(
             Row(horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.CenterVertically) {
                 AppIconButton(icon = Icons.Default.Equalizer, contentDescription = "Mixer", onClick = onMixer)
                 AppIconButton(icon = Icons.Default.Tune, contentDescription = "Opções", onClick = onOptions, modifier = Modifier.testTag("studio-options"))
-                AppIconButton(icon = Icons.Default.Share, contentDescription = "Salvar e exportar", enabled = project != null, onClick = onShare)
-                AppIconButton(icon = Icons.Default.Home, contentDescription = "Início", onClick = onHome)
+                AppIconButton(
+                    icon = Icons.Default.Share,
+                    contentDescription = "Salvar e exportar",
+                    enabled = project != null,
+                    onClick = onShare,
+                    modifier = Modifier.testTag(if (project != null) "studio-export-enabled" else "studio-export-loading"),
+                )
+                AppIconButton(
+                    icon = Icons.Default.Home,
+                    contentDescription = "Início",
+                    onClick = onHome,
+                    modifier = Modifier.testTag("studio-home"),
+                )
             }
         }
     }

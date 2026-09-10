@@ -10,6 +10,9 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import androidx.test.uiautomator.By
+import androidx.test.uiautomator.UiDevice
+import androidx.test.uiautomator.Until
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Rule
@@ -24,6 +27,7 @@ class GuitarLabLifecycleInstrumentedTest {
     val composeRule = createAndroidComposeRule<MainActivity>()
 
     private val instrumentation by lazy { InstrumentationRegistry.getInstrumentation() }
+    private val device by lazy { UiDevice.getInstance(instrumentation) }
 
     @Test
     fun optionsRouteSurvivesActivityRecreation() {
@@ -60,34 +64,34 @@ class GuitarLabLifecycleInstrumentedTest {
             projectId = persisted!!.id
             assertEquals(projectName, repository.load(projectId)?.name)
 
-            // Keep lifecycle assertions inside the Compose test harness. UiAutomator cannot observe
-            // this app's Compose semantics tree reliably on the API 36 CI AVD, while Compose can.
-            waitUntilDisplayed(projectName)
-            waitUntilDescriptionEnabled("Salvar e exportar")
+            // Studio continuously updates meters and time, so Compose never guarantees global idle.
+            // Resource-id semantics are stable UiAutomator signals independent of that animation.
+            waitForResource("studio-loaded")
+            waitForResource("studio-export-enabled")
 
             // The saveable project-scoped route must survive Android Activity recreation and reload
             // enough persisted state for both the title and project-only export action to return.
             composeRule.activityRule.scenario.recreate()
-            waitUntilDisplayed(projectName)
-            waitUntilDescriptionEnabled("Salvar e exportar")
+            waitForResource("studio-loaded")
+            waitForResource("studio-export-enabled")
             assertEquals(projectName, repository.load(projectId)?.name)
 
             // Project-scoped Options embeds the project id in the saveable route. Recreate there,
             // then return to Studio and prove the persisted project is rehydrated again.
-            composeRule.onNodeWithContentDescription("Opções").performClick()
+            device.findObject(By.res("studio-options")).click()
             composeRule.onNodeWithText("Opções").assertIsDisplayed()
 
             composeRule.activityRule.scenario.recreate()
             composeRule.waitForIdle()
             composeRule.onNodeWithText("Opções").assertIsDisplayed()
             composeRule.onNodeWithContentDescription("Voltar").performClick()
-            waitUntilDisplayed(projectName)
-            waitUntilDescriptionEnabled("Salvar e exportar")
+            waitForResource("studio-loaded")
+            waitForResource("studio-export-enabled")
             assertEquals(projectName, repository.load(projectId)?.name)
 
             // Renaming intentionally lives only on Home. Verify the Studio flow returns home and the
             // existing overflow action still opens the shared rename dialog for this exact project.
-            composeRule.onNodeWithContentDescription("Início").performClick()
+            device.findObject(By.res("studio-home")).click()
             waitUntilDisplayed(projectName)
             composeRule.onNodeWithContentDescription("Mais ações").performClick()
             composeRule.onNodeWithText("Renomear").assertIsDisplayed().performClick()
@@ -114,12 +118,9 @@ class GuitarLabLifecycleInstrumentedTest {
         }
     }
 
-    private fun waitUntilDescriptionEnabled(description: String) {
-        composeRule.waitUntil(timeoutMillis = UI_TIMEOUT_MS) {
-            runCatching {
-                composeRule.onNodeWithContentDescription(description).assertIsDisplayed().assertIsEnabled()
-            }.isSuccess
-        }
+    private fun waitForResource(resourceName: String) {
+        val found = device.wait(Until.findObject(By.res(resourceName)), UI_TIMEOUT_MS)
+        assertNotNull("Expected UI resource '$resourceName'", found)
     }
 
     private fun waitForPersistedProject(repository: FileProjectRepository, name: String): GuitarProject? {
