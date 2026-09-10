@@ -35,7 +35,7 @@ class StudioMasterRenderRequestFactoryTest {
         assertEquals(listOf("solo"), request.trackMixes.map { it.trackId })
         assertEquals(-2f, request.trackMixes.single().gainDb)
         assertEquals(-.5f, request.trackMixes.single().pan)
-        assertEquals(110, request.projectEndFrame)
+        assertEquals(110L, request.projectEndFrame)
     }
 
     @Test fun rejectsUnconvertedClipIdenticallyForEveryCaller() {
