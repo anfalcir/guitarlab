@@ -14,7 +14,7 @@ class FileProjectRepository(
     private val projectsDirectory = File(rootDirectory, "projects").also { it.mkdirs() }
 
     override fun list(): List<GuitarProject> = projectsDirectory
-        .listFiles { file -> file.isDirectory }
+        .listFiles { file -> file.isDirectory && !file.name.startsWith(".") }
         .orEmpty()
         .mapNotNull { directory -> readProjectFile(File(directory, PROJECT_FILE)) }
         .sortedByDescending { it.updatedAtEpochMs }

@@ -140,6 +140,7 @@ jobs:
             ci-diagnostics/**
             app/build/outputs/apk/debug/*.apk
             **/build/reports/tests/**
+            **/build/test-results/**
             **/build/reports/lint-results*.html
             **/build/reports/lint-results*.xml
 

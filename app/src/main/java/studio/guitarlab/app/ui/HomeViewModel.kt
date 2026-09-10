@@ -37,7 +37,10 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     val state: StateFlow<HomeUiState> = _state.asStateFlow()
 
     init {
-        refresh()
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) { runCatching { bundleReader.cleanupInterruptedImports() } }
+            refresh()
+        }
     }
 
     fun refresh() {

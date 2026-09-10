@@ -21,8 +21,19 @@ class ProjectBundleReader(
 ) {
     private val projectsDirectory = File(rootDirectory, "projects").also { it.mkdirs() }
 
+    /** Removes only unpublished bundle-import staging directories left by process death. */
+    fun cleanupInterruptedImports(): Int {
+        var removed = 0
+        projectsDirectory.listFiles().orEmpty().forEach { candidate ->
+            if (candidate.isDirectory && candidate.name.startsWith(IMPORT_STAGING_PREFIX) && candidate.deleteRecursively()) {
+                removed++
+            }
+        }
+        return removed
+    }
+
     fun read(input: InputStream, nowEpochMs: Long = System.currentTimeMillis()): GuitarProject {
-        val temporary = File(projectsDirectory, ".import-${UUID.randomUUID()}")
+        val temporary = File(projectsDirectory, "$IMPORT_STAGING_PREFIX${UUID.randomUUID()}")
         require(temporary.mkdirs()) { "Não foi possível preparar a importação do projeto." }
         try {
             extractSafely(input, temporary)
@@ -151,6 +162,7 @@ class ProjectBundleReader(
     }
 
     private companion object {
+        const val IMPORT_STAGING_PREFIX = ".import-"
         const val PROJECT_FILE = "project.json"
         const val MANIFEST_FILE = "manifest.properties"
         const val PACKAGE_FORMAT = "guitarlab-project"

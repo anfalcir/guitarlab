@@ -83,6 +83,9 @@ dependencies {
     implementation(libs.lifecycle.runtime.compose)
     implementation(libs.kotlinx.coroutines.android)
 
+    testImplementation(kotlin("test"))
+    testImplementation(libs.junit4)
+
     debugImplementation(libs.compose.ui.tooling)
     androidTestImplementation(libs.compose.ui.test.junit4)
     debugImplementation(libs.compose.ui.test.manifest)

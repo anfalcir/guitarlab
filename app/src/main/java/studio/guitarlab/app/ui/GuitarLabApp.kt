@@ -9,11 +9,11 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 
 @Composable
 fun GuitarLabApp(homeViewModel: HomeViewModel = viewModel()) {
-    var persistedRoute by rememberSaveable { mutableStateOf(AppScreen.Home.toPersistedRoute()) }
-    val screen = appScreenFromPersistedRoute(persistedRoute)
+    var persistedRoute by rememberSaveable { mutableStateOf(AppRouteCodec.encode(AppScreen.Home)) }
+    val screen = AppRouteCodec.decode(persistedRoute)
 
     fun navigate(destination: AppScreen) {
-        persistedRoute = destination.toPersistedRoute()
+        persistedRoute = AppRouteCodec.encode(destination)
     }
 
     fun returnTo(projectId: String?) {
@@ -52,23 +52,4 @@ fun GuitarLabApp(homeViewModel: HomeViewModel = viewModel()) {
         is AppScreen.AudioProbe -> AudioProbeScreen(onBack = { navigate(AppScreen.Options(current.projectId)) })
         is AppScreen.CodecProbe -> CodecProbeScreen(onBack = { navigate(AppScreen.Options(current.projectId)) })
     }
-}
-
-private fun AppScreen.toPersistedRoute(): String = when (this) {
-    AppScreen.Home -> "home"
-    AppScreen.NewProject -> "new"
-    is AppScreen.Studio -> "studio:$projectId"
-    is AppScreen.Options -> "options:${projectId.orEmpty()}"
-    is AppScreen.AudioProbe -> "audio-probe:${projectId.orEmpty()}"
-    is AppScreen.CodecProbe -> "codec-probe:${projectId.orEmpty()}"
-}
-
-private fun appScreenFromPersistedRoute(route: String): AppScreen = when {
-    route == "home" -> AppScreen.Home
-    route == "new" -> AppScreen.NewProject
-    route.startsWith("studio:") -> route.substringAfter(':').takeIf { it.isNotBlank() }?.let(AppScreen::Studio) ?: AppScreen.Home
-    route.startsWith("options:") -> AppScreen.Options(route.substringAfter(':').takeIf { it.isNotBlank() })
-    route.startsWith("audio-probe:") -> AppScreen.AudioProbe(route.substringAfter(':').takeIf { it.isNotBlank() })
-    route.startsWith("codec-probe:") -> AppScreen.CodecProbe(route.substringAfter(':').takeIf { it.isNotBlank() })
-    else -> AppScreen.Home
 }
