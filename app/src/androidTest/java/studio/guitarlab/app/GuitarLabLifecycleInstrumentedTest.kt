@@ -63,16 +63,16 @@ class GuitarLabLifecycleInstrumentedTest {
             projectId = persisted!!.id
             assertEquals(projectName, repository.load(projectId)?.name)
 
-            // "Renomear projeto" exists only after StudioViewModel has loaded state.project.
-            // UiAutomator observes Android accessibility directly and therefore does not
-            // require the continuously updating Studio composition to become globally idle.
-            assertTrue("Studio must load the persisted project", waitForDescription("Renomear projeto"))
+            // "Salvar e exportar" is present in the Studio top bar but is enabled only after
+            // StudioViewModel has loaded state.project. UiAutomator observes Android accessibility
+            // directly and therefore does not require the dynamic Studio composition to become idle.
+            assertTrue("Studio must load the persisted project", waitForEnabledDescription("Salvar e exportar"))
             assertTrue("Studio home action must be exposed", device.hasObject(By.desc("Início")))
 
             // Recreate from Studio. The saveable route must survive and the new StudioViewModel
             // must reload a persisted project rather than relying on transient composable state.
             composeRule.activityRule.scenario.recreate()
-            assertTrue("Studio route must survive Activity recreation", waitForDescription("Renomear projeto"))
+            assertTrue("Studio route must survive Activity recreation", waitForEnabledDescription("Salvar e exportar"))
             assertEquals(projectName, repository.load(projectId)?.name)
             assertTrue("Studio home action must remain exposed", device.hasObject(By.desc("Início")))
 
@@ -91,7 +91,7 @@ class GuitarLabLifecycleInstrumentedTest {
             val back = device.wait(Until.findObject(By.desc("Voltar")), UI_TIMEOUT_MS)
             assertNotNull("Options must expose Back after recreation", back)
             back!!.click()
-            assertTrue("Back from project-scoped Options must restore Studio", waitForDescription("Renomear projeto"))
+            assertTrue("Back from project-scoped Options must restore Studio", waitForEnabledDescription("Salvar e exportar"))
             assertEquals(projectName, repository.load(projectId)?.name)
         } finally {
             projectId?.let { runCatching { repository.delete(it) } }
@@ -117,6 +117,16 @@ class GuitarLabLifecycleInstrumentedTest {
 
     private fun waitForDescription(description: String): Boolean =
         device.wait(Until.hasObject(By.desc(description)), UI_TIMEOUT_MS)
+
+    private fun waitForEnabledDescription(description: String): Boolean {
+        val deadlineNanos = System.nanoTime() + UI_TIMEOUT_MS * 1_000_000L
+        do {
+            val node = device.findObject(By.desc(description))
+            if (node?.isEnabled == true) return true
+            Thread.sleep(POLL_INTERVAL_MS)
+        } while (System.nanoTime() < deadlineNanos)
+        return false
+    }
 
     private companion object {
         const val UI_TIMEOUT_MS = 10_000L
