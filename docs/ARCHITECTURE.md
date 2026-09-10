@@ -1,6 +1,6 @@
 # GuitarLab architecture
 
-Updated: 2026-09-09
+Updated: 2026-09-10
 
 ## Repository/branch policy
 - `main` is the stable signed baseline.
@@ -26,6 +26,8 @@ An imported document has two distinct identities:
 The portable `.guitarlab` package is a versioned ZIP container with manifest, `project.json`, referenced sources and referenced proxies. The reader stages extraction into a temporary project directory, blocks traversal/out-of-root paths, applies size/entry bounds, validates manifest/project/media consistency, assigns a new project ID and only then publishes it into managed storage.
 
 This makes `Salvar cópia do projeto` a true round-trip persistence path, not merely an export archive.
+
+Project duplication follows the same managed-media invariant: every referenced source and editing proxy is copied into an independent destination project before its JSON is published. Missing media aborts and removes the incomplete destination; duplication never publishes dangling managed paths.
 
 ## Master-render architecture
 Final audio export is intentionally separated from editing proxies. `StudioMasterRenderer` consumes the current timeline/project mix state and produces a floating-point master WAV. Format adapters then either keep that Float32 WAV or encode a delivery copy such as FLAC/MP3. Source and proxy files are never used as destructive export targets.
