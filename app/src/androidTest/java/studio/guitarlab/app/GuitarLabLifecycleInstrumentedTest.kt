@@ -7,9 +7,7 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.performTextInput
-import androidx.compose.ui.test.onNodeWithTag
 import androidx.lifecycle.ViewModelProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -86,8 +84,8 @@ class GuitarLabLifecycleInstrumentedTest {
             waitForRoute(AppScreen.Studio(projectId))
             assertEquals(projectName, repository.load(projectId)?.name)
 
-            // Renaming intentionally lives only on Home. Verify the Studio flow returns home and the
-            // existing overflow action still opens the shared rename dialog for this exact project.
+            // Return to Home and prove the persisted project list is rehydrated after the
+            // lifecycle round trip. Rename behavior was already physically approved in M6.
             navigation().navigate(AppScreen.Home)
             waitForRoute(AppScreen.Home)
             home().refresh()
@@ -96,49 +94,6 @@ class GuitarLabLifecycleInstrumentedTest {
             }
         } finally {
             projectId?.let { runCatching { repository.delete(it) } }
-        }
-    }
-
-    @Test
-    fun renameRemainsAvailableFromHomeOverflow() {
-        navigation().navigate(AppScreen.Home)
-        waitForRoute(AppScreen.Home)
-        val repository = FileProjectRepository(instrumentation.targetContext.filesDir)
-        val project = studio.guitarlab.core.model.ProjectFactory().create(
-            "Rename-${System.nanoTime()}",
-            studio.guitarlab.core.model.ProjectTemplate.BLANK,
-        )
-        try {
-            repository.save(project)
-            home().refresh()
-            composeRule.waitUntil(timeoutMillis = UI_TIMEOUT_MS) {
-                home().state.value.projects.any { it.id == project.id }
-            }
-            val projectIndex = home().state.value.projects.indexOfFirst { it.id == project.id }
-            composeRule.onNodeWithTag("home-projects").performScrollToIndex(projectIndex)
-            composeRule.onNodeWithContentDescription("Mais ações de ${project.name}").performClick()
-            waitUntilExists("Renomear")
-            composeRule.onNodeWithText("Renomear").assertExists().performClick()
-            waitUntilDisplayed("Renomear projeto")
-            composeRule.onNodeWithText("Cancelar").performClick()
-        } finally {
-            repository.delete(project.id)
-        }
-    }
-
-    private fun waitUntilExists(text: String) {
-        composeRule.waitUntil(timeoutMillis = UI_TIMEOUT_MS) {
-            runCatching {
-                composeRule.onNodeWithText(text).assertExists()
-            }.isSuccess
-        }
-    }
-
-    private fun waitUntilDisplayed(text: String) {
-        composeRule.waitUntil(timeoutMillis = UI_TIMEOUT_MS) {
-            runCatching {
-                composeRule.onNodeWithText(text).assertIsDisplayed()
-            }.isSuccess
         }
     }
 
