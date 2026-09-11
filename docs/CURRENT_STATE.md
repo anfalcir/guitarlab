@@ -15,12 +15,10 @@ Updated: 2026-09-11
 - M8.A/B digital hardening: PASS for the scoped matrix.
 - M8.C RC production: PASS. Final signed artifact produced and verified; residual physical gate pending.
 
-## Canonical automated gate
-`.github/workflows/android-ci.yml` now contains both required automated jobs:
-1. **software-gate** — unit tests, performance evidence, Android Lint and debug APK;
-2. **android-integration-gate** — Android API 36 emulator instrumentation.
+## Build and gate policy
+Ordinary commits do not trigger GitHub Actions. `scripts/build_local.sh` is the default local software gate. `.github/workflows/android-ci.yml` remains available only through explicit `workflow_dispatch` for a full API 36 emulator/signing run. This preserves the validated pipeline while preventing unintentional consumption of hosted-runner minutes.
 
-The signed homologation job depends on both gates. The old duplicate `pull_request` execution path and standalone emulator workflow were removed; the API 36 AVD is snapshot-cached. Signing remains opt-in only.
+The last fully validated signed baseline remains `0.4.0-rc1` / CI #590 until a later candidate completes a real build and validation gate.
 
 ## M7 production audio polish
 M7 includes validated sample-rate conversion, non-destructive fades/crossfades, realtime/offline render parity, larger-session memory discipline and shared Home/Studio save-export behavior.

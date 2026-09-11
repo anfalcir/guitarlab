@@ -3,10 +3,9 @@
 Updated: 2026-09-10
 
 ## Repository/branch policy
-- `main` is the stable baseline and is not changed by active hardening work.
-- `dev/parallel-m3-m5` is the historical-name active integration branch attached to draft PR #1.
-- M5 and M6 are closed. PR #1 intentionally remains draft while M7/final release hardening and the residual target-device gate are open.
-- A merge is never automatic or implied by a homologation PASS.
+- `main` is canonical after the explicit merge of PR #1.
+- Final physical homologation evidence and closure are recorded directly on `main`.
+- A new APK identity is not promoted merely because source was committed; compilation, validation and signer evidence remain required.
 
 ## Core boundaries
 - `core:model`: immutable project/track/clip metadata contracts, including managed source/proxy references.
@@ -58,13 +57,10 @@ Mixer/Master controls operate engine/project state. Mute/Solo/Arm expose button 
 ## Lifecycle boundary
 Saveable navigation routes are encoded/decoded by a pure route codec and tested through real `ActivityScenario.recreate()`. Durable creative state lives in project persistence, not transient composable state. Interrupted import/recording artifacts are recovered/classified independently of Activity recreation.
 
-## CI/release architecture
-`.github/workflows/android-ci.yml` is canonical and contains:
-- `software-gate`;
-- `android-integration-gate` on API 36;
-- `homologation-apk`.
+## Build/release architecture
+`scripts/build_local.sh` is the default software build gate. It validates Java/Gradle/SDK prerequisites, materializes split sources, and runs JVM tests, Lint and debug assembly. Signed release assembly is explicit and uses environment-only credentials.
 
-The first two run independently in parallel. The signing job has explicit `needs` on both. The AVD uses snapshot caching and third-party CI actions used for the emulator/cache are pinned by commit SHA. Signing is opt-in; private keystore material is restored only in the signing runner and destroyed afterward.
+`.github/workflows/android-ci.yml` is a manual fallback/full-emulator executor. It has no automatic commit trigger. When manually used, its software and API 36 gates remain independent prerequisites of `homologation-apk`; signer verification and cleanup rules remain unchanged.
 
 ## Current milestone boundary
 M5 and M6 are closed. M7 is technically hardened and remains open for one residual target-device gate. M8.A/B automated release hardening is covered for the current scope; M8.C is final exact-candidate/signing/physical closure work.

@@ -2,8 +2,8 @@
 
 Updated: 2026-09-11
 
-## Canonical automated gate
-Every candidate commit on the active integration branch is evaluated by `.github/workflows/android-ci.yml`.
+## Canonical gate execution
+Ordinary commits do not start hosted CI. The default software gate is `scripts/build_local.sh` on a prepared Android build host. The full API 36 emulator/signing workflow remains available only through explicit manual dispatch in `.github/workflows/android-ci.yml`.
 
 ### 1. Software gate
 Required checks:
@@ -27,7 +27,7 @@ The API 36 AVD uses a pinned snapshot cache for repeatable, lower-cost execution
 A failure in either gate blocks signed-candidate promotion.
 
 ## Signed homologation gate
-Only explicit `[sign-homologation]` intent or authorized manual dispatch may build a homologation release. The job has `needs: [software-gate, android-integration-gate]` and therefore cannot run after a failed required automated gate.
+Only an explicitly requested signed local build or authorized manual workflow dispatch may build a homologation release. The job has `needs: [software-gate, android-integration-gate]` and therefore cannot run after a failed required automated gate.
 
 The signing job must:
 - restore signing material only inside the runner;

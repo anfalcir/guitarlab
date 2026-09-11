@@ -32,11 +32,9 @@ The digitally validated homologation candidate is `0.4.0-rc1` (versionCode 19), 
 Post-alpha2 hardening covers managed-media loss prevention/recovery, process-death staging cleanup, lossless interrupted-recording preservation and WAV-header repair, safer SAF publication, deterministic codec timestamps, FLAC container correction, accessibility semantics, JVM performance evidence and Android API 36 instrumented regression.
 
 ## Build, regression and signing
-`.github/workflows/android-ci.yml` is the canonical executor. Each active-branch candidate runs two independent required gates in parallel:
-1. software gate — diff sanity, unit tests, reproducible performance evidence, Android Lint and debug APK assembly;
-2. Android integration gate — API 36 emulator instrumentation, including lifecycle recreation, Mixer accessibility behavior and Android codec integration.
+`scripts/build_local.sh` is the default software gate and runs source materialization, JVM tests, Android Lint and debug assembly with pinned Gradle 9.6.1 / Android API 36 requirements. With explicit signing environment variables and `SIGNED_HOMOLOGATION=true`, it also builds the homologation release.
 
-The emulator AVD is snapshot-cached to reduce repeated CI setup cost. The signed homologation job has `needs` on both gates and remains skipped unless explicitly requested by `[sign-homologation]` or authorized manual dispatch. Signing material exists only inside the runner, the certificate identity is checked cryptographically, and temporary signing files are destroyed after the job.
+`.github/workflows/android-ci.yml` is retained as a manual emergency/full-emulator gate only. It has no `push` or `pull_request` trigger, so ordinary commits consume no GitHub Actions minutes. A signed manual run still requires both software and Android integration jobs to pass before signing.
 
 ## Physical validation policy
 Automatable mathematics, persistence invariants, malformed-input handling, lifecycle recreation, codec structure and UI semantics are not delegated back to the user. The final physical gate is intentionally residual: Samsung/Pocket Amp USB routing and capture, target-specific MP3 encoder availability, subjective latency/listening quality, real-tablet stress and tactile/visual ergonomics.

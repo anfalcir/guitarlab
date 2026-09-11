@@ -38,7 +38,7 @@ External documents are read-only origins; accepted source media is promoted to m
 Use near-black layered graphite surfaces, restrained product identity and semantic functional colors.
 
 ## D-012 — Build/signing continuity
-GitHub Actions is canonical. Signing secrets are CI-only and signer identity is cryptographically verified.
+Historical rule superseded by D-050. Signing secrets remain environment-only and signer identity must be cryptographically verified.
 
 ## D-013 — Documentation is canonical project context
 Repository documentation defines scope, roadmap, decisions, active gates and current state; historical candidate files are evidence, not current truth.
@@ -150,3 +150,6 @@ The canonical CI contains a software gate and API 36 emulator gate. The signed h
 
 ## D-049 — Physical homologation is residual, not duplicated QA
 Anything objectively established by automated model/file/JVM/emulator regression is removed from the manual checklist. The final physical pass is limited to target-hardware routing/capture, optional target codec capability, subjective latency/listening, real-device stress and ergonomics.
+
+## D-050 — Commits do not automatically consume hosted CI
+The default gate is `scripts/build_local.sh` on a prepared Android build host. GitHub Actions remains a manually dispatched fallback for the full API 36 emulator/signing matrix and has no `push` or `pull_request` trigger. No candidate may be called validated solely because automatic CI was disabled; build, test, signature and checksum evidence remain mandatory.
