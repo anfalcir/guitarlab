@@ -246,6 +246,7 @@ jobs:
             adb shell am force-stop studio.guitarlab.app || true
 
             gradle --no-daemon --console=plain --stacktrace connectedDebugAndroidTest \
+              -Pandroid.testInstrumentationRunnerArguments.class=studio.guitarlab.app.TargetTabletGeometryInstrumentedTest \
               -Pandroid.testInstrumentationRunnerArguments.targetGeometry=true
 
       - name: Upload Android integration reports
