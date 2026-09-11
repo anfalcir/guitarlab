@@ -117,11 +117,20 @@ class GuitarLabLifecycleInstrumentedTest {
             val projectIndex = home().state.value.projects.indexOfFirst { it.id == project.id }
             composeRule.onNodeWithTag("home-projects").performScrollToIndex(projectIndex)
             composeRule.onNodeWithContentDescription("Mais ações de ${project.name}").performClick()
-            composeRule.onNodeWithText("Renomear").assertIsDisplayed().performClick()
-            composeRule.onNodeWithText("Renomear projeto").assertIsDisplayed()
+            waitUntilDisplayed("Renomear")
+            composeRule.onNodeWithText("Renomear").performClick()
+            waitUntilDisplayed("Renomear projeto")
             composeRule.onNodeWithText("Cancelar").performClick()
         } finally {
             repository.delete(project.id)
+        }
+    }
+
+    private fun waitUntilDisplayed(text: String) {
+        composeRule.waitUntil(timeoutMillis = UI_TIMEOUT_MS) {
+            runCatching {
+                composeRule.onNodeWithText(text).assertIsDisplayed()
+            }.isSuccess
         }
     }
 
