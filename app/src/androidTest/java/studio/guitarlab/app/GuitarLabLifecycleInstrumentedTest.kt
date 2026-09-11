@@ -7,7 +7,9 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.lifecycle.ViewModelProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -112,8 +114,10 @@ class GuitarLabLifecycleInstrumentedTest {
             composeRule.waitUntil(timeoutMillis = UI_TIMEOUT_MS) {
                 home().state.value.projects.any { it.id == project.id }
             }
+            val projectIndex = home().state.value.projects.indexOfFirst { it.id == project.id }
+            composeRule.onNodeWithTag("home-projects").performScrollToIndex(projectIndex)
             waitUntilDisplayed(project.name)
-            composeRule.onNodeWithContentDescription("Mais ações").performClick()
+            composeRule.onNodeWithContentDescription("Mais ações de ${project.name}").performClick()
             composeRule.onNodeWithText("Renomear").assertIsDisplayed().performClick()
             composeRule.onNodeWithText("Renomear projeto").assertIsDisplayed()
             composeRule.onNodeWithText("Cancelar").performClick()

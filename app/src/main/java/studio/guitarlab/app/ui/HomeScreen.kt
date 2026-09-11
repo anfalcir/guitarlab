@@ -42,6 +42,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -96,7 +97,7 @@ fun HomeScreen(viewModel: HomeViewModel, onNewProject: () -> Unit, onOpenProject
             when {
                 state.loading -> Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
                 state.projects.isEmpty() -> EmptyProjectsState(onNewProject, Modifier.weight(1f))
-                else -> LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                else -> LazyColumn(Modifier.weight(1f).testTag("home-projects"), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     items(state.projects, key = { it.id }) { project ->
                         ProjectRow(project, { onOpenProject(project.id) }, { renameProject = project }, { exportProject = project }, { viewModel.duplicateProject(project) }, { viewModel.deleteProject(project.id) })
                     }
@@ -136,7 +137,7 @@ fun HomeScreen(viewModel: HomeViewModel, onNewProject: () -> Unit, onOpenProject
                 Text("$modified  ·  ${project.tracks.size} ${if (project.tracks.size == 1) "pista" else "pistas"}  ·  ${project.clips.size} ${if (project.clips.size == 1) "clipe" else "clipes"}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Box {
-                AppIconButton(icon = Icons.Default.MoreVert, contentDescription = "Mais ações", onClick = { menuOpen = true })
+                AppIconButton(icon = Icons.Default.MoreVert, contentDescription = "Mais ações de ${project.name}", onClick = { menuOpen = true })
                 DropdownMenu(menuOpen, { menuOpen = false }) {
                     DropdownMenuItem({ Text("Renomear") }, { menuOpen = false; onRename() }, leadingIcon = { Icon(Icons.Default.Edit, null) })
                     DropdownMenuItem({ Text("Salvar e exportar") }, { menuOpen = false; onExport() }, leadingIcon = { Icon(Icons.Default.Share, null) })
