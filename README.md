@@ -1,29 +1,45 @@
 # GuitarLab Studio
 
-Android-first guitar study, recording and audio-diagnostics project.
+Android-first guitar practice, recording, comparison and mixing workspace.
 
-Current validated development baseline: **M2 0.2.0-alpha03 (versionCode 4)**.
+## Repository truth
+The repository is the canonical source for scope, architecture, implementation state and homologation evidence. Chat history is supplementary only.
 
-## Current gate
+Read first:
+- `docs/CURRENT_STATE.md` — live milestone/gate state;
+- `docs/IMPLEMENTATION_ROADMAP.md` — milestone sequence and remaining release work;
+- `docs/ARCHITECTURE.md` — current module, media, lifecycle and CI architecture;
+- `docs/CODEC_SUPPORT_MATRIX.md` — implemented vs JVM/emulator/target-verified codec capabilities;
+- `docs/MANAGED_MEDIA_POLICY.md` — immutable-source/proxy/project-package contract;
+- `docs/TIMELINE_INTERACTION_GUIDELINES.md` — timeline/drag/trim contract;
+- `docs/STUDIO_OPTIONS_AND_MIXER.md` — Studio, routing, Mixer and Share-modal contract;
+- `docs/TEST_AND_HOMOLOGATION_PLAN.md` — automated + residual physical gate policy;
+- `docs/M7_ALPHA1_HOMOLOGATION_CHECKLIST.md` — historical filename retained for the current residual M7/final-RC physical checklist;
+- `docs/M8_GLOBAL_DIGITAL_REGRESSION.md` — global regression matrix and corrected-defect evidence;
+- `docs/HISTORICAL_CANDIDATES.md` — superseded candidates.
 
-M2 is validating the Android audio path before timeline/audio-production features are unlocked. The alpha03 diagnostic hardens microphone capture by preferring media sample rates for the built-in mic, explicitly testing the microphone source, reporting Android microphone privacy/mute state, and refusing to pass a capture that contains only digital zero.
+## Final signed RC
+The digitally validated homologation candidate is `0.4.0-rc1` (versionCode 19), built from commit `66108182d9a733930139a84e4f6b9525172bb9aa` by GitHub Actions run [#590](https://github.com/anfalcir/guitarlab/actions/runs/34593159502). SHA-256: `604f13b83e27021201101fd663dad5c61bca600829ab9565109f48ae23f8e0ad`. Only the residual physical Samsung/Pocket Amp checklist remains.
 
-## Build
+## Current development state
+- stable `main`: unchanged stable signed baseline;
+- active integration: `dev/parallel-m3-m5`, draft PR #1;
+- M5: PASS/CLOSED by explicit physical approval of `0.2.0-alpha14`;
+- M6: PASS/CLOSED by explicit physical approval of `0.3.0-alpha1`;
+- M7/M8 digital scope: PASS for the exact signed RC; residual physical homologation remains OPEN.
+- Final candidate: `0.4.0-rc1`, versionCode 19, commit `66108182d9a733930139a84e4f6b9525172bb9aa`, CI #590.
 
-The canonical remote executor is GitHub Actions in `.github/workflows/android-ci.yml`.
+Post-alpha2 hardening covers managed-media loss prevention/recovery, process-death staging cleanup, lossless interrupted-recording preservation and WAV-header repair, safer SAF publication, deterministic codec timestamps, FLAC container correction, accessibility semantics, JVM performance evidence and Android API 36 instrumented regression.
 
-Every push to `main` runs:
+## Build, regression and signing
+`.github/workflows/android-ci.yml` is the canonical executor. Each active-branch candidate runs two independent required gates in parallel:
+1. software gate — diff sanity, unit tests, reproducible performance evidence, Android Lint and debug APK assembly;
+2. Android integration gate — API 36 emulator instrumentation, including lifecycle recreation, Mixer accessibility behavior and Android codec integration.
 
-- JDK 17
-- Android SDK platform 37 / target 36
-- Build Tools 36.0.0
-- Gradle 9.6.1 with persistent GitHub Actions cache
-- unit tests
-- Android Lint
-- debug APK assembly
+The emulator AVD is snapshot-cached to reduce repeated CI setup cost. The signed homologation job has `needs` on both gates and remains skipped unless explicitly requested by `[sign-homologation]` or authorized manual dispatch. Signing material exists only inside the runner, the certificate identity is checked cryptographically, and temporary signing files are destroyed after the job.
 
-A signed homologation APK is available through manual workflow dispatch after the private signing secret is configured. The signing material is never committed to this repository, and the produced APK certificate is checked against the locked M2 homologation fingerprint before publication.
+## Physical validation policy
+Automatable mathematics, persistence invariants, malformed-input handling, lifecycle recreation, codec structure and UI semantics are not delegated back to the user. The final physical gate is intentionally residual: Samsung/Pocket Amp USB routing and capture, target-specific MP3 encoder availability, subjective latency/listening quality, real-tablet stress and tactile/visual ergonomics.
 
 ## Security
-
-Keystores, credentials, local Android configuration, APK outputs and portable caches are excluded from Git. Do not commit private signing material.
+Never commit keystores, credentials, local SDK configuration or secret artifacts.

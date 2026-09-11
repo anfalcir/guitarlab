@@ -217,4 +217,6 @@
         track: AudioTrack,
         config: AudioStreamConfig,
         durationMs: Long,
-        toneHz: Double
+        toneHz: Double,
+        initialFrames: Long = 0L,
+        initialPhase: Double = 0.0

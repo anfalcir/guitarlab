@@ -28,22 +28,82 @@ object BuiltInRoles {
     const val GENERIC = "builtin.generic"
 
     val definitions = listOf(
-        TrackRoleDefinition(BACKING, "Backing Track", true, ChannelLayout.STEREO),
-        TrackRoleDefinition(REFERENCE_GUITAR, "Reference Guitar", true, ChannelLayout.MONO),
-        TrackRoleDefinition(REFERENCE_GUITAR_L, "Reference Guitar L", true, ChannelLayout.MONO, -1f),
-        TrackRoleDefinition(REFERENCE_GUITAR_R, "Reference Guitar R", true, ChannelLayout.MONO, 1f),
-        TrackRoleDefinition(RECORDED_GUITAR, "Recorded Guitar", true, ChannelLayout.MONO),
-        TrackRoleDefinition(RECORDED_GUITAR_L, "Recorded Guitar L", true, ChannelLayout.MONO, -1f),
-        TrackRoleDefinition(RECORDED_GUITAR_R, "Recorded Guitar R", true, ChannelLayout.MONO, 1f),
-        TrackRoleDefinition(GUITAR, "Guitar", true, ChannelLayout.MONO),
-        TrackRoleDefinition(BASS, "Bass", true, ChannelLayout.MONO),
-        TrackRoleDefinition(DRUMS, "Drums", true, ChannelLayout.STEREO),
-        TrackRoleDefinition(VOCALS, "Vocals", true, ChannelLayout.MONO),
-        TrackRoleDefinition(CLICK, "Click", true, ChannelLayout.MONO),
-        TrackRoleDefinition(GENERIC, "Generic", true, ChannelLayout.MONO)
+        TrackRoleDefinition(BACKING, "Base", true, ChannelLayout.STEREO),
+        TrackRoleDefinition(REFERENCE_GUITAR, "Guitarra de referência", true, ChannelLayout.MONO),
+        TrackRoleDefinition(REFERENCE_GUITAR_L, "Guitarra de referência E", true, ChannelLayout.MONO, -1f),
+        TrackRoleDefinition(REFERENCE_GUITAR_R, "Guitarra de referência D", true, ChannelLayout.MONO, 1f),
+        TrackRoleDefinition(RECORDED_GUITAR, "Guitarra gravada", true, ChannelLayout.MONO),
+        TrackRoleDefinition(RECORDED_GUITAR_L, "Guitarra gravada E", true, ChannelLayout.MONO, -1f),
+        TrackRoleDefinition(RECORDED_GUITAR_R, "Guitarra gravada D", true, ChannelLayout.MONO, 1f),
+        TrackRoleDefinition(GUITAR, "Guitarra", true, ChannelLayout.MONO),
+        TrackRoleDefinition(BASS, "Baixo", true, ChannelLayout.MONO),
+        TrackRoleDefinition(DRUMS, "Bateria", true, ChannelLayout.STEREO),
+        TrackRoleDefinition(VOCALS, "Voz", true, ChannelLayout.MONO),
+        TrackRoleDefinition(CLICK, "Metrônomo", true, ChannelLayout.MONO),
+        TrackRoleDefinition(GENERIC, "Genérica", true, ChannelLayout.MONO)
     )
 }
 
 @Serializable data class TrackGroup(val id: String, val name: String, val collapsed: Boolean = false, val order: Int)
-@Serializable data class AudioTrack(val id: String, val name: String, val groupId: String? = null, val roleId: String? = null, val roleSource: RoleSource = RoleSource.NONE, val channelLayout: ChannelLayout = ChannelLayout.MONO, val pan: Float = 0f, val gainDb: Float = 0f, val muted: Boolean = false, val solo: Boolean = false, val armed: Boolean = false, val order: Int)
-@Serializable data class GuitarProject(val schemaVersion: Int = CURRENT_PROJECT_SCHEMA_VERSION, val id: String, val name: String, val template: ProjectTemplate, val createdAtEpochMs: Long, val updatedAtEpochMs: Long, val sampleRate: SampleRateConfig = SampleRateConfig(), val groups: List<TrackGroup> = emptyList(), val tracks: List<AudioTrack> = emptyList(), val customRoles: List<TrackRoleDefinition> = emptyList())
+@Serializable data class AudioTrack(
+    val id: String,
+    val name: String,
+    val groupId: String? = null,
+    val roleId: String? = null,
+    val roleSource: RoleSource = RoleSource.NONE,
+    val channelLayout: ChannelLayout = ChannelLayout.MONO,
+    val pan: Float = 0f,
+    val gainDb: Float = 0f,
+    val muted: Boolean = false,
+    val solo: Boolean = false,
+    val armed: Boolean = false,
+    val order: Int,
+    val colorIndex: Int = -1,
+)
+
+/**
+ * Imported media is copied into project-managed source storage. Neither the external original nor
+ * the managed source copy is rewritten by ordinary editing. Trim/move/gain/mute stay as metadata;
+ * waveform/proxy/render outputs are separate derived files. sourceUri remains for compatibility
+ * with older projects that referenced Android documents directly.
+ */
+@Serializable data class AudioClip(
+    val id: String,
+    val trackId: String,
+    val name: String,
+    val sourceUri: String,
+    val startFrame: Long,
+    val sourceStartFrame: Long = 0,
+    val lengthFrames: Long,
+    val gainDb: Float = 0f,
+    val muted: Boolean = false,
+    val managedSourcePath: String? = null,
+    val managedEditProxyPath: String? = null,
+    val originUri: String? = null,
+    val sourceFormat: String? = null,
+    val sourceSampleRateHz: Int? = null,
+    val sourceChannelCount: Int? = null,
+    val sourceBitsPerSample: Int? = null,
+    val sourceEncoding: String? = null,
+    val sourceTotalFrames: Long? = null,
+    /** Editing/proxy domain. Defaults keep schema-1 projects readable. */
+    val editingSampleRateHz: Int? = null,
+    val editingTotalFrames: Long? = null,
+    val fadeInFrames: Long = 0,
+    val fadeOutFrames: Long = 0,
+)
+
+@Serializable data class GuitarProject(
+    val schemaVersion: Int = CURRENT_PROJECT_SCHEMA_VERSION,
+    val id: String,
+    val name: String,
+    val template: ProjectTemplate,
+    val createdAtEpochMs: Long,
+    val updatedAtEpochMs: Long,
+    val sampleRate: SampleRateConfig = SampleRateConfig(),
+    val masterGainDb: Float = 0f,
+    val groups: List<TrackGroup> = emptyList(),
+    val tracks: List<AudioTrack> = emptyList(),
+    val clips: List<AudioClip> = emptyList(),
+    val customRoles: List<TrackRoleDefinition> = emptyList(),
+)

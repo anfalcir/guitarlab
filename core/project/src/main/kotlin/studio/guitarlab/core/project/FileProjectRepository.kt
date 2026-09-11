@@ -14,7 +14,7 @@ class FileProjectRepository(
     private val projectsDirectory = File(rootDirectory, "projects").also { it.mkdirs() }
 
     override fun list(): List<GuitarProject> = projectsDirectory
-        .listFiles { file -> file.isDirectory }
+        .listFiles { file -> file.isDirectory && !file.name.startsWith(".") }
         .orEmpty()
         .mapNotNull { directory -> readProjectFile(File(directory, PROJECT_FILE)) }
         .sortedByDescending { it.updatedAtEpochMs }
@@ -61,13 +61,43 @@ class FileProjectRepository(
         nowEpochMs: Long
     ): GuitarProject {
         val source = requireNotNull(load(projectId)) { "Project '$projectId' not found." }
+        require(newProjectId != projectId) { "Duplicate project id must differ from source." }
+        val sourceDirectory = projectDirectory(projectId)
+        val destinationDirectory = projectDirectory(newProjectId)
+        require(!destinationDirectory.exists()) { "Project '$newProjectId' already exists." }
         val duplicate = source.copy(
             id = newProjectId,
             name = newName.trim(),
             createdAtEpochMs = nowEpochMs,
             updatedAtEpochMs = nowEpochMs
         )
-        return save(duplicate)
+        try {
+            copyReferencedMedia(source, sourceDirectory, destinationDirectory)
+            return save(duplicate)
+        } catch (error: Throwable) {
+            destinationDirectory.deleteRecursively()
+            throw error
+        }
+    }
+
+    private fun copyReferencedMedia(project: GuitarProject, sourceDirectory: File, destinationDirectory: File) {
+        val sourceRoot = sourceDirectory.canonicalFile
+        val destinationRoot = destinationDirectory.canonicalFile
+        project.clips
+            .flatMap { listOfNotNull(it.managedSourcePath, it.managedEditProxyPath) }
+            .distinct()
+            .forEach { relativePath ->
+                val source = File(sourceRoot, relativePath).canonicalFile
+                val destination = File(destinationRoot, relativePath).canonicalFile
+                require(source.path.startsWith(sourceRoot.path + File.separator) && source.isFile) {
+                    "Referenced project media is missing: $relativePath"
+                }
+                require(destination.path.startsWith(destinationRoot.path + File.separator)) {
+                    "Project media escaped duplicate root."
+                }
+                destination.parentFile?.let { require(it.mkdirs() || it.isDirectory) }
+                source.copyTo(destination, overwrite = false)
+            }
     }
 
     private fun readProjectFile(file: File): GuitarProject? = runCatching {
@@ -75,10 +105,8 @@ class FileProjectRepository(
         codec.decode(file.readText(StandardCharsets.UTF_8))
     }.getOrNull()
 
-    private fun projectDirectory(projectId: String) = File(projectsDirectory, sanitize(projectId))
+    private fun projectDirectory(projectId: String) = File(projectsDirectory, ManagedStorageKey.from(projectId))
     private fun projectFile(projectId: String) = File(projectDirectory(projectId), PROJECT_FILE)
-
-    private fun sanitize(value: String): String = value.replace(Regex("[^A-Za-z0-9._-]"), "_")
 
     private companion object {
         const val PROJECT_FILE = "project.json"

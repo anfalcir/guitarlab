@@ -6,6 +6,8 @@ import android.content.pm.PackageManager
 import android.os.Build
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import java.text.DateFormat
+import java.util.Date
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -16,12 +18,10 @@ import studio.guitarlab.app.BuildConfig
 import studio.guitarlab.core.audio.AudioDeviceDescriptor
 import studio.guitarlab.core.audio.AudioDirection
 import studio.guitarlab.core.audio.AudioProbeOperation
-import studio.guitarlab.core.audio.AudioProbeResult
 import studio.guitarlab.core.audio.AudioProbeReportFormatter
+import studio.guitarlab.core.audio.AudioProbeResult
 import studio.guitarlab.core.audio.AudioTransport
 import studio.guitarlab.platform.audio.android.AndroidAudioProbeEngine
-import java.text.DateFormat
-import java.util.Date
 
 data class AudioProbeUiState(
     val permissionGranted: Boolean = false,
@@ -32,7 +32,7 @@ data class AudioProbeUiState(
     val stopping: Boolean = false,
     val lastResult: AudioProbeResult? = null,
     val eventLog: List<String> = emptyList(),
-    val error: String? = null
+    val error: String? = null,
 ) {
     val inputs: List<AudioDeviceDescriptor> get() = devices.filter { it.supports(AudioDirection.INPUT) }
     val outputs: List<AudioDeviceDescriptor> get() = devices.filter { it.supports(AudioDirection.OUTPUT) }
@@ -40,15 +40,13 @@ data class AudioProbeUiState(
 
 class AudioProbeViewModel(application: Application) : AndroidViewModel(application) {
     private val engine = AndroidAudioProbeEngine(application)
-    private val _state = MutableStateFlow(
-        AudioProbeUiState(permissionGranted = hasRecordPermission(application))
-    )
+    private val _state = MutableStateFlow(AudioProbeUiState(permissionGranted = hasRecordPermission(application)))
     val state: StateFlow<AudioProbeUiState> = _state.asStateFlow()
 
     init {
         viewModelScope.launch {
             engine.deviceUpdates
-                .catch { error -> _state.update { it.copy(error = error.message ?: "Audio device monitoring failed.") } }
+                .catch { error -> _state.update { it.copy(error = error.message ?: "Falha ao monitorar dispositivos de áudio.") } }
                 .collect { devices ->
                     _state.update { current ->
                         val input = retainOrChoose(current.selectedInputKey, devices, AudioDirection.INPUT)
@@ -57,7 +55,7 @@ class AudioProbeViewModel(application: Application) : AndroidViewModel(applicati
                             devices = devices,
                             selectedInputKey = input,
                             selectedOutputKey = output,
-                            eventLog = appendLog(current.eventLog, "Audio devices refreshed (${devices.size}).")
+                            eventLog = appendLog(current.eventLog, "Dispositivos de áudio atualizados (${devices.size})."),
                         )
                     }
                 }
@@ -86,11 +84,11 @@ class AudioProbeViewModel(application: Application) : AndroidViewModel(applicati
                             selectedInputKey = retainOrChoose(current.selectedInputKey, devices, AudioDirection.INPUT),
                             selectedOutputKey = retainOrChoose(current.selectedOutputKey, devices, AudioDirection.OUTPUT),
                             error = null,
-                            eventLog = appendLog(current.eventLog, "Manual audio-device refresh completed (${devices.size}).")
+                            eventLog = appendLog(current.eventLog, "Atualização manual concluída (${devices.size})."),
                         )
                     }
                 }
-                .onFailure { error -> _state.update { it.copy(error = error.message ?: "Audio refresh failed.") } }
+                .onFailure { error -> _state.update { it.copy(error = error.message ?: "Falha ao atualizar os dispositivos de áudio.") } }
         }
     }
 
@@ -101,22 +99,22 @@ class AudioProbeViewModel(application: Application) : AndroidViewModel(applicati
     fun stop() {
         if (_state.value.running == null) return
         engine.stopCurrentTest()
-        _state.update { it.copy(stopping = true, eventLog = appendLog(it.eventLog, "Probe stop requested.")) }
+        _state.update { it.copy(stopping = true, eventLog = appendLog(it.eventLog, "Parada do teste solicitada.")) }
     }
 
     fun diagnosticsReport(): String {
         val snapshot = _state.value
         return buildString {
-            appendLine("App: GuitarLab Studio ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})")
+            appendLine("Aplicativo: GuitarLab Studio ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})")
             appendLine("Android: ${Build.VERSION.RELEASE} / API ${Build.VERSION.SDK_INT}")
-            appendLine("Device: ${Build.MANUFACTURER} ${Build.MODEL}")
+            appendLine("Dispositivo: ${Build.MANUFACTURER} ${Build.MODEL}")
             appendLine()
             append(
                 AudioProbeReportFormatter.format(
                     devices = snapshot.devices,
                     selectedInputKey = snapshot.selectedInputKey,
                     selectedOutputKey = snapshot.selectedOutputKey,
-                    result = snapshot.lastResult
+                    result = snapshot.lastResult,
                 )
             )
         }
@@ -125,7 +123,7 @@ class AudioProbeViewModel(application: Application) : AndroidViewModel(applicati
     private fun run(operation: AudioProbeOperation) {
         if (_state.value.running != null) return
         if (operation != AudioProbeOperation.PLAYBACK && !_state.value.permissionGranted) {
-            _state.update { it.copy(error = "Microphone/audio-record permission is required for input tests.") }
+            _state.update { it.copy(error = "A permissão para gravar áudio é necessária nos testes de entrada.") }
             return
         }
 
@@ -137,7 +135,7 @@ class AudioProbeViewModel(application: Application) : AndroidViewModel(applicati
                     stopping = false,
                     lastResult = null,
                     error = null,
-                    eventLog = appendLog(it.eventLog, "${operation.name.lowercase().replaceFirstChar { it.uppercase() }} test started.")
+                    eventLog = appendLog(it.eventLog, "Teste de ${operation.label()} iniciado."),
                 )
             }
 
@@ -157,8 +155,8 @@ class AudioProbeViewModel(application: Application) : AndroidViewModel(applicati
                         lastResult = probe,
                         eventLog = appendLog(
                             it.eventLog,
-                            "${operation.name} ${when { probe.stopped -> "STOPPED"; probe.success -> "PASS"; else -> "FAIL" }}: ${probe.message}"
-                        )
+                            "${operation.label().replaceFirstChar { ch -> ch.uppercase() }} ${when { probe.stopped -> "PARADO"; probe.success -> "APROVADO"; else -> "FALHA" }}: ${probe.message}",
+                        ),
                     )
                 }
             }.onFailure { error ->
@@ -166,8 +164,8 @@ class AudioProbeViewModel(application: Application) : AndroidViewModel(applicati
                     it.copy(
                         running = null,
                         stopping = false,
-                        error = error.message ?: "Probe test failed.",
-                        eventLog = appendLog(it.eventLog, "${operation.name} FAIL: ${error.message ?: error::class.java.simpleName}")
+                        error = error.message ?: "O teste falhou.",
+                        eventLog = appendLog(it.eventLog, "${operation.label()} FALHA: ${error.message ?: error::class.java.simpleName}"),
                     )
                 }
             }
@@ -182,7 +180,7 @@ class AudioProbeViewModel(application: Application) : AndroidViewModel(applicati
     private fun retainOrChoose(
         currentKey: String?,
         devices: List<AudioDeviceDescriptor>,
-        direction: AudioDirection
+        direction: AudioDirection,
     ): String? {
         val eligible = devices.filter { it.supports(direction) }
         if (eligible.any { it.key == currentKey }) return currentKey
@@ -192,6 +190,12 @@ class AudioProbeViewModel(application: Application) : AndroidViewModel(applicati
     private fun appendLog(current: List<String>, message: String): List<String> {
         val timestamp = DateFormat.getTimeInstance(DateFormat.MEDIUM).format(Date())
         return (current + "$timestamp  $message").takeLast(60)
+    }
+
+    private fun AudioProbeOperation.label(): String = when (this) {
+        AudioProbeOperation.PLAYBACK -> "saída"
+        AudioProbeOperation.RECORD -> "entrada"
+        AudioProbeOperation.DUPLEX -> "duplex"
     }
 
     private companion object {

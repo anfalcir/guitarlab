@@ -11,8 +11,9 @@ android {
         applicationId = "studio.guitarlab.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 4
-        versionName = "0.2.0-alpha03"
+        versionCode = 19
+        versionName = "0.4.0-rc1"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     buildFeatures {
@@ -66,12 +67,15 @@ dependencies {
     implementation(project(":core:audio"))
     implementation(project(":platform:audio-android"))
     implementation(project(":core:project"))
+    implementation(project(":core:codec"))
+    implementation(project(":platform:codec-android"))
 
     val composeBom = platform(libs.compose.bom)
     implementation(composeBom)
     androidTestImplementation(composeBom)
 
     implementation(libs.compose.material3)
+    implementation(libs.compose.material.icons.extended)
     implementation(libs.compose.ui)
     implementation(libs.compose.ui.tooling.preview)
     implementation(libs.activity.compose)
@@ -80,7 +84,13 @@ dependencies {
     implementation(libs.lifecycle.runtime.compose)
     implementation(libs.kotlinx.coroutines.android)
 
+    testImplementation(kotlin("test"))
+    testImplementation(libs.junit4)
+
     debugImplementation(libs.compose.ui.tooling)
     androidTestImplementation(libs.compose.ui.test.junit4)
+    androidTestImplementation(libs.androidx.test.ext.junit)
+    androidTestImplementation(libs.androidx.test.runner)
+    androidTestImplementation(libs.androidx.test.uiautomator)
     debugImplementation(libs.compose.ui.test.manifest)
 }

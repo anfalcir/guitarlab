@@ -2,41 +2,55 @@ package studio.guitarlab.app.ui
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.collectAsState
 import androidx.lifecycle.viewmodel.compose.viewModel
 
 @Composable
-fun GuitarLabApp(homeViewModel: HomeViewModel = viewModel()) {
-    var screen: AppScreen by remember { mutableStateOf(AppScreen.Home) }
+fun GuitarLabApp(
+    homeViewModel: HomeViewModel = viewModel(),
+    navigationViewModel: AppNavigationViewModel = viewModel(),
+) {
+    val persistedRoute by navigationViewModel.persistedRoute.collectAsState()
+    val screen = AppRouteCodec.decode(persistedRoute)
+
+    fun navigate(destination: AppScreen) {
+        navigationViewModel.navigate(destination)
+    }
+
+    fun returnTo(projectId: String?) {
+        navigate(projectId?.let { AppScreen.Studio(it) } ?: AppScreen.Home)
+    }
 
     when (val current = screen) {
         AppScreen.Home -> HomeScreen(
             viewModel = homeViewModel,
-            onNewProject = { screen = AppScreen.NewProject },
-            onOpenProject = { screen = AppScreen.Studio(it) },
-            onSettings = { screen = AppScreen.Settings }
+            onNewProject = { navigate(AppScreen.NewProject) },
+            onOpenProject = { navigate(AppScreen.Studio(it)) },
+            onSettings = { navigate(AppScreen.Options()) },
         )
         AppScreen.NewProject -> NewProjectScreen(
-            onBack = { screen = AppScreen.Home },
+            onBack = { navigate(AppScreen.Home) },
             onCreate = { name, template ->
                 homeViewModel.createProject(name, template) { projectId ->
-                    screen = AppScreen.Studio(projectId)
+                    navigate(AppScreen.Studio(projectId))
                 }
-            }
+            },
         )
-        is AppScreen.Studio -> StudioPlaceholderScreen(
+        is AppScreen.Studio -> StudioShellScreen(
             projectId = current.projectId,
             onBack = {
                 homeViewModel.refresh()
-                screen = AppScreen.Home
-            }
+                navigate(AppScreen.Home)
+            },
+            onOptions = { navigate(AppScreen.Options(current.projectId)) },
         )
-        AppScreen.Settings -> SettingsScreen(
-            onBack = { screen = AppScreen.Home },
-            onAudioDiagnostics = { screen = AppScreen.AudioProbe }
+        is AppScreen.Options -> SettingsScreen(
+            projectId = current.projectId,
+            onBack = { returnTo(current.projectId) },
+            onAudioDiagnostics = { navigate(AppScreen.AudioProbe(current.projectId)) },
+            onCodecDiagnostics = { navigate(AppScreen.CodecProbe(current.projectId)) },
         )
-        AppScreen.AudioProbe -> AudioProbeScreen(onBack = { screen = AppScreen.Settings })
+        is AppScreen.AudioProbe -> AudioProbeScreen(onBack = { navigate(AppScreen.Options(current.projectId)) })
+        is AppScreen.CodecProbe -> CodecProbeScreen(onBack = { navigate(AppScreen.Options(current.projectId)) })
     }
 }

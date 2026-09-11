@@ -100,6 +100,12 @@
         val recorder = input.recorder
         val track = output.track
         try {
+            // A streaming AudioTrack started empty can increment underrunCount before
+            // the output worker gets its first scheduling slice. Prime a bounded amount
+            // of tone before play() so M2 measures stream stability, not startup order.
+            val primedOutput = primeOutput(track, output.config, DUPLEX_TONE_HZ)
+            val underrunBaseline = track.underrunCount
+
             recorder.startRecording()
             track.play()
 
@@ -118,7 +124,14 @@
             // underruns that are artifacts of the probe itself instead of the USB path.
             val duplex = coroutineScope {
                 val outputDeferred = async(Dispatchers.IO) {
-                    pumpOutput(track, output.config, durationMs, DUPLEX_TONE_HZ)
+                    pumpOutput(
+                        track = track,
+                        config = output.config,
+                        durationMs = durationMs,
+                        toneHz = DUPLEX_TONE_HZ,
+                        initialFrames = primedOutput.frames,
+                        initialPhase = primedOutput.nextPhase
+                    )
                 }
                 val inputDeferred = async(Dispatchers.IO) {
                     pumpInput(recorder, input.config, durationMs)
@@ -141,6 +154,7 @@
             val peak = duplex.input.peak
             val sumSquares = duplex.input.sumSquares
             val sampleCount = duplex.input.sampleCount
+            val outputUnderruns = AudioProbePolicy.underrunDelta(underrunBaseline, track.underrunCount)
 
             val inputRoutedKey = recorder.routedDevice?.id?.toString()
             val outputRoutedKey = track.routedDevice?.id?.toString()
@@ -181,7 +195,7 @@
                     rms = if (sampleCount > 0) sqrt(sumSquares / sampleCount).toFloat() else 0f
                 ),
                 outputFrames = outputFrames,
-                outputUnderruns = track.underrunCount,
+                outputUnderruns = outputUnderruns,
                 message = when {
                     stopped -> "Duplex test stopped by user."
                     zeroSignal -> "Duplex streams ran concurrently, but input captured only digital silence."
@@ -197,7 +211,7 @@
                         microphoneBlockReason()
                             ?: "Duplex input returned only digital zero; verify Android microphone privacy/mute and the selected input routing/loopback state."
                     )
-                    if (track.underrunCount > 0) add("Duplex output reported ${track.underrunCount} underrun(s). Repeat the test before approving M2.")
+                    if (outputUnderruns > 0) add("Duplex output reported $outputUnderruns underrun(s) after prefill. Repeat the test before approving M2.")
                 }
             )
         } catch (cancelled: CancellationException) {

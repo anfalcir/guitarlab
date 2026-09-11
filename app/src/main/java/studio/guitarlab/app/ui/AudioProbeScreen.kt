@@ -14,9 +14,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
@@ -31,15 +36,16 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import kotlin.math.roundToInt
 import studio.guitarlab.core.audio.AudioDeviceDescriptor
+import studio.guitarlab.core.audio.AudioProbeOperation
 import studio.guitarlab.core.audio.AudioProbeResult
 import studio.guitarlab.core.audio.PcmEncoding
-import kotlin.math.roundToInt
 
 @Composable
 fun AudioProbeScreen(
     onBack: () -> Unit,
-    viewModel: AudioProbeViewModel = viewModel()
+    viewModel: AudioProbeViewModel = viewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
@@ -48,60 +54,47 @@ fun AudioProbeScreen(
     }
 
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(28.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(28.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Column {
-                Text("Audio Diagnostics", style = MaterialTheme.typography.headlineMedium)
-                Text("M2 USB Audio Probe", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Diagnóstico de áudio", style = MaterialTheme.typography.headlineMedium)
+                Text("Dispositivos, rotas e estabilidade", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            OutlinedButton(onClick = onBack, enabled = state.running == null) { Text("Back") }
+            AppIconButton(icon = Icons.Default.ArrowBack, contentDescription = "Voltar", enabled = state.running == null, onClick = onBack)
         }
 
         Surface(shape = RoundedCornerShape(16.dp), tonalElevation = 1.dp, modifier = Modifier.fillMaxWidth()) {
             Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("Safety", style = MaterialTheme.typography.titleMedium)
-                Text("Playback tests use a low-level diagnostic sine tone. Start with headphone/master volume low and raise only if needed.")
+                Text("Segurança", style = MaterialTheme.typography.titleMedium)
+                Text("Os testes de saída usam um sinal de baixo nível. Comece com o volume do fone ou Master baixo.")
                 if (!state.permissionGranted) {
-                    Text("Input tests require Android audio-record permission.", color = MaterialTheme.colorScheme.error)
+                    Text("Os testes de entrada precisam de permissão para gravar áudio.", color = MaterialTheme.colorScheme.error)
                     Button(onClick = { permissionLauncher.launch(Manifest.permission.RECORD_AUDIO) }) {
-                        Text("Grant audio-record permission")
+                        Text("Permitir gravação de áudio")
                     }
                 }
             }
         }
 
-        DeviceSelector(
-            title = "Input device",
-            devices = state.inputs,
-            selectedKey = state.selectedInputKey,
-            onSelect = viewModel::selectInput
-        )
-        DeviceSelector(
-            title = "Output device",
-            devices = state.outputs,
-            selectedKey = state.selectedOutputKey,
-            onSelect = viewModel::selectOutput
-        )
+        DeviceSelector("Dispositivo de entrada", state.inputs, state.selectedInputKey, viewModel::selectInput)
+        DeviceSelector("Dispositivo de saída", state.outputs, state.selectedOutputKey, viewModel::selectOutput)
 
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Button(onClick = viewModel::runPlayback, enabled = state.running == null && state.outputs.isNotEmpty()) { Text("Play test") }
-            Button(onClick = viewModel::runRecord, enabled = state.running == null && state.permissionGranted && state.inputs.isNotEmpty()) { Text("Record test") }
+            Button(onClick = viewModel::runPlayback, enabled = state.running == null && state.outputs.isNotEmpty()) { Text("Testar saída") }
+            Button(onClick = viewModel::runRecord, enabled = state.running == null && state.permissionGranted && state.inputs.isNotEmpty()) { Text("Testar entrada") }
             Button(
                 onClick = viewModel::runDuplex,
-                enabled = state.running == null && state.permissionGranted && state.inputs.isNotEmpty() && state.outputs.isNotEmpty()
-            ) { Text("Duplex test") }
-            OutlinedButton(onClick = viewModel::stop, enabled = state.running != null && !state.stopping) { Text(if (state.stopping) "Stopping…" else "Stop") }
+                enabled = state.running == null && state.permissionGranted && state.inputs.isNotEmpty() && state.outputs.isNotEmpty(),
+            ) { Text("Testar duplex") }
+            OutlinedButton(onClick = viewModel::stop, enabled = state.running != null && !state.stopping) { Text(if (state.stopping) "Parando…" else "Parar") }
         }
 
-        if (state.running != null) {
+        state.running?.let { running ->
             Text(
-                if (state.stopping) "Stopping ${state.running!!.name.lowercase()} test…" else "Running ${state.running!!.name.lowercase()} test…",
-                color = MaterialTheme.colorScheme.primary
+                if (state.stopping) "Parando teste de ${running.label()}…" else "Executando teste de ${running.label()}…",
+                color = MaterialTheme.colorScheme.primary,
             )
         }
         state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
@@ -109,20 +102,24 @@ fun AudioProbeScreen(
 
         Surface(shape = RoundedCornerShape(16.dp), tonalElevation = 1.dp, modifier = Modifier.fillMaxWidth()) {
             Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text("Device event log", style = MaterialTheme.typography.titleMedium)
-                if (state.eventLog.isEmpty()) Text("No events yet.")
+                Text("Eventos de dispositivos", style = MaterialTheme.typography.titleMedium)
+                if (state.eventLog.isEmpty()) Text("Nenhum evento ainda.")
                 state.eventLog.takeLast(12).forEach { Text(it, style = MaterialTheme.typography.bodySmall) }
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    OutlinedButton(onClick = viewModel::refresh, enabled = state.running == null) { Text("Refresh devices") }
+                    OutlinedButton(onClick = viewModel::refresh, enabled = state.running == null) {
+                        Icon(Icons.Default.Refresh, contentDescription = null)
+                        Text("Atualizar", modifier = Modifier.padding(start = 6.dp))
+                    }
                     OutlinedButton(
                         onClick = {
                             val clipboard = context.getSystemService(ClipboardManager::class.java)
-                            clipboard?.setPrimaryClip(
-                                ClipData.newPlainText("GuitarLab Audio Diagnostics", viewModel.diagnosticsReport())
-                            )
+                            clipboard?.setPrimaryClip(ClipData.newPlainText("Diagnóstico de áudio GuitarLab", viewModel.diagnosticsReport()))
                         },
-                        enabled = state.devices.isNotEmpty()
-                    ) { Text("Copy diagnostics") }
+                        enabled = state.devices.isNotEmpty(),
+                    ) {
+                        Icon(Icons.Default.ContentCopy, contentDescription = null)
+                        Text("Copiar relatório", modifier = Modifier.padding(start = 6.dp))
+                    }
                 }
             }
         }
@@ -134,7 +131,7 @@ private fun DeviceSelector(
     title: String,
     devices: List<AudioDeviceDescriptor>,
     selectedKey: String?,
-    onSelect: (String?) -> Unit
+    onSelect: (String?) -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
     val selected = devices.firstOrNull { it.key == selectedKey }
@@ -143,7 +140,7 @@ private fun DeviceSelector(
         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(title, style = MaterialTheme.typography.titleMedium)
             OutlinedButton(onClick = { expanded = true }, enabled = devices.isNotEmpty()) {
-                Text(selected?.let { "${it.name} • ${it.typeLabel}" } ?: "No compatible device")
+                Text(selected?.let { "${it.name} • ${it.typeLabel}" } ?: "Nenhum dispositivo compatível")
             }
             DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
                 devices.forEach { device ->
@@ -152,7 +149,7 @@ private fun DeviceSelector(
                         onClick = {
                             expanded = false
                             onSelect(device.key)
-                        }
+                        },
                     )
                 }
             }
@@ -163,12 +160,12 @@ private fun DeviceSelector(
 
 @Composable
 private fun DeviceDetails(device: AudioDeviceDescriptor) {
-    val rates = device.sampleRatesHz.takeIf { it.isNotEmpty() }?.joinToString { "$it Hz" } ?: "system negotiated"
-    val channels = device.channelCounts.takeIf { it.isNotEmpty() }?.joinToString() ?: "system negotiated"
-    val encodings = device.encodings.takeIf { it.isNotEmpty() }?.joinToString { it.label() } ?: "system negotiated"
-    Text("Transport: ${device.transport}", style = MaterialTheme.typography.bodySmall)
-    Text("Rates: $rates", style = MaterialTheme.typography.bodySmall)
-    Text("Channels: $channels", style = MaterialTheme.typography.bodySmall)
+    val rates = device.sampleRatesHz.takeIf { it.isNotEmpty() }?.joinToString { "$it Hz" } ?: "negociado pelo sistema"
+    val channels = device.channelCounts.takeIf { it.isNotEmpty() }?.joinToString() ?: "negociado pelo sistema"
+    val encodings = device.encodings.takeIf { it.isNotEmpty() }?.joinToString { it.label() } ?: "negociado pelo sistema"
+    Text("Conexão: ${device.transport}", style = MaterialTheme.typography.bodySmall)
+    Text("Taxas: $rates", style = MaterialTheme.typography.bodySmall)
+    Text("Canais: $channels", style = MaterialTheme.typography.bodySmall)
     Text("PCM: $encodings", style = MaterialTheme.typography.bodySmall)
 }
 
@@ -177,34 +174,37 @@ private fun ProbeResultCard(result: AudioProbeResult) {
     Surface(shape = RoundedCornerShape(16.dp), tonalElevation = 2.dp, modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(
-                "${result.operation} • ${when { result.stopped -> "STOPPED"; result.success -> "PASS"; else -> "FAIL" }}",
+                "${result.operation.label()} • ${when { result.stopped -> "PARADO"; result.success -> "APROVADO"; else -> "FALHA" }}",
                 style = MaterialTheme.typography.titleMedium,
-                color = if (result.success) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                color = if (result.success) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
             )
             Text(result.message)
-            Text("Elapsed: ${result.elapsedMs} ms", style = MaterialTheme.typography.bodySmall)
+            Text("Tempo: ${result.elapsedMs} ms", style = MaterialTheme.typography.bodySmall)
             result.inputConfig?.let {
-                Text("Input: ${it.sampleRateHz} Hz • ${it.channelCount} ch • ${it.encoding.label()} • ${it.bufferFrames} frames", style = MaterialTheme.typography.bodySmall)
-                Text("Input route: requested ${it.deviceKey ?: "auto"} • actual ${it.routedDeviceKey ?: "unknown"} • source ${it.inputSourceLabel ?: "unknown"}", style = MaterialTheme.typography.bodySmall)
+                Text("Entrada: ${it.sampleRateHz} Hz • ${it.channelCount} canal(is) • ${it.encoding.label()} • ${it.bufferFrames} frames", style = MaterialTheme.typography.bodySmall)
+                Text("Rota de entrada: solicitada ${it.deviceKey ?: "automática"} • ativa ${it.routedDeviceKey ?: "desconhecida"}", style = MaterialTheme.typography.bodySmall)
             }
             result.outputConfig?.let {
-                Text("Output: ${it.sampleRateHz} Hz • ${it.channelCount} ch • ${it.encoding.label()} • ${it.bufferFrames} frames", style = MaterialTheme.typography.bodySmall)
-                Text("Output route: requested ${it.deviceKey ?: "auto"} • actual ${it.routedDeviceKey ?: "unknown"} • low-latency requested ${it.requestedLowLatency}", style = MaterialTheme.typography.bodySmall)
+                Text("Saída: ${it.sampleRateHz} Hz • ${it.channelCount} canal(is) • ${it.encoding.label()} • ${it.bufferFrames} frames", style = MaterialTheme.typography.bodySmall)
+                Text("Rota de saída: solicitada ${it.deviceKey ?: "automática"} • ativa ${it.routedDeviceKey ?: "desconhecida"}", style = MaterialTheme.typography.bodySmall)
             }
             result.inputStats?.let {
-                Text(
-                    "Captured: ${it.frames} frames • peak ${(it.peak * 100).roundToInt()}% • RMS ${(it.rms * 100).roundToInt()}%",
-                    style = MaterialTheme.typography.bodySmall
-                )
+                Text("Capturado: ${it.frames} frames • pico ${(it.peak * 100).roundToInt()}% • RMS ${(it.rms * 100).roundToInt()}%", style = MaterialTheme.typography.bodySmall)
             }
-            if (result.outputFrames > 0) Text("Output frames: ${result.outputFrames}", style = MaterialTheme.typography.bodySmall)
-            Text("Output underruns: ${result.outputUnderruns}", style = MaterialTheme.typography.bodySmall)
-            result.warnings.forEach { Text("Warning: $it", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+            if (result.outputFrames > 0) Text("Frames de saída: ${result.outputFrames}", style = MaterialTheme.typography.bodySmall)
+            Text("Underruns de saída: ${result.outputUnderruns}", style = MaterialTheme.typography.bodySmall)
+            result.warnings.forEach { Text("Aviso: $it", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
         }
     }
 }
 
+private fun AudioProbeOperation.label(): String = when (this) {
+    AudioProbeOperation.PLAYBACK -> "saída"
+    AudioProbeOperation.RECORD -> "entrada"
+    AudioProbeOperation.DUPLEX -> "duplex"
+}
+
 private fun PcmEncoding.label(): String = when (this) {
-    PcmEncoding.FLOAT_32 -> "32-bit float"
-    PcmEncoding.PCM_16 -> "16-bit PCM"
+    PcmEncoding.FLOAT_32 -> "float 32 bits"
+    PcmEncoding.PCM_16 -> "PCM 16 bits"
 }
