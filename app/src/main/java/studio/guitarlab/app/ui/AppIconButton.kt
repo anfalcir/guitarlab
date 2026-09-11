@@ -9,8 +9,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 
 @Composable
 fun AppIconButton(
@@ -24,8 +22,8 @@ fun AppIconButton(
     IconButton(
         onClick = onClick,
         enabled = enabled,
-        modifier = modifier.semantics { this.contentDescription = contentDescription },
+        modifier = modifier,
     ) {
-        Icon(imageVector = icon, contentDescription = null, tint = tint)
+        Icon(imageVector = icon, contentDescription = contentDescription, tint = tint)
     }
 }
