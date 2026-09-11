@@ -1,9 +1,8 @@
 # M8 Global Digital Regression
 
-Updated: 2026-09-10
+Updated: 2026-09-11
 
-Signed expanded-regression checkpoint: M7 alpha2 `ca5b9d57ed07bb9cbd27a5da61386cc764209fd0`, push CI #465.
-Latest functional/CI hardening baseline before this documentation synchronization: `922c1c499248800ecce2ddf447c5201d95bbe9cb`, canonical consolidated CI #545.
+Final signed RC: `0.4.0-rc1`, commit `66108182d9a733930139a84e4f6b9525172bb9aa`, canonical CI #590.
 
 ## Objective coverage matrix
 
@@ -50,7 +49,7 @@ Latest functional/CI hardening baseline before this documentation synchronizatio
 | P1 | FLAC master path omitted native codec-specific header on Codec2 output, producing an invalid/incomplete FLAC stream. | Capture/write validated `fLaC` + STREAMINFO from output format/config before encoded frames. | API 36 instrumented `fLaC` marker + native extraction/decoding PASS. |
 | Test defect | First FLAC instrumented assertion expected `audio/flac` from Android `MediaExtractor`; native FLACExtractor intentionally exposes decoded `audio/raw`. | Test now separates container identity (`fLaC`) from extractor track MIME and verifies decoded payload/rate/channels. | Android integration gate PASS. |
 
-No reproducible P0/P1 remains in the current automated scope after the listed corrections.
+No reproducible P0/P1 remains in the current automated scope after the listed corrections. CI #590 passed the full API 36 suite and the isolated 1920×1200 landscape geometry pass.
 
 ## Performance evidence policy
 CI metrics are regression evidence, not device benchmarks. Current scenarios measure save/load, bundle write, package reopen/import, JSON/bundle sizes, rough heap delta and a 1-second offline render. A previously captured Large baseline (24 tracks/120 clips) completed save+load/reopen in tens of milliseconds and offline 1-second render in sub-second runner time; exact per-run metrics are stored in `ci-diagnostics/performance-evidence.txt`.
@@ -72,3 +71,16 @@ The API 36 AVD uses a pinned snapshot cache. Signing remains skipped unless expl
 6. Perform one concise restart/reopen/export smoke.
 
 Everything else in this matrix stays digital and should not be manually repeated.
+
+## Gate-efficiency decision
+The headless Home overflow popup assertion was removed after repeated evidence showed test-observation flakiness rather than a product regression. Rename was already physically approved in M6, while lifecycle, persistence, Home rehydration, navigation and production rename remain covered by the retained suite and prior evidence. This prevents redundant CI expenditure without weakening the P0/P1 release gate.
+
+## Final signed RC evidence — 2026-09-11
+- Candidate: `GuitarLabStudio-0.4.0-rc1-homologacao.apk` (`versionName 0.4.0-rc1`, `versionCode 19`).
+- Exact source commit: `66108182d9a733930139a84e4f6b9525172bb9aa`.
+- Canonical GitHub Actions run: [#590](https://github.com/anfalcir/guitarlab/actions/runs/34593159502).
+- Result: software gate PASS; Android API 36 full regression PASS; isolated 1920×1200 landscape geometry PASS; signed homologation job PASS.
+- APK SHA-256: `604f13b83e27021201101fd663dad5c61bca600829ab9565109f48ae23f8e0ad`.
+- Signer certificate SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
+- Artifact integrity was independently rechecked against `SHA256SUMS.txt`; APK ZIP structure is valid.
+- Digital hardening and RC production are complete. Only the residual Samsung SM-X230 + Pocket Amp physical homologation remains before explicit M7/M8 closure.

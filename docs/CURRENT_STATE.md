@@ -1,6 +1,6 @@
 # Current State — GuitarLab Studio
 
-Updated: 2026-09-10
+Updated: 2026-09-11
 
 ## Active branch and gates
 - Repository: `anfalcir/guitarlab`
@@ -10,12 +10,9 @@ Updated: 2026-09-10
 - M3/M4: absorbed
 - M5: **PASS/CLOSED by explicit user physical approval of `0.2.0-alpha14`**
 - M6: **PASS/CLOSED by explicit user physical approval of `0.3.0-alpha1`**
-- M7: implementation candidate `0.4.0-alpha2`, versionCode 18; **OPEN for one final residual physical homologation only**
-- M8.A compatibility/edge hardening: **DIGITALLY COVERED for the current scoped matrix**
-- M8.B accessibility/lifecycle/performance hardening: **DIGITALLY COVERED for the current scoped matrix; physical ergonomics/realtime hardware performance remain residual**
-- M8.C RC: **BLOCKED only on final exact-candidate signing + residual physical gate**
-- Signed expanded-regression checkpoint: `0.4.0-alpha2`, commit `ca5b9d57ed07bb9cbd27a5da61386cc764209fd0`, push CI #465.
-- Latest functional/CI hardening baseline before this documentation synchronization: `922c1c499248800ecce2ddf447c5201d95bbe9cb`, canonical CI #545. Do not physically homologate the old alpha2 checkpoint; wait for the intentionally cut final signed RC.
+- M7: exact signed candidate `0.4.0-rc1`, versionCode 19; all digital gates PASS; OPEN only for the final residual physical homologation.
+- M8.A/B digital hardening: PASS for the scoped matrix.
+- M8.C RC production: PASS. Final signed artifact produced and verified; residual physical gate pending.
 
 ## Canonical automated gate
 `.github/workflows/android-ci.yml` now contains both required automated jobs:
@@ -62,3 +59,13 @@ No mathematical SRC checks, malformed package tests, persistence invariants, FLA
 Canonical roadmap: `docs/IMPLEMENTATION_ROADMAP.md`.
 Active residual checklist: `docs/M7_ALPHA1_HOMOLOGATION_CHECKLIST.md`.
 Global matrix: `docs/M8_GLOBAL_DIGITAL_REGRESSION.md`.
+
+## Final signed RC evidence — 2026-09-11
+- Candidate: `GuitarLabStudio-0.4.0-rc1-homologacao.apk` (`versionName 0.4.0-rc1`, `versionCode 19`).
+- Exact source commit: `66108182d9a733930139a84e4f6b9525172bb9aa`.
+- Canonical GitHub Actions run: [#590](https://github.com/anfalcir/guitarlab/actions/runs/34593159502).
+- Result: software gate PASS; Android API 36 full regression PASS; isolated 1920×1200 landscape geometry PASS; signed homologation job PASS.
+- APK SHA-256: `604f13b83e27021201101fd663dad5c61bca600829ab9565109f48ae23f8e0ad`.
+- Signer certificate SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
+- Artifact integrity was independently rechecked against `SHA256SUMS.txt`; APK ZIP structure is valid.
+- Digital hardening and RC production are complete. Only the residual Samsung SM-X230 + Pocket Amp physical homologation remains before explicit M7/M8 closure.

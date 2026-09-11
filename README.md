@@ -18,15 +18,16 @@ Read first:
 - `docs/M8_GLOBAL_DIGITAL_REGRESSION.md` — global regression matrix and corrected-defect evidence;
 - `docs/HISTORICAL_CANDIDATES.md` — superseded candidates.
 
+## Final signed RC
+The digitally validated homologation candidate is `0.4.0-rc1` (versionCode 19), built from commit `66108182d9a733930139a84e4f6b9525172bb9aa` by GitHub Actions run [#590](https://github.com/anfalcir/guitarlab/actions/runs/34593159502). SHA-256: `604f13b83e27021201101fd663dad5c61bca600829ab9565109f48ae23f8e0ad`. Only the residual physical Samsung/Pocket Amp checklist remains.
+
 ## Current development state
 - stable `main`: unchanged stable signed baseline;
 - active integration: `dev/parallel-m3-m5`, draft PR #1;
 - M5: PASS/CLOSED by explicit physical approval of `0.2.0-alpha14`;
 - M6: PASS/CLOSED by explicit physical approval of `0.3.0-alpha1`;
-- M7 implementation candidate: `0.4.0-alpha2`, versionCode 18; M7 remains OPEN only for the final residual physical gate;
-- signed expanded-regression checkpoint: `0.4.0-alpha2`, commit `ca5b9d57ed07bb9cbd27a5da61386cc764209fd0`, push CI #465;
-- latest functional/CI hardening baseline before this documentation synchronization: `922c1c499248800ecce2ddf447c5201d95bbe9cb`, canonical CI #545;
-- no new signed RC is promoted until the consolidated digital gates are green and the final physical candidate is intentionally cut.
+- M7/M8 digital scope: PASS for the exact signed RC; residual physical homologation remains OPEN.
+- Final candidate: `0.4.0-rc1`, versionCode 19, commit `66108182d9a733930139a84e4f6b9525172bb9aa`, CI #590.
 
 Post-alpha2 hardening covers managed-media loss prevention/recovery, process-death staging cleanup, lossless interrupted-recording preservation and WAV-header repair, safer SAF publication, deterministic codec timestamps, FLAC container correction, accessibility semantics, JVM performance evidence and Android API 36 instrumented regression.
 

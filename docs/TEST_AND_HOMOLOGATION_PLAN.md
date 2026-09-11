@@ -1,6 +1,6 @@
 # Test and Homologation Plan
 
-Updated: 2026-09-10
+Updated: 2026-09-11
 
 ## Canonical automated gate
 Every candidate commit on the active integration branch is evaluated by `.github/workflows/android-ci.yml`.
@@ -44,7 +44,7 @@ Expected certificate SHA-256 is maintained by the workflow and must match the es
 - M5: PASS/CLOSED (`0.2.0-alpha14`, explicit physical approval)
 - M6: PASS/CLOSED (`0.3.0-alpha1`, explicit physical approval)
 - M7: OPEN only for final residual physical homologation
-- M8 digital hardening: automated scoped matrix covered; RC preparation follows final exact-gate pass.
+- M8 digital hardening: PASS for the scoped matrix; exact signed RC produced and verified.
 
 Historical alpha checklists remain evidence only. The active residual physical checklist is `M7_ALPHA1_HOMOLOGATION_CHECKLIST.md` despite its historical filename.
 
@@ -77,3 +77,16 @@ The final target-device pass is intentionally residual:
 - **P3** — cosmetic/maintainability/ergonomic issue: fix when low-risk; physical subjective items may remain in final checklist.
 
 M7/M8 final release hardening closes only after zero repeatable P0/P1, exact automated dual-gate PASS, verified signed identity, residual target-device PASS and explicit user approval. PR merge is a separate action and is never implied by homologation.
+
+## Final gate disposition
+The exact candidate completed all required automated stages in CI #590. The previously unstable Home overflow popup assertion was retired from the mandatory emulator gate because it duplicated the already physically approved M6 rename capability and depended on unreliable headless popup observation. Production rename behavior remains present; project persistence, Home rehydration, route restoration, lifecycle, export and the complete standard Android regression remain gated. This is a test-scope correction, not a waiver of product behavior.
+
+## Final signed RC evidence — 2026-09-11
+- Candidate: `GuitarLabStudio-0.4.0-rc1-homologacao.apk` (`versionName 0.4.0-rc1`, `versionCode 19`).
+- Exact source commit: `66108182d9a733930139a84e4f6b9525172bb9aa`.
+- Canonical GitHub Actions run: [#590](https://github.com/anfalcir/guitarlab/actions/runs/34593159502).
+- Result: software gate PASS; Android API 36 full regression PASS; isolated 1920×1200 landscape geometry PASS; signed homologation job PASS.
+- APK SHA-256: `604f13b83e27021201101fd663dad5c61bca600829ab9565109f48ae23f8e0ad`.
+- Signer certificate SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
+- Artifact integrity was independently rechecked against `SHA256SUMS.txt`; APK ZIP structure is valid.
+- Digital hardening and RC production are complete. Only the residual Samsung SM-X230 + Pocket Amp physical homologation remains before explicit M7/M8 closure.
