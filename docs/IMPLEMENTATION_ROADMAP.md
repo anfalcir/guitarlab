@@ -70,7 +70,7 @@ Still physical by nature:
 - subjective monitoring/latency/listening.
 
 ### M8.C — Release Candidate — DIGITAL PASS / PHYSICAL PENDING
-Completed for the exact `0.4.0-rc1` candidate: canonical dual gate PASS, isolated target-tablet geometry PASS, signed APK produced, signer identity verified and SHA-256 recorded. The remaining action is the residual Samsung/Pocket Amp checklist followed by explicit user approval. PR #1 must not be merged automatically.
+Completed for the exact `0.4.0-rc1` candidate: canonical dual gate PASS, isolated target-tablet geometry PASS, signed APK produced, signer identity verified and SHA-256 recorded. The remaining action is the residual Samsung/Pocket Amp checklist followed by explicit user approval. PR #1 was explicitly merged into `main` after the signed digital gate passed. Final physical results and release closure will be recorded on `main`.
 
 ## Gate discipline
 `.github/workflows/android-ci.yml` is canonical. A signed homologation APK is forbidden unless both `software-gate` and `android-integration-gate` succeed for that exact workflow run. Documentation must distinguish JVM/CI evidence, emulator evidence and target-hardware evidence.

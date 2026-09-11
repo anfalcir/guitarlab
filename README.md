@@ -22,8 +22,8 @@ Read first:
 The digitally validated homologation candidate is `0.4.0-rc1` (versionCode 19), built from commit `66108182d9a733930139a84e4f6b9525172bb9aa` by GitHub Actions run [#590](https://github.com/anfalcir/guitarlab/actions/runs/34593159502). SHA-256: `604f13b83e27021201101fd663dad5c61bca600829ab9565109f48ae23f8e0ad`. Only the residual physical Samsung/Pocket Amp checklist remains.
 
 ## Current development state
-- stable `main`: unchanged stable signed baseline;
-- active integration: `dev/parallel-m3-m5`, draft PR #1;
+- `main`: canonical branch containing the digitally validated signed `0.4.0-rc1` homologation candidate;
+- historical integration branch: `dev/parallel-m3-m5`; PR #1 merged into `main` on 2026-09-11;
 - M5: PASS/CLOSED by explicit physical approval of `0.2.0-alpha14`;
 - M6: PASS/CLOSED by explicit physical approval of `0.3.0-alpha1`;
 - M7/M8 digital scope: PASS for the exact signed RC; residual physical homologation remains OPEN.

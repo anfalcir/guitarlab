@@ -70,7 +70,7 @@ M7/final hardening may close only when:
 - any device-specific MP3 limitation is explicitly understood/accepted rather than hidden;
 - the user explicitly approves the final candidate.
 
-Do not merge PR #1 as part of homologation unless separately requested.
+PR #1 was separately and explicitly merged before physical homologation. Record the physical result and final approval directly on `main`.
 
 ## Final signed RC evidence — 2026-09-11
 - Candidate: `GuitarLabStudio-0.4.0-rc1-homologacao.apk` (`versionName 0.4.0-rc1`, `versionCode 19`).

@@ -76,7 +76,7 @@ The final target-device pass is intentionally residual:
 - **P2** — relevant edge degradation: fix before RC when objectively actionable.
 - **P3** — cosmetic/maintainability/ergonomic issue: fix when low-risk; physical subjective items may remain in final checklist.
 
-M7/M8 final release hardening closes only after zero repeatable P0/P1, exact automated dual-gate PASS, verified signed identity, residual target-device PASS and explicit user approval. PR merge is a separate action and is never implied by homologation.
+M7/M8 final release hardening closes only after zero repeatable P0/P1, exact automated dual-gate PASS, verified signed identity, residual target-device PASS and explicit user approval. PR #1 was explicitly merged after the validated RC was produced. Physical homologation and final closure remain separate explicit actions on `main`.
 
 ## Final gate disposition
 The exact candidate completed all required automated stages in CI #590. The previously unstable Home overflow popup assertion was retired from the mandatory emulator gate because it duplicated the already physically approved M6 rename capability and depended on unreliable headless popup observation. Production rename behavior remains present; project persistence, Home rehydration, route restoration, lifecycle, export and the complete standard Android regression remain gated. This is a test-scope correction, not a waiver of product behavior.

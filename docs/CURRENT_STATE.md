@@ -4,8 +4,9 @@ Updated: 2026-09-11
 
 ## Active branch and gates
 - Repository: `anfalcir/guitarlab`
-- Branch: `dev/parallel-m3-m5` (historical branch name retained while PR #1 stays active)
-- Draft PR: #1; `main` remains untouched by the current hardening work.
+- Canonical branch: `main`
+- PR #1 merged on 2026-09-11 as commit `12aaa1c7d5762c1d4dd99e273418ed5b0c25c352`.
+- Historical integration branch: `dev/parallel-m3-m5`.
 - M2: PASS/CLOSED
 - M3/M4: absorbed
 - M5: **PASS/CLOSED by explicit user physical approval of `0.2.0-alpha14`**
@@ -69,3 +70,6 @@ Global matrix: `docs/M8_GLOBAL_DIGITAL_REGRESSION.md`.
 - Signer certificate SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
 - Artifact integrity was independently rechecked against `SHA256SUMS.txt`; APK ZIP structure is valid.
 - Digital hardening and RC production are complete. Only the residual Samsung SM-X230 + Pocket Amp physical homologation remains before explicit M7/M8 closure.
+
+## Repository promotion
+The validated RC source and synchronized documentation are now on `main`. Final physical homologation results and explicit closure will be recorded directly on `main`.
