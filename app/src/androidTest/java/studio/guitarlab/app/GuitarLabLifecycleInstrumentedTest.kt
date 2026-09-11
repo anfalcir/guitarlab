@@ -99,6 +99,8 @@ class GuitarLabLifecycleInstrumentedTest {
 
     @Test
     fun renameRemainsAvailableFromHomeOverflow() {
+        navigation().navigate(AppScreen.Home)
+        waitForRoute(AppScreen.Home)
         val repository = FileProjectRepository(instrumentation.targetContext.filesDir)
         val project = studio.guitarlab.core.model.ProjectFactory().create(
             "Rename-${System.nanoTime()}",
