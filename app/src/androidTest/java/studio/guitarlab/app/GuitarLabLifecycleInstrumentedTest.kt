@@ -92,13 +92,31 @@ class GuitarLabLifecycleInstrumentedTest {
             composeRule.waitUntil(timeoutMillis = UI_TIMEOUT_MS) {
                 home().state.value.projects.any { it.id == projectId }
             }
-            waitUntilDisplayed(projectName)
+        } finally {
+            projectId?.let { runCatching { repository.delete(it) } }
+        }
+    }
+
+    @Test
+    fun renameRemainsAvailableFromHomeOverflow() {
+        val repository = FileProjectRepository(instrumentation.targetContext.filesDir)
+        val project = studio.guitarlab.core.model.ProjectFactory().create(
+            "Rename-${System.nanoTime()}",
+            studio.guitarlab.core.model.ProjectTemplate.BLANK,
+        )
+        try {
+            repository.save(project)
+            home().refresh()
+            composeRule.waitUntil(timeoutMillis = UI_TIMEOUT_MS) {
+                home().state.value.projects.any { it.id == project.id }
+            }
+            waitUntilDisplayed(project.name)
             composeRule.onNodeWithContentDescription("Mais ações").performClick()
             composeRule.onNodeWithText("Renomear").assertIsDisplayed().performClick()
             composeRule.onNodeWithText("Renomear projeto").assertIsDisplayed()
             composeRule.onNodeWithText("Cancelar").performClick()
         } finally {
-            projectId?.let { runCatching { repository.delete(it) } }
+            repository.delete(project.id)
         }
     }
 
