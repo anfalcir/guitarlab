@@ -21,6 +21,7 @@ import studio.guitarlab.core.project.FileProjectRepository
 import studio.guitarlab.app.ui.AppNavigationViewModel
 import studio.guitarlab.app.ui.AppRouteCodec
 import studio.guitarlab.app.ui.AppScreen
+import studio.guitarlab.app.ui.HomeViewModel
 
 @RunWith(AndroidJUnit4::class)
 class GuitarLabLifecycleInstrumentedTest {
@@ -87,6 +88,10 @@ class GuitarLabLifecycleInstrumentedTest {
             // existing overflow action still opens the shared rename dialog for this exact project.
             navigation().navigate(AppScreen.Home)
             waitForRoute(AppScreen.Home)
+            home().refresh()
+            composeRule.waitUntil(timeoutMillis = UI_TIMEOUT_MS) {
+                home().state.value.projects.any { it.id == projectId }
+            }
             waitUntilDisplayed(projectName)
             composeRule.onNodeWithContentDescription("Mais ações").performClick()
             composeRule.onNodeWithText("Renomear").assertIsDisplayed().performClick()
@@ -117,6 +122,14 @@ class GuitarLabLifecycleInstrumentedTest {
         lateinit var result: AppNavigationViewModel
         composeRule.activityRule.scenario.onActivity { activity ->
             result = ViewModelProvider(activity)[AppNavigationViewModel::class.java]
+        }
+        return result
+    }
+
+    private fun home(): HomeViewModel {
+        lateinit var result: HomeViewModel
+        composeRule.activityRule.scenario.onActivity { activity ->
+            result = ViewModelProvider(activity)[HomeViewModel::class.java]
         }
         return result
     }
