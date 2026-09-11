@@ -128,15 +128,20 @@ fun HomeScreen(viewModel: HomeViewModel, onNewProject: () -> Unit, onOpenProject
 @Composable private fun ProjectRow(project: GuitarProject, onOpen: () -> Unit, onRename: () -> Unit, onExport: () -> Unit, onDuplicate: () -> Unit, onDelete: () -> Unit) {
     var menuOpen by remember { mutableStateOf(false) }
     val shape = RoundedCornerShape(16.dp)
-    Surface(Modifier.fillMaxWidth().clip(shape).clickable(onClick = onOpen), shape = shape, color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.34f), border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.55f))) {
-        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-            Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.primaryContainer) { Icon(Icons.Default.MusicNote, null, Modifier.padding(12.dp)) }
-            Column(Modifier.weight(1f).padding(start = 14.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                Text(project.name, style = MaterialTheme.typography.titleMedium)
-                val modified = DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT).format(Date(project.updatedAtEpochMs))
-                Text("$modified  ·  ${project.tracks.size} ${if (project.tracks.size == 1) "pista" else "pistas"}  ·  ${project.clips.size} ${if (project.clips.size == 1) "clipe" else "clipes"}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Surface(Modifier.fillMaxWidth(), shape = shape, color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.34f), border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.55f))) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                Modifier.weight(1f).clickable(onClick = onOpen).padding(start = 16.dp, top = 14.dp, bottom = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.primaryContainer) { Icon(Icons.Default.MusicNote, null, Modifier.padding(12.dp)) }
+                Column(Modifier.weight(1f).padding(start = 14.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Text(project.name, style = MaterialTheme.typography.titleMedium)
+                    val modified = DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT).format(Date(project.updatedAtEpochMs))
+                    Text("$modified  ·  ${project.tracks.size} ${if (project.tracks.size == 1) "pista" else "pistas"}  ·  ${project.clips.size} ${if (project.clips.size == 1) "clipe" else "clipes"}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
             }
-            Box {
+            Box(Modifier.padding(horizontal = 8.dp)) {
                 AppIconButton(icon = Icons.Default.MoreVert, contentDescription = "Mais ações de ${project.name}", onClick = { menuOpen = true })
                 DropdownMenu(menuOpen, { menuOpen = false }) {
                     DropdownMenuItem({ Text("Renomear") }, { menuOpen = false; onRename() }, leadingIcon = { Icon(Icons.Default.Edit, null) })
