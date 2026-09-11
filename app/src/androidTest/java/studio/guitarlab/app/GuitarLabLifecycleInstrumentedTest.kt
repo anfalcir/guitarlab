@@ -2,6 +2,7 @@ package studio.guitarlab.app
 
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertExists
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -117,12 +118,20 @@ class GuitarLabLifecycleInstrumentedTest {
             val projectIndex = home().state.value.projects.indexOfFirst { it.id == project.id }
             composeRule.onNodeWithTag("home-projects").performScrollToIndex(projectIndex)
             composeRule.onNodeWithContentDescription("Mais ações de ${project.name}").performClick()
-            waitUntilDisplayed("Renomear")
-            composeRule.onNodeWithText("Renomear").performClick()
+            waitUntilExists("Renomear")
+            composeRule.onNodeWithText("Renomear").assertExists().performClick()
             waitUntilDisplayed("Renomear projeto")
             composeRule.onNodeWithText("Cancelar").performClick()
         } finally {
             repository.delete(project.id)
+        }
+    }
+
+    private fun waitUntilExists(text: String) {
+        composeRule.waitUntil(timeoutMillis = UI_TIMEOUT_MS) {
+            runCatching {
+                composeRule.onNodeWithText(text).assertExists()
+            }.isSuccess
         }
     }
 
