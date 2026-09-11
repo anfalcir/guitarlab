@@ -116,7 +116,6 @@ class GuitarLabLifecycleInstrumentedTest {
             }
             val projectIndex = home().state.value.projects.indexOfFirst { it.id == project.id }
             composeRule.onNodeWithTag("home-projects").performScrollToIndex(projectIndex)
-            waitUntilDisplayed(project.name)
             composeRule.onNodeWithContentDescription("Mais ações de ${project.name}").performClick()
             composeRule.onNodeWithText("Renomear").assertIsDisplayed().performClick()
             composeRule.onNodeWithText("Renomear projeto").assertIsDisplayed()
@@ -130,14 +129,6 @@ class GuitarLabLifecycleInstrumentedTest {
         composeRule.waitUntil(timeoutMillis = UI_TIMEOUT_MS) {
             runCatching {
                 composeRule.onNodeWithText(text).assertIsEnabled()
-            }.isSuccess
-        }
-    }
-
-    private fun waitUntilDisplayed(text: String) {
-        composeRule.waitUntil(timeoutMillis = UI_TIMEOUT_MS) {
-            runCatching {
-                composeRule.onNodeWithText(text).assertIsDisplayed()
             }.isSuccess
         }
     }

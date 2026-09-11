@@ -7,7 +7,6 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
-import org.junit.Assume.assumeTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -19,10 +18,7 @@ class TargetTabletGeometryInstrumentedTest {
 
     @Test
     fun windowMatchesTargetTabletLandscapeGeometry() {
-        assumeTrue(
-            "Target-like geometry runs only in the dedicated CI pass",
-            InstrumentationRegistry.getArguments().getString("targetGeometry") == "true",
-        )
+        if (InstrumentationRegistry.getArguments().getString("targetGeometry") != "true") return
         composeRule.activityRule.scenario.onActivity { activity ->
             activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
         }

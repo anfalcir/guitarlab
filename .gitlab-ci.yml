@@ -1,0 +1,219 @@
+stages:
+  - verify
+  - instrumented
+  - package
+
+workflow:
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "trigger"'
+    - if: '$CI_PIPELINE_SOURCE == "external_pull_request_event"'
+    - if: '$CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "dev/parallel-m3-m5"'
+    - if: '$CI_PIPELINE_SOURCE == "web"'
+    - when: never
+
+variables:
+  GITHUB_REPOSITORY: "anfalcir/guitarlab"
+  JAVA_VERSION: "17"
+  ANDROID_PLATFORM: "36"
+  ANDROID_BUILD_TOOLS: "36.0.0"
+  GRADLE_VERSION: "9.6.1"
+  GRADLE_USER_HOME: "$CI_PROJECT_DIR/.gradle-user-home"
+  EXPECTED_CERT_SHA256: "0762D4F3ECB8E1A9AAA4BDB1E098A666C9BA9BF8B71C4F14B0E7A7065404E181"
+  RUNNER_SCRIPT_TIMEOUT: "55m"
+  RUNNER_AFTER_SCRIPT_TIMEOUT: "5m"
+
+default:
+  tags:
+    - android-kvm
+  timeout: 1h
+  interruptible: true
+  cache:
+    key: "guitarlab-gradle-v1"
+    paths:
+      - .gradle-user-home/caches/
+      - .gradle-user-home/wrapper/
+    policy: pull-push
+  before_script:
+    - |
+      set -euo pipefail
+      SOURCE_DIR="$CI_PROJECT_DIR"
+      SOURCE_SHA="${GITHUB_SHA:-}"
+      SOURCE_REF="${GITHUB_REF:-}"
+
+      if [ -n "${TRIGGER_PAYLOAD:-}" ] && [ -f "$TRIGGER_PAYLOAD" ]; then
+        eval "$(python3 - "$TRIGGER_PAYLOAD" <<'PY'
+      import json, shlex, sys
+      with open(sys.argv[1], encoding="utf-8") as handle:
+          payload = json.load(handle)
+      repository = payload.get("repository", {}).get("full_name", "")
+      sha = payload.get("after", "")
+      ref = payload.get("ref", "")
+      print("PAYLOAD_REPOSITORY=" + shlex.quote(repository))
+      print("SOURCE_SHA=" + shlex.quote(sha))
+      print("SOURCE_REF=" + shlex.quote(ref))
+      PY
+        )"
+        test "$PAYLOAD_REPOSITORY" = "$GITHUB_REPOSITORY"
+      fi
+
+      if [ -n "$SOURCE_SHA" ]; then
+        test -n "${GH_READ_TOKEN:-}"
+        SOURCE_DIR="$CI_PROJECT_DIR/.github-source"
+        rm -rf "$SOURCE_DIR"
+        git init -q "$SOURCE_DIR"
+        git -C "$SOURCE_DIR" remote add origin "https://x-access-token:${GH_READ_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+        git -C "$SOURCE_DIR" fetch -q --depth 1 origin "$SOURCE_SHA"
+        test "$(git -C "$SOURCE_DIR" rev-parse FETCH_HEAD)" = "$SOURCE_SHA"
+        git -C "$SOURCE_DIR" checkout -q --detach FETCH_HEAD
+      fi
+
+      cd "$SOURCE_DIR"
+      test -f .gitlab-ci.yml
+      test -x "$(command -v gradle)"
+      test "$(gradle --version | sed -n 's/^Gradle \([0-9.]*\)$/\1/p' | head -n1)" = "$GRADLE_VERSION"
+      test -n "${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
+      chmod +x scripts/materialize_ci_sources.sh
+      scripts/materialize_ci_sources.sh
+
+software_gate:
+  stage: verify
+  script:
+    - |
+      set -euo pipefail
+      mkdir -p ci-diagnostics
+      VERSION_NAME="$(sed -n 's/.*versionName = "\([^"]*\)".*/\1/p' app/build.gradle.kts | head -n1)"
+      VERSION_CODE="$(sed -n 's/.*versionCode = \([0-9][0-9]*\).*/\1/p' app/build.gradle.kts | head -n1)"
+      test -n "$VERSION_NAME"
+      test -n "$VERSION_CODE"
+      printf 'APP_VERSION_NAME=%s\nAPP_VERSION_CODE=%s\n' "$VERSION_NAME" "$VERSION_CODE" > build.env
+      cp build.env "$CI_PROJECT_DIR/build.env"
+
+      set +e
+      gradle --no-daemon --console=plain --stacktrace test 2>&1 | tee ci-diagnostics/unit-tests.log
+      TEST_STATUS=${PIPESTATUS[0]}
+      set -e
+      test "$TEST_STATUS" -eq 0
+
+      find . -type f -path '*/build/test-results/test/*.xml' -print0 \
+        | xargs -0 -r grep -hoE 'GUITARLAB_(RENDER_)?PERF\|[^<]+' \
+        | sort -u > ci-diagnostics/performance-evidence.txt
+      gradle --no-daemon --console=plain --stacktrace lint
+      gradle --no-daemon --console=plain --stacktrace assembleDebug
+  artifacts:
+    when: always
+    expire_in: 30 days
+    reports:
+      dotenv: build.env
+      junit:
+        - "**/build/test-results/test/*.xml"
+    paths:
+      - "**/ci-diagnostics/"
+      - "**/app/build/outputs/apk/debug/*.apk"
+      - "**/build/reports/tests/"
+      - "**/build/test-results/"
+      - "**/build/reports/lint-results*.html"
+      - "**/build/reports/lint-results*.xml"
+
+android_integration_gate:
+  stage: instrumented
+  needs: []
+  script:
+    - |
+      set -euo pipefail
+      sdkmanager "platform-tools" "platforms;android-${ANDROID_PLATFORM}" \
+        "build-tools;${ANDROID_BUILD_TOOLS}" "emulator" \
+        "system-images;android-${ANDROID_PLATFORM};default;x86_64" >/dev/null
+      gradle --no-daemon --console=plain --stacktrace :app:compileDebugAndroidTestKotlin
+
+      AVD_NAME="guitarlab-api36-gitlab"
+      echo no | avdmanager create avd --force --name "$AVD_NAME" \
+        --package "system-images;android-${ANDROID_PLATFORM};default;x86_64" \
+        --device "pixel_7"
+      emulator -avd "$AVD_NAME" -no-snapshot-save -no-window \
+        -gpu swiftshader_indirect -noaudio -no-boot-anim \
+        -camera-back none -camera-front none -no-metrics > emulator.log 2>&1 &
+      EMULATOR_PID=$!
+      trap 'adb emu kill >/dev/null 2>&1 || true; kill "$EMULATOR_PID" >/dev/null 2>&1 || true' EXIT
+
+      adb wait-for-device
+      timeout 600 sh -c 'until [ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d "\r")" = "1" ]; do sleep 2; done'
+      adb shell settings put global window_animation_scale 0
+      adb shell settings put global transition_animation_scale 0
+      adb shell settings put global animator_duration_scale 0
+
+      gradle --no-daemon --console=plain --stacktrace connectedDebugAndroidTest
+      mkdir -p ci-diagnostics/android-default
+      cp -R app/build/outputs/androidTest-results/connected ci-diagnostics/android-default/results
+      cp -R app/build/reports/androidTests/connected ci-diagnostics/android-default/reports
+
+      adb shell wm size 1920x1200
+      adb shell wm density 240
+      adb shell settings put system accelerometer_rotation 0
+      adb shell settings put system user_rotation 0
+      adb shell am force-stop studio.guitarlab.app || true
+
+      gradle --no-daemon --console=plain --stacktrace connectedDebugAndroidTest \
+        -Pandroid.testInstrumentationRunnerArguments.targetGeometry=true
+  artifacts:
+    when: always
+    expire_in: 30 days
+    reports:
+      junit:
+        - "**/app/build/outputs/androidTest-results/connected/**/*.xml"
+        - "**/ci-diagnostics/android-default/results/**/*.xml"
+    paths:
+      - "**/emulator.log"
+      - "**/ci-diagnostics/android-default/"
+      - "**/app/build/reports/androidTests/"
+      - "**/app/build/outputs/androidTest-results/"
+      - "**/app/build/outputs/connected_android_test_additional_output/"
+
+homologation_apk:
+  stage: package
+  needs:
+    - job: software_gate
+      artifacts: true
+    - job: android_integration_gate
+      artifacts: false
+  rules:
+    - if: '$SIGNED_HOMOLOGATION == "true" && ($CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "dev/parallel-m3-m5")'
+    - if: '$CI_PIPELINE_SOURCE == "trigger" && $SIGNED_HOMOLOGATION == "true"'
+    - when: never
+  script:
+    - |
+      set -euo pipefail
+      test -n "${GUITARLAB_SIGNING_BUNDLE_B64:-}"
+      SIGN_DIR="$(mktemp -d)"
+      trap 'rm -rf "$SIGN_DIR"' EXIT
+      umask 077
+      printf '%s' "$GUITARLAB_SIGNING_BUNDLE_B64" | base64 --decode > "$SIGN_DIR/signing.zip"
+      unzip -q "$SIGN_DIR/signing.zip" -d "$SIGN_DIR/unpacked"
+      KEYSTORE="$SIGN_DIR/unpacked/guitarlab-homologation.jks"
+      CREDS="$SIGN_DIR/unpacked/guitarlab-homologation-credentials.txt"
+      test -s "$KEYSTORE"
+      test -s "$CREDS"
+      export GUITARLAB_KEYSTORE_PATH="$KEYSTORE"
+      export GUITARLAB_KEY_ALIAS="$(awk -F= '$1=="alias" {sub(/^alias=/,""); print; exit}' "$CREDS")"
+      export GUITARLAB_KEYSTORE_PASSWORD="$(awk -F= '$1=="password" {sub(/^password=/,""); print; exit}' "$CREDS")"
+      export GUITARLAB_KEY_PASSWORD="$GUITARLAB_KEYSTORE_PASSWORD"
+      test -n "$GUITARLAB_KEY_ALIAS"
+      test -n "$GUITARLAB_KEYSTORE_PASSWORD"
+
+      gradle --no-daemon --console=plain --stacktrace assembleRelease
+      APK="app/build/outputs/apk/release/app-release.apk"
+      APKSIGNER="${ANDROID_HOME:-$ANDROID_SDK_ROOT}/build-tools/${ANDROID_BUILD_TOOLS}/apksigner"
+      "$APKSIGNER" verify --verbose --print-certs "$APK" | tee apksigner.txt
+      ACTUAL="$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' apksigner.txt | head -n1 | tr '[:lower:]' '[:upper:]' | tr -d '[:space:]:')"
+      test "$ACTUAL" = "$EXPECTED_CERT_SHA256"
+
+      mkdir -p deliverables
+      cp "$APK" "deliverables/GuitarLabStudio-${APP_VERSION_NAME}-homologacao.apk"
+      sha256sum deliverables/*.apk > deliverables/SHA256SUMS.txt
+      printf 'commit=%s\nversionName=%s\nversionCode=%s\ncertificateSha256=%s\n' \
+        "${SOURCE_SHA:-$CI_COMMIT_SHA}" "$APP_VERSION_NAME" "$APP_VERSION_CODE" \
+        "$EXPECTED_CERT_SHA256" > deliverables/BUILD_IDENTITY.txt
+      cp -R deliverables "$CI_PROJECT_DIR/gitlab-deliverables"
+  artifacts:
+    expire_in: 90 days
+    paths:
+      - gitlab-deliverables/
