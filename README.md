@@ -41,3 +41,6 @@ Automatable mathematics, persistence invariants, malformed-input handling, lifec
 
 ## Security
 Never commit keystores, credentials, local SDK configuration or secret artifacts.
+
+## RC2 interface candidate
+The next signed candidate is `0.4.0-rc2` (versionCode 20). It rebalances the Studio without changing audio behavior: the complete transport/navigation group is centered on the full top bar; current time remains represented by the playhead; remaining time is removed; track count, clip count and total project duration move to the Pistas header; and Adicionar pista becomes an explicit footer action below the final track. This candidate remains pending the single manually dispatched full API 36 + signed homologation gate and does not supersede the validated RC1 until that gate passes.

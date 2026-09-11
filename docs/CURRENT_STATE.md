@@ -71,3 +71,9 @@ Global matrix: `docs/M8_GLOBAL_DIGITAL_REGRESSION.md`.
 
 ## Repository promotion
 The validated RC source and synchronized documentation are now on `main`. Final physical homologation results and explicit closure will be recorded directly on `main`.
+
+## RC2 interface candidate — pending manual gate
+- Candidate: `0.4.0-rc2`, versionCode 20.
+- Scope: geometric centering of the complete Studio navigation group; removal of redundant remaining-time readout; project summary (`pistas · clipes · duração total`) in the Pistas header; explicit Adicionar pista footer below the last track.
+- Audio, persistence, codec and routing behavior are unchanged.
+- Promotion status: pending one explicitly dispatched full API 36 emulator gate and signed artifact verification. RC1 remains the last validated baseline until this completes.

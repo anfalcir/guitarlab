@@ -52,7 +52,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import studio.guitarlab.core.model.GuitarProject
 import studio.guitarlab.core.project.RecordingSessionPhase
 import studio.guitarlab.core.project.TransportPolicy
-import studio.guitarlab.core.project.TimelineControlPolicy
 import studio.guitarlab.platform.codec.android.MasterExportFormat
 
 @Composable
@@ -125,14 +124,8 @@ fun StudioShellScreen(
     ) {
         Column(Modifier.fillMaxSize()) {
             val topBarProject = state.project
-            val topBarEnd = topBarProject?.let(TimelineControlPolicy::projectEndFrame) ?: 0L
-            val topBarRate = topBarProject?.sampleRate?.fixedHz
-                ?: topBarProject?.clips?.firstNotNullOfOrNull { it.sourceSampleRateHz }
-                ?: 48_000
             StudioTopBar(
                 project = topBarProject,
-                remainingText = formatFrameTime((topBarEnd - state.timelineControls.playheadFrame).coerceAtLeast(0L), topBarRate),
-                totalText = formatFrameTime(topBarEnd, topBarRate),
                 transport = {
                     TransportBar(
                         state = state.transport,
@@ -243,8 +236,6 @@ fun StudioShellScreen(
 @Composable
 private fun StudioTopBar(
     project: GuitarProject?,
-    remainingText: String,
-    totalText: String,
     transport: @Composable () -> Unit,
     onMixer: () -> Unit,
     onOptions: () -> Unit,
@@ -256,12 +247,11 @@ private fun StudioTopBar(
         color = MaterialTheme.colorScheme.background,
         tonalElevation = 0.dp,
     ) {
-        Row(
+        Box(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 7.dp),
-            verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(
-                modifier = Modifier.widthIn(min = 180.dp, max = 320.dp),
+                modifier = Modifier.align(Alignment.CenterStart).widthIn(min = 180.dp, max = 280.dp),
                 verticalArrangement = Arrangement.spacedBy(1.dp),
             ) {
                 Text(
@@ -269,34 +259,15 @@ private fun StudioTopBar(
                     style = MaterialTheme.typography.titleLarge,
                     maxLines = 1,
                 )
-                project?.let {
-                    Text(
-                        "${it.tracks.size} ${if (it.tracks.size == 1) "pista" else "pistas"} · ${it.clips.size} ${if (it.clips.size == 1) "clipe" else "clipes"}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
             }
 
-            Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) { transport() }
+            Box(modifier = Modifier.align(Alignment.Center).testTag("studio-navigation")) { transport() }
 
-            Surface(
-                shape = RoundedCornerShape(10.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.30f),
-                tonalElevation = 0.dp,
+            Row(
+                modifier = Modifier.align(Alignment.CenterEnd),
+                horizontalArrangement = Arrangement.spacedBy(2.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text("Restante $remainingText", style = MaterialTheme.typography.labelMedium)
-                    Text("·", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text("Total $totalText", style = MaterialTheme.typography.labelMedium)
-                }
-            }
-
-            Row(horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.CenterVertically) {
                 AppIconButton(icon = Icons.Default.Equalizer, contentDescription = "Mixer", onClick = onMixer)
                 AppIconButton(icon = Icons.Default.Tune, contentDescription = "Opções", onClick = onOptions, modifier = Modifier.testTag("studio-options"))
                 AppIconButton(

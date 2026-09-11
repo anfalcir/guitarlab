@@ -153,3 +153,6 @@ Anything objectively established by automated model/file/JVM/emulator regression
 
 ## D-050 — Commits do not automatically consume hosted CI
 The default gate is `scripts/build_local.sh` on a prepared Android build host. GitHub Actions remains a manually dispatched fallback for the full API 36 emulator/signing matrix and has no `push` or `pull_request` trigger. No candidate may be called validated solely because automatic CI was disabled; build, test, signature and checksum evidence remain mandatory.
+
+## D-051 — Studio navigation is centered as one unit
+The complete transport/navigation control group is geometrically centered on the full Studio top bar; no individual control (including Play) is privileged as the center anchor. The current position remains conveyed by the playhead and remaining time is not duplicated. General project summary belongs to the Pistas header, while Adicionar pista is placed below the final track as an explicit workspace action.

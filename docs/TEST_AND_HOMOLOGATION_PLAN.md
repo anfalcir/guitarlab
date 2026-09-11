@@ -90,3 +90,6 @@ The exact candidate completed all required automated stages in CI #590. The prev
 - Signer certificate SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
 - Artifact integrity was independently rechecked against `SHA256SUMS.txt`; APK ZIP structure is valid.
 - Digital hardening and RC production are complete. Only the residual Samsung SM-X230 + Pocket Amp physical homologation remains before explicit M7/M8 closure.
+
+## RC2 manual gate
+The Studio layout refinement is validated through one explicit manual workflow run only. The unchanged mandatory chain remains: software gate, Android API 36 standard regression, isolated 1920×1200 landscape pass, then signed homologation assembly and signer/checksum verification. Ordinary commits remain non-triggering. RC2 cannot supersede RC1 until all jobs pass for the exact candidate SHA.

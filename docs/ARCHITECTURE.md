@@ -64,3 +64,8 @@ Saveable navigation routes are encoded/decoded by a pure route codec and tested 
 
 ## Current milestone boundary
 M5 and M6 are closed. M7 is technically hardened and remains open for one residual target-device gate. M8.A/B automated release hardening is covered for the current scope; M8.C is final exact-candidate/signing/physical closure work.
+
+## Studio information architecture
+The top bar uses three independent overlays: project title at the start, the complete transport/navigation group at the geometric center of the available screen, and global actions at the end. Centering applies to the navigation group as a unit, not to the Play button. The playhead already communicates current position, so no duplicate current/remaining-time field is shown there.
+
+Project-wide editing context belongs to the track workspace: the Pistas header reports track count, clip count and total project duration. Track creation is an explicit footer action below the final track, keeping the header informational and preserving alignment with the track sidebar.

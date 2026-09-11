@@ -74,6 +74,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
@@ -314,17 +315,19 @@ private fun ProjectWorkspace(
                         color = MaterialTheme.colorScheme.surface.copy(alpha = 0.82f),
                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.38f)),
                     ) {
-                        Row(
+                        Column(
                             modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween,
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center,
                         ) {
                             Text("Pistas", style = MaterialTheme.typography.labelLarge)
-                            AppIconButton(
-                                icon = Icons.Default.Add,
-                                contentDescription = "Adicionar pista",
-                                enabled = clipEditingEnabled,
-                                onClick = onAddTrack,
+                            Text(
+                                "${project.tracks.size} ${if (project.tracks.size == 1) "pista" else "pistas"} · " +
+                                    "${project.clips.size} ${if (project.clips.size == 1) "clipe" else "clipes"} · " +
+                                    formatFrameTime(baseProjectEndFrame, project.sampleRate.fixedHz ?: clipSampleRate(project)),
+                                modifier = Modifier.testTag("project-track-summary"),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
                     }
@@ -520,6 +523,27 @@ private fun ProjectWorkspace(
                                 onDragEnd = ::commitDrag,
                                 onDragCancel = ::cancelDrag,
                             )
+                        }
+                        item(key = "add-track-footer") {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(TrackLaneGap),
+                            ) {
+                                OutlinedButton(
+                                    onClick = onAddTrack,
+                                    enabled = clipEditingEnabled && dragState == null,
+                                    modifier = Modifier
+                                        .width(TrackSidebarWidth)
+                                        .height(52.dp)
+                                        .testTag("add-track-footer"),
+                                    shape = RoundedCornerShape(8.dp),
+                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.38f)),
+                                ) {
+                                    Icon(Icons.Default.Add, contentDescription = null)
+                                    Text("Adicionar pista", modifier = Modifier.padding(start = 8.dp))
+                                }
+                                Box(modifier = Modifier.weight(1f))
+                            }
                         }
                     }
 
