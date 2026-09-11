@@ -31,7 +31,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 2
 
@@ -40,20 +40,20 @@ jobs:
         run: git diff --check HEAD^ --
 
       - name: Set up JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
         with:
           distribution: temurin
           java-version: ${{ env.JAVA_VERSION }}
 
       - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@40fd30fb8d7440372e1316f5d1809ec01dcd3699 # v4.0.1
 
       - name: Install locked SDK packages
         shell: bash
         run: sdkmanager "platform-tools" "platforms;android-${ANDROID_PLATFORM}" "build-tools;${ANDROID_BUILD_TOOLS}"
 
       - name: Set up Gradle 9.6.1 and persistent cache
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
         with:
           gradle-version: "9.6.1"
 
@@ -64,7 +64,7 @@ jobs:
           scripts/materialize_ci_sources.sh
 
       - name: Upload exact source snapshot
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: guitarlab-source-${{ github.sha }}
           if-no-files-found: error
@@ -139,7 +139,7 @@ jobs:
 
       - name: Upload debug APK, reports and CI diagnostics
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: guitarlab-${{ env.APP_VERSION_NAME }}-software-gate
           if-no-files-found: warn
@@ -155,10 +155,10 @@ jobs:
   android-integration-gate:
     name: API 36 emulator regression
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 50
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 2
 
@@ -167,16 +167,16 @@ jobs:
         run: git diff --check HEAD^ --
 
       - name: Set up JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
         with:
           distribution: temurin
           java-version: ${{ env.JAVA_VERSION }}
 
       - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@40fd30fb8d7440372e1316f5d1809ec01dcd3699 # v4.0.1
 
       - name: Set up Gradle 9.6.1 and persistent cache
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
         with:
           gradle-version: "9.6.1"
 
@@ -199,7 +199,7 @@ jobs:
 
       - name: Restore API 36 AVD snapshot cache
         id: avd-cache
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/.android/avd/*
@@ -233,11 +233,24 @@ jobs:
           emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none -no-metrics
           disable-animations: true
           emulator-boot-timeout: 600
-          script: gradle --no-daemon --console=plain --stacktrace connectedDebugAndroidTest
+          script: |
+            gradle --no-daemon --console=plain --stacktrace connectedDebugAndroidTest
+            mkdir -p ci-diagnostics/android-default
+            cp -R app/build/outputs/androidTest-results/connected ci-diagnostics/android-default/results
+            cp -R app/build/reports/androidTests/connected ci-diagnostics/android-default/reports
+
+            adb shell wm size 1920x1200
+            adb shell wm density 240
+            adb shell settings put system accelerometer_rotation 0
+            adb shell settings put system user_rotation 0
+            adb shell am force-stop studio.guitarlab.app || true
+
+            gradle --no-daemon --console=plain --stacktrace connectedDebugAndroidTest \
+              -Pandroid.testInstrumentationRunnerArguments.targetGeometry=true
 
       - name: Upload Android integration reports
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: guitarlab-${{ github.sha }}-android-integration
           if-no-files-found: warn
@@ -246,6 +259,7 @@ jobs:
             app/build/reports/androidTests/**
             app/build/outputs/androidTest-results/**
             app/build/outputs/connected_android_test_additional_output/**
+            ci-diagnostics/android-default/**
 
   homologation-apk:
     name: Signed homologation APK
@@ -255,23 +269,23 @@ jobs:
     timeout-minutes: 25
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
         with:
           distribution: temurin
           java-version: ${{ env.JAVA_VERSION }}
 
       - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@40fd30fb8d7440372e1316f5d1809ec01dcd3699 # v4.0.1
 
       - name: Install locked SDK packages
         shell: bash
         run: sdkmanager "platform-tools" "platforms;android-${ANDROID_PLATFORM}" "build-tools;${ANDROID_BUILD_TOOLS}"
 
       - name: Set up Gradle 9.6.1 and persistent cache
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
         with:
           gradle-version: "9.6.1"
 
@@ -356,7 +370,7 @@ jobs:
           } > deliverables/BUILD_IDENTITY.txt
 
       - name: Upload signed homologation APK
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: GuitarLabStudio-${{ env.APP_VERSION_NAME }}-homologacao
           if-no-files-found: error
