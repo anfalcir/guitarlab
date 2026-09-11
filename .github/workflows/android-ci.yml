@@ -245,7 +245,7 @@ jobs:
             adb shell settings put system user_rotation 0
             adb shell am force-stop studio.guitarlab.app || true
 
-            gradle --no-daemon --console=plain --stacktrace connectedDebugAndroidTest \
+            gradle --no-daemon --console=plain --stacktrace :app:connectedDebugAndroidTest \
               -Pandroid.testInstrumentationRunnerArguments.class=studio.guitarlab.app.TargetTabletGeometryInstrumentedTest \
               -Pandroid.testInstrumentationRunnerArguments.targetGeometry=true
 
