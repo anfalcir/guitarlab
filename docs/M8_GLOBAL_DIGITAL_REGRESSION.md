@@ -2,7 +2,7 @@
 
 Updated: 2026-09-11
 
-Final signed RC: `0.4.0-rc1`, commit `66108182d9a733930139a84e4f6b9525172bb9aa`, canonical CI #590.
+Final signed RC: `0.4.0-rc2`, commit `573015d9bb98c704074ab7c4e731eb9a9dec6a2e`, canonical CI #593.
 
 ## Objective coverage matrix
 
@@ -75,12 +75,12 @@ Everything else in this matrix stays digital and should not be manually repeated
 ## Gate-efficiency decision
 The headless Home overflow popup assertion was removed after repeated evidence showed test-observation flakiness rather than a product regression. Rename was already physically approved in M6, while lifecycle, persistence, Home rehydration, navigation and production rename remain covered by the retained suite and prior evidence. This prevents redundant CI expenditure without weakening the P0/P1 release gate.
 
-## Final signed RC evidence — 2026-09-11
-- Candidate: `GuitarLabStudio-0.4.0-rc1-homologacao.apk` (`versionName 0.4.0-rc1`, `versionCode 19`).
-- Exact source commit: `66108182d9a733930139a84e4f6b9525172bb9aa`.
-- Canonical GitHub Actions run: [#590](https://github.com/anfalcir/guitarlab/actions/runs/34593159502).
+## Final signed RC evidence — 2026-09-12
+- Candidate: `GuitarLabStudio-0.4.0-rc2-homologacao.apk` (`versionName 0.4.0-rc2`, `versionCode 20`).
+- Exact source commit: `573015d9bb98c704074ab7c4e731eb9a9dec6a2e`.
+- Canonical GitHub Actions run: [#593](https://github.com/anfalcir/guitarlab/actions/runs/34656567233).
 - Result: software gate PASS; Android API 36 full regression PASS; isolated 1920×1200 landscape geometry PASS; signed homologation job PASS.
-- APK SHA-256: `604f13b83e27021201101fd663dad5c61bca600829ab9565109f48ae23f8e0ad`.
+- APK SHA-256: `b067558e4ef6793df206d3e966faa029aa952b446ee63c8e47070a481297df85`.
 - Signer certificate SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
 - Artifact integrity was independently rechecked against `SHA256SUMS.txt`; APK ZIP structure is valid.
 - Digital hardening and RC production are complete. Only the residual Samsung SM-X230 + Pocket Amp physical homologation remains before explicit M7/M8 closure.

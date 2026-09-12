@@ -1,6 +1,6 @@
 # GuitarLab Architecture
 
-Updated: 2026-09-10
+Updated: 2026-09-12
 
 ## Repository/branch policy
 - `main` is canonical after the explicit merge of PR #1.

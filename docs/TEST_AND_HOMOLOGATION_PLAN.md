@@ -81,15 +81,15 @@ M7/M8 final release hardening closes only after zero repeatable P0/P1, exact aut
 ## Final gate disposition
 The exact candidate completed all required automated stages in CI #590. The previously unstable Home overflow popup assertion was retired from the mandatory emulator gate because it duplicated the already physically approved M6 rename capability and depended on unreliable headless popup observation. Production rename behavior remains present; project persistence, Home rehydration, route restoration, lifecycle, export and the complete standard Android regression remain gated. This is a test-scope correction, not a waiver of product behavior.
 
-## Final signed RC evidence — 2026-09-11
-- Candidate: `GuitarLabStudio-0.4.0-rc1-homologacao.apk` (`versionName 0.4.0-rc1`, `versionCode 19`).
-- Exact source commit: `66108182d9a733930139a84e4f6b9525172bb9aa`.
-- Canonical GitHub Actions run: [#590](https://github.com/anfalcir/guitarlab/actions/runs/34593159502).
+## Final signed RC evidence — 2026-09-12
+- Candidate: `GuitarLabStudio-0.4.0-rc2-homologacao.apk` (`versionName 0.4.0-rc2`, `versionCode 20`).
+- Exact source commit: `573015d9bb98c704074ab7c4e731eb9a9dec6a2e`.
+- Canonical GitHub Actions run: [#593](https://github.com/anfalcir/guitarlab/actions/runs/34656567233).
 - Result: software gate PASS; Android API 36 full regression PASS; isolated 1920×1200 landscape geometry PASS; signed homologation job PASS.
-- APK SHA-256: `604f13b83e27021201101fd663dad5c61bca600829ab9565109f48ae23f8e0ad`.
+- APK SHA-256: `b067558e4ef6793df206d3e966faa029aa952b446ee63c8e47070a481297df85`.
 - Signer certificate SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
 - Artifact integrity was independently rechecked against `SHA256SUMS.txt`; APK ZIP structure is valid.
 - Digital hardening and RC production are complete. Only the residual Samsung SM-X230 + Pocket Amp physical homologation remains before explicit M7/M8 closure.
 
 ## RC2 manual gate
-The Studio layout refinement is validated through one explicit manual workflow run only. The unchanged mandatory chain remains: software gate, Android API 36 standard regression, isolated 1920×1200 landscape pass, then signed homologation assembly and signer/checksum verification. Ordinary commits remain non-triggering. RC2 cannot supersede RC1 until all jobs pass for the exact candidate SHA.
+The Studio layout refinement was validated through one explicit manual workflow run. The unchanged mandatory chain passed: software gate, Android API 36 standard regression, isolated 1920×1200 landscape pass, then signed homologation assembly and signer/checksum verification. Ordinary commits remain non-triggering. RC2 supersedes RC1 as the active physical-homologation candidate.

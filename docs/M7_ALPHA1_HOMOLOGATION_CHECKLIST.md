@@ -2,7 +2,7 @@
 
 Updated: 2026-09-11
 
-> Historical filename retained for compatibility. Homologate only `GuitarLabStudio-0.4.0-rc1-homologacao.apk` from commit `66108182d9a733930139a84e4f6b9525172bb9aa`. Its automated gates and signature verification passed in CI #590.
+> Historical filename retained for compatibility. Homologate only `GuitarLabStudio-0.4.0-rc2-homologacao.apk` from commit `573015d9bb98c704074ab7c4e731eb9a9dec6a2e`. Its automated gates and signature verification passed in CI #593.
 
 Target: Samsung SM-X230 Android 16/API36 + Pocket Amp USB audio + normal GuitarLab guitar workflow.
 
@@ -23,7 +23,7 @@ The following have objective automated evidence and must not be manually re-prov
 - structural Small/Medium/Large project/bundle/render regression.
 
 ## 1. Candidate identity and launch
-- Install `GuitarLabStudio-0.4.0-rc1-homologacao.apk` only. Verify SHA-256 `604f13b83e27021201101fd663dad5c61bca600829ab9565109f48ae23f8e0ad` before installation.
+- Install `GuitarLabStudio-0.4.0-rc2-homologacao.apk` only. Verify SHA-256 `b067558e4ef6793df206d3e966faa029aa952b446ee63c8e47070a481297df85` before installation.
 - Confirm the displayed version/build identity matches the supplied candidate.
 - Launch, open an existing representative project and create/open one normal Guitar template project.
 - No startup crash, missing project, corrupted timeline or unexplained data loss.
@@ -72,12 +72,12 @@ M7/final hardening may close only when:
 
 PR #1 was separately and explicitly merged before physical homologation. Record the physical result and final approval directly on `main`.
 
-## Final signed RC evidence — 2026-09-11
-- Candidate: `GuitarLabStudio-0.4.0-rc1-homologacao.apk` (`versionName 0.4.0-rc1`, `versionCode 19`).
-- Exact source commit: `66108182d9a733930139a84e4f6b9525172bb9aa`.
-- Canonical GitHub Actions run: [#590](https://github.com/anfalcir/guitarlab/actions/runs/34593159502).
+## Final signed RC evidence — 2026-09-12
+- Candidate: `GuitarLabStudio-0.4.0-rc2-homologacao.apk` (`versionName 0.4.0-rc2`, `versionCode 20`).
+- Exact source commit: `573015d9bb98c704074ab7c4e731eb9a9dec6a2e`.
+- Canonical GitHub Actions run: [#593](https://github.com/anfalcir/guitarlab/actions/runs/34656567233).
 - Result: software gate PASS; Android API 36 full regression PASS; isolated 1920×1200 landscape geometry PASS; signed homologation job PASS.
-- APK SHA-256: `604f13b83e27021201101fd663dad5c61bca600829ab9565109f48ae23f8e0ad`.
+- APK SHA-256: `b067558e4ef6793df206d3e966faa029aa952b446ee63c8e47070a481297df85`.
 - Signer certificate SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
 - Artifact integrity was independently rechecked against `SHA256SUMS.txt`; APK ZIP structure is valid.
 - Digital hardening and RC production are complete. Only the residual Samsung SM-X230 + Pocket Amp physical homologation remains before explicit M7/M8 closure.

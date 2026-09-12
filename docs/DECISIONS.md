@@ -1,6 +1,6 @@
 # Architectural and Product Decisions
 
-Updated: 2026-09-10
+Updated: 2026-09-12
 
 This log records decisions that must survive chat/context loss. Historical decisions remain binding unless a later numbered decision explicitly supersedes them.
 

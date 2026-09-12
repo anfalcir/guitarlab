@@ -19,15 +19,15 @@ Read first:
 - `docs/HISTORICAL_CANDIDATES.md` — superseded candidates.
 
 ## Final signed RC
-The digitally validated homologation candidate is `0.4.0-rc1` (versionCode 19), built from commit `66108182d9a733930139a84e4f6b9525172bb9aa` by GitHub Actions run [#590](https://github.com/anfalcir/guitarlab/actions/runs/34593159502). SHA-256: `604f13b83e27021201101fd663dad5c61bca600829ab9565109f48ae23f8e0ad`. Only the residual physical Samsung/Pocket Amp checklist remains.
+The digitally validated homologation candidate is `0.4.0-rc2` (versionCode 20), built from commit `573015d9bb98c704074ab7c4e731eb9a9dec6a2e` by GitHub Actions run [#593](https://github.com/anfalcir/guitarlab/actions/runs/34656567233). SHA-256: `b067558e4ef6793df206d3e966faa029aa952b446ee63c8e47070a481297df85`. Only the residual physical Samsung/Pocket Amp checklist remains.
 
 ## Current development state
-- `main`: canonical branch containing the digitally validated signed `0.4.0-rc1` homologation candidate;
+- `main`: canonical branch containing the digitally validated signed `0.4.0-rc2` homologation candidate;
 - historical integration branch: `dev/parallel-m3-m5`; PR #1 merged into `main` on 2026-09-11;
 - M5: PASS/CLOSED by explicit physical approval of `0.2.0-alpha14`;
 - M6: PASS/CLOSED by explicit physical approval of `0.3.0-alpha1`;
 - M7/M8 digital scope: PASS for the exact signed RC; residual physical homologation remains OPEN.
-- Final candidate: `0.4.0-rc1`, versionCode 19, commit `66108182d9a733930139a84e4f6b9525172bb9aa`, CI #590.
+- Final candidate: `0.4.0-rc2`, versionCode 20, commit `573015d9bb98c704074ab7c4e731eb9a9dec6a2e`, CI #593.
 
 Post-alpha2 hardening covers managed-media loss prevention/recovery, process-death staging cleanup, lossless interrupted-recording preservation and WAV-header repair, safer SAF publication, deterministic codec timestamps, FLAC container correction, accessibility semantics, JVM performance evidence and Android API 36 instrumented regression.
 
@@ -42,5 +42,5 @@ Automatable mathematics, persistence invariants, malformed-input handling, lifec
 ## Security
 Never commit keystores, credentials, local SDK configuration or secret artifacts.
 
-## RC2 interface candidate
-The next signed candidate is `0.4.0-rc2` (versionCode 20). It rebalances the Studio without changing audio behavior: the complete transport/navigation group is centered on the full top bar; current time remains represented by the playhead; remaining time is removed; track count, clip count and total project duration move to the Pistas header; and Adicionar pista becomes an explicit footer action below the final track. This candidate remains pending the single manually dispatched full API 36 + signed homologation gate and does not supersede the validated RC1 until that gate passes.
+## RC2 Studio refinement
+`0.4.0-rc2` rebalances the Studio without changing audio behavior: the complete transport/navigation group is centered on the full top bar; current time remains represented by the playhead; remaining time is removed; track count, clip count and total project duration move to the Pistas header; and Adicionar pista becomes an explicit footer action below the final track. The full manual digital gate passed and RC2 supersedes RC1 as the active homologation candidate.

@@ -70,17 +70,17 @@ Still physical by nature:
 - subjective monitoring/latency/listening.
 
 ### M8.C — Release Candidate — DIGITAL PASS / PHYSICAL PENDING
-Completed for the exact `0.4.0-rc1` candidate: canonical dual gate PASS, isolated target-tablet geometry PASS, signed APK produced, signer identity verified and SHA-256 recorded. The remaining action is the residual Samsung/Pocket Amp checklist followed by explicit user approval. PR #1 was explicitly merged into `main` after the signed digital gate passed. Final physical results and release closure will be recorded on `main`.
+Completed for the exact `0.4.0-rc2` candidate: canonical dual gate PASS, isolated target-tablet geometry PASS, signed APK produced, signer identity verified and SHA-256 recorded. The remaining action is the residual Samsung/Pocket Amp checklist followed by explicit user approval. PR #1 was explicitly merged into `main`; final physical results and release closure will be recorded directly on `main`.
 
 ## Gate discipline
 `.github/workflows/android-ci.yml` is canonical. A signed homologation APK is forbidden unless both `software-gate` and `android-integration-gate` succeed for that exact workflow run. Documentation must distinguish JVM/CI evidence, emulator evidence and target-hardware evidence.
 
-## Final signed RC evidence — 2026-09-11
-- Candidate: `GuitarLabStudio-0.4.0-rc1-homologacao.apk` (`versionName 0.4.0-rc1`, `versionCode 19`).
-- Exact source commit: `66108182d9a733930139a84e4f6b9525172bb9aa`.
-- Canonical GitHub Actions run: [#590](https://github.com/anfalcir/guitarlab/actions/runs/34593159502).
+## Final signed RC evidence — 2026-09-12
+- Candidate: `GuitarLabStudio-0.4.0-rc2-homologacao.apk` (`versionName 0.4.0-rc2`, `versionCode 20`).
+- Exact source commit: `573015d9bb98c704074ab7c4e731eb9a9dec6a2e`.
+- Canonical GitHub Actions run: [#593](https://github.com/anfalcir/guitarlab/actions/runs/34656567233).
 - Result: software gate PASS; Android API 36 full regression PASS; isolated 1920×1200 landscape geometry PASS; signed homologation job PASS.
-- APK SHA-256: `604f13b83e27021201101fd663dad5c61bca600829ab9565109f48ae23f8e0ad`.
+- APK SHA-256: `b067558e4ef6793df206d3e966faa029aa952b446ee63c8e47070a481297df85`.
 - Signer certificate SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
 - Artifact integrity was independently rechecked against `SHA256SUMS.txt`; APK ZIP structure is valid.
 - Digital hardening and RC production are complete. Only the residual Samsung SM-X230 + Pocket Amp physical homologation remains before explicit M7/M8 closure.

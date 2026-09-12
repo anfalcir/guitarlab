@@ -11,14 +11,14 @@ Updated: 2026-09-11
 - M3/M4: absorbed
 - M5: **PASS/CLOSED by explicit user physical approval of `0.2.0-alpha14`**
 - M6: **PASS/CLOSED by explicit user physical approval of `0.3.0-alpha1`**
-- M7: exact signed candidate `0.4.0-rc1`, versionCode 19; all digital gates PASS; OPEN only for the final residual physical homologation.
+- M7: exact signed candidate `0.4.0-rc2`, versionCode 20; all digital gates PASS; OPEN only for the final residual physical homologation.
 - M8.A/B digital hardening: PASS for the scoped matrix.
 - M8.C RC production: PASS. Final signed artifact produced and verified; residual physical gate pending.
 
 ## Build and gate policy
 Ordinary commits do not trigger GitHub Actions. `scripts/build_local.sh` is the default local software gate. `.github/workflows/android-ci.yml` remains available only through explicit `workflow_dispatch` for a full API 36 emulator/signing run. This preserves the validated pipeline while preventing unintentional consumption of hosted-runner minutes.
 
-The last fully validated signed baseline remains `0.4.0-rc1` / CI #590 until a later candidate completes a real build and validation gate.
+The fully validated signed baseline is `0.4.0-rc2` / CI #593.
 
 ## M7 production audio polish
 M7 includes validated sample-rate conversion, non-destructive fades/crossfades, realtime/offline render parity, larger-session memory discipline and shared Home/Studio save-export behavior.
@@ -59,12 +59,12 @@ Canonical roadmap: `docs/IMPLEMENTATION_ROADMAP.md`.
 Active residual checklist: `docs/M7_ALPHA1_HOMOLOGATION_CHECKLIST.md`.
 Global matrix: `docs/M8_GLOBAL_DIGITAL_REGRESSION.md`.
 
-## Final signed RC evidence — 2026-09-11
-- Candidate: `GuitarLabStudio-0.4.0-rc1-homologacao.apk` (`versionName 0.4.0-rc1`, `versionCode 19`).
-- Exact source commit: `66108182d9a733930139a84e4f6b9525172bb9aa`.
-- Canonical GitHub Actions run: [#590](https://github.com/anfalcir/guitarlab/actions/runs/34593159502).
+## Final signed RC evidence — 2026-09-12
+- Candidate: `GuitarLabStudio-0.4.0-rc2-homologacao.apk` (`versionName 0.4.0-rc2`, `versionCode 20`).
+- Exact source commit: `573015d9bb98c704074ab7c4e731eb9a9dec6a2e`.
+- Canonical GitHub Actions run: [#593](https://github.com/anfalcir/guitarlab/actions/runs/34656567233).
 - Result: software gate PASS; Android API 36 full regression PASS; isolated 1920×1200 landscape geometry PASS; signed homologation job PASS.
-- APK SHA-256: `604f13b83e27021201101fd663dad5c61bca600829ab9565109f48ae23f8e0ad`.
+- APK SHA-256: `b067558e4ef6793df206d3e966faa029aa952b446ee63c8e47070a481297df85`.
 - Signer certificate SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
 - Artifact integrity was independently rechecked against `SHA256SUMS.txt`; APK ZIP structure is valid.
 - Digital hardening and RC production are complete. Only the residual Samsung SM-X230 + Pocket Amp physical homologation remains before explicit M7/M8 closure.
@@ -72,8 +72,8 @@ Global matrix: `docs/M8_GLOBAL_DIGITAL_REGRESSION.md`.
 ## Repository promotion
 The validated RC source and synchronized documentation are now on `main`. Final physical homologation results and explicit closure will be recorded directly on `main`.
 
-## RC2 interface candidate — pending manual gate
+## RC2 interface refinement — validated
 - Candidate: `0.4.0-rc2`, versionCode 20.
 - Scope: geometric centering of the complete Studio navigation group; removal of redundant remaining-time readout; project summary (`pistas · clipes · duração total`) in the Pistas header; explicit Adicionar pista footer below the last track.
 - Audio, persistence, codec and routing behavior are unchanged.
-- Promotion status: pending one explicitly dispatched full API 36 emulator gate and signed artifact verification. RC1 remains the last validated baseline until this completes.
+- Promotion status: PASS in CI #593. RC2 supersedes RC1 as the active physical-homologation candidate.
