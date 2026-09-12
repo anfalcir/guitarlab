@@ -40,7 +40,7 @@ Digital/model/file/codec/lifecycle/accessibility checks are no longer delegated 
 1. final exact-candidate software gate PASS;
 2. final exact-candidate API 36 Android integration gate PASS;
 3. intentional signed homologation build with locked certificate identity;
-4. one residual Samsung/Pocket Amp physical pass covering real USB routing/capture, target MP3 capability, subjective latency/listening quality, real-tablet stress and ergonomics;
+4. one residual Samsung/M-VAVE MK-300 physical pass covering real USB routing/capture, target MP3 capability, subjective latency/listening quality, real-tablet stress and ergonomics;
 5. zero repeatable P0/P1 plus explicit user M7 PASS/CLOSED.
 
 ## M8 — Release hardening
@@ -70,7 +70,7 @@ Still physical by nature:
 - subjective monitoring/latency/listening.
 
 ### M8.C — Release Candidate — DIGITAL PASS / PHYSICAL PENDING
-Completed for the exact `0.4.0-rc2` candidate: canonical dual gate PASS, isolated target-tablet geometry PASS, signed APK produced, signer identity verified and SHA-256 recorded. The remaining action is the residual Samsung/Pocket Amp checklist followed by explicit user approval. PR #1 was explicitly merged into `main`; final physical results and release closure will be recorded directly on `main`.
+Completed for the exact `0.4.0-rc2` candidate: canonical dual gate PASS, isolated target-tablet geometry PASS, signed APK produced, signer identity verified and SHA-256 recorded. The remaining action is the residual Samsung/M-VAVE MK-300 checklist followed by explicit user approval. PR #1 was explicitly merged into `main`; final physical results and release closure will be recorded directly on `main`.
 
 ## Gate discipline
 `.github/workflows/android-ci.yml` is canonical. A signed homologation APK is forbidden unless both `software-gate` and `android-integration-gate` succeed for that exact workflow run. Documentation must distinguish JVM/CI evidence, emulator evidence and target-hardware evidence.
@@ -83,4 +83,4 @@ Completed for the exact `0.4.0-rc2` candidate: canonical dual gate PASS, isolate
 - APK SHA-256: `b067558e4ef6793df206d3e966faa029aa952b446ee63c8e47070a481297df85`.
 - Signer certificate SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
 - Artifact integrity was independently rechecked against `SHA256SUMS.txt`; APK ZIP structure is valid.
-- Digital hardening and RC production are complete. Only the residual Samsung SM-X230 + Pocket Amp physical homologation remains before explicit M7/M8 closure.
+- Digital hardening and RC production are complete. Only the residual Samsung SM-X230 + M-VAVE MK-300 physical homologation remains before explicit M7/M8 closure.

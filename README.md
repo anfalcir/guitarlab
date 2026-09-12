@@ -19,7 +19,7 @@ Read first:
 - `docs/HISTORICAL_CANDIDATES.md` — superseded candidates.
 
 ## Final signed RC
-The digitally validated homologation candidate is `0.4.0-rc2` (versionCode 20), built from commit `573015d9bb98c704074ab7c4e731eb9a9dec6a2e` by GitHub Actions run [#593](https://github.com/anfalcir/guitarlab/actions/runs/34656567233). SHA-256: `b067558e4ef6793df206d3e966faa029aa952b446ee63c8e47070a481297df85`. Only the residual physical Samsung/Pocket Amp checklist remains.
+The digitally validated homologation candidate is `0.4.0-rc2` (versionCode 20), built from commit `573015d9bb98c704074ab7c4e731eb9a9dec6a2e` by GitHub Actions run [#593](https://github.com/anfalcir/guitarlab/actions/runs/34656567233). SHA-256: `b067558e4ef6793df206d3e966faa029aa952b446ee63c8e47070a481297df85`. Only the residual physical Samsung/M-VAVE MK-300 checklist remains.
 
 ## Current development state
 - `main`: canonical branch containing the digitally validated signed `0.4.0-rc2` homologation candidate;
@@ -37,7 +37,7 @@ Post-alpha2 hardening covers managed-media loss prevention/recovery, process-dea
 `.github/workflows/android-ci.yml` is retained as a manual emergency/full-emulator gate only. It has no `push` or `pull_request` trigger, so ordinary commits consume no GitHub Actions minutes. A signed manual run still requires both software and Android integration jobs to pass before signing.
 
 ## Physical validation policy
-Automatable mathematics, persistence invariants, malformed-input handling, lifecycle recreation, codec structure and UI semantics are not delegated back to the user. The final physical gate is intentionally residual: Samsung/Pocket Amp USB routing and capture, target-specific MP3 encoder availability, subjective latency/listening quality, real-tablet stress and tactile/visual ergonomics.
+Automatable mathematics, persistence invariants, malformed-input handling, lifecycle recreation, codec structure and UI semantics are not delegated back to the user. The final physical gate is intentionally residual: Samsung/M-VAVE MK-300 USB routing and capture, target-specific MP3 encoder availability, subjective latency/listening quality, real-tablet stress and tactile/visual ergonomics.
 
 ## Security
 Never commit keystores, credentials, local SDK configuration or secret artifacts.

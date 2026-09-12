@@ -46,7 +46,7 @@ Deterministic JVM/CI scenarios cover Small 5 tracks/10 clips, Medium 12/50 and L
 
 ## Residual physical gate
 The final user homologation is deliberately limited to facts that cannot be established objectively in CI:
-- actual Samsung SM-X230 + Pocket Amp USB input/output routing and guitar capture;
+- actual Samsung SM-X230 + M-VAVE MK-300 USB input/output routing and guitar capture;
 - subjective/real-route latency and monitoring feel;
 - MP3 export availability/playability on that exact Samsung device;
 - listening for hardware-route pops/dropouts/pitch or transition artifacts;
@@ -67,7 +67,7 @@ Global matrix: `docs/M8_GLOBAL_DIGITAL_REGRESSION.md`.
 - APK SHA-256: `b067558e4ef6793df206d3e966faa029aa952b446ee63c8e47070a481297df85`.
 - Signer certificate SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
 - Artifact integrity was independently rechecked against `SHA256SUMS.txt`; APK ZIP structure is valid.
-- Digital hardening and RC production are complete. Only the residual Samsung SM-X230 + Pocket Amp physical homologation remains before explicit M7/M8 closure.
+- Digital hardening and RC production are complete. Only the residual Samsung SM-X230 + M-VAVE MK-300 physical homologation remains before explicit M7/M8 closure.
 
 ## Repository promotion
 The validated RC source and synchronized documentation are now on `main`. Final physical homologation results and explicit closure will be recorded directly on `main`.

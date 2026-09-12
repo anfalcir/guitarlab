@@ -64,7 +64,7 @@ The API 36 AVD uses a pinned snapshot cache. Signing remains skipped unless expl
 
 ## Remaining physical checklist
 1. Install only the final signed RC on Samsung SM-X230.
-2. Connect Pocket Amp and confirm real USB input/output plus real guitar recording/monitoring.
+2. Connect the M-VAVE MK-300 and confirm real USB input/output plus real guitar recording/monitoring.
 3. Judge subjective latency/feel and listen for pops/dropouts/route artifacts.
 4. Validate actual Samsung MP3 encoder availability/playability.
 5. Stress one representative larger session and confirm touch/layout ergonomics.
@@ -83,7 +83,7 @@ The headless Home overflow popup assertion was removed after repeated evidence s
 - APK SHA-256: `b067558e4ef6793df206d3e966faa029aa952b446ee63c8e47070a481297df85`.
 - Signer certificate SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
 - Artifact integrity was independently rechecked against `SHA256SUMS.txt`; APK ZIP structure is valid.
-- Digital hardening and RC production are complete. Only the residual Samsung SM-X230 + Pocket Amp physical homologation remains before explicit M7/M8 closure.
+- Digital hardening and RC production are complete. Only the residual Samsung SM-X230 + M-VAVE MK-300 physical homologation remains before explicit M7/M8 closure.
 
 ## Canonical branch
 PR #1 was explicitly merged as `12aaa1c7d5762c1d4dd99e273418ed5b0c25c352`. `main` is now the source of truth for physical homologation evidence and final closure.

@@ -156,3 +156,6 @@ The default gate is `scripts/build_local.sh` on a prepared Android build host. G
 
 ## D-051 — Studio navigation is centered as one unit
 The complete transport/navigation control group is geometrically centered on the full Studio top bar; no individual control (including Play) is privileged as the center anchor. The current position remains conveyed by the playhead and remaining time is not duplicated. General project summary belongs to the Pistas header, while Adicionar pista is placed below the final track as an explicit workspace action.
+
+## D-052 — Current physical target is M-VAVE MK-300
+Historical Pocket Amp results remain valid evidence for the hardware combination tested at the time, but the active residual homologation target is Samsung SM-X230 plus M-VAVE MK-300 over USB. Final routing, capture, monitoring, reconnect, latency/listening and ergonomics evidence must use that current setup.

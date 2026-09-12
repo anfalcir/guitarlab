@@ -6,7 +6,7 @@ Legend:
 - **IMPLEMENTED** — code path exists;
 - **JVM VERIFIED** — deterministic core/software tests pass;
 - **EMULATOR VERIFIED** — Android API 36 instrumented integration passes;
-- **TARGET VERIFIED** — representative physical Samsung/Pocket Amp/device gate passes where target hardware matters;
+- **TARGET VERIFIED** — representative physical Samsung/M-VAVE MK-300/device gate passes where target hardware matters;
 - **DEVICE-GATED** — availability depends on codecs exposed by the actual Android device.
 
 A capability is never promoted merely because code compiles.

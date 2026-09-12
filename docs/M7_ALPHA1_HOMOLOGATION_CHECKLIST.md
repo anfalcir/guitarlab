@@ -4,7 +4,7 @@ Updated: 2026-09-11
 
 > Historical filename retained for compatibility. Homologate only `GuitarLabStudio-0.4.0-rc2-homologacao.apk` from commit `573015d9bb98c704074ab7c4e731eb9a9dec6a2e`. Its automated gates and signature verification passed in CI #593.
 
-Target: Samsung SM-X230 Android 16/API36 + Pocket Amp USB audio + normal GuitarLab guitar workflow.
+Target: Samsung SM-X230 Android 16/API36 + M-VAVE MK-300 USB audio + normal GuitarLab guitar workflow.
 
 ## Already removed from the user's physical burden
 The following have objective automated evidence and must not be manually re-proven:
@@ -28,13 +28,13 @@ The following have objective automated evidence and must not be manually re-prov
 - Launch, open an existing representative project and create/open one normal Guitar template project.
 - No startup crash, missing project, corrupted timeline or unexplained data loss.
 
-## 2. Pocket Amp USB route and real guitar capture
-- Connect Pocket Amp through the intended hub/cabling and select/confirm the normal GuitarLab input/output route.
+## 2. M-VAVE MK-300 USB route and real guitar capture
+- Connect the MK-300 through the intended hub/cabling and select/confirm the normal GuitarLab input/output route.
 - Confirm playback reaches the intended headphones/output correctly.
 - Arm one `My Guitar` track, record a short real guitar take, stop, play it back and reopen the project.
 - Confirm the take is present, correctly associated with the armed track, audible on both intended playback channels according to project routing, and remains after restart/reopen.
 - Exercise monitoring in the normal playing workflow and judge whether latency/feel is acceptable.
-- Disconnect/reconnect the Pocket Amp once and confirm the app fails/revalidates safely rather than silently recording through an unintended route.
+- Disconnect/reconnect the MK-300 once and confirm the app fails/revalidates safely rather than silently recording through an unintended route.
 
 ## 3. Target-specific MP3 capability
 - Export one short representative master as MP3 from the Samsung target.
@@ -80,4 +80,4 @@ PR #1 was separately and explicitly merged before physical homologation. Record 
 - APK SHA-256: `b067558e4ef6793df206d3e966faa029aa952b446ee63c8e47070a481297df85`.
 - Signer certificate SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
 - Artifact integrity was independently rechecked against `SHA256SUMS.txt`; APK ZIP structure is valid.
-- Digital hardening and RC production are complete. Only the residual Samsung SM-X230 + Pocket Amp physical homologation remains before explicit M7/M8 closure.
+- Digital hardening and RC production are complete. Only the residual Samsung SM-X230 + M-VAVE MK-300 physical homologation remains before explicit M7/M8 closure.

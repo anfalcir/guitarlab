@@ -50,7 +50,7 @@ Target V1 interoperability includes WAV PCM, FLAC, AIFF/AIFC PCM, MP3, AAC/M4A, 
 
 ## Recording and audio I/O
 - Android input/output discovery and route visibility.
-- USB host support, especially Pocket Amp-class interfaces.
+- USB host support, especially M-VAVE MK-300-class interfaces.
 - Safe microphone permission/privacy handling.
 - Production playback/capture path distinct from diagnostics.
 - Duplex startup must avoid starvation artifacts and route loss must fail predictably.
