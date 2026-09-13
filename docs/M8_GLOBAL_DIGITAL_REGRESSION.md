@@ -2,13 +2,17 @@
 
 Updated: 2026-09-11
 
-Final signed RC: `0.4.0-rc2`, commit `573015d9bb98c704074ab7c4e731eb9a9dec6a2e`, canonical CI #593.
+Active signed candidate: `0.5.0-rc1`, source `5a14e4d6522ab9cc53eb8e1dd80a03306fc9d248`. RC2/CI #593 remains the latest fully executed API 36 and 1920×1200 emulator baseline.
 
 ## Objective coverage matrix
 
 | Area | Automatic/digital evidence | Residual physical need | Status |
 |---|---|---|---|
 | Project factory/template/roles/names | JVM model tests | none | PASS |
+| Live recording waveform | bounded accumulator tests + UI/instrumentation compilation | observe real capture cadence | PASS logic / physical visual residual |
+| Selected USB input | fail-closed route policy tests | confirm MK-300 effective route | PASS policy / physical route residual |
+| Takes/audition/punch/sections/level | model/editor policy and invariant tests | workflow ergonomics and listening | PASS logic / physical UX residual |
+| Transport recovery | state policy + active engine interruption/flush/join | repeated real-device smoke | PASS logic / physical residual |
 | Save/load/list/delete | filesystem repository tests | none | PASS |
 | Duplicate project + managed media | source/proxy byte comparison, collision/missing-media rollback | none | PASS |
 | `.guitarlab` writer/reader | ZIP round trip, traversal, duplicate/ambiguous paths, version, zero/truncated input, interrupted staging and rollback | none | PASS |

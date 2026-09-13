@@ -1,83 +1,54 @@
-# M7 — Final Residual Physical Homologation Checklist
+# Final Physical Homologation — GuitarLab 0.5.0-rc1
 
-Updated: 2026-09-11
+Updated: 2026-09-13
 
-> Historical filename retained for compatibility. Homologate only `GuitarLabStudio-0.4.0-rc2-homologacao.apk` from commit `573015d9bb98c704074ab7c4e731eb9a9dec6a2e`. Its automated gates and signature verification passed in CI #593.
+Use only `GuitarLabStudio-0.5.0-rc1-homologacao.apk`.
 
-Target: Samsung SM-X230 Android 16/API36 + M-VAVE MK-300 USB audio + normal GuitarLab guitar workflow.
+- versionCode: 21
+- source: `5a14e4d6522ab9cc53eb8e1dd80a03306fc9d248`
+- APK SHA-256: `5e343a9016cb5ea8fa9e381061ffb789667a6529a3b706fec7de9eb7bec9d1a5`
+- signer SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`
 
-## Already removed from the user's physical burden
-The following have objective automated evidence and must not be manually re-proven:
-- project factory/templates/roles/names and save/load/history invariants;
-- malformed/legacy `.guitarlab` migration, traversal/duplicate-path protection and rollback;
-- managed source/proxy duplication and orphan/safe-derived policies;
-- SRC mathematical duration/pitch/RMS/channel invariants and same-rate byte behavior;
-- deterministic master placement/gain/pan/mute/solo/fade/crossfade/clipping logic;
-- realtime/offline PCM-kernel parity;
-- interrupted import staging cleanup;
-- lossless interrupted-recording preservation and canonical Float32 WAV-header repair;
-- Android encoder timestamp monotonicity;
-- FLAC `fLaC`/STREAMINFO structure plus native API 36 extraction/decoding at 48 kHz stereo;
-- Activity recreation route restoration;
-- Mixer Mute/Solo/Arm semantics/callbacks and non-colliding instrumented control centers;
-- structural Small/Medium/Large project/bundle/render regression.
+Target: Samsung SM-X230 + M-VAVE MK-300 over USB, with MK-300 USB loopback disabled.
 
-## 1. Candidate identity and launch
-- Install `GuitarLabStudio-0.4.0-rc2-homologacao.apk` only. Verify SHA-256 `b067558e4ef6793df206d3e966faa029aa952b446ee63c8e47070a481297df85` before installation.
-- Confirm the displayed version/build identity matches the supplied candidate.
-- Launch, open an existing representative project and create/open one normal Guitar template project.
-- No startup crash, missing project, corrupted timeline or unexplained data loss.
+## 1. Install and persistence
+- Install over the previous signed candidate.
+- Open an existing project and confirm tracks/clips remain intact.
+- Reopen after a full app restart.
 
-## 2. M-VAVE MK-300 USB route and real guitar capture
-- Connect the MK-300 through the intended hub/cabling and select/confirm the normal GuitarLab input/output route.
-- Confirm playback reaches the intended headphones/output correctly.
-- Arm one `My Guitar` track, record a short real guitar take, stop, play it back and reopen the project.
-- Confirm the take is present, correctly associated with the armed track, audible on both intended playback channels according to project routing, and remains after restart/reopen.
-- Exercise monitoring in the normal playing workflow and judge whether latency/feel is acceptable.
-- Disconnect/reconnect the MK-300 once and confirm the app fails/revalidates safely rather than silently recording through an unintended route.
+## 2. Capture isolation and live waveform
+- Select MK-300 explicitly as input and intended MK-300 output.
+- Play a backing track, arm only one My Guitar track and start recording.
+- Confirm the waveform grows visibly during capture.
+- Confirm Play/Stop is visibly disabled while recording and REC stops the take.
+- Play the take solo: it must contain the guitar input, not the backing track.
+- Repeat with monitoring Off, Auto and On; these modes must not change recorded-file contents.
+- Disconnect the selected input during a short take: capture must stop safely and must not fall back to the tablet microphone.
 
-## 3. Target-specific MP3 capability
-- Export one short representative master as MP3 from the Samsung target.
-- If MP3 is offered and the device encoder succeeds, confirm the output is nonempty and playable on the device.
-- Any controlled message that the device lacks a compatible MP3 encoder must be recorded as a target capability result, not as silent corruption.
-- WAV/FLAC need only a quick smoke/listen here; their structural/container mathematics are already digitally gated.
+## 3. Transport recovery
+- During playback press `|<`; playback must continue from the beginning.
+- Start/stop playback repeatedly, then record and return to playback.
+- Close/reopen the same project and verify Play remains responsive.
 
-## 4. Sensory audio smoke
-Using a project that contains normal clips plus at least one fade/crossfade and, if convenient, a converted-rate source:
-- play through transitions and seek around the timeline;
-- listen for repeatable pops, dropouts, wrong pitch/speed, one-sided unintended playback or obvious realtime/offline mismatch;
-- export a short master and perform one subjective comparison with realtime playback.
-This is a listening sanity check only; do not manually measure SRC ratios or sample-domain envelopes.
+## 4. Practice workflow
+- Create/remove a marker.
+- Create a section from the loop and loop it.
+- Run automatic section suggestions, review, accept or discard explicitly.
+- Record at least two takes on one track and switch the active take.
+- Compare Reference, My Guitar and Both.
+- Create a punch region from the loop and verify the retained take aligns with that region.
+- Run level analysis and audition before explicitly applying any suggested gain.
 
-## 5. Real-tablet stress and ergonomics
-Use a representative multi-track/multi-clip project:
-- play, seek and loop;
-- open Mixer and operate Mute/Solo/Arm/Pan/volume;
-- perform representative drag, trim/split and one fade edit;
-- scroll the timeline/mixer as normally used;
-- confirm no repeatable ANR/crash, progressive slowdown, unusable touch interaction or layout obstruction on the Samsung tablet.
-
-## 6. Final persistence/export smoke
-- Rename a project, restart/reopen and confirm the name persists.
-- Save one `.guitarlab` package and reopen it as an independent project.
-- Confirm the original project/source media remain intact.
-- Perform one final export from the normal user flow.
+## 5. Real-device audio and stress
+- Judge monitoring latency/feel and listen for repeatable pops, dropouts, wrong pitch/speed or unintended one-sided audio.
+- Exercise a representative multi-track project, seeking, looping, Mixer and edits.
+- Export a short WAV/FLAC and, if supported by this Samsung, MP3; confirm playability.
 
 ## PASS criteria
-M7/final hardening may close only when:
-- the exact final signed RC passed both automated gates before signing;
-- this residual checklist has no repeatable P0/P1;
-- any device-specific MP3 limitation is explicitly understood/accepted rather than hidden;
-- the user explicitly approves the final candidate.
+- no repeatable P0/P1;
+- no backing leakage attributable to GuitarLab;
+- no unintended input fallback;
+- recording waveform, transport recovery and take/punch workflows behave as specified;
+- explicit user approval of this exact APK.
 
-PR #1 was separately and explicitly merged before physical homologation. Record the physical result and final approval directly on `main`.
-
-## Final signed RC evidence — 2026-09-12
-- Candidate: `GuitarLabStudio-0.4.0-rc2-homologacao.apk` (`versionName 0.4.0-rc2`, `versionCode 20`).
-- Exact source commit: `573015d9bb98c704074ab7c4e731eb9a9dec6a2e`.
-- Canonical GitHub Actions run: [#593](https://github.com/anfalcir/guitarlab/actions/runs/34656567233).
-- Result: software gate PASS; Android API 36 full regression PASS; isolated 1920×1200 landscape geometry PASS; signed homologation job PASS.
-- APK SHA-256: `b067558e4ef6793df206d3e966faa029aa952b446ee63c8e47070a481297df85`.
-- Signer certificate SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
-- Artifact integrity was independently rechecked against `SHA256SUMS.txt`; APK ZIP structure is valid.
-- Digital hardening and RC production are complete. Only the residual Samsung SM-X230 + M-VAVE MK-300 physical homologation remains before explicit M7/M8 closure.
+Mathematical audio invariants, persistence/package validation, generic codec structure and previous full API 36 geometry regression are already automated and should not be manually repeated.

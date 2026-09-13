@@ -2,6 +2,11 @@
 
 Updated: 2026-09-11
 
+## Active RC1 evidence
+For `0.5.0-rc1` / source `5a14e4d6522ab9cc53eb8e1dd80a03306fc9d248`, the local pinned build host passed `git diff --check`, JVM tests, Lint, debug APK, Android test APK compilation and signed release assembly. Signature, certificate, package identity and ZIP integrity were independently verified. The preceding RC2 remains the latest full API 36/1920×1200 executed emulator baseline.
+
+RC1-specific automated coverage includes bounded waveform accumulation, fail-closed route policy, transport interaction, take activation/invariants, audition policy, punch calculations, section suggestions, level advice and take-reference reconciliation.
+
 ## Canonical gate execution
 Ordinary commits do not start hosted CI. The default software gate is `scripts/build_local.sh` on a prepared Android build host. The full API 36 emulator/signing workflow remains available only through explicit manual dispatch in `.github/workflows/android-ci.yml`.
 

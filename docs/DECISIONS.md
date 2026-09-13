@@ -159,3 +159,18 @@ The complete transport/navigation control group is geometrically centered on the
 
 ## D-052 — Current physical target is M-VAVE MK-300
 Historical Pocket Amp results remain valid evidence for the hardware combination tested at the time, but the active residual homologation target is Samsung SM-X230 plus M-VAVE MK-300 over USB. Final routing, capture, monitoring, reconnect, latency/listening and ergonomics evidence must use that current setup.
+
+## D-053 — Explicit recording input fails closed
+When a user selects an input, Android must confirm the same effective `AudioRecord` route before capture is accepted and throughout the session. Missing/mismatched routing stops safely; silent fallback to the tablet microphone is forbidden.
+
+## D-054 — Monitoring never defines recorded content
+Off/Auto/On controls only software return to output. Backing playback and monitor output have no software path into the recording writer. Hardware loopback remains an external condition and must be disabled for isolation homologation.
+
+## D-055 — Takes are non-destructive with one active take
+Multiple takes may remain attached to one track, but validation requires exactly one active take whenever takes exist. Timeline playback and master export use active-take clips; editing operations must reconcile references transactionally.
+
+## D-056 — Analysis produces reviewable suggestions
+Automatic section detection and level analysis never mutate creative state silently. Suggestions are bounded and become persistent only after explicit acceptance/application.
+
+## D-057 — Hosted CI is optional, evidence is mandatory
+GitHub Actions stays manual-only. A local pinned toolchain may establish software/build/signature evidence; emulator-only and physical-only claims must remain explicitly distinguished.

@@ -57,6 +57,10 @@ Target V1 interoperability includes WAV PCM, FLAC, AIFF/AIFC PCM, MP3, AAC/M4A, 
 - Record uses visible countdown and zero-time revalidation of permission, route, project and exactly one armed track.
 - Finalized takes enter immutable managed storage transactionally; zero-frame attempts create no clip.
 - Valid takes create clip + waveform at the recording start position.
+- The armed track must show a bounded live waveform during capture.
+- Explicitly selected input must fail closed unless Android confirms that effective route; microphone fallback is forbidden.
+- Playback/backing and monitoring return must never be mixed into the app's recording writer.
+- A track may retain multiple takes, with exactly one active take used by playback and export.
 
 ## Transport and monitoring
 - Canonical transport states: STOPPED, PLAYING, RECORDING.
@@ -64,6 +68,15 @@ Target V1 interoperability includes WAV PCM, FLAC, AIFF/AIFC PCM, MP3, AAC/M4A, 
 - Structural timeline editing is locked during incompatible active transport/recording states.
 - Hardware-presented audio clock drives playback UI where implemented.
 - Monitoring is explicit and route-aware.
+- Return-to-start remains available during playback.
+- Play/Stop is visibly disabled during recording; REC is the recording stop control.
+
+## Practice workflow
+- Support Reference, My Guitar and Both audition modes.
+- Persist markers, named sections and loop selection.
+- Automatic section analysis creates reviewable suggestions and never commits silently.
+- Punch recording derives its region from the loop and accounts for pre-roll, post-roll and calibrated latency.
+- Track level analysis reports RMS/peak and offers a bounded recommendation that requires explicit application.
 
 ## Mixing
 Track gain/pan/mute/solo, clip gain, summing, meters and Master gain are part of the current Studio contract. More advanced processing is additive and must not block the core guitar practice/recording workflow.

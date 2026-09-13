@@ -19,15 +19,17 @@ Read first:
 - `docs/HISTORICAL_CANDIDATES.md` — superseded candidates.
 
 ## Final signed RC
-The digitally validated homologation candidate is `0.4.0-rc2` (versionCode 20), built from commit `573015d9bb98c704074ab7c4e731eb9a9dec6a2e` by GitHub Actions run [#593](https://github.com/anfalcir/guitarlab/actions/runs/34656567233). SHA-256: `b067558e4ef6793df206d3e966faa029aa952b446ee63c8e47070a481297df85`. Only the residual physical Samsung/M-VAVE MK-300 checklist remains.
+The active homologation candidate is `0.5.0-rc1` (versionCode 21), source commit `5a14e4d6522ab9cc53eb8e1dd80a03306fc9d248`. APK SHA-256: `5e343a9016cb5ea8fa9e381061ffb789667a6529a3b706fec7de9eb7bec9d1a5`. It passed the local software, Lint, debug/test-APK compilation, signed release, certificate and artifact-integrity gates. RC2/CI #593 remains the latest full API 36 and 1920×1200 emulator baseline.
 
 ## Current development state
-- `main`: canonical branch containing the digitally validated signed `0.4.0-rc2` homologation candidate;
+- `main`: canonical branch promoted to the signed `0.5.0-rc1` homologation candidate after local digital validation;
 - historical integration branch: `dev/parallel-m3-m5`; PR #1 merged into `main` on 2026-09-11;
 - M5: PASS/CLOSED by explicit physical approval of `0.2.0-alpha14`;
 - M6: PASS/CLOSED by explicit physical approval of `0.3.0-alpha1`;
 - M7/M8 digital scope: PASS for the exact signed RC; residual physical homologation remains OPEN.
-- Final candidate: `0.4.0-rc2`, versionCode 20, commit `573015d9bb98c704074ab7c4e731eb9a9dec6a2e`, CI #593.
+- Final candidate: `0.5.0-rc1`, versionCode 21, commit `5a14e4d6522ab9cc53eb8e1dd80a03306fc9d248`.
+
+RC1 adds live recording waveform, strict selected-input confirmation, resilient transport stop/restart, take comparison, markers/sections, punch recording and level guidance. See `docs/RELEASE_NOTES_0.5.0-rc1.md`.
 
 Post-alpha2 hardening covers managed-media loss prevention/recovery, process-death staging cleanup, lossless interrupted-recording preservation and WAV-header repair, safer SAF publication, deterministic codec timestamps, FLAC container correction, accessibility semantics, JVM performance evidence and Android API 36 instrumented regression.
 
@@ -43,4 +45,4 @@ Automatable mathematics, persistence invariants, malformed-input handling, lifec
 Never commit keystores, credentials, local SDK configuration or secret artifacts.
 
 ## RC2 Studio refinement
-`0.4.0-rc2` rebalances the Studio without changing audio behavior: the complete transport/navigation group is centered on the full top bar; current time remains represented by the playhead; remaining time is removed; track count, clip count and total project duration move to the Pistas header; and Adicionar pista becomes an explicit footer action below the final track. The full manual digital gate passed and RC2 supersedes RC1 as the active homologation candidate.
+`0.4.0-rc2` introduced the current Studio layout: the complete transport/navigation group is centered on the full top bar; current time remains represented by the playhead; remaining time is removed; track count, clip count and total project duration live in the Pistas header; and Adicionar pista is an explicit footer action. These refinements remain in `0.5.0-rc1`.

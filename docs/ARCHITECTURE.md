@@ -65,6 +65,13 @@ Saveable navigation routes are encoded/decoded by a pure route codec and tested 
 ## Current milestone boundary
 M5 and M6 are closed. M7 is technically hardened and remains open for one residual target-device gate. M8.A/B automated release hardening is covered for the current scope; M8.C is final exact-candidate/signing/physical closure work.
 
+## RC1 recording and practice architecture
+Recording owns a dedicated AudioRecord input stream and managed Float32 writer. Playback/backing and software monitoring do not feed that writer. When an input was explicitly selected, capture begins only after `AudioRecord.routedDevice` confirms that exact device and stops if the route changes.
+
+Live waveform data is a bounded peak accumulator published as transient UI state; the finalized waveform remains derived from committed media. Takes are persisted metadata with exactly one active take per track, and playback/export/timeline duration consume only active-take clips.
+
+Markers, sections, punch regions and take identity are additive project metadata. Section detection and level analysis produce reviewable suggestions; only explicit user actions commit sections or gain changes.
+
 ## Studio information architecture
 The top bar uses three independent overlays: project title at the start, the complete transport/navigation group at the geometric center of the available screen, and global actions at the end. Centering applies to the navigation group as a unit, not to the Play button. The playhead already communicates current position, so no duplicate current/remaining-time field is shown there.
 
