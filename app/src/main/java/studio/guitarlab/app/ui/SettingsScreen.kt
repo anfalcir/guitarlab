@@ -107,6 +107,8 @@ fun SettingsScreen(
         if (selectedOutput != null && outputChoices.none { it.signature == selectedOutput }) selectedOutput = null
     }
 
+    val routeHealth = routingStore.routeHealth()
+
     Column(Modifier.fillMaxSize().padding(horizontal = 22.dp, vertical = 16.dp)) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
@@ -158,6 +160,19 @@ fun SettingsScreen(
                             routingStore.selectMonitoringMode(mode)
                         },
                     )
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = MaterialTheme.shapes.medium,
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.24f),
+                    ) {
+                        Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                            Text("Rota efetiva", style = MaterialTheme.typography.titleSmall)
+                            Text("Entrada: ${routeHealth.effectiveInput?.let(::audioCapabilities) ?: if (selectedInput == null) "Automática" else "Selecionada, mas indisponível"}", style = MaterialTheme.typography.bodySmall)
+                            Text("Saída: ${routeHealth.effectiveOutput?.let(::audioCapabilities) ?: if (selectedOutput == null) "Automática" else "Selecionada, mas indisponível"}", style = MaterialTheme.typography.bodySmall)
+                            if (routeHealth.mk300Detected) Text("MK-300 detectada", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                            if (!routeHealth.selectedInputAvailable) Text("A gravação será bloqueada: não haverá fallback silencioso para o microfone.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                        }
+                    }
                     OptionRow("Taxa de amostragem", "Automática", "Durante a gravação o Studio respeita a taxa já estabelecida pelo projeto")
                     OptionRow(
                         "Compensação de latência",
@@ -235,6 +250,12 @@ fun SettingsScreen(
     }
 }
 
+private fun audioCapabilities(choice: StudioAudioDeviceChoice): String = buildString {
+    append(choice.label)
+    if (choice.channelCounts.isNotEmpty()) append(" · ${choice.channelCounts.joinToString("/")} canais")
+    if (choice.sampleRates.isNotEmpty()) append(" · ${choice.sampleRates.joinToString("/")} Hz")
+}
+
 @Composable
 private fun MonitoringSelector(mode: MonitoringMode, onSelect: (MonitoringMode) -> Unit) {
     var menuOpen by remember { mutableStateOf(false) }
@@ -257,9 +278,9 @@ private fun MonitoringSelector(mode: MonitoringMode, onSelect: (MonitoringMode) 
                 Text("Monitoramento de entrada", style = MaterialTheme.typography.bodyMedium)
                 Text(
                     when (mode) {
-                        MonitoringMode.OFF -> "Não envia a entrada de volta para a saída pelo app"
-                        MonitoringMode.AUTO -> "Evita retorno duplicado em interfaces USB e ativa somente em rotas seguras"
-                        MonitoringMode.ON -> "Força o retorno da entrada pela saída principal"
+                        MonitoringMode.OFF -> "Não envia a entrada de volta para a saída pelo app; nunca controla o conteúdo gravado"
+                        MonitoringMode.AUTO -> "Evita retorno duplicado em interfaces USB; nunca mistura backing no arquivo gravado"
+                        MonitoringMode.ON -> "Força o retorno da entrada pela saída, sem misturar backing no arquivo gravado"
                     },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,

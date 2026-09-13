@@ -31,6 +31,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CallSplit
@@ -88,12 +89,15 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.delay
 import studio.guitarlab.app.ui.theme.StudioLoop
 import studio.guitarlab.app.ui.theme.StudioPlayhead
+import studio.guitarlab.app.ui.theme.StudioRecord
 import studio.guitarlab.app.ui.theme.StudioTrim
 import studio.guitarlab.core.model.AudioClip
 import studio.guitarlab.core.model.AudioTrack
 import studio.guitarlab.core.model.BuiltInRoles
 import studio.guitarlab.core.model.GuitarProject
 import studio.guitarlab.core.project.RecordingSessionPhase
+import studio.guitarlab.core.project.ActiveTakePolicy
+import studio.guitarlab.core.project.GuitarAuditionMode
 import studio.guitarlab.core.project.TimelineControlPolicy
 import studio.guitarlab.core.project.TimelineControlState
 import studio.guitarlab.core.project.TimelineDragPolicy
@@ -159,6 +163,12 @@ fun StudioPlaceholderScreen(
                 editingClip = state.editingClip,
                 recordingPhase = state.recordingSession.phase,
                 countdownSeconds = state.recordingSession.countdownSecondsRemaining,
+                liveRecordingPeaks = state.liveRecordingPeaks,
+                recordingTrackId = state.recordingSession.targetTrackId,
+                recordingStartFrame = state.recordingSession.timelineStartFrame,
+                recordingFrames = state.recordingSession.framesCaptured,
+                auditionMode = state.guitarAuditionMode,
+                sectionSuggestions = state.sectionSuggestions,
                 selectedTrackId = selectedTrackId,
                 onSelectTrack = onSelectTrack,
                 onOpenTrackSettings = { settingsTrackId = it },
@@ -186,6 +196,17 @@ fun StudioPlaceholderScreen(
                 onCrossfade = viewModel::crossfadeWithNext,
                 onReorderTrack = viewModel::reorderTrack,
                 onMoveClipToTrack = viewModel::moveClipToTrack,
+                onAuditionMode = viewModel::setGuitarAuditionMode,
+                onAddMarker = viewModel::addMarkerAtPlayhead,
+                onAddSection = viewModel::addSectionFromLoop,
+                onSuggestSections = viewModel::suggestSections,
+                onAcceptSections = viewModel::acceptSectionSuggestions,
+                onDiscardSections = viewModel::discardSectionSuggestions,
+                onLoopSection = viewModel::loopSection,
+                onRemoveMarker = viewModel::removeMarker,
+                onRemoveSection = viewModel::removeSection,
+                onSetPunch = viewModel::setPunchFromLoop,
+                onClearPunch = viewModel::clearPunch,
                 modifier = Modifier.fillMaxSize(),
             )
         }
@@ -204,6 +225,11 @@ fun StudioPlaceholderScreen(
             track = settingsTrack,
             clips = project.clips.filter { it.trackId == settingsTrack.id },
             sampleRate = project.sampleRate.fixedHz ?: clipSampleRate(project),
+            takes = project.takes.filter { it.trackId == settingsTrack.id },
+            levelAnalysis = state.trackLevelAnalysis[settingsTrack.id],
+            onActivateTake = viewModel::activateTake,
+            onAnalyzeLevel = { viewModel.analyzeTrackLevel(settingsTrack.id) },
+            onApplyLevel = { viewModel.applyTrackLevelSuggestion(settingsTrack.id) },
             onDismiss = { settingsTrackId = null },
             onSave = { name, colorIndex ->
                 viewModel.updateTrackProperties(settingsTrack.id, name, colorIndex)
@@ -254,6 +280,54 @@ fun StudioPlaceholderScreen(
 }
 
 @Composable
+private fun PracticeControls(
+    project: GuitarProject,
+    auditionMode: GuitarAuditionMode,
+    suggestions: Int,
+    enabled: Boolean,
+    onAuditionMode: (GuitarAuditionMode) -> Unit,
+    onAddMarker: () -> Unit,
+    onAddSection: () -> Unit,
+    onSuggestSections: () -> Unit,
+    onAcceptSections: () -> Unit,
+    onDiscardSections: () -> Unit,
+    onLoopSection: (String) -> Unit,
+    onRemoveMarker: (String) -> Unit,
+    onRemoveSection: (String) -> Unit,
+    onSetPunch: () -> Unit,
+    onClearPunch: () -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(5.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text("Comparar", style = MaterialTheme.typography.labelMedium)
+            GuitarAuditionMode.entries.forEach { mode ->
+                val label = when(mode) { GuitarAuditionMode.MIXER -> "Mixer"; GuitarAuditionMode.REFERENCE -> "Referência"; GuitarAuditionMode.MY_GUITAR -> "Minha"; GuitarAuditionMode.BOTH -> "Ambas" }
+                if (mode == auditionMode) Button(onClick={onAuditionMode(mode)}, contentPadding=PaddingValues(horizontal=10.dp,vertical=2.dp)) { Text(label) }
+                else OutlinedButton(onClick={onAuditionMode(mode)}, contentPadding=PaddingValues(horizontal=10.dp,vertical=2.dp)) { Text(label) }
+            }
+            OutlinedButton(onClick=onAddMarker, enabled=enabled, contentPadding=PaddingValues(horizontal=10.dp,vertical=2.dp)) { Text("+ Marcador") }
+            OutlinedButton(onClick=onAddSection, enabled=enabled, contentPadding=PaddingValues(horizontal=10.dp,vertical=2.dp)) { Text("Seção do loop") }
+            OutlinedButton(onClick=onSuggestSections, enabled=enabled, contentPadding=PaddingValues(horizontal=10.dp,vertical=2.dp)) { Text("Detectar seções") }
+            if (suggestions > 0) {
+                Button(onClick=onAcceptSections, enabled=enabled, contentPadding=PaddingValues(horizontal=10.dp,vertical=2.dp)) { Text("Aceitar $suggestions") }
+                TextButton(onClick=onDiscardSections) { Text("Descartar") }
+            }
+            if (project.punchRegion == null) OutlinedButton(onClick=onSetPunch, enabled=enabled, contentPadding=PaddingValues(horizontal=10.dp,vertical=2.dp)) { Text("Punch do loop") }
+            else OutlinedButton(onClick=onClearPunch, enabled=enabled, contentPadding=PaddingValues(horizontal=10.dp,vertical=2.dp)) { Text("Limpar punch") }
+        }
+        if (project.markers.isNotEmpty() || project.sections.isNotEmpty()) {
+            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                project.markers.forEach { marker -> TextButton(onClick={onRemoveMarker(marker.id)}, enabled=enabled) { Text("◆ ${marker.name} ×") } }
+                project.sections.forEach { section ->
+                    OutlinedButton(onClick={onLoopSection(section.id)}, enabled=enabled, contentPadding=PaddingValues(horizontal=8.dp,vertical=1.dp)) { Text("${section.name} ↻") }
+                    TextButton(onClick={onRemoveSection(section.id)}, enabled=enabled) { Text("×") }
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun ProjectWorkspace(
     project: GuitarProject,
     waveforms: Map<String, List<Float>>,
@@ -265,6 +339,12 @@ private fun ProjectWorkspace(
     editingClip: Boolean,
     recordingPhase: RecordingSessionPhase,
     countdownSeconds: Int,
+    liveRecordingPeaks: List<Float>,
+    recordingTrackId: String?,
+    recordingStartFrame: Long,
+    recordingFrames: Long,
+    auditionMode: GuitarAuditionMode,
+    sectionSuggestions: List<studio.guitarlab.core.project.SectionBoundarySuggestion>,
     selectedTrackId: String?,
     onSelectTrack: (String) -> Unit,
     onOpenTrackSettings: (String) -> Unit,
@@ -287,16 +367,45 @@ private fun ProjectWorkspace(
     onCrossfade: (String) -> Unit,
     onReorderTrack: (String, Int) -> Unit,
     onMoveClipToTrack: (String, String) -> Unit,
+    onAuditionMode: (GuitarAuditionMode) -> Unit,
+    onAddMarker: () -> Unit,
+    onAddSection: () -> Unit,
+    onSuggestSections: () -> Unit,
+    onAcceptSections: () -> Unit,
+    onDiscardSections: () -> Unit,
+    onLoopSection: (String) -> Unit,
+    onRemoveMarker: (String) -> Unit,
+    onRemoveSection: (String) -> Unit,
+    onSetPunch: () -> Unit,
+    onClearPunch: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val baseProjectEndFrame = TimelineControlPolicy.projectEndFrame(project)
     val trimClip = trimControls?.let { state -> project.clips.firstOrNull { it.id == state.clipId } }
-    val projectEndFrame = maxOf(baseProjectEndFrame, trimClip?.let(TrimControlPolicy::maximumEndFrame) ?: 0L).coerceAtLeast(1L)
+    val liveEndFrame = if (recordingPhase == RecordingSessionPhase.CAPTURING) recordingStartFrame + recordingFrames else 0L
+    val projectEndFrame = maxOf(baseProjectEndFrame, trimClip?.let(TrimControlPolicy::maximumEndFrame) ?: 0L, liveEndFrame).coerceAtLeast(1L)
     val timelineEditingEnabled = TransportPolicy.timelineEditingEnabled(transport)
     val trimActive = trimControls != null
     val clipEditingEnabled = !importing && !editingClip && timelineEditingEnabled && !trimActive
 
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        PracticeControls(
+            project = project,
+            auditionMode = auditionMode,
+            suggestions = sectionSuggestions.size,
+            enabled = timelineEditingEnabled && !trimActive,
+            onAuditionMode = onAuditionMode,
+            onAddMarker = onAddMarker,
+            onAddSection = onAddSection,
+            onSuggestSections = onSuggestSections,
+            onAcceptSections = onAcceptSections,
+            onDiscardSections = onDiscardSections,
+            onLoopSection = onLoopSection,
+            onRemoveMarker = onRemoveMarker,
+            onRemoveSection = onRemoveSection,
+            onSetPunch = onSetPunch,
+            onClearPunch = onClearPunch,
+        )
         Surface(
             modifier = Modifier.fillMaxWidth().weight(1f),
             shape = RoundedCornerShape(12.dp),
@@ -491,7 +600,10 @@ private fun ProjectWorkspace(
                             val trackIndex = orderedTracks.indexOfFirst { it.id == track.id }
                             StudioTrackLane(
                                 track = track,
-                                clips = project.clips.filter { it.trackId == track.id },
+                                clips = ActiveTakePolicy.audibleClips(project).filter { it.trackId == track.id },
+                                livePeaks = if (recordingTrackId == track.id && recordingPhase == RecordingSessionPhase.CAPTURING) liveRecordingPeaks else emptyList(),
+                                liveStartFrame = recordingStartFrame,
+                                liveFrames = recordingFrames,
                                 waveforms = waveforms,
                                 waveformChannels = waveformChannels,
                                 projectEndFrame = projectEndFrame,
@@ -548,6 +660,7 @@ private fun ProjectWorkspace(
                     }
 
                     GlobalTimelineLines(
+                        project = project,
                         playheadFrame = timelineControls.playheadFrame,
                         loopStartFrame = timelineControls.loopStartFrame,
                         loopEndFrame = timelineControls.loopEndFrame,
@@ -760,6 +873,7 @@ private fun TimelineRuler(project: GuitarProject, projectEndFrame: Long) {
 
 @Composable
 private fun GlobalTimelineLines(
+    project: GuitarProject,
     playheadFrame: Long,
     loopStartFrame: Long,
     loopEndFrame: Long,
@@ -768,9 +882,14 @@ private fun GlobalTimelineLines(
     modifier: Modifier = Modifier,
 ) {
     val sidebarPx = with(LocalDensity.current) { (TrackSidebarWidth + TrackLaneGap).toPx() }
+    val sectionColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.055f)
+    val markerColor = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.58f)
     Canvas(modifier) {
         val timelineWidth = (size.width - sidebarPx).coerceAtLeast(1f)
         fun x(frame: Long): Float = sidebarPx + TimelineControlPolicy.frameToFraction(frame, projectEndFrame) * timelineWidth
+        project.sections.forEach { section -> drawRect(sectionColor, topLeft = Offset(x(section.startFrame), 0f), size = androidx.compose.ui.geometry.Size((x(section.endFrame) - x(section.startFrame)).coerceAtLeast(1f), size.height)) }
+        project.punchRegion?.let { punch -> drawRect(StudioRecord.copy(alpha = 0.07f), topLeft = Offset(x(punch.startFrame), 0f), size = androidx.compose.ui.geometry.Size((x(punch.endFrame) - x(punch.startFrame)).coerceAtLeast(1f), size.height)) }
+        project.markers.forEach { marker -> drawLine(markerColor, Offset(x(marker.frame), 0f), Offset(x(marker.frame), size.height), strokeWidth = 1.5f) }
         if (showLoop) {
             drawLine(StudioLoop.copy(alpha = 0.62f), start = Offset(x(loopStartFrame), 0f), end = Offset(x(loopStartFrame), size.height), strokeWidth = 2f)
             drawLine(StudioLoop.copy(alpha = 0.62f), start = Offset(x(loopEndFrame), 0f), end = Offset(x(loopEndFrame), size.height), strokeWidth = 2f)
@@ -798,6 +917,9 @@ private fun ClipMenuItem(
 private fun StudioTrackLane(
     track: AudioTrack,
     clips: List<AudioClip>,
+    livePeaks: List<Float>,
+    liveStartFrame: Long,
+    liveFrames: Long,
     waveforms: Map<String, List<Float>>,
     waveformChannels: Map<String, List<List<Float>>>,
     projectEndFrame: Long,
@@ -947,7 +1069,7 @@ private fun StudioTrackLane(
         BoxWithConstraints(
             modifier = Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.surface.copy(alpha = 0.70f)),
         ) {
-            if (clips.isEmpty()) {
+            if (clips.isEmpty() && livePeaks.isEmpty()) {
                 Text(
                     "Sem áudio",
                     modifier = Modifier.align(Alignment.CenterStart).padding(start = 10.dp),
@@ -982,6 +1104,18 @@ private fun StudioTrackLane(
                         modifier = Modifier.offset(x = x).width(clipWidth).fillMaxHeight().padding(vertical = 5.dp).align(Alignment.CenterStart),
                     )
                 }
+            }
+            if (livePeaks.isNotEmpty()) {
+                val startFraction = (liveStartFrame.toDouble() / projectEndFrame).coerceIn(0.0, 1.0)
+                val endFraction = ((liveStartFrame + liveFrames).toDouble() / projectEndFrame).coerceIn(startFraction, 1.0)
+                val x = maxWidth * startFraction.toFloat()
+                val width = (maxWidth * (endFraction - startFraction).toFloat()).coerceAtLeast(24.dp).coerceAtMost((maxWidth - x).coerceAtLeast(1.dp))
+                Surface(
+                    modifier = Modifier.offset(x = x).width(width).fillMaxHeight().padding(vertical = 5.dp).align(Alignment.CenterStart).testTag("live-recording-waveform"),
+                    shape = RoundedCornerShape(7.dp),
+                    color = trackColor.copy(alpha = 0.24f),
+                    border = BorderStroke(1.dp, StudioRecord),
+                ) { WaveformMini(peaks = livePeaks, color = StudioRecord, modifier = Modifier.fillMaxSize().padding(4.dp)) }
             }
         }
     }
@@ -1176,6 +1310,11 @@ private fun TrackSettingsDialog(
     track: AudioTrack,
     clips: List<AudioClip>,
     sampleRate: Int,
+    takes: List<studio.guitarlab.core.model.RecordingTake>,
+    levelAnalysis: studio.guitarlab.core.project.LevelAnalysis?,
+    onActivateTake: (String) -> Unit,
+    onAnalyzeLevel: () -> Unit,
+    onApplyLevel: () -> Unit,
     onDismiss: () -> Unit,
     onSave: (String, Int) -> Unit,
     onDelete: () -> Unit,
@@ -1243,6 +1382,31 @@ private fun TrackSettingsDialog(
                     sampleRate = sampleRate,
                     modifier = Modifier.fillMaxWidth(),
                 )
+
+                Surface(modifier=Modifier.fillMaxWidth(), shape=RoundedCornerShape(9.dp), color=MaterialTheme.colorScheme.surfaceVariant.copy(alpha=0.22f)) {
+                    Column(Modifier.padding(10.dp), verticalArrangement=Arrangement.spacedBy(6.dp)) {
+                        Text("Nível assistido", style=MaterialTheme.typography.titleSmall)
+                        if (levelAnalysis == null) {
+                            Text("Analisa o áudio real e sugere ganho com alvo RMS de −18 dBFS e pico máximo de −3 dBFS. Nada é aplicado automaticamente.", style=MaterialTheme.typography.bodySmall)
+                            OutlinedButton(onClick=onAnalyzeLevel, enabled=hasClips) { Text("Analisar pista") }
+                        } else {
+                            Text("Pico ${"%.1f".format(levelAnalysis.peakDbfs)} dBFS · RMS ${"%.1f".format(levelAnalysis.rmsDbfs)} dBFS · ajuste ${"%+.1f".format(levelAnalysis.recommendedGainDb)} dB", style=MaterialTheme.typography.bodySmall)
+                            Button(onClick=onApplyLevel, enabled=!levelAnalysis.silent) { Text("Aplicar sugestão") }
+                        }
+                    }
+                }
+
+                if (takes.isNotEmpty()) {
+                    Surface(modifier=Modifier.fillMaxWidth(), shape=RoundedCornerShape(9.dp), color=MaterialTheme.colorScheme.surfaceVariant.copy(alpha=0.22f)) {
+                        Column(Modifier.padding(10.dp), verticalArrangement=Arrangement.spacedBy(5.dp)) {
+                            Text("Takes", style=MaterialTheme.typography.titleSmall)
+                            takes.sortedByDescending { it.createdAtEpochMs }.forEach { take ->
+                                if (take.active) Button(onClick={}, enabled=false, modifier=Modifier.fillMaxWidth()) { Text("Ativo · ${take.name}") }
+                                else OutlinedButton(onClick={onActivateTake(take.id)}, modifier=Modifier.fillMaxWidth()) { Text("Usar ${take.name}") }
+                            }
+                        }
+                    }
+                }
 
                 if (hasClips) {
                     Surface(

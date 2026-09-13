@@ -26,13 +26,16 @@ class TransportPolicyTest {
     }
 
     @Test
-    fun loopAndReturnToStartCannotBeEditedDuringActiveTransport() {
+    fun returnToStartWorksDuringPlaybackButNotRecording() {
         val stopped = TransportPolicy.toggleLoop(TransportState())
         assertTrue(stopped.loopEnabled)
         assertEquals(0L, TransportPolicy.returnToStartFrame(stopped, 12_000L))
 
         val playing = stopped.copy(mode = TransportMode.PLAYING)
         assertEquals(playing, TransportPolicy.toggleLoop(playing))
-        assertEquals(12_000L, TransportPolicy.returnToStartFrame(playing, 12_000L))
+        assertEquals(0L, TransportPolicy.returnToStartFrame(playing, 12_000L))
+        assertEquals(12_000L, TransportPolicy.returnToStartFrame(playing.copy(mode = TransportMode.RECORDING), 12_000L))
+        assertTrue(TransportPolicy.playStopEnabled(playing, false))
+        assertFalse(TransportPolicy.playStopEnabled(playing.copy(mode = TransportMode.RECORDING), true))
     }
 }

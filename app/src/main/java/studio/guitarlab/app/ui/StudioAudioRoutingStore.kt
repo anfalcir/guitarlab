@@ -10,7 +10,21 @@ data class StudioAudioDeviceChoice(
     val signature: String,
     val label: String,
     val deviceId: Int,
+    val type: Int,
+    val channelCounts: List<Int>,
+    val sampleRates: List<Int>,
 )
+
+data class StudioRouteHealth(
+    val selectedInputAvailable: Boolean,
+    val selectedOutputAvailable: Boolean,
+    val effectiveInput: StudioAudioDeviceChoice?,
+    val effectiveOutput: StudioAudioDeviceChoice?,
+) {
+    val mk300Detected: Boolean get() = listOfNotNull(effectiveInput?.label, effectiveOutput?.label).any {
+        it.contains("MK-300", true) || it.contains("MK300", true)
+    }
+}
 
 class StudioAudioRoutingStore(context: Context) {
     private val appContext = context.applicationContext
@@ -58,6 +72,17 @@ class StudioAudioRoutingStore(context: Context) {
     fun isSelectedOutputUnavailable(): Boolean =
         !selectedOutputSignature().isNullOrBlank() && resolveSelectedOutputDevice() == null
 
+    fun routeHealth(): StudioRouteHealth {
+        val input = resolveSelectedInputDevice()?.let(::toChoice)
+        val output = resolveSelectedOutputDevice()?.let(::toChoice)
+        return StudioRouteHealth(
+            selectedInputAvailable = selectedInputSignature().isNullOrBlank() || input != null,
+            selectedOutputAvailable = selectedOutputSignature().isNullOrBlank() || output != null,
+            effectiveInput = input,
+            effectiveOutput = output,
+        )
+    }
+
     private fun resolveSelectedDevice(deviceFlag: Int, signature: String?): AudioDeviceInfo? {
         if (signature.isNullOrBlank()) return null
         return audioManager.getDevices(deviceFlag).firstOrNull { toChoice(it).signature == signature }
@@ -77,6 +102,9 @@ class StudioAudioRoutingStore(context: Context) {
             },
             label = label,
             deviceId = device.id,
+            type = device.type,
+            channelCounts = device.channelCounts.toList(),
+            sampleRates = device.sampleRates.toList(),
         )
     }
 

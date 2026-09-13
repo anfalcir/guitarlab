@@ -1,0 +1,102 @@
+package studio.guitarlab.core.project
+
+import java.util.UUID
+import kotlin.math.abs
+import kotlin.math.log10
+import kotlin.math.max
+import kotlin.math.min
+import kotlin.math.sqrt
+import studio.guitarlab.core.model.*
+
+enum class GuitarAuditionMode { MIXER, REFERENCE, MY_GUITAR, BOTH }
+
+object GuitarAuditionPolicy {
+    private val referenceRoles = setOf(BuiltInRoles.REFERENCE_GUITAR, BuiltInRoles.REFERENCE_GUITAR_L, BuiltInRoles.REFERENCE_GUITAR_R)
+    private val myRoles = setOf(BuiltInRoles.RECORDED_GUITAR, BuiltInRoles.RECORDED_GUITAR_L, BuiltInRoles.RECORDED_GUITAR_R)
+    fun roleAudible(roleId: String?, mode: GuitarAuditionMode): Boolean = when (mode) {
+        GuitarAuditionMode.MIXER, GuitarAuditionMode.BOTH -> true
+        GuitarAuditionMode.REFERENCE -> roleId !in myRoles
+        GuitarAuditionMode.MY_GUITAR -> roleId !in referenceRoles
+    }
+}
+
+object ActiveTakePolicy {
+    fun audibleClips(project: GuitarProject): List<AudioClip> {
+        val active = project.takes.asSequence().filter { it.active }.map { it.id }.toSet()
+        return project.clips.filter { it.takeId == null || it.takeId in active }
+    }
+    fun activate(project: GuitarProject, takeId: String, nowEpochMs: Long): GuitarProject {
+        val selected = project.takes.firstOrNull { it.id == takeId } ?: error("Take não encontrado: $takeId")
+        return project.copy(takes = project.takes.map { if (it.trackId == selected.trackId) it.copy(active = it.id == takeId) else it }, updatedAtEpochMs = nowEpochMs)
+    }
+}
+
+data class LevelAnalysis(val peakDbfs: Float, val rmsDbfs: Float, val recommendedGainDb: Float, val clipped: Boolean, val silent: Boolean)
+
+class TrackLevelAccumulator {
+    private var peak = 0f
+    private var squares = 0.0
+    private var samples = 0L
+    fun append(interleaved: FloatArray, sampleCount: Int = interleaved.size) {
+        require(sampleCount in 0..interleaved.size)
+        repeat(sampleCount) { i -> val value = interleaved[i]; peak = max(peak, abs(value)); squares += value.toDouble() * value }
+        samples += sampleCount
+    }
+    fun finish(): LevelAnalysis = TrackLevelAdvisor.analyze(peak, if (samples == 0L) 0f else sqrt(squares / samples).toFloat())
+}
+
+object TrackLevelAdvisor {
+    private const val TARGET_RMS_DBFS = -18f
+    private const val MAX_PEAK_DBFS = -3f
+    fun analyze(samples: FloatArray): LevelAnalysis = TrackLevelAccumulator().also { it.append(samples) }.finish()
+    internal fun analyze(peak: Float, rms: Float): LevelAnalysis {
+        val peakDb = amplitudeDb(peak); val rmsDb = amplitudeDb(rms); val silent = rms < 0.00001f
+        val gain = if (silent) 0f else min(TARGET_RMS_DBFS - rmsDb, MAX_PEAK_DBFS - peakDb).coerceIn(-12f, 12f)
+        return LevelAnalysis(peakDb, rmsDb, gain, peak > 1f, silent)
+    }
+    private fun amplitudeDb(value: Float) = if (value <= 0f) -120f else (20.0 * log10(value.toDouble())).toFloat().coerceAtLeast(-120f)
+}
+
+data class SectionBoundarySuggestion(val frame: Long, val confidence: Float)
+object SectionBoundaryAnalyzer {
+    fun suggest(peaks: List<Float>, totalFrames: Long, maximum: Int = 12): List<SectionBoundarySuggestion> {
+        if (peaks.size < 12 || totalFrames <= 1L || maximum <= 0) return emptyList()
+        val radius = max(2, peaks.size / 80); val spacing = max(4, peaks.size / (maximum * 2 + 1))
+        val candidates = ArrayList<Pair<Int, Float>>()
+        for (index in radius until peaks.size - radius) {
+            val before = peaks.subList(index - radius, index).average().toFloat(); val after = peaks.subList(index, index + radius).average().toFloat()
+            val contrast = abs(after - before) / max(0.05f, max(before, after))
+            if (contrast >= 0.35f) candidates += index to contrast.coerceIn(0f, 1f)
+        }
+        val selected = mutableListOf<Pair<Int, Float>>()
+        candidates.sortedByDescending { it.second }.forEach { c -> if (selected.size < maximum && selected.none { abs(it.first - c.first) < spacing }) selected += c }
+        return selected.sortedBy { it.first }.map { (i, confidence) -> SectionBoundarySuggestion((i.toDouble() / peaks.lastIndex * totalFrames).toLong().coerceIn(1L, totalFrames - 1L), confidence) }
+    }
+}
+
+data class PunchCapturePlan(val captureStartFrame: Long, val automaticStopAfterFrames: Long, val keptTimelineStartFrame: Long, val keptSourceStartFrame: Long, val keptLengthFrames: Long)
+object PunchRecordingPolicy {
+    fun plan(region: PunchRegion, latencyFrames: Long = 0L): PunchCapturePlan {
+        require(region.startFrame >= 0L && region.endFrame > region.startFrame && region.preRollFrames >= 0L && region.postRollFrames >= 0L && latencyFrames >= 0L)
+        val captureStart = (region.startFrame - region.preRollFrames).coerceAtLeast(0L); val effectivePre = region.startFrame - captureStart
+        return PunchCapturePlan(captureStart, effectivePre + region.endFrame - region.startFrame + region.postRollFrames + latencyFrames, region.startFrame, effectivePre + latencyFrames, region.endFrame - region.startFrame)
+    }
+}
+
+object PracticeWorkflowEditor {
+    fun addMarker(project: GuitarProject, name: String, frame: Long, now: Long, id: String = UUID.randomUUID().toString()): GuitarProject {
+        require(name.trim().isNotEmpty() && frame >= 0L); return project.copy(markers = (project.markers + TimelineMarker(id, name.trim(), frame)).sortedBy { it.frame }, updatedAtEpochMs = now)
+    }
+    fun removeMarker(project: GuitarProject, id: String, now: Long) = project.copy(markers = project.markers.filterNot { it.id == id }, updatedAtEpochMs = now)
+    fun addSection(project: GuitarProject, name: String, start: Long, end: Long, now: Long, id: String = UUID.randomUUID().toString()): GuitarProject {
+        require(name.trim().isNotEmpty() && start >= 0L && end > start); return project.copy(sections = (project.sections + TimelineSection(id, name.trim(), start, end)).sortedBy { it.startFrame }, updatedAtEpochMs = now)
+    }
+    fun acceptSuggestedSections(project: GuitarProject, suggestions: List<SectionBoundarySuggestion>, totalFrames: Long, now: Long): GuitarProject {
+        require(totalFrames > 0L)
+        val boundaries = (listOf(0L) + suggestions.map { it.frame } + totalFrames).distinct().sorted()
+        val sections = boundaries.zipWithNext().mapIndexed { i, (start, end) -> TimelineSection(UUID.randomUUID().toString(), "Seção ${i + 1}", start, end, SectionOrigin.AUTOMATIC, suggestions.firstOrNull { it.frame == start }?.confidence) }
+        return project.copy(sections = sections, updatedAtEpochMs = now)
+    }
+    fun removeSection(project: GuitarProject, id: String, now: Long) = project.copy(sections = project.sections.filterNot { it.id == id }, updatedAtEpochMs = now)
+    fun setPunch(project: GuitarProject, region: PunchRegion?, now: Long) = project.copy(punchRegion = region, updatedAtEpochMs = now)
+}

@@ -12,6 +12,9 @@ object ProjectValidator {
         if (project.groups.map { it.id }.distinct().size != project.groups.size) issues += ValidationIssue("group.id.duplicate", "Os IDs dos grupos devem ser únicos.")
         if (project.tracks.map { it.id }.distinct().size != project.tracks.size) issues += ValidationIssue("track.id.duplicate", "Os IDs das pistas devem ser únicos.")
         if (project.clips.map { it.id }.distinct().size != project.clips.size) issues += ValidationIssue("clip.id.duplicate", "Os IDs dos clipes devem ser únicos.")
+        if (project.markers.map { it.id }.distinct().size != project.markers.size) issues += ValidationIssue("marker.id.duplicate", "Os IDs dos marcadores devem ser únicos.")
+        if (project.sections.map { it.id }.distinct().size != project.sections.size) issues += ValidationIssue("section.id.duplicate", "Os IDs das seções devem ser únicos.")
+        if (project.takes.map { it.id }.distinct().size != project.takes.size) issues += ValidationIssue("take.id.duplicate", "Os IDs dos takes devem ser únicos.")
 
         val groupIds = project.groups.map { it.id }.toSet()
         val trackIds = project.tracks.map { it.id }.toSet()
@@ -27,6 +30,7 @@ object ProjectValidator {
 
         project.clips.forEach { clip ->
             if (clip.trackId !in trackIds) issues += ValidationIssue("clip.track.missing", "O clipe '${clip.name}' referencia uma pista inexistente.")
+            if (clip.takeId != null && project.takes.none { it.id == clip.takeId }) issues += ValidationIssue("clip.take.missing", "O clipe '${clip.name}' referencia um take inexistente.")
             if (clip.name.isBlank()) issues += ValidationIssue("clip.name.blank", "O nome do clipe não pode ficar vazio.")
             if (clip.sourceUri.isBlank()) issues += ValidationIssue("clip.source.blank", "O clipe '${clip.name}' precisa referenciar uma fonte de áudio.")
             if (clip.startFrame < 0) issues += ValidationIssue("clip.start.negative", "O início do clipe '${clip.name}' não pode ser negativo.")
@@ -56,6 +60,28 @@ object ProjectValidator {
                 if (!path.startsWith("media/proxy/") || path.contains("..") || path.startsWith('/')) {
                     issues += ValidationIssue("clip.managed-proxy.path", "O caminho interno do proxy do clipe '${clip.name}' é inválido.")
                 }
+            }
+        }
+
+        project.markers.forEach { marker ->
+            if (marker.name.isBlank() || marker.frame < 0L) issues += ValidationIssue("marker.invalid", "Marcador inválido.")
+        }
+        project.sections.forEach { section ->
+            if (section.name.isBlank() || section.startFrame < 0L || section.endFrame <= section.startFrame) issues += ValidationIssue("section.invalid", "Seção inválida.")
+            if (section.confidence != null && section.confidence !in 0f..1f) issues += ValidationIssue("section.confidence.range", "A confiança da seção deve ficar entre 0 e 1.")
+        }
+        project.takes.forEach { take ->
+            val clip = project.clips.firstOrNull { it.id == take.clipId }
+            if (take.trackId !in trackIds || clip == null || clip.trackId != take.trackId || clip.takeId != take.id || take.name.isBlank()) {
+                issues += ValidationIssue("take.reference.invalid", "O take '${take.name}' possui referências inconsistentes.")
+            }
+        }
+        project.takes.groupBy { it.trackId }.filterValues { takes -> takes.count { it.active } > 1 }.forEach { (trackId, _) ->
+            issues += ValidationIssue("take.active.multiple", "A pista '$trackId' possui mais de um take ativo.")
+        }
+        project.punchRegion?.let { punch ->
+            if (punch.startFrame < 0L || punch.endFrame <= punch.startFrame || punch.preRollFrames < 0L || punch.postRollFrames < 0L) {
+                issues += ValidationIssue("punch.invalid", "A região de punch é inválida.")
             }
         }
 

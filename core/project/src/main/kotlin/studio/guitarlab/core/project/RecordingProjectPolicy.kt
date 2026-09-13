@@ -2,6 +2,7 @@ package studio.guitarlab.core.project
 
 import studio.guitarlab.core.model.AudioClip
 import studio.guitarlab.core.model.GuitarProject
+import studio.guitarlab.core.model.RecordingTake
 
 data class RecordingTarget(
     val trackId: String,
@@ -95,9 +96,20 @@ object RecordedTakeProjectIntegrator {
             sourceChannelCount = take.channelCount,
             sourceBitsPerSample = 32,
             sourceEncoding = "FLOAT32_LE",
+            takeId = take.clipId,
         )
         return project.copy(
             clips = project.clips + clip,
+            takes = project.takes.map { existing ->
+                if (existing.trackId == targetTrackId) existing.copy(active = false) else existing
+            } + RecordingTake(
+                id = take.clipId,
+                trackId = targetTrackId,
+                clipId = take.clipId,
+                name = take.displayName.trim(),
+                createdAtEpochMs = nowEpochMs,
+                active = true,
+            ),
             updatedAtEpochMs = nowEpochMs,
         )
     }

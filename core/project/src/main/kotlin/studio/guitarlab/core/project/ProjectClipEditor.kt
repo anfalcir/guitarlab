@@ -4,8 +4,15 @@ import studio.guitarlab.core.model.GuitarProject
 
 object ProjectClipEditor {
     fun removeClip(project: GuitarProject, clipId: String, nowEpochMs: Long): GuitarProject {
-        require(project.clips.any { it.id == clipId }) { "Clip '$clipId' not found." }
-        return project.copy(clips = project.clips.filterNot { it.id == clipId }, updatedAtEpochMs = nowEpochMs)
+        val removed = requireNotNull(project.clips.firstOrNull { it.id == clipId }) { "Clip '$clipId' not found." }
+        val clips = project.clips.filterNot { it.id == clipId }
+        val takes = project.takes.filterNot { it.id == removed.takeId }.let { remaining ->
+            if (removed.takeId != null && project.takes.firstOrNull { it.id == removed.takeId }?.active == true) {
+                val fallback = remaining.filter { it.trackId == removed.trackId }.maxByOrNull { it.createdAtEpochMs }?.id
+                remaining.map { if (it.id == fallback) it.copy(active = true) else it }
+            } else remaining
+        }
+        return project.copy(clips = clips, takes = takes, updatedAtEpochMs = nowEpochMs)
     }
 
     fun setClipMuted(project: GuitarProject, clipId: String, muted: Boolean, nowEpochMs: Long): GuitarProject {
@@ -31,7 +38,8 @@ object ProjectClipEditor {
         val target = project.clips.firstOrNull { it.id == clipId } ?: error("Clip '$clipId' not found.")
         if (target.trackId == targetTrackId) return project
         return project.copy(
-            clips = project.clips.map { clip -> if (clip.id == clipId) clip.copy(trackId = targetTrackId) else clip },
+            clips = project.clips.map { clip -> if (clip.id == clipId) clip.copy(trackId = targetTrackId, takeId = null) else clip },
+            takes = project.takes.filterNot { it.id == target.takeId },
             updatedAtEpochMs = nowEpochMs,
         )
     }
@@ -50,7 +58,7 @@ object ProjectClipEditor {
         val source = project.clips.firstOrNull { it.id == clipId } ?: error("Clip '$clipId' not found.")
         val destinationTrackId = targetTrackId ?: source.trackId
         require(project.tracks.any { it.id == destinationTrackId }) { "Target track '$destinationTrackId' not found." }
-        val duplicate = source.copy(id = newClipId, trackId = destinationTrackId, startFrame = startFrame)
+        val duplicate = source.copy(id = newClipId, trackId = destinationTrackId, startFrame = startFrame, takeId = null)
         return project.copy(clips = project.clips + duplicate, updatedAtEpochMs = nowEpochMs)
     }
 

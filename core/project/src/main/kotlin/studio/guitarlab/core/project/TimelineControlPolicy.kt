@@ -11,7 +11,7 @@ data class TimelineControlState(
 
 object TimelineControlPolicy {
     fun projectEndFrame(project: GuitarProject): Long =
-        project.clips.maxOfOrNull { it.startFrame + it.lengthFrames }?.coerceAtLeast(1L) ?: 1L
+        ActiveTakePolicy.audibleClips(project).maxOfOrNull { it.startFrame + it.lengthFrames }?.coerceAtLeast(1L) ?: 1L
 
     fun clampFrame(frame: Long, projectEndFrame: Long): Long =
         frame.coerceIn(0L, projectEndFrame.coerceAtLeast(1L))

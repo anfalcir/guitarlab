@@ -39,6 +39,7 @@ import studio.guitarlab.core.model.BuiltInRoles
 import studio.guitarlab.core.model.ChannelLayout
 import studio.guitarlab.core.model.GuitarProject
 import studio.guitarlab.core.model.RoleSource
+import studio.guitarlab.core.model.PunchRegion
 import studio.guitarlab.core.model.TrackNamePolicy
 import studio.guitarlab.core.project.FileProjectRepository
 import studio.guitarlab.core.project.ProjectClipEditor
@@ -61,6 +62,16 @@ import studio.guitarlab.core.project.TransportState
 import studio.guitarlab.core.project.TrimControlPolicy
 import studio.guitarlab.core.project.TrimControlState
 import studio.guitarlab.core.project.WaveformCacheStore
+import studio.guitarlab.core.project.ActiveTakePolicy
+import studio.guitarlab.core.project.GuitarAuditionMode
+import studio.guitarlab.core.project.LiveWaveformAccumulator
+import studio.guitarlab.core.project.LevelAnalysis
+import studio.guitarlab.core.project.PracticeWorkflowEditor
+import studio.guitarlab.core.project.PunchCapturePlan
+import studio.guitarlab.core.project.PunchRecordingPolicy
+import studio.guitarlab.core.project.SectionBoundaryAnalyzer
+import studio.guitarlab.core.project.SectionBoundarySuggestion
+import studio.guitarlab.core.project.TrackLevelAccumulator
 import studio.guitarlab.platform.audio.android.AndroidStudioPlaybackEngine
 import studio.guitarlab.platform.audio.android.AndroidStudioRecordingEngine
 import studio.guitarlab.platform.audio.android.StudioRecordingConfig
@@ -103,6 +114,10 @@ data class StudioUiState(
     val recordingConfig: StudioRecordingConfig? = null,
     val recordingPeak: Float = 0f,
     val recordingRms: Float = 0f,
+    val liveRecordingPeaks: List<Float> = emptyList(),
+    val guitarAuditionMode: GuitarAuditionMode = GuitarAuditionMode.MIXER,
+    val sectionSuggestions: List<SectionBoundarySuggestion> = emptyList(),
+    val trackLevelAnalysis: Map<String, LevelAnalysis> = emptyMap(),
     val masterGainDb: Float = 0f,
     val masterMeter: MeterBallisticsState = MeterBallisticsState(),
     val trackMeters: Map<String, MeterBallisticsState> = emptyMap(),
@@ -137,6 +152,9 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
     private val latencyCalibrationStore = StudioLatencyCalibrationStore(application)
     private val exportService = ProjectExportService(application)
     private var activeRecordingCompensationFrames: Long = 0L
+    private var activePunchPlan: PunchCapturePlan? = null
+    private val liveWaveform = LiveWaveformAccumulator()
+    private var playbackSessionId = 0L
     private val playbackEngine = AndroidStudioPlaybackEngine()
     private val recordingEngine = AndroidStudioRecordingEngine(application)
     private var recordingTransaction: RecordingMediaTransaction? = null
@@ -148,8 +166,17 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
     val state: StateFlow<StudioUiState> = _state.asStateFlow()
 
     fun load(projectId: String) {
-        if (_state.value.project?.id == projectId && !_state.value.loading) return
-        playbackEngine.stop()
+        val before = _state.value
+        if (before.project?.id == projectId && !before.loading && before.recordingSession.phase == RecordingSessionPhase.IDLE) {
+            stopPlaybackSession()
+            _state.value = before.copy(transport = before.transport.copy(mode = TransportMode.STOPPED))
+        } else if (before.recordingSession.phase == RecordingSessionPhase.CAPTURING) {
+            stopRecording()
+            return
+        } else if (before.recordingSession.phase == RecordingSessionPhase.COUNTDOWN) {
+            cancelRecordingCountdown()
+        }
+        stopPlaybackSession()
         projectHistory.clear()
         trackMixDrafts.clear()
         viewModelScope.launch {
@@ -493,8 +520,14 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun returnToStart() {
-        if (!TransportPolicy.timelineEditingEnabled(_state.value.transport) || _state.value.historyBusy) return
-        setPlayheadFrame(0L)
+        val current = _state.value
+        if (current.historyBusy || current.recordingSession.phase != RecordingSessionPhase.IDLE || current.transport.mode == TransportMode.RECORDING) return
+        if (current.transport.mode == TransportMode.PLAYING) {
+            stopPlaybackSession()
+            val reset = current.copy(transport = current.transport.copy(mode = TransportMode.STOPPED), timelineControls = current.timelineControls.copy(playheadFrame = 0L))
+            _state.value = reset
+            startPlayback(reset)
+        } else setPlayheadFrame(0L)
     }
 
     fun toggleLoop() {
@@ -557,7 +590,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
         if (current.historyBusy) return
         when (current.transport.mode) {
             TransportMode.PLAYING -> {
-                playbackEngine.stop()
+                stopPlaybackSession()
                 _state.value = current.copy(transport = current.transport.copy(mode = TransportMode.STOPPED))
             }
             TransportMode.RECORDING -> return
@@ -596,7 +629,9 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
         }
         val session = runCatching {
             RecordingTargetPolicy.resolve(project)
-            RecordingSessionPolicy.begin(project, current.timelineControls.playheadFrame)
+            val captureStart = project.punchRegion?.let { PunchRecordingPolicy.plan(it).captureStartFrame }
+                ?: current.timelineControls.playheadFrame
+            RecordingSessionPolicy.begin(project, captureStart)
         }.getOrElse { error ->
             _state.value = current.copy(error = error.message ?: "Não foi possível preparar a gravação.")
             return
@@ -608,6 +643,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
             trackClipLatched = emptySet(),
             recordingPeak = 0f,
             recordingRms = 0f,
+            liveRecordingPeaks = emptyList(),
             error = null,
             clipStatus = "Gravação inicia em ${session.countdownSecondsRemaining}",
         )
@@ -668,6 +704,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
             return
         }
         recordingTransaction = transaction
+        liveWaveform.clear()
         val request = StudioRecordingRequest(
             temporaryFile = transaction.temporaryFile,
             preferredSampleRateHz = target.preferredSampleRateHz,
@@ -692,7 +729,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
             recordingSession = RecordingSessionPolicy.beginFinalizing(state.recordingSession),
             clipStatus = "Finalizando take…",
         )
-        playbackEngine.stop()
+        stopPlaybackSession()
         recordingEngine.stop()
     }
 
@@ -705,11 +742,13 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                 outputSignature = audioRoutingStore.selectedOutputSignature(),
                 sampleRateHz = config.sampleRateHz,
             )?.takeIf { it.accepted }?.latencyFrames ?: 0L
+            activePunchPlan = state.project?.punchRegion?.let { PunchRecordingPolicy.plan(it, activeRecordingCompensationFrames) }
             _state.value = state.copy(
                 recordingSession = RecordingSessionPolicy.markCaptureStarted(state.recordingSession),
                 recordingConfig = config,
                 transport = TransportPolicy.startRecording(state.transport),
-                clipStatus = "Gravando • ${config.sampleRateHz} Hz • ${config.channelCount} canal(is)",
+                liveRecordingPeaks = emptyList(),
+                clipStatus = "Gravando • ${config.routedInputLabel ?: "entrada automática"} • ${config.sampleRateHz} Hz • ${config.channelCount} canal(is)",
             )
             startBackingPlaybackForRecording(config.sampleRateHz)
         }.let { Unit }
@@ -722,8 +761,12 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                 recordingSession = RecordingSessionPolicy.updateCapturedFrames(state.recordingSession, framesCaptured),
                 recordingPeak = peak,
                 recordingRms = rms,
+                liveRecordingPeaks = liveWaveform.append(peak),
                 trackClipLatched = if (peak > 1f && targetId != null) state.trackClipLatched + targetId else state.trackClipLatched,
             )
+            activePunchPlan?.let { plan ->
+                if (framesCaptured >= plan.automaticStopAfterFrames && _state.value.recordingSession.phase == RecordingSessionPhase.CAPTURING) stopRecording()
+            }
         }.let { Unit }
 
         override fun onStopped(result: StudioRecordingResult) {
@@ -757,14 +800,18 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                         capturedFrames = result.framesCaptured,
                         roundTripLatencyFrames = activeRecordingCompensationFrames,
                     )
+                    val punch = activePunchPlan?.takeIf { !result.partial && result.framesCaptured >= it.keptSourceStartFrame + it.keptLengthFrames }
+                    val timelineStart = punch?.keptTimelineStartFrame ?: placement.timelineStartFrame
+                    val sourceStart = punch?.keptSourceStartFrame ?: placement.sourceStartFrame
+                    val length = punch?.keptLengthFrames ?: placement.lengthFrames
                     val integrated = RecordedTakeProjectIntegrator.integrate(
                         project = before,
                         targetTrackId = targetTrackId,
                         take = RecordedTakeMetadata(
                             clipId = transaction.id,
-                            displayName = "Take ${before.clips.count { it.trackId == targetTrackId } + 1}",
+                            displayName = "Take ${before.takes.count { it.trackId == targetTrackId } + 1}",
                             managedRelativePath = transaction.relativePath,
-                            timelineStartFrame = placement.timelineStartFrame,
+                            timelineStartFrame = timelineStart,
                             sampleRateHz = result.sampleRateHz,
                             channelCount = result.channelCount,
                             framesCaptured = result.framesCaptured,
@@ -774,8 +821,8 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                     val saved = integrated.copy(
                         clips = integrated.clips.map { candidate ->
                             if (candidate.id == transaction.id) candidate.copy(
-                                sourceStartFrame = placement.sourceStartFrame,
-                                lengthFrames = placement.lengthFrames,
+                                sourceStartFrame = sourceStart,
+                                lengthFrames = length,
                             ) else candidate
                         },
                         updatedAtEpochMs = System.currentTimeMillis(),
@@ -805,6 +852,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                     recordingConfig = null,
                     recordingPeak = 0f,
                     recordingRms = 0f,
+                    liveRecordingPeaks = emptyList(),
                     transportEngineReady = playbackReadiness(saved).ready,
                     canUndo = projectHistory.canUndo,
                     canRedo = projectHistory.canRedo,
@@ -835,9 +883,12 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
             recordingConfig = null,
             recordingPeak = 0f,
             recordingRms = 0f,
+            liveRecordingPeaks = emptyList(),
             clipStatus = null,
             error = message,
         )
+        liveWaveform.clear()
+        activePunchPlan = null
     }
 
     fun toggleClipMuted(clipId: String) {
@@ -1094,6 +1145,122 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
         _state.value = _state.value.copy(trackClipLatched = _state.value.trackClipLatched - trackId)
     }
 
+    fun setGuitarAuditionMode(mode: GuitarAuditionMode) {
+        playbackEngine.setAuditionMode(mode)
+        _state.value = _state.value.copy(guitarAuditionMode = mode)
+    }
+
+    fun activateTake(takeId: String) {
+        val project = _state.value.project ?: return
+        if (!structuralEditingAllowed(_state.value)) return
+        viewModelScope.launch {
+            runCatching { saveLatest(project.id) { ActiveTakePolicy.activate(it, takeId, System.currentTimeMillis()) } }
+                .onSuccess { saved -> _state.value = _state.value.copy(project = saved, transportEngineReady = playbackReadiness(saved).ready) }
+                .onFailure { error -> _state.value = _state.value.copy(error = error.message) }
+        }
+    }
+
+    fun addMarkerAtPlayhead() = updatePracticeProject { project ->
+        PracticeWorkflowEditor.addMarker(project, "Marcador ${project.markers.size + 1}", _state.value.timelineControls.playheadFrame, System.currentTimeMillis())
+    }
+
+    fun addSectionFromLoop() {
+        val state = _state.value
+        if (!state.transport.loopEnabled) return
+        updatePracticeProject { project -> PracticeWorkflowEditor.addSection(project, "Seção ${project.sections.size + 1}", state.timelineControls.loopStartFrame, state.timelineControls.loopEndFrame, System.currentTimeMillis()) }
+    }
+
+    fun suggestSections() {
+        val state = _state.value; val project = state.project ?: return
+        val source = ActiveTakePolicy.audibleClips(project).maxByOrNull { it.lengthFrames }
+        val peaks = source?.let { state.waveforms[it.id] }.orEmpty()
+        _state.value = state.copy(sectionSuggestions = SectionBoundaryAnalyzer.suggest(peaks, TimelineControlPolicy.projectEndFrame(project)))
+    }
+
+    fun acceptSectionSuggestions() {
+        val suggestions = _state.value.sectionSuggestions
+        if (suggestions.isEmpty()) return
+        updatePracticeProject { project -> PracticeWorkflowEditor.acceptSuggestedSections(project, suggestions, TimelineControlPolicy.projectEndFrame(project), System.currentTimeMillis()) }
+        _state.value = _state.value.copy(sectionSuggestions = emptyList())
+    }
+
+    fun discardSectionSuggestions() { _state.value = _state.value.copy(sectionSuggestions = emptyList()) }
+    fun removeMarker(id: String) = updatePracticeProject { PracticeWorkflowEditor.removeMarker(it, id, System.currentTimeMillis()) }
+    fun removeSection(id: String) = updatePracticeProject { PracticeWorkflowEditor.removeSection(it, id, System.currentTimeMillis()) }
+
+    fun loopSection(id: String) {
+        val section = _state.value.project?.sections?.firstOrNull { it.id == id } ?: return
+        val state = _state.value
+        if (state.transport.mode != TransportMode.STOPPED) return
+        _state.value = state.copy(transport = state.transport.copy(loopEnabled = true), timelineControls = state.timelineControls.copy(playheadFrame = section.startFrame, loopStartFrame = section.startFrame, loopEndFrame = section.endFrame))
+    }
+
+    fun setPunchFromLoop() {
+        val state = _state.value; val project = state.project ?: return
+        if (!state.transport.loopEnabled || state.timelineControls.loopEndFrame <= state.timelineControls.loopStartFrame) return
+        val rate = project.sampleRate.fixedHz ?: playbackReadiness(project).sampleRateHz ?: 48_000
+        updatePracticeProject { PracticeWorkflowEditor.setPunch(it, PunchRegion(state.timelineControls.loopStartFrame, state.timelineControls.loopEndFrame, rate * 3L, rate.toLong()), System.currentTimeMillis()) }
+    }
+
+    fun clearPunch() = updatePracticeProject { PracticeWorkflowEditor.setPunch(it, null, System.currentTimeMillis()) }
+
+    fun analyzeTrackLevel(trackId: String) {
+        val state = _state.value; val project = state.project ?: return
+        viewModelScope.launch {
+            runCatching { withContext(Dispatchers.IO) {
+                val accumulator = TrackLevelAccumulator()
+                ActiveTakePolicy.audibleClips(project).filter { it.trackId == trackId && !it.muted }.forEach { clip ->
+                    FileSeekableByteSource(mediaStore.resolveEditable(project.id, editingMediaPath(clip))).use { source ->
+                        WavPcmDecoder(source).use { decoder ->
+                            decoder.seekToFrame(clip.sourceStartFrame)
+                            val buffer = FloatArray(2048 * decoder.metadata.channelCount)
+                            var remaining = clip.lengthFrames
+                            while (remaining > 0) {
+                                val requested = minOf(2048L, remaining).toInt(); val read = decoder.readInterleaved(buffer, frameCount = requested)
+                                if (read <= 0) break
+                                accumulator.append(buffer, read * decoder.metadata.channelCount); remaining -= read
+                            }
+                        }
+                    }
+                }
+                accumulator.finish()
+            } }.onSuccess { analysis -> _state.value = _state.value.copy(trackLevelAnalysis = _state.value.trackLevelAnalysis + (trackId to analysis)) }
+                .onFailure { error -> _state.value = _state.value.copy(error = error.message ?: "Não foi possível analisar o nível.") }
+        }
+    }
+
+    fun applyTrackLevelSuggestion(trackId: String) {
+        val project = _state.value.project ?: return; val analysis = _state.value.trackLevelAnalysis[trackId] ?: return
+        viewModelScope.launch {
+            runCatching { saveLatest(project.id) { current -> current.copy(tracks = current.tracks.map { if (it.id == trackId) it.copy(gainDb = (it.gainDb + analysis.recommendedGainDb).coerceIn(-60f, 12f)) else it }, updatedAtEpochMs = System.currentTimeMillis()) } }
+                .onSuccess { saved -> _state.value = _state.value.copy(project = saved, trackLevelAnalysis = _state.value.trackLevelAnalysis - trackId) }
+                .onFailure { error -> _state.value = _state.value.copy(error = error.message) }
+        }
+    }
+
+    private fun updatePracticeProject(transform: (GuitarProject) -> GuitarProject) {
+        val state = _state.value; val project = state.project ?: return
+        if (!structuralEditingAllowed(state)) return
+        viewModelScope.launch {
+            runCatching { saveLatest(project.id, transform) }
+                .onSuccess { saved -> _state.value = _state.value.copy(project = saved, transportEngineReady = playbackReadiness(saved).ready) }
+                .onFailure { error -> _state.value = _state.value.copy(error = error.message) }
+        }
+    }
+
+    fun onStudioHidden() {
+        when (_state.value.recordingSession.phase) {
+            RecordingSessionPhase.COUNTDOWN -> cancelRecordingCountdown()
+            RecordingSessionPhase.CAPTURING -> stopRecording()
+            else -> stopPlaybackSession()
+        }
+    }
+
+    private fun stopPlaybackSession() {
+        playbackSessionId++
+        playbackEngine.stop()
+    }
+
     override fun onCleared() {
         countdownJob?.cancel()
         recordingEngine.close()
@@ -1125,16 +1292,18 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                 preferredOutputDevice = preferredOutput,
                 preferredOutputRequested = !selectedOutputSignature.isNullOrBlank(),
                 masterGainDb = project.masterGainDb,
+                auditionMode = current.guitarAuditionMode,
                 trackMixes = project.tracks.map { track ->
                     StudioPlaybackTrackMix(
                         trackId = track.id,
+                        roleId = track.roleId,
                         gainDb = track.gainDb,
                         pan = track.pan,
                         muted = track.muted,
                         solo = track.solo,
                     )
                 },
-                clips = project.clips.mapNotNull { clip ->
+                clips = ActiveTakePolicy.audibleClips(project).mapNotNull { clip ->
                     val sourceTrack = tracksById[clip.trackId] ?: return@mapNotNull null
                     if (clip.muted) return@mapNotNull null
                     val managedPath = editingMediaPath(clip)
@@ -1167,12 +1336,13 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
             trackClipLatched = emptySet(),
             error = null,
         )
+        val sessionId = ++playbackSessionId
         runCatching {
             playbackEngine.start(request, object : StudioPlaybackListener {
                 override fun onPosition(frame: Long) {
                     viewModelScope.launch {
                         val state = _state.value
-                        if (state.transport.mode == TransportMode.PLAYING) {
+                        if (sessionId == playbackSessionId && state.transport.mode == TransportMode.PLAYING) {
                             _state.value = state.copy(timelineControls = state.timelineControls.copy(playheadFrame = frame))
                         }
                     }
@@ -1181,6 +1351,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                 override fun onStopped(frame: Long) {
                     viewModelScope.launch {
                         val state = _state.value
+                        if (sessionId != playbackSessionId) return@launch
                         _state.value = state.copy(
                             transport = state.transport.copy(mode = TransportMode.STOPPED),
                             timelineControls = state.timelineControls.copy(playheadFrame = frame),
@@ -1193,6 +1364,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                 override fun onError(message: String) {
                     viewModelScope.launch {
                         val state = _state.value
+                        if (sessionId != playbackSessionId) return@launch
                         _state.value = state.copy(
                             transport = state.transport.copy(mode = TransportMode.STOPPED),
                             masterMeter = MeterBallisticsPolicy.reset(),
@@ -1205,6 +1377,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                 override fun onRouting(status: StudioPlaybackRoutingStatus) {
                     viewModelScope.launch {
                         val state = _state.value
+                        if (sessionId != playbackSessionId) return@launch
                         val routeStatus = when {
                             status.usingPreferredOutput -> "Saída • ${status.deviceLabel ?: "dispositivo preferido"}"
                             status.fellBackToAuto -> "Saída preferida indisponível • usando rota automática"
@@ -1219,7 +1392,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                 override fun onMasterMeter(meter: StudioPlaybackMeter) {
                     viewModelScope.launch {
                         val state = _state.value
-                        if (state.transport.mode == TransportMode.PLAYING) {
+                        if (sessionId == playbackSessionId && state.transport.mode == TransportMode.PLAYING) {
                             _state.value = state.copy(
                                 masterMeter = MeterBallisticsPolicy.update(
                                     previous = state.masterMeter,
@@ -1236,6 +1409,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                 override fun onTrackMeters(meters: List<StudioPlaybackTrackMeter>) {
                     viewModelScope.launch {
                         val state = _state.value
+                        if (sessionId != playbackSessionId) return@launch
                         if (state.transport.mode != TransportMode.PLAYING) return@launch
                         val now = System.currentTimeMillis()
                         val incoming = meters.associateBy { it.trackId }
@@ -1279,7 +1453,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
         if (end <= 0L || project.clips.isEmpty()) return
         val tracksById = project.tracks.associateBy { it.id }
         val clips = runCatching {
-            project.clips.mapNotNull { clip ->
+            ActiveTakePolicy.audibleClips(project).mapNotNull { clip ->
                 val track = tracksById[clip.trackId] ?: return@mapNotNull null
                 if (clip.muted || (clip.editingSampleRateHz ?: clip.sourceSampleRateHz) != sampleRateHz) return@mapNotNull null
                 val managedPath = editingMediaPathOrNull(clip) ?: return@mapNotNull null
@@ -1309,7 +1483,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
             loopEndFrame = state.timelineControls.loopEndFrame,
             clips = clips,
             trackMixes = project.tracks.map {
-                StudioPlaybackTrackMix(it.id, it.gainDb, it.pan, muted = it.muted, solo = it.solo)
+                StudioPlaybackTrackMix(trackId = it.id, roleId = it.roleId, gainDb = it.gainDb, pan = it.pan, muted = it.muted, solo = it.solo)
             },
             preferredOutputDevice = audioRoutingStore.resolveSelectedOutputDevice(),
             preferredOutputRequested = !outputSignature.isNullOrBlank(),
@@ -1565,7 +1739,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
     private fun playbackReadiness(project: GuitarProject): PlaybackReadiness {
         val anySolo = project.tracks.any { it.solo }
         val tracksById = project.tracks.associateBy { it.id }
-        val audible = project.clips.filter { clip ->
+        val audible = ActiveTakePolicy.audibleClips(project).filter { clip ->
             if (clip.muted) return@filter false
             val track = tracksById[clip.trackId] ?: return@filter false
             TrackMixPolicy.isAudible(track.muted, track.solo, anySolo)

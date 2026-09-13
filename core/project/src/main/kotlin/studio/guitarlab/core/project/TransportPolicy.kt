@@ -28,5 +28,8 @@ object TransportPolicy {
         if (timelineEditingEnabled(state)) state.copy(loopEnabled = !state.loopEnabled) else state
 
     fun returnToStartFrame(state: TransportState, currentFrame: Long): Long =
-        if (timelineEditingEnabled(state)) 0L else currentFrame
+        if (state.mode != TransportMode.RECORDING) 0L else currentFrame
+
+    fun playStopEnabled(state: TransportState, engineReady: Boolean): Boolean =
+        state.mode == TransportMode.PLAYING || (state.mode == TransportMode.STOPPED && engineReady)
 }

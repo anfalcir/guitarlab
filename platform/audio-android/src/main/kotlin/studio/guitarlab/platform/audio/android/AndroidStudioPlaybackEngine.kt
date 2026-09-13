@@ -12,6 +12,8 @@ import kotlin.math.min
 import kotlin.math.pow
 import kotlin.math.sqrt
 import studio.guitarlab.core.audio.PlaybackClockPolicy
+import studio.guitarlab.core.project.GuitarAuditionMode
+import studio.guitarlab.core.project.GuitarAuditionPolicy
 
 data class StudioPlaybackClip(
     val file: File,
@@ -28,6 +30,7 @@ data class StudioPlaybackClip(
 
 data class StudioPlaybackTrackMix(
     val trackId: String,
+    val roleId: String? = null,
     val gainDb: Float = 0f,
     val pan: Float = 0f,
     val muted: Boolean = false,
@@ -46,6 +49,7 @@ data class StudioPlaybackRequest(
     val preferredOutputDevice: AudioDeviceInfo? = null,
     val preferredOutputRequested: Boolean = false,
     val masterGainDb: Float = 0f,
+    val auditionMode: GuitarAuditionMode = GuitarAuditionMode.MIXER,
 )
 
 data class StudioPlaybackRoutingStatus(
@@ -78,11 +82,12 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
     @Volatile private var running = false
     @Volatile private var worker: Thread? = null
     @Volatile private var runtimeMasterGainDb: Float = 0f
+    @Volatile private var runtimeAuditionMode: GuitarAuditionMode = GuitarAuditionMode.MIXER
     private val runtimeTrackMixes = ConcurrentHashMap<String, StudioPlaybackTrackMix>()
 
     @Synchronized
     fun start(request: StudioPlaybackRequest, listener: StudioPlaybackListener) {
-        check(!running) { "A reprodução já está em execução." }
+        check(!running && worker?.isAlive != true) { "A reprodução anterior ainda está encerrando." }
         require(request.sampleRateHz > 0) { "A taxa de amostragem deve ser positiva." }
         require(request.projectEndFrame > 0) { "O projeto precisa conter áudio reproduzível." }
         require(request.startFrame in 0..request.projectEndFrame) { "O início da reprodução está fora da linha do tempo." }
@@ -99,6 +104,7 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
         runtimeTrackMixes.clear()
         request.trackMixes.forEach { runtimeTrackMixes[it.trackId] = it }
         runtimeMasterGainDb = request.masterGainDb
+        runtimeAuditionMode = request.auditionMode
         running = true
         worker = Thread({ runPlayback(request, listener) }, "GuitarLab-StudioPlayback").also { it.start() }
     }
@@ -120,10 +126,13 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
         runtimeMasterGainDb = gainDb.coerceIn(-60f, 12f)
     }
 
-    @Synchronized
+    fun setAuditionMode(mode: GuitarAuditionMode) { runtimeAuditionMode = mode }
+
     fun stop() {
-        running = false
-        worker?.interrupt()
+        val thread = synchronized(this) { running = false; worker }
+        thread?.interrupt()
+        if (thread != null && thread !== Thread.currentThread()) runCatching { thread.join(STOP_JOIN_TIMEOUT_MS) }
+        synchronized(this) { if (worker === thread && thread?.isAlive != true) worker = null }
     }
 
     override fun close() {
@@ -261,7 +270,7 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
     private fun applyRuntimeTrackMix(trackId: String, samples: FloatArray, sampleCount: Int) {
         val runtime = runtimeTrackMixes[trackId] ?: return
         val anySolo = runtimeTrackMixes.values.any { it.solo }
-        if (runtime.muted || (anySolo && !runtime.solo)) {
+        if (runtime.muted || (anySolo && !runtime.solo) || !GuitarAuditionPolicy.roleAudible(runtime.roleId, runtimeAuditionMode)) {
             java.util.Arrays.fill(samples, 0, sampleCount, 0f)
             return
         }
@@ -325,5 +334,6 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
     private companion object {
         const val CHUNK_FRAMES = 1024
         const val DRAIN_TIMEOUT_NS = 2_000_000_000L
+        const val STOP_JOIN_TIMEOUT_MS = 1_500L
     }
 }

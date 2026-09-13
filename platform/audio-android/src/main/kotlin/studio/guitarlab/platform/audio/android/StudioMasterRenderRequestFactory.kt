@@ -4,6 +4,7 @@ import java.io.File
 import studio.guitarlab.core.audio.TrackMixPolicy
 import studio.guitarlab.core.model.GuitarProject
 import studio.guitarlab.core.project.TimelineControlPolicy
+import studio.guitarlab.core.project.ActiveTakePolicy
 
 /** Canonical request construction shared by every master-export entry point. */
 object StudioMasterRenderRequestFactory {
@@ -18,7 +19,7 @@ object StudioMasterRenderRequestFactory {
             TrackMixPolicy.isAudible(it.muted, it.solo, anySolo)
         }
         val audibleIds = audibleTracks.mapTo(mutableSetOf()) { it.id }
-        val clips = project.clips.mapNotNull { clip ->
+        val clips = ActiveTakePolicy.audibleClips(project).mapNotNull { clip ->
             if (clip.muted || clip.trackId !in audibleIds) return@mapNotNull null
             val path = clip.managedEditProxyPath ?: clip.managedSourcePath ?: return@mapNotNull null
             val editingRate = clip.editingSampleRateHz ?: clip.sourceSampleRateHz

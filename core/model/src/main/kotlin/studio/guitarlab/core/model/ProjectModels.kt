@@ -8,6 +8,7 @@ const val CURRENT_PROJECT_SCHEMA_VERSION: Int = 1
 @Serializable enum class RoleSource { NONE, AUTO, USER }
 @Serializable enum class ChannelLayout { MONO, STEREO }
 @Serializable enum class SampleRateMode { AUTO, FIXED }
+@Serializable enum class SectionOrigin { MANUAL, AUTOMATIC }
 
 @Serializable data class SampleRateConfig(val mode: SampleRateMode = SampleRateMode.AUTO, val fixedHz: Int? = null)
 @Serializable data class TrackRoleDefinition(val id: String, val name: String, val builtIn: Boolean, val defaultChannelLayout: ChannelLayout, val defaultPan: Float = 0f)
@@ -91,6 +92,31 @@ object BuiltInRoles {
     val editingTotalFrames: Long? = null,
     val fadeInFrames: Long = 0,
     val fadeOutFrames: Long = 0,
+    val takeId: String? = null,
+)
+
+@Serializable data class TimelineMarker(val id: String, val name: String, val frame: Long)
+@Serializable data class TimelineSection(
+    val id: String,
+    val name: String,
+    val startFrame: Long,
+    val endFrame: Long,
+    val origin: SectionOrigin = SectionOrigin.MANUAL,
+    val confidence: Float? = null,
+)
+@Serializable data class RecordingTake(
+    val id: String,
+    val trackId: String,
+    val clipId: String,
+    val name: String,
+    val createdAtEpochMs: Long,
+    val active: Boolean = true,
+)
+@Serializable data class PunchRegion(
+    val startFrame: Long,
+    val endFrame: Long,
+    val preRollFrames: Long = 0,
+    val postRollFrames: Long = 0,
 )
 
 @Serializable data class GuitarProject(
@@ -106,4 +132,8 @@ object BuiltInRoles {
     val tracks: List<AudioTrack> = emptyList(),
     val clips: List<AudioClip> = emptyList(),
     val customRoles: List<TrackRoleDefinition> = emptyList(),
+    val markers: List<TimelineMarker> = emptyList(),
+    val sections: List<TimelineSection> = emptyList(),
+    val takes: List<RecordingTake> = emptyList(),
+    val punchRegion: PunchRegion? = null,
 )

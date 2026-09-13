@@ -32,6 +32,7 @@ data class StudioRecordingConfig(
     val channelCount: Int,
     val inputEncodingLabel: String,
     val routedInputLabel: String?,
+    val routedInputDeviceId: Int?,
     val softwareMonitoringEnabled: Boolean,
 )
 
@@ -55,6 +56,11 @@ interface StudioRecordingListener {
     fun onStopped(result: StudioRecordingResult)
     fun onError(message: String)
     fun onWarning(message: String) {}
+}
+
+internal object RecordingInputRoutePolicy {
+    fun accepts(explicit: Boolean, preferredDeviceId: Int?, routedDeviceId: Int?): Boolean =
+        !explicit || (preferredDeviceId != null && routedDeviceId == preferredDeviceId)
 }
 
 /** Android M5 capture engine. Final media ownership/commit remains in core:project. */
@@ -120,10 +126,10 @@ class AndroidStudioRecordingEngine(context: Context) : AutoCloseable {
             recorder.startRecording()
             if (recorder.recordingState != AudioRecord.RECORDSTATE_RECORDING) error("A entrada não entrou no estado de gravação.")
 
-            val routedAtStart = recorder.routedDevice
-            if (request.preferredInputDevice != null && routedAtStart != null && routedAtStart.id != request.preferredInputDevice.id) {
+            val routedAtStart = awaitRoutedInput(recorder, request.preferredInputDevice)
+            if (!RecordingInputRoutePolicy.accepts(request.preferredInputRequested, request.preferredInputDevice?.id, routedAtStart?.id)) {
                 stopReason = StudioRecordingStopReason.ROUTE_LOST
-                failureMessage = "O Android abriu uma entrada diferente da selecionada."
+                failureMessage = "A gravação foi bloqueada: o Android não confirmou a entrada selecionada. Nenhum fallback para o microfone foi permitido."
             }
 
             val shouldMonitor = SoftwareMonitoringPolicy.shouldMonitor(
@@ -148,6 +154,7 @@ class AndroidStudioRecordingEngine(context: Context) : AutoCloseable {
                         channelCount = opened.channelCount,
                         inputEncodingLabel = opened.encoding.label,
                         routedInputLabel = routedAtStart?.productName?.toString() ?: request.preferredInputDevice?.productName?.toString(),
+                        routedInputDeviceId = routedAtStart?.id,
                         softwareMonitoringEnabled = monitor != null,
                     )
                 )
@@ -155,11 +162,11 @@ class AndroidStudioRecordingEngine(context: Context) : AutoCloseable {
 
             var zeroReads = 0
             while (running && stopReason == StudioRecordingStopReason.USER_STOP) {
-                if (request.preferredInputDevice != null) {
+                if (request.preferredInputRequested) {
                     val routed = recorder.routedDevice
-                    if (routed != null && routed.id != request.preferredInputDevice.id) {
+                    if (!RecordingInputRoutePolicy.accepts(true, request.preferredInputDevice?.id, routed?.id)) {
                         stopReason = StudioRecordingStopReason.ROUTE_LOST
-                        failureMessage = "A entrada selecionada foi desconectada ou a rota mudou durante a gravação."
+                        failureMessage = "A entrada selecionada foi desconectada ou deixou de ser a rota efetiva. O take parcial foi encerrado para impedir captura por outra entrada."
                         break
                     }
                 }
@@ -323,6 +330,17 @@ class AndroidStudioRecordingEngine(context: Context) : AutoCloseable {
         return track
     }
 
+    private fun awaitRoutedInput(recorder: AudioRecord, expected: AudioDeviceInfo?): AudioDeviceInfo? {
+        if (expected == null) return recorder.routedDevice
+        val deadline = System.nanoTime() + ROUTE_CONFIRM_TIMEOUT_NS
+        var routed = recorder.routedDevice
+        while (running && routed?.id != expected.id && System.nanoTime() < deadline) {
+            try { Thread.sleep(ROUTE_CONFIRM_POLL_MS) } catch (_: InterruptedException) { return recorder.routedDevice }
+            routed = recorder.routedDevice
+        }
+        return routed
+    }
+
     private fun writeMonitor(track: AudioTrack, input: FloatArray, sampleCount: Int, channels: Int) {
         val stereo = if (channels == 2) input.copyOf(sampleCount) else FloatArray(sampleCount * 2).also { output ->
             repeat(sampleCount) { index ->
@@ -378,5 +396,9 @@ class AndroidStudioRecordingEngine(context: Context) : AutoCloseable {
         PCM16(AudioFormat.ENCODING_PCM_16BIT, 2, "PCM 16 bits"),
     }
 
-    private companion object { const val MAX_ZERO_READS = 8 }
+    private companion object {
+        const val MAX_ZERO_READS = 8
+        const val ROUTE_CONFIRM_POLL_MS = 10L
+        const val ROUTE_CONFIRM_TIMEOUT_NS = 750_000_000L
+    }
 }

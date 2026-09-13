@@ -55,13 +55,13 @@ fun TransportBar(
             AppIconButton(
                 icon = Icons.Default.SkipPrevious,
                 contentDescription = "Voltar ao início",
-                enabled = markerEditingEnabled,
+                enabled = state.mode != TransportMode.RECORDING && recordingPhase == RecordingSessionPhase.IDLE,
                 onClick = onReturnToStart,
             )
             AppIconButton(
                 icon = if (state.mode == TransportMode.STOPPED) Icons.Default.PlayArrow else Icons.Default.Stop,
                 contentDescription = if (state.mode == TransportMode.STOPPED) "Reproduzir" else "Parar",
-                enabled = engineReady || state.mode == TransportMode.PLAYING,
+                enabled = TransportPolicy.playStopEnabled(state, engineReady) && recordingPhase == RecordingSessionPhase.IDLE,
                 onClick = onPlayStop,
             )
             AppIconButton(

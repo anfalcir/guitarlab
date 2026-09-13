@@ -9,6 +9,7 @@ object ProjectTrackEditor {
         require(project.tracks.any { it.id == trackId }) { "Track '$trackId' not found." }
         return project.copy(
             clips = project.clips.filterNot { it.trackId == trackId },
+            takes = project.takes.filterNot { it.trackId == trackId },
             updatedAtEpochMs = nowEpochMs,
         )
     }
