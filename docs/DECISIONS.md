@@ -47,7 +47,7 @@ Repository documentation defines scope, roadmap, decisions, active gates and cur
 Playhead and Loop use clear top marker heads with ergonomic targets. Trim handles stay local to the active waveform. Playhead is blue, loop green, trim mustard and recording red.
 
 ## D-015 — Structural timeline edits require compatible stopped state
-Marker movement, clip structural edits and import are blocked during incompatible transport/recording states. Live mix controls follow their own safe policy.
+Marker movement, clip structural edits and import are blocked during incompatible transport/recording states. Live mix controls follow their own safe policy. D-061 later creates a deliberate exception for playhead-only seeking during Play.
 
 ## D-016 — Playhead follows the audio hardware clock
 Playback UI follows hardware-presented frames, not an arbitrary timer.
@@ -176,10 +176,16 @@ Automatic section detection and level analysis never mutate creative state silen
 GitHub Actions stays manual-only. A local pinned toolchain may establish software/build/signature evidence; emulator-only and physical-only claims must remain explicitly distinguished.
 
 ## D-058 — Loop constrains explicit Play, not recording pre-roll
-When Loop is active, an explicit Play action may begin only inside `[loopStart, loopEnd)`. A playhead outside that interval normalizes to loop start, and visible playback callbacks are kept inside the interval. This rule belongs to playback transport policy and must not be pushed into shared audio-engine or recording semantics because punch recording may legitimately begin before loop start for pre-roll.
+When Loop is active, an explicit Play action may begin only inside `[loopStart, loopEnd)`. A playhead outside that interval normalizes to loop start, and visible playback callbacks are kept inside the interval. This rule belongs to playback transport policy and must not be pushed into shared recording semantics because punch recording may legitimately begin before loop start for pre-roll.
 
 ## D-059 — Punch is transient REC intent, not durable armed state
 Loop punch is chosen at REC time for the current recording only. With Loop active, REC asks whether to record only the loop, record from project start, or cancel. Only the loop choice creates a transient punch plan. Persisted `GuitarProject.punchRegion` remains readable solely for backward file-format compatibility and must never silently arm a later recording.
 
 ## D-060 — Section detection previews before mutation
 Automatic section detection must render a non-persistent preview before the project is changed. Preview and acceptance use the same normalized boundaries. Cancelling preview is a no-op on persisted sections. `Limpar seções` is an explicit non-destructive command that removes saved sections and pending preview while preserving clips, markers and loop bounds.
+
+## D-061 — Playhead seek is live during Play and forbidden during recording
+The playhead is the sole timeline marker allowed to move while ordinary Play is active. Dragging it performs a low-latency in-session audio seek and playback continues from the selected frame. With Loop active, live seek is clamped to `[loopStart, loopEnd)`; loop markers and structural edits remain stopped-only. Countdown, active recording and finalization reject playhead seeking.
+
+## D-062 — User Play completes and returns to its logical start
+Natural non-loop playback completion stops and returns the playhead to project start. With Loop active, explicit user Play is a single bounded pass whose logical end is `L▶`; natural completion stops and returns the playhead to `L◀`. This one-pass rule applies only to explicit user Play. Recording/backing loop playback retains repeating-loop semantics so punch capture and its pre/post-roll behavior are not redefined.
