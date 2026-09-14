@@ -1,6 +1,6 @@
 # Product Requirements
 
-Updated: 2026-09-09
+Updated: 2026-09-14
 
 ## Projects
 - Create Blank or Guitar-template projects.
@@ -54,7 +54,7 @@ Target V1 interoperability includes WAV PCM, FLAC, AIFF/AIFC PCM, MP3, AAC/M4A, 
 - Safe microphone permission/privacy handling.
 - Production playback/capture path distinct from diagnostics.
 - Duplex startup must avoid starvation artifacts and route loss must fail predictably.
-- Record uses visible countdown and zero-time revalidation of permission, route, project and exactly one armed track.
+- Record uses a visible **3-second** countdown and zero-time revalidation of permission, route, project and exactly one armed track. The countdown is a centered translucent overlay and must not reserve/reflow workspace layout.
 - Finalized takes enter immutable managed storage transactionally; zero-frame attempts create no clip.
 - Valid takes create clip + waveform at the recording start position.
 - The armed track must show a bounded live waveform during capture.
@@ -74,7 +74,7 @@ Target V1 interoperability includes WAV PCM, FLAC, AIFF/AIFC PCM, MP3, AAC/M4A, 
 ## Practice workflow
 - Support Reference, My Guitar and Both audition modes.
 - Persist markers, named sections and loop selection.
-- Automatic section analysis creates reviewable suggestions and never commits silently.
+- Automatic section analysis creates reviewable suggestions and never commits silently. Suggested/previewed boundaries must stay inside the real project duration, reject edge-adjacent micro-sections, and never render beyond project end.
 - Punch recording derives its region from the loop and accounts for pre-roll, post-roll and calibrated latency.
 - Track level analysis reports RMS/peak and offers a bounded recommendation that requires explicit application.
 
@@ -102,6 +102,9 @@ Options remains for audio routes, monitoring, preferences, import information an
 
 ## UX
 - Tablet-first readability and large touch targets.
+- `Comparação` and `Timeline` use the available width without leaving accidental dead space; narrow layouts may stack rather than clipping controls.
+- `Auto seções` owns a fixed slot: during preview that exact slot becomes `Aplicar` + red `X`, preventing neighboring-control shifts.
+- The same in-app GuitarLab guide is reachable from both Home and Studio; multiple entry points must reuse one implementation/content source.
 - Clean modern Graphite Studio language.
 - Technical diagnostics separate from everyday creative flow.
 - No fake enabled controls for unimplemented features.
