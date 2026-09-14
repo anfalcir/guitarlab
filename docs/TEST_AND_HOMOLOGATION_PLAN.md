@@ -5,7 +5,7 @@ Updated: 2026-09-14
 ## Active candidate
 The active source candidate is `0.5.0-rc3` / versionCode `23` on `main`. Its exact validated source SHA is not predeclared: it is the `github.sha` of the manually dispatched canonical workflow run that passes all mandatory gates.
 
-The latest previously established full hosted baseline is `0.4.0-rc2` / CI #593, which passed software, API 36 full instrumented regression, isolated 1920×1200 target geometry and signed homologation assembly. RC1/RC2 introduced later recording/practice/UI deltas; RC3 consolidates their final loop/section/punch/transport and Studio-clarity refinements and therefore requires a new exact-source manual workflow before any digital PASS claim.
+The latest fully green hosted baseline is `0.5.0-rc3` / CI #613 at `db5a4208848e4b6ca2163ce715d0c5bb464cfe37`, which passed software, full API 36 regression, isolated 1920×1200 target geometry and signed homologation. Current source advanced after that run with physical-review UX corrections, so those new deltas require one new exact-source manual workflow before promotion.
 
 ## RC3-specific automated coverage
 Deterministic coverage includes:
@@ -19,11 +19,14 @@ Deterministic coverage includes:
 - rejection of punch without a valid active loop;
 - punch pre-roll/post-roll/latency calculations;
 - section detection preview using the same boundaries as persistence;
-- cancel/discard preview as non-persistent state;
+- discard-preview as non-persistent state;
 - clear-sections semantics;
 - track-function availability, assignment/removal and structural conflict prevention;
 - valid L/R function coexistence plus repeatable generic instrument functions;
-- Compose instrumentation for `Auto seções`, Loop-dependent `Criar seção do loop`, and the transient Loop + REC decision/Cancel behavior.
+- fixed-slot regression proving `Auto seções` and `Aplicar` + red `X` occupy the same geometry;
+- Home `Ajuda` regression proving the same shared guide content opens outside Studio;
+- 3-second countdown policy regression plus overlay semantics/large-geometry instrumentation;
+- section edge-guard and project-end clipping invariants.
 
 Existing global suites continue to cover persistence, history, managed media, codec, SRC, waveform, recording transactionality, active takes, mixer/audio math, export, recovery, lifecycle, accessibility, geometry and performance/stress invariants.
 
@@ -46,20 +49,10 @@ Before RC promotion, source review must confirm:
 
 See `USER_GUIDE_POLICY.md`.
 
-## Latest partial hosted evidence — CI #596
-CI #596 ran against `1bc6652dcdbc580badb3e7aea0c416ba4d06ecce`, before the latest transport and Studio UX changes.
+## Latest hosted evidence — CI #613
+CI #613 ran against `db5a4208848e4b6ca2163ce715d0c5bb464cfe37` and passed the complete canonical matrix: unit/JVM, performance evidence, Lint, debug/release assembly, API 36 full instrumentation, isolated 1920×1200 geometry, signing/certificate and artifact identity. Signed APK SHA-256: `4b62d38c1caf3f449c94b4f9111263dacd87d8cf5e9116caa26245ecb716f341`.
 
-It established:
-- unit/JVM tests PASS;
-- performance evidence PASS;
-- Android Lint PASS;
-- debug APK assembly PASS;
-- Android instrumentation compilation PASS;
-- API 36 runtime suite: 8/9 PASS.
-
-The sole API 36 failure was a timeout in the new Loop + REC Compose test while waiting for the top-bar `Ativar loop` node in a blank zero-length project. All other instrumented tests passed. The test fixture has since been changed to wait for the loaded Studio ViewModel and establish loop state through `StudioViewModel.toggleLoop()`, isolating the behavior under test from blank-project toolbar timing.
-
-Because source advanced after #596, this evidence is diagnostic only and cannot promote the active RC3 HEAD.
+That run is a valid baseline but does not automatically validate source added afterward. The section/layout/help/countdown delta introduced during the following physical review must receive its own manual run.
 
 ## Canonical gate execution
 Ordinary commits do not start hosted CI. GitHub Actions is intentionally `workflow_dispatch` only. The user manually starts `.github/workflows/android-ci.yml` after source/documentation consolidation.
@@ -75,20 +68,22 @@ Required checks:
 5. reproducible performance evidence extraction;
 6. Android Lint;
 7. debug APK assembly;
-8. diagnostics/reports/exact-source snapshot upload.
+8. when homologation is requested, compile the unsigned release once from the same warm source tree and publish its checksum/identity;
+9. diagnostics/reports/exact-source snapshot upload.
 
 Any failure blocks candidate promotion.
 
 ### 2. Android integration gate
 Required checks on Android API 36 emulator:
-1. Android instrumentation compilation;
-2. complete standard connected Android regression;
-3. lifecycle/activity recreation behavior;
-4. Compose accessibility/callback behavior already in the suite;
-5. `Auto seções` and Loop-dependent create-section state;
-6. transient Loop + REC modal regression;
-7. Android codec/export integration checks;
-8. isolated 1920×1200 landscape target-geometry execution.
+1. complete standard connected Android regression;
+2. lifecycle/activity recreation behavior;
+3. Compose accessibility/callback behavior already in the suite;
+4. `Auto seções` fixed-slot preview actions and Loop-dependent create-section state;
+5. shared Home/Studio guide entry behavior;
+6. 3-second REC countdown overlay semantics/geometry;
+7. transient Loop + REC modal regression;
+8. Android codec/export integration checks;
+9. isolated 1920×1200 landscape target-geometry execution.
 
 Any failure blocks signing.
 
@@ -96,8 +91,10 @@ Any failure blocks signing.
 The signed job has `needs: [software-gate, android-integration-gate]` and runs only when `signed_homologation=true`.
 
 It must:
+- download the exact unsigned release artifact produced by `software-gate` rather than recompiling source;
+- verify unsigned artifact checksum/source/package/version identity against the same `github.sha`;
 - restore signing material only inside the runner;
-- build the release APK;
+- align/sign that exact staged APK;
 - verify the APK with `apksigner`;
 - compare signer SHA-256 against `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`;
 - package `GuitarLabStudio-0.5.0-rc3-homologacao.apk`;
@@ -121,21 +118,7 @@ Before sending RC3 to physical homologation:
 Only after this verification does the residual physical checklist become active.
 
 ## What belongs in automation
-Do not ask the user to manually re-prove:
-- deterministic model/editor/history behavior;
-- loop boundary/start/end/reset normalization math;
-- live-seek frame clamping rules;
-- punch planning math;
-- section preview/application equivalence;
-- track-function conflict/availability rules;
-- enable/disable semantics that are covered by Compose instrumentation;
-- project/package/file validation or path traversal;
-- source/proxy/media rollback invariants;
-- SRC ratios/pitch/RMS/channel math;
-- sample-domain master/fade/crossfade behavior;
-- lifecycle recreation already covered by instrumentation;
-- generic accessibility semantics already covered by Compose instrumentation;
-- structural large-project save/bundle/render behavior.
+Do not ask the user to manually re-prove deterministic model/editor/history behavior, loop/seek/punch math, section preview/application normalization, fixed Auto-sections slot geometry, shared guide routing, countdown timing/overlay geometry, track-function conflict rules, project/package/file validation, source/proxy rollback, SRC/audio math, lifecycle recreation, generic accessibility semantics or structural stress behavior when those are objectively covered by the automated matrix.
 
 ## What remains physical
 After exact RC3 automated PASS, only target-device facts remain:
@@ -143,8 +126,8 @@ After exact RC3 automated PASS, only target-device facts remain:
 - real guitar recording isolation and reconnect behavior;
 - live waveform visibility during a real take;
 - real-tablet natural-end/reset and live-seek ergonomics, including loop-bounded seek behavior;
-- real-tablet layout/readability of comparison badges, armed-lane feedback and relocated controls;
-- real-tablet loop/section/REC-choice ergonomics;
+- real-tablet readability/ergonomics of comparison, sections, armed-lane feedback and countdown overlay;
+- transient REC-choice/punch alignment;
 - subjective latency/feel and listening for pops/dropouts/artifacts during normal play and live seek;
 - target-specific MP3 encoder availability/playability;
 - representative real-device stress/export smoke.
@@ -161,5 +144,6 @@ M7/M8 release hardening closes only after zero repeatable P0/P1, exact-source au
 
 ## Historical evidence
 - `0.4.0-rc2`, versionCode 20 — CI #593: software + API 36 + isolated target geometry + signed homologation PASS; APK SHA-256 `b067558e4ef6793df206d3e966faa029aa952b446ee63c8e47070a481297df85`; signer SHA-256 `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
-- CI #596 — `0.5.0-rc3` partial evidence at SHA `1bc6652dcdbc580badb3e7aea0c416ba4d06ecce`: software gate and instrumentation compilation PASS; API 36 runtime 8/9 with one deterministic-test-fixture timeout; signing blocked as designed.
+- CI #596 — historical partial RC3 evidence (8/9 API 36; deterministic fixture timeout; signing correctly blocked).
+- CI #613 — full RC3 baseline PASS at `db5a4208848e4b6ca2163ce715d0c5bb464cfe37`, including API 36, 1920×1200 geometry and signed homologation; signed APK SHA-256 `4b62d38c1caf3f449c94b4f9111263dacd87d8cf5e9116caa26245ecb716f341`.
 - RC1/RC2 evidence remains useful for regression history but does not substitute for an exact RC3 run because RC3 changes transport/practice/recording-source/Studio-UX behavior.
