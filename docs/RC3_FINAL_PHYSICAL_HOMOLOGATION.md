@@ -21,14 +21,18 @@ Do not homologate an APK whose version, source SHA, checksum or signer differs f
 - Open an existing project and confirm tracks, clips, takes, markers and sections remain intact.
 - Close the app completely, reopen the same project and confirm persistence.
 
-## B. Loop playback semantics
+## B. Loop playback, natural completion and live seek
 - Create a loop with clearly separated start/end markers.
 - Put the playhead before loop start and press Play: playback must start at loop start.
 - Put the playhead inside the loop and press Play: playback must start from that in-loop position.
 - Put the playhead exactly at loop end and press Play: playback must restart at loop start.
 - Put the playhead after loop end and press Play: playback must start at loop start.
-- During playback, the visible playhead must remain inside the loop interval.
-- Disable Loop and confirm ordinary free playback behavior returns.
+- Let looped Play reach `L▶` naturally: it must STOP and leave the playhead at `L◀` rather than continue repeating.
+- During looped Play, drag the playhead to several positions inside the interval: audio must continue from each selected position without an explicit Stop/Play cycle.
+- While looped Play is active, try dragging toward/beyond either loop boundary: the effective playhead/seek must remain inside `[L◀, L▶)`.
+- Disable Loop and start ordinary playback. Drag the playhead both backward and forward while Play remains active; audio must continue from the selected point without a manual restart.
+- Let ordinary playback reach project end naturally: it must STOP and return the playhead to 00:00.
+- Listen specifically for repeatable seek-related hangs, stale audio, large pops or transport desynchronization.
 
 ## C. Section detection preview and clearing
 - Run `Detectar seções` on a representative backing/project.
@@ -45,6 +49,7 @@ Do not homologate an APK whose version, source SHA, checksum or signer differs f
 - Choose `Cancelar`: no recording/countdown/transport mutation should remain.
 - Choose `Desde o início`: recording must start from 00:00 and the loop must no longer constrain that recording.
 - Choose `Somente o loop`: capture may begin before loop start for pre-roll, but the retained take must align to the loop region according to punch semantics.
+- During countdown/REC/finalization, attempt to drag the playhead: its timeline position must not be seekable by the user.
 - Stop/repeat recording and reopen the project; an old persisted punch field must never silently arm a later recording.
 
 ## E. MK-300 capture isolation and live recording
@@ -57,12 +62,13 @@ Do not homologate an APK whose version, source SHA, checksum or signer differs f
 
 ## F. Transport, takes and comparison smoke
 - During ordinary playback press `|<`; transport must remain responsive and obey the active loop rule when Loop is enabled.
-- Start/stop playback repeatedly, record, then return to playback.
+- Start/stop playback repeatedly, perform several live seeks, record, then return to playback.
+- Confirm a manual Stop keeps the current playhead position; only **natural completion** performs the automatic return-to-start behavior.
 - Record at least two takes on one track and switch the active take.
 - Exercise Reference, My Guitar and Both comparison modes and confirm the intended tracks are audible/hidden consistently with the visual state.
 
 ## G. Real-device listening, export and stress
-- Judge monitoring latency/feel and listen for repeatable pops, dropouts, wrong pitch/speed, unintended one-sided audio or loop-boundary artifacts.
+- Judge monitoring latency/feel and listen for repeatable pops, dropouts, wrong pitch/speed, unintended one-sided audio or loop/seek-boundary artifacts.
 - Exercise a representative multi-track project with seeking, looping, Mixer and edits.
 - Export short WAV and FLAC masters and confirm playability.
 - If MP3 is available on the target Samsung, export and play one MP3; if unavailable, a controlled capability failure is acceptable and must not leave a corrupt file.
@@ -72,7 +78,7 @@ Do not homologate an APK whose version, source SHA, checksum or signer differs f
 - official signer and checksum verified;
 - no repeatable P0/P1;
 - no GuitarLab-attributable backing leakage or unintended input fallback;
-- loop playback, section preview/clear and transient punch choice behave as specified;
+- natural completion/reset, live playhead seek, loop playback, section preview/clear and transient punch choice behave as specified;
 - explicit user approval of this exact APK.
 
 Deterministic model/editor/file/codec math, API 36 generic integration and target-geometry checks are automated and should not be manually re-proved here.
