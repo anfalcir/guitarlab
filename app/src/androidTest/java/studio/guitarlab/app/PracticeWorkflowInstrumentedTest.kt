@@ -47,15 +47,13 @@ class PracticeWorkflowInstrumentedTest {
             assertNotNull("Practice test project must be persisted", persisted)
             projectId = persisted!!.id
             waitForRoute(AppScreen.Studio(projectId))
+            waitUntilContentDescriptionEnabled("Ativar loop")
+            waitUntilContentDescriptionEnabled("Gravar")
 
-            composeRule.onNodeWithContentDescription("Ativar loop")
-                .assertIsEnabled()
-                .performClick()
+            composeRule.onNodeWithContentDescription("Ativar loop").performClick()
             composeRule.onNodeWithContentDescription("Desativar loop").assertIsDisplayed()
 
-            composeRule.onNodeWithContentDescription("Gravar")
-                .assertIsEnabled()
-                .performClick()
+            composeRule.onNodeWithContentDescription("Gravar").performClick()
 
             composeRule.onNodeWithText("Gravar com o loop ativo").assertIsDisplayed()
             composeRule.onNodeWithText("Somente o loop").assertIsDisplayed()
@@ -73,6 +71,14 @@ class PracticeWorkflowInstrumentedTest {
         composeRule.waitUntil(timeoutMillis = UI_TIMEOUT_MS) {
             runCatching {
                 composeRule.onNodeWithText(text).assertIsEnabled()
+            }.isSuccess
+        }
+    }
+
+    private fun waitUntilContentDescriptionEnabled(description: String) {
+        composeRule.waitUntil(timeoutMillis = UI_TIMEOUT_MS) {
+            runCatching {
+                composeRule.onNodeWithContentDescription(description).assertIsEnabled()
             }.isSuccess
         }
     }
