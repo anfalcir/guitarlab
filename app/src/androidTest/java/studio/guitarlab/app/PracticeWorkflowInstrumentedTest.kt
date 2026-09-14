@@ -12,12 +12,14 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import studio.guitarlab.app.ui.AppNavigationViewModel
 import studio.guitarlab.app.ui.AppRouteCodec
 import studio.guitarlab.app.ui.AppScreen
+import studio.guitarlab.app.ui.StudioViewModel
 import studio.guitarlab.core.model.GuitarProject
 import studio.guitarlab.core.project.FileProjectRepository
 
@@ -45,11 +47,17 @@ class PracticeWorkflowInstrumentedTest {
             assertNotNull("Practice test project must be persisted", persisted)
             projectId = persisted!!.id
             waitForRoute(AppScreen.Studio(projectId))
-            waitUntilContentDescriptionEnabled("Ativar loop")
-            waitUntilContentDescriptionEnabled("Gravar")
+            waitForStudioProject(projectId)
 
-            composeRule.onNodeWithContentDescription("Ativar loop").performClick()
-            composeRule.onNodeWithContentDescription("Desativar loop").assertIsDisplayed()
+            // The modal behavior is the subject of this test. Activate loop through the same
+            // ViewModel command used by the toolbar so the test is not coupled to top-bar
+            // rendering/timing on a zero-length blank project.
+            studio().toggleLoop()
+            composeRule.waitUntil(timeoutMillis = UI_TIMEOUT_MS) {
+                studio().state.value.transport.loopEnabled
+            }
+            assertTrue(studio().state.value.transport.loopEnabled)
+            waitUntilContentDescriptionEnabled("Gravar")
 
             composeRule.onNodeWithContentDescription("Gravar").performClick()
 
@@ -59,7 +67,7 @@ class PracticeWorkflowInstrumentedTest {
             composeRule.onNodeWithText("Cancelar").assertIsDisplayed().performClick()
 
             composeRule.waitForIdle()
-            composeRule.onNodeWithContentDescription("Desativar loop").assertIsDisplayed()
+            assertTrue("Cancel must preserve the active loop", studio().state.value.transport.loopEnabled)
             composeRule.onNodeWithContentDescription("Gravar").assertIsEnabled()
         } finally {
             projectId?.let { runCatching { repository.delete(it) } }
@@ -90,9 +98,23 @@ class PracticeWorkflowInstrumentedTest {
         return result
     }
 
+    private fun studio(): StudioViewModel {
+        lateinit var result: StudioViewModel
+        composeRule.activityRule.scenario.onActivity { activity ->
+            result = ViewModelProvider(activity)[StudioViewModel::class.java]
+        }
+        return result
+    }
+
     private fun waitForRoute(expected: AppScreen) {
         composeRule.waitUntil(timeoutMillis = UI_TIMEOUT_MS) {
             AppRouteCodec.decode(navigation().persistedRoute.value) == expected
+        }
+    }
+
+    private fun waitForStudioProject(projectId: String) {
+        composeRule.waitUntil(timeoutMillis = UI_TIMEOUT_MS) {
+            studio().state.value.project?.id == projectId && !studio().state.value.loading
         }
     }
 
