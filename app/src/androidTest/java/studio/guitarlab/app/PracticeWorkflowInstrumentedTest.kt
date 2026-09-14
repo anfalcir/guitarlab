@@ -65,10 +65,11 @@ class PracticeWorkflowInstrumentedTest {
 
             composeRule.onNodeWithContentDescription("Gravar").performClick()
 
-            composeRule.onNodeWithText("Gravar com o loop ativo").assertIsDisplayed()
-            composeRule.onNodeWithText("Somente o loop").assertIsDisplayed()
-            composeRule.onNodeWithText("Desde o início").assertIsDisplayed()
-            composeRule.onNodeWithText("Cancelar").assertIsDisplayed().performClick()
+            waitUntilDisplayed("Gravar com o loop ativo")
+            waitUntilDisplayed("Somente o loop")
+            waitUntilDisplayed("Desde o início")
+            waitUntilDisplayed("Cancelar")
+            composeRule.onNodeWithText("Cancelar").performClick()
 
             composeRule.waitForIdle()
             assertTrue("Cancel must preserve the active loop", studio().state.value.transport.loopEnabled)
@@ -87,6 +88,12 @@ class PracticeWorkflowInstrumentedTest {
     private fun waitUntilContentDescriptionEnabled(description: String) {
         composeRule.waitUntil(timeoutMillis = UI_TIMEOUT_MS) {
             runCatching { composeRule.onNodeWithContentDescription(description).assertIsEnabled() }.isSuccess
+        }
+    }
+
+    private fun waitUntilDisplayed(text: String) {
+        composeRule.waitUntil(timeoutMillis = UI_TIMEOUT_MS) {
+            runCatching { composeRule.onNodeWithText(text).assertIsDisplayed() }.isSuccess
         }
     }
 
