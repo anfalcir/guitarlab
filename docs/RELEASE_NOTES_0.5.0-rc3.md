@@ -2,17 +2,25 @@
 
 Updated: 2026-09-14
 
-RC3 consolidates the final practice-workflow refinements requested after physical use of RC2. The goal is to make loop playback, section detection and punch recording behave as one coherent workflow without adding permanent UI clutter.
+RC3 consolidates the final practice-workflow and transport refinements requested after physical use of RC2. The goal is to make loop playback, section detection, punch recording and navigation behave as one coherent workflow without adding permanent UI clutter.
 
-## Loop playback
+## Loop playback and completion
 - When Loop is enabled and the user presses Play, playback starts only inside `[loopStart, loopEnd)`.
 - A playhead before the loop, exactly at the loop end, or after the loop is normalized to the loop start.
-- Playback position callbacks are kept inside the active loop interval.
-- The rule is intentionally Play-only. Recording may still begin before the loop start when punch pre-roll requires it.
+- Explicit user Play treats the active loop as one bounded pass: `L▶` is the logical end of that Play pass.
+- When a looped Play reaches `L▶` naturally, playback stops and the playhead returns to `L◀`.
+- When ordinary non-loop Play reaches project end naturally, playback stops and the playhead returns to 00:00.
+- These completion rules are intentionally user-Play-only. Recording/backing playback keeps repeating-loop semantics where required by punch capture.
+
+## Live playhead seek
+- The playhead may be dragged while ordinary Play is running; audio seeks inside the active playback session and continues from the selected position without requiring Stop → reposition → Play.
+- Repeated drag updates are coalesced by the audio thread so the most recent seek wins without recreating the playback session for every pointer movement.
+- With Loop active, live seek is clamped inside `[L◀, L▶)`.
+- Countdown, active recording and recording finalization reject playhead movement. Loop markers and structural timeline edits remain stopped-only.
 
 ## Section workflow
-- `Detectar seções` now exposes the detected regions as a non-persistent timeline preview before acceptance.
-- The preview uses the same normalized boundaries that will be persisted by `Aplicar/Aceitar`, preventing preview/application drift.
+- `Detectar seções` exposes detected regions as a non-persistent timeline preview before acceptance.
+- The preview uses the same normalized boundaries that will be persisted by `Aplicar prévia`, preventing preview/application drift.
 - Cancelling/discarding the preview leaves the project unchanged.
 - `Limpar seções` removes all persisted sections without deleting clips, markers or changing the loop selection.
 - Section labels remain in the shared timeline header; loop markers retain visual priority without adding another permanent rail.
@@ -28,13 +36,17 @@ RC3 consolidates the final practice-workflow refinements requested after physica
 
 ## Regression coverage added
 - loop playback start before/inside/at-end/after the loop;
+- natural playback end/reset for ordinary and looped Play;
+- live-play seek inside and outside loop bounds;
 - playback cursor confinement versus untouched recording position;
-- non-loop restart behavior at project end;
 - transient recording modes and punch validity;
 - section preview/application boundary equivalence;
-- clear-sections behavior.
+- clear-sections behavior;
+- Compose regression for the transient REC choice with Loop active.
 
 ## Validation status
-Source-level implementation and regression coverage are consolidated on `main`. RC3 is not considered digitally validated until the manually dispatched canonical GitHub Actions run passes software gate, full API 36 integration/geometry gate and signed homologation assembly for the exact same `github.sha`.
+Manual CI #596, source `1bc6652dcdbc580badb3e7aea0c416ba4d06ecce`, established that unit tests, Android Lint, debug APK assembly and Android instrumentation compilation pass. The API 36 suite executed 9 tests: 8 passed and the only failure was a timeout in the newly added REC-choice UI test while it waited for a loop toolbar node in a zero-length blank-project scenario. The test has since been rewritten to make the loop precondition deterministic through the Studio ViewModel.
+
+The transport changes in this document and the deterministic test repair are newer than #596, so RC3 is **not** digitally validated yet. The authoritative PASS must come from one manually dispatched canonical workflow on the final `main` HEAD, with software gate, full API 36/geometry gate and signed homologation assembly all green for the same `github.sha`.
 
 The remaining target-device gate after that automated PASS is Samsung SM-X230 + M-VAVE MK-300 physical validation of real USB routing/capture, recording isolation, monitoring/latency/listening and final tablet ergonomics.
