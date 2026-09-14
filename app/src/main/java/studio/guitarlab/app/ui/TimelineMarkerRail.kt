@@ -115,7 +115,9 @@ fun TimelineMarkerRail(
             projectEndFrame,
             sampleRateHz,
             widthPx,
-            enabled,
+            // The playhead remains gesture-enabled during Play. StudioViewModel is the authority
+            // that rejects movement during countdown/REC and normalizes live seeks to loop bounds.
+            true,
             onPlayheadFrameChanged,
             modifier = Modifier.zIndex(4f),
         )
