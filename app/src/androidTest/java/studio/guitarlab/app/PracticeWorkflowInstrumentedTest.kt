@@ -1,7 +1,9 @@
 package studio.guitarlab.app
 
+import androidx.compose.ui.test.assertExists
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -49,11 +51,8 @@ class PracticeWorkflowInstrumentedTest {
             waitForRoute(AppScreen.Studio(projectId))
             waitForStudioProject(projectId)
 
-            composeRule.onNodeWithText("Auto Seções").assertIsDisplayed()
-            assertTrue(
-                "Create-section action must be disabled while loop is off",
-                runCatching { composeRule.onNodeWithText("Criar seção do loop").assertIsEnabled() }.isFailure,
-            )
+            composeRule.onNodeWithText("Auto Seções").assertExists()
+            composeRule.onNodeWithText("Criar seção do loop").assertExists().assertIsNotEnabled()
 
             // Activate loop through the same ViewModel command used by the toolbar so the test is
             // deterministic even when a blank project has no playable timeline content.
