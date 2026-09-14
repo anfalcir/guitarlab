@@ -37,7 +37,7 @@ Implemented scope includes:
 
 M7 is not closed until the exact active RC passes the canonical automated gates and the residual Samsung SM-X230 + M-VAVE MK-300 physical checklist receives explicit approval.
 
-## M8 — Release hardening — DIGITAL BASELINE COVERED / EXACT RC3 GATE PENDING
+## M8 — Release hardening — DIGITAL BASELINE GREEN / CURRENT RC3 DELTA PENDING
 ### M8.A — Compatibility + edge cases
 Covered by deterministic regression for:
 - legacy/current project migration;
@@ -62,9 +62,10 @@ Residual target-device-only items remain tactile/visual ergonomics, real USB rou
 - `0.4.0-rc2` / versionCode 20: full API 36 + target-geometry + signed baseline PASS in CI #593.
 - `0.5.0-rc1` / versionCode 21: recording/practice hardening candidate.
 - `0.5.0-rc2` / versionCode 22: shared timeline/practice visual refinement.
-- `0.5.0-rc3` / versionCode 23: active candidate containing final loop playback, section preview/clear and transient REC/punch workflow refinements.
+- `0.5.0-rc3` / versionCode 23: active candidate containing final loop playback, section preview/clear, transient REC/punch and physical-review UX refinements.
+- CI #613 / `db5a4208848e4b6ca2163ce715d0c5bb464cfe37`: complete software + API 36 + tablet geometry + signed homologation PASS; latest fully green RC3 baseline.
 
-The exact RC3 digital gate is intentionally pending until the user manually dispatches the canonical workflow. Ordinary commits do not trigger hosted CI.
+Current source advanced after #613 with section-boundary/rendering hardening, fixed Auto-seções slot geometry, shared Home help entry and the 3-second overlay countdown. Ordinary commits do not trigger hosted CI; one new exact-source manual run is required before promoting the updated APK.
 
 ## RC3 acceptance gates
 RC3 may advance to final physical homologation only after one exact-source manual workflow run proves all of the following for the same `github.sha`:
