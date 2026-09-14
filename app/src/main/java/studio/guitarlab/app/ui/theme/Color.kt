@@ -51,3 +51,7 @@ val StudioWarning = Color(0xFFD99A3D)
 val StudioPlayhead = Color(0xFF4D8DFF)
 val StudioLoop = Color(0xFF35AA72)
 val StudioTrim = Color(0xFFB5852E)
+
+// High-visibility comparison states used only as compact semantic badges.
+val StudioComparisonActive = Color(0xFF39FF88)
+val StudioComparisonHidden = Color(0xFFFF4D9A)
