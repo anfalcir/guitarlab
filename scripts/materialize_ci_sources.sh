@@ -66,13 +66,16 @@ else
         "$STUDIO_VIEW_MODEL_RC3_BLOB" \
         "$STUDIO_VIEW_MODEL_FINAL_BLOB"
 fi
+
 PLACEHOLDER_TARGET="$ROOT/app/src/main/java/studio/guitarlab/app/ui/StudioPlaceholderScreen.kt"
 PLACEHOLDER_GEOMETRY_BLOB="9f9822545e29c8564824a8fdf74dd9fcbc302d60"
 PLACEHOLDER_FINAL_BLOB="d1b8640d500d39a36136934ebf20d10cad77bf28"
-if [[ "$(git -C "$ROOT" hash-object "$PLACEHOLDER_TARGET")" == "$PLACEHOLDER_FINAL_BLOB" ]]; then
+PLACEHOLDER_REVIEW_FINAL_BLOB="b8d17823cab11c22959948f6ffb041afba02b2d6"
+PLACEHOLDER_ACTUAL_BLOB="$(git -C "$ROOT" hash-object "$PLACEHOLDER_TARGET")"
+if [[ "$PLACEHOLDER_ACTUAL_BLOB" == "$PLACEHOLDER_FINAL_BLOB" || "$PLACEHOLDER_ACTUAL_BLOB" == "$PLACEHOLDER_REVIEW_FINAL_BLOB" ]]; then
     echo "Source patch chain already materialized: StudioPlaceholderScreen RC3"
 else
-    if [[ "$(git -C "$ROOT" hash-object "$PLACEHOLDER_TARGET")" != "$PLACEHOLDER_GEOMETRY_BLOB" ]]; then
+    if [[ "$PLACEHOLDER_ACTUAL_BLOB" != "$PLACEHOLDER_GEOMETRY_BLOB" ]]; then
         apply_guarded_patch \
             "$ROOT/.source-parts/StudioPlaceholderScreen.rc3.patch" \
             "$PLACEHOLDER_TARGET" \
@@ -93,7 +96,17 @@ fi
 
 apply_patch_once "$ROOT/.source-parts/UIAudioMixerCopy.rc3.patch"
 apply_patch_once "$ROOT/.source-parts/UISettingsCopy.rc3.patch"
-apply_patch_once "$ROOT/.source-parts/UIShellGuideCopy.rc3.patch"
+
+STUDIO_SHELL_TARGET="$ROOT/app/src/main/java/studio/guitarlab/app/ui/StudioShellScreen.kt"
+STUDIO_GUIDE_TARGET="$ROOT/app/src/main/java/studio/guitarlab/app/ui/StudioUserGuideDialog.kt"
+STUDIO_SHELL_RC3_FINAL_BLOB="7fc93de8cf0dfce7d47cc97b306231d0466771db"
+STUDIO_GUIDE_REVIEW_FINAL_BLOB="2118a200e84ba3797e113d162d76d8263d932d42"
+if [[ "$(git -C "$ROOT" hash-object "$STUDIO_SHELL_TARGET")" == "$STUDIO_SHELL_RC3_FINAL_BLOB" && "$(git -C "$ROOT" hash-object "$STUDIO_GUIDE_TARGET")" == "$STUDIO_GUIDE_REVIEW_FINAL_BLOB" ]]; then
+    echo "Source patch chain already materialized: Studio shell/guide physical-review state"
+else
+    apply_patch_once "$ROOT/.source-parts/UIShellGuideCopy.rc3.patch"
+fi
+
 apply_patch_once "$ROOT/.source-parts/UITestsCopy.rc3.patch"
 apply_patch_once "$ROOT/.source-parts/UIProjectFactoryCopy.rc3.patch"
 
