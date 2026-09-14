@@ -22,11 +22,11 @@ RC3 consolidates the final practice-workflow, transport and Studio-clarity refin
 - Comparison and Timeline controls move below the workspace/timeline, immediately before the Mixer, keeping editing context above its commands.
 - Comparison-state badges use high-visibility neon semantics: green for `ATIVA`, magenta for `OCULTA`.
 - Armed tracks receive an explicit red visual state both in the track header and in the corresponding timeline lane, in addition to the Mixer REC indicator.
-- `Detectar seções` is renamed to `Auto Seções`.
+- `Detectar seções` is renamed to `Auto seções`.
 - `Criar seção do loop` remains visible but disabled while Loop is off and becomes clickable only while Loop is active.
 
 ## Track functions
-- New tracks may immediately offer important workflow functions that are still free, such as Base, Referência E/D and Minha Guitarra E/D.
+- New tracks may immediately offer important workflow functions that are still free, such as Base, Guitarra de referência E/D and Minha guitarra E/D.
 - The new-track prompt is optional; choosing `Agora não` keeps the track generic.
 - `Configurar pista` now allows adding, changing or removing a function in the existing function area.
 - Function assignment is centralized in one policy so the creation prompt and Track Settings use identical conflict rules.
@@ -38,7 +38,7 @@ RC3 consolidates the final practice-workflow, transport and Studio-clarity refin
 - `docs/USER_GUIDE_POLICY.md` makes guide synchronization a release requirement whenever user-visible controls, names or workflows change.
 
 ## Section workflow
-- `Auto Seções` exposes detected regions as a non-persistent timeline preview before acceptance.
+- `Auto seções` exposes detected regions as a non-persistent timeline preview before acceptance.
 - The preview uses the same normalized boundaries that will be persisted by `Aplicar prévia`, preventing preview/application drift.
 - Cancelling/discarding the preview leaves the project unchanged.
 - `Limpar seções` removes all persisted sections without deleting clips, markers or changing the loop selection.
@@ -62,7 +62,7 @@ RC3 consolidates the final practice-workflow, transport and Studio-clarity refin
 - section preview/application boundary equivalence;
 - clear-sections behavior;
 - centralized track-function availability/assignment/conflict policy;
-- Compose regression for `Auto Seções`, disabled/enabled `Criar seção do loop`, and the transient REC choice with Loop active.
+- Compose regression for `Auto seções`, disabled/enabled `Criar seção do loop`, and the transient REC choice with Loop active.
 
 ## Validation status
 Manual CI #596, source `1bc6652dcdbc580badb3e7aea0c416ba4d06ecce`, established that unit tests, Android Lint, debug APK assembly and Android instrumentation compilation pass. The API 36 suite executed 9 tests: 8 passed and the only failure was a timeout in the newly added REC-choice UI test while it waited for a loop toolbar node in a zero-length blank-project scenario. The test has since been rewritten to make the loop precondition deterministic through the Studio ViewModel.

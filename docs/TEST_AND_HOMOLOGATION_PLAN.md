@@ -23,7 +23,7 @@ Deterministic coverage includes:
 - clear-sections semantics;
 - track-function availability, assignment/removal and structural conflict prevention;
 - valid L/R function coexistence plus repeatable generic instrument functions;
-- Compose instrumentation for `Auto Seções`, Loop-dependent `Criar seção do loop`, and the transient Loop + REC decision/Cancel behavior.
+- Compose instrumentation for `Auto seções`, Loop-dependent `Criar seção do loop`, and the transient Loop + REC decision/Cancel behavior.
 
 Existing global suites continue to cover persistence, history, managed media, codec, SRC, waveform, recording transactionality, active takes, mixer/audio math, export, recovery, lifecycle, accessibility, geometry and performance/stress invariants.
 
@@ -85,7 +85,7 @@ Required checks on Android API 36 emulator:
 2. complete standard connected Android regression;
 3. lifecycle/activity recreation behavior;
 4. Compose accessibility/callback behavior already in the suite;
-5. `Auto Seções` and Loop-dependent create-section state;
+5. `Auto seções` and Loop-dependent create-section state;
 6. transient Loop + REC modal regression;
 7. Android codec/export integration checks;
 8. isolated 1920×1200 landscape target-geometry execution.

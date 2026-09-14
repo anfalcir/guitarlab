@@ -1,0 +1,37 @@
+--- a/core/model/src/main/kotlin/studio/guitarlab/core/model/ProjectFactory.kt
++++ b/core/model/src/main/kotlin/studio/guitarlab/core/model/ProjectFactory.kt
+@@ -30,10 +30,10 @@
+ 
+         val tracks = listOf(
+             AudioTrack(id = idGenerator(), name = "Base", groupId = backingGroup.id, roleId = BuiltInRoles.BACKING, roleSource = RoleSource.AUTO, channelLayout = ChannelLayout.STEREO, pan = 0f, order = 0, colorIndex = 0),
+-            AudioTrack(id = idGenerator(), name = "Guitarra Ref. E", groupId = referenceGroup.id, roleId = BuiltInRoles.REFERENCE_GUITAR_L, roleSource = RoleSource.AUTO, channelLayout = ChannelLayout.MONO, pan = -1f, order = 1, colorIndex = 1),
+-            AudioTrack(id = idGenerator(), name = "Guitarra Ref. D", groupId = referenceGroup.id, roleId = BuiltInRoles.REFERENCE_GUITAR_R, roleSource = RoleSource.AUTO, channelLayout = ChannelLayout.MONO, pan = 1f, order = 2, colorIndex = 2),
+-            AudioTrack(id = idGenerator(), name = "Minha Guitarra E", groupId = myGuitarsGroup.id, roleId = BuiltInRoles.RECORDED_GUITAR_L, roleSource = RoleSource.AUTO, channelLayout = ChannelLayout.MONO, pan = -1f, order = 3, colorIndex = 5),
+-            AudioTrack(id = idGenerator(), name = "Minha Guitarra D", groupId = myGuitarsGroup.id, roleId = BuiltInRoles.RECORDED_GUITAR_R, roleSource = RoleSource.AUTO, channelLayout = ChannelLayout.MONO, pan = 1f, order = 4, colorIndex = 7)
++            AudioTrack(id = idGenerator(), name = "Guitarra de referência E", groupId = referenceGroup.id, roleId = BuiltInRoles.REFERENCE_GUITAR_L, roleSource = RoleSource.AUTO, channelLayout = ChannelLayout.MONO, pan = -1f, order = 1, colorIndex = 1),
++            AudioTrack(id = idGenerator(), name = "Guitarra de referência D", groupId = referenceGroup.id, roleId = BuiltInRoles.REFERENCE_GUITAR_R, roleSource = RoleSource.AUTO, channelLayout = ChannelLayout.MONO, pan = 1f, order = 2, colorIndex = 2),
++            AudioTrack(id = idGenerator(), name = "Minha guitarra E", groupId = myGuitarsGroup.id, roleId = BuiltInRoles.RECORDED_GUITAR_L, roleSource = RoleSource.AUTO, channelLayout = ChannelLayout.MONO, pan = -1f, order = 3, colorIndex = 5),
++            AudioTrack(id = idGenerator(), name = "Minha guitarra D", groupId = myGuitarsGroup.id, roleId = BuiltInRoles.RECORDED_GUITAR_R, roleSource = RoleSource.AUTO, channelLayout = ChannelLayout.MONO, pan = 1f, order = 4, colorIndex = 7)
+         )
+ 
+         return GuitarProject(
+--- a/core/model/src/test/kotlin/studio/guitarlab/core/model/ProjectFactoryTest.kt
++++ b/core/model/src/test/kotlin/studio/guitarlab/core/model/ProjectFactoryTest.kt
+@@ -18,14 +18,14 @@
+     @Test fun guitarTemplateHasThreeGroupsAndFiveTracks() {
+         val project = factory.create("Estudo", ProjectTemplate.GUITAR)
+         assertEquals(listOf("Base", "Guitarras de referência", "Minhas guitarras"), project.groups.sortedBy { it.order }.map { it.name })
+-        assertEquals(listOf("Base", "Guitarra Ref. E", "Guitarra Ref. D", "Minha Guitarra E", "Minha Guitarra D"), project.tracks.sortedBy { it.order }.map { it.name })
++        assertEquals(listOf("Base", "Guitarra de referência E", "Guitarra de referência D", "Minha guitarra E", "Minha guitarra D"), project.tracks.sortedBy { it.order }.map { it.name })
+         assertTrue(ProjectValidator.validate(project).isEmpty())
+     }
+ 
+     @Test fun doubleTrackingDefaultsAreMonoAndHardPanned() {
+         val project = factory.create("Estudo", ProjectTemplate.GUITAR)
+-        val left = project.tracks.first { it.name == "Minha Guitarra E" }
+-        val right = project.tracks.first { it.name == "Minha Guitarra D" }
++        val left = project.tracks.first { it.name == "Minha guitarra E" }
++        val right = project.tracks.first { it.name == "Minha guitarra D" }
+         assertEquals(ChannelLayout.MONO, left.channelLayout)
+         assertEquals(ChannelLayout.MONO, right.channelLayout)
+         assertEquals(-1f, left.pan)

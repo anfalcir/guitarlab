@@ -18,6 +18,7 @@ A release candidate is not documentation-complete when its in-app guide describe
 
 ## Writing standard
 The guide must:
+- follow `UI_COPY_STYLE.md` for capitalization, punctuation and terminology;
 - use the same labels the user sees in the app;
 - explain what to do and what result to expect;
 - stay concise and understandable without audio-engineering knowledge;

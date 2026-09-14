@@ -1,0 +1,46 @@
+--- a/app/src/main/java/studio/guitarlab/app/ui/StudioPlaceholderScreen.kt
++++ b/app/src/main/java/studio/guitarlab/app/ui/StudioPlaceholderScreen.kt
+@@ -307,7 +307,7 @@
+             },
+             confirmButton = {
+                 Button(onClick = { viewModel.separateStereoClip(prompt.clipId) }) {
+-                    Text(if (prompt.hasGuitarPair) "Distribuir L/R" else "Separar em 2 mono")
++                    Text(if (prompt.hasGuitarPair) "Distribuir L/R" else "Separar em 2 canais mono")
+                 }
+             },
+             dismissButton = {
+@@ -352,7 +352,7 @@
+         PracticeControlGroup("Timeline") {
+             OutlinedButton(onClick=onAddMarker, enabled=enabled, contentPadding=PaddingValues(horizontal=10.dp,vertical=2.dp)) { Text("+ Marcador") }
+             OutlinedButton(onClick=onAddSection, enabled=enabled && loopEnabled, contentPadding=PaddingValues(horizontal=10.dp,vertical=2.dp)) { Text("Criar seção do loop") }
+-            OutlinedButton(onClick=onSuggestSections, enabled=enabled, contentPadding=PaddingValues(horizontal=10.dp,vertical=2.dp)) { Text("Auto Seções") }
++            OutlinedButton(onClick=onSuggestSections, enabled=enabled, contentPadding=PaddingValues(horizontal=10.dp,vertical=2.dp)) { Text("Auto seções") }
+             if (suggestions > 0) {
+                 Button(onClick=onAcceptSections, enabled=enabled, contentPadding=PaddingValues(horizontal=10.dp,vertical=2.dp)) { Text("Aplicar prévia") }
+                 TextButton(onClick=onDiscardSections, enabled=enabled) { Text("Cancelar prévia") }
+@@ -1769,10 +1769,10 @@
+                         Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                             MetadataLine("Arquivo", clip.name)
+                             MetadataLine("Formato", clip.sourceFormat ?: "—")
+-                            MetadataLine("Sample rate", clip.sourceSampleRateHz?.let { "$it Hz" } ?: "—")
++                            MetadataLine("Taxa de amostragem", clip.sourceSampleRateHz?.let { "$it Hz" } ?: "—")
+                             MetadataLine("Canais", clip.sourceChannelCount?.toString() ?: "—")
+-                            MetadataLine("Bit depth", clip.sourceBitsPerSample?.let { "$it-bit" } ?: "—")
+-                            MetadataLine("Encoding", clip.sourceEncoding ?: "—")
++                            MetadataLine("Profundidade de bits", clip.sourceBitsPerSample?.let { "$it bits" } ?: "—")
++                            MetadataLine("Codificação", clip.sourceEncoding ?: "—")
+                             val durationFrames = clip.sourceTotalFrames ?: clip.lengthFrames
+                             val durationRate = clip.sourceSampleRateHz ?: sampleRate
+                             MetadataLine("Duração", formatPreciseTime(durationFrames, durationRate))
+@@ -1827,9 +1827,9 @@
+         text = {
+             Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                 Text(clip.name, style = MaterialTheme.typography.bodyMedium)
+-                Text("Fade in · ${fadeInMs.toInt()} ms")
++                Text("Fade-in · ${fadeInMs.toInt()} ms")
+                 androidx.compose.material3.Slider(value = fadeInMs, onValueChange = { fadeInMs = it }, valueRange = 0f..maxMs)
+-                Text("Fade out · ${fadeOutMs.toInt()} ms")
++                Text("Fade-out · ${fadeOutMs.toInt()} ms")
+                 androidx.compose.material3.Slider(value = fadeOutMs, onValueChange = { fadeOutMs = it }, valueRange = 0f..maxMs)
+                 Text("A edição é não destrutiva e usa a mesma curva na reprodução e na exportação.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+             }

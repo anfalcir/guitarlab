@@ -36,7 +36,7 @@ Updated: 2026-09-14
 ### Studio organization and feedback
 - Comparação and Timeline controls are positioned immediately below the workspace/timeline and before the Mixer;
 - comparison badges use vivid neon `ATIVA`/`OCULTA` semantics;
-- `Auto Seções` replaces the older `Detectar seções` label;
+- `Auto seções` replaces the older `Detectar seções` label;
 - `Criar seção do loop` is disabled while Loop is off and enabled only with Loop active;
 - armed tracks receive a red visual state in both the track list and timeline lane, in addition to the Mixer REC control.
 
@@ -77,7 +77,7 @@ Deterministic transport/practice tests cover:
 - clear-sections behavior;
 - track-function availability, assignment and conflict handling.
 
-Compose instrumentation covers the transient Loop + REC choice, `Auto Seções`, the Loop-dependent enabled state of `Criar seção do loop`, and Cancel preserving loop intent. The test setup was hardened after CI #596 so the loop precondition is established through the same activity-scoped Studio ViewModel command rather than depending on toolbar timing in an empty project.
+Compose instrumentation covers the transient Loop + REC choice, `Auto seções`, the Loop-dependent enabled state of `Criar seção do loop`, and Cancel preserving loop intent. The test setup was hardened after CI #596 so the loop precondition is established through the same activity-scoped Studio ViewModel command rather than depending on toolbar timing in an empty project.
 
 ## Latest CI evidence
 Manual CI #596 ran against source `1bc6652dcdbc580badb3e7aea0c416ba4d06ecce`.

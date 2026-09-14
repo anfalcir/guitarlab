@@ -1,0 +1,40 @@
+--- a/app/src/main/java/studio/guitarlab/app/ui/SettingsScreen.kt
++++ b/app/src/main/java/studio/guitarlab/app/ui/SettingsScreen.kt
+@@ -173,11 +173,11 @@
+                             if (!routeHealth.selectedInputAvailable) Text("A gravação será bloqueada: não haverá fallback silencioso para o microfone.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                         }
+                     }
+-                    OptionRow("Taxa de amostragem", "Automática", "Durante a gravação o Studio respeita a taxa já estabelecida pelo projeto")
++                    OptionRow("Taxa de amostragem", "Automática", "Durante a gravação, o Studio respeita a taxa já estabelecida pelo projeto.")
+                     OptionRow(
+                         "Compensação de latência",
+                         latencyStore.find(selectedInput, selectedOutput, 48_000)?.takeIf { it.accepted }?.describe() ?: "Não calibrada",
+-                        "M6 usa medição round-trip por loopback, vinculada à combinação entrada/saída. Uma calibração instável nunca é aplicada automaticamente.",
++                        "O GuitarLab usa medição round-trip por loopback, vinculada à combinação entrada/saída. Uma calibração instável nunca é aplicada automaticamente.",
+                     )
+                     Text(
+                         "Para calibrar, conecte ou ative um retorno físico da saída para a entrada. O GuitarLab executa várias medições, estima jitter/drift e só aceita resultados estáveis.",
+@@ -214,8 +214,8 @@
+                     title = "Projeto e Studio",
+                     subtitle = "Preferências que não precisam ocupar a área de edição.",
+                 ) {
+-                    OptionRow("Salvamento automático", "Ativo", "Alterações do projeto são salvas automaticamente")
+-                    OptionRow("Mixer", "Flutuante ou fixo", "O estado fixado é mantido ao navegar pelo aplicativo")
++                    OptionRow("Salvamento automático", "Ativo", "Alterações do projeto são salvas automaticamente.")
++                    OptionRow("Mixer", "Flutuante ou fixo", "O estado fixado é mantido ao navegar pelo aplicativo.")
+                     OptionRow("Novo projeto", "Perguntar sempre", "Projeto vazio ou template de guitarra")
+                     if (projectId != null) {
+                         Text(
+@@ -278,9 +278,9 @@
+                 Text("Monitoramento de entrada", style = MaterialTheme.typography.bodyMedium)
+                 Text(
+                     when (mode) {
+-                        MonitoringMode.OFF -> "Não envia a entrada de volta para a saída pelo app; nunca controla o conteúdo gravado"
+-                        MonitoringMode.AUTO -> "Evita retorno duplicado em interfaces USB; nunca mistura backing no arquivo gravado"
+-                        MonitoringMode.ON -> "Força o retorno da entrada pela saída, sem misturar backing no arquivo gravado"
++                        MonitoringMode.OFF -> "Não envia a entrada de volta para a saída pelo app; nunca controla o conteúdo gravado."
++                        MonitoringMode.AUTO -> "Evita retorno duplicado em interfaces USB; nunca mistura backing no arquivo gravado."
++                        MonitoringMode.ON -> "Força o retorno da entrada pela saída, sem misturar backing no arquivo gravado."
+                     },
+                     style = MaterialTheme.typography.bodySmall,
+                     color = MaterialTheme.colorScheme.onSurfaceVariant,

@@ -47,24 +47,52 @@ apply_guarded_patch() {
 }
 
 apply_patch_once "$ROOT/.source-parts/TimelineMarkerRail.rc3.patch"
-apply_guarded_patch \
-    "$ROOT/.source-parts/StudioViewModel.rc3.patch" \
-    "$ROOT/app/src/main/java/studio/guitarlab/app/ui/StudioViewModel.kt" \
-    "6b55be5224638ca83c30bc52a2cd2cee1db920a9" \
-    "64db74cfa94ca0484f3bfd585b0f40f2c0faea09"
+STUDIO_VIEW_MODEL_TARGET="$ROOT/app/src/main/java/studio/guitarlab/app/ui/StudioViewModel.kt"
+STUDIO_VIEW_MODEL_RC3_BLOB="64db74cfa94ca0484f3bfd585b0f40f2c0faea09"
+STUDIO_VIEW_MODEL_FINAL_BLOB="f14da2c4b71a29e7c6fd7aaeefd1acd33bd8c2b3"
+if [[ "$(git -C "$ROOT" hash-object "$STUDIO_VIEW_MODEL_TARGET")" == "$STUDIO_VIEW_MODEL_FINAL_BLOB" ]]; then
+    echo "Source patch chain already materialized: StudioViewModel RC3"
+else
+    if [[ "$(git -C "$ROOT" hash-object "$STUDIO_VIEW_MODEL_TARGET")" != "$STUDIO_VIEW_MODEL_RC3_BLOB" ]]; then
+        apply_guarded_patch \
+            "$ROOT/.source-parts/StudioViewModel.rc3.patch" \
+            "$STUDIO_VIEW_MODEL_TARGET" \
+            "6b55be5224638ca83c30bc52a2cd2cee1db920a9" \
+            "$STUDIO_VIEW_MODEL_RC3_BLOB"
+    fi
+    apply_guarded_patch \
+        "$ROOT/.source-parts/StudioViewModelCopyConsistency.rc3.patch" \
+        "$STUDIO_VIEW_MODEL_TARGET" \
+        "$STUDIO_VIEW_MODEL_RC3_BLOB" \
+        "$STUDIO_VIEW_MODEL_FINAL_BLOB"
+fi
 PLACEHOLDER_TARGET="$ROOT/app/src/main/java/studio/guitarlab/app/ui/StudioPlaceholderScreen.kt"
-PLACEHOLDER_FINAL_BLOB="9f9822545e29c8564824a8fdf74dd9fcbc302d60"
+PLACEHOLDER_GEOMETRY_BLOB="9f9822545e29c8564824a8fdf74dd9fcbc302d60"
+PLACEHOLDER_FINAL_BLOB="d1b8640d500d39a36136934ebf20d10cad77bf28"
 if [[ "$(git -C "$ROOT" hash-object "$PLACEHOLDER_TARGET")" == "$PLACEHOLDER_FINAL_BLOB" ]]; then
     echo "Source patch chain already materialized: StudioPlaceholderScreen RC3"
 else
+    if [[ "$(git -C "$ROOT" hash-object "$PLACEHOLDER_TARGET")" != "$PLACEHOLDER_GEOMETRY_BLOB" ]]; then
+        apply_guarded_patch \
+            "$ROOT/.source-parts/StudioPlaceholderScreen.rc3.patch" \
+            "$PLACEHOLDER_TARGET" \
+            "f94875be1d33177a996c212f7c7f3568bb683bf3" \
+            "5fee1b1c89795aa6f5c11b094a5d9177b7ff3be5"
+        apply_guarded_patch \
+            "$ROOT/.source-parts/StudioPlaceholderGeometry.rc3.patch" \
+            "$PLACEHOLDER_TARGET" \
+            "5fee1b1c89795aa6f5c11b094a5d9177b7ff3be5" \
+            "$PLACEHOLDER_GEOMETRY_BLOB"
+    fi
     apply_guarded_patch \
-        "$ROOT/.source-parts/StudioPlaceholderScreen.rc3.patch" \
+        "$ROOT/.source-parts/StudioCopyConsistency.rc3.patch" \
         "$PLACEHOLDER_TARGET" \
-        "f94875be1d33177a996c212f7c7f3568bb683bf3" \
-        "5fee1b1c89795aa6f5c11b094a5d9177b7ff3be5"
-    apply_guarded_patch \
-        "$ROOT/.source-parts/StudioPlaceholderGeometry.rc3.patch" \
-        "$PLACEHOLDER_TARGET" \
-        "5fee1b1c89795aa6f5c11b094a5d9177b7ff3be5" \
+        "$PLACEHOLDER_GEOMETRY_BLOB" \
         "$PLACEHOLDER_FINAL_BLOB"
 fi
+
+apply_patch_once "$ROOT/.source-parts/UIAudioMixerCopy.rc3.patch"
+apply_patch_once "$ROOT/.source-parts/UISettingsCopy.rc3.patch"
+apply_patch_once "$ROOT/.source-parts/UIShellGuideCopy.rc3.patch"
+apply_patch_once "$ROOT/.source-parts/UITestsCopy.rc3.patch"
+apply_patch_once "$ROOT/.source-parts/UIProjectFactoryCopy.rc3.patch"
