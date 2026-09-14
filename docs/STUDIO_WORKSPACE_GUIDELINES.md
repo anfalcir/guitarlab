@@ -1,6 +1,6 @@
 # Studio Workspace Guidelines
 
-Updated: 2026-09-09
+Updated: 2026-09-14
 
 This document is a normative UI/UX contract for the GuitarLab Studio workspace on tablet.
 
@@ -45,6 +45,12 @@ Trim draft lives only in the active waveform. It starts around 35%/65%, uses saf
 
 ## Loop/playhead
 Playhead crosses all lanes. Loop guides cross lanes only while Loop is active. Marker heads retain ergonomic touch targets and canonical semantic colors.
+
+## Practice-control geometry
+`Comparação` and `Timeline` together consume the available row width on wide tablet layouts. `Limpar seções` stays in the natural Timeline flow; it is not artificially pinned in a way that fragments the group. `Auto seções` has one fixed-width slot and preview mode replaces that same slot with `Aplicar` + red `X`. On narrower layouts, groups stack/scroll deliberately rather than clipping actions.
+
+## Recording countdown overlay
+REC countdown is presentation-only overlay state: 3 seconds, centered, translucent and visually large. It must not be a child that consumes Column height or moves the practice controls, tracks or Mixer.
 
 ## Status and diagnostics
 Transient success/error feedback must not reserve permanent structural space. Debug/checkpoint prose is never part of the production Studio workspace.
