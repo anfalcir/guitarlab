@@ -4,6 +4,13 @@ import kotlin.test.*
 import studio.guitarlab.core.model.*
 
 class PracticeWorkflowPolicyTest {
+    @Test fun `comparison exposes deterministic visual state for guitar tracks`() {
+        assertEquals(GuitarAuditionTrackState.INCLUDED, GuitarAuditionPolicy.trackState(BuiltInRoles.REFERENCE_GUITAR, GuitarAuditionMode.REFERENCE))
+        assertEquals(GuitarAuditionTrackState.EXCLUDED, GuitarAuditionPolicy.trackState(BuiltInRoles.RECORDED_GUITAR, GuitarAuditionMode.REFERENCE))
+        assertEquals(GuitarAuditionTrackState.INCLUDED, GuitarAuditionPolicy.trackState(BuiltInRoles.RECORDED_GUITAR, GuitarAuditionMode.BOTH))
+        assertEquals(GuitarAuditionTrackState.UNAFFECTED, GuitarAuditionPolicy.trackState(BuiltInRoles.BACKING, GuitarAuditionMode.MY_GUITAR))
+        assertEquals(GuitarAuditionTrackState.UNAFFECTED, GuitarAuditionPolicy.trackState(BuiltInRoles.REFERENCE_GUITAR, GuitarAuditionMode.MIXER))
+    }
     private fun project() = GuitarProject(
         id="p", name="P", template=ProjectTemplate.GUITAR, createdAtEpochMs=1, updatedAtEpochMs=1,
         tracks=listOf(AudioTrack("t","G",roleId=BuiltInRoles.RECORDED_GUITAR,order=0), AudioTrack("r","R",roleId=BuiltInRoles.REFERENCE_GUITAR,order=1)),

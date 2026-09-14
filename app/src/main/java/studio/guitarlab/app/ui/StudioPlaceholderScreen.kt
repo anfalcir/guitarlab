@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -80,6 +81,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
@@ -98,6 +100,8 @@ import studio.guitarlab.core.model.GuitarProject
 import studio.guitarlab.core.project.RecordingSessionPhase
 import studio.guitarlab.core.project.ActiveTakePolicy
 import studio.guitarlab.core.project.GuitarAuditionMode
+import studio.guitarlab.core.project.GuitarAuditionPolicy
+import studio.guitarlab.core.project.GuitarAuditionTrackState
 import studio.guitarlab.core.project.TimelineControlPolicy
 import studio.guitarlab.core.project.TimelineControlState
 import studio.guitarlab.core.project.TimelineDragPolicy
@@ -297,32 +301,48 @@ private fun PracticeControls(
     onSetPunch: () -> Unit,
     onClearPunch: () -> Unit,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(5.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("Comparar", style = MaterialTheme.typography.labelMedium)
+    Row(
+        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        PracticeControlGroup("Comparação") {
             GuitarAuditionMode.entries.forEach { mode ->
                 val label = when(mode) { GuitarAuditionMode.MIXER -> "Mixer"; GuitarAuditionMode.REFERENCE -> "Referência"; GuitarAuditionMode.MY_GUITAR -> "Minha"; GuitarAuditionMode.BOTH -> "Ambas" }
-                if (mode == auditionMode) Button(onClick={onAuditionMode(mode)}, contentPadding=PaddingValues(horizontal=10.dp,vertical=2.dp)) { Text(label) }
+                if (mode == auditionMode) Button(onClick={onAuditionMode(mode)}, contentPadding=PaddingValues(horizontal=10.dp,vertical=2.dp), modifier=Modifier.semantics { selected = true }) { Text(label) }
                 else OutlinedButton(onClick={onAuditionMode(mode)}, contentPadding=PaddingValues(horizontal=10.dp,vertical=2.dp)) { Text(label) }
             }
+        }
+        PracticeControlGroup("Timeline") {
             OutlinedButton(onClick=onAddMarker, enabled=enabled, contentPadding=PaddingValues(horizontal=10.dp,vertical=2.dp)) { Text("+ Marcador") }
-            OutlinedButton(onClick=onAddSection, enabled=enabled, contentPadding=PaddingValues(horizontal=10.dp,vertical=2.dp)) { Text("Seção do loop") }
+            OutlinedButton(onClick=onAddSection, enabled=enabled, contentPadding=PaddingValues(horizontal=10.dp,vertical=2.dp)) { Text("Criar seção do loop") }
             OutlinedButton(onClick=onSuggestSections, enabled=enabled, contentPadding=PaddingValues(horizontal=10.dp,vertical=2.dp)) { Text("Detectar seções") }
             if (suggestions > 0) {
                 Button(onClick=onAcceptSections, enabled=enabled, contentPadding=PaddingValues(horizontal=10.dp,vertical=2.dp)) { Text("Aceitar $suggestions") }
                 TextButton(onClick=onDiscardSections) { Text("Descartar") }
             }
-            if (project.punchRegion == null) OutlinedButton(onClick=onSetPunch, enabled=enabled, contentPadding=PaddingValues(horizontal=10.dp,vertical=2.dp)) { Text("Punch do loop") }
+        }
+        PracticeControlGroup("Gravação punch") {
+            if (project.punchRegion == null) OutlinedButton(onClick=onSetPunch, enabled=enabled, contentPadding=PaddingValues(horizontal=10.dp,vertical=2.dp)) { Text("Definir pelo loop") }
             else OutlinedButton(onClick=onClearPunch, enabled=enabled, contentPadding=PaddingValues(horizontal=10.dp,vertical=2.dp)) { Text("Limpar punch") }
         }
-        if (project.markers.isNotEmpty() || project.sections.isNotEmpty()) {
-            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                project.markers.forEach { marker -> TextButton(onClick={onRemoveMarker(marker.id)}, enabled=enabled) { Text("◆ ${marker.name} ×") } }
-                project.sections.forEach { section ->
-                    OutlinedButton(onClick={onLoopSection(section.id)}, enabled=enabled, contentPadding=PaddingValues(horizontal=8.dp,vertical=1.dp)) { Text("${section.name} ↻") }
-                    TextButton(onClick={onRemoveSection(section.id)}, enabled=enabled) { Text("×") }
-                }
-            }
+    }
+}
+
+@Composable
+private fun PracticeControlGroup(title: String, content: @Composable RowScope.() -> Unit) {
+    Surface(
+        shape = RoundedCornerShape(8.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.34f),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(5.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(title, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            content()
         }
     }
 }
@@ -447,10 +467,16 @@ private fun ProjectWorkspace(
                         loopStartFrame = timelineControls.loopStartFrame,
                         loopEndFrame = timelineControls.loopEndFrame,
                         showLoopMarkers = transport.loopEnabled,
+                        sections = project.sections,
+                        markers = project.markers,
+                        punchRegion = project.punchRegion,
                         enabled = timelineEditingEnabled,
                         onPlayheadFrameChanged = onPlayheadFrameChanged,
                         onLoopStartFrameChanged = onLoopStartFrameChanged,
                         onLoopEndFrameChanged = onLoopEndFrameChanged,
+                        onSectionClick = onLoopSection,
+                        onSectionRemove = onRemoveSection,
+                        onMarkerRemove = onRemoveMarker,
                         modifier = Modifier.weight(1f),
                     )
                 }
@@ -600,6 +626,7 @@ private fun ProjectWorkspace(
                             val trackIndex = orderedTracks.indexOfFirst { it.id == track.id }
                             StudioTrackLane(
                                 track = track,
+                                auditionMode = auditionMode,
                                 clips = ActiveTakePolicy.audibleClips(project).filter { it.trackId == track.id },
                                 livePeaks = if (recordingTrackId == track.id && recordingPhase == RecordingSessionPhase.CAPTURING) liveRecordingPeaks else emptyList(),
                                 liveStartFrame = recordingStartFrame,
@@ -916,6 +943,7 @@ private fun ClipMenuItem(
 @Composable
 private fun StudioTrackLane(
     track: AudioTrack,
+    auditionMode: GuitarAuditionMode,
     clips: List<AudioClip>,
     livePeaks: List<Float>,
     liveStartFrame: Long,
@@ -958,6 +986,7 @@ private fun StudioTrackLane(
     val currentTrackSize by rememberUpdatedState(trackMeasuredSize)
     val primaryClip = clips.minByOrNull { it.startFrame }
     val trackColor = track.resolvedStudioColor()
+    val auditionState = GuitarAuditionPolicy.trackState(track.roleId, auditionMode)
     val trackNameStyle = if (track.name.length > 34) MaterialTheme.typography.labelLarge else MaterialTheme.typography.bodyMedium
     val dragInProgress = draggingTrackId != null || draggingClipId != null
     val controlsEnabled = canEditClip && !dragInProgress
@@ -1010,6 +1039,21 @@ private fun StudioTrackLane(
                             maxLines = 2,
                             softWrap = true,
                         )
+                        if (auditionState != GuitarAuditionTrackState.UNAFFECTED) {
+                            val included = auditionState == GuitarAuditionTrackState.INCLUDED
+                            Surface(
+                                shape = RoundedCornerShape(5.dp),
+                                color = if (included) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
+                                modifier = Modifier.semantics { stateDescription = if (included) "Incluída na comparação" else "Oculta pela comparação" },
+                            ) {
+                                Text(
+                                    if (included) "ATIVA" else "OCULTA",
+                                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = if (included) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
                         Box {
                             if (primaryClip == null) {
                                 AppIconButton(

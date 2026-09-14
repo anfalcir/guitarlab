@@ -50,10 +50,14 @@ import studio.guitarlab.app.ui.theme.StudioRecord
 import studio.guitarlab.app.ui.theme.StudioSolo
 import studio.guitarlab.core.audio.MeterBallisticsState
 import studio.guitarlab.core.model.AudioTrack
+import studio.guitarlab.core.project.GuitarAuditionMode
+import studio.guitarlab.core.project.GuitarAuditionPolicy
+import studio.guitarlab.core.project.GuitarAuditionTrackState
 
 @Composable
 fun MixerDock(
     tracks: List<AudioTrack>,
+    auditionMode: GuitarAuditionMode = GuitarAuditionMode.MIXER,
     selectedTrackId: String?,
     pinned: Boolean,
     mixControlsEnabled: Boolean,
@@ -119,6 +123,7 @@ fun MixerDock(
                     tracks.sortedBy { it.order }.forEach { track ->
                         MixerTrackStrip(
                             track = track,
+                            auditionMode = auditionMode,
                             selected = track.id == selectedTrackId,
                             mixControlsEnabled = mixControlsEnabled,
                             structuralControlsEnabled = structuralControlsEnabled,
@@ -154,6 +159,7 @@ fun MixerDock(
 @Composable
 private fun MixerTrackStrip(
     track: AudioTrack,
+    auditionMode: GuitarAuditionMode,
     selected: Boolean,
     mixControlsEnabled: Boolean,
     structuralControlsEnabled: Boolean,
@@ -172,6 +178,7 @@ private fun MixerTrackStrip(
     var gainDraft by remember(track.id, track.gainDb) { mutableFloatStateOf(track.gainDb) }
     var panDraft by remember(track.id, track.pan) { mutableFloatStateOf(track.pan) }
     val accent = track.resolvedStudioColor()
+    val auditionState = GuitarAuditionPolicy.trackState(track.roleId, auditionMode)
     val borderColor = if (selected) accent else MaterialTheme.colorScheme.outline.copy(alpha = 0.55f)
 
     Surface(
@@ -192,6 +199,21 @@ private fun MixerTrackStrip(
                     style = MaterialTheme.typography.labelLarge,
                     maxLines = 1,
                 )
+                if (auditionState != GuitarAuditionTrackState.UNAFFECTED) {
+                    val included = auditionState == GuitarAuditionTrackState.INCLUDED
+                    Surface(
+                        shape = RoundedCornerShape(5.dp),
+                        color = if (included) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
+                        modifier = Modifier.semantics { stateDescription = if (included) "Incluída na comparação" else "Oculta pela comparação" },
+                    ) {
+                        Text(
+                            if (included) "ATIVA" else "OCULTA",
+                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (included) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
             }
 
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {

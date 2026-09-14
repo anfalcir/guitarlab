@@ -9,6 +9,7 @@ import kotlin.math.sqrt
 import studio.guitarlab.core.model.*
 
 enum class GuitarAuditionMode { MIXER, REFERENCE, MY_GUITAR, BOTH }
+enum class GuitarAuditionTrackState { UNAFFECTED, INCLUDED, EXCLUDED }
 
 object GuitarAuditionPolicy {
     private val referenceRoles = setOf(BuiltInRoles.REFERENCE_GUITAR, BuiltInRoles.REFERENCE_GUITAR_L, BuiltInRoles.REFERENCE_GUITAR_R)
@@ -17,6 +18,11 @@ object GuitarAuditionPolicy {
         GuitarAuditionMode.MIXER, GuitarAuditionMode.BOTH -> true
         GuitarAuditionMode.REFERENCE -> roleId !in myRoles
         GuitarAuditionMode.MY_GUITAR -> roleId !in referenceRoles
+    }
+    fun trackState(roleId: String?, mode: GuitarAuditionMode): GuitarAuditionTrackState {
+        val controlled = roleId in referenceRoles || roleId in myRoles
+        if (!controlled || mode == GuitarAuditionMode.MIXER) return GuitarAuditionTrackState.UNAFFECTED
+        return if (roleAudible(roleId, mode)) GuitarAuditionTrackState.INCLUDED else GuitarAuditionTrackState.EXCLUDED
     }
 }
 

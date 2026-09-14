@@ -1,12 +1,15 @@
 package studio.guitarlab.app.ui
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
@@ -33,6 +36,9 @@ import studio.guitarlab.app.ui.theme.StudioPlayhead
 import studio.guitarlab.app.ui.theme.StudioRecord
 import studio.guitarlab.app.ui.theme.StudioTrim
 import studio.guitarlab.core.project.TimelineControlPolicy
+import studio.guitarlab.core.model.PunchRegion
+import studio.guitarlab.core.model.TimelineMarker as ProjectTimelineMarker
+import studio.guitarlab.core.model.TimelineSection
 
 enum class TimelineMarkerKind {
     PLAYHEAD,
@@ -51,10 +57,16 @@ fun TimelineMarkerRail(
     loopStartFrame: Long,
     loopEndFrame: Long,
     showLoopMarkers: Boolean,
+    sections: List<TimelineSection>,
+    markers: List<ProjectTimelineMarker>,
+    punchRegion: PunchRegion?,
     enabled: Boolean,
     onPlayheadFrameChanged: (Long) -> Unit,
     onLoopStartFrameChanged: (Long) -> Unit,
     onLoopEndFrameChanged: (Long) -> Unit,
+    onSectionClick: (String) -> Unit,
+    onSectionRemove: (String) -> Unit,
+    onMarkerRemove: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     BoxWithConstraints(
@@ -62,11 +74,86 @@ fun TimelineMarkerRail(
     ) {
         val density = LocalDensity.current
         val widthPx = with(density) { maxWidth.toPx() }.coerceAtLeast(1f)
+        TimelineAnnotations(
+            sections = sections,
+            markers = markers,
+            punchRegion = punchRegion,
+            projectEndFrame = projectEndFrame,
+            widthPx = widthPx,
+            onSectionClick = onSectionClick,
+            onSectionRemove = onSectionRemove,
+            onMarkerRemove = onMarkerRemove,
+        )
         if (showLoopMarkers) {
             TimelineMarker(TimelineMarkerKind.LOOP_START, loopStartFrame, projectEndFrame, sampleRateHz, widthPx, enabled, onLoopStartFrameChanged)
             TimelineMarker(TimelineMarkerKind.LOOP_END, loopEndFrame, projectEndFrame, sampleRateHz, widthPx, enabled, onLoopEndFrameChanged)
         }
         TimelineMarker(TimelineMarkerKind.PLAYHEAD, playheadFrame, projectEndFrame, sampleRateHz, widthPx, enabled, onPlayheadFrameChanged)
+    }
+}
+
+@Composable
+private fun TimelineAnnotations(
+    sections: List<TimelineSection>,
+    markers: List<ProjectTimelineMarker>,
+    punchRegion: PunchRegion?,
+    projectEndFrame: Long,
+    widthPx: Float,
+    onSectionClick: (String) -> Unit,
+    onSectionRemove: (String) -> Unit,
+    onMarkerRemove: (String) -> Unit,
+) {
+    val density = LocalDensity.current
+    val sectionColor = MaterialTheme.colorScheme.primary
+    val markerColor = MaterialTheme.colorScheme.tertiary
+    sections.forEach { section ->
+        val start = TimelineControlPolicy.frameToFraction(section.startFrame, projectEndFrame) * widthPx
+        val end = TimelineControlPolicy.frameToFraction(section.endFrame, projectEndFrame) * widthPx
+        val width = (end - start).coerceAtLeast(with(density) { 34.dp.toPx() })
+        Surface(
+            modifier = Modifier
+                .offset { IntOffset(start.roundToInt(), with(density) { 2.dp.roundToPx() }) }
+                .width(with(density) { width.toDp() })
+                .height(24.dp),
+            shape = RoundedCornerShape(5.dp),
+            color = sectionColor.copy(alpha = 0.16f),
+            border = androidx.compose.foundation.BorderStroke(1.dp, sectionColor.copy(alpha = 0.48f)),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = section.name,
+                    modifier = Modifier.weight(1f).clickable { onSectionClick(section.id) }.padding(start = 5.dp, top = 3.dp, bottom = 3.dp),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = sectionColor,
+                    maxLines = 1,
+                )
+                Text("×", modifier = Modifier.clickable { onSectionRemove(section.id) }.padding(horizontal = 5.dp, vertical = 3.dp), style = MaterialTheme.typography.labelSmall, color = sectionColor)
+            }
+        }
+    }
+    punchRegion?.let { punch ->
+        val start = TimelineControlPolicy.frameToFraction(punch.startFrame, projectEndFrame) * widthPx
+        val end = TimelineControlPolicy.frameToFraction(punch.endFrame, projectEndFrame) * widthPx
+        Box(
+            Modifier
+                .offset { IntOffset(start.roundToInt(), with(density) { 27.dp.roundToPx() }) }
+                .width(with(density) { (end - start).coerceAtLeast(1f).toDp() })
+                .height(3.dp)
+                .alpha(0.72f),
+        ) { Canvas(Modifier.fillMaxHeight().width(with(density) { (end - start).coerceAtLeast(1f).toDp() })) { drawRect(StudioRecord) } }
+    }
+    markers.forEach { marker ->
+        val x = TimelineControlPolicy.frameToFraction(marker.frame, projectEndFrame) * widthPx
+        Column(
+            modifier = Modifier.offset { IntOffset((x - with(density) { 5.dp.toPx() }).roundToInt(), with(density) { 25.dp.roundToPx() }) },
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Canvas(Modifier.size(10.dp, 7.dp)) {
+                val path = Path().apply { moveTo(size.width / 2f, 0f); lineTo(size.width, size.height); lineTo(0f, size.height); close() }
+                drawPath(path, markerColor)
+            }
+            Text("${marker.name} ×", modifier = Modifier.clickable { onMarkerRemove(marker.id) }, style = MaterialTheme.typography.labelSmall, color = markerColor, maxLines = 1)
+        }
     }
 }
 

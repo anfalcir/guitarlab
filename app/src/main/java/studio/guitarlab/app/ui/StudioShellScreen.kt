@@ -168,6 +168,7 @@ fun StudioShellScreen(
             if (project != null && mixerVisible) {
                 MixerDock(
                     tracks = project.tracks,
+                    auditionMode = state.guitarAuditionMode,
                     selectedTrackId = selectedTrackId,
                     pinned = mixerPinned,
                     mixControlsEnabled = mixControlsEnabled,

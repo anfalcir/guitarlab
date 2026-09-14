@@ -1,13 +1,12 @@
 # Current State — GuitarLab Studio
 
-Updated: 2026-09-13
+Updated: 2026-09-14
 
 ## Active candidate
 - Canonical repository/branch: `anfalcir/guitarlab` / `main`.
-- Homologation candidate: `0.5.0-rc1`, versionCode 21.
-- Exact source commit: `5a14e4d6522ab9cc53eb8e1dd80a03306fc9d248`.
-- Signed APK: `GuitarLabStudio-0.5.0-rc1-homologacao.apk`.
-- APK SHA-256: `5e343a9016cb5ea8fa9e381061ffb789667a6529a3b706fec7de9eb7bec9d1a5`.
+- Homologation candidate: `0.5.0-rc2`, versionCode 22.
+- Exact source commit and APK SHA-256: recorded after the final local gate and signing.
+- Signed APK: `GuitarLabStudio-0.5.0-rc2-homologacao.apk`.
 - Signer SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
 
 ## Milestone state
@@ -27,6 +26,13 @@ Updated: 2026-09-13
 - markers, manual sections, automatic section suggestions and section looping;
 - loop-derived punch recording with pre-roll/post-roll and latency-aware retained region;
 - track RMS/peak analysis with bounded, explicit gain recommendation/application.
+
+## RC2 physical-feedback refinement
+- sections, markers and punch are integrated into the shared timeline header and aligned with waveform ranges;
+- touching a section applies it as the loop region, while integrated remove actions preserve editability without a separate rail;
+- comparison, timeline and punch controls are visually grouped by purpose;
+- affected guitar tracks show `ATIVA` or `OCULTA` in both the track sidebar and Mixer, derived from the playback audition policy;
+- the manual command is explicitly named `Criar seção do loop`: it stores the current loop bounds as a named section.
 
 ## Validation evidence
 The exact RC1 source passed locally: `git diff --check`, JVM `test`, `lintDebug`, `assembleDebug`, `assembleDebugAndroidTest` and signed `assembleRelease`.
