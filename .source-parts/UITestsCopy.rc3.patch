@@ -1,22 +1,10 @@
 --- a/app/src/androidTest/java/studio/guitarlab/app/MixerDockInstrumentedTest.kt
 +++ b/app/src/androidTest/java/studio/guitarlab/app/MixerDockInstrumentedTest.kt
-@@ -88,7 +88,7 @@
-         solo.performClick()
-         arm.performClick()
-         composeRule.onNodeWithContentDescription("Limpar clipping da pista Teste").assert(buttonRole).performClick()
+@@ -91 +91 @@
 -        composeRule.onNodeWithContentDescription("Limpar clipping do Master").assert(buttonRole).performClick()
 +        composeRule.onNodeWithContentDescription("Limpar clipping do master").assert(buttonRole).performClick()
- 
-         assertEquals(1, muteClicks.get())
-         assertEquals(1, soloClicks.get())
 --- a/app/src/androidTest/java/studio/guitarlab/app/PracticeWorkflowInstrumentedTest.kt
 +++ b/app/src/androidTest/java/studio/guitarlab/app/PracticeWorkflowInstrumentedTest.kt
-@@ -51,7 +51,7 @@
-             waitForRoute(AppScreen.Studio(projectId))
-             waitForStudioProject(projectId)
- 
+@@ -54 +54 @@
 -            composeRule.onNodeWithText("Auto Seções").assertExists()
 +            composeRule.onNodeWithText("Auto seções").assertExists()
-             composeRule.onNodeWithText("Criar seção do loop").assertExists().assertIsNotEnabled()
- 
-             // Activate loop through the same ViewModel command used by the toolbar so the test is

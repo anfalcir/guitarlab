@@ -1,50 +1,21 @@
 --- a/app/src/main/java/studio/guitarlab/app/ui/AudioProbeScreen.kt
 +++ b/app/src/main/java/studio/guitarlab/app/ui/AudioProbeScreen.kt
-@@ -68,7 +68,7 @@
-         Surface(shape = RoundedCornerShape(16.dp), tonalElevation = 1.dp, modifier = Modifier.fillMaxWidth()) {
-             Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                 Text("Segurança", style = MaterialTheme.typography.titleMedium)
+@@ -71 +71 @@
 -                Text("Os testes de saída usam um sinal de baixo nível. Comece com o volume do fone ou Master baixo.")
 +                Text("Os testes de saída usam um sinal de baixo nível. Comece com o volume do fone ou do master em nível baixo.")
-                 if (!state.permissionGranted) {
-                     Text("Os testes de entrada precisam de permissão para gravar áudio.", color = MaterialTheme.colorScheme.error)
-                     Button(onClick = { permissionLauncher.launch(Manifest.permission.RECORD_AUDIO) }) {
-@@ -205,6 +205,6 @@
- }
- 
- private fun PcmEncoding.label(): String = when (this) {
+@@ -208 +208 @@
 -    PcmEncoding.FLOAT_32 -> "float 32 bits"
 +    PcmEncoding.FLOAT_32 -> "Float 32 bits"
-     PcmEncoding.PCM_16 -> "PCM 16 bits"
- }
 --- a/app/src/main/java/studio/guitarlab/app/ui/MixerDock.kt
 +++ b/app/src/main/java/studio/guitarlab/app/ui/MixerDock.kt
-@@ -314,7 +314,7 @@
-                 heldPeak = meter.heldPeak,
-                 clipLatched = clipLatched,
-                 onClearClip = onClearClip,
+@@ -317 +317 @@
 -                clipContentDescription = "Limpar clipping do Master",
 +                clipContentDescription = "Limpar clipping do master",
-             )
-             MeterRow("RMS", meter.rms, accent)
-             LabeledVolumeSlider(
-@@ -327,7 +327,7 @@
-                     onGainPreview(value)
-                 },
-                 onValueChangeFinished = { onGainCommit(gainDraft) },
+@@ -330 +330 @@
 -                contentDescription = "Volume Master",
 +                contentDescription = "Volume do master",
-             )
-         }
-     }
 --- a/app/src/main/java/studio/guitarlab/app/ui/NewProjectScreen.kt
 +++ b/app/src/main/java/studio/guitarlab/app/ui/NewProjectScreen.kt
-@@ -63,7 +63,7 @@
-             Text("Começar com", style = MaterialTheme.typography.titleMedium)
-             TemplateOption(
-                 title = "Template de guitarra",
+@@ -66 +66 @@
 -                description = "Base, guitarras de referência e suas guitarras já organizadas.",
 +                description = "Cria uma base, guitarras de referência e suas guitarras já organizadas.",
-                 selected = selected == ProjectTemplate.GUITAR,
-                 onClick = { selected = ProjectTemplate.GUITAR },
-             )
