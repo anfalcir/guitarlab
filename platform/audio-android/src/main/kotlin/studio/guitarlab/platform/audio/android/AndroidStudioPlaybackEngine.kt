@@ -50,6 +50,7 @@ data class StudioPlaybackRequest(
     val preferredOutputRequested: Boolean = false,
     val masterGainDb: Float = 0f,
     val auditionMode: GuitarAuditionMode = GuitarAuditionMode.MIXER,
+    val repeatLoop: Boolean = true,
 )
 
 data class StudioPlaybackRoutingStatus(
@@ -81,6 +82,7 @@ interface StudioPlaybackListener {
 class AndroidStudioPlaybackEngine : AutoCloseable {
     @Volatile private var running = false
     @Volatile private var worker: Thread? = null
+    @Volatile private var pendingSeekFrame: Long? = null
     @Volatile private var runtimeMasterGainDb: Float = 0f
     @Volatile private var runtimeAuditionMode: GuitarAuditionMode = GuitarAuditionMode.MIXER
     private val runtimeTrackMixes = ConcurrentHashMap<String, StudioPlaybackTrackMix>()
@@ -105,8 +107,19 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
         request.trackMixes.forEach { runtimeTrackMixes[it.trackId] = it }
         runtimeMasterGainDb = request.masterGainDb
         runtimeAuditionMode = request.auditionMode
+        pendingSeekFrame = null
         running = true
         worker = Thread({ runPlayback(request, listener) }, "GuitarLab-StudioPlayback").also { it.start() }
+    }
+
+    /**
+     * Requests a low-latency seek without tearing down the playback session. Multiple drag events
+     * may coalesce; the audio thread always consumes the most recent target at the next render
+     * boundary. The ViewModel remains responsible for validating loop/recording policy.
+     */
+    fun seekTo(frame: Long) {
+        if (!running) return
+        pendingSeekFrame = frame.coerceAtLeast(0L)
     }
 
     fun setTrackMix(trackId: String, gainDb: Float, pan: Float) {
@@ -129,7 +142,11 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
     fun setAuditionMode(mode: GuitarAuditionMode) { runtimeAuditionMode = mode }
 
     fun stop() {
-        val thread = synchronized(this) { running = false; worker }
+        val thread = synchronized(this) {
+            running = false
+            pendingSeekFrame = null
+            worker
+        }
         thread?.interrupt()
         if (thread != null && thread !== Thread.currentThread()) runCatching { thread.join(STOP_JOIN_TIMEOUT_MS) }
         synchronized(this) { if (worker === thread && thread?.isAlive != true) worker = null }
@@ -177,22 +194,42 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
 
             applyOutputRouting(track, request, listener)
 
+            val repeatLoop = request.loopEnabled && request.repeatLoop
+            val playbackBoundary = if (request.loopEnabled) request.loopEndFrame else request.projectEndFrame
             var renderFrame = normalizedStart(request)
-            var totalWrittenFrames = 0L
+            var clockStartFrame = renderFrame
+            var clockHeadBase = playbackHead(track)
+            var writtenFramesSinceClockBase = 0L
             val mix = FloatArray(CHUNK_FRAMES * 2)
             val trackBuffers = linkedMapOf<String, FloatArray>()
             readers.forEach { reader -> trackBuffers.getOrPut(reader.trackId) { FloatArray(CHUNK_FRAMES * 2) } }
             track.play()
+            clockHeadBase = playbackHead(track)
 
             while (running) {
-                if (!request.loopEnabled && renderFrame >= request.projectEndFrame) break
-                val boundary = if (request.loopEnabled) request.loopEndFrame else request.projectEndFrame
-                if (renderFrame >= boundary) {
-                    renderFrame = request.loopStartFrame
-                    continue
+                val requestedSeek = pendingSeekFrame
+                if (requestedSeek != null) {
+                    pendingSeekFrame = null
+                    renderFrame = normalizedSeek(request, requestedSeek)
+                    lastTimelineFrame = renderFrame
+                    track.pause()
+                    track.flush()
+                    track.play()
+                    clockStartFrame = renderFrame
+                    clockHeadBase = playbackHead(track)
+                    writtenFramesSinceClockBase = 0L
+                    listener.onPosition(renderFrame)
                 }
 
-                val framesToRender = min(CHUNK_FRAMES.toLong(), boundary - renderFrame).toInt()
+                if (renderFrame >= playbackBoundary) {
+                    if (repeatLoop) {
+                        renderFrame = request.loopStartFrame
+                        continue
+                    }
+                    break
+                }
+
+                val framesToRender = min(CHUNK_FRAMES.toLong(), playbackBoundary - renderFrame).toInt()
                 val sampleCount = framesToRender * 2
                 java.util.Arrays.fill(mix, 0, sampleCount, 0f)
                 trackBuffers.values.forEach { java.util.Arrays.fill(it, 0, sampleCount, 0f) }
@@ -222,33 +259,38 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
                 if (samplesWritten < 0) error("Falha ao enviar áudio para a saída Android: código $samplesWritten.")
                 val writtenFrames = samplesWritten / 2
                 if (writtenFrames <= 0) error("A saída de áudio não avançou durante a reprodução.")
-                totalWrittenFrames += writtenFrames
+                writtenFramesSinceClockBase += writtenFrames
                 renderFrame += writtenFrames
-                if (request.loopEnabled && renderFrame >= request.loopEndFrame) renderFrame = request.loopStartFrame
+                if (repeatLoop && renderFrame >= request.loopEndFrame) renderFrame = request.loopStartFrame
 
-                val presentedFrames = track.playbackHeadPosition.toLong() and 0xffffffffL
+                val presentedFrames = playbackHeadDelta(playbackHead(track), clockHeadBase)
                 lastTimelineFrame = PlaybackClockPolicy.timelineFrame(
-                    startFrame = normalizedStart(request),
+                    startFrame = clockStartFrame,
                     presentedFrames = presentedFrames,
-                    projectEndFrame = request.projectEndFrame,
-                    loopEnabled = request.loopEnabled,
+                    projectEndFrame = if (repeatLoop) request.projectEndFrame else playbackBoundary,
+                    loopEnabled = repeatLoop,
                     loopStartFrame = request.loopStartFrame,
                     loopEndFrame = request.loopEndFrame,
                 )
                 listener.onPosition(lastTimelineFrame)
             }
 
-            if (running && !request.loopEnabled) {
+            if (running && !repeatLoop) {
                 val deadline = System.nanoTime() + DRAIN_TIMEOUT_NS
-                while (running && (track.playbackHeadPosition.toLong() and 0xffffffffL) < totalWrittenFrames && System.nanoTime() < deadline) {
+                while (running && playbackHeadDelta(playbackHead(track), clockHeadBase) < writtenFramesSinceClockBase && System.nanoTime() < deadline) {
                     Thread.sleep(4)
-                    val presentedFrames = track.playbackHeadPosition.toLong() and 0xffffffffL
+                    val presentedFrames = playbackHeadDelta(playbackHead(track), clockHeadBase)
                     lastTimelineFrame = PlaybackClockPolicy.timelineFrame(
-                        normalizedStart(request), presentedFrames, request.projectEndFrame, false, 0, request.projectEndFrame
+                        clockStartFrame,
+                        presentedFrames,
+                        playbackBoundary,
+                        false,
+                        0,
+                        playbackBoundary,
                     )
                     listener.onPosition(lastTimelineFrame)
                 }
-                lastTimelineFrame = request.projectEndFrame
+                lastTimelineFrame = playbackBoundary
                 listener.onPosition(lastTimelineFrame)
             }
         } catch (_: InterruptedException) {
@@ -256,6 +298,7 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
             listener.onError(error.message ?: "A reprodução do Studio falhou.")
         } finally {
             running = false
+            pendingSeekFrame = null
             runCatching { track?.pause() }
             runCatching { track?.flush() }
             runCatching { track?.release() }
@@ -330,6 +373,17 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
 
     private fun normalizedStart(request: StudioPlaybackRequest): Long =
         if (request.loopEnabled && request.startFrame >= request.loopEndFrame) request.loopStartFrame else request.startFrame
+
+    private fun normalizedSeek(request: StudioPlaybackRequest, requestedFrame: Long): Long {
+        val target = requestedFrame.coerceIn(0L, request.projectEndFrame)
+        if (!request.loopEnabled) return target
+        val lastPlayableFrame = (request.loopEndFrame - 1L).coerceAtLeast(request.loopStartFrame)
+        return target.coerceIn(request.loopStartFrame, lastPlayableFrame)
+    }
+
+    private fun playbackHead(track: AudioTrack): Long = track.playbackHeadPosition.toLong() and 0xffffffffL
+
+    private fun playbackHeadDelta(current: Long, base: Long): Long = (current - base) and 0xffffffffL
 
     private companion object {
         const val CHUNK_FRAMES = 1024
