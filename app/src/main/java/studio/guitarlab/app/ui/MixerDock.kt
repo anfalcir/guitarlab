@@ -45,6 +45,8 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import kotlin.math.abs
 import kotlin.math.log10
+import studio.guitarlab.app.ui.theme.StudioComparisonActive
+import studio.guitarlab.app.ui.theme.StudioComparisonHidden
 import studio.guitarlab.app.ui.theme.StudioMute
 import studio.guitarlab.app.ui.theme.StudioRecord
 import studio.guitarlab.app.ui.theme.StudioSolo
@@ -201,16 +203,18 @@ private fun MixerTrackStrip(
                 )
                 if (auditionState != GuitarAuditionTrackState.UNAFFECTED) {
                     val included = auditionState == GuitarAuditionTrackState.INCLUDED
+                    val comparisonColor = if (included) StudioComparisonActive else StudioComparisonHidden
                     Surface(
                         shape = RoundedCornerShape(5.dp),
-                        color = if (included) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
+                        color = comparisonColor.copy(alpha = 0.16f),
+                        border = BorderStroke(1.25.dp, comparisonColor.copy(alpha = 0.95f)),
                         modifier = Modifier.semantics { stateDescription = if (included) "Incluída na comparação" else "Oculta pela comparação" },
                     ) {
                         Text(
                             if (included) "ATIVA" else "OCULTA",
-                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp),
+                            modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp),
                             style = MaterialTheme.typography.labelSmall,
-                            color = if (included) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = comparisonColor,
                         )
                     }
                 }
