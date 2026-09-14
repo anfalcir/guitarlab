@@ -1,100 +1,118 @@
 # Test and Homologation Plan
 
-Updated: 2026-09-11
+Updated: 2026-09-14
 
-## Active RC1 evidence
-For `0.5.0-rc1` / source `5a14e4d6522ab9cc53eb8e1dd80a03306fc9d248`, the local pinned build host passed `git diff --check`, JVM tests, Lint, debug APK, Android test APK compilation and signed release assembly. Signature, certificate, package identity and ZIP integrity were independently verified. The preceding RC2 remains the latest full API 36/1920×1200 executed emulator baseline.
+## Active candidate
+The active source candidate is `0.5.0-rc3` / versionCode `23` on `main`. Its exact validated source SHA is not predeclared: it is the `github.sha` of the manually dispatched canonical workflow run that passes all mandatory gates.
 
-RC1-specific automated coverage includes bounded waveform accumulation, fail-closed route policy, transport interaction, take activation/invariants, audition policy, punch calculations, section suggestions, level advice and take-reference reconciliation.
+The latest previously established full hosted baseline is `0.4.0-rc2` / CI #593, which passed software, API 36 full instrumented regression, isolated 1920×1200 target geometry and signed homologation assembly. RC1/RC2 introduced later recording/practice/UI deltas; RC3 consolidates their final loop/section/punch refinements and therefore requires a new exact-source manual workflow before any digital PASS claim.
+
+## RC3-specific automated coverage
+Deterministic coverage includes:
+- loop playback start before, inside, exactly at the end of and after an active loop;
+- confinement of visible playback position to the active loop while recording-position semantics remain untouched;
+- ordinary non-loop project-end restart behavior;
+- recording intent resolved at REC time rather than from persisted punch state;
+- current-playhead, from-project-start and loop-punch plans;
+- rejection of punch without a valid active loop;
+- punch pre-roll/post-roll/latency calculations;
+- section detection preview using the same boundaries as persistence;
+- cancel/discard preview as non-persistent state;
+- clear-sections semantics.
+
+Existing global suites continue to cover persistence, history, managed media, codec, SRC, waveform, recording transactionality, active takes, mixer/audio math, export, recovery, lifecycle, accessibility, geometry and performance/stress invariants.
 
 ## Canonical gate execution
-Ordinary commits do not start hosted CI. The default software gate is `scripts/build_local.sh` on a prepared Android build host. The full API 36 emulator/signing workflow remains available only through explicit manual dispatch in `.github/workflows/android-ci.yml`.
+Ordinary commits do not start hosted CI. GitHub Actions is intentionally `workflow_dispatch` only. The user manually starts `.github/workflows/android-ci.yml` after source/documentation consolidation.
+
+For the active RC3 homologation run, dispatch with `signed_homologation=true`.
 
 ### 1. Software gate
 Required checks:
-1. `git diff --check` on the candidate delta;
-2. source materialization;
-3. unit/JVM tests;
-4. reproducible performance evidence extraction;
-5. Android Lint;
-6. debug APK assembly;
-7. report/diagnostic/source-snapshot artifacts.
+1. checkout of the exact candidate SHA;
+2. `git diff --check HEAD^ --`;
+3. source materialization;
+4. unit/JVM tests;
+5. reproducible performance evidence extraction;
+6. Android Lint;
+7. debug APK assembly;
+8. diagnostics/reports/exact-source snapshot upload.
+
+Any failure blocks candidate promotion.
 
 ### 2. Android integration gate
 Required checks on Android API 36 emulator:
-1. instrumented app/activity recreation behavior;
-2. Compose Mixer accessibility/callback behavior;
-3. Android FLAC export container + native extraction/decoding;
-4. MP3 capability contract — success when encoder exists or controlled no-file failure when absent.
+1. Android instrumentation compilation;
+2. complete standard connected Android regression;
+3. lifecycle/activity recreation behavior;
+4. Compose accessibility/callback behavior already in the suite;
+5. Android codec/export integration checks;
+6. isolated 1920×1200 landscape target-geometry execution.
 
-The API 36 AVD uses a pinned snapshot cache for repeatable, lower-cost execution.
+Any failure blocks signing.
 
-A failure in either gate blocks signed-candidate promotion.
+### 3. Signed homologation gate
+The signed job has `needs: [software-gate, android-integration-gate]` and runs only when `signed_homologation=true`.
 
-## Signed homologation gate
-Only an explicitly requested signed local build or authorized manual workflow dispatch may build a homologation release. The job has `needs: [software-gate, android-integration-gate]` and therefore cannot run after a failed required automated gate.
-
-The signing job must:
+It must:
 - restore signing material only inside the runner;
-- build release;
-- verify APK signature with `apksigner`;
-- compare signer SHA-256 against the locked certificate;
-- generate `SHA256SUMS.txt` and `BUILD_IDENTITY.txt`;
-- upload the homologation artifact;
+- build the release APK;
+- verify the APK with `apksigner`;
+- compare signer SHA-256 against `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`;
+- package `GuitarLabStudio-0.5.0-rc3-homologacao.apk`;
+- generate `SHA256SUMS.txt`;
+- generate `BUILD_IDENTITY.txt` containing the same `github.sha`, versionName and versionCode;
+- upload the signed artifact;
 - destroy restored signing material even after failure.
 
-Expected certificate SHA-256 is maintained by the workflow and must match the established GuitarLab homologation identity.
+A successful APK from another SHA/version/signer is not the active candidate.
 
-## Milestone state
-- M5: PASS/CLOSED (`0.2.0-alpha14`, explicit physical approval)
-- M6: PASS/CLOSED (`0.3.0-alpha1`, explicit physical approval)
-- M7: OPEN only for final residual physical homologation
-- M8 digital hardening: PASS for the scoped matrix; exact signed RC produced and verified.
+## Post-run artifact verification
+Before sending RC3 to physical homologation:
+1. confirm all three workflow jobs are green;
+2. confirm workflow head SHA equals the intended final `main` HEAD;
+3. download the signed homologation artifact;
+4. verify artifact contains APK, `SHA256SUMS.txt` and `BUILD_IDENTITY.txt`;
+5. recompute APK SHA-256 and compare with `SHA256SUMS.txt`;
+6. confirm `BUILD_IDENTITY.txt` reports `0.5.0-rc3`, versionCode `23` and the exact workflow SHA;
+7. independently inspect APK signer and package/version identity when tooling is available.
 
-Historical alpha checklists remain evidence only. The active residual physical checklist is `M7_ALPHA1_HOMOLOGATION_CHECKLIST.md` despite its historical filename.
+Only after this verification does the residual physical checklist become active.
 
 ## What belongs in automation
 Do not ask the user to manually re-prove:
 - deterministic model/editor/history behavior;
-- file/package validation or path traversal;
+- loop boundary normalization math;
+- punch planning math;
+- section preview/application equivalence;
+- project/package/file validation or path traversal;
 - source/proxy/media rollback invariants;
 - SRC ratios/pitch/RMS/channel math;
 - sample-domain master/fade/crossfade behavior;
 - lifecycle recreation already covered by instrumentation;
 - generic accessibility semantics already covered by Compose instrumentation;
-- FLAC container/header/extraction correctness;
 - structural large-project save/bundle/render behavior.
 
 ## What remains physical
-The final target-device pass is intentionally residual:
+After exact RC3 automated PASS, only target-device facts remain:
 - Samsung SM-X230 + M-VAVE MK-300 real USB input/output route;
-- real guitar recording/monitoring and reconnect behavior;
-- subjective latency/feel;
+- real guitar recording isolation and reconnect behavior;
+- live waveform visibility during a real take;
+- real-tablet loop/section/REC-choice ergonomics;
+- subjective latency/feel and listening for pops/dropouts/artifacts;
 - target-specific MP3 encoder availability/playability;
-- listening for pops/dropouts/route/pitch/transition artifacts;
-- real tablet large-session responsiveness and touch/layout ergonomics;
-- concise restart/reopen/project/export smoke.
+- representative real-device stress/export smoke.
+
+Use `RC3_FINAL_PHYSICAL_HOMOLOGATION.md`; older alpha/RC checklists are historical evidence only.
 
 ## Severity and closure
 - **P0** — data loss/corruption, invalid overwrite, broken committed media/project: blocks.
 - **P1** — repeatable major workflow/output/recording failure: blocks.
-- **P2** — relevant edge degradation: fix before RC when objectively actionable.
-- **P3** — cosmetic/maintainability/ergonomic issue: fix when low-risk; physical subjective items may remain in final checklist.
+- **P2** — relevant edge degradation: fix before release when objectively actionable.
+- **P3** — cosmetic/maintainability/subjective ergonomic issue: fix when low-risk or explicitly accept with rationale.
 
-M7/M8 final release hardening closes only after zero repeatable P0/P1, exact automated dual-gate PASS, verified signed identity, residual target-device PASS and explicit user approval. PR #1 was explicitly merged after the validated RC was produced. Physical homologation and final closure remain separate explicit actions on `main`.
+M7/M8 release hardening closes only after zero repeatable P0/P1, exact-source automated dual-gate PASS, verified signed identity, residual target-device PASS and explicit user approval.
 
-## Final gate disposition
-The exact candidate completed all required automated stages in CI #590. The previously unstable Home overflow popup assertion was retired from the mandatory emulator gate because it duplicated the already physically approved M6 rename capability and depended on unreliable headless popup observation. Production rename behavior remains present; project persistence, Home rehydration, route restoration, lifecycle, export and the complete standard Android regression remain gated. This is a test-scope correction, not a waiver of product behavior.
-
-## Final signed RC evidence — 2026-09-12
-- Candidate: `GuitarLabStudio-0.4.0-rc2-homologacao.apk` (`versionName 0.4.0-rc2`, `versionCode 20`).
-- Exact source commit: `573015d9bb98c704074ab7c4e731eb9a9dec6a2e`.
-- Canonical GitHub Actions run: [#593](https://github.com/anfalcir/guitarlab/actions/runs/34656567233).
-- Result: software gate PASS; Android API 36 full regression PASS; isolated 1920×1200 landscape geometry PASS; signed homologation job PASS.
-- APK SHA-256: `b067558e4ef6793df206d3e966faa029aa952b446ee63c8e47070a481297df85`.
-- Signer certificate SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
-- Artifact integrity was independently rechecked against `SHA256SUMS.txt`; APK ZIP structure is valid.
-- Digital hardening and RC production are complete. Only the residual Samsung SM-X230 + M-VAVE MK-300 physical homologation remains before explicit M7/M8 closure.
-
-## RC2 manual gate
-The Studio layout refinement was validated through one explicit manual workflow run. The unchanged mandatory chain passed: software gate, Android API 36 standard regression, isolated 1920×1200 landscape pass, then signed homologation assembly and signer/checksum verification. Ordinary commits remain non-triggering. RC2 supersedes RC1 as the active physical-homologation candidate.
+## Historical evidence
+- `0.4.0-rc2`, versionCode 20 — CI #593: software + API 36 + isolated target geometry + signed homologation PASS; APK SHA-256 `b067558e4ef6793df206d3e966faa029aa952b446ee63c8e47070a481297df85`; signer SHA-256 `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
+- RC1/RC2 evidence remains useful for regression history but does not substitute for an exact RC3 run because RC3 changes transport/practice/recording-source behavior.
