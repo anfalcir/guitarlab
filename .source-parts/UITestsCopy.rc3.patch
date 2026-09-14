@@ -5,6 +5,6 @@
 +        composeRule.onNodeWithContentDescription("Limpar clipping do master").assert(buttonRole).performClick()
 --- a/app/src/androidTest/java/studio/guitarlab/app/PracticeWorkflowInstrumentedTest.kt
 +++ b/app/src/androidTest/java/studio/guitarlab/app/PracticeWorkflowInstrumentedTest.kt
-@@ -54 +54 @@
--            composeRule.onNodeWithText("Auto Seções").assertExists()
-+            composeRule.onNodeWithText("Auto seções").assertExists()
+@@ -53 +53 @@
+-            composeRule.onNodeWithText("Auto Seções").assertIsEnabled()
++            composeRule.onNodeWithText("Auto seções").assertIsEnabled()
