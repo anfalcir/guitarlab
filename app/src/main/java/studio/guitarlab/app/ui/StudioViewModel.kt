@@ -1110,7 +1110,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                     )
                 }
             }.onSuccess { saved ->
-                saved.tracks.forEach { trackMixDrafts[it.id] = TrackMixDraft(track.gainDb, track.pan) }
+                saved.tracks.forEach { track -> trackMixDrafts[track.id] = TrackMixDraft(track.gainDb, track.pan) }
                 applySavedProject(saved, "Nova pista adicionada")
             }.onFailure { error -> _state.value = _state.value.copy(error = error.message ?: "Não foi possível adicionar a pista.") }
         }
@@ -1741,7 +1741,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
 
     private fun applyHistorySnapshot(saved: GuitarProject, waveforms: Map<String, List<Float>>, status: String) {
         trackMixDrafts.clear()
-        saved.tracks.forEach { trackMixDrafts[it.id] = TrackMixDraft(track.gainDb, track.pan) }
+        saved.tracks.forEach { track -> trackMixDrafts[track.id] = TrackMixDraft(track.gainDb, track.pan) }
         playbackEngine.setMasterGainDb(saved.masterGainDb)
         val state = _state.value
         val end = TimelineControlPolicy.projectEndFrame(saved)
