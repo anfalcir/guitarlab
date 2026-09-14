@@ -1,6 +1,6 @@
 # Studio Options, Share and Mixer contract
 
-Updated: 2026-09-09
+Updated: 2026-09-14
 
 ## Options
 Options owns low-frequency setup and diagnostics: input route, main output, monitoring, Studio preferences, import capability information and diagnostic tools. These controls stay out of the timeline.
@@ -29,4 +29,4 @@ Mixer is a bottom dock with horizontally scrollable track strips and fixed Maste
 - ordering is drag-only through the workspace drag coordinator.
 
 ## Active gate
-Mixer/Options/Share behavior is an established alpha13 regression surface. `M5_ALPHA13_FINAL_HOMOLOGATION_CHECKLIST.md` is the active physical gate.
+Mixer/Options/Share behavior is an established regression surface. The active residual physical gate is `RC3_FINAL_PHYSICAL_HOMOLOGATION.md`; alpha13 checklists are historical evidence only.
