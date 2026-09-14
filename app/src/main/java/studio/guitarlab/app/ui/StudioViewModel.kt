@@ -451,7 +451,32 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
     @Deprecated("Use importAudio")
     fun importWav(trackId: String, uri: Uri) = importAudio(trackId, uri)
 
-    fun setPlayheadFrame(frame: Long) = editTimelineMarker { state, end -> TimelineControlPolicy.movePlayhead(state, frame, end) }
+    fun setPlayheadFrame(frame: Long) {
+        val current = _state.value
+        val project = current.project ?: return
+        if (current.recordingSession.phase != RecordingSessionPhase.IDLE ||
+            current.transport.mode == TransportMode.RECORDING ||
+            current.trimControls != null ||
+            current.historyBusy
+        ) return
+        val end = TimelineControlPolicy.projectEndFrame(project)
+        val target = TransportPolicy.playbackSeekFrame(
+            state = current.transport,
+            requestedFrame = frame,
+            projectEndFrame = end,
+            loopStartFrame = current.timelineControls.loopStartFrame,
+            loopEndFrame = current.timelineControls.loopEndFrame,
+        )
+        if (current.transport.mode == TransportMode.PLAYING) {
+            playbackEngine.seekTo(target)
+            _state.value = current.copy(timelineControls = current.timelineControls.copy(playheadFrame = target))
+        } else {
+            _state.value = current.copy(
+                timelineControls = TimelineControlPolicy.movePlayhead(current.timelineControls, target, end),
+            )
+        }
+    }
+
     fun setLoopStartFrame(frame: Long) = editTimelineMarker { state, end -> TimelineControlPolicy.moveLoopStart(state, frame, end) }
     fun setLoopEndFrame(frame: Long) = editTimelineMarker { state, end -> TimelineControlPolicy.moveLoopEnd(state, frame, end) }
 
@@ -1336,6 +1361,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                 preferredOutputRequested = !selectedOutputSignature.isNullOrBlank(),
                 masterGainDb = project.masterGainDb,
                 auditionMode = current.guitarAuditionMode,
+                repeatLoop = false,
                 trackMixes = project.tracks.map { track ->
                     StudioPlaybackTrackMix(
                         trackId = track.id,
@@ -1401,10 +1427,16 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                 override fun onStopped(frame: Long) {
                     viewModelScope.launch {
                         val state = _state.value
-                        if (sessionId != playbackSessionId) return@launch
+                        if (sessionId != playbackSessionId || state.transport.mode != TransportMode.PLAYING) return@launch
+                        val resetFrame = TransportPolicy.automaticPlaybackResetFrame(
+                            state = state.transport,
+                            projectEndFrame = end,
+                            loopStartFrame = state.timelineControls.loopStartFrame,
+                            loopEndFrame = state.timelineControls.loopEndFrame,
+                        )
                         _state.value = state.copy(
                             transport = state.transport.copy(mode = TransportMode.STOPPED),
-                            timelineControls = state.timelineControls.copy(playheadFrame = frame),
+                            timelineControls = state.timelineControls.copy(playheadFrame = resetFrame),
                             masterMeter = MeterBallisticsPolicy.reset(),
                             trackMeters = emptyMap(),
                         )
