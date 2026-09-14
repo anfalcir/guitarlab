@@ -19,7 +19,8 @@ For the active `0.5.0-rc3` candidate, use these documents together:
 - `MANAGED_MEDIA_POLICY.md` — source/proxy/media lifecycle rules;
 - `STUDIO_OPTIONS_AND_MIXER.md` — Studio options/mixer behavior;
 - `M8_GLOBAL_DIGITAL_REGRESSION.md` — global automated regression baseline;
-- `HISTORICAL_CANDIDATES.md` — historical candidate evidence.
+- `HISTORICAL_CANDIDATES.md` — historical candidate evidence;
+- `DOCUMENTATION_AUDIT_2026-09-14.md` — document-by-document audit proving current vs historical/superseded classification and this consolidation pass.
 
 `M7_ALPHA1_HOMOLOGATION_CHECKLIST.md` and older alpha/RC files are historical evidence. They must not be used as the active RC3 checklist when they conflict with the documents above.
 
