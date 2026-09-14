@@ -11,6 +11,7 @@ class PracticeWorkflowPolicyTest {
         assertEquals(GuitarAuditionTrackState.UNAFFECTED, GuitarAuditionPolicy.trackState(BuiltInRoles.BACKING, GuitarAuditionMode.MY_GUITAR))
         assertEquals(GuitarAuditionTrackState.UNAFFECTED, GuitarAuditionPolicy.trackState(BuiltInRoles.REFERENCE_GUITAR, GuitarAuditionMode.MIXER))
     }
+
     private fun project() = GuitarProject(
         id="p", name="P", template=ProjectTemplate.GUITAR, createdAtEpochMs=1, updatedAtEpochMs=1,
         tracks=listOf(AudioTrack("t","G",roleId=BuiltInRoles.RECORDED_GUITAR,order=0), AudioTrack("r","R",roleId=BuiltInRoles.REFERENCE_GUITAR,order=1)),
@@ -34,6 +35,82 @@ class PracticeWorkflowPolicyTest {
         val plan=PunchRecordingPolicy.plan(PunchRegion(10_000,20_000,3_000,1_000),250)
         assertEquals(7_000,plan.captureStartFrame); assertEquals(14_250,plan.automaticStopAfterFrames)
         assertEquals(3_250,plan.keptSourceStartFrame); assertEquals(10_000,plan.keptLengthFrames)
+    }
+
+    @Test fun recordingChoiceIsTransientAndOnlyLoopChoiceCreatesPunch() {
+        val normal = PracticeRecordingStartPolicy.plan(
+            PracticeRecordingMode.CURRENT_PLAYHEAD,
+            currentPlayheadFrame = 12_000,
+            loopEnabled = false,
+            loopStartFrame = 10_000,
+            loopEndFrame = 20_000,
+            sampleRateHz = 48_000,
+        )
+        assertEquals(12_000L, normal.sessionStartFrame)
+        assertFalse(normal.loopEnabled)
+        assertNull(normal.punchRegion)
+
+        val fromStart = PracticeRecordingStartPolicy.plan(
+            PracticeRecordingMode.FROM_PROJECT_START,
+            currentPlayheadFrame = 12_000,
+            loopEnabled = true,
+            loopStartFrame = 10_000,
+            loopEndFrame = 20_000,
+            sampleRateHz = 48_000,
+        )
+        assertEquals(0L, fromStart.sessionStartFrame)
+        assertFalse(fromStart.loopEnabled)
+        assertNull(fromStart.punchRegion)
+
+        val punch = PracticeRecordingStartPolicy.plan(
+            PracticeRecordingMode.LOOP_PUNCH,
+            currentPlayheadFrame = 3_000,
+            loopEnabled = true,
+            loopStartFrame = 192_000,
+            loopEndFrame = 384_000,
+            sampleRateHz = 48_000,
+        )
+        assertEquals(48_000L, punch.sessionStartFrame)
+        assertTrue(punch.loopEnabled)
+        assertEquals(PunchRegion(192_000, 384_000, 144_000, 48_000), punch.punchRegion)
+    }
+
+    @Test fun loopPunchRequiresAnActiveValidLoop() {
+        assertFailsWith<IllegalArgumentException> {
+            PracticeRecordingStartPolicy.plan(
+                PracticeRecordingMode.LOOP_PUNCH,
+                currentPlayheadFrame = 0,
+                loopEnabled = false,
+                loopStartFrame = 10,
+                loopEndFrame = 20,
+                sampleRateHz = 48_000,
+            )
+        }
+        assertFailsWith<IllegalArgumentException> {
+            PracticeRecordingStartPolicy.plan(
+                PracticeRecordingMode.LOOP_PUNCH,
+                currentPlayheadFrame = 0,
+                loopEnabled = true,
+                loopStartFrame = 20,
+                loopEndFrame = 20,
+                sampleRateHz = 48_000,
+            )
+        }
+    }
+
+    @Test fun sectionPreviewMatchesAcceptedBoundariesAndClearRemovesAllSections() {
+        val suggestions = listOf(SectionBoundarySuggestion(100, .8f), SectionBoundarySuggestion(250, .6f))
+        val preview = PracticeWorkflowEditor.previewSuggestedSections(suggestions, 400)
+        assertEquals(listOf(0L to 100L, 100L to 250L, 250L to 400L), preview.map { it.startFrame to it.endFrame })
+        assertEquals(listOf("Seção 1", "Seção 2", "Seção 3"), preview.map { it.name })
+
+        val accepted = PracticeWorkflowEditor.acceptSuggestedSections(project(), suggestions, 400, now = 10)
+        assertEquals(preview.map { it.startFrame to it.endFrame }, accepted.sections.map { it.startFrame to it.endFrame })
+        assertEquals(SectionOrigin.AUTOMATIC, accepted.sections.first().origin)
+
+        val cleared = PracticeWorkflowEditor.clearSections(accepted, now = 11)
+        assertTrue(cleared.sections.isEmpty())
+        assertEquals(11L, cleared.updatedAtEpochMs)
     }
 
     @Test fun levelAdviceProtectsHeadroom() {
