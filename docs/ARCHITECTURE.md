@@ -1,6 +1,6 @@
 # GuitarLab Architecture
 
-Updated: 2026-09-12
+Updated: 2026-09-14
 
 ## Repository/branch policy
 - `main` is canonical after the explicit merge of PR #1.
@@ -60,7 +60,7 @@ Saveable navigation routes are encoded/decoded by a pure route codec and tested 
 ## Build/release architecture
 `scripts/build_local.sh` is the default software build gate. It validates Java/Gradle/SDK prerequisites, materializes split sources, and runs JVM tests, Lint and debug assembly. Signed release assembly is explicit and uses environment-only credentials.
 
-`.github/workflows/android-ci.yml` is a manual fallback/full-emulator executor. It has no automatic commit trigger. When manually used, its software and API 36 gates remain independent prerequisites of `homologation-apk`; signer verification and cleanup rules remain unchanged.
+`.github/workflows/android-ci.yml` is the canonical manually dispatched full software/API36/geometry/signing executor. It has no automatic commit trigger. Its software and API 36 gates remain independent prerequisites of `homologation-apk`; release compilation is produced once in the warm software job and the final job signs/verifies that exact unsigned binary without recompilation.
 
 ## Current milestone boundary
 M5 and M6 are closed. M7 is technically hardened and remains open for one residual target-device gate. M8.A/B automated release hardening is covered for the current scope; M8.C is final exact-candidate/signing/physical closure work.
@@ -73,6 +73,8 @@ Live waveform data is a bounded peak accumulator published as transient UI state
 Markers, sections, punch regions and take identity are additive project metadata. Section detection and level analysis produce reviewable suggestions; only explicit user actions commit sections or gain changes.
 
 ## Studio information architecture
+Home and Studio share the same `StudioUserGuideDialog`; separate entry buttons are navigation affordances, not separate help implementations. The Studio practice-control row is responsive and uses a stable fixed slot for Auto-sections preview actions. Recording countdown is a z-indexed overlay and never participates in the workspace Column measurement.
+
 The top bar uses three independent overlays: project title at the start, the complete transport/navigation group at the geometric center of the available screen, and global actions at the end. Centering applies to the navigation group as a unit, not to the Play button. The playhead already communicates current position, so no duplicate current/remaining-time field is shown there.
 
 Project-wide editing context belongs to the track workspace: the Pistas header reports track count, clip count and total project duration. Track creation is an explicit footer action below the final track, keeping the header informational and preserving alignment with the track sidebar.
