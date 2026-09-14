@@ -38,4 +38,31 @@ class TransportPolicyTest {
         assertTrue(TransportPolicy.playStopEnabled(playing, false))
         assertFalse(TransportPolicy.playStopEnabled(playing.copy(mode = TransportMode.RECORDING), true))
     }
+
+    @Test
+    fun playWithLoopNormalizesAnyOutsidePlayheadToLoopStart() {
+        val looped = TransportState(loopEnabled = true)
+        assertEquals(10_000L, TransportPolicy.playbackStartFrame(looped, 4_000L, 40_000L, 10_000L, 20_000L))
+        assertEquals(10_000L, TransportPolicy.playbackStartFrame(looped, 20_000L, 40_000L, 10_000L, 20_000L))
+        assertEquals(10_000L, TransportPolicy.playbackStartFrame(looped, 30_000L, 40_000L, 10_000L, 20_000L))
+        assertEquals(14_000L, TransportPolicy.playbackStartFrame(looped, 14_000L, 40_000L, 10_000L, 20_000L))
+    }
+
+    @Test
+    fun loopPlaybackPositionNeverEscapesLoopButRecordingPositionIsUntouched() {
+        val playing = TransportState(mode = TransportMode.PLAYING, loopEnabled = true)
+        assertEquals(10_000L, TransportPolicy.playbackPositionFrame(playing, 9_999L, 40_000L, 10_000L, 20_000L))
+        assertEquals(15_000L, TransportPolicy.playbackPositionFrame(playing, 15_000L, 40_000L, 10_000L, 20_000L))
+        assertEquals(10_000L, TransportPolicy.playbackPositionFrame(playing, 20_000L, 40_000L, 10_000L, 20_000L))
+
+        val recording = playing.copy(mode = TransportMode.RECORDING)
+        assertEquals(7_000L, TransportPolicy.playbackPositionFrame(recording, 7_000L, 40_000L, 10_000L, 20_000L))
+    }
+
+    @Test
+    fun nonLoopPlaybackRetainsPreviousEndOfProjectRestartRule() {
+        val stopped = TransportState(loopEnabled = false)
+        assertEquals(12_000L, TransportPolicy.playbackStartFrame(stopped, 12_000L, 40_000L, 10_000L, 20_000L))
+        assertEquals(0L, TransportPolicy.playbackStartFrame(stopped, 40_000L, 40_000L, 10_000L, 20_000L))
+    }
 }
