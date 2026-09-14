@@ -107,7 +107,10 @@ Baseline used for this refactor:
 
 The primary optimization moves that release compilation into the already-parallel software gate and leaves the serial final job as signing/verification only. Additional improvements remove default legacy SDK-tools/Emulator installation from jobs that do not need it, reuse the per-job Gradle daemon, remove the redundant standalone instrumentation compile invocation, and avoid integration-cache writes.
 
-The first manual run after this refactor is the authoritative performance measurement. Expected end-to-end time is roughly **4.5–5.5 minutes**, subject to GitHub-hosted runner/network variance.
+## Post-optimization evidence
+Manual run **#613** on `db5a4208848e4b6ca2163ce715d0c5bb464cfe37` passed all three jobs end-to-end in about **3m01s**. Run #612 had already proven the full API 36 suite itself green, but its geometry step failed because a multiline shell continuation was interpreted by `android-emulator-runner` as a literal Gradle task named `\`; that workflow-only defect was corrected and #613 verified the fix.
+
+The optimized architecture is therefore measured, not theoretical: release compilation is reused from the warm software job, the signing job does not invoke Gradle, integration cache is read-only, and the same emulator is reused for full API 36 plus isolated tablet geometry.
 
 ## Manual execution
 
