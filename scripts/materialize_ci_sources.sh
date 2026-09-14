@@ -53,7 +53,7 @@ apply_guarded_patch \
     "6b55be5224638ca83c30bc52a2cd2cee1db920a9" \
     "64db74cfa94ca0484f3bfd585b0f40f2c0faea09"
 PLACEHOLDER_TARGET="$ROOT/app/src/main/java/studio/guitarlab/app/ui/StudioPlaceholderScreen.kt"
-PLACEHOLDER_FINAL_BLOB="459a22d836df46699fc811f5d23e783d4b5787f5"
+PLACEHOLDER_FINAL_BLOB="9f9822545e29c8564824a8fdf74dd9fcbc302d60"
 if [[ "$(git -C "$ROOT" hash-object "$PLACEHOLDER_TARGET")" == "$PLACEHOLDER_FINAL_BLOB" ]]; then
     echo "Source patch chain already materialized: StudioPlaceholderScreen RC3"
 else
