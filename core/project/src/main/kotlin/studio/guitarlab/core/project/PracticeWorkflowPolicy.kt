@@ -64,6 +64,14 @@ object TrackLevelAdvisor {
 }
 
 data class SectionBoundarySuggestion(val frame: Long, val confidence: Float)
+
+data class SectionSuggestionPreview(
+    val name: String,
+    val startFrame: Long,
+    val endFrame: Long,
+    val confidence: Float?,
+)
+
 object SectionBoundaryAnalyzer {
     fun suggest(peaks: List<Float>, totalFrames: Long, maximum: Int = 12): List<SectionBoundarySuggestion> {
         if (peaks.size < 12 || totalFrames <= 1L || maximum <= 0) return emptyList()
@@ -81,11 +89,66 @@ object SectionBoundaryAnalyzer {
 }
 
 data class PunchCapturePlan(val captureStartFrame: Long, val automaticStopAfterFrames: Long, val keptTimelineStartFrame: Long, val keptSourceStartFrame: Long, val keptLengthFrames: Long)
+
 object PunchRecordingPolicy {
     fun plan(region: PunchRegion, latencyFrames: Long = 0L): PunchCapturePlan {
         require(region.startFrame >= 0L && region.endFrame > region.startFrame && region.preRollFrames >= 0L && region.postRollFrames >= 0L && latencyFrames >= 0L)
         val captureStart = (region.startFrame - region.preRollFrames).coerceAtLeast(0L); val effectivePre = region.startFrame - captureStart
         return PunchCapturePlan(captureStart, effectivePre + region.endFrame - region.startFrame + region.postRollFrames + latencyFrames, region.startFrame, effectivePre + latencyFrames, region.endFrame - region.startFrame)
+    }
+}
+
+enum class PracticeRecordingMode { CURRENT_PLAYHEAD, FROM_PROJECT_START, LOOP_PUNCH }
+
+data class PracticeRecordingStartPlan(
+    val mode: PracticeRecordingMode,
+    val sessionStartFrame: Long,
+    val loopEnabled: Boolean,
+    val punchRegion: PunchRegion? = null,
+)
+
+/**
+ * Resolves the user's recording intent at REC time. Punch is deliberately transient: the
+ * persisted GuitarProject.punchRegion field remains readable for backward compatibility but is
+ * not consulted by this policy. That prevents an old project setting from silently changing a
+ * future recording.
+ */
+object PracticeRecordingStartPolicy {
+    fun plan(
+        mode: PracticeRecordingMode,
+        currentPlayheadFrame: Long,
+        loopEnabled: Boolean,
+        loopStartFrame: Long,
+        loopEndFrame: Long,
+        sampleRateHz: Int,
+    ): PracticeRecordingStartPlan = when (mode) {
+        PracticeRecordingMode.CURRENT_PLAYHEAD -> PracticeRecordingStartPlan(
+            mode = mode,
+            sessionStartFrame = currentPlayheadFrame.coerceAtLeast(0L),
+            loopEnabled = false,
+        )
+        PracticeRecordingMode.FROM_PROJECT_START -> PracticeRecordingStartPlan(
+            mode = mode,
+            sessionStartFrame = 0L,
+            loopEnabled = false,
+        )
+        PracticeRecordingMode.LOOP_PUNCH -> {
+            require(loopEnabled) { "Ative o loop para gravar somente o trecho selecionado." }
+            require(loopStartFrame >= 0L && loopEndFrame > loopStartFrame) { "O intervalo do loop é inválido." }
+            require(sampleRateHz > 0) { "A taxa de amostragem precisa ser conhecida para o punch." }
+            val region = PunchRegion(
+                startFrame = loopStartFrame,
+                endFrame = loopEndFrame,
+                preRollFrames = sampleRateHz.toLong() * 3L,
+                postRollFrames = sampleRateHz.toLong(),
+            )
+            PracticeRecordingStartPlan(
+                mode = mode,
+                sessionStartFrame = PunchRecordingPolicy.plan(region).captureStartFrame,
+                loopEnabled = true,
+                punchRegion = region,
+            )
+        }
     }
 }
 
@@ -97,12 +160,39 @@ object PracticeWorkflowEditor {
     fun addSection(project: GuitarProject, name: String, start: Long, end: Long, now: Long, id: String = UUID.randomUUID().toString()): GuitarProject {
         require(name.trim().isNotEmpty() && start >= 0L && end > start); return project.copy(sections = (project.sections + TimelineSection(id, name.trim(), start, end)).sortedBy { it.startFrame }, updatedAtEpochMs = now)
     }
-    fun acceptSuggestedSections(project: GuitarProject, suggestions: List<SectionBoundarySuggestion>, totalFrames: Long, now: Long): GuitarProject {
+    fun previewSuggestedSections(suggestions: List<SectionBoundarySuggestion>, totalFrames: Long): List<SectionSuggestionPreview> {
         require(totalFrames > 0L)
-        val boundaries = (listOf(0L) + suggestions.map { it.frame } + totalFrames).distinct().sorted()
-        val sections = boundaries.zipWithNext().mapIndexed { i, (start, end) -> TimelineSection(UUID.randomUUID().toString(), "Seção ${i + 1}", start, end, SectionOrigin.AUTOMATIC, suggestions.firstOrNull { it.frame == start }?.confidence) }
+        val normalizedSuggestions = suggestions
+            .filter { it.frame in 1 until totalFrames }
+            .distinctBy { it.frame }
+            .sortedBy { it.frame }
+        val boundaries = (listOf(0L) + normalizedSuggestions.map { it.frame } + totalFrames).distinct().sorted()
+        return boundaries.zipWithNext().mapIndexedNotNull { index, (start, end) ->
+            if (end <= start) null else SectionSuggestionPreview(
+                name = "Seção ${index + 1}",
+                startFrame = start,
+                endFrame = end,
+                confidence = normalizedSuggestions.firstOrNull { it.frame == start }?.confidence,
+            )
+        }
+    }
+    fun acceptSuggestedSections(project: GuitarProject, suggestions: List<SectionBoundarySuggestion>, totalFrames: Long, now: Long): GuitarProject {
+        val sections = previewSuggestedSections(suggestions, totalFrames).map { preview ->
+            TimelineSection(
+                id = UUID.randomUUID().toString(),
+                name = preview.name,
+                startFrame = preview.startFrame,
+                endFrame = preview.endFrame,
+                origin = SectionOrigin.AUTOMATIC,
+                confidence = preview.confidence,
+            )
+        }
         return project.copy(sections = sections, updatedAtEpochMs = now)
     }
     fun removeSection(project: GuitarProject, id: String, now: Long) = project.copy(sections = project.sections.filterNot { it.id == id }, updatedAtEpochMs = now)
+    fun clearSections(project: GuitarProject, now: Long) = project.copy(sections = emptyList(), updatedAtEpochMs = now)
+
+    /** Legacy project field kept only for file-format compatibility. New UI/runtime punch is transient. */
+    @Deprecated("Punch is selected transiently at REC time; do not arm it in the project")
     fun setPunch(project: GuitarProject, region: PunchRegion?, now: Long) = project.copy(punchRegion = region, updatedAtEpochMs = now)
 }
