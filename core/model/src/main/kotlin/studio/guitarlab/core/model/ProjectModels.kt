@@ -28,6 +28,28 @@ object BuiltInRoles {
     const val CLICK = "builtin.click"
     const val GENERIC = "builtin.generic"
 
+    private val referenceFamily = setOf(REFERENCE_GUITAR, REFERENCE_GUITAR_L, REFERENCE_GUITAR_R)
+    private val recordedFamily = setOf(RECORDED_GUITAR, RECORDED_GUITAR_L, RECORDED_GUITAR_R)
+    private val uniqueWorkflowRoles = setOf(BACKING, CLICK) + referenceFamily + recordedFamily
+
+    /** Roles that describe one structural place in the guitar/practice workflow. */
+    fun isWorkflowRole(roleId: String): Boolean = roleId in uniqueWorkflowRoles
+
+    /**
+     * Returns true when two assignments would describe the same or contradictory workflow slot.
+     * L/R counterparts may coexist, while the mono alternative conflicts with either side.
+     */
+    fun rolesConflict(first: String, second: String): Boolean {
+        if (first == second) return first in uniqueWorkflowRoles
+        if (first in referenceFamily && second in referenceFamily) {
+            return first == REFERENCE_GUITAR || second == REFERENCE_GUITAR
+        }
+        if (first in recordedFamily && second in recordedFamily) {
+            return first == RECORDED_GUITAR || second == RECORDED_GUITAR
+        }
+        return false
+    }
+
     val definitions = listOf(
         TrackRoleDefinition(BACKING, "Base", true, ChannelLayout.STEREO),
         TrackRoleDefinition(REFERENCE_GUITAR, "Guitarra de referência", true, ChannelLayout.MONO),
