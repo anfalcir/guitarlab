@@ -4,7 +4,7 @@
 +import studio.guitarlab.core.project.TrackRoleAssignmentPolicy
 @@ -132,0 +134 @@
 +    val newTrackRolePromptId: String? = null,
-@@ -1077,0 +1080,8 @@
+@@ -1078,0 +1081,8 @@
 +        val roleId = _state.value.project?.tracks?.firstOrNull { it.id == trackId }?.roleId
 +        updateTrackConfiguration(trackId, name, colorIndex, roleId)
 +    }
@@ -13,10 +13,10 @@
 +        val currentState = _state.value
 +        val project = currentState.project ?: return
 +        if (!structuralEditingAllowed(currentState)) return
-@@ -1079 +1089 @@
+@@ -1080 +1090 @@
 -            _state.value = _state.value.copy(error = error.message ?: "Nome de pista inválido.")
 +            _state.value = currentState.copy(error = error.message ?: "Nome de pista inválido.")
-@@ -1082,2 +1092,27 @@
+@@ -1083,2 +1093,27 @@
 -        editTrackStructural("Pista atualizada", trackId) {
 -            it.copy(name = normalizedName, colorIndex = colorIndex.coerceIn(0, TRACK_COLOR_COUNT - 1))
 +        viewModelScope.launch {
@@ -46,18 +46,18 @@
 +            }.onFailure { error ->
 +                _state.value = _state.value.copy(error = error.message ?: "Não foi possível atualizar a pista.")
 +            }
-@@ -1116,0 +1152 @@
+@@ -1117,0 +1153 @@
 +        val newTrackId = UUID.randomUUID().toString()
-@@ -1123 +1159 @@
+@@ -1124 +1160 @@
 -                        id = UUID.randomUUID().toString(),
 +                        id = newTrackId,
-@@ -1137,0 +1174 @@
+@@ -1138,0 +1175 @@
 +                val shouldPrompt = TrackRoleAssignmentPolicy.availableSuggestionsForNewTrack(saved, newTrackId).isNotEmpty()
-@@ -1138,0 +1176,3 @@
+@@ -1139,0 +1177,3 @@
 +                if (shouldPrompt) {
 +                    _state.value = _state.value.copy(newTrackRolePromptId = newTrackId)
 +                }
-@@ -1142,0 +1183,31 @@
+@@ -1143,0 +1184,31 @@
 +    fun dismissNewTrackRolePrompt() {
 +        _state.value = _state.value.copy(newTrackRolePromptId = null)
 +    }
