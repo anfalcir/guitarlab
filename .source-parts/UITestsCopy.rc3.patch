@@ -5,6 +5,20 @@
 +        composeRule.onNodeWithContentDescription("Limpar clipping do master").assert(buttonRole).performClick()
 --- a/app/src/androidTest/java/studio/guitarlab/app/PracticeWorkflowInstrumentedTest.kt
 +++ b/app/src/androidTest/java/studio/guitarlab/app/PracticeWorkflowInstrumentedTest.kt
-@@ -53 +53 @@
+@@ -49 +49 @@
 -            composeRule.onNodeWithText("Auto Seções").assertIsEnabled()
 +            composeRule.onNodeWithText("Auto seções").assertIsEnabled()
+@@ -63,0 +64,7 @@
++            // First prove that the REC semantic action reached the authoritative UI state. This
++            // separates a transport/callback regression from rendering of the dialog window.
++            composeRule.waitUntil(timeoutMillis = UI_TIMEOUT_MS) {
++                studio().state.value.loopRecordingChoiceVisible
++            }
++            assertTrue(studio().state.value.loopRecordingChoiceVisible)
++
+@@ -71,0 +79,3 @@
++            composeRule.waitUntil(timeoutMillis = UI_TIMEOUT_MS) {
++                !studio().state.value.loopRecordingChoiceVisible
++            }
+@@ -72,0 +83 @@
++            assertTrue("Cancel must dismiss the transient recording choice", !studio().state.value.loopRecordingChoiceVisible)

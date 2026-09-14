@@ -49,7 +49,7 @@ apply_guarded_patch() {
 apply_patch_once "$ROOT/.source-parts/TimelineMarkerRail.rc3.patch"
 STUDIO_VIEW_MODEL_TARGET="$ROOT/app/src/main/java/studio/guitarlab/app/ui/StudioViewModel.kt"
 STUDIO_VIEW_MODEL_RC3_BLOB="64db74cfa94ca0484f3bfd585b0f40f2c0faea09"
-STUDIO_VIEW_MODEL_FINAL_BLOB="f14da2c4b71a29e7c6fd7aaeefd1acd33bd8c2b3"
+STUDIO_VIEW_MODEL_FINAL_BLOB="3fb7186a56b17c095545caa63fd9317003ce79a2"
 if [[ "$(git -C "$ROOT" hash-object "$STUDIO_VIEW_MODEL_TARGET")" == "$STUDIO_VIEW_MODEL_FINAL_BLOB" ]]; then
     echo "Source patch chain already materialized: StudioViewModel RC3"
 else

@@ -1,74 +1,48 @@
 --- a/app/src/main/java/studio/guitarlab/app/ui/StudioShellScreen.kt
 +++ b/app/src/main/java/studio/guitarlab/app/ui/StudioShellScreen.kt
-@@ -154,9 +154,12 @@
-                         onReturnToStart = viewModel::returnToStart,
-                         onPlayStop = viewModel::togglePlayStop,
-                         onRecord = {
+@@ -75 +74,0 @@
+-    var recordChoiceVisible by rememberSaveable(projectId) { mutableStateOf(false) }
+@@ -157 +156,4 @@
 -                            when (state.recordingSession.phase) {
 +                            // Recording must follow the authoritative state at click time. Loop can
 +                            // change before this composable completes its next recomposition.
 +                            val liveState = viewModel.state.value
 +                            when (liveState.recordingSession.phase) {
-                                 RecordingSessionPhase.IDLE -> {
+@@ -159 +161 @@
 -                                    if (state.transport.loopEnabled) recordChoiceVisible = true
-+                                    if (liveState.transport.loopEnabled) recordChoiceVisible = true
-                                     else requestRecording(PracticeRecordingMode.CURRENT_PLAYHEAD)
-                                 }
-                                 RecordingSessionPhase.COUNTDOWN,
---- a/app/src/main/java/studio/guitarlab/app/ui/StudioShellScreen.kt
-+++ b/app/src/main/java/studio/guitarlab/app/ui/StudioShellScreen.kt
-@@ -414,7 +414,7 @@
-                 ExportActionCard(
-                     title = "Projeto GuitarLab",
-                     badge = ".guitarlab",
++                                    if (liveState.transport.loopEnabled) viewModel.showLoopRecordingChoice()
+@@ -234 +236 @@
+-    if (recordChoiceVisible) {
++    if (state.loopRecordingChoiceVisible) {
+@@ -236 +238 @@
+-            onDismissRequest = { recordChoiceVisible = false },
++            onDismissRequest = viewModel::dismissLoopRecordingChoice,
+@@ -246 +248 @@
+-                        recordChoiceVisible = false
++                        viewModel.dismissLoopRecordingChoice()
+@@ -253 +255 @@
+-                    TextButton(onClick = { recordChoiceVisible = false }) { Text("Cancelar") }
++                    TextButton(onClick = viewModel::dismissLoopRecordingChoice) { Text("Cancelar") }
+@@ -256 +258 @@
+-                            recordChoiceVisible = false
++                            viewModel.dismissLoopRecordingChoice()
+@@ -417 +419 @@
 -                    detail = "Pacote portátil com pistas, clips, edições, fontes originais e proxies necessários.",
 +                    detail = "Pacote portátil com pistas, clipes, edições, fontes originais e proxies necessários.",
-                     icon = { Icon(Icons.Default.Archive, contentDescription = null) },
-                     enabled = !busy,
-                     onClick = onSaveProject,
-@@ -423,14 +423,14 @@
-                 Text("MASTER FINAL", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.secondary)
-                 ExportActionCard(
-                     title = "WAV",
+@@ -426 +428 @@
 -                    badge = "32-bit float",
 +                    badge = "Float 32 bits",
-                     detail = "Máxima qualidade para arquivo, edição ou masterização posterior.",
-                     enabled = !busy,
-                     onClick = onWav,
-                 )
-                 ExportActionCard(
-                     title = "FLAC",
+@@ -433 +435 @@
 -                    badge = "Lossless",
 +                    badge = "Sem perdas",
-                     detail = "Compactação sem perdas com arquivo menor que WAV.",
-                     enabled = !busy,
-                     onClick = onFlac,
 --- a/app/src/main/java/studio/guitarlab/app/ui/StudioUserGuideDialog.kt
 +++ b/app/src/main/java/studio/guitarlab/app/ui/StudioUserGuideDialog.kt
-@@ -35,7 +35,7 @@
-             ) {
-                 GuideSection(
-                     "Pistas e funções",
+@@ -38 +38 @@
 -                    "Cada pista pode ter uma função, como Base, Referência E/D ou Minha Guitarra E/D. Isso ajuda o GuitarLab a organizar comparação e gravação. Ao criar uma pista, o app pode sugerir funções importantes ainda livres. Você pode trocar ou remover a função em Configurar pista.",
 +                    "Cada pista pode ter uma função, como Base, Guitarra de referência E/D ou Minha guitarra E/D. Isso ajuda o GuitarLab a organizar comparação e gravação. Ao criar uma pista, o app pode sugerir funções importantes ainda livres. Você pode trocar ou remover a função em Configurar pista.",
-                 )
-                 GuideSection(
-                     "Play, Stop e posição",
-@@ -51,7 +51,7 @@
-                 )
-                 GuideSection(
-                     "Marcadores e seções",
+@@ -54 +54 @@
 -                    "Marcadores servem como pontos de referência. Crie uma seção a partir do Loop ou use Auto Seções para receber uma prévia automática. Você decide se aplica ou cancela a prévia. Limpar seções não apaga seus áudios.",
 +                    "Marcadores servem como pontos de referência. Crie uma seção a partir do Loop ou use Auto seções para receber uma prévia automática. Você decide se aplica ou cancela a prévia. Limpar seções não apaga seus áudios.",
-                 )
-                 GuideSection(
-                     "Gravação",
-@@ -59,7 +59,7 @@
-                 )
-                 GuideSection(
-                     "Mixer",
+@@ -62 +62 @@
 -                    "No Mixer você controla volume, posição esquerda/direita, Mute, Solo e qual pista está armada para gravar. Esses controles alteram o que você ouve sem apagar o áudio original.",
 +                    "No mixer você controla volume, posição esquerda/direita, Mute, Solo e qual pista está armada para gravar. Esses controles alteram o que você ouve sem apagar o áudio original.",
-                 )
-                 GuideSection(
-                     "Opções e saída",

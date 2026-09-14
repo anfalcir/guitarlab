@@ -1,11 +1,34 @@
 --- a/app/src/main/java/studio/guitarlab/app/ui/StudioViewModel.kt
 +++ b/app/src/main/java/studio/guitarlab/app/ui/StudioViewModel.kt
-@@ -1266,7 +1266,7 @@
-                     error = null,
-                 )
-             }.onFailure { error ->
+@@ -116,0 +117 @@
++    val loopRecordingChoiceVisible: Boolean = false,
+@@ -635 +636,12 @@
+-    fun startRecording(mode: PracticeRecordingMode = PracticeRecordingMode.CURRENT_PLAYHEAD) {
++    fun showLoopRecordingChoice() {
++        val current = _state.value
++        if (current.project == null ||
++            current.recordingSession.phase != RecordingSessionPhase.IDLE ||
++            !current.transport.loopEnabled
++        ) return
++        if (!current.loopRecordingChoiceVisible) {
++            _state.value = current.copy(loopRecordingChoiceVisible = true)
++        }
++    }
++
++    fun dismissLoopRecordingChoice() {
+@@ -636,0 +649,10 @@
++        if (current.loopRecordingChoiceVisible) {
++            _state.value = current.copy(loopRecordingChoiceVisible = false)
++        }
++    }
++
++    fun startRecording(mode: PracticeRecordingMode = PracticeRecordingMode.CURRENT_PLAYHEAD) {
++        val snapshot = _state.value
++        val current = if (snapshot.loopRecordingChoiceVisible) {
++            snapshot.copy(loopRecordingChoiceVisible = false).also { _state.value = it }
++        } else snapshot
+@@ -1269 +1291 @@
 -                _state.value = _state.value.copy(error = error.message ?: "Não foi possível atualizar o Master.")
 +                _state.value = _state.value.copy(error = error.message ?: "Não foi possível atualizar o master.")
-             }
-         }
-     }
+@@ -1385,0 +1408 @@
++        dismissLoopRecordingChoice()
