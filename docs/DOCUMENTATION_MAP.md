@@ -9,6 +9,7 @@ For the active `0.5.0-rc3` candidate, use these documents together:
 - `CI_PIPELINE.md` — manual CI/release job graph, performance strategy, caches, artifacts and failure interpretation;
 - `RELEASE_NOTES_0.5.0-rc3.md` — RC3 behavior delta;
 - `RC3_FINAL_PHYSICAL_HOMOLOGATION.md` — only residual manual target-device checks after automated PASS;
+- `PHYSICAL_EDITING_RECORDING_HARDENING_PLAN.md` — active serial hardening plan for trim gestures, clip deletion/lineage, drag/drop transactions, recording synchronization/latency and live REC waveform;
 - `TEST_AND_HOMOLOGATION_PLAN.md` — canonical automated/manual gate discipline;
 - `USER_GUIDE_POLICY.md` — mandatory synchronization contract for the novice-facing in-app `Ajuda` guide;
 - `UI_COPY_STYLE.md` — capitalization, punctuation and terminology standard for all user-visible screens;
