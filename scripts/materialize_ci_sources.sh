@@ -143,3 +143,12 @@ else
     apply_encoded_gzip_patch_once "$ROOT/.source-parts/RC3PhysicalReviewUx.patch.gz"
     apply_patch_once "$ROOT/.source-parts/RC3PhysicalReviewUxTestCompat.patch"
 fi
+
+# Physical editing/recording hardening. Keep the stages independent and ordered so regressions
+# remain bisectable: interaction -> lineage -> drag transaction -> timing -> waveform -> integrated tests.
+apply_patch_once "$ROOT/.source-parts/H1TrimHardening.patch"
+apply_patch_once "$ROOT/.source-parts/H2ClipLifecycle.patch"
+apply_patch_once "$ROOT/.source-parts/H3DragTransaction.patch"
+apply_encoded_gzip_patch_once "$ROOT/.source-parts/H4RecordingSync.patch.gz"
+apply_encoded_gzip_patch_once "$ROOT/.source-parts/H5LiveWaveform.patch.gz"
+apply_encoded_gzip_patch_once "$ROOT/.source-parts/H6IntegratedRegression.patch.gz"
