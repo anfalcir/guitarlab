@@ -4,7 +4,7 @@ import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
-import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
@@ -60,14 +60,13 @@ class PracticeWorkflowInstrumentedTest {
             }
             assertTrue(studio().state.value.transport.loopEnabled)
             composeRule.onNodeWithText("Criar seção do loop").assertIsEnabled()
-            waitUntilContentDescriptionEnabled("Gravar")
+            waitUntilTagEnabled("transport-record")
 
-            composeRule.onNodeWithContentDescription("Gravar").performClick()
+            composeRule.onNodeWithTag("transport-record").performClick()
 
-            // AlertDialog is hosted in a separate Android window. On the headless API 36
-            // runner its title is present in the semantics tree but assertIsDisplayed() reports
-            // false. Validate the dialog contract through semantic presence and enabled actions;
-            // target-tablet geometry is covered by TargetTabletGeometryInstrumentedTest.
+            // AlertDialog is hosted in a separate Android window. Avoid viewport-based
+            // assertions here; validate the dialog contract through semantic presence and
+            // enabled actions. Target-tablet geometry is covered separately.
             waitUntilExists("Gravar com o loop ativo")
             waitUntilEnabled("Somente o loop")
             waitUntilEnabled("Desde o início")
@@ -76,7 +75,7 @@ class PracticeWorkflowInstrumentedTest {
 
             composeRule.waitForIdle()
             assertTrue("Cancel must preserve the active loop", studio().state.value.transport.loopEnabled)
-            composeRule.onNodeWithContentDescription("Gravar").assertIsEnabled()
+            composeRule.onNodeWithTag("transport-record").assertIsEnabled()
         } finally {
             projectId?.let { runCatching { repository.delete(it) } }
         }
@@ -88,9 +87,9 @@ class PracticeWorkflowInstrumentedTest {
         }
     }
 
-    private fun waitUntilContentDescriptionEnabled(description: String) {
+    private fun waitUntilTagEnabled(tag: String) {
         composeRule.waitUntil(timeoutMillis = UI_TIMEOUT_MS) {
-            runCatching { composeRule.onNodeWithContentDescription(description).assertIsEnabled() }.isSuccess
+            runCatching { composeRule.onNodeWithTag(tag).assertIsEnabled() }.isSuccess
         }
     }
 

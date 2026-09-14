@@ -16,6 +16,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import studio.guitarlab.app.ui.theme.StudioLoop
 import studio.guitarlab.app.ui.theme.StudioRecord
@@ -66,6 +67,7 @@ fun TransportBar(
             )
             AppIconButton(
                 icon = Icons.Default.FiberManualRecord,
+                modifier = Modifier.testTag("transport-record"),
                 contentDescription = when (recordingPhase) {
                     RecordingSessionPhase.COUNTDOWN -> "Cancelar contagem da gravação"
                     RecordingSessionPhase.CAPTURING -> "Parar gravação"
