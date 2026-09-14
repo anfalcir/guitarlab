@@ -3,7 +3,7 @@
 Updated: 2026-09-14
 
 ## Purpose
-The top-bar `Ajuda` dialog is part of the GuitarLab product contract, not optional marketing copy. It must give a novice user a short, accurate explanation of the controls and workflows that are actually present in the current app.
+The shared `Ajuda` dialog is part of the GuitarLab product contract, not optional marketing copy. It is reachable from both Home and Studio, and both entry points must invoke the same `StudioUserGuideDialog` implementation/content source. It must give a novice user a short, accurate explanation of the controls and workflows actually present in the current app.
 
 ## Mandatory synchronization rule
 Any change that adds, removes, renames or materially changes a user-visible control, configuration or workflow must review `StudioUserGuideDialog.kt` in the same development block. Update the guide whenever the change affects:
