@@ -28,6 +28,19 @@ object ProjectValidator {
             if (track.colorIndex !in -1..19) issues += ValidationIssue("track.color.range", "A cor da pista '${track.name}' é inválida.")
         }
 
+        project.tracks.forEachIndexed { index, track ->
+            val roleId = track.roleId ?: return@forEachIndexed
+            project.tracks.drop(index + 1).forEach { other ->
+                val otherRoleId = other.roleId ?: return@forEach
+                if (BuiltInRoles.rolesConflict(roleId, otherRoleId)) {
+                    issues += ValidationIssue(
+                        "track.role.conflict",
+                        "As pistas '${track.name}' e '${other.name}' usam funções incompatíveis ou duplicadas.",
+                    )
+                }
+            }
+        }
+
         project.clips.forEach { clip ->
             if (clip.trackId !in trackIds) issues += ValidationIssue("clip.track.missing", "O clipe '${clip.name}' referencia uma pista inexistente.")
             if (clip.takeId != null && project.takes.none { it.id == clip.takeId }) issues += ValidationIssue("clip.take.missing", "O clipe '${clip.name}' referencia um take inexistente.")
