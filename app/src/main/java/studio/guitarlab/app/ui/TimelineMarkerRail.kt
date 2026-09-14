@@ -9,6 +9,7 @@ import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
@@ -181,7 +182,7 @@ private fun TimelineAnnotations(
                     Text(
                         text = section.name,
                         modifier = Modifier
-                            .matchParentSize()
+                            .fillMaxSize()
                             .clickable { onSectionClick(section.id) }
                             .padding(horizontal = 22.dp, vertical = 3.dp),
                         style = MaterialTheme.typography.labelSmall,
