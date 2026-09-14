@@ -10,7 +10,7 @@ This is the active residual physical checklist for RC3. Do not execute it until 
 - target: Samsung SM-X230 + M-VAVE MK-300 over USB
 - MK-300 hardware USB loopback: disabled
 - expected signer SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`
-- exact source SHA: **fill from the successful manual workflow `github.sha`**
+- exact source SHA: **fill from the next successful manual workflow `github.sha` for the post-#613 source**
 - APK SHA-256: **fill from `SHA256SUMS.txt` after the successful run**
 - signed APK: `GuitarLabStudio-0.5.0-rc3-homologacao.apk`
 
@@ -35,18 +35,20 @@ Do not homologate an APK whose version, source SHA, checksum or signer differs f
 - Listen specifically for repeatable seek-related hangs, stale audio, large pops or transport desynchronization.
 
 ## C. Section detection preview and clearing
-- Run `Detectar seções` on a representative backing/project.
-- Confirm detected regions become visible immediately as **Prévia** before persistence.
-- Press `Cancelar prévia`: persisted sections must remain unchanged.
-- Detect again and press `Aplicar prévia`: the resulting persisted section boundaries must visually match the preview.
+- Run `Auto seções` on a representative backing/project.
+- Confirm detected regions become visible immediately as **Prévia** before persistence and no region appears beyond the actual song end.
+- Confirm the original `Auto seções` slot is replaced in place by `Aplicar` + a red `X`, without pushing `Limpar seções` or changing the neighboring Timeline geometry.
+- Press the red `X`: persisted sections must remain unchanged.
+- Detect again and press `Aplicar`: the resulting persisted section boundaries must visually match the preview.
 - Use a persisted section to define the loop and confirm alignment.
 - Press `Limpar seções`, confirm the warning and verify that persisted sections and any preview disappear while clips, markers and loop bounds remain intact.
 - Verify loop markers remain visually dominant but section labels stay usable/readable without an extra permanent rail.
 
-## D. Recording choice with Loop enabled
+## D. Recording countdown and Loop-enabled choice
 - With Loop disabled, press REC and confirm the ordinary current-playhead recording path starts with no punch-choice modal.
 - With Loop enabled, press REC and confirm the modal offers `Somente o loop`, `Desde o início` and `Cancelar`.
-- Choose `Cancelar`: no recording/countdown/transport mutation should remain.
+- Start REC and confirm a large translucent centered `3 → 2 → 1` overlay appears without pushing the Comparação/Timeline row or tracks.
+- With Loop active, choose `Cancelar`: no recording/countdown/transport mutation should remain.
 - Choose `Desde o início`: recording must start from 00:00 and the loop must no longer constrain that recording.
 - Choose `Somente o loop`: capture may begin before loop start for pre-roll, but the retained take must align to the loop region according to punch semantics.
 - During countdown/REC/finalization, attempt to drag the playhead: its timeline position must not be seekable by the user.
