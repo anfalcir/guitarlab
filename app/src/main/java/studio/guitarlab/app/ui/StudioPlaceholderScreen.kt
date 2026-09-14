@@ -206,11 +206,10 @@ fun StudioPlaceholderScreen(
                 onSuggestSections = viewModel::suggestSections,
                 onAcceptSections = viewModel::acceptSectionSuggestions,
                 onDiscardSections = viewModel::discardSectionSuggestions,
+                onClearSections = viewModel::clearSections,
                 onLoopSection = viewModel::loopSection,
                 onRemoveMarker = viewModel::removeMarker,
                 onRemoveSection = viewModel::removeSection,
-                onSetPunch = viewModel::setPunchFromLoop,
-                onClearPunch = viewModel::clearPunch,
                 modifier = Modifier.fillMaxSize(),
             )
         }
@@ -295,12 +294,13 @@ private fun PracticeControls(
     onSuggestSections: () -> Unit,
     onAcceptSections: () -> Unit,
     onDiscardSections: () -> Unit,
+    onClearSections: () -> Unit,
     onLoopSection: (String) -> Unit,
     onRemoveMarker: (String) -> Unit,
     onRemoveSection: (String) -> Unit,
-    onSetPunch: () -> Unit,
-    onClearPunch: () -> Unit,
 ) {
+    var confirmClearSections by remember { mutableStateOf(false) }
+
     Row(
         Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -318,14 +318,33 @@ private fun PracticeControls(
             OutlinedButton(onClick=onAddSection, enabled=enabled, contentPadding=PaddingValues(horizontal=10.dp,vertical=2.dp)) { Text("Criar seção do loop") }
             OutlinedButton(onClick=onSuggestSections, enabled=enabled, contentPadding=PaddingValues(horizontal=10.dp,vertical=2.dp)) { Text("Detectar seções") }
             if (suggestions > 0) {
-                Button(onClick=onAcceptSections, enabled=enabled, contentPadding=PaddingValues(horizontal=10.dp,vertical=2.dp)) { Text("Aceitar $suggestions") }
-                TextButton(onClick=onDiscardSections) { Text("Descartar") }
+                Button(onClick=onAcceptSections, enabled=enabled, contentPadding=PaddingValues(horizontal=10.dp,vertical=2.dp)) { Text("Aplicar prévia") }
+                TextButton(onClick=onDiscardSections, enabled=enabled) { Text("Cancelar prévia") }
             }
+            OutlinedButton(
+                onClick = { confirmClearSections = true },
+                enabled = enabled && (project.sections.isNotEmpty() || suggestions > 0),
+                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
+            ) { Text("Limpar seções") }
         }
-        PracticeControlGroup("Gravação punch") {
-            if (project.punchRegion == null) OutlinedButton(onClick=onSetPunch, enabled=enabled, contentPadding=PaddingValues(horizontal=10.dp,vertical=2.dp)) { Text("Definir pelo loop") }
-            else OutlinedButton(onClick=onClearPunch, enabled=enabled, contentPadding=PaddingValues(horizontal=10.dp,vertical=2.dp)) { Text("Limpar punch") }
-        }
+    }
+
+    if (confirmClearSections) {
+        AlertDialog(
+            onDismissRequest = { confirmClearSections = false },
+            title = { Text("Limpar todas as seções?") },
+            text = { Text("As seções salvas e qualquer prévia de detecção serão removidas. Marcadores, clipes e o intervalo de loop não serão alterados.") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        confirmClearSections = false
+                        onClearSections()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                ) { Text("Limpar seções") }
+            },
+            dismissButton = { TextButton(onClick = { confirmClearSections = false }) { Text("Cancelar") } },
+        )
     }
 }
 
@@ -393,11 +412,10 @@ private fun ProjectWorkspace(
     onSuggestSections: () -> Unit,
     onAcceptSections: () -> Unit,
     onDiscardSections: () -> Unit,
+    onClearSections: () -> Unit,
     onLoopSection: (String) -> Unit,
     onRemoveMarker: (String) -> Unit,
     onRemoveSection: (String) -> Unit,
-    onSetPunch: () -> Unit,
-    onClearPunch: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val baseProjectEndFrame = TimelineControlPolicy.projectEndFrame(project)
@@ -420,11 +438,10 @@ private fun ProjectWorkspace(
             onSuggestSections = onSuggestSections,
             onAcceptSections = onAcceptSections,
             onDiscardSections = onDiscardSections,
+            onClearSections = onClearSections,
             onLoopSection = onLoopSection,
             onRemoveMarker = onRemoveMarker,
             onRemoveSection = onRemoveSection,
-            onSetPunch = onSetPunch,
-            onClearPunch = onClearPunch,
         )
         Surface(
             modifier = Modifier.fillMaxWidth().weight(1f),
@@ -468,8 +485,8 @@ private fun ProjectWorkspace(
                         loopEndFrame = timelineControls.loopEndFrame,
                         showLoopMarkers = transport.loopEnabled,
                         sections = project.sections,
+                        sectionSuggestions = sectionSuggestions,
                         markers = project.markers,
-                        punchRegion = project.punchRegion,
                         enabled = timelineEditingEnabled,
                         onPlayheadFrameChanged = onPlayheadFrameChanged,
                         onLoopStartFrameChanged = onLoopStartFrameChanged,
@@ -915,7 +932,6 @@ private fun GlobalTimelineLines(
         val timelineWidth = (size.width - sidebarPx).coerceAtLeast(1f)
         fun x(frame: Long): Float = sidebarPx + TimelineControlPolicy.frameToFraction(frame, projectEndFrame) * timelineWidth
         project.sections.forEach { section -> drawRect(sectionColor, topLeft = Offset(x(section.startFrame), 0f), size = androidx.compose.ui.geometry.Size((x(section.endFrame) - x(section.startFrame)).coerceAtLeast(1f), size.height)) }
-        project.punchRegion?.let { punch -> drawRect(StudioRecord.copy(alpha = 0.07f), topLeft = Offset(x(punch.startFrame), 0f), size = androidx.compose.ui.geometry.Size((x(punch.endFrame) - x(punch.startFrame)).coerceAtLeast(1f), size.height)) }
         project.markers.forEach { marker -> drawLine(markerColor, Offset(x(marker.frame), 0f), Offset(x(marker.frame), size.height), strokeWidth = 1.5f) }
         if (showLoop) {
             drawLine(StudioLoop.copy(alpha = 0.62f), start = Offset(x(loopStartFrame), 0f), end = Offset(x(loopStartFrame), size.height), strokeWidth = 2f)
@@ -1662,7 +1678,6 @@ private fun CompactStatus(text: String, error: Boolean = false, modifier: Modifi
         )
     }
 }
-
 
 @Composable
 private fun ClipFadeDialog(
