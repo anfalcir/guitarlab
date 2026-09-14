@@ -1,6 +1,6 @@
 # Architectural and Product Decisions
 
-Updated: 2026-09-12
+Updated: 2026-09-14
 
 This log records decisions that must survive chat/context loss. Historical decisions remain binding unless a later numbered decision explicitly supersedes them.
 
@@ -174,3 +174,12 @@ Automatic section detection and level analysis never mutate creative state silen
 
 ## D-057 — Hosted CI is optional, evidence is mandatory
 GitHub Actions stays manual-only. A local pinned toolchain may establish software/build/signature evidence; emulator-only and physical-only claims must remain explicitly distinguished.
+
+## D-058 — Loop constrains explicit Play, not recording pre-roll
+When Loop is active, an explicit Play action may begin only inside `[loopStart, loopEnd)`. A playhead outside that interval normalizes to loop start, and visible playback callbacks are kept inside the interval. This rule belongs to playback transport policy and must not be pushed into shared audio-engine or recording semantics because punch recording may legitimately begin before loop start for pre-roll.
+
+## D-059 — Punch is transient REC intent, not durable armed state
+Loop punch is chosen at REC time for the current recording only. With Loop active, REC asks whether to record only the loop, record from project start, or cancel. Only the loop choice creates a transient punch plan. Persisted `GuitarProject.punchRegion` remains readable solely for backward file-format compatibility and must never silently arm a later recording.
+
+## D-060 — Section detection previews before mutation
+Automatic section detection must render a non-persistent preview before the project is changed. Preview and acceptance use the same normalized boundaries. Cancelling preview is a no-op on persisted sections. `Limpar seções` is an explicit non-destructive command that removes saved sections and pending preview while preserving clips, markers and loop bounds.
