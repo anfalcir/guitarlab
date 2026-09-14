@@ -1,30 +1,12 @@
 --- a/app/src/main/java/studio/guitarlab/app/ui/TimelineMarkerRail.kt
 +++ b/app/src/main/java/studio/guitarlab/app/ui/TimelineMarkerRail.kt
-@@ -64,6 +64,7 @@
-     sectionSuggestions: List<SectionBoundarySuggestion>,
-     markers: List<ProjectTimelineMarker>,
-     enabled: Boolean,
+@@ -66,0 +67 @@
 +    playheadDragEnabled: Boolean = true,
-     onPlayheadFrameChanged: (Long) -> Unit,
-     onLoopStartFrameChanged: (Long) -> Unit,
-     onLoopEndFrameChanged: (Long) -> Unit,
-@@ -73,7 +74,7 @@
-     modifier: Modifier = Modifier,
- ) {
-     BoxWithConstraints(
+@@ -76 +77 @@
 -        modifier = modifier.height(62.dp).alpha(if (enabled) 1f else 0.52f),
 +        modifier = modifier.height(62.dp).alpha(if (enabled || playheadDragEnabled) 1f else 0.52f),
-     ) {
-         val density = LocalDensity.current
-         val widthPx = with(density) { maxWidth.toPx() }.coerceAtLeast(1f)
-@@ -115,9 +116,7 @@
-             projectEndFrame,
-             sampleRateHz,
-             widthPx,
+@@ -118,3 +119 @@
 -            // The playhead remains gesture-enabled during Play. StudioViewModel is the authority
 -            // that rejects movement during countdown/REC and normalizes live seeks to loop bounds.
 -            true,
 +            playheadDragEnabled,
-             onPlayheadFrameChanged,
-             modifier = Modifier.zIndex(4f),
-         )

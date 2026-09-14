@@ -1,25 +1,10 @@
 --- a/app/src/main/java/studio/guitarlab/app/ui/StudioViewModel.kt
 +++ b/app/src/main/java/studio/guitarlab/app/ui/StudioViewModel.kt
-@@ -74,6 +74,7 @@
- import studio.guitarlab.core.project.SectionBoundaryAnalyzer
- import studio.guitarlab.core.project.SectionBoundarySuggestion
- import studio.guitarlab.core.project.TrackLevelAccumulator
+@@ -76,0 +77 @@
 +import studio.guitarlab.core.project.TrackRoleAssignmentPolicy
- import studio.guitarlab.platform.audio.android.AndroidStudioPlaybackEngine
- import studio.guitarlab.platform.audio.android.AndroidStudioRecordingEngine
- import studio.guitarlab.platform.audio.android.StudioRecordingConfig
-@@ -130,6 +131,7 @@
-     val error: String? = null,
-     val importStatus: String? = null,
-     val stereoImportPrompt: StereoImportPrompt? = null,
+@@ -132,0 +134 @@
 +    val newTrackRolePromptId: String? = null,
-     val exportStatus: String? = null,
-     val clipStatus: String? = null,
- )
-@@ -1075,12 +1077,45 @@
-     }
- 
-     fun updateTrackProperties(trackId: String, name: String, colorIndex: Int) {
+@@ -1077,0 +1080,8 @@
 +        val roleId = _state.value.project?.tracks?.firstOrNull { it.id == trackId }?.roleId
 +        updateTrackConfiguration(trackId, name, colorIndex, roleId)
 +    }
@@ -28,11 +13,10 @@
 +        val currentState = _state.value
 +        val project = currentState.project ?: return
 +        if (!structuralEditingAllowed(currentState)) return
-         val normalizedName = runCatching { TrackNamePolicy.requireValid(name) }.getOrElse { error ->
+@@ -1079 +1089 @@
 -            _state.value = _state.value.copy(error = error.message ?: "Nome de pista inválido.")
 +            _state.value = currentState.copy(error = error.message ?: "Nome de pista inválido.")
-             return
-         }
+@@ -1082,2 +1092,27 @@
 -        editTrackStructural("Pista atualizada", trackId) {
 -            it.copy(name = normalizedName, colorIndex = colorIndex.coerceIn(0, TRACK_COLOR_COUNT - 1))
 +        viewModelScope.launch {
@@ -62,38 +46,18 @@
 +            }.onFailure { error ->
 +                _state.value = _state.value.copy(error = error.message ?: "Não foi possível atualizar a pista.")
 +            }
-         }
-     }
- 
-@@ -1114,13 +1149,14 @@
-         val current = _state.value
-         val project = current.project ?: return
-         if (!structuralEditingAllowed(current)) return
+@@ -1116,0 +1152 @@
 +        val newTrackId = UUID.randomUUID().toString()
-         viewModelScope.launch {
-             runCatching {
-                 saveLatest(project.id) { latest ->
-                     val nextOrder = (latest.tracks.maxOfOrNull { it.order } ?: -1) + 1
-                     val number = latest.tracks.size + 1
-                     val newTrack = AudioTrack(
+@@ -1123 +1159 @@
 -                        id = UUID.randomUUID().toString(),
 +                        id = newTrackId,
-                         name = TrackNamePolicy.requireValid("Nova pista $number"),
-                         roleId = BuiltInRoles.GENERIC,
-                         roleSource = RoleSource.USER,
-@@ -1135,11 +1171,46 @@
-                 }
-             }.onSuccess { saved ->
-                 saved.tracks.forEach { track -> trackMixDrafts[track.id] = TrackMixDraft(track.gainDb, track.pan) }
+@@ -1137,0 +1174 @@
 +                val shouldPrompt = TrackRoleAssignmentPolicy.availableSuggestionsForNewTrack(saved, newTrackId).isNotEmpty()
-                 applySavedProject(saved, "Nova pista adicionada")
+@@ -1138,0 +1176,3 @@
 +                if (shouldPrompt) {
 +                    _state.value = _state.value.copy(newTrackRolePromptId = newTrackId)
 +                }
-             }.onFailure { error -> _state.value = _state.value.copy(error = error.message ?: "Não foi possível adicionar a pista.") }
-         }
-     }
- 
+@@ -1142,0 +1183,31 @@
 +    fun dismissNewTrackRolePrompt() {
 +        _state.value = _state.value.copy(newTrackRolePromptId = null)
 +    }
@@ -125,16 +89,7 @@
 +        }
 +    }
 +
-     fun deleteTrack(trackId: String) {
-         val current = _state.value
-         val project = current.project ?: return
-@@ -1162,6 +1233,9 @@
-             }.onSuccess { saved ->
-                 trackMixDrafts.remove(trackId)
-                 applySavedProject(saved, "Pista excluída")
+@@ -1164,0 +1236,3 @@
 +                if (_state.value.newTrackRolePromptId == trackId) {
 +                    _state.value = _state.value.copy(newTrackRolePromptId = null)
 +                }
-             }.onFailure { error -> _state.value = _state.value.copy(error = error.message ?: "Não foi possível excluir a pista.") }
-         }
-     }
