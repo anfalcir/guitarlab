@@ -96,3 +96,20 @@ apply_patch_once "$ROOT/.source-parts/UISettingsCopy.rc3.patch"
 apply_patch_once "$ROOT/.source-parts/UIShellGuideCopy.rc3.patch"
 apply_patch_once "$ROOT/.source-parts/UITestsCopy.rc3.patch"
 apply_patch_once "$ROOT/.source-parts/UIProjectFactoryCopy.rc3.patch"
+
+apply_encoded_gzip_patch_once() {
+    local encoded_archive="$1"
+    local tmp_archive
+    local tmp_patch
+    tmp_archive="$(mktemp)"
+    tmp_patch="$(mktemp)"
+    trap 'rm -f "$tmp_archive" "$tmp_patch"' RETURN
+    base64 -d "$encoded_archive" > "$tmp_archive"
+    gzip -dc "$tmp_archive" > "$tmp_patch"
+    apply_patch_once "$tmp_patch"
+    rm -f "$tmp_archive" "$tmp_patch"
+    trap - RETURN
+}
+
+# Compact text-safe archive of the post-#613 physical-review source/test delta.
+apply_encoded_gzip_patch_once "$ROOT/.source-parts/RC3PhysicalReviewUx.patch.gz"
