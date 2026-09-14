@@ -82,14 +82,14 @@ Target V1 interoperability includes WAV PCM, FLAC, AIFF/AIFC PCM, MP3, AAC/M4A, 
 Track gain/pan/mute/solo, clip gain, summing, meters and Master gain are part of the current Studio contract. More advanced processing is additive and must not block the core guitar practice/recording workflow.
 
 ## Master export
-The alpha13 requested final-output scope is:
+The requested final-output scope is:
 - WAV IEEE 32-bit float master;
 - FLAC lossless delivery path;
 - MP3 320 kbps delivery path.
 
 Export renders the current project/timeline/mix offline into a floating-point master representation before format-specific delivery encoding. It must respect clip placement/trim/gain, track gain/pan/mute/solo and Master gain. It always creates a new destination and never modifies project source/proxy media.
 
-FLAC/MP3 are not considered Android-verified until physical alpha13 validation. The current MP3 path depends on a device-exposed Android encoder and must fail clearly when unavailable.
+FLAC stream structure/extraction is covered by API 36 instrumentation; target-device playability remains part of residual physical validation. The current MP3 path depends on a device-exposed Android encoder and must fail clearly when unavailable.
 
 Future AAC/M4A/Opus export, stems, ranges, additional WAV/FLAC bit-depth controls and dither policy remain later scope unless reprioritized.
 
@@ -116,4 +116,4 @@ Options remains for audio routes, monitoring, preferences, import information an
 - Signed homologation builds use CI-only signing material and locked certificate verification.
 - Project-package extraction must defend against traversal/out-of-root writes and bound resource usage.
 - Keystores, credentials and local SDK configuration are never committed.
-- Physical device homologation remains distinct from software CI; M5 cannot close without alpha13 physical approval.
+- Physical device homologation remains distinct from software CI; the active RC cannot close until its residual physical checklist receives explicit approval.
