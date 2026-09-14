@@ -5,22 +5,40 @@ Updated: 2026-09-14
 ## Active candidate
 The active source candidate is `0.5.0-rc3` / versionCode `23` on `main`. Its exact validated source SHA is not predeclared: it is the `github.sha` of the manually dispatched canonical workflow run that passes all mandatory gates.
 
-The latest previously established full hosted baseline is `0.4.0-rc2` / CI #593, which passed software, API 36 full instrumented regression, isolated 1920×1200 target geometry and signed homologation assembly. RC1/RC2 introduced later recording/practice/UI deltas; RC3 consolidates their final loop/section/punch refinements and therefore requires a new exact-source manual workflow before any digital PASS claim.
+The latest previously established full hosted baseline is `0.4.0-rc2` / CI #593, which passed software, API 36 full instrumented regression, isolated 1920×1200 target geometry and signed homologation assembly. RC1/RC2 introduced later recording/practice/UI deltas; RC3 consolidates their final loop/section/punch/transport refinements and therefore requires a new exact-source manual workflow before any digital PASS claim.
 
 ## RC3-specific automated coverage
 Deterministic coverage includes:
 - loop playback start before, inside, exactly at the end of and after an active loop;
 - confinement of visible playback position to the active loop while recording-position semantics remain untouched;
-- ordinary non-loop project-end restart behavior;
+- natural non-loop completion → STOP + playhead 00:00;
+- natural looped user-Play completion at `L▶` → STOP + playhead `L◀`;
+- live-playhead seek during Play, including lower/upper clamp to `[L◀, L▶)` when Loop is active;
 - recording intent resolved at REC time rather than from persisted punch state;
 - current-playhead, from-project-start and loop-punch plans;
 - rejection of punch without a valid active loop;
 - punch pre-roll/post-roll/latency calculations;
 - section detection preview using the same boundaries as persistence;
 - cancel/discard preview as non-persistent state;
-- clear-sections semantics.
+- clear-sections semantics;
+- Compose instrumentation for the transient Loop + REC decision and Cancel preserving loop state.
 
 Existing global suites continue to cover persistence, history, managed media, codec, SRC, waveform, recording transactionality, active takes, mixer/audio math, export, recovery, lifecycle, accessibility, geometry and performance/stress invariants.
+
+## Latest partial hosted evidence — CI #596
+CI #596 ran against `1bc6652dcdbc580badb3e7aea0c416ba4d06ecce`, before the latest transport changes.
+
+It established:
+- unit/JVM tests PASS;
+- performance evidence PASS;
+- Android Lint PASS;
+- debug APK assembly PASS;
+- Android instrumentation compilation PASS;
+- API 36 runtime suite: 8/9 PASS.
+
+The sole API 36 failure was a timeout in the new Loop + REC Compose test while waiting for the top-bar `Ativar loop` node in a blank zero-length project. All other instrumented tests passed. The test fixture has since been changed to wait for the loaded Studio ViewModel and establish loop state through `StudioViewModel.toggleLoop()`, isolating the behavior under test from blank-project toolbar timing.
+
+Because source advanced after #596, this evidence is diagnostic only and cannot promote the active RC3 HEAD.
 
 ## Canonical gate execution
 Ordinary commits do not start hosted CI. GitHub Actions is intentionally `workflow_dispatch` only. The user manually starts `.github/workflows/android-ci.yml` after source/documentation consolidation.
@@ -46,8 +64,9 @@ Required checks on Android API 36 emulator:
 2. complete standard connected Android regression;
 3. lifecycle/activity recreation behavior;
 4. Compose accessibility/callback behavior already in the suite;
-5. Android codec/export integration checks;
-6. isolated 1920×1200 landscape target-geometry execution.
+5. transient Loop + REC modal regression;
+6. Android codec/export integration checks;
+7. isolated 1920×1200 landscape target-geometry execution.
 
 Any failure blocks signing.
 
@@ -82,7 +101,8 @@ Only after this verification does the residual physical checklist become active.
 ## What belongs in automation
 Do not ask the user to manually re-prove:
 - deterministic model/editor/history behavior;
-- loop boundary normalization math;
+- loop boundary/start/end/reset normalization math;
+- live-seek frame clamping rules;
 - punch planning math;
 - section preview/application equivalence;
 - project/package/file validation or path traversal;
@@ -98,8 +118,9 @@ After exact RC3 automated PASS, only target-device facts remain:
 - Samsung SM-X230 + M-VAVE MK-300 real USB input/output route;
 - real guitar recording isolation and reconnect behavior;
 - live waveform visibility during a real take;
+- real-tablet natural-end/reset and live-seek ergonomics, including loop-bounded seek behavior;
 - real-tablet loop/section/REC-choice ergonomics;
-- subjective latency/feel and listening for pops/dropouts/artifacts;
+- subjective latency/feel and listening for pops/dropouts/artifacts during normal play and live seek;
 - target-specific MP3 encoder availability/playability;
 - representative real-device stress/export smoke.
 
@@ -115,4 +136,5 @@ M7/M8 release hardening closes only after zero repeatable P0/P1, exact-source au
 
 ## Historical evidence
 - `0.4.0-rc2`, versionCode 20 — CI #593: software + API 36 + isolated target geometry + signed homologation PASS; APK SHA-256 `b067558e4ef6793df206d3e966faa029aa952b446ee63c8e47070a481297df85`; signer SHA-256 `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
+- CI #596 — `0.5.0-rc3` partial evidence at SHA `1bc6652dcdbc580badb3e7aea0c416ba4d06ecce`: software gate and instrumentation compilation PASS; API 36 runtime 8/9 with one deterministic-test-fixture timeout; signing blocked as designed.
 - RC1/RC2 evidence remains useful for regression history but does not substitute for an exact RC3 run because RC3 changes transport/practice/recording-source behavior.
