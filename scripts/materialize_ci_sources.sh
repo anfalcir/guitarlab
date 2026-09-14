@@ -125,4 +125,21 @@ apply_encoded_gzip_patch_once() {
 }
 
 # Compact text-safe archive of the post-#613 physical-review source/test delta.
-apply_encoded_gzip_patch_once "$ROOT/.source-parts/RC3PhysicalReviewUx.patch.gz"
+# The compatibility patch below replaces one Compose test assertion that is unavailable in the
+# project's current UI-test API. Guard the pair as one materialization unit so a second invocation
+# never tries to reverse-match the pre-compatibility snapshot.
+AUTO_SECTIONS_TEST_TARGET="$ROOT/app/src/androidTest/java/studio/guitarlab/app/AutoSectionsSlotInstrumentedTest.kt"
+HOME_REVIEW_TARGET="$ROOT/app/src/main/java/studio/guitarlab/app/ui/HomeScreen.kt"
+COUNTDOWN_REVIEW_TARGET="$ROOT/app/src/androidTest/java/studio/guitarlab/app/RecordingCountdownOverlayInstrumentedTest.kt"
+AUTO_SECTIONS_TEST_COMPAT_BLOB="5fbca446823979b97e4b6010f3117601d76ab367"
+HOME_REVIEW_FINAL_BLOB="fbe48b557e4c8f1d5cf6a46a11034ceeb0cfdbdc"
+COUNTDOWN_REVIEW_FINAL_BLOB="91a75d0fe0504411c608a1bd7b0fc5fe27dffa82"
+if [[ -f "$AUTO_SECTIONS_TEST_TARGET" && -f "$HOME_REVIEW_TARGET" && -f "$COUNTDOWN_REVIEW_TARGET" ]] \
+    && [[ "$(git -C "$ROOT" hash-object "$AUTO_SECTIONS_TEST_TARGET")" == "$AUTO_SECTIONS_TEST_COMPAT_BLOB" ]] \
+    && [[ "$(git -C "$ROOT" hash-object "$HOME_REVIEW_TARGET")" == "$HOME_REVIEW_FINAL_BLOB" ]] \
+    && [[ "$(git -C "$ROOT" hash-object "$COUNTDOWN_REVIEW_TARGET")" == "$COUNTDOWN_REVIEW_FINAL_BLOB" ]]; then
+    echo "Source patch chain already materialized: post-#613 physical-review + Compose test compatibility"
+else
+    apply_encoded_gzip_patch_once "$ROOT/.source-parts/RC3PhysicalReviewUx.patch.gz"
+    apply_patch_once "$ROOT/.source-parts/RC3PhysicalReviewUxTestCompat.patch"
+fi
