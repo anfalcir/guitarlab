@@ -14,7 +14,7 @@ Updated: 2026-09-14
 - M7/M8 digital baseline: previously PASS in signed `0.4.0-rc2` / CI #593.
 - `0.5.0-rc1`: recording/practice hardening implemented and signed; residual physical gate remained open.
 - `0.5.0-rc2`: timeline/practice visual integration refinement.
-- `0.5.0-rc3`: final loop/section/punch/transport and Studio-clarity refinement prepared; canonical manual dual-gate + signing run is PENDING.
+- `0.5.0-rc3`: canonical run #613 fully PASS at `db5a4208848e4b6ca2163ce715d0c5bb464cfe37`; current source subsequently advanced with final physical-homologation UX corrections and therefore requires one new exact-source manual gate.
 
 ## RC3 scope
 ### Loop playback and natural completion
@@ -48,17 +48,19 @@ Updated: 2026-09-14
 - edit-time policy prevents new conflicts without turning old project files into invalid/unsavable data.
 
 ### In-app help
-- the top bar exposes `Ajuda`, opening a concise novice-facing guide for Studio operation;
+- Studio and Home both expose `Ajuda`; both entry points call the same `StudioUserGuideDialog` implementation, so help content cannot diverge between screens;
 - `USER_GUIDE_POLICY.md` makes guide synchronization mandatory whenever visible controls, wording or workflows change.
 
 ### Sections
 - automatic detection produces a visible, non-persistent timeline preview before acceptance;
-- preview and persisted application use the same normalized boundaries;
-- preview can be cancelled without changing project sections;
-- `Limpar seções` removes persisted sections and pending preview without touching clips, markers or loop bounds;
-- section labels remain in the shared timeline header while loop markers preserve visual priority.
+- preview and persisted application use the same normalized boundaries and reject edge-adjacent micro-sections;
+- section rendering is clipped to the real project-end width, so no visual section can extend beyond the song;
+- `Auto seções` occupies a fixed geometric slot; during preview that exact slot becomes `Aplicar` + a red `X`, so neighboring controls do not move;
+- `Comparação` + `Timeline` fill the available width responsively, with narrow layouts stacking rather than clipping controls;
+- `Limpar seções` remains in the natural Timeline flow and removes persisted sections/pending preview without touching clips, markers or loop bounds.
 
 ### Recording with Loop active
+- REC uses a 3-second centered translucent overlay countdown that does not participate in workspace layout and therefore never pushes Comparação/Timeline or tracks;
 - the dedicated persistent punch-control group is removed;
 - REC with Loop disabled uses ordinary current-playhead recording;
 - REC with Loop enabled asks for `Somente o loop`, `Desde o início` or `Cancelar`;
@@ -77,22 +79,21 @@ Deterministic transport/practice tests cover:
 - clear-sections behavior;
 - track-function availability, assignment and conflict handling.
 
-Compose instrumentation covers the transient Loop + REC choice, `Auto seções`, the Loop-dependent enabled state of `Criar seção do loop`, and Cancel preserving loop intent. The test setup was hardened after CI #596 so the loop precondition is established through the same activity-scoped Studio ViewModel command rather than depending on toolbar timing in an empty project.
+Compose instrumentation covers the transient Loop + REC choice, Loop-dependent `Criar seção do loop`, the fixed `Auto seções` → `Aplicar` + red `X` slot, shared Home help, and the large centered REC-countdown overlay. JVM regression covers the 3-second countdown policy plus section-preview edge normalization.
 
 ## Latest CI evidence
-Manual CI #596 ran against source `1bc6652dcdbc580badb3e7aea0c416ba4d06ecce`.
+Manual CI **#613** ran against source `db5a4208848e4b6ca2163ce715d0c5bb464cfe37` and completed fully green in about **3m01s**. It established:
+- unit/JVM regression PASS;
+- performance evidence PASS;
+- Android Lint PASS;
+- debug/release assembly PASS;
+- full API 36 instrumented regression PASS;
+- isolated 1920×1200 target-geometry PASS;
+- signed homologation PASS;
+- official certificate fingerprint PASS;
+- signed APK SHA-256 `4b62d38c1caf3f449c94b4f9111263dacd87d8cf5e9116caa26245ecb716f341`.
 
-Established by #596:
-- unit/JVM tests: PASS;
-- reproducible performance evidence: PASS;
-- Android Lint: PASS;
-- debug APK assembly: PASS;
-- Android instrumentation compilation: PASS;
-- API 36 runtime regression: 8/9 tests PASS.
-
-The sole API 36 failure was the newly added `PracticeWorkflowInstrumentedTest.loopRecShowsTransientChoiceAndCancelPreservesLoop`, which timed out waiting for the `Ativar loop` toolbar node in a zero-length blank-project scenario. The failure was test-fixture/timing-specific, not a broad API 36 or application crash: the other eight instrumented tests passed. That test has since been rewritten deterministically.
-
-The active source has advanced after #596 with transport and Studio UX changes. Therefore #596 is useful partial evidence but **does not validate the current RC3 HEAD**. No signed homologation artifact from #596 is authoritative because the mandatory API 36 gate did not pass.
+#613 is the latest fully green baseline. The current source is newer because the physical review requested section-rail/layout/help/countdown refinements; those changes must not inherit #613's PASS claim.
 
 ## Next authoritative digital gate
 Ordinary commits remain `[skip ci]` and the hosted workflow remains manual-only. The next authoritative evidence must come from one explicit `.github/workflows/android-ci.yml` dispatch with `signed_homologation=true` against the final current `main` HEAD.
