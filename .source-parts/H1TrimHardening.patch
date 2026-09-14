@@ -1,0 +1,177 @@
+diff --git a/app/src/main/java/studio/guitarlab/app/ui/StudioPlaceholderScreen.kt b/app/src/main/java/studio/guitarlab/app/ui/StudioPlaceholderScreen.kt
+index b8d1782..4726b5d 100644
+--- a/app/src/main/java/studio/guitarlab/app/ui/StudioPlaceholderScreen.kt
++++ b/app/src/main/java/studio/guitarlab/app/ui/StudioPlaceholderScreen.kt
+@@ -7,11 +7,13 @@ import androidx.compose.foundation.Canvas
+ import androidx.compose.foundation.background
+ import androidx.compose.foundation.border
+ import androidx.compose.foundation.clickable
++import androidx.compose.foundation.gestures.detectDragGestures
+ import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+ import androidx.compose.foundation.gestures.scrollBy
+ import androidx.compose.foundation.layout.Arrangement
+ import androidx.compose.foundation.layout.Box
+ import androidx.compose.foundation.layout.BoxWithConstraints
++import androidx.compose.foundation.layout.BoxWithConstraintsScope
+ import androidx.compose.foundation.layout.Column
+ import androidx.compose.foundation.layout.PaddingValues
+ import androidx.compose.foundation.layout.Row
+@@ -51,8 +53,6 @@ import androidx.compose.material3.Icon
+ import androidx.compose.material3.MaterialTheme
+ import androidx.compose.material3.OutlinedButton
+ import androidx.compose.material3.OutlinedTextField
+-import androidx.compose.material3.RangeSlider
+-import androidx.compose.material3.SliderDefaults
+ import androidx.compose.material3.Surface
+ import androidx.compose.material3.Text
+ import androidx.compose.material3.TextButton
+@@ -63,6 +63,7 @@ import androidx.compose.runtime.getValue
+ import androidx.compose.runtime.mutableIntStateOf
+ import androidx.compose.runtime.mutableStateOf
+ import androidx.compose.runtime.remember
++import androidx.compose.runtime.rememberUpdatedState
+ import androidx.compose.runtime.setValue
+ import androidx.compose.ui.Alignment
+ import androidx.compose.ui.Modifier
+@@ -1415,7 +1416,6 @@ private fun TrimWaveformEditor(
+     onEndChanged: (Long) -> Unit,
+     modifier: Modifier = Modifier,
+ ) {
+-    val clipEnd = clip.startFrame + clip.lengthFrames
+     val startFraction = ((trim.startFrame - clip.startFrame).toFloat() / clip.lengthFrames.coerceAtLeast(1L)).coerceIn(0f, 1f)
+     val endFraction = ((trim.endFrame - clip.startFrame).toFloat() / clip.lengthFrames.coerceAtLeast(1L)).coerceIn(startFraction, 1f)
+     BoxWithConstraints(modifier) {
+@@ -1432,21 +1432,21 @@ private fun TrimWaveformEditor(
+         }
+         if (channelPeaks?.size == 2) StereoWaveformMini(channelPeaks, false, trackColor, Modifier.fillMaxSize())
+         else WaveformMini(peaks = peaks, color = trackColor, modifier = Modifier.fillMaxSize())
+-        RangeSlider(
+-            value = startFraction..endFraction,
+-            onValueChange = { range ->
+-                val start = clip.startFrame + (clip.lengthFrames * range.start).toLong()
+-                val end = clip.startFrame + (clip.lengthFrames * range.endInclusive).toLong()
+-                onStartChanged(start.coerceAtMost(clipEnd - 1L))
+-                onEndChanged(end.coerceAtLeast(start + 1L))
+-            },
+-            valueRange = 0f..1f,
+-            colors = SliderDefaults.colors(
+-                thumbColor = StudioTrim,
+-                activeTrackColor = StudioTrim.copy(alpha = 0.58f),
+-                inactiveTrackColor = Color.Transparent,
+-            ),
+-            modifier = Modifier.fillMaxSize(),
++        TrimHandle(
++            clip = clip,
++            frame = trim.startFrame,
++            tag = "trim-start-handle",
++            label = "Marcador de início do corte",
++            onFrameChanged = { onStartChanged(it.coerceAtMost(trim.endFrame - 1L)) },
++            modifier = Modifier.fillMaxHeight(),
++        )
++        TrimHandle(
++            clip = clip,
++            frame = trim.endFrame,
++            tag = "trim-end-handle",
++            label = "Marcador de fim do corte",
++            onFrameChanged = { onEndChanged(it.coerceAtLeast(trim.startFrame + 1L)) },
++            modifier = Modifier.fillMaxHeight(),
+         )
+         TrimTimeBubble(
+             label = "Início",
+@@ -1461,6 +1461,54 @@ private fun TrimWaveformEditor(
+     }
+ }
+ 
++@Composable
++private fun BoxWithConstraintsScope.TrimHandle(
++    clip: AudioClip,
++    frame: Long,
++    tag: String,
++    label: String,
++    onFrameChanged: (Long) -> Unit,
++    modifier: Modifier = Modifier,
++) {
++    val widthPx = constraints.maxWidth.toFloat().coerceAtLeast(1f)
++    val fraction = TrimControlPolicy.visibleFractionForFrame(clip, frame)
++    val handleWidth = 48.dp
++    val handleX = (maxWidth * fraction - handleWidth / 2).coerceIn(0.dp, (maxWidth - handleWidth).coerceAtLeast(0.dp))
++    val currentFrame by rememberUpdatedState(frame)
++    val latestOnFrameChanged by rememberUpdatedState(onFrameChanged)
++
++    Box(
++        modifier = modifier
++            .offset(x = handleX)
++            .width(handleWidth)
++            .zIndex(6f)
++            .semantics { contentDescription = label }
++            .testTag(tag)
++            .pointerInput(clip.id, tag, widthPx) {
++                detectDragGestures { change, dragAmount ->
++                    change.consume()
++                    val currentX = TrimControlPolicy.visibleFractionForFrame(clip, currentFrame) * widthPx
++                    latestOnFrameChanged(TrimControlPolicy.visibleFrameAtPointerX(clip, currentX + dragAmount.x, widthPx))
++                }
++            },
++        contentAlignment = Alignment.Center,
++    ) {
++        Box(
++            Modifier
++                .width(3.dp)
++                .fillMaxHeight()
++                .background(StudioTrim),
++        )
++        Surface(
++            modifier = Modifier.size(width = 18.dp, height = 38.dp),
++            shape = RoundedCornerShape(6.dp),
++            color = StudioTrim,
++            border = BorderStroke(2.dp, Color.White.copy(alpha = 0.88f)),
++            tonalElevation = 6.dp,
++        ) {}
++    }
++}
++
+ @Composable
+ private fun TrimTimeBubble(label: String, time: String, modifier: Modifier = Modifier) {
+     Surface(
+diff --git a/core/project/src/main/kotlin/studio/guitarlab/core/project/TrimControlPolicy.kt b/core/project/src/main/kotlin/studio/guitarlab/core/project/TrimControlPolicy.kt
+index c42e986..d9570a9 100644
+--- a/core/project/src/main/kotlin/studio/guitarlab/core/project/TrimControlPolicy.kt
++++ b/core/project/src/main/kotlin/studio/guitarlab/core/project/TrimControlPolicy.kt
+@@ -32,6 +32,20 @@ object TrimControlPolicy {
+         return clip.startFrame + remainingFromCurrentSourceStart
+     }
+ 
++    /** Maps a horizontal pointer position to the visible timeline domain of a clip. */
++    fun visibleFrameAtPointerX(clip: AudioClip, pointerXPx: Float, widthPx: Float): Long {
++        require(clip.lengthFrames > 0L) { "Trim requires a non-empty clip." }
++        require(widthPx > 0f && widthPx.isFinite()) { "Trim width must be finite and positive." }
++        val fraction = (pointerXPx / widthPx).coerceIn(0f, 1f)
++        return clip.startFrame + (clip.lengthFrames.toDouble() * fraction.toDouble()).toLong()
++    }
++
++    /** Converts a visible timeline frame back to the normalized horizontal position. */
++    fun visibleFractionForFrame(clip: AudioClip, frame: Long): Float {
++        require(clip.lengthFrames > 0L) { "Trim requires a non-empty clip." }
++        return ((frame - clip.startFrame).toDouble() / clip.lengthFrames.toDouble()).toFloat().coerceIn(0f, 1f)
++    }
++
+     fun moveStart(state: TrimControlState, requestedFrame: Long, clip: AudioClip): TrimControlState {
+         require(state.clipId == clip.id) { "Trim state does not belong to clip '${clip.id}'." }
+         val maxStart = (state.endFrame - 1L).coerceAtLeast(minimumStartFrame(clip))
+diff --git a/core/project/src/test/kotlin/studio/guitarlab/core/project/TrimControlPolicyTest.kt b/core/project/src/test/kotlin/studio/guitarlab/core/project/TrimControlPolicyTest.kt
+index ce497db..84958a2 100644
+--- a/core/project/src/test/kotlin/studio/guitarlab/core/project/TrimControlPolicyTest.kt
++++ b/core/project/src/test/kotlin/studio/guitarlab/core/project/TrimControlPolicyTest.kt
+@@ -35,4 +35,12 @@ class TrimControlPolicyTest {
+         assertEquals(12_801, TrimControlPolicy.moveEnd(state, 0, clip).endFrame)
+         assertEquals(28_000, TrimControlPolicy.moveEnd(state, 99_999, clip).endFrame)
+     }
++    @Test
++    fun pointerMappingIsDeterministicAndClamped() {
++        assertEquals(10_000L, TrimControlPolicy.visibleFrameAtPointerX(clip, -50f, 800f))
++        assertEquals(14_000L, TrimControlPolicy.visibleFrameAtPointerX(clip, 400f, 800f))
++        assertEquals(18_000L, TrimControlPolicy.visibleFrameAtPointerX(clip, 900f, 800f))
++        assertEquals(0.5f, TrimControlPolicy.visibleFractionForFrame(clip, 14_000L))
++    }
++
+ }
