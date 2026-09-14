@@ -20,11 +20,12 @@ env:
   JAVA_VERSION: "17"
   ANDROID_PLATFORM: "36"
   ANDROID_BUILD_TOOLS: "36.0.0"
+  EXPECTED_PACKAGE_NAME: "studio.guitarlab.app"
   EXPECTED_CERT_SHA256: "4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89"
 
 jobs:
   software-gate:
-    name: Unit tests + Lint + Debug APK
+    name: Unit tests + Lint + APK build
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -43,12 +44,19 @@ jobs:
           distribution: temurin
           java-version: ${{ env.JAVA_VERSION }}
 
-      - name: Set up Android SDK
+      - name: Set up Android SDK tools
         uses: android-actions/setup-android@40fd30fb8d7440372e1316f5d1809ec01dcd3699 # v4.0.1
+        with:
+          accept-android-sdk-licenses: false
+          packages: ''
 
-      - name: Install locked SDK packages
+      - name: Install build-only SDK packages
         shell: bash
-        run: sdkmanager "platform-tools" "platforms;android-${ANDROID_PLATFORM}" "build-tools;${ANDROID_BUILD_TOOLS}"
+        run: |
+          chmod +x scripts/ci_install_sdk_packages.sh
+          scripts/ci_install_sdk_packages.sh \
+            "platforms;android-${ANDROID_PLATFORM}" \
+            "build-tools;${ANDROID_BUILD_TOOLS}"
 
       - name: Set up Gradle 9.6.1 and persistent cache
         uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
@@ -84,22 +92,30 @@ jobs:
             gradle/
             settings.gradle.kts
 
-      - name: Read app version
+      - name: Read and validate app identity
         shell: bash
         run: |
           VERSION_NAME="$(sed -n 's/.*versionName = "\([^"]*\)".*/\1/p' app/build.gradle.kts | head -n1)"
           VERSION_CODE="$(sed -n 's/.*versionCode = \([0-9][0-9]*\).*/\1/p' app/build.gradle.kts | head -n1)"
+          PACKAGE_NAME="$(sed -n 's/.*applicationId = "\([^"]*\)".*/\1/p' app/build.gradle.kts | head -n1)"
           test -n "$VERSION_NAME"
           test -n "$VERSION_CODE"
-          echo "APP_VERSION_NAME=$VERSION_NAME" >> "$GITHUB_ENV"
-          echo "APP_VERSION_CODE=$VERSION_CODE" >> "$GITHUB_ENV"
+          test -n "$PACKAGE_NAME"
+          if [ "$PACKAGE_NAME" != "$EXPECTED_PACKAGE_NAME" ]; then
+            echo "::error::Package mismatch in build config. Expected $EXPECTED_PACKAGE_NAME, got $PACKAGE_NAME"
+            exit 1
+          fi
+          {
+            echo "APP_VERSION_NAME=$VERSION_NAME"
+            echo "APP_VERSION_CODE=$VERSION_CODE"
+          } >> "$GITHUB_ENV"
 
       - name: Unit tests
         shell: bash
         run: |
           set +e
           mkdir -p ci-diagnostics
-          gradle --no-daemon --console=plain --stacktrace test 2>&1 | tee ci-diagnostics/unit-tests.log
+          gradle --console=plain --stacktrace test 2>&1 | tee ci-diagnostics/unit-tests.log
           STATUS=${PIPESTATUS[0]}
           tail -n 250 ci-diagnostics/unit-tests.log > ci-diagnostics/unit-tests-tail.log
           exit $STATUS
@@ -120,20 +136,74 @@ jobs:
         run: |
           set +e
           mkdir -p ci-diagnostics
-          gradle --no-daemon --console=plain --stacktrace lint 2>&1 | tee ci-diagnostics/lint.log
+          gradle --console=plain --stacktrace lint 2>&1 | tee ci-diagnostics/lint.log
           STATUS=${PIPESTATUS[0]}
           tail -n 250 ci-diagnostics/lint.log > ci-diagnostics/lint-tail.log
           exit $STATUS
 
-      - name: Assemble debug APK
+      - name: Assemble debug and release candidate
         shell: bash
+        env:
+          BUILD_SIGNED_HOMOLOGATION: ${{ inputs.signed_homologation }}
         run: |
           set +e
           mkdir -p ci-diagnostics
-          gradle --no-daemon --console=plain --stacktrace assembleDebug 2>&1 | tee ci-diagnostics/assemble-debug.log
+          if [ "$BUILD_SIGNED_HOMOLOGATION" = "true" ]; then
+            gradle --console=plain --stacktrace assembleDebug assembleRelease 2>&1 | tee ci-diagnostics/assemble-apks.log
+          else
+            gradle --console=plain --stacktrace assembleDebug 2>&1 | tee ci-diagnostics/assemble-apks.log
+          fi
           STATUS=${PIPESTATUS[0]}
-          tail -n 250 ci-diagnostics/assemble-debug.log > ci-diagnostics/assemble-debug-tail.log
+          tail -n 250 ci-diagnostics/assemble-apks.log > ci-diagnostics/assemble-apks-tail.log
           exit $STATUS
+
+      - name: Validate and stage unsigned release candidate
+        if: ${{ inputs.signed_homologation == true }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          UNSIGNED_APK="app/build/outputs/apk/release/app-release-unsigned.apk"
+          test -f "$UNSIGNED_APK"
+
+          APKSIGNER="${ANDROID_HOME}/build-tools/${ANDROID_BUILD_TOOLS}/apksigner"
+          AAPT2="${ANDROID_HOME}/build-tools/${ANDROID_BUILD_TOOLS}/aapt2"
+          test -x "$APKSIGNER"
+          test -x "$AAPT2"
+
+          if "$APKSIGNER" verify "$UNSIGNED_APK" >/dev/null 2>&1; then
+            echo "::error::Release candidate must be unsigned before crossing the job boundary"
+            exit 1
+          fi
+
+          BADGING="$("$AAPT2" dump badging "$UNSIGNED_APK")"
+          ACTUAL_PACKAGE="$(printf '%s\n' "$BADGING" | sed -n "s/^package: name='\([^']*\)'.*/\1/p" | head -n1)"
+          ACTUAL_CODE="$(printf '%s\n' "$BADGING" | sed -n "s/^package: name='[^']*' versionCode='\([^']*\)'.*/\1/p" | head -n1)"
+          ACTUAL_NAME="$(printf '%s\n' "$BADGING" | sed -n "s/^package: name='[^']*' versionCode='[^']*' versionName='\([^']*\)'.*/\1/p" | head -n1)"
+          test "$ACTUAL_PACKAGE" = "$EXPECTED_PACKAGE_NAME"
+          test "$ACTUAL_CODE" = "$APP_VERSION_CODE"
+          test "$ACTUAL_NAME" = "$APP_VERSION_NAME"
+
+          mkdir -p release-candidate
+          cp "$UNSIGNED_APK" release-candidate/app-release-unsigned.apk
+          (
+            cd release-candidate
+            sha256sum app-release-unsigned.apk > UNSIGNED_SHA256SUMS.txt
+          )
+          {
+            echo "sourceSha=${GITHUB_SHA}"
+            echo "packageName=${EXPECTED_PACKAGE_NAME}"
+            echo "versionName=${APP_VERSION_NAME}"
+            echo "versionCode=${APP_VERSION_CODE}"
+          } > release-candidate/RELEASE_BUILD_IDENTITY.txt
+
+      - name: Upload unsigned release candidate
+        if: ${{ inputs.signed_homologation == true }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: guitarlab-release-unsigned-${{ github.sha }}
+          if-no-files-found: error
+          retention-days: 7
+          path: release-candidate/
 
       - name: Upload debug APK, reports and CI diagnostics
         if: always()
@@ -170,23 +240,35 @@ jobs:
           distribution: temurin
           java-version: ${{ env.JAVA_VERSION }}
 
-      - name: Set up Android SDK
+      - name: Set up Android SDK tools
         uses: android-actions/setup-android@40fd30fb8d7440372e1316f5d1809ec01dcd3699 # v4.0.1
+        with:
+          accept-android-sdk-licenses: false
+          packages: ''
 
-      - name: Set up Gradle 9.6.1 and persistent cache
+      - name: Install API 36 emulator SDK packages
+        shell: bash
+        run: |
+          chmod +x scripts/ci_install_sdk_packages.sh
+          scripts/ci_install_sdk_packages.sh \
+            "platform-tools" \
+            "platforms;android-${ANDROID_PLATFORM}" \
+            "build-tools;${ANDROID_BUILD_TOOLS}" \
+            "emulator" \
+            "system-images;android-${ANDROID_PLATFORM};default;x86_64"
+
+      - name: Set up Gradle 9.6.1 and read-only cache
         uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
         with:
           gradle-version: "9.6.1"
+          cache-read-only: true
+          cache-cleanup: never
 
       - name: Materialize split source
         shell: bash
         run: |
           chmod +x scripts/materialize_ci_sources.sh
           scripts/materialize_ci_sources.sh
-
-      - name: Compile Android instrumentation tests
-        shell: bash
-        run: gradle --no-daemon --console=plain --stacktrace :app:compileDebugAndroidTestKotlin
 
       - name: Enable KVM
         shell: bash
@@ -232,7 +314,7 @@ jobs:
           disable-animations: true
           emulator-boot-timeout: 600
           script: |
-            gradle --no-daemon --console=plain --stacktrace connectedDebugAndroidTest
+            gradle --console=plain --stacktrace connectedDebugAndroidTest
             mkdir -p ci-diagnostics/android-default
             cp -R app/build/outputs/androidTest-results/connected ci-diagnostics/android-default/results
             cp -R app/build/reports/androidTests/connected ci-diagnostics/android-default/reports
@@ -243,7 +325,13 @@ jobs:
             adb shell settings put system user_rotation 0
             adb shell am force-stop studio.guitarlab.app || true
 
-            gradle --no-daemon --console=plain --stacktrace :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=studio.guitarlab.app.TargetTabletGeometryInstrumentedTest -Pandroid.testInstrumentationRunnerArguments.targetGeometry=true
+            gradle --console=plain --stacktrace :app:connectedDebugAndroidTest \
+              -Pandroid.testInstrumentationRunnerArguments.class=studio.guitarlab.app.TargetTabletGeometryInstrumentedTest \
+              -Pandroid.testInstrumentationRunnerArguments.targetGeometry=true
+
+            mkdir -p ci-diagnostics/tablet-geometry
+            cp -R app/build/outputs/androidTest-results/connected ci-diagnostics/tablet-geometry/results
+            cp -R app/build/reports/androidTests/connected ci-diagnostics/tablet-geometry/reports
 
       - name: Upload Android integration reports
         if: always()
@@ -257,15 +345,16 @@ jobs:
             app/build/outputs/androidTest-results/**
             app/build/outputs/connected_android_test_additional_output/**
             ci-diagnostics/android-default/**
+            ci-diagnostics/tablet-geometry/**
 
   homologation-apk:
     name: Signed homologation APK
     needs: [software-gate, android-integration-gate]
     if: ${{ inputs.signed_homologation == true }}
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 15
     steps:
-      - name: Checkout
+      - name: Checkout exact source SHA
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up JDK 17
@@ -274,33 +363,57 @@ jobs:
           distribution: temurin
           java-version: ${{ env.JAVA_VERSION }}
 
-      - name: Set up Android SDK
+      - name: Set up Android SDK tools
         uses: android-actions/setup-android@40fd30fb8d7440372e1316f5d1809ec01dcd3699 # v4.0.1
-
-      - name: Install locked SDK packages
-        shell: bash
-        run: sdkmanager "platform-tools" "platforms;android-${ANDROID_PLATFORM}" "build-tools;${ANDROID_BUILD_TOOLS}"
-
-      - name: Set up Gradle 9.6.1 and persistent cache
-        uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
         with:
-          gradle-version: "9.6.1"
+          accept-android-sdk-licenses: false
+          packages: ''
 
-      - name: Materialize split source
+      - name: Install signing SDK package
         shell: bash
         run: |
-          chmod +x scripts/materialize_ci_sources.sh
-          scripts/materialize_ci_sources.sh
+          chmod +x scripts/ci_install_sdk_packages.sh
+          scripts/ci_install_sdk_packages.sh "build-tools;${ANDROID_BUILD_TOOLS}"
 
-      - name: Read app version
+      - name: Download tested unsigned release candidate
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: guitarlab-release-unsigned-${{ github.sha }}
+          path: release-candidate
+
+      - name: Verify release candidate provenance and identity
         shell: bash
         run: |
+          set -euo pipefail
+          test -f release-candidate/app-release-unsigned.apk
+          test -f release-candidate/UNSIGNED_SHA256SUMS.txt
+          test -f release-candidate/RELEASE_BUILD_IDENTITY.txt
+
+          (
+            cd release-candidate
+            sha256sum --check UNSIGNED_SHA256SUMS.txt
+          )
+
+          SOURCE_SHA="$(sed -n 's/^sourceSha=//p' release-candidate/RELEASE_BUILD_IDENTITY.txt | head -n1)"
+          ARTIFACT_PACKAGE="$(sed -n 's/^packageName=//p' release-candidate/RELEASE_BUILD_IDENTITY.txt | head -n1)"
+          ARTIFACT_VERSION_NAME="$(sed -n 's/^versionName=//p' release-candidate/RELEASE_BUILD_IDENTITY.txt | head -n1)"
+          ARTIFACT_VERSION_CODE="$(sed -n 's/^versionCode=//p' release-candidate/RELEASE_BUILD_IDENTITY.txt | head -n1)"
+
           VERSION_NAME="$(sed -n 's/.*versionName = "\([^"]*\)".*/\1/p' app/build.gradle.kts | head -n1)"
           VERSION_CODE="$(sed -n 's/.*versionCode = \([0-9][0-9]*\).*/\1/p' app/build.gradle.kts | head -n1)"
-          test -n "$VERSION_NAME"
-          test -n "$VERSION_CODE"
-          echo "APP_VERSION_NAME=$VERSION_NAME" >> "$GITHUB_ENV"
-          echo "APP_VERSION_CODE=$VERSION_CODE" >> "$GITHUB_ENV"
+          PACKAGE_NAME="$(sed -n 's/.*applicationId = "\([^"]*\)".*/\1/p' app/build.gradle.kts | head -n1)"
+
+          test "$SOURCE_SHA" = "$GITHUB_SHA"
+          test "$ARTIFACT_PACKAGE" = "$EXPECTED_PACKAGE_NAME"
+          test "$ARTIFACT_PACKAGE" = "$PACKAGE_NAME"
+          test "$ARTIFACT_VERSION_NAME" = "$VERSION_NAME"
+          test "$ARTIFACT_VERSION_CODE" = "$VERSION_CODE"
+
+          {
+            echo "APP_VERSION_NAME=$VERSION_NAME"
+            echo "APP_VERSION_CODE=$VERSION_CODE"
+            echo "UNSIGNED_APK_SHA256=$(sha256sum release-candidate/app-release-unsigned.apk | awk '{print $1}')"
+          } >> "$GITHUB_ENV"
 
       - name: Restore private signing bundle
         shell: bash
@@ -332,34 +445,77 @@ jobs:
             echo "GUITARLAB_KEY_PASSWORD=$PASSWORD"
           } >> "$GITHUB_ENV"
 
-      - name: Build signed release
-        shell: bash
-        run: gradle --no-daemon --console=plain --stacktrace assembleRelease
-
-      - name: Verify official signing identity
+      - name: Align and sign tested release candidate
         shell: bash
         run: |
-          APK="app/build/outputs/apk/release/app-release.apk"
-          test -f "$APK"
+          set -euo pipefail
+          mkdir -p deliverables
+          ZIPALIGN="${ANDROID_HOME}/build-tools/${ANDROID_BUILD_TOOLS}/zipalign"
           APKSIGNER="${ANDROID_HOME}/build-tools/${ANDROID_BUILD_TOOLS}/apksigner"
+          INPUT_APK="release-candidate/app-release-unsigned.apk"
+          ALIGNED_APK="$RUNNER_TEMP/guitarlab-release-aligned.apk"
+          SIGNED_APK="deliverables/GuitarLabStudio-${APP_VERSION_NAME}-homologacao.apk"
+
+          "$ZIPALIGN" -P 16 -f -v 4 "$INPUT_APK" "$ALIGNED_APK"
+          "$ZIPALIGN" -c -P 16 -v 4 "$ALIGNED_APK"
+
+          "$APKSIGNER" sign \
+            --ks "$GUITARLAB_KEYSTORE_PATH" \
+            --ks-key-alias "$GUITARLAB_KEY_ALIAS" \
+            --ks-pass env:GUITARLAB_KEYSTORE_PASSWORD \
+            --key-pass env:GUITARLAB_KEY_PASSWORD \
+            --v1-signing-enabled false \
+            --v2-signing-enabled true \
+            --v3-signing-enabled false \
+            --v4-signing-enabled false \
+            --out "$SIGNED_APK" \
+            "$ALIGNED_APK"
+
+      - name: Verify signed APK, certificate and package identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="deliverables/GuitarLabStudio-${APP_VERSION_NAME}-homologacao.apk"
+          APKSIGNER="${ANDROID_HOME}/build-tools/${ANDROID_BUILD_TOOLS}/apksigner"
+          AAPT2="${ANDROID_HOME}/build-tools/${ANDROID_BUILD_TOOLS}/aapt2"
+          ZIPALIGN="${ANDROID_HOME}/build-tools/${ANDROID_BUILD_TOOLS}/zipalign"
+
+          test -f "$APK"
+          "$ZIPALIGN" -c -P 16 -v 4 "$APK"
           "$APKSIGNER" verify --verbose --print-certs "$APK" | tee "$RUNNER_TEMP/apksigner.txt"
-          ACTUAL="$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' "$RUNNER_TEMP/apksigner.txt" | head -n1 | tr '[:lower:]' '[:upper:]' | tr -d '[:space:]:')"
-          if [ "$ACTUAL" != "$EXPECTED_CERT_SHA256" ]; then
-            echo "::error::Signing certificate mismatch. Expected $EXPECTED_CERT_SHA256, got $ACTUAL"
+
+          ACTUAL_CERT="$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' "$RUNNER_TEMP/apksigner.txt" | head -n1 | tr '[:lower:]' '[:upper:]' | tr -d '[:space:]:')"
+          if [ "$ACTUAL_CERT" != "$EXPECTED_CERT_SHA256" ]; then
+            echo "::error::Signing certificate mismatch. Expected $EXPECTED_CERT_SHA256, got $ACTUAL_CERT"
             exit 1
           fi
 
-      - name: Package homologation deliverable
+          BADGING="$("$AAPT2" dump badging "$APK")"
+          ACTUAL_PACKAGE="$(printf '%s\n' "$BADGING" | sed -n "s/^package: name='\([^']*\)'.*/\1/p" | head -n1)"
+          ACTUAL_CODE="$(printf '%s\n' "$BADGING" | sed -n "s/^package: name='[^']*' versionCode='\([^']*\)'.*/\1/p" | head -n1)"
+          ACTUAL_NAME="$(printf '%s\n' "$BADGING" | sed -n "s/^package: name='[^']*' versionCode='[^']*' versionName='\([^']*\)'.*/\1/p" | head -n1)"
+
+          test "$ACTUAL_PACKAGE" = "$EXPECTED_PACKAGE_NAME"
+          test "$ACTUAL_CODE" = "$APP_VERSION_CODE"
+          test "$ACTUAL_NAME" = "$APP_VERSION_NAME"
+
+      - name: Package homologation identity
         shell: bash
         run: |
-          mkdir -p deliverables
-          APK_NAME="GuitarLabStudio-${APP_VERSION_NAME}-homologacao.apk"
-          cp app/build/outputs/apk/release/app-release.apk "deliverables/${APK_NAME}"
-          sha256sum deliverables/*.apk > deliverables/SHA256SUMS.txt
+          set -euo pipefail
+          APK="deliverables/GuitarLabStudio-${APP_VERSION_NAME}-homologacao.apk"
+          SIGNED_SHA256="$(sha256sum "$APK" | awk '{print $1}')"
+          (
+            cd deliverables
+            sha256sum *.apk > SHA256SUMS.txt
+          )
           {
             echo "commit=${GITHUB_SHA}"
+            echo "package=${EXPECTED_PACKAGE_NAME}"
             echo "versionName=${APP_VERSION_NAME}"
             echo "versionCode=${APP_VERSION_CODE}"
+            echo "unsignedApkSha256=${UNSIGNED_APK_SHA256}"
+            echo "signedApkSha256=${SIGNED_SHA256}"
             echo "milestone=M7-physical-gate+M8-digital-hardening"
             echo "gate=software+android-integration-passed;physical-validation-pending"
             echo "hardwareBaseline=M6-alpha1-physical-pass"

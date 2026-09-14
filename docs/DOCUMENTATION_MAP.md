@@ -6,6 +6,7 @@ For the active `0.5.0-rc3` candidate, use these documents together:
 - `CURRENT_STATE.md` — authoritative current project/candidate status;
 - `IMPLEMENTATION_ROADMAP.md` — milestone/gate disposition;
 - `CANDIDATE_IDENTITY_POLICY.md` — exact version/source/signer/checksum contract;
+- `CI_PIPELINE.md` — manual CI/release job graph, performance strategy, caches, artifacts and failure interpretation;
 - `RELEASE_NOTES_0.5.0-rc3.md` — RC3 behavior delta;
 - `RC3_FINAL_PHYSICAL_HOMOLOGATION.md` — only residual manual target-device checks after automated PASS;
 - `TEST_AND_HOMOLOGATION_PLAN.md` — canonical automated/manual gate discipline;
