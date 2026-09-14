@@ -18,20 +18,17 @@ Read first:
 - `docs/M8_GLOBAL_DIGITAL_REGRESSION.md` — global regression matrix and corrected-defect evidence;
 - `docs/HISTORICAL_CANDIDATES.md` — superseded candidates.
 
-## Final signed RC
-The active homologation candidate is `0.5.0-rc1` (versionCode 21), source commit `5a14e4d6522ab9cc53eb8e1dd80a03306fc9d248`. APK SHA-256: `5e343a9016cb5ea8fa9e381061ffb789667a6529a3b706fec7de9eb7bec9d1a5`. It passed the local software, Lint, debug/test-APK compilation, signed release, certificate and artifact-integrity gates. RC2/CI #593 remains the latest full API 36 and 1920×1200 emulator baseline.
+## Active RC3 state
+The active candidate remains `0.5.0-rc3` (versionCode 23). Manual workflow run **#613** fully passed software, API 36 instrumentation, isolated 1920×1200 geometry and signed homologation at source `db5a4208848e4b6ca2163ce715d0c5bb464cfe37`; that signed APK has SHA-256 `4b62d38c1caf3f449c94b4f9111263dacd87d8cf5e9116caa26245ecb716f341`.
+
+Source has since advanced with final physical-homologation UX corrections (Auto seções geometry/end-boundary hardening, shared Home/Studio guide access and a non-layout-shifting 3-second REC countdown overlay). Therefore #613 is the latest fully green **baseline**, not proof for the new HEAD; the next signed candidate requires another explicit manual workflow dispatch.
 
 ## Current development state
-- `main`: canonical branch promoted to the signed `0.5.0-rc1` homologation candidate after local digital validation;
-- historical integration branch: `dev/parallel-m3-m5`; PR #1 merged into `main` on 2026-09-11;
-- M5: PASS/CLOSED by explicit physical approval of `0.2.0-alpha14`;
-- M6: PASS/CLOSED by explicit physical approval of `0.3.0-alpha1`;
-- M7/M8 digital scope: PASS for the exact signed RC; residual physical homologation remains OPEN.
-- Final candidate: `0.5.0-rc1`, versionCode 21, commit `5a14e4d6522ab9cc53eb8e1dd80a03306fc9d248`.
-
-RC1 adds live recording waveform, strict selected-input confirmation, resilient transport stop/restart, take comparison, markers/sections, punch recording and level guidance. See `docs/RELEASE_NOTES_0.5.0-rc1.md`.
-
-Post-alpha2 hardening covers managed-media loss prevention/recovery, process-death staging cleanup, lossless interrupted-recording preservation and WAV-header repair, safer SAF publication, deterministic codec timestamps, FLAC container correction, accessibility semantics, JVM performance evidence and Android API 36 instrumented regression.
+- `main`: canonical branch; ordinary commits remain `[skip ci]`;
+- historical integration branch `dev/parallel-m3-m5` is merged and no longer the source of truth;
+- current hardware target for residual physical validation: Samsung SM-X230 + M-VAVE MK-300;
+- active candidate identity: `0.5.0-rc3`, versionCode 23;
+- active residual checklist: `docs/RC3_FINAL_PHYSICAL_HOMOLOGATION.md`.
 
 ## Build, regression and signing
 `scripts/build_local.sh` is the default software gate and runs source materialization, JVM tests, Android Lint and debug assembly with pinned Gradle 9.6.1 / Android API 36 requirements. With explicit signing environment variables and `SIGNED_HOMOLOGATION=true`, it also builds the homologation release.
