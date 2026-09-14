@@ -7,7 +7,7 @@ Updated: 2026-09-14
 - Homologation candidate: `0.5.0-rc2`, versionCode 22.
 - Exact source commit and APK SHA-256: recorded after the final local gate and signing.
 - Signed APK: `GuitarLabStudio-0.5.0-rc2-homologacao.apk`.
-- Signer SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
+- Previous official RC1 signer SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
 
 ## Milestone state
 - M2 through M6: PASS/CLOSED.
