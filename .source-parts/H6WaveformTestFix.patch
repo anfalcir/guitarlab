@@ -1,0 +1,19 @@
+From db53e2f68cf7310ad7e4e85d37ce1941610b8fdb Mon Sep 17 00:00:00 2001
+From: OpenAI <openai@example.invalid>
+Date: Mon, 14 Sep 2026 23:52:04 +0000
+Subject: [PATCH] H6 fix live waveform regression assertion
+
+
+diff --git a/core/project/src/test/kotlin/studio/guitarlab/core/project/LiveWaveformAccumulatorTest.kt b/core/project/src/test/kotlin/studio/guitarlab/core/project/LiveWaveformAccumulatorTest.kt
+index ff67b6c..a7be208 100644
+--- a/core/project/src/test/kotlin/studio/guitarlab/core/project/LiveWaveformAccumulatorTest.kt
++++ b/core/project/src/test/kotlin/studio/guitarlab/core/project/LiveWaveformAccumulatorTest.kt
+@@ -38,6 +38,7 @@ class LiveWaveformAccumulatorTest {
+         waveform.clear()
+         assertTrue(waveform.snapshot().isEmpty())
+         assertEquals(0L, waveform.coveredFrames())
+-        assertEquals(0L, waveform.append(16L, 0.5f).single().startFrame)
++        waveform.append(16L, 0.5f)
++        assertEquals(0L, waveform.snapshot().single().startFrame)
+     }
+ }
