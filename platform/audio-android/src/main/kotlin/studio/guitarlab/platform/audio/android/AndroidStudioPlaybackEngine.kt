@@ -6,6 +6,7 @@ import android.media.AudioFormat
 import android.media.AudioTrack
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicLong
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
@@ -82,7 +83,7 @@ interface StudioPlaybackListener {
 class AndroidStudioPlaybackEngine : AutoCloseable {
     @Volatile private var running = false
     @Volatile private var worker: Thread? = null
-    @Volatile private var pendingSeekFrame: Long? = null
+    private val pendingSeekFrame = AtomicLong(NO_PENDING_SEEK)
     @Volatile private var runtimeMasterGainDb: Float = 0f
     @Volatile private var runtimeAuditionMode: GuitarAuditionMode = GuitarAuditionMode.MIXER
     private val runtimeTrackMixes = ConcurrentHashMap<String, StudioPlaybackTrackMix>()
@@ -107,19 +108,18 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
         request.trackMixes.forEach { runtimeTrackMixes[it.trackId] = it }
         runtimeMasterGainDb = request.masterGainDb
         runtimeAuditionMode = request.auditionMode
-        pendingSeekFrame = null
+        pendingSeekFrame.set(NO_PENDING_SEEK)
         running = true
         worker = Thread({ runPlayback(request, listener) }, "GuitarLab-StudioPlayback").also { it.start() }
     }
 
     /**
      * Requests a low-latency seek without tearing down the playback session. Multiple drag events
-     * may coalesce; the audio thread always consumes the most recent target at the next render
-     * boundary. The ViewModel remains responsible for validating loop/recording policy.
+     * intentionally coalesce to the most recent frame at the next audio render boundary.
      */
     fun seekTo(frame: Long) {
         if (!running) return
-        pendingSeekFrame = frame.coerceAtLeast(0L)
+        pendingSeekFrame.set(frame.coerceAtLeast(0L))
     }
 
     fun setTrackMix(trackId: String, gainDb: Float, pan: Float) {
@@ -144,7 +144,7 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
     fun stop() {
         val thread = synchronized(this) {
             running = false
-            pendingSeekFrame = null
+            pendingSeekFrame.set(NO_PENDING_SEEK)
             worker
         }
         thread?.interrupt()
@@ -162,17 +162,29 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
         val readers = mutableListOf<StudioPcmClipReader>()
         var track: AudioTrack? = null
         try {
-            request.clips.filterNot { it.muted }.forEach { clip -> readers += StudioPcmClipReader(StudioPcmClip(
-                clip.file, clip.trackId, clip.timelineStartFrame, clip.sourceStartFrame, clip.lengthFrames,
-                clip.gainDb, clip.pan, clip.fadeInFrames, clip.fadeOutFrames,
-            ), request.sampleRateHz) }
+            request.clips.filterNot { it.muted }.forEach { clip ->
+                readers += StudioPcmClipReader(
+                    StudioPcmClip(
+                        clip.file,
+                        clip.trackId,
+                        clip.timelineStartFrame,
+                        clip.sourceStartFrame,
+                        clip.lengthFrames,
+                        clip.gainDb,
+                        clip.pan,
+                        clip.fadeInFrames,
+                        clip.fadeOutFrames,
+                    ),
+                    request.sampleRateHz,
+                )
+            }
             require(readers.isNotEmpty()) { "Não há clipes WAV gerenciados disponíveis para reprodução." }
 
             val channelMask = AudioFormat.CHANNEL_OUT_STEREO
             val minBytes = AudioTrack.getMinBufferSize(request.sampleRateHz, channelMask, AudioFormat.ENCODING_PCM_FLOAT)
             require(minBytes > 0) { "O Android não conseguiu reservar o buffer de reprodução para ${request.sampleRateHz} Hz." }
             val bufferBytes = max(minBytes, CHUNK_FRAMES * 2 * Float.SIZE_BYTES * 4)
-            track = AudioTrack.Builder()
+            val audioTrack = AudioTrack.Builder()
                 .setAudioAttributes(
                     AudioAttributes.Builder()
                         .setUsage(AudioAttributes.USAGE_MEDIA)
@@ -190,33 +202,33 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
                 .setBufferSizeInBytes(bufferBytes)
                 .setPerformanceMode(AudioTrack.PERFORMANCE_MODE_LOW_LATENCY)
                 .build()
-            require(track.state == AudioTrack.STATE_INITIALIZED) { "A saída de áudio do Android não foi inicializada." }
+            track = audioTrack
+            require(audioTrack.state == AudioTrack.STATE_INITIALIZED) { "A saída de áudio do Android não foi inicializada." }
 
-            applyOutputRouting(track, request, listener)
+            applyOutputRouting(audioTrack, request, listener)
 
             val repeatLoop = request.loopEnabled && request.repeatLoop
             val playbackBoundary = if (request.loopEnabled) request.loopEndFrame else request.projectEndFrame
             var renderFrame = normalizedStart(request)
             var clockStartFrame = renderFrame
-            var clockHeadBase = playbackHead(track)
+            var clockHeadBase = playbackHead(audioTrack)
             var writtenFramesSinceClockBase = 0L
             val mix = FloatArray(CHUNK_FRAMES * 2)
             val trackBuffers = linkedMapOf<String, FloatArray>()
             readers.forEach { reader -> trackBuffers.getOrPut(reader.trackId) { FloatArray(CHUNK_FRAMES * 2) } }
-            track.play()
-            clockHeadBase = playbackHead(track)
+            audioTrack.play()
+            clockHeadBase = playbackHead(audioTrack)
 
             while (running) {
-                val requestedSeek = pendingSeekFrame
-                if (requestedSeek != null) {
-                    pendingSeekFrame = null
+                val requestedSeek = pendingSeekFrame.getAndSet(NO_PENDING_SEEK)
+                if (requestedSeek != NO_PENDING_SEEK) {
                     renderFrame = normalizedSeek(request, requestedSeek)
                     lastTimelineFrame = renderFrame
-                    track.pause()
-                    track.flush()
-                    track.play()
+                    audioTrack.pause()
+                    audioTrack.flush()
+                    audioTrack.play()
                     clockStartFrame = renderFrame
-                    clockHeadBase = playbackHead(track)
+                    clockHeadBase = playbackHead(audioTrack)
                     writtenFramesSinceClockBase = 0L
                     listener.onPosition(renderFrame)
                 }
@@ -255,7 +267,7 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
                 listener.onMasterMeter(StudioPlaybackMeter(peak = peak, rms = rms))
                 StudioPcmMixKernel.applyMaster(mix, sampleCount, runtimeMasterGainDb)
 
-                val samplesWritten = track.write(mix, 0, sampleCount, AudioTrack.WRITE_BLOCKING)
+                val samplesWritten = audioTrack.write(mix, 0, sampleCount, AudioTrack.WRITE_BLOCKING)
                 if (samplesWritten < 0) error("Falha ao enviar áudio para a saída Android: código $samplesWritten.")
                 val writtenFrames = samplesWritten / 2
                 if (writtenFrames <= 0) error("A saída de áudio não avançou durante a reprodução.")
@@ -263,7 +275,7 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
                 renderFrame += writtenFrames
                 if (repeatLoop && renderFrame >= request.loopEndFrame) renderFrame = request.loopStartFrame
 
-                val presentedFrames = playbackHeadDelta(playbackHead(track), clockHeadBase)
+                val presentedFrames = playbackHeadDelta(playbackHead(audioTrack), clockHeadBase)
                 lastTimelineFrame = PlaybackClockPolicy.timelineFrame(
                     startFrame = clockStartFrame,
                     presentedFrames = presentedFrames,
@@ -277,9 +289,13 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
 
             if (running && !repeatLoop) {
                 val deadline = System.nanoTime() + DRAIN_TIMEOUT_NS
-                while (running && playbackHeadDelta(playbackHead(track), clockHeadBase) < writtenFramesSinceClockBase && System.nanoTime() < deadline) {
+                while (
+                    running &&
+                    playbackHeadDelta(playbackHead(audioTrack), clockHeadBase) < writtenFramesSinceClockBase &&
+                    System.nanoTime() < deadline
+                ) {
                     Thread.sleep(4)
-                    val presentedFrames = playbackHeadDelta(playbackHead(track), clockHeadBase)
+                    val presentedFrames = playbackHeadDelta(playbackHead(audioTrack), clockHeadBase)
                     lastTimelineFrame = PlaybackClockPolicy.timelineFrame(
                         clockStartFrame,
                         presentedFrames,
@@ -298,7 +314,7 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
             listener.onError(error.message ?: "A reprodução do Studio falhou.")
         } finally {
             running = false
-            pendingSeekFrame = null
+            pendingSeekFrame.set(NO_PENDING_SEEK)
             runCatching { track?.pause() }
             runCatching { track?.flush() }
             runCatching { track?.release() }
@@ -389,5 +405,6 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
         const val CHUNK_FRAMES = 1024
         const val DRAIN_TIMEOUT_NS = 2_000_000_000L
         const val STOP_JOIN_TIMEOUT_MS = 1_500L
+        const val NO_PENDING_SEEK = Long.MIN_VALUE
     }
 }
