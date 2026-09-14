@@ -325,9 +325,7 @@ jobs:
             adb shell settings put system user_rotation 0
             adb shell am force-stop studio.guitarlab.app || true
 
-            gradle --console=plain --stacktrace :app:connectedDebugAndroidTest \
-              -Pandroid.testInstrumentationRunnerArguments.class=studio.guitarlab.app.TargetTabletGeometryInstrumentedTest \
-              -Pandroid.testInstrumentationRunnerArguments.targetGeometry=true
+            gradle --console=plain --stacktrace :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=studio.guitarlab.app.TargetTabletGeometryInstrumentedTest -Pandroid.testInstrumentationRunnerArguments.targetGeometry=true
 
             mkdir -p ci-diagnostics/tablet-geometry
             cp -R app/build/outputs/androidTest-results/connected ci-diagnostics/tablet-geometry/results
