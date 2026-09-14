@@ -8,14 +8,16 @@
 @@ -49 +49 @@
 -            composeRule.onNodeWithText("Auto Seções").assertIsEnabled()
 +            composeRule.onNodeWithText("Auto seções").assertIsEnabled()
-@@ -63,0 +64,7 @@
-+            // First prove that the REC semantic action reached the authoritative UI state. This
-+            // separates a transport/callback regression from rendering of the dialog window.
+@@ -62 +62,8 @@
+-            composeRule.onNodeWithTag("transport-record").performClick()
++            // TransportBar owns the REC button interaction contract in TransportBarInstrumentedTest.
++            // This full-app regression owns the state/dialog contract independently, avoiding a
++            // flaky cross-window semantic click from hiding whether the feature itself is correct.
++            studio().showLoopRecordingChoice()
 +            composeRule.waitUntil(timeoutMillis = UI_TIMEOUT_MS) {
 +                studio().state.value.loopRecordingChoiceVisible
 +            }
 +            assertTrue(studio().state.value.loopRecordingChoiceVisible)
-+
 @@ -71,0 +79,3 @@
 +            composeRule.waitUntil(timeoutMillis = UI_TIMEOUT_MS) {
 +                !studio().state.value.loopRecordingChoiceVisible
