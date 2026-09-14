@@ -58,6 +58,61 @@ object TransportPolicy {
         return if (playhead >= loopStart && playhead < loopEnd) playhead else loopStart
     }
 
+    /**
+     * User playback treats an active loop as a bounded play range: L▶ is the automatic end of
+     * that Play pass. Recording is intentionally not governed by this policy; punch pre/post-roll
+     * keeps using the recording-specific engine request.
+     */
+    fun playbackEndFrame(
+        state: TransportState,
+        projectEndFrame: Long,
+        loopStartFrame: Long,
+        loopEndFrame: Long,
+    ): Long {
+        val end = projectEndFrame.coerceAtLeast(0L)
+        if (!state.loopEnabled || end == 0L) return end
+        val loopStart = loopStartFrame.coerceIn(0L, end)
+        val loopEnd = loopEndFrame.coerceIn(loopStart, end)
+        return if (loopEnd > loopStart) loopEnd else end
+    }
+
+    /** Frame where the playhead must rest after automatic playback completion. */
+    fun automaticPlaybackResetFrame(
+        state: TransportState,
+        projectEndFrame: Long,
+        loopStartFrame: Long,
+        loopEndFrame: Long,
+    ): Long {
+        val end = projectEndFrame.coerceAtLeast(0L)
+        if (!state.loopEnabled || end == 0L) return 0L
+        val loopStart = loopStartFrame.coerceIn(0L, end)
+        val loopEnd = loopEndFrame.coerceIn(loopStart, end)
+        return if (loopEnd > loopStart) loopStart else 0L
+    }
+
+    /**
+     * Normalizes an interactive seek requested while Play is running. In an active loop range the
+     * user may seek anywhere from L◀ up to the last frame before L▶, but never outside it.
+     */
+    fun playbackSeekFrame(
+        state: TransportState,
+        requestedFrame: Long,
+        projectEndFrame: Long,
+        loopStartFrame: Long,
+        loopEndFrame: Long,
+    ): Long {
+        val end = projectEndFrame.coerceAtLeast(0L)
+        if (end == 0L) return 0L
+        val requested = requestedFrame.coerceIn(0L, end)
+        if (state.mode != TransportMode.PLAYING || !state.loopEnabled) return requested
+
+        val loopStart = loopStartFrame.coerceIn(0L, end)
+        val loopEnd = loopEndFrame.coerceIn(loopStart, end)
+        if (loopEnd <= loopStart) return requested
+        val lastPlayableFrame = (loopEnd - 1L).coerceAtLeast(loopStart)
+        return requested.coerceIn(loopStart, lastPlayableFrame)
+    }
+
     /** Keeps the visible playback cursor inside an active loop even if an engine callback lands
      * exactly on, or momentarily beyond, a loop boundary. This applies only to PLAYING state. */
     fun playbackPositionFrame(
