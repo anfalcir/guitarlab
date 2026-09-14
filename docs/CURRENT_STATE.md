@@ -7,24 +7,34 @@ Updated: 2026-09-14
 - Candidate prepared for the next manual gate: `0.5.0-rc3`, versionCode `23`.
 - Signed APK name after a successful canonical workflow: `GuitarLabStudio-0.5.0-rc3-homologacao.apk`.
 - Locked homologation signer SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
-- Exact source SHA and APK SHA-256 are intentionally recorded only after the manually dispatched workflow succeeds for the final `main` HEAD.
+- Exact validated source SHA and APK SHA-256 are recorded only after the manually dispatched workflow succeeds for the final `main` HEAD.
 
 ## Milestone state
 - M2 through M6: PASS/CLOSED.
 - M7/M8 digital baseline: previously PASS in signed `0.4.0-rc2` / CI #593.
 - `0.5.0-rc1`: recording/practice hardening implemented and signed; residual physical gate remained open.
 - `0.5.0-rc2`: timeline/practice visual integration refinement.
-- `0.5.0-rc3`: final loop/section/punch workflow refinement prepared; canonical manual dual-gate + signing run is PENDING.
+- `0.5.0-rc3`: final loop/section/punch/transport refinement prepared; canonical manual dual-gate + signing run is PENDING.
 
 ## RC3 scope
-### Loop playback
+### Loop playback and natural completion
 - with Loop active, explicit Play starts only inside `[loopStart, loopEnd)`;
 - playhead before the loop, at loop end or after the loop normalizes to loop start;
-- playback position callbacks are kept inside the loop interval;
-- this is deliberately Play-only so punch recording may still use pre-roll before loop start.
+- explicit user Play is one bounded pass when Loop is active: `L▶` is its natural end;
+- natural looped completion stops and returns the playhead to `L◀`;
+- natural non-loop completion stops and returns the playhead to project start;
+- recording/backing playback retains repeating-loop behavior where required by punch semantics.
+
+### Live playhead seek
+- playhead drag is allowed while ordinary Play is active;
+- the audio engine performs an in-session seek instead of requiring Stop → reposition → Play;
+- rapid drag updates coalesce to the most recent requested frame;
+- active Loop clamps live seek inside `[L◀, L▶)`;
+- countdown, recording and finalization reject playhead movement;
+- loop markers and structural edits remain stopped-only.
 
 ### Sections
-- automatic detection now produces a visible, non-persistent timeline preview before acceptance;
+- automatic detection produces a visible, non-persistent timeline preview before acceptance;
 - preview and persisted application use the same normalized boundaries;
 - preview can be cancelled without changing project sections;
 - `Limpar seções` removes persisted sections and pending preview without touching clips, markers or loop bounds;
@@ -38,18 +48,35 @@ Updated: 2026-09-14
 - `Desde o início` starts from 00:00 with loop disabled for that recording;
 - legacy persisted `punchRegion` remains readable for file compatibility but no longer silently arms a future recording.
 
-## Regression coverage added for RC3
+## RC3 regression coverage
+Deterministic transport/practice tests cover:
 - loop playback start before/inside/at-end/after the loop;
+- natural playback end/reset for normal and looped Play;
+- live seek below/inside/at/above an active loop;
 - playback cursor confinement without altering recording-position semantics;
-- non-loop project-end restart behavior;
 - transient recording modes and invalid-loop rejection;
 - section preview/application boundary equivalence;
 - clear-sections behavior.
 
-## Validation status
-The RC3 source has been reviewed for cross-layer consistency across transport policy, practice workflow policy, Studio shell, Studio ViewModel, timeline/section UI and the new regression tests. During the refactor review, an incorrect pair of track-mix draft references was detected and corrected before candidate promotion.
+A Compose instrumentation test covers the transient Loop + REC choice and verifies that Cancel preserves loop intent. Its setup was hardened after CI #596 so the loop precondition is established through the same activity-scoped Studio ViewModel command rather than depending on toolbar timing in an empty project.
 
-No claim is made yet that the exact RC3 HEAD has passed Gradle/JVM/Lint/Android emulator/signing gates. Ordinary commits are `[skip ci]` and the hosted workflow is manual-only by design. The next authoritative digital evidence must come from one explicit manual `.github/workflows/android-ci.yml` run with `signed_homologation=true` against the final RC3 HEAD.
+## Latest CI evidence
+Manual CI #596 ran against source `1bc6652dcdbc580badb3e7aea0c416ba4d06ecce`.
+
+Established by #596:
+- unit/JVM tests: PASS;
+- reproducible performance evidence: PASS;
+- Android Lint: PASS;
+- debug APK assembly: PASS;
+- Android instrumentation compilation: PASS;
+- API 36 runtime regression: 8/9 tests PASS.
+
+The sole API 36 failure was the newly added `PracticeWorkflowInstrumentedTest.loopRecShowsTransientChoiceAndCancelPreservesLoop`, which timed out waiting for the `Ativar loop` toolbar node in a zero-length blank-project scenario. The failure was test-fixture/timing-specific, not a broad API 36 or application crash: the other eight instrumented tests passed. That test has since been rewritten deterministically.
+
+The active source has also advanced after #596 with natural-end reset and live-playhead-seek behavior. Therefore #596 is useful partial evidence but **does not validate the current RC3 HEAD**. No signed homologation artifact from #596 is authoritative because the mandatory API 36 gate did not pass.
+
+## Next authoritative digital gate
+Ordinary commits remain `[skip ci]` and the hosted workflow remains manual-only. The next authoritative evidence must come from one explicit `.github/workflows/android-ci.yml` dispatch with `signed_homologation=true` against the final current `main` HEAD.
 
 That run must pass:
 1. JVM/unit regression;
@@ -69,7 +96,8 @@ Only facts requiring the real Samsung SM-X230 + M-VAVE MK-300 remain:
 - real MK-300 USB input/output route and fail-closed isolation;
 - live waveform during a real take;
 - verify recorded capture contains guitar only while backing plays;
-- loop playback ergonomics on the real tablet;
+- natural end → reset behavior and live playhead seek ergonomics on the real tablet;
+- loop-bound live seeking and stop-at-`L▶`/return-to-`L◀` behavior;
 - section preview/apply/cancel/clear ergonomics and readability;
 - transient REC choice and retained punch alignment;
 - recording stop/restart, return-to-start, reopen and route reconnect;
