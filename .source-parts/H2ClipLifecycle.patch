@@ -1,0 +1,218 @@
+diff --git a/app/src/main/java/studio/guitarlab/app/ui/StudioPlaceholderScreen.kt b/app/src/main/java/studio/guitarlab/app/ui/StudioPlaceholderScreen.kt
+index 4726b5d..f841e0a 100644
+--- a/app/src/main/java/studio/guitarlab/app/ui/StudioPlaceholderScreen.kt
++++ b/app/src/main/java/studio/guitarlab/app/ui/StudioPlaceholderScreen.kt
+@@ -535,6 +535,8 @@ private fun ProjectWorkspace(
+     val timelineEditingEnabled = TransportPolicy.timelineEditingEnabled(transport)
+     val trimActive = trimControls != null
+     val clipEditingEnabled = !importing && !editingClip && timelineEditingEnabled && !trimActive
++    var pendingDeleteClipId by remember(project.id) { mutableStateOf<String?>(null) }
++    val pendingDeleteClip = pendingDeleteClipId?.let { id -> project.clips.firstOrNull { it.id == id } }
+ 
+     Box(modifier = modifier) {
+         Column(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+@@ -760,7 +762,7 @@ private fun ProjectWorkspace(
+                                 onSettings = { onOpenTrackSettings(track.id) },
+                                 onImportWav = { onImportWav(track.id) },
+                                 onBeginTrim = onBeginTrim,
+-                                onRemove = onRemoveClip,
++                                onRemove = { pendingDeleteClipId = it },
+                                 onClearTrack = { onClearTrack(track.id) },
+                                 onDuplicate = onDuplicateClip,
+                                 onSplit = onSplitClip,
+@@ -850,6 +852,24 @@ private fun ProjectWorkspace(
+             }
+         }
+ 
++        pendingDeleteClip?.let { clip ->
++            AlertDialog(
++                onDismissRequest = { pendingDeleteClipId = null },
++                title = { Text("Excluir clipe?") },
++                text = { Text("O trecho ‘${clip.name}’ será removido da timeline. O arquivo de origem compartilhado por outros trechos será preservado.") },
++                confirmButton = {
++                    TextButton(
++                        onClick = {
++                            val id = clip.id
++                            pendingDeleteClipId = null
++                            onRemoveClip(id)
++                        },
++                    ) { Text("Excluir", color = MaterialTheme.colorScheme.error) }
++                },
++                dismissButton = { TextButton(onClick = { pendingDeleteClipId = null }) { Text("Cancelar") } },
++            )
++        }
++
+         if (recordingPhase == RecordingSessionPhase.COUNTDOWN) {
+             RecordingCountdownOverlay(
+                 seconds = countdownSeconds,
+@@ -1243,6 +1263,7 @@ private fun StudioTrackLane(
+                                         ClipMenuItem(Icons.Default.Edit, "Fades…$suffix") { clipMenuExpanded = false; onOpenFades(clip.id) }
+                                         ClipMenuItem(Icons.Default.CallSplit, "Crossfade com próximo$suffix") { clipMenuExpanded = false; onCrossfade(clip.id) }
+                                         ClipMenuItem(Icons.Default.ContentCut, "Cortar$suffix") { clipMenuExpanded = false; onBeginTrim(clip.id) }
++                                        ClipMenuItem(Icons.Default.Delete, "Excluir clipe$suffix", destructive = true) { clipMenuExpanded = false; onRemove(clip.id) }
+                                     }
+                                     ClipMenuItem(Icons.Default.Delete, "Limpar pista", destructive = true) { clipMenuExpanded = false; onClearTrack() }
+                                 }
+diff --git a/core/project/src/main/kotlin/studio/guitarlab/core/project/ProjectClipEditor.kt b/core/project/src/main/kotlin/studio/guitarlab/core/project/ProjectClipEditor.kt
+index 728a54e..f2fc3f6 100644
+--- a/core/project/src/main/kotlin/studio/guitarlab/core/project/ProjectClipEditor.kt
++++ b/core/project/src/main/kotlin/studio/guitarlab/core/project/ProjectClipEditor.kt
+@@ -6,12 +6,7 @@ object ProjectClipEditor {
+     fun removeClip(project: GuitarProject, clipId: String, nowEpochMs: Long): GuitarProject {
+         val removed = requireNotNull(project.clips.firstOrNull { it.id == clipId }) { "Clip '$clipId' not found." }
+         val clips = project.clips.filterNot { it.id == clipId }
+-        val takes = project.takes.filterNot { it.id == removed.takeId }.let { remaining ->
+-            if (removed.takeId != null && project.takes.firstOrNull { it.id == removed.takeId }?.active == true) {
+-                val fallback = remaining.filter { it.trackId == removed.trackId }.maxByOrNull { it.createdAtEpochMs }?.id
+-                remaining.map { if (it.id == fallback) it.copy(active = true) else it }
+-            } else remaining
+-        }
++        val takes = reconcileTakeAfterClipDetachment(project, removed, clips)
+         return project.copy(clips = clips, takes = takes, updatedAtEpochMs = nowEpochMs)
+     }
+ 
+@@ -37,9 +32,12 @@ object ProjectClipEditor {
+         require(project.tracks.any { it.id == targetTrackId }) { "Target track '$targetTrackId' not found." }
+         val target = project.clips.firstOrNull { it.id == clipId } ?: error("Clip '$clipId' not found.")
+         if (target.trackId == targetTrackId) return project
++        val clips = project.clips.map { clip ->
++            if (clip.id == clipId) clip.copy(trackId = targetTrackId, takeId = null) else clip
++        }
+         return project.copy(
+-            clips = project.clips.map { clip -> if (clip.id == clipId) clip.copy(trackId = targetTrackId, takeId = null) else clip },
+-            takes = project.takes.filterNot { it.id == target.takeId },
++            clips = clips,
++            takes = reconcileTakeAfterClipDetachment(project, target, clips),
+             updatedAtEpochMs = nowEpochMs,
+         )
+     }
+@@ -90,6 +88,43 @@ object ProjectClipEditor {
+         )
+     }
+ 
++    /**
++     * Maintains RecordingTake lineage when one clip segment leaves a take, either by deletion or
++     * by being moved to another track. Split siblings keep the take alive and a deterministic
++     * surviving sibling becomes canonical when the previous canonical clip leaves.
++     */
++    private fun reconcileTakeAfterClipDetachment(
++        project: GuitarProject,
++        detached: studio.guitarlab.core.model.AudioClip,
++        remainingClips: List<studio.guitarlab.core.model.AudioClip>,
++    ): List<studio.guitarlab.core.model.RecordingTake> {
++        val takeId = detached.takeId ?: return project.takes
++        val take = project.takes.firstOrNull { it.id == takeId } ?: return project.takes
++        val siblings = remainingClips
++            .filter { it.takeId == takeId }
++            .sortedWith(compareBy({ it.startFrame }, { it.sourceStartFrame }, { it.id }))
++
++        if (siblings.isNotEmpty()) {
++            require(siblings.all { it.trackId == take.trackId }) {
++                "Split take lineage cannot span multiple tracks."
++            }
++            val canonical = siblings.firstOrNull { it.id == take.clipId } ?: siblings.first()
++            return project.takes.map { candidate ->
++                if (candidate.id == takeId) candidate.copy(clipId = canonical.id) else candidate
++            }
++        }
++
++        val withoutTake = project.takes.filterNot { it.id == takeId }
++        if (!take.active) return withoutTake
++        val fallbackId = withoutTake
++            .filter { it.trackId == take.trackId }
++            .maxWithOrNull(compareBy<studio.guitarlab.core.model.RecordingTake> { it.createdAtEpochMs }.thenBy { it.id })
++            ?.id
++        return withoutTake.map { candidate ->
++            if (candidate.trackId == take.trackId) candidate.copy(active = candidate.id == fallbackId) else candidate
++        }
++    }
++
+     fun setClipFades(
+         project: GuitarProject,
+         clipId: String,
+diff --git a/core/project/src/test/kotlin/studio/guitarlab/core/project/ProjectClipEditorTest.kt b/core/project/src/test/kotlin/studio/guitarlab/core/project/ProjectClipEditorTest.kt
+index 1ee19b3..be40b31 100644
+--- a/core/project/src/test/kotlin/studio/guitarlab/core/project/ProjectClipEditorTest.kt
++++ b/core/project/src/test/kotlin/studio/guitarlab/core/project/ProjectClipEditorTest.kt
+@@ -4,10 +4,13 @@ import kotlin.test.Test
+ import kotlin.test.assertEquals
+ import kotlin.test.assertFailsWith
+ import kotlin.test.assertSame
++import kotlin.test.assertTrue
+ import studio.guitarlab.core.model.AudioClip
+ import studio.guitarlab.core.model.AudioTrack
+ import studio.guitarlab.core.model.GuitarProject
+ import studio.guitarlab.core.model.ProjectTemplate
++import studio.guitarlab.core.model.ProjectValidator
++import studio.guitarlab.core.model.RecordingTake
+ 
+ class ProjectClipEditorTest {
+     private fun project(): GuitarProject = GuitarProject(
+@@ -22,6 +25,25 @@ class ProjectClipEditorTest {
+         )),
+     )
+ 
++
++    private fun recordedSplitProject(): GuitarProject {
++        val base = project()
++        val recorded = base.copy(
++            clips = listOf(base.clips.single().copy(takeId = "take-1")),
++            takes = listOf(
++                RecordingTake(
++                    id = "take-1",
++                    trackId = "t1",
++                    clipId = "c1",
++                    name = "Take 1",
++                    createdAtEpochMs = 20L,
++                    active = true,
++                )
++            ),
++        )
++        return ProjectClipEditor.splitClipAtTimelineFrame(recorded, "c1", 13_000, "c2", 21L)
++    }
++
+     @Test fun removeClipUpdatesProjectAtomically() {
+         val edited = ProjectClipEditor.removeClip(project(), "c1", 100)
+         assertEquals(emptyList(), edited.clips)
+@@ -104,6 +126,41 @@ class ProjectClipEditorTest {
+         assertFailsWith<IllegalArgumentException> { ProjectClipEditor.splitClipAtTimelineFrame(project(), "c1", 18_000, "c2", 115) }
+     }
+ 
++    @Test fun deletingSplitChildPreservesTakeAndCanonicalSibling() {
++        val split = recordedSplitProject()
++        val edited = ProjectClipEditor.removeClip(split, "c2", 200L)
++        assertEquals(listOf("c1"), edited.clips.map { it.id })
++        assertEquals("c1", edited.takes.single().clipId)
++        assertTrue(edited.takes.single().active)
++        assertTrue(ProjectValidator.validate(edited).isEmpty())
++    }
++
++    @Test fun deletingCanonicalSplitChildPromotesDeterministicSibling() {
++        val edited = ProjectClipEditor.removeClip(recordedSplitProject(), "c1", 201L)
++        assertEquals(listOf("c2"), edited.clips.map { it.id })
++        assertEquals("c2", edited.takes.single().clipId)
++        assertTrue(ProjectValidator.validate(edited).isEmpty())
++    }
++
++    @Test fun movingSplitChildDetachesOnlyMovedSegmentAndPreservesTakeLineage() {
++        val edited = ProjectClipEditor.moveClipToTrack(recordedSplitProject(), "c2", "t2", 202L)
++        val left = edited.clips.first { it.id == "c1" }
++        val moved = edited.clips.first { it.id == "c2" }
++        assertEquals("take-1", left.takeId)
++        assertEquals("t2", moved.trackId)
++        assertEquals(null, moved.takeId)
++        assertEquals("c1", edited.takes.single().clipId)
++        assertTrue(ProjectValidator.validate(edited).isEmpty())
++    }
++
++    @Test fun movingCanonicalSplitChildPromotesSiblingBeforeDetaching() {
++        val edited = ProjectClipEditor.moveClipToTrack(recordedSplitProject(), "c1", "t2", 203L)
++        assertEquals(null, edited.clips.first { it.id == "c1" }.takeId)
++        assertEquals("take-1", edited.clips.first { it.id == "c2" }.takeId)
++        assertEquals("c2", edited.takes.single().clipId)
++        assertTrue(ProjectValidator.validate(edited).isEmpty())
++    }
++
+     @Test fun rejectsMissingClipAndNegativeMove() {
+         assertFailsWith<IllegalArgumentException> { ProjectClipEditor.removeClip(project(), "missing", 2) }
+         assertFailsWith<IllegalArgumentException> { ProjectClipEditor.moveClip(project(), "c1", -1, 2) }
