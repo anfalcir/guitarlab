@@ -65,4 +65,28 @@ class TransportPolicyTest {
         assertEquals(12_000L, TransportPolicy.playbackStartFrame(stopped, 12_000L, 40_000L, 10_000L, 20_000L))
         assertEquals(0L, TransportPolicy.playbackStartFrame(stopped, 40_000L, 40_000L, 10_000L, 20_000L))
     }
+
+    @Test
+    fun automaticPlaybackCompletionReturnsToExpectedRestingFrame() {
+        val normal = TransportState(mode = TransportMode.PLAYING, loopEnabled = false)
+        assertEquals(40_000L, TransportPolicy.playbackEndFrame(normal, 40_000L, 10_000L, 20_000L))
+        assertEquals(0L, TransportPolicy.automaticPlaybackResetFrame(normal, 40_000L, 10_000L, 20_000L))
+
+        val looped = normal.copy(loopEnabled = true)
+        assertEquals(20_000L, TransportPolicy.playbackEndFrame(looped, 40_000L, 10_000L, 20_000L))
+        assertEquals(10_000L, TransportPolicy.automaticPlaybackResetFrame(looped, 40_000L, 10_000L, 20_000L))
+    }
+
+    @Test
+    fun liveSeekIsClampedInsideActiveLoopAndFreeOutsideLoopMode() {
+        val looped = TransportState(mode = TransportMode.PLAYING, loopEnabled = true)
+        assertEquals(10_000L, TransportPolicy.playbackSeekFrame(looped, 2_000L, 40_000L, 10_000L, 20_000L))
+        assertEquals(15_000L, TransportPolicy.playbackSeekFrame(looped, 15_000L, 40_000L, 10_000L, 20_000L))
+        assertEquals(19_999L, TransportPolicy.playbackSeekFrame(looped, 20_000L, 40_000L, 10_000L, 20_000L))
+        assertEquals(19_999L, TransportPolicy.playbackSeekFrame(looped, 39_000L, 40_000L, 10_000L, 20_000L))
+
+        val normal = looped.copy(loopEnabled = false)
+        assertEquals(2_000L, TransportPolicy.playbackSeekFrame(normal, 2_000L, 40_000L, 10_000L, 20_000L))
+        assertEquals(39_000L, TransportPolicy.playbackSeekFrame(normal, 39_000L, 40_000L, 10_000L, 20_000L))
+    }
 }
