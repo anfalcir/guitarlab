@@ -1,11 +1,9 @@
 package studio.guitarlab.app
 
-import androidx.compose.ui.test.assertDoesNotExist
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
-import androidx.compose.ui.test.onNode
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -60,8 +58,9 @@ class PracticeWorkflowInstrumentedTest {
             composeRule.onNodeWithText("Desde o início").assertIsDisplayed()
             composeRule.onNodeWithText("Cancelar").assertIsDisplayed().performClick()
 
-            composeRule.onNodeWithText("Gravar com o loop ativo").assertDoesNotExist()
+            composeRule.waitForIdle()
             composeRule.onNodeWithContentDescription("Desativar loop").assertIsDisplayed()
+            composeRule.onNodeWithContentDescription("Gravar").assertIsEnabled()
         } finally {
             projectId?.let { runCatching { repository.delete(it) } }
         }
