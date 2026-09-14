@@ -189,3 +189,12 @@ The playhead is the sole timeline marker allowed to move while ordinary Play is 
 
 ## D-062 — User Play completes and returns to its logical start
 Natural non-loop playback completion stops and returns the playhead to project start. With Loop active, explicit user Play is a single bounded pass whose logical end is `L▶`; natural completion stops and returns the playhead to `L◀`. This one-pass rule applies only to explicit user Play. Recording/backing loop playback retains repeating-loop semantics so punch capture and its pre/post-roll behavior are not redefined.
+
+## D-063 — Auto-section preview preserves control geometry and timeline bounds
+`Auto seções` owns one fixed UI slot. While suggestions are previewed, that same slot becomes `Aplicar` plus a red `X`; unrelated Timeline controls do not shift. Section preview/accepted boundaries exclude edge-adjacent micro-sections and visual section surfaces are clipped to the real project end, so the UI cannot imply content after the song.
+
+## D-064 — REC countdown is a three-second overlay, not layout content
+The recording countdown is exactly `3 → 2 → 1`, rendered as a large centered translucent overlay above the workspace. It must not consume Column height, move `Comparação`/`Timeline`, or alter track/Mixer geometry. Capture still begins only after countdown completion and zero-time route/permission/target revalidation.
+
+## D-065 — Home and Studio share one user-guide implementation
+Home and Studio may expose separate `Ajuda` entry buttons, but both must open the same `StudioUserGuideDialog`. Duplicated help screens/copy are prohibited because they can drift from one another.
