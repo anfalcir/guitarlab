@@ -1,5 +1,22 @@
 --- a/app/src/main/java/studio/guitarlab/app/ui/StudioShellScreen.kt
 +++ b/app/src/main/java/studio/guitarlab/app/ui/StudioShellScreen.kt
+@@ -154,9 +154,12 @@
+                         onReturnToStart = viewModel::returnToStart,
+                         onPlayStop = viewModel::togglePlayStop,
+                         onRecord = {
+-                            when (state.recordingSession.phase) {
++                            // Recording must follow the authoritative state at click time. Loop can
++                            // change before this composable completes its next recomposition.
++                            val liveState = viewModel.state.value
++                            when (liveState.recordingSession.phase) {
+                                 RecordingSessionPhase.IDLE -> {
+-                                    if (state.transport.loopEnabled) recordChoiceVisible = true
++                                    if (liveState.transport.loopEnabled) recordChoiceVisible = true
+                                     else requestRecording(PracticeRecordingMode.CURRENT_PLAYHEAD)
+                                 }
+                                 RecordingSessionPhase.COUNTDOWN,
+--- a/app/src/main/java/studio/guitarlab/app/ui/StudioShellScreen.kt
++++ b/app/src/main/java/studio/guitarlab/app/ui/StudioShellScreen.kt
 @@ -414,7 +414,7 @@
                  ExportActionCard(
                      title = "Projeto GuitarLab",
