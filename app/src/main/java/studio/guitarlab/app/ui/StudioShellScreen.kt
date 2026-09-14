@@ -51,6 +51,7 @@ import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import studio.guitarlab.core.model.GuitarProject
+import studio.guitarlab.core.project.PracticeRecordingMode
 import studio.guitarlab.core.project.RecordingSessionPhase
 import studio.guitarlab.core.project.TransportPolicy
 import studio.guitarlab.platform.codec.android.MasterExportFormat
@@ -69,10 +70,22 @@ fun StudioShellScreen(
     var mixerVisible by rememberSaveable(projectId) { mutableStateOf(uiPreferences.mixerPinned()) }
     var selectedTrackId by rememberSaveable(projectId) { mutableStateOf<String?>(null) }
     var exportDialogVisible by rememberSaveable(projectId) { mutableStateOf(false) }
+    var recordChoiceVisible by rememberSaveable(projectId) { mutableStateOf(false) }
+    var pendingRecordMode by remember(projectId) { mutableStateOf(PracticeRecordingMode.CURRENT_PLAYHEAD) }
     val snackbarHostState = remember { SnackbarHostState() }
-    val recordPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
-        viewModel.onRecordPermissionResult(it)
+    val recordPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) viewModel.startRecording(pendingRecordMode) else viewModel.onRecordPermissionResult(false)
     }
+
+    fun requestRecording(mode: PracticeRecordingMode) {
+        pendingRecordMode = mode
+        if (context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+            viewModel.startRecording(mode)
+        } else {
+            recordPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+        }
+    }
+
     val safeProjectName = state.project?.name
         ?.replace(Regex("[^A-Za-z0-9._ -]"), "_")
         ?.trim()
@@ -139,10 +152,14 @@ fun StudioShellScreen(
                         onReturnToStart = viewModel::returnToStart,
                         onPlayStop = viewModel::togglePlayStop,
                         onRecord = {
-                            if (context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
-                                viewModel.startRecording()
-                            } else {
-                                recordPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                            when (state.recordingSession.phase) {
+                                RecordingSessionPhase.IDLE -> {
+                                    if (state.transport.loopEnabled) recordChoiceVisible = true
+                                    else requestRecording(PracticeRecordingMode.CURRENT_PLAYHEAD)
+                                }
+                                RecordingSessionPhase.COUNTDOWN,
+                                RecordingSessionPhase.CAPTURING,
+                                RecordingSessionPhase.FINALIZING -> viewModel.startRecording()
                             }
                         },
                         onToggleLoop = viewModel::toggleLoop,
@@ -208,6 +225,37 @@ fun StudioShellScreen(
         SnackbarHost(
             hostState = snackbarHostState,
             modifier = Modifier.align(Alignment.TopCenter).padding(top = 76.dp).widthIn(max = 560.dp),
+        )
+    }
+
+    if (recordChoiceVisible) {
+        AlertDialog(
+            onDismissRequest = { recordChoiceVisible = false },
+            title = { Text("Gravar com o loop ativo") },
+            text = {
+                Text(
+                    "Escolha como iniciar esta gravação. “Desde o início” desativa o loop e grava a partir de 00:00. “Somente o loop” usa o trecho marcado como punch, com o pre-roll/post-roll já previstos pelo GuitarLab.",
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        recordChoiceVisible = false
+                        requestRecording(PracticeRecordingMode.LOOP_PUNCH)
+                    },
+                ) { Text("Somente o loop") }
+            },
+            dismissButton = {
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    TextButton(onClick = { recordChoiceVisible = false }) { Text("Cancelar") }
+                    OutlinedButton(
+                        onClick = {
+                            recordChoiceVisible = false
+                            requestRecording(PracticeRecordingMode.FROM_PROJECT_START)
+                        },
+                    ) { Text("Desde o início") }
+                }
+            },
         )
     }
 
