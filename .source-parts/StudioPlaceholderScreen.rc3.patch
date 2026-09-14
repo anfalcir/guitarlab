@@ -1,0 +1,379 @@
+--- a/app/src/main/java/studio/guitarlab/app/ui/StudioPlaceholderScreen.kt
++++ b/app/src/main/java/studio/guitarlab/app/ui/StudioPlaceholderScreen.kt
+@@ -89,6 +89,8 @@
+ import androidx.compose.ui.zIndex
+ import androidx.lifecycle.viewmodel.compose.viewModel
+ import kotlinx.coroutines.delay
++import studio.guitarlab.app.ui.theme.StudioComparisonActive
++import studio.guitarlab.app.ui.theme.StudioComparisonHidden
+ import studio.guitarlab.app.ui.theme.StudioLoop
+ import studio.guitarlab.app.ui.theme.StudioPlayhead
+ import studio.guitarlab.app.ui.theme.StudioRecord
+@@ -97,6 +99,7 @@
+ import studio.guitarlab.core.model.AudioTrack
+ import studio.guitarlab.core.model.BuiltInRoles
+ import studio.guitarlab.core.model.GuitarProject
++import studio.guitarlab.core.model.TrackRoleDefinition
+ import studio.guitarlab.core.project.RecordingSessionPhase
+ import studio.guitarlab.core.project.ActiveTakePolicy
+ import studio.guitarlab.core.project.GuitarAuditionMode
+@@ -109,6 +112,7 @@
+ import studio.guitarlab.core.project.TransportState
+ import studio.guitarlab.core.project.TrimControlPolicy
+ import studio.guitarlab.core.project.TrimControlState
++import studio.guitarlab.core.project.TrackRoleAssignmentPolicy
+ 
+ private val TrackSidebarWidth = 224.dp
+ private val TrackLaneGap = 6.dp
+@@ -230,12 +234,13 @@
+             sampleRate = project.sampleRate.fixedHz ?: clipSampleRate(project),
+             takes = project.takes.filter { it.trackId == settingsTrack.id },
+             levelAnalysis = state.trackLevelAnalysis[settingsTrack.id],
++            availableRoles = TrackRoleAssignmentPolicy.availableForTrack(project, settingsTrack.id),
+             onActivateTake = viewModel::activateTake,
+             onAnalyzeLevel = { viewModel.analyzeTrackLevel(settingsTrack.id) },
+             onApplyLevel = { viewModel.applyTrackLevelSuggestion(settingsTrack.id) },
+             onDismiss = { settingsTrackId = null },
+-            onSave = { name, colorIndex ->
+-                viewModel.updateTrackProperties(settingsTrack.id, name, colorIndex)
++            onSave = { name, colorIndex, roleId ->
++                viewModel.updateTrackConfiguration(settingsTrack.id, name, colorIndex, roleId)
+                 settingsTrackId = null
+             },
+             onDelete = {
+@@ -245,6 +250,24 @@
+         )
+     }
+ 
++    state.newTrackRolePromptId?.let { trackId ->
++        val promptProject = state.project
++        val promptTrack = promptProject?.tracks?.firstOrNull { it.id == trackId }
++        if (promptProject != null && promptTrack != null) {
++            val suggestions = TrackRoleAssignmentPolicy.availableSuggestionsForNewTrack(promptProject, trackId)
++            if (suggestions.isNotEmpty()) {
++                NewTrackRolePromptDialog(
++                    trackName = promptTrack.name,
++                    suggestions = suggestions,
++                    onChoose = { roleId -> viewModel.assignNewTrackRole(trackId, roleId) },
++                    onKeepGeneric = viewModel::dismissNewTrackRolePrompt,
++                )
++            } else {
++                LaunchedEffect(trackId) { viewModel.dismissNewTrackRolePrompt() }
++            }
++        }
++    }
++
+     fadeClipId?.let { id ->
+         project?.clips?.firstOrNull { it.id == id }?.let { clip ->
+             ClipFadeDialog(
+@@ -288,6 +311,7 @@
+     auditionMode: GuitarAuditionMode,
+     suggestions: Int,
+     enabled: Boolean,
++    loopEnabled: Boolean,
+     onAuditionMode: (GuitarAuditionMode) -> Unit,
+     onAddMarker: () -> Unit,
+     onAddSection: () -> Unit,
+@@ -315,8 +339,8 @@
+         }
+         PracticeControlGroup("Timeline") {
+             OutlinedButton(onClick=onAddMarker, enabled=enabled, contentPadding=PaddingValues(horizontal=10.dp,vertical=2.dp)) { Text("+ Marcador") }
+-            OutlinedButton(onClick=onAddSection, enabled=enabled, contentPadding=PaddingValues(horizontal=10.dp,vertical=2.dp)) { Text("Criar seção do loop") }
+-            OutlinedButton(onClick=onSuggestSections, enabled=enabled, contentPadding=PaddingValues(horizontal=10.dp,vertical=2.dp)) { Text("Detectar seções") }
++            OutlinedButton(onClick=onAddSection, enabled=enabled && loopEnabled, contentPadding=PaddingValues(horizontal=10.dp,vertical=2.dp)) { Text("Criar seção do loop") }
++            OutlinedButton(onClick=onSuggestSections, enabled=enabled, contentPadding=PaddingValues(horizontal=10.dp,vertical=2.dp)) { Text("Auto Seções") }
+             if (suggestions > 0) {
+                 Button(onClick=onAcceptSections, enabled=enabled, contentPadding=PaddingValues(horizontal=10.dp,vertical=2.dp)) { Text("Aplicar prévia") }
+                 TextButton(onClick=onDiscardSections, enabled=enabled) { Text("Cancelar prévia") }
+@@ -427,22 +451,6 @@
+     val clipEditingEnabled = !importing && !editingClip && timelineEditingEnabled && !trimActive
+ 
+     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+-        PracticeControls(
+-            project = project,
+-            auditionMode = auditionMode,
+-            suggestions = sectionSuggestions.size,
+-            enabled = timelineEditingEnabled && !trimActive,
+-            onAuditionMode = onAuditionMode,
+-            onAddMarker = onAddMarker,
+-            onAddSection = onAddSection,
+-            onSuggestSections = onSuggestSections,
+-            onAcceptSections = onAcceptSections,
+-            onDiscardSections = onDiscardSections,
+-            onClearSections = onClearSections,
+-            onLoopSection = onLoopSection,
+-            onRemoveMarker = onRemoveMarker,
+-            onRemoveSection = onRemoveSection,
+-        )
+         Surface(
+             modifier = Modifier.fillMaxWidth().weight(1f),
+             shape = RoundedCornerShape(12.dp),
+@@ -488,6 +496,7 @@
+                         sectionSuggestions = sectionSuggestions,
+                         markers = project.markers,
+                         enabled = timelineEditingEnabled,
++                        playheadDragEnabled = recordingPhase == RecordingSessionPhase.IDLE,
+                         onPlayheadFrameChanged = onPlayheadFrameChanged,
+                         onLoopStartFrameChanged = onLoopStartFrameChanged,
+                         onLoopEndFrameChanged = onLoopEndFrameChanged,
+@@ -723,6 +732,25 @@
+             }
+         }
+ 
++        PracticeControls(
++            project = project,
++            auditionMode = auditionMode,
++            suggestions = sectionSuggestions.size,
++            enabled = timelineEditingEnabled && !trimActive,
++            loopEnabled = transport.loopEnabled,
++            onAuditionMode = onAuditionMode,
++            onAddMarker = onAddMarker,
++            onAddSection = onAddSection,
++            onSuggestSections = onSuggestSections,
++            onAcceptSections = onAcceptSections,
++            onDiscardSections = onDiscardSections,
++            onClearSections = onClearSections,
++            onLoopSection = onLoopSection,
++            onRemoveMarker = onRemoveMarker,
++            onRemoveSection = onRemoveSection,
++        )
++
++
+         if (trimControls != null && trimClip != null) {
+             TrimActionBar(
+                 clipName = trimClip.name,
+@@ -1034,11 +1062,22 @@
+                 }
+                 .clickable(enabled = !dragInProgress, onClick = onSelect),
+             shape = RoundedCornerShape(8.dp),
+-            color = if (selected) trackColor.copy(alpha = 0.11f) else MaterialTheme.colorScheme.surface.copy(alpha = 0.86f),
+-            border = BorderStroke(if (selected) 1.5.dp else 1.dp, if (selected) trackColor else MaterialTheme.colorScheme.outline.copy(alpha = 0.38f)),
++            color = when {
++                track.armed -> StudioRecord.copy(alpha = if (selected) 0.16f else 0.10f)
++                selected -> trackColor.copy(alpha = 0.11f)
++                else -> MaterialTheme.colorScheme.surface.copy(alpha = 0.86f)
++            },
++            border = BorderStroke(
++                if (track.armed || selected) 1.5.dp else 1.dp,
++                when {
++                    track.armed -> StudioRecord
++                    selected -> trackColor
++                    else -> MaterialTheme.colorScheme.outline.copy(alpha = 0.38f)
++                },
++            ),
+         ) {
+             Row(modifier = Modifier.fillMaxSize()) {
+-                Box(Modifier.width(4.dp).fillMaxHeight().background(trackColor))
++                Box(Modifier.width(if (track.armed) 6.dp else 4.dp).fillMaxHeight().background(if (track.armed) StudioRecord else trackColor))
+                 Column(
+                     modifier = Modifier.weight(1f).fillMaxHeight().padding(start = 8.dp, end = 4.dp, top = 5.dp, bottom = 5.dp),
+                     verticalArrangement = Arrangement.SpaceEvenly,
+@@ -1057,16 +1096,18 @@
+                         )
+                         if (auditionState != GuitarAuditionTrackState.UNAFFECTED) {
+                             val included = auditionState == GuitarAuditionTrackState.INCLUDED
++                            val comparisonColor = if (included) StudioComparisonActive else StudioComparisonHidden
+                             Surface(
+                                 shape = RoundedCornerShape(5.dp),
+-                                color = if (included) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
++                                color = comparisonColor.copy(alpha = 0.18f),
++                                border = BorderStroke(1.dp, comparisonColor.copy(alpha = 0.94f)),
+                                 modifier = Modifier.semantics { stateDescription = if (included) "Incluída na comparação" else "Oculta pela comparação" },
+                             ) {
+                                 Text(
+                                     if (included) "ATIVA" else "OCULTA",
+                                     modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp),
+                                     style = MaterialTheme.typography.labelSmall,
+-                                    color = if (included) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
++                                    color = comparisonColor,
+                                 )
+                             }
+                         }
+@@ -1127,7 +1168,16 @@
+         }
+ 
+         BoxWithConstraints(
+-            modifier = Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.surface.copy(alpha = 0.70f)),
++            modifier = Modifier
++                .weight(1f)
++                .fillMaxHeight()
++                .clip(RoundedCornerShape(8.dp))
++                .background(if (track.armed) StudioRecord.copy(alpha = 0.055f) else MaterialTheme.colorScheme.surface.copy(alpha = 0.70f))
++                .border(
++                    width = if (track.armed) 1.5.dp else 0.dp,
++                    color = if (track.armed) StudioRecord.copy(alpha = 0.82f) else Color.Transparent,
++                    shape = RoundedCornerShape(8.dp),
++                ),
+         ) {
+             if (clips.isEmpty() && livePeaks.isEmpty()) {
+                 Text(
+@@ -1372,11 +1422,12 @@
+     sampleRate: Int,
+     takes: List<studio.guitarlab.core.model.RecordingTake>,
+     levelAnalysis: studio.guitarlab.core.project.LevelAnalysis?,
++    availableRoles: List<TrackRoleDefinition>,
+     onActivateTake: (String) -> Unit,
+     onAnalyzeLevel: () -> Unit,
+     onApplyLevel: () -> Unit,
+     onDismiss: () -> Unit,
+-    onSave: (String, Int) -> Unit,
++    onSave: (String, Int, String?) -> Unit,
+     onDelete: () -> Unit,
+ ) {
+     val hasClips = clips.isNotEmpty()
+@@ -1384,6 +1435,7 @@
+     var colorIndex by remember(track.id, track.colorIndex) {
+         mutableIntStateOf(if (track.colorIndex in StudioTrackPalette.indices) track.colorIndex else track.order % StudioTrackPalette.size)
+     }
++    var selectedRoleId by remember(track.id, track.roleId) { mutableStateOf(track.roleId) }
+     val validName = name.trim().length in 1..24
+     val scrollState = rememberScrollState()
+ 
+@@ -1417,7 +1469,12 @@
+                                 onNameChange = { if (it.length <= 24) name = it },
+                                 modifier = Modifier.weight(1.35f),
+                             )
+-                            TrackRoleCard(track = track, modifier = Modifier.weight(0.85f))
++                            TrackRoleEditor(
++                                selectedRoleId = selectedRoleId,
++                                availableRoles = availableRoles,
++                                onRoleSelected = { selectedRoleId = it },
++                                modifier = Modifier.weight(0.85f),
++                            )
+                         }
+                     } else {
+                         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+@@ -1426,7 +1483,12 @@
+                                 onNameChange = { if (it.length <= 24) name = it },
+                                 modifier = Modifier.fillMaxWidth(),
+                             )
+-                            TrackRoleCard(track = track, modifier = Modifier.fillMaxWidth())
++                            TrackRoleEditor(
++                                selectedRoleId = selectedRoleId,
++                                availableRoles = availableRoles,
++                                onRoleSelected = { selectedRoleId = it },
++                                modifier = Modifier.fillMaxWidth(),
++                            )
+                         }
+                     }
+                 }
+@@ -1501,7 +1563,7 @@
+             }
+         },
+         confirmButton = {
+-            Button(onClick = { onSave(name.trim(), colorIndex) }, enabled = validName) { Text("Salvar") }
++            Button(onClick = { onSave(name.trim(), colorIndex, selectedRoleId) }, enabled = validName) { Text("Salvar") }
+         },
+     )
+ }
+@@ -1524,33 +1586,94 @@
+ }
+ 
+ @Composable
+-private fun TrackRoleCard(track: AudioTrack, modifier: Modifier = Modifier) {
++private fun TrackRoleEditor(
++    selectedRoleId: String?,
++    availableRoles: List<TrackRoleDefinition>,
++    onRoleSelected: (String?) -> Unit,
++    modifier: Modifier = Modifier,
++) {
++    var expanded by remember { mutableStateOf(false) }
++    val selectedName = availableRoles.firstOrNull { it.id == selectedRoleId }?.name
++        ?: BuiltInRoles.definitions.firstOrNull { it.id == selectedRoleId }?.name
++        ?: "Sem função"
++
+     Surface(
+         modifier = modifier.heightIn(min = 62.dp),
+         shape = RoundedCornerShape(9.dp),
+         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.30f),
+         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.30f)),
+     ) {
+-        Row(
+-            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
+-            verticalAlignment = Alignment.CenterVertically,
+-            horizontalArrangement = Arrangement.SpaceBetween,
+-        ) {
+-            Text(
+-                "Função",
+-                style = MaterialTheme.typography.labelMedium,
+-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+-            )
+-            Text(
+-                roleName(track.roleId),
+-                style = MaterialTheme.typography.bodyMedium,
+-                maxLines = 2,
+-            )
++        Box {
++            Row(
++                modifier = Modifier
++                    .fillMaxWidth()
++                    .clickable { expanded = true }
++                    .padding(horizontal = 12.dp, vertical = 10.dp),
++                verticalAlignment = Alignment.CenterVertically,
++                horizontalArrangement = Arrangement.SpaceBetween,
++            ) {
++                Column(modifier = Modifier.weight(1f)) {
++                    Text("Função", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
++                    Text(selectedName, style = MaterialTheme.typography.bodyMedium, maxLines = 2)
++                }
++                Text("Alterar", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
++            }
++            DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
++                DropdownMenuItem(
++                    text = { Text("Sem função") },
++                    onClick = {
++                        expanded = false
++                        onRoleSelected(null)
++                    },
++                )
++                availableRoles.forEach { role ->
++                    DropdownMenuItem(
++                        text = { Text(role.name) },
++                        onClick = {
++                            expanded = false
++                            onRoleSelected(role.id)
++                        },
++                    )
++                }
++            }
+         }
+     }
+ }
+ 
+ @Composable
++private fun NewTrackRolePromptDialog(
++    trackName: String,
++    suggestions: List<TrackRoleDefinition>,
++    onChoose: (String) -> Unit,
++    onKeepGeneric: () -> Unit,
++) {
++    AlertDialog(
++        onDismissRequest = onKeepGeneric,
++        title = { Text("Definir função da nova pista?") },
++        text = {
++            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
++                Text("“$trackName” foi criada. Há funções importantes ainda disponíveis neste projeto:")
++                suggestions.forEach { role ->
++                    OutlinedButton(
++                        onClick = { onChoose(role.id) },
++                        modifier = Modifier.fillMaxWidth(),
++                    ) {
++                        Text(role.name)
++                    }
++                }
++                Text(
++                    "A função ajuda o GuitarLab a organizar comparação e gravação. Você também pode alterá-la depois em Configurar pista.",
++                    style = MaterialTheme.typography.bodySmall,
++                    color = MaterialTheme.colorScheme.onSurfaceVariant,
++                )
++            }
++        },
++        confirmButton = {},
++        dismissButton = { TextButton(onClick = onKeepGeneric) { Text("Agora não") } },
++    )
++}
++
++@Composable
+ private fun TrackColorSection(
+     colorIndex: Int,
+     onColorChange: (Int) -> Unit,

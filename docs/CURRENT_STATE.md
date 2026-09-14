@@ -14,7 +14,7 @@ Updated: 2026-09-14
 - M7/M8 digital baseline: previously PASS in signed `0.4.0-rc2` / CI #593.
 - `0.5.0-rc1`: recording/practice hardening implemented and signed; residual physical gate remained open.
 - `0.5.0-rc2`: timeline/practice visual integration refinement.
-- `0.5.0-rc3`: final loop/section/punch/transport refinement prepared; canonical manual dual-gate + signing run is PENDING.
+- `0.5.0-rc3`: final loop/section/punch/transport and Studio-clarity refinement prepared; canonical manual dual-gate + signing run is PENDING.
 
 ## RC3 scope
 ### Loop playback and natural completion
@@ -32,6 +32,24 @@ Updated: 2026-09-14
 - active Loop clamps live seek inside `[L◀, L▶)`;
 - countdown, recording and finalization reject playhead movement;
 - loop markers and structural edits remain stopped-only.
+
+### Studio organization and feedback
+- Comparação and Timeline controls are positioned immediately below the workspace/timeline and before the Mixer;
+- comparison badges use vivid neon `ATIVA`/`OCULTA` semantics;
+- `Auto Seções` replaces the older `Detectar seções` label;
+- `Criar seção do loop` is disabled while Loop is off and enabled only with Loop active;
+- armed tracks receive a red visual state in both the track list and timeline lane, in addition to the Mixer REC control.
+
+### Track functions
+- creating a new track can offer meaningful workflow functions that are still unassigned;
+- the user may keep the track generic or choose one of the available suggestions;
+- `Configurar pista` can add, change or remove the track function in the existing function area;
+- one central assignment policy prevents structural function duplicates/incompatible combinations while preserving valid L/R pairs and repeatable generic instrument roles;
+- edit-time policy prevents new conflicts without turning old project files into invalid/unsavable data.
+
+### In-app help
+- the top bar exposes `Ajuda`, opening a concise novice-facing guide for Studio operation;
+- `USER_GUIDE_POLICY.md` makes guide synchronization mandatory whenever visible controls, wording or workflows change.
 
 ### Sections
 - automatic detection produces a visible, non-persistent timeline preview before acceptance;
@@ -56,9 +74,10 @@ Deterministic transport/practice tests cover:
 - playback cursor confinement without altering recording-position semantics;
 - transient recording modes and invalid-loop rejection;
 - section preview/application boundary equivalence;
-- clear-sections behavior.
+- clear-sections behavior;
+- track-function availability, assignment and conflict handling.
 
-A Compose instrumentation test covers the transient Loop + REC choice and verifies that Cancel preserves loop intent. Its setup was hardened after CI #596 so the loop precondition is established through the same activity-scoped Studio ViewModel command rather than depending on toolbar timing in an empty project.
+Compose instrumentation covers the transient Loop + REC choice, `Auto Seções`, the Loop-dependent enabled state of `Criar seção do loop`, and Cancel preserving loop intent. The test setup was hardened after CI #596 so the loop precondition is established through the same activity-scoped Studio ViewModel command rather than depending on toolbar timing in an empty project.
 
 ## Latest CI evidence
 Manual CI #596 ran against source `1bc6652dcdbc580badb3e7aea0c416ba4d06ecce`.
@@ -73,7 +92,7 @@ Established by #596:
 
 The sole API 36 failure was the newly added `PracticeWorkflowInstrumentedTest.loopRecShowsTransientChoiceAndCancelPreservesLoop`, which timed out waiting for the `Ativar loop` toolbar node in a zero-length blank-project scenario. The failure was test-fixture/timing-specific, not a broad API 36 or application crash: the other eight instrumented tests passed. That test has since been rewritten deterministically.
 
-The active source has also advanced after #596 with natural-end reset and live-playhead-seek behavior. Therefore #596 is useful partial evidence but **does not validate the current RC3 HEAD**. No signed homologation artifact from #596 is authoritative because the mandatory API 36 gate did not pass.
+The active source has advanced after #596 with transport and Studio UX changes. Therefore #596 is useful partial evidence but **does not validate the current RC3 HEAD**. No signed homologation artifact from #596 is authoritative because the mandatory API 36 gate did not pass.
 
 ## Next authoritative digital gate
 Ordinary commits remain `[skip ci]` and the hosted workflow remains manual-only. The next authoritative evidence must come from one explicit `.github/workflows/android-ci.yml` dispatch with `signed_homologation=true` against the final current `main` HEAD.
@@ -89,7 +108,7 @@ That run must pass:
 8. signer verification and APK checksum generation.
 
 ## CI and recovery policy
-Ordinary commits do not trigger GitHub Actions. `.github/workflows/android-ci.yml` is manual-only. The signed job depends on both software and Android integration gates, so signing cannot bypass a failed mandatory gate. `CANDIDATE_IDENTITY_POLICY.md` defines the authoritative RC3 identity contract.
+Ordinary commits do not trigger GitHub Actions. `.github/workflows/android-ci.yml` is manual-only. Source materialization is idempotent and fail-fast: RC3 large-source deltas are applied from versioned patches before tests/build, and any patch drift blocks the run rather than silently compiling a partial state. The signed job depends on both software and Android integration gates, so signing cannot bypass a failed mandatory gate. `CANDIDATE_IDENTITY_POLICY.md` defines the authoritative RC3 identity contract.
 
 ## Remaining physical gate after automated PASS
 Only facts requiring the real Samsung SM-X230 + M-VAVE MK-300 remain:
@@ -98,7 +117,7 @@ Only facts requiring the real Samsung SM-X230 + M-VAVE MK-300 remain:
 - verify recorded capture contains guitar only while backing plays;
 - natural end → reset behavior and live playhead seek ergonomics on the real tablet;
 - loop-bound live seeking and stop-at-`L▶`/return-to-`L◀` behavior;
-- section preview/apply/cancel/clear ergonomics and readability;
+- section/track-control readability and armed-lane visual clarity on the real tablet;
 - transient REC choice and retained punch alignment;
 - recording stop/restart, return-to-start, reopen and route reconnect;
 - monitoring latency/feel, pops/dropouts and subjective audio quality;

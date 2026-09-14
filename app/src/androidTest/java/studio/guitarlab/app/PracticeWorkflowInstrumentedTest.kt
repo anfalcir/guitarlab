@@ -49,14 +49,20 @@ class PracticeWorkflowInstrumentedTest {
             waitForRoute(AppScreen.Studio(projectId))
             waitForStudioProject(projectId)
 
-            // The modal behavior is the subject of this test. Activate loop through the same
-            // ViewModel command used by the toolbar so the test is not coupled to top-bar
-            // rendering/timing on a zero-length blank project.
+            composeRule.onNodeWithText("Auto Seções").assertIsDisplayed()
+            assertTrue(
+                "Create-section action must be disabled while loop is off",
+                runCatching { composeRule.onNodeWithText("Criar seção do loop").assertIsEnabled() }.isFailure,
+            )
+
+            // Activate loop through the same ViewModel command used by the toolbar so the test is
+            // deterministic even when a blank project has no playable timeline content.
             studio().toggleLoop()
             composeRule.waitUntil(timeoutMillis = UI_TIMEOUT_MS) {
                 studio().state.value.transport.loopEnabled
             }
             assertTrue(studio().state.value.transport.loopEnabled)
+            composeRule.onNodeWithText("Criar seção do loop").assertIsEnabled()
             waitUntilContentDescriptionEnabled("Gravar")
 
             composeRule.onNodeWithContentDescription("Gravar").performClick()
@@ -76,17 +82,13 @@ class PracticeWorkflowInstrumentedTest {
 
     private fun waitUntilEnabled(text: String) {
         composeRule.waitUntil(timeoutMillis = UI_TIMEOUT_MS) {
-            runCatching {
-                composeRule.onNodeWithText(text).assertIsEnabled()
-            }.isSuccess
+            runCatching { composeRule.onNodeWithText(text).assertIsEnabled() }.isSuccess
         }
     }
 
     private fun waitUntilContentDescriptionEnabled(description: String) {
         composeRule.waitUntil(timeoutMillis = UI_TIMEOUT_MS) {
-            runCatching {
-                composeRule.onNodeWithContentDescription(description).assertIsEnabled()
-            }.isSuccess
+            runCatching { composeRule.onNodeWithContentDescription(description).assertIsEnabled() }.isSuccess
         }
     }
 
@@ -121,8 +123,7 @@ class PracticeWorkflowInstrumentedTest {
     private fun waitForPersistedProject(repository: FileProjectRepository, name: String): GuitarProject? {
         var persisted: GuitarProject? = null
         composeRule.waitUntil(timeoutMillis = UI_TIMEOUT_MS) {
-            repository.list().singleOrNull { it.name == name }
-                ?.also { persisted = it } != null
+            repository.list().singleOrNull { it.name == name }?.also { persisted = it } != null
         }
         return persisted
     }
