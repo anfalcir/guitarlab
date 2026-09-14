@@ -2,16 +2,14 @@ package studio.guitarlab.app
 
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
-import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performTextInput
 import androidx.lifecycle.ViewModelProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -20,8 +18,10 @@ import studio.guitarlab.app.ui.AppNavigationViewModel
 import studio.guitarlab.app.ui.AppRouteCodec
 import studio.guitarlab.app.ui.AppScreen
 import studio.guitarlab.app.ui.StudioViewModel
-import studio.guitarlab.core.model.GuitarProject
+import studio.guitarlab.core.model.ProjectFactory
+import studio.guitarlab.core.model.ProjectTemplate
 import studio.guitarlab.core.project.FileProjectRepository
+import studio.guitarlab.core.project.RecordingSessionPhase
 
 @RunWith(AndroidJUnit4::class)
 class PracticeWorkflowInstrumentedTest {
@@ -32,23 +32,20 @@ class PracticeWorkflowInstrumentedTest {
 
     @Test
     fun loopRecShowsTransientChoiceAndCancelPreservesLoop() {
-        val projectName = "Practice-${System.nanoTime()}"
         val repository = FileProjectRepository(instrumentation.targetContext.filesDir)
-        var projectId: String? = null
+        val project = ProjectFactory().create("Practice-${System.nanoTime()}", ProjectTemplate.BLANK)
+        repository.save(project)
 
         try {
-            waitUntilEnabled("Novo projeto")
-            composeRule.onNodeWithText("Novo projeto").performClick()
-            composeRule.onNode(hasSetTextAction()).performTextInput(projectName)
-            composeRule.onNodeWithText("Projeto vazio").performClick()
-            composeRule.onNodeWithText("Criar projeto").assertIsEnabled().performClick()
+            // This regression owns the Loop -> REC contract. Project creation/lifecycle have their
+            // own instrumentation coverage, so enter Studio directly and avoid coupling this test
+            // to the Android IME opened by the New Project name field.
+            navigation().navigate(AppScreen.Studio(project.id))
+            waitForRoute(AppScreen.Studio(project.id))
+            waitForStudioProject(project.id)
+            composeRule.waitForIdle()
 
-            val persisted = waitForPersistedProject(repository, projectName)
-            assertNotNull("Practice test project must be persisted", persisted)
-            projectId = persisted!!.id
-            waitForRoute(AppScreen.Studio(projectId))
-            waitForStudioProject(projectId)
-
+            assertEquals(RecordingSessionPhase.IDLE, studio().state.value.recordingSession.phase)
             composeRule.onNodeWithText("Auto Seções").assertIsEnabled()
             composeRule.onNodeWithText("Criar seção do loop").assertIsNotEnabled()
 
@@ -64,9 +61,8 @@ class PracticeWorkflowInstrumentedTest {
 
             composeRule.onNodeWithTag("transport-record").performClick()
 
-            // AlertDialog is hosted in a separate Android window. Avoid viewport-based
-            // assertions here; validate the dialog contract through semantic presence and
-            // enabled actions. Target-tablet geometry is covered separately.
+            // AlertDialog is hosted in a separate Android window. Validate its semantic contract;
+            // target-tablet geometry is covered independently by TargetTabletGeometryInstrumentedTest.
             waitUntilExists("Gravar com o loop ativo")
             waitUntilEnabled("Somente o loop")
             waitUntilEnabled("Desde o início")
@@ -75,9 +71,10 @@ class PracticeWorkflowInstrumentedTest {
 
             composeRule.waitForIdle()
             assertTrue("Cancel must preserve the active loop", studio().state.value.transport.loopEnabled)
+            assertEquals(RecordingSessionPhase.IDLE, studio().state.value.recordingSession.phase)
             composeRule.onNodeWithTag("transport-record").assertIsEnabled()
         } finally {
-            projectId?.let { runCatching { repository.delete(it) } }
+            runCatching { repository.delete(project.id) }
         }
     }
 
@@ -125,14 +122,6 @@ class PracticeWorkflowInstrumentedTest {
         composeRule.waitUntil(timeoutMillis = UI_TIMEOUT_MS) {
             studio().state.value.project?.id == projectId && !studio().state.value.loading
         }
-    }
-
-    private fun waitForPersistedProject(repository: FileProjectRepository, name: String): GuitarProject? {
-        var persisted: GuitarProject? = null
-        composeRule.waitUntil(timeoutMillis = UI_TIMEOUT_MS) {
-            repository.list().singleOrNull { it.name == name }?.also { persisted = it } != null
-        }
-        return persisted
     }
 
     private companion object {
