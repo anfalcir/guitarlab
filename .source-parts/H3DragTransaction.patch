@@ -1,0 +1,256 @@
+diff --git a/app/src/main/java/studio/guitarlab/app/ui/StudioPlaceholderScreen.kt b/app/src/main/java/studio/guitarlab/app/ui/StudioPlaceholderScreen.kt
+index f841e0a..94ae1bf 100644
+--- a/app/src/main/java/studio/guitarlab/app/ui/StudioPlaceholderScreen.kt
++++ b/app/src/main/java/studio/guitarlab/app/ui/StudioPlaceholderScreen.kt
+@@ -118,6 +118,9 @@ import studio.guitarlab.core.project.TrackRoleAssignmentPolicy
+ private val TrackSidebarWidth = 224.dp
+ private val TrackLaneGap = 6.dp
+ private val TrackLaneHeight = 96.dp
++private val ClipTrashWidth = 168.dp
++private val ClipTrashHeight = 68.dp
++private val ClipTrashMargin = 16.dp
+ 
+ enum class WorkspaceDragKind { TRACK, CLIP }
+ 
+@@ -135,6 +138,7 @@ private data class WorkspaceDragState(
+     val peaks: List<Float>? = null,
+     val targetIndex: Int? = null,
+     val targetTrackId: String? = null,
++    val deleteTargetHovered: Boolean = false,
+     val visibleLanes: List<TimelineDragPolicy.LaneBounds> = emptyList(),
+ )
+ 
+@@ -618,6 +622,20 @@ private fun ProjectWorkspace(
+                         )
+                     }
+ 
++                fun clipDeleteBounds(): TimelineDragPolicy.DropBounds {
++                    val trashWidthPx = with(density) { ClipTrashWidth.toPx() }
++                    val trashHeightPx = with(density) { ClipTrashHeight.toPx() }
++                    val marginPx = with(density) { ClipTrashMargin.toPx() }
++                    val right = (workspaceGeometry.size.width.toFloat() - marginPx).coerceAtLeast(0f)
++                    val bottom = (workspaceGeometry.size.height.toFloat() - marginPx).coerceAtLeast(0f)
++                    return TimelineDragPolicy.DropBounds(
++                        leftPx = (right - trashWidthPx).coerceAtLeast(0f),
++                        topPx = (bottom - trashHeightPx).coerceAtLeast(0f),
++                        rightPx = right,
++                        bottomPx = bottom,
++                    )
++                }
++
+                 fun retarget(state: WorkspaceDragState): WorkspaceDragState {
+                     val lanes = visibleLanes()
+                     return when (state.kind) {
+@@ -631,11 +649,22 @@ private fun ProjectWorkspace(
+                             targetTrackId = null,
+                             visibleLanes = lanes,
+                         )
+-                        WorkspaceDragKind.CLIP -> state.copy(
+-                            targetTrackId = TimelineDragPolicy.clipTargetTrackId(state.pointer.y, lanes),
+-                            targetIndex = null,
+-                            visibleLanes = lanes,
+-                        )
++                        WorkspaceDragKind.CLIP -> {
++                            val targetTrackId = TimelineDragPolicy.clipTargetTrackId(state.pointer.y, lanes)
++                            val intent = TimelineDragPolicy.clipDropIntent(
++                                sourceTrackId = state.sourceTrackId,
++                                targetTrackId = targetTrackId,
++                                pointerXPx = state.pointer.x,
++                                pointerYPx = state.pointer.y,
++                                deleteBounds = clipDeleteBounds(),
++                            )
++                            state.copy(
++                                targetTrackId = targetTrackId,
++                                targetIndex = null,
++                                deleteTargetHovered = intent == TimelineDragPolicy.ClipDropIntent.Delete,
++                                visibleLanes = lanes,
++                            )
++                        }
+                     }
+                 }
+ 
+@@ -694,9 +723,16 @@ private fun ProjectWorkspace(
+                             if (target != current.sourceIndex) onReorderTrack(current.itemId, target)
+                         }
+                         WorkspaceDragKind.CLIP -> {
+-                            val targetTrackId = current.targetTrackId
+-                            if (targetTrackId != null && targetTrackId != current.sourceTrackId) {
+-                                onMoveClipToTrack(current.itemId, targetTrackId)
++                            when (val intent = TimelineDragPolicy.clipDropIntent(
++                                sourceTrackId = current.sourceTrackId,
++                                targetTrackId = current.targetTrackId,
++                                pointerXPx = current.pointer.x,
++                                pointerYPx = current.pointer.y,
++                                deleteBounds = clipDeleteBounds(),
++                            )) {
++                                TimelineDragPolicy.ClipDropIntent.Delete -> pendingDeleteClipId = current.itemId
++                                is TimelineDragPolicy.ClipDropIntent.Move -> onMoveClipToTrack(current.itemId, intent.targetTrackId)
++                                TimelineDragPolicy.ClipDropIntent.NoOp -> Unit
+                             }
+                         }
+                     }
+@@ -705,15 +741,19 @@ private fun ProjectWorkspace(
+                 LaunchedEffect(dragState?.kind, dragState?.itemId) {
+                     while (dragState != null) {
+                         val current = dragState ?: break
+-                        val auto = TimelineDragPolicy.autoScroll(
+-                            pointerYPx = current.pointer.y,
+-                            viewportTopPx = 0f,
+-                            viewportBottomPx = workspaceGeometry.size.height.toFloat(),
+-                            edgeZonePx = edgeZonePx,
+-                            maxStepPx = maxScrollStepPx,
+-                            canScrollBackward = trackListState.canScrollBackward,
+-                            canScrollForward = trackListState.canScrollForward,
+-                        )
++                        val auto = if (current.kind == WorkspaceDragKind.CLIP && current.deleteTargetHovered) {
++                            TimelineDragPolicy.AutoScroll(TimelineDragPolicy.EdgeDirection.NONE, 0f)
++                        } else {
++                            TimelineDragPolicy.autoScroll(
++                                pointerYPx = current.pointer.y,
++                                viewportTopPx = 0f,
++                                viewportBottomPx = workspaceGeometry.size.height.toFloat(),
++                                edgeZonePx = edgeZonePx,
++                                maxStepPx = maxScrollStepPx,
++                                canScrollBackward = trackListState.canScrollBackward,
++                                canScrollForward = trackListState.canScrollForward,
++                            )
++                        }
+                         if (auto.deltaPx != 0f) {
+                             trackListState.scrollBy(auto.deltaPx)
+                             dragState?.let { dragState = retarget(it) }
+@@ -921,6 +961,36 @@ private fun DragOverlay(
+     val orderedIds = orderedTracks.map { it.id }
+ 
+     Box(modifier = modifier) {
++        if (drag.kind == WorkspaceDragKind.CLIP) {
++            Surface(
++                modifier = Modifier
++                    .align(Alignment.BottomEnd)
++                    .padding(ClipTrashMargin)
++                    .size(width = ClipTrashWidth, height = ClipTrashHeight)
++                    .testTag("clip-trash-target"),
++                shape = RoundedCornerShape(12.dp),
++                color = if (drag.deleteTargetHovered) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
++                border = BorderStroke(
++                    2.dp,
++                    if (drag.deleteTargetHovered) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline.copy(alpha = 0.65f),
++                ),
++                tonalElevation = 12.dp,
++            ) {
++                Row(
++                    Modifier.fillMaxSize().padding(horizontal = 14.dp),
++                    verticalAlignment = Alignment.CenterVertically,
++                    horizontalArrangement = Arrangement.spacedBy(8.dp),
++                ) {
++                    Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error)
++                    Text(
++                        if (drag.deleteTargetHovered) "Solte para excluir" else "Arraste aqui para excluir",
++                        style = MaterialTheme.typography.labelLarge,
++                        color = if (drag.deleteTargetHovered) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSurface,
++                    )
++                }
++            }
++        }
++
+         if (drag.kind == WorkspaceDragKind.TRACK) {
+             val indicatorY = drag.targetIndex?.let {
+                 TimelineDragPolicy.insertionIndicatorYPx(it, visibleLanes, orderedIds)
+@@ -948,7 +1018,7 @@ private fun DragOverlay(
+                     )
+                 }
+             }
+-        } else {
++        } else if (!drag.deleteTargetHovered) {
+             val targetBounds = visibleLanes.firstOrNull { it.trackId == drag.targetTrackId }
+             if (targetBounds != null) {
+                 Box(
+diff --git a/app/src/main/java/studio/guitarlab/app/ui/StudioViewModel.kt b/app/src/main/java/studio/guitarlab/app/ui/StudioViewModel.kt
+index 3fb7186..32a925f 100644
+--- a/app/src/main/java/studio/guitarlab/app/ui/StudioViewModel.kt
++++ b/app/src/main/java/studio/guitarlab/app/ui/StudioViewModel.kt
+@@ -1038,7 +1038,13 @@ class StudioViewModel(application: Application) : AndroidViewModel(application)
+         val current = _state.value.project ?: return
+         val clip = current.clips.firstOrNull { it.id == clipId } ?: return
+         if (clip.trackId == targetTrackId) return
++        val expectedSourceTrackId = clip.trackId
+         editClip("Clipe movido para outra pista") { latest ->
++            val latestClip = latest.clips.firstOrNull { it.id == clipId }
++                ?: error("O clipe não existe mais; o movimento foi cancelado com segurança.")
++            require(latestClip.trackId == expectedSourceTrackId) {
++                "O clipe mudou de pista durante o arraste; tente novamente."
++            }
+             ProjectClipEditor.moveClipToTrack(latest, clipId, targetTrackId, System.currentTimeMillis())
+         }
+     }
+diff --git a/core/project/src/main/kotlin/studio/guitarlab/core/project/TimelineDragPolicy.kt b/core/project/src/main/kotlin/studio/guitarlab/core/project/TimelineDragPolicy.kt
+index 362d35e..6ea9190 100644
+--- a/core/project/src/main/kotlin/studio/guitarlab/core/project/TimelineDragPolicy.kt
++++ b/core/project/src/main/kotlin/studio/guitarlab/core/project/TimelineDragPolicy.kt
+@@ -21,6 +21,38 @@ object TimelineDragPolicy {
+ 
+     enum class EdgeDirection { NONE, UP, DOWN }
+ 
++    data class DropBounds(
++        val leftPx: Float,
++        val topPx: Float,
++        val rightPx: Float,
++        val bottomPx: Float,
++    ) {
++        init {
++            require(rightPx >= leftPx) { "drop right must be >= left" }
++            require(bottomPx >= topPx) { "drop bottom must be >= top" }
++        }
++
++        fun contains(xPx: Float, yPx: Float): Boolean = xPx in leftPx..rightPx && yPx in topPx..bottomPx
++    }
++
++    sealed interface ClipDropIntent {
++        data object NoOp : ClipDropIntent
++        data class Move(val targetTrackId: String) : ClipDropIntent
++        data object Delete : ClipDropIntent
++    }
++
++    fun clipDropIntent(
++        sourceTrackId: String,
++        targetTrackId: String?,
++        pointerXPx: Float,
++        pointerYPx: Float,
++        deleteBounds: DropBounds?,
++    ): ClipDropIntent {
++        if (deleteBounds?.contains(pointerXPx, pointerYPx) == true) return ClipDropIntent.Delete
++        if (targetTrackId == null || targetTrackId == sourceTrackId) return ClipDropIntent.NoOp
++        return ClipDropIntent.Move(targetTrackId)
++    }
++
+     data class AutoScroll(
+         val direction: EdgeDirection,
+         /** Signed pixels per frame/tick. Negative = up, positive = down. */
+diff --git a/core/project/src/test/kotlin/studio/guitarlab/core/project/TimelineDragPolicyTest.kt b/core/project/src/test/kotlin/studio/guitarlab/core/project/TimelineDragPolicyTest.kt
+index 4efc247..c3196d8 100644
+--- a/core/project/src/test/kotlin/studio/guitarlab/core/project/TimelineDragPolicyTest.kt
++++ b/core/project/src/test/kotlin/studio/guitarlab/core/project/TimelineDragPolicyTest.kt
+@@ -57,4 +57,24 @@ class TimelineDragPolicyTest {
+         assertEquals(100f, TimelineDragPolicy.insertionIndicatorYPx(0, partial, ids))
+         assertEquals(290f, TimelineDragPolicy.insertionIndicatorYPx(3, partial, ids))
+     }
++    @Test fun `clip drop intent gives delete precedence and never invents a move`() {
++        val trash = TimelineDragPolicy.DropBounds(300f, 300f, 400f, 390f)
++        assertEquals(
++            TimelineDragPolicy.ClipDropIntent.Delete,
++            TimelineDragPolicy.clipDropIntent("a", "d", 350f, 340f, trash),
++        )
++        assertEquals(
++            TimelineDragPolicy.ClipDropIntent.Move("c"),
++            TimelineDragPolicy.clipDropIntent("a", "c", 250f, 250f, trash),
++        )
++        assertEquals(
++            TimelineDragPolicy.ClipDropIntent.NoOp,
++            TimelineDragPolicy.clipDropIntent("a", "a", 50f, 40f, trash),
++        )
++        assertEquals(
++            TimelineDragPolicy.ClipDropIntent.NoOp,
++            TimelineDragPolicy.clipDropIntent("a", null, 50f, 40f, trash),
++        )
++    }
++
+ }
