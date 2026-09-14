@@ -1,5 +1,6 @@
 package studio.guitarlab.app.ui
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.Orientation
@@ -8,8 +9,6 @@ import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
@@ -27,18 +26,21 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import kotlin.math.roundToInt
 import kotlin.math.roundToLong
 import studio.guitarlab.app.ui.theme.StudioLoop
 import studio.guitarlab.app.ui.theme.StudioPlayhead
 import studio.guitarlab.app.ui.theme.StudioRecord
 import studio.guitarlab.app.ui.theme.StudioTrim
-import studio.guitarlab.core.project.TimelineControlPolicy
-import studio.guitarlab.core.model.PunchRegion
 import studio.guitarlab.core.model.TimelineMarker as ProjectTimelineMarker
 import studio.guitarlab.core.model.TimelineSection
+import studio.guitarlab.core.project.PracticeWorkflowEditor
+import studio.guitarlab.core.project.SectionBoundarySuggestion
+import studio.guitarlab.core.project.TimelineControlPolicy
 
 enum class TimelineMarkerKind {
     PLAYHEAD,
@@ -58,8 +60,8 @@ fun TimelineMarkerRail(
     loopEndFrame: Long,
     showLoopMarkers: Boolean,
     sections: List<TimelineSection>,
+    sectionSuggestions: List<SectionBoundarySuggestion>,
     markers: List<ProjectTimelineMarker>,
-    punchRegion: PunchRegion?,
     enabled: Boolean,
     onPlayheadFrameChanged: (Long) -> Unit,
     onLoopStartFrameChanged: (Long) -> Unit,
@@ -76,8 +78,8 @@ fun TimelineMarkerRail(
         val widthPx = with(density) { maxWidth.toPx() }.coerceAtLeast(1f)
         TimelineAnnotations(
             sections = sections,
+            sectionSuggestions = sectionSuggestions,
             markers = markers,
-            punchRegion = punchRegion,
             projectEndFrame = projectEndFrame,
             widthPx = widthPx,
             onSectionClick = onSectionClick,
@@ -85,18 +87,45 @@ fun TimelineMarkerRail(
             onMarkerRemove = onMarkerRemove,
         )
         if (showLoopMarkers) {
-            TimelineMarker(TimelineMarkerKind.LOOP_START, loopStartFrame, projectEndFrame, sampleRateHz, widthPx, enabled, onLoopStartFrameChanged)
-            TimelineMarker(TimelineMarkerKind.LOOP_END, loopEndFrame, projectEndFrame, sampleRateHz, widthPx, enabled, onLoopEndFrameChanged)
+            TimelineMarker(
+                TimelineMarkerKind.LOOP_START,
+                loopStartFrame,
+                projectEndFrame,
+                sampleRateHz,
+                widthPx,
+                enabled,
+                onLoopStartFrameChanged,
+                modifier = Modifier.zIndex(3f),
+            )
+            TimelineMarker(
+                TimelineMarkerKind.LOOP_END,
+                loopEndFrame,
+                projectEndFrame,
+                sampleRateHz,
+                widthPx,
+                enabled,
+                onLoopEndFrameChanged,
+                modifier = Modifier.zIndex(3f),
+            )
         }
-        TimelineMarker(TimelineMarkerKind.PLAYHEAD, playheadFrame, projectEndFrame, sampleRateHz, widthPx, enabled, onPlayheadFrameChanged)
+        TimelineMarker(
+            TimelineMarkerKind.PLAYHEAD,
+            playheadFrame,
+            projectEndFrame,
+            sampleRateHz,
+            widthPx,
+            enabled,
+            onPlayheadFrameChanged,
+            modifier = Modifier.zIndex(4f),
+        )
     }
 }
 
 @Composable
 private fun TimelineAnnotations(
     sections: List<TimelineSection>,
+    sectionSuggestions: List<SectionBoundarySuggestion>,
     markers: List<ProjectTimelineMarker>,
-    punchRegion: PunchRegion?,
     projectEndFrame: Long,
     widthPx: Float,
     onSectionClick: (String) -> Unit,
@@ -105,47 +134,81 @@ private fun TimelineAnnotations(
 ) {
     val density = LocalDensity.current
     val sectionColor = MaterialTheme.colorScheme.primary
+    val previewColor = MaterialTheme.colorScheme.secondary
     val markerColor = MaterialTheme.colorScheme.tertiary
-    sections.forEach { section ->
-        val start = TimelineControlPolicy.frameToFraction(section.startFrame, projectEndFrame) * widthPx
-        val end = TimelineControlPolicy.frameToFraction(section.endFrame, projectEndFrame) * widthPx
-        val width = (end - start).coerceAtLeast(with(density) { 34.dp.toPx() })
-        Surface(
-            modifier = Modifier
-                .offset { IntOffset(start.roundToInt(), with(density) { 2.dp.roundToPx() }) }
-                .width(with(density) { width.toDp() })
-                .height(24.dp),
-            shape = RoundedCornerShape(5.dp),
-            color = sectionColor.copy(alpha = 0.16f),
-            border = androidx.compose.foundation.BorderStroke(1.dp, sectionColor.copy(alpha = 0.48f)),
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+
+    if (sectionSuggestions.isNotEmpty()) {
+        PracticeWorkflowEditor.previewSuggestedSections(sectionSuggestions, projectEndFrame.coerceAtLeast(1L)).forEach { preview ->
+            val start = TimelineControlPolicy.frameToFraction(preview.startFrame, projectEndFrame) * widthPx
+            val end = TimelineControlPolicy.frameToFraction(preview.endFrame, projectEndFrame) * widthPx
+            val width = (end - start).coerceAtLeast(with(density) { 34.dp.toPx() })
+            Surface(
+                modifier = Modifier
+                    .offset { IntOffset(start.roundToInt(), with(density) { 2.dp.roundToPx() }) }
+                    .width(with(density) { width.toDp() })
+                    .height(24.dp)
+                    .zIndex(1f),
+                shape = RoundedCornerShape(5.dp),
+                color = previewColor.copy(alpha = 0.13f),
+                border = BorderStroke(1.dp, previewColor.copy(alpha = 0.60f)),
+            ) {
                 Text(
-                    text = section.name,
-                    modifier = Modifier.weight(1f).clickable { onSectionClick(section.id) }.padding(start = 5.dp, top = 3.dp, bottom = 3.dp),
+                    text = "Prévia · ${preview.name}",
+                    modifier = Modifier.padding(horizontal = 18.dp, vertical = 3.dp),
                     style = MaterialTheme.typography.labelSmall,
-                    color = sectionColor,
+                    color = previewColor,
+                    textAlign = TextAlign.Center,
                     maxLines = 1,
                 )
-                Text("×", modifier = Modifier.clickable { onSectionRemove(section.id) }.padding(horizontal = 5.dp, vertical = 3.dp), style = MaterialTheme.typography.labelSmall, color = sectionColor)
+            }
+        }
+    } else {
+        sections.forEach { section ->
+            val start = TimelineControlPolicy.frameToFraction(section.startFrame, projectEndFrame) * widthPx
+            val end = TimelineControlPolicy.frameToFraction(section.endFrame, projectEndFrame) * widthPx
+            val width = (end - start).coerceAtLeast(with(density) { 34.dp.toPx() })
+            Surface(
+                modifier = Modifier
+                    .offset { IntOffset(start.roundToInt(), with(density) { 2.dp.roundToPx() }) }
+                    .width(with(density) { width.toDp() })
+                    .height(24.dp)
+                    .zIndex(1f),
+                shape = RoundedCornerShape(5.dp),
+                color = sectionColor.copy(alpha = 0.16f),
+                border = BorderStroke(1.dp, sectionColor.copy(alpha = 0.48f)),
+            ) {
+                Box {
+                    Text(
+                        text = section.name,
+                        modifier = Modifier
+                            .matchParentSize()
+                            .clickable { onSectionClick(section.id) }
+                            .padding(horizontal = 22.dp, vertical = 3.dp),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = sectionColor,
+                        textAlign = TextAlign.Center,
+                        maxLines = 1,
+                    )
+                    Text(
+                        "×",
+                        modifier = Modifier
+                            .align(Alignment.CenterEnd)
+                            .clickable { onSectionRemove(section.id) }
+                            .padding(horizontal = 6.dp, vertical = 3.dp),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = sectionColor,
+                    )
+                }
             }
         }
     }
-    punchRegion?.let { punch ->
-        val start = TimelineControlPolicy.frameToFraction(punch.startFrame, projectEndFrame) * widthPx
-        val end = TimelineControlPolicy.frameToFraction(punch.endFrame, projectEndFrame) * widthPx
-        Box(
-            Modifier
-                .offset { IntOffset(start.roundToInt(), with(density) { 27.dp.roundToPx() }) }
-                .width(with(density) { (end - start).coerceAtLeast(1f).toDp() })
-                .height(3.dp)
-                .alpha(0.72f),
-        ) { Canvas(Modifier.fillMaxHeight().width(with(density) { (end - start).coerceAtLeast(1f).toDp() })) { drawRect(StudioRecord) } }
-    }
+
     markers.forEach { marker ->
         val x = TimelineControlPolicy.frameToFraction(marker.frame, projectEndFrame) * widthPx
         Column(
-            modifier = Modifier.offset { IntOffset((x - with(density) { 5.dp.toPx() }).roundToInt(), with(density) { 25.dp.roundToPx() }) },
+            modifier = Modifier
+                .offset { IntOffset((x - with(density) { 5.dp.toPx() }).roundToInt(), with(density) { 25.dp.roundToPx() }) }
+                .zIndex(2f),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Canvas(Modifier.size(10.dp, 7.dp)) {
@@ -166,6 +229,7 @@ private fun TimelineMarker(
     widthPx: Float,
     enabled: Boolean,
     onFrameChanged: (Long) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val fraction = TimelineControlPolicy.frameToFraction(frame, projectEndFrame)
     val markerWidth = 86.dp
@@ -181,7 +245,7 @@ private fun TimelineMarker(
     val label = markerLabel(kind)
 
     Box(
-        modifier = Modifier.offset { IntOffset(x.roundToInt(), markerTopPx) }.width(markerWidth).height(32.dp),
+        modifier = modifier.offset { IntOffset(x.roundToInt(), markerTopPx) }.width(markerWidth).height(32.dp),
         contentAlignment = Alignment.TopCenter,
     ) {
         Box(
