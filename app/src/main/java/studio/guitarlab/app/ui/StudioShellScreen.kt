@@ -19,6 +19,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Archive
 import androidx.compose.material.icons.filled.Equalizer
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.AlertDialog
@@ -70,6 +71,7 @@ fun StudioShellScreen(
     var mixerVisible by rememberSaveable(projectId) { mutableStateOf(uiPreferences.mixerPinned()) }
     var selectedTrackId by rememberSaveable(projectId) { mutableStateOf<String?>(null) }
     var exportDialogVisible by rememberSaveable(projectId) { mutableStateOf(false) }
+    var helpDialogVisible by rememberSaveable(projectId) { mutableStateOf(false) }
     var recordChoiceVisible by rememberSaveable(projectId) { mutableStateOf(false) }
     var pendingRecordMode by remember(projectId) { mutableStateOf(PracticeRecordingMode.CURRENT_PLAYHEAD) }
     val snackbarHostState = remember { SnackbarHostState() }
@@ -168,6 +170,7 @@ fun StudioShellScreen(
                     )
                 },
                 onMixer = { mixerVisible = true },
+                onHelp = { helpDialogVisible = true },
                 onOptions = onOptions,
                 onShare = { exportDialogVisible = true },
                 onHome = onBack,
@@ -259,6 +262,10 @@ fun StudioShellScreen(
         )
     }
 
+    if (helpDialogVisible) {
+        StudioUserGuideDialog(onDismiss = { helpDialogVisible = false })
+    }
+
     if (exportDialogVisible && state.project != null) {
         SaveAndExportDialog(
             projectName = state.project!!.name,
@@ -289,6 +296,7 @@ private fun StudioTopBar(
     project: GuitarProject?,
     transport: @Composable () -> Unit,
     onMixer: () -> Unit,
+    onHelp: () -> Unit,
     onOptions: () -> Unit,
     onShare: () -> Unit,
     onHome: () -> Unit,
@@ -320,6 +328,7 @@ private fun StudioTopBar(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 AppIconButton(icon = Icons.Default.Equalizer, contentDescription = "Mixer", onClick = onMixer)
+                AppIconButton(icon = Icons.Default.Info, contentDescription = "Ajuda", onClick = onHelp, modifier = Modifier.testTag("studio-help"))
                 AppIconButton(icon = Icons.Default.Tune, contentDescription = "Opções", onClick = onOptions, modifier = Modifier.testTag("studio-options"))
                 AppIconButton(
                     icon = Icons.Default.Share,
