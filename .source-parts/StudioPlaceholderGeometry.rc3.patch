@@ -1,0 +1,64 @@
+--- a/app/src/main/java/studio/guitarlab/app/ui/StudioPlaceholderScreen.kt
++++ b/app/src/main/java/studio/guitarlab/app/ui/StudioPlaceholderScreen.kt
+@@ -66 +65,0 @@
+-import androidx.compose.runtime.rememberUpdatedState
+@@ -138,0 +138,12 @@
++/**
++ * Ephemeral layout measurements used only by drag gestures.
++ *
++ * These values deliberately are not Compose snapshot state. Updating geometry from
++ * onGloballyPositioned must not invalidate composition, otherwise measurement can create
++ * a layout -> state write -> recomposition feedback loop and keep Compose permanently busy.
++ */
++private class DragLayoutGeometry(
++    var origin: Offset = Offset.Zero,
++    var size: IntSize = IntSize.Zero,
++)
++
+@@ -516,2 +527 @@
+-                var workspaceWindowOrigin by remember { mutableStateOf(Offset.Zero) }
+-                var workspaceSize by remember { mutableStateOf(IntSize.Zero) }
++                val workspaceGeometry = remember { DragLayoutGeometry() }
+@@ -554 +564 @@
+-                    val origin = itemOriginWindow - workspaceWindowOrigin
++                    val origin = itemOriginWindow - workspaceGeometry.origin
+@@ -573 +583 @@
+-                    val origin = itemOriginWindow - workspaceWindowOrigin
++                    val origin = itemOriginWindow - workspaceGeometry.origin
+@@ -621 +631 @@
+-                            viewportBottomPx = workspaceSize.height.toFloat(),
++                            viewportBottomPx = workspaceGeometry.size.height.toFloat(),
+@@ -640,2 +650,2 @@
+-                            workspaceWindowOrigin = coordinates.positionInWindow()
+-                            workspaceSize = coordinates.size
++                            workspaceGeometry.origin = coordinates.positionInWindow()
++                            workspaceGeometry.size = coordinates.size
+@@ -1026,2 +1036 @@
+-    var trackOrigin by remember(track.id) { mutableStateOf(Offset.Zero) }
+-    var trackMeasuredSize by remember(track.id) { mutableStateOf(IntSize.Zero) }
++    val trackGeometry = remember(track.id) { DragLayoutGeometry() }
+@@ -1029,2 +1037,0 @@
+-    val currentTrackOrigin by rememberUpdatedState(trackOrigin)
+-    val currentTrackSize by rememberUpdatedState(trackMeasuredSize)
+@@ -1049,2 +1056,2 @@
+-                    trackOrigin = coordinates.positionInWindow()
+-                    trackMeasuredSize = coordinates.size
++                    trackGeometry.origin = coordinates.positionInWindow()
++                    trackGeometry.size = coordinates.size
+@@ -1054 +1061 @@
+-                        onDragStart = { touch -> onStartTrackDrag(currentTrackOrigin, touch, currentTrackSize) },
++                        onDragStart = { touch -> onStartTrackDrag(trackGeometry.origin, touch, trackGeometry.size) },
+@@ -1253,4 +1260 @@
+-    var clipOrigin by remember(clip.id) { mutableStateOf(Offset.Zero) }
+-    var clipMeasuredSize by remember(clip.id) { mutableStateOf(IntSize.Zero) }
+-    val currentClipOrigin by rememberUpdatedState(clipOrigin)
+-    val currentClipSize by rememberUpdatedState(clipMeasuredSize)
++    val clipGeometry = remember(clip.id) { DragLayoutGeometry() }
+@@ -1262,2 +1266,2 @@
+-                clipOrigin = coordinates.positionInWindow()
+-                clipMeasuredSize = coordinates.size
++                clipGeometry.origin = coordinates.positionInWindow()
++                clipGeometry.size = coordinates.size
+@@ -1267 +1271 @@
+-                    onDragStart = { touch -> onStartDrag(currentClipOrigin, touch, currentClipSize) },
++                    onDragStart = { touch -> onStartDrag(clipGeometry.origin, touch, clipGeometry.size) },
