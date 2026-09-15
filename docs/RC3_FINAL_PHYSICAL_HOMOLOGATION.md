@@ -4,16 +4,21 @@ Updated: 2026-09-15
 
 This checklist is intentionally residual. Do not repeat deterministic checks already covered by CI.
 
-## Candidate rule
-CI #625 is the last signed DIGITAL PASS through H16, but **do not use its APK as final evidence for H17**. H17 changes product/UI source. Run this checklist only on the next signed APK after the exact-source H17 manual CI passes.
-
-Expected constants remain:
+## Canonical physical candidate
+Use only the exact signed APK from CI #626:
+- run ID `35017084625`;
+- source SHA `f187ab2ba7596c4aa04d223f007409b2fb39f490`;
 - versionName `0.5.0-rc3`;
 - versionCode `23`;
 - package `studio.guitarlab.app`;
+- unsigned APK SHA-256 `28578bab8b76a611aa1b0cd92f8aa0b428826526779e1757ab45b5b34ce254b9`;
+- signed APK SHA-256 `93a7ed1ebfdedf7421cf21183db84a529d2d095c9564caafc87952506cb5426b`;
 - signer SHA-256 `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`;
-- target Samsung SM-X230 + M-VAVE MK-300 over USB;
+- signed artifact ID `10415074932`;
+- target: Samsung SM-X230 + M-VAVE MK-300 over USB;
 - MK-300 hardware loopback disabled.
+
+CI #626 already passed software/Lint/build/provenance, API36 **22/22**, isolated 1920×1200 geometry **1/1** and signed homologation. The checks below cover only facts CI cannot establish.
 
 ## A. H17 practice bar
 - Open the Mixer and inspect **Comparação | Ajustes | Timeline**.
@@ -62,9 +67,10 @@ PASS: no visible double-load/flicker and Undo remains available.
 - Trim Apply → Undo → Redo → save/reopen.
 
 ## Final PASS criteria
-- exact-source H17 workflow fully green with signed homologation;
-- package/version/source/checksum/signer verified;
+- use only the exact #626 signed APK identified above;
 - no repeatable P0/P1 in A–G;
 - no unintended input fallback/backing leakage;
 - no repeatable systematic guitar-vs-backing late placement;
-- explicit user approval of that exact signed APK.
+- explicit user approval of this exact signed APK.
+
+If A–G pass, M7 physical closure and the RC3 release decision may be finalized without another digital CI run, provided no source/product code changes are introduced afterward.

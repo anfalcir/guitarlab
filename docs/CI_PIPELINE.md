@@ -26,23 +26,43 @@ Final source tail:
 - `.source-parts/H16FinalUiTrimOverlay.patch.gz`
 - `.source-parts/H17CutRulerPracticeSpacing.patch`
 
-## Last signed authority — CI #625
-CI #625 / run `35010012582` / source `476fa740408130adf6a4e9665d166e724a9184dd` is the authoritative signed DIGITAL PASS through H16:
-- software/performance/Lint/build/provenance: PASS;
-- API36: **22/22 PASS**;
-- isolated 1920×1200 geometry: PASS;
+## Canonical evidence — CI #626
+CI #626 / run `35017084625` / source `f187ab2ba7596c4aa04d223f007409b2fb39f490` is the authoritative signed DIGITAL PASS through H17.
+
+Evidence:
+- materialization through H17: PASS;
+- complete software/performance/Lint/build/provenance: PASS;
+- API36 connected regression: **22/22 PASS**;
+- isolated 1920×1200 target-tablet geometry: **1/1 PASS**;
 - signed homologation: PASS;
-- signed APK SHA-256: `107795f040ed18246bb130a9519044ba7e07f334a5835566b952cbc7fdb528e6`.
+- unsigned APK SHA-256: `28578bab8b76a611aa1b0cd92f8aa0b428826526779e1757ab45b5b34ce254b9`;
+- signed APK SHA-256: `93a7ed1ebfdedf7421cf21183db84a529d2d095c9564caafc87952506cb5426b`;
+- certificate SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`;
+- signed artifact ID: `10415074932`;
+- Android integration artifact ID: `10416645621`.
 
-## H17 pre-gate
-H17 is newer than #625 and therefore requires a new manual gate. Its patch is appended strictly after H16 and changes only:
-- final Studio practice/CUT presentation;
-- the synchronized user guide wording;
-- the two focused instrumentation regressions.
+H17-specific connected evidence includes:
+- centered Ajustes/Níveis practice-bar regression: PASS;
+- Níveis fully contained inside Ajustes: PASS;
+- visible T1/T2 time labels absent: PASS;
+- CUT ticks constrained to the time-ruler bounds with exact X projection: PASS.
 
-H17 patch SHA-256: `38b3f494cf528fcc9fc818e6ef38ed0647389e106ec1bcc821e00ee2e65278dc`.
+CI #625 remains useful historical evidence for H16 but is superseded by #626 as the active digitally homologated candidate.
 
-Source validation against the exact #625 post-H16 materialized snapshot: forward/reverse patch checks, `git apply --check`, `git diff --check`, Kotlin parser scan and materializer `bash -n` all PASS.
+## Artifact identity discipline
+The signed job checks out the exact workflow SHA, downloads the exact tested unsigned candidate, verifies its source/package/version/checksum, then signs without rebuilding.
+
+For #626, `BUILD_IDENTITY.txt` records:
+- `commit=f187ab2ba7596c4aa04d223f007409b2fb39f490`
+- `package=studio.guitarlab.app`
+- `versionName=0.5.0-rc3`
+- `versionCode=23`
+- `unsignedApkSha256=28578bab8b76a611aa1b0cd92f8aa0b428826526779e1757ab45b5b34ce254b9`
+- `signedApkSha256=93a7ed1ebfdedf7421cf21183db84a529d2d095c9564caafc87952506cb5426b`
+- `gate=software+android-integration-passed;physical-validation-pending`
+- `certificateSha256=4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`
 
 ## Next execution rule
-The next workflow must be manually dispatched by the user on the exact then-current `main` with signed homologation enabled. All three authority layers must pass before H17 can be promoted to DIGITAL PASS.
+No further CI run is needed unless product/source code changes.
+
+Documentation-only promotion commits use `[skip ci]` and must never be confused with the exact source SHA that produced the signed candidate.
