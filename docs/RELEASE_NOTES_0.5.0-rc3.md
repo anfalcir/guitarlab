@@ -4,42 +4,46 @@ Updated: 2026-09-15
 
 RC3 consolidates the final practice, transport, editing, recording and release-hardening work.
 
-## Digitally established through H10
-CI #617 / run ID `34918430241` digitally homologated H0–H10 against source `abc0e2a9f8708dd141735915898b508ce0948f48`. Signed APK SHA-256: `7f0c303ccc447c5455dfbd49e1bc022af482927582254eb826c9b29f3a84c6b6`.
+## Digitally established through H11
+CI #620 / run ID `34924500870` digitally homologated H0–H11 against exact source `faaeb0ee4f9e52fbdcf369d097fa773e96d104a7`.
 
-Established behavior includes loop-aware Play/seek, Auto seções preview, REC countdown, shared guide, independent trim handles, safe split/take lineage, clip deletion/drag-to-trash, measured recording startup synchronization, level-analysis convergence, Stop-during-REC, history/race hardening and stable long live waveform bucketing.
+Canonical #620 identity:
+- signed APK SHA-256 `acbe61b006aa4abe8b3063faf35b4a9569ed55aaf7f1a2ca3e1726c927855b3c`;
+- package `studio.guitarlab.app`;
+- version `0.5.0-rc3` / code `23`;
+- certificate SHA-256 `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
 
-## Physical Review III — H11
-After the #617 physical pass, the remaining requested refinements were consolidated into one bounded interaction/metering delta.
+Established behavior through H11 includes loop-aware transport, Auto seções preview, REC countdown, independent Trim handles, safe split/take lineage, deletion/drag hardening, recording synchronization, level-analysis convergence, Stop-during-REC, history/race hardening, stable live waveform bucketing, the segmented Mixer practice bar, waveform track selection and live REC Peak/RMS.
 
-### Cleaner segmented Mixer bar
-- removes redundant `Mixer` title from the dock header;
-- removes Pin and in-dock X controls;
-- the top-bar Mixer button is now the sole persistent visibility toggle: one tap opens, the next closes;
-- visibility survives project/app return until explicitly toggled;
-- the dock header becomes two equal horizontal segments, **Comparação** and **Timeline**;
-- buttons use restrained, near-square 4–6 dp corner rounding instead of pill-like styling.
+## Physical Review IV — H12–H15 — PRE-GATE
+Real-device review after #620 identified four final workflow/ergonomic gaps. They are implemented and source-validated but require one new exact-source CI gate before promotion.
 
-### Waveform selects its track
-- tapping a track waveform/audio lane selects that track through the same canonical selection state as sidebar/Mixer;
-- clip cards and the active live-recording waveform follow the same rule;
-- semantic/test tags support deterministic regression.
+### H12 — all-track level analysis
+- adds `Níveis` to the Comparação practice segment;
+- dedicated modal shows every track, current gain, audible content and analysis state;
+- supports `Analisar todas` plus per-track analyze/reanalyze;
+- supports per-track apply and `Aplicar sugestões (N)`;
+- global apply is transactional: all actionable changes are one project mutation / one Undo step;
+- stale results are rejected if the track or audible clips change after analysis.
 
-### Real-time recording Peak/RMS
-- active capture Peak/RMS is projected into the recording target's existing track-meter state;
-- Mixer PK/RMS therefore responds live during REC;
-- the recording waveform also shows a compact live `PK` / `RMS` overlay;
-- unrelated tracks do not receive the raw capture meter;
-- meter state resets on start/finalize/error to prevent stale carry-over.
+### H13 — clearer Trim timing
+- removes the time bubbles that obscured waveform/Trim handles;
+- T1/T2 now appear on the fixed timeline time ruler as short yellow ticks with precise floating times;
+- labels have elevated visual priority over playhead overlap and separate vertically when close;
+- the existing independent drag handles remain the edit controls.
 
-### H11 validation before canonical CI
-- pure `RecordingTrackMeterPolicy` harness — PASS;
-- exact #617 materialized-source forward/reverse H11 patch validation — PASS;
-- final application tree reproduction — PASS;
-- `git diff --check` — PASS;
-- added tests for equal segmented-bar widths, waveform selection, Mixer visibility persistence and recording-meter projection.
+### H14 — Mixer overflow
+- track strips now use a horizontally scrollable `LazyRow`;
+- hidden strips become reachable by swipe;
+- MASTER remains outside the scrolling area and fixed at the right edge;
+- regression verifies final-track access and invariant MASTER geometry.
 
-## Validation status
-- H0–H10: DIGITAL PASS in CI #617.
-- H11: **IMPLEMENTED / SOURCE-VALIDATED / PRE-GATE**.
-- A new manually dispatched exact-source workflow is required before the H11 APK is promoted to final physical homologation.
+### H15 — no redundant Studio reload on return
+- returning Home/Options → the same resident Studio project avoids a repository reload and transient `loading=true` state;
+- removes the observed double-render/flicker path;
+- preserves resident project state and Undo history while keeping recording/transport safety normalization.
+
+## Source-validation status
+H12–H15 were serially reapplied against the exact materialized #620 source artifact. Forward patch dry-runs/application passed, `git diff --check` passed, and all changed/new source/test files matched the independently developed final tree byte-for-byte.
+
+This is not Android gate evidence. H12–H15 remain **IMPLEMENTED / SOURCE-VALIDATED / PRE-GATE** until a new manually dispatched workflow on the final `main` SHA passes software/Lint/build, API36 full regression, tablet geometry and signed homologation.
