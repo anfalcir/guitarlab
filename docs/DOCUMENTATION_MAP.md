@@ -3,16 +3,17 @@
 Updated: 2026-09-15
 
 For the active `0.5.0-rc3` line, use these documents together:
-- `CURRENT_STATE.md` — authoritative current status, CI #617 baseline and H11 PRE-GATE state;
-- `IMPLEMENTATION_ROADMAP.md` — milestone/gate progression through H11;
-- `DOCUMENTATION_AUDIT_H11_2026-09-15.md` — **current document-by-document audit** for Physical Review III;
+- `CURRENT_STATE.md` — authoritative current status: CI #620 H0–H11 DIGITAL PASS + H12–H15 PRE-GATE;
+- `IMPLEMENTATION_ROADMAP.md` — milestone/gate progression through Physical Review IV;
+- `DOCUMENTATION_AUDIT_H12_H15_2026-09-15.md` — **current document/source audit** for H12–H15;
+- `DOCUMENTATION_AUDIT_H11_2026-09-15.md` — historical Physical Review III/H11 failure-correction and #620 closure evidence;
 - `CANDIDATE_IDENTITY_POLICY.md` — version/source/signer/checksum contract;
-- `CI_PIPELINE.md` — manual CI graph and source-materialization contract;
-- `RELEASE_NOTES_0.5.0-rc3.md` — RC3 behavior delta including H11;
+- `CI_PIPELINE.md` — manual CI graph and source-materialization contract through H15;
+- `RELEASE_NOTES_0.5.0-rc3.md` — RC3 behavior delta through H15;
 - `RC3_FINAL_PHYSICAL_HOMOLOGATION.md` — only active residual target-device checklist after the next exact-source PASS;
 - `TEST_AND_HOMOLOGATION_PLAN.md` — canonical automated/manual gate discipline;
 - `ARCHITECTURE.md` — system/media/editing/recording architecture;
-- `DECISIONS.md` — durable product/architecture decisions through Physical Review II; H11 operational contract is captured by current state/audit until the next consolidation pass;
+- `DECISIONS.md` — durable product/architecture history; operational details of the newest review blocks are authoritative in current state/audits until separately promoted into durable decisions;
 - `STUDIO_WORKSPACE_GUIDELINES.md` — tablet workspace/state/recording/waveform interaction contract;
 - `TIMELINE_INTERACTION_GUIDELINES.md` — timeline trim/drag/delete/take-lineage contract;
 - `STUDIO_OPTIONS_AND_MIXER.md` — Studio actions/options/share/mixer behavior;
@@ -22,9 +23,9 @@ For the active `0.5.0-rc3` line, use these documents together:
 - media/project support contracts and matrices remain authoritative in their dedicated documents.
 
 ## Evidence boundary
-CI #617 at source `abc0e2a9f8708dd141735915898b508ce0948f48` is the authoritative digitally homologated H0–H10 baseline. Physical Review III / H11 is newer and remains IMPLEMENTED / SOURCE-VALIDATED / PRE-GATE until a new exact-source manual workflow succeeds.
+CI #620 / source `faaeb0ee4f9e52fbdcf369d097fa773e96d104a7` is the authoritative digitally homologated H0–H11 baseline. Physical Review IV / H12–H15 is newer and remains **IMPLEMENTED / SOURCE-VALIDATED / PRE-GATE** until a new exact-source manual workflow succeeds.
 
-The next promoted H11 source SHA and APK checksum are recorded only after that workflow passes on final `main`.
+The next promoted source SHA and APK checksum are recorded only after that workflow passes on final `main`.
 
 ## Historical documentation
-`DOCUMENTATION_AUDIT_H7_H10_2026-09-14.md`, `DOCUMENTATION_AUDIT_H0_H6_2026-09-14.md` and `DOCUMENTATION_AUDIT_2026-09-14.md` remain historical audit evidence. Older alpha/RC candidate/checkpoint files must not override the active documents above.
+H11/H7–H10/H0–H6 audits and older alpha/RC checkpoint files remain historical evidence and must not override the active documents above.
