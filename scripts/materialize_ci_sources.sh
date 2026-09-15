@@ -179,3 +179,8 @@ else
     apply_encoded_gzip_patch_once "$ROOT/.source-parts/H9LiveWaveformStability.patch.gz"
     apply_encoded_gzip_patch_once "$ROOT/.source-parts/H10StateRaceGuide.patch.gz"
 fi
+
+# Physical Review III / H11: Mixer segmented-bar simplification, waveform track selection and
+# live recording Peak/RMS projection. This is one final patch after H7-H10, so apply_patch_once
+# provides both forward application and reverse-match idempotence while failing closed on drift.
+apply_encoded_gzip_patch_once "$ROOT/.source-parts/H11MixerWaveformMetering.patch.gz"
