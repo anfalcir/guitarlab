@@ -1,14 +1,27 @@
+diff --git a/app/src/androidTest/java/studio/guitarlab/app/MixerDockInstrumentedTest.kt b/app/src/androidTest/java/studio/guitarlab/app/MixerDockInstrumentedTest.kt
+index ec0380f..bf81aa9 100644
 --- a/app/src/androidTest/java/studio/guitarlab/app/MixerDockInstrumentedTest.kt
 +++ b/app/src/androidTest/java/studio/guitarlab/app/MixerDockInstrumentedTest.kt
-@@ -10,6 +10,7 @@
+@@ -1,5 +1,6 @@
+ package studio.guitarlab.app
+ 
++import androidx.compose.ui.geometry.Offset
+ import androidx.compose.ui.semantics.Role
+ import androidx.compose.ui.semantics.SemanticsProperties
+ import androidx.compose.ui.test.SemanticsMatcher
+@@ -10,9 +11,10 @@ import androidx.compose.ui.test.hasClickAction
  import androidx.compose.ui.test.junit4.createComposeRule
  import androidx.compose.ui.test.onNodeWithContentDescription
  import androidx.compose.ui.test.onNodeWithTag
 +import androidx.compose.ui.test.onAllNodesWithTag
  import androidx.compose.ui.test.performClick
  import androidx.compose.ui.test.performTouchInput
- import androidx.compose.ui.test.swipeLeft
-@@ -140,11 +141,24 @@
+-import androidx.compose.ui.test.swipeLeft
++import androidx.compose.ui.test.swipe
+ import androidx.test.ext.junit.runners.AndroidJUnit4
+ import androidx.test.platform.app.InstrumentationRegistry
+ import java.util.concurrent.atomic.AtomicInteger
+@@ -140,11 +142,29 @@ class MixerDockInstrumentedTest {
          val master = composeRule.onNodeWithTag("mixer-master-strip").assertIsDisplayed()
          val masterBefore = master.fetchSemanticsNode().boundsInRoot
          val scroller = composeRule.onNodeWithTag("mixer-track-scroll").assertIsDisplayed()
@@ -16,10 +29,15 @@
 -            scroller.performTouchInput { swipeLeft(durationMillis = 300L) }
 -            composeRule.waitForIdle()
 +        val scrollerBounds = scroller.fetchSemanticsNode().boundsInRoot
++        val swipeStart = Offset(scrollerBounds.width * 0.90f, scrollerBounds.height * 0.08f)
++        val swipeEnd = Offset(scrollerBounds.width * 0.10f, scrollerBounds.height * 0.08f)
 +        var lastTrackVisible = false
 +        repeat(20) {
 +            if (!lastTrackVisible) {
-+                scroller.performTouchInput { swipeLeft(durationMillis = 220L) }
++                // Swipe through the strip header band instead of centerY. The center crosses the
++                // volume/pan sliders, which legitimately consume horizontal gestures. A user
++                // scrolls the Mixer from non-slider chrome such as the track header.
++                scroller.performTouchInput { swipe(swipeStart, swipeEnd, durationMillis = 220L) }
 +                composeRule.waitForIdle()
 +                val candidates = composeRule.onAllNodesWithTag("mixer-track-strip-overflow-9")
 +                    .fetchSemanticsNodes()
