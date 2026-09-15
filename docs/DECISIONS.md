@@ -198,3 +198,18 @@ The recording countdown is exactly `3 → 2 → 1`, rendered as a large centered
 
 ## D-065 — Home and Studio share one user-guide implementation
 Home and Studio may expose separate `Ajuda` entry buttons, but both must open the same `StudioUserGuideDialog`. Duplicated help screens/copy are prohibited because they can drift from one another.
+
+## D-066 — Trim handles are independent interaction objects
+D-017 remains the non-destructive trim contract, but interaction is now explicit: start and end are independent handles with their own ergonomic touch targets and semantic/test identities. Pointer X maps deterministically to frames and each gesture retains the handle acquired at gesture start. Passive time bubbles must never steal handle input.
+
+## D-067 — Split clip segments preserve recording-take lineage transactionally
+A temporal split may leave multiple clips referencing one `RecordingTake`. Moving or deleting one child detaches only that child. If the canonical `RecordingTake.clipId` leaves, a surviving sibling is promoted deterministically; the take is removed only when no sibling remains. A committed edit must never leave dangling `takeId`/`clipId` references or one take lineage spanning incompatible tracks.
+
+## D-068 — Clip deletion and drag-to-trash share one confirmed domain command
+`Excluir clipe` is the explicit accessibility/context-menu path for deleting one clip segment. Drag-to-trash is a direct-manipulation shortcut, not a second deletion implementation: dropping on trash opens the same confirmation and invokes the same domain mutation. Cancelling is a strict no-op, and shared managed media remains while referenced.
+
+## D-069 — Recording synchronization uses measured session skew plus route latency, never a magic offset
+Per-session capture/backing startup skew, accepted route latency/calibration and punch/pre-roll offsets are distinct quantities. Trustworthy Android audio timestamps or bounded monotonic fallbacks may establish session timing. Compensation components are converted to frames and combined exactly once. A fixed correction such as `-0.5 s` is prohibited because it would encode one hardware/session observation as a global rule.
+
+## D-070 — Live REC waveform timebase is captured frames, not callback cadence
+Live recording visualization uses bounded frame-span envelope points with explicit start/end frame coverage and peak. Compaction preserves complete covered time and maximum transient. UI publication is conflated/rate-bounded rather than one update per `AudioRecord` read. `recordingFrames` remains authoritative for live clip width, and finalized media-derived waveform replacement must not move the clip timeline.
