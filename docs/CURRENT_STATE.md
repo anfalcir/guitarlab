@@ -5,91 +5,76 @@ Updated: 2026-09-15
 ## Active candidate
 - Canonical repository/branch: `anfalcir/guitarlab` / `main`.
 - Active version: `0.5.0-rc3`, versionCode `23`, package `studio.guitarlab.app`.
-- Last digitally homologated application/source SHA: `faaeb0ee4f9e52fbdcf369d097fa773e96d104a7`.
-- Last canonical PASS: CI #620 / run ID `34924500870`.
-- #620 signed APK SHA-256: `acbe61b006aa4abe8b3063faf35b4a9569ed55aaf7f1a2ca3e1726c927855b3c`.
-- #620 unsigned release SHA-256: `14c4862371871cf6db85548bd6abc3405cdfcd278d726a5a9f097d533183bafd`.
+- Canonical digitally homologated application/source SHA: `7858dca021a51e0e08835e3fa3f86e6d3b657215`.
+- Canonical PASS: CI #624 / run ID `35005147318`, manual `workflow_dispatch`.
+- #624 signed APK SHA-256: `82da7c41591c01e304e44e57031ebac6263a2175866ecd1b438d65da0539462b`.
+- #624 unsigned release SHA-256: `6dd4fb64803e161466f465f385a728ab67bc539ebd9d13307a195461a5bfbb08`.
 - Locked signer SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
+- Signed artifact: `GuitarLabStudio-0.5.0-rc3-homologacao`, artifact ID `10411786642`.
 - `.github/workflows/android-ci.yml` remains manual-only (`workflow_dispatch`). Maintenance/documentation commits use `[skip ci]`.
 
 ## Evidence boundary
-CI #620 remains the authoritative signed **DIGITAL PASS** through H11/H11a/H11b. Physical Review IV (H12–H15 + H14a) is newer application/test/materializer work and remains **IMPLEMENTED / SOURCE-VALIDATED / PRE-GATE** until a new user-dispatched canonical workflow passes.
+CI #624 is now the authoritative signed **DIGITAL PASS** for the complete RC3 digital gate through Physical Review IV H12–H15 + H14a v2. It supersedes #620 as the active digital homologation baseline. Physical validation remains pending and is the only authority for hardware/perception claims.
 
-### CI #621 — H14 test diagnostic, not product-gate completion
-CI #621 / run ID `34998393778` / source `afecde0efd4d22e58115eaedadf60eea0eb3615c`:
-- software/unit/performance/Lint/debug+release/provenance: **PASS**;
-- API 36 connected regression: **21/22 PASS, 1 FAIL**;
-- sole failure: `MixerDockInstrumentedTest.overflowingTracksSwipeHorizontallyWhileMasterRemainsAnchored`;
-- signed homologation: correctly **SKIPPED** because API 36 was red.
-
-The #621 failure did not expose an H12/H13/H15 product defect. The original H14 regression hard-coded four swipes, which is insufficient on the narrow default Pixel 7 emulator viewport even though the track region is a valid `LazyRow`. H14a keeps a real physical swipe, retries up to 20 times, stops when the final strip actually intersects the scroller viewport, and still requires invariant MASTER bounds. It does not use `scrollToItem`, timeout inflation, unmerged-tree bypass or assertion removal.
-
-### CI #622 — materializer infrastructure failure before build/test
-CI #622 / run ID `35000635666` / source `5832c6800a7523a0bed0b64b9400a00c1fa876c2` failed before compilation or testing.
-
-Both mandatory upstream jobs failed in `Materialize split source` with:
-
-```text
-scripts/materialize_ci_sources.sh: line 167: unexpected EOF while looking for matching `"'
-```
-
-The signed homologation job was correctly skipped. Root cause was a physically truncated `scripts/materialize_ci_sources.sh`: the file ended inside the Physical Review II H7–H10 guard (`if [[ -f "$PH...`) after the H14a maintenance commit. Therefore #622 is **not** functional evidence against H12/H13/H14/H14a/H15.
-
-The materializer repair restores the complete canonical tail, retains fail-closed guards, restores H14 and H14a as independent/bisectable source parts, and applies Physical Review IV in the exact order H12 engine → H12 UI → H13 → H14 → H14a → H15.
-
-### CI #623 — software gate PASS; isolated H14a gesture-lane diagnostic
-CI #623 / run ID `35003025673` / source `973ecae78ee3c159e975b4b1d65a2f733aedf59a`:
+### CI #624 — canonical full PASS
+CI #624 / run ID `35005147318` / exact source `7858dca021a51e0e08835e3fa3f86e6d3b657215`:
 - source materialization: **PASS**;
-- unit/core/audio/DSP/persistence/migration + performance evidence: **PASS**;
-- Android Lint, debug assembly, release assembly and unsigned provenance: **PASS**;
-- API 36 connected regression: **21/22 PASS, 1 FAIL**;
-- sole failure: `MixerDockInstrumentedTest.overflowingTracksSwipeHorizontallyWhileMasterRemainsAnchored`;
-- H12 all-track levels, H13 Trim-ruler and H15 resident-return regressions: **PASS**;
-- signed homologation: correctly **SKIPPED** because API 36 remained red.
+- unit/core/audio/DSP/persistence/migration regression: **PASS**;
+- reproducible performance evidence: **PASS**;
+- Android Lint: **PASS**;
+- debug + release assembly and unsigned provenance: **PASS**;
+- API 36 connected regression: **22/22 PASS**;
+- isolated 1920×1200 tablet geometry: **PASS**;
+- H12 all-track levels: **PASS**;
+- H13 Trim-ruler contracts: **PASS**;
+- H14/H14a Mixer overflow physical-swipe regression with fixed MASTER: **PASS**;
+- H15 resident same-project return/lifecycle regression: **PASS**;
+- signed homologation: **PASS**;
+- signed APK package/version/source/signer validation: **PASS**.
 
-#623 proves the repaired materializer/build path is healthy. The remaining H14a failure is narrower than #621: the viewport-independent loop executed, but the default Compose `swipeLeft()` injects the gesture on the node centerline. In the Mixer that line crosses horizontal volume/pan sliders, so the regression can target child gesture consumers instead of the natural scroll chrome. H14a v2 keeps a real physical swipe but explicitly performs it through the non-slider track-header band (90%→10% width at 8% height), retains the 20-gesture ceiling, checks actual final-strip/viewport intersection, and preserves exact MASTER left/right bounds.
+Canonical signed identity:
+- package: `studio.guitarlab.app`;
+- versionName: `0.5.0-rc3`;
+- versionCode: `23`;
+- source SHA: `7858dca021a51e0e08835e3fa3f86e6d3b657215`;
+- unsigned APK SHA-256: `6dd4fb64803e161466f465f385a728ab67bc539ebd9d13307a195461a5bfbb08`;
+- signed APK SHA-256: `82da7c41591c01e304e44e57031ebac6263a2175866ecd1b438d65da0539462b`;
+- certificate SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`;
+- signature verification: APK Signature Scheme v2, one signer, verified.
 
-## Physical Review IV — H12–H15 — IMPLEMENTED / SOURCE-VALIDATED / PRE-GATE
-The #620 APK physical review exposed four polish gaps. They are implemented as ordered source parts after H11b.
+## Physical Review IV — H12–H15 + H14a — DIGITAL PASS
 
 ### H12 — global assisted level analysis
-- `Níveis` is available from the Comparação side of the Comparação/Timeline practice bar.
+- `Níveis` is available from the Comparação practice segment.
 - `Níveis das pistas` presents every project track, current gain, audible-clip count and per-track analysis state.
-- `Analisar todas` analyzes tracks with audible material while preserving the same effective-gain semantics as single-track analysis.
-- Each track can still be analyzed/reanalyzed and applied independently.
-- `Aplicar sugestões (N)` persists all actionable selected gain deltas in **one project mutation / one Undo step**.
-- Source/track/clip snapshot validation prevents stale analysis from being applied after project changes.
+- `Analisar todas` analyzes tracks with audible material while preserving effective-gain semantics.
+- Each track can be analyzed/reanalyzed and applied independently.
+- `Aplicar sugestões (N)` persists all actionable selected gain deltas in one project mutation / one Undo step.
+- Source/track/clip snapshot validation rejects stale analysis after project changes.
 - Busy state is explicit and application is blocked while analysis is running.
-
-Automated acceptance: `AllTracksLevelDialogInstrumentedTest` plus engine/snapshot validation.
 
 ### H13 — Trim timing on the fixed timeline time ruler
 - Large `Início`/`Fim` bubbles were removed from over the waveform/handles.
 - T1/T2 are projected onto the fixed time ruler immediately above the tracks and below the playhead/section area.
-- Each marker has a short yellow tick at the proportional absolute-time position and a compact floating label with precise time.
-- Nearby T1/T2 labels separate vertically; elevated z-order keeps labels readable.
-- Existing draggable Trim handles remain independently accessible and unchanged in function.
-
-Automated acceptance extends `PhysicalEditingHardeningInstrumentedTest` with `timeline-time-ruler`, `trim-ruler-start` and `trim-ruler-end` contracts.
+- Each marker uses a short yellow tick at the proportional absolute-time position with precise time label.
+- Nearby T1/T2 labels separate vertically and retain readable z-order.
+- Existing draggable Trim handles remain independently accessible.
 
 ### H14 / H14a — Mixer overflow with fixed MASTER
 - Track strips are inside a horizontally scrollable `LazyRow`.
 - MASTER is a separate sibling anchored at the right edge and does not move with track scrolling.
-- H14a v2 makes the regression viewport-independent and routes the real swipe through non-slider track-header chrome while preserving exact MASTER bound assertions.
-
-Automated acceptance: `MixerDockInstrumentedTest` with a 10-track Mixer, bounded physical swipes to the final strip and invariant MASTER geometry.
+- H14a v2 uses a real physical swipe through non-slider track-header chrome, is viewport-independent, detects actual final-strip/viewport intersection and preserves exact MASTER bound assertions.
+- #624 exercised and passed `MixerDockInstrumentedTest.overflowingTracksSwipeHorizontallyWhileMasterRemainsAnchored`.
 
 ### H15 — resident Studio return without double-load flash
 - `StudioViewModel.load(projectId)` is idempotent when the same project is already resident in the Activity-scoped ViewModel.
-- Same-project return no longer clears state, publishes unnecessary `loading=true`, reloads the repository, rebuilds waveform/history state, or creates a second transient Studio state.
+- Same-project return avoids unnecessary `loading=true`, repository reload and waveform/history rebuild.
 - Transport/recording safety is normalized before the early return when needed.
-- Undo history and the resident project object survive same-project return.
+- Undo history and resident project identity survive same-project return.
 - Different-project navigation still follows the normal load path.
 
-Automated acceptance extends `GuitarLabLifecycleInstrumentedTest` with same-object residency and retained Undo capability.
-
-## Source representation and local/programmatic validation
-Physical Review IV materialization order after H11b:
+## Physical Review IV source representation
+Materialization order after H11b:
 1. `.source-parts/H12LevelEngine.patch`
 2. `.source-parts/H12LevelUi.patch`
 3. `.source-parts/H13TrimRuler.patch`
@@ -102,41 +87,31 @@ Patch SHA-256 evidence:
 - H12 UI: `db9a7e448a22f79e8be22b9b795d4a4008bd92b4bff9754ad640eb957895308d`
 - H13: `4fd47e9d55de072be9ccfbc64361f3e87f9e38d68aa57a76a5084085bce399b0`
 - H14: `af3bf0808a5724f8aab3f6f17dec15b041591871ae26e51283d85a03a28a3e43`
-- H14a v1 (#621/#623): `eb347d29e3bdfa61af6da984d85d985ec0871bc8165ce6961a4043fdbb03c658`
-- H14a v2 (post-#623): `0ecdfc2922311a3f6b0c773ece8cb4a27eb049780e8affa793bc2f496b71cef7`
+- H14a v2: `0ecdfc2922311a3f6b0c773ece8cb4a27eb049780e8affa793bc2f496b71cef7`
 - H15: `79e4a98f996f86cb2c0916f1c152ef8a34529e369f7db1622ea4a5a7f427a1c9`
 
-Source validation performed after #622 repair and the #623 H14a v2 refinement:
-- repaired materializer Git blob: `de488110153b8a800b69b520a29860230bcb5838`;
-- repaired materializer SHA-256: `612f171be1345b59e0f81e7f0e8cfbd78de0dcbc981fe4edcf22130b1b61779f`;
-- `bash -n scripts/materialize_ci_sources.sh`: **PASS** on the exact repaired file;
-- H12 → H13 → H14 → H14a → H15 dry-run/application from the exact #620 materialized source snapshot: **PASS**;
-- `git diff --check`: **PASS**;
-- final changed/new source/test/help blobs match the documented expected Physical Review IV tree, including revised `MixerDockInstrumentedTest.kt` `bf81aa9414a376679634f8ddf3f0b9bbf58fde5d`.
+Materializer/source validation retained:
+- repaired materializer Git blob `de488110153b8a800b69b520a29860230bcb5838`;
+- repaired materializer SHA-256 `612f171be1345b59e0f81e7f0e8cfbd78de0dcbc981fe4edcf22130b1b61779f`;
+- `bash -n scripts/materialize_ci_sources.sh`: PASS;
+- ordered H12→H15 materialization and `git diff --check`: PASS;
+- final `MixerDockInstrumentedTest.kt` blob `bf81aa9414a376679634f8ddf3f0b9bbf58fde5d`.
 
-The repository materializer is designed for a clean checkout/materialization pass. Re-running the entire historical script against an already fully materialized #620 artifact is not a supported idempotence test because earlier RC3 guards intentionally expect repository baselines. Idempotence is enforced at the supported patch/guard boundaries (`apply_patch_once`, explicit final-blob guards) and source drift fails closed rather than reverse-applying an earlier patch through later edits.
-
-#623 is now the strongest software/build evidence for Physical Review IV: materialization, unit/performance, Lint, debug/release assembly and unsigned provenance all passed on the repaired chain, while API36 reached 21/22. The post-#623 H14a v2 gesture-lane change is **SOURCE-VALIDATED / PRE-GATE** and still requires one new exact-source API36/signing run.
+## Diagnostic history retained
+- #621: software gate PASS; API36 21/22; original fixed-four-swipes H14 regression failed.
+- #622: infrastructure-only materializer truncation before compilation/testing.
+- #623: repaired materializer and software gate PASS; API36 21/22; H14a centerline gesture crossed child sliders.
+- H14a v2 moved the real swipe to non-slider header chrome without weakening reachability or MASTER invariants.
+- #624: full canonical PASS and signed homologation.
 
 ## Milestone state
 - M2–M6: PASS/CLOSED.
-- M7: #620 is the last digitally homologated baseline; H12–H15 + H14a are active PRE-GATE refinements from physical review.
-- M8: H0–H11 DIGITAL PASS; H12–H15 + H14a IMPLEMENTED / SOURCE-VALIDATED / PRE-GATE; #621 H14 diagnostic; #622 infrastructure/materialization failure; #623 software/build PASS with API36 21/22 and sole H14a gesture-lane failure.
+- M7: complete digital gate through H15/H14a is **DIGITAL PASS** at #624; final real-device physical closure remains pending.
+- M8: RC3 digital hardening through H15/H14a is **DIGITAL PASS** at #624; final release decision still requires the intended physical homologation.
 
-## Next authoritative gate
-After the post-#623 H14a v2 refinement and documentation are consolidated on `main`, the user must manually dispatch one new `GuitarLab Android CI` with `signed_homologation=true` on that exact `main` SHA.
+## Residual physical gate
+No further CI rerun is required unless source/product code changes. Install the exact #624 signed APK and execute `RC3_FINAL_PHYSICAL_HOMOLOGATION.md`.
 
-Required PASS:
-1. full unit/core/audio/DSP/persistence/migration regression;
-2. Android Lint and debug/release assembly;
-3. API36 full instrumentation, including H12/H13/H14/H14a/H15 and retained H11 Trim regressions;
-4. isolated 1920×1200 geometry;
-5. signed homologation;
-6. exact package/version/source/signer/checksum provenance.
+Physical checks should focus only on facts automation cannot establish: modal ergonomics, Trim marker readability over a real timeline/playhead, natural Mixer swipe feel with MASTER fixed, absence of visible Studio-return flash, MK300 routing/REC/meters/synchronization and listening/perception smoke.
 
-No assistant-triggered workflow or rerun is permitted.
-
-## Residual physical gate after digital PASS
-Use the newly signed H12–H15 candidate only after the exact-source digital gate passes. Physical checks should focus on facts automation cannot establish: modal ergonomics, Trim marker readability over a real timeline/playhead, natural Mixer swipe feel with MASTER fixed, absence of visible Studio return flash, plus retained MK300 routing/REC/meters/synchronization/listening smoke.
-
-`RC3_FINAL_PHYSICAL_HOMOLOGATION.md` remains the single final manual checklist.
+The signed artifact itself records `gate=software+android-integration-passed;physical-validation-pending`, which remains the correct boundary until explicit physical approval.
