@@ -1,0 +1,30 @@
+diff --git a/app/src/main/java/studio/guitarlab/app/ui/StudioPlaceholderScreen.kt b/app/src/main/java/studio/guitarlab/app/ui/StudioPlaceholderScreen.kt
+index d7df23d..55c7f09 100644
+--- a/app/src/main/java/studio/guitarlab/app/ui/StudioPlaceholderScreen.kt
++++ b/app/src/main/java/studio/guitarlab/app/ui/StudioPlaceholderScreen.kt
+@@ -1341,15 +1341,6 @@ private fun StudioTrackLane(
+ ) {
+     val trackGeometry = remember(track.id) { DragLayoutGeometry() }
+     var clipMenuExpanded by remember(track.id) { mutableStateOf(false) }
+-    var pendingTrimClipId by remember(track.id) { mutableStateOf<String?>(null) }
+-    LaunchedEffect(clipMenuExpanded, pendingTrimClipId) {
+-        if (!clipMenuExpanded) {
+-            pendingTrimClipId?.let { clipId ->
+-                pendingTrimClipId = null
+-                onBeginTrim(clipId)
+-            }
+-        }
+-    }
+     val primaryClip = clips.minByOrNull { it.startFrame }
+     val trackColor = track.resolvedStudioColor()
+     val auditionState = GuitarAuditionPolicy.trackState(track.roleId, auditionMode)
+@@ -1459,8 +1450,8 @@ private fun StudioTrackLane(
+                                         ClipMenuItem(Icons.Default.Edit, "Fades…$suffix") { clipMenuExpanded = false; onOpenFades(clip.id) }
+                                         ClipMenuItem(Icons.Default.CallSplit, "Crossfade com próximo$suffix") { clipMenuExpanded = false; onCrossfade(clip.id) }
+                                         ClipMenuItem(Icons.Default.ContentCut, "Cortar$suffix") {
+-                                            pendingTrimClipId = clip.id
+                                             clipMenuExpanded = false
++                                            onBeginTrim(clip.id)
+                                         }
+                                         ClipMenuItem(Icons.Default.Delete, "Excluir clipe$suffix", destructive = true) { clipMenuExpanded = false; onRemove(clip.id) }
+                                     }
