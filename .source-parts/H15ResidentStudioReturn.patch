@@ -1,0 +1,110 @@
+diff --git a/app/src/androidTest/java/studio/guitarlab/app/GuitarLabLifecycleInstrumentedTest.kt b/app/src/androidTest/java/studio/guitarlab/app/GuitarLabLifecycleInstrumentedTest.kt
+index 0775ff1..28a49b2 100644
+--- a/app/src/androidTest/java/studio/guitarlab/app/GuitarLabLifecycleInstrumentedTest.kt
++++ b/app/src/androidTest/java/studio/guitarlab/app/GuitarLabLifecycleInstrumentedTest.kt
+@@ -13,6 +13,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
+ import androidx.test.platform.app.InstrumentationRegistry
+ import org.junit.Assert.assertEquals
+ import org.junit.Assert.assertNotNull
++import org.junit.Assert.assertTrue
+ import org.junit.Rule
+ import org.junit.Test
+ import org.junit.runner.RunWith
+@@ -22,6 +23,10 @@ import studio.guitarlab.app.ui.AppNavigationViewModel
+ import studio.guitarlab.app.ui.AppRouteCodec
+ import studio.guitarlab.app.ui.AppScreen
+ import studio.guitarlab.app.ui.HomeViewModel
++import studio.guitarlab.app.ui.StudioViewModel
++import studio.guitarlab.core.model.AudioTrack
++import studio.guitarlab.core.model.ProjectFactory
++import studio.guitarlab.core.model.ProjectTemplate
+ 
+ @RunWith(AndroidJUnit4::class)
+ class GuitarLabLifecycleInstrumentedTest {
+@@ -106,6 +111,41 @@ class GuitarLabLifecycleInstrumentedTest {
+         }
+     }
+ 
++
++    @Test
++    fun returningToSameStudioProjectKeepsResidentStateAndUndoHistory() {
++        val repository = FileProjectRepository(instrumentation.targetContext.filesDir)
++        val project = ProjectFactory(idGenerator = { "resident-${System.nanoTime()}" }, clock = { 500L })
++            .create("Resident Studio", ProjectTemplate.BLANK)
++            .copy(tracks = listOf(AudioTrack(id = "resident-track", name = "Resident", order = 0)))
++        repository.save(project)
++
++        try {
++            navigation().navigate(AppScreen.Studio(project.id))
++            waitForRoute(AppScreen.Studio(project.id))
++            composeRule.waitUntil(timeoutMillis = UI_TIMEOUT_MS) {
++                studio().state.value.project?.id == project.id && !studio().state.value.loading
++            }
++
++            studio().toggleTrackMuted("resident-track")
++            composeRule.waitUntil(timeoutMillis = UI_TIMEOUT_MS) { studio().state.value.canUndo }
++            val residentProject = studio().state.value.project
++
++            navigation().navigate(AppScreen.Options(project.id))
++            waitForRoute(AppScreen.Options(project.id))
++            navigation().navigate(AppScreen.Studio(project.id))
++            waitForRoute(AppScreen.Studio(project.id))
++            composeRule.waitUntil(timeoutMillis = UI_TIMEOUT_MS) {
++                studio().state.value.project?.id == project.id && !studio().state.value.loading
++            }
++
++            assertTrue("Returning to the same resident Studio project must preserve Undo history", studio().state.value.canUndo)
++            assertTrue("Resident project state must not be replaced by a reload", studio().state.value.project === residentProject)
++        } finally {
++            runCatching { repository.delete(project.id) }
++        }
++    }
++
+     private fun waitUntilEnabled(text: String) {
+         composeRule.waitUntil(timeoutMillis = UI_TIMEOUT_MS) {
+             runCatching {
+@@ -122,6 +162,14 @@ class GuitarLabLifecycleInstrumentedTest {
+         return result
+     }
+ 
++    private fun studio(): StudioViewModel {
++        lateinit var result: StudioViewModel
++        composeRule.activityRule.scenario.onActivity { activity ->
++            result = ViewModelProvider(activity)[StudioViewModel::class.java]
++        }
++        return result
++    }
++
+     private fun home(): HomeViewModel {
+         lateinit var result: HomeViewModel
+         composeRule.activityRule.scenario.onActivity { activity ->
+diff --git a/app/src/main/java/studio/guitarlab/app/ui/StudioViewModel.kt b/app/src/main/java/studio/guitarlab/app/ui/StudioViewModel.kt
+index 9f575b3..cd77f7a 100644
+--- a/app/src/main/java/studio/guitarlab/app/ui/StudioViewModel.kt
++++ b/app/src/main/java/studio/guitarlab/app/ui/StudioViewModel.kt
+@@ -225,9 +225,22 @@ class StudioViewModel(application: Application) : AndroidViewModel(application)
+ 
+     fun load(projectId: String) {
+         val before = _state.value
+-        if (before.project?.id == projectId && !before.loading && before.recordingSession.phase == RecordingSessionPhase.IDLE) {
+-            stopPlaybackSession()
+-            _state.value = before.copy(transport = before.transport.copy(mode = TransportMode.STOPPED))
++        if (before.project?.id == projectId && !before.loading) {
++            when (before.recordingSession.phase) {
++                RecordingSessionPhase.CAPTURING -> stopRecording()
++                RecordingSessionPhase.COUNTDOWN -> cancelRecordingCountdown()
++                RecordingSessionPhase.FINALIZING -> stopPlaybackSession()
++                RecordingSessionPhase.IDLE -> {
++                    stopPlaybackSession()
++                    if (before.transport.mode != TransportMode.STOPPED) {
++                        _state.value = before.copy(transport = before.transport.copy(mode = TransportMode.STOPPED))
++                    }
++                }
++            }
++            // The Activity-scoped StudioViewModel already owns the exact same project. Returning
++            // from Home/Options must not clear history/waveforms and briefly publish loading=true;
++            // doing so caused the visible double-render flash reported during physical review.
++            return
+         } else if (before.recordingSession.phase == RecordingSessionPhase.CAPTURING) {
+             stopRecording()
+             return
