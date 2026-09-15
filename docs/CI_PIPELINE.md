@@ -40,14 +40,13 @@ Runs only when `signed_homologation=true` and both mandatory upstream gates pass
 `.source-parts/` plus `scripts/materialize_ci_sources.sh` are part of the build contract.
 
 Canonical hardening order:
-`H1 trim → H2 lineage/delete → H3 drag transaction → H4 timing → H5 waveform → H6 integrated regression/guide → H7 state/level/transport → H8 workspace flow → H9 waveform spatial stability → H10 race closure/guide → H11 mixer/waveform/metering → H11a synchronous Trim entry → H11b waveform-selection semantics isolation → H12 all-track levels → H13 Trim ruler → H14 Mixer overflow → H14a viewport-safe swipe regression → H15 resident Studio return`.
+`H1 trim → H2 lineage/delete → H3 drag transaction → H4 timing → H5 waveform → H6 integrated regression/guide → H7 state/level/transport → H8 workspace flow → H9 waveform spatial stability → H10 race closure/guide → H11 mixer/waveform/metering → H11a synchronous Trim entry → H11b waveform-selection semantics isolation → H12 all-track levels → H13 Trim ruler → H14 Mixer overflow (revised after #621 with viewport-safe H14a regression) → H15 resident Studio return`.
 
 Physical Review IV source parts, in required order:
 - `.source-parts/H12LevelEngine.patch`
 - `.source-parts/H12LevelUi.patch`
 - `.source-parts/H13TrimRuler.patch`
-- `.source-parts/H14MixerHorizontalScroll.patch`
-- `.source-parts/H14aMixerScrollViewportRegression.patch`
+- `.source-parts/H14MixerHorizontalScroll.patch` — revised after #621 to include the viewport-safe H14a regression
 - `.source-parts/H15ResidentStudioReturn.patch`
 
 Requirements for the canonical CI path:
@@ -93,7 +92,7 @@ H12–H15 were developed against the exact materialized source artifact emitted 
 This proves patch-chain consistency only. It does **not** replace Android compilation, Lint, emulator regression, tablet geometry or signing; therefore H12–H15 remain PRE-GATE until the next canonical manual workflow.
 
 ## Next manual execution
-After H12–H15 plus H14a are consolidated on `main`:
+After the revised H12–H15 chain (including H14a inside H14) is consolidated on `main`:
 1. GitHub → Actions → **GuitarLab Android CI**.
 2. Select `main`.
 3. Set `signed_homologation=true`.

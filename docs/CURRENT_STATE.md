@@ -13,7 +13,7 @@ Updated: 2026-09-15
 - `.github/workflows/android-ci.yml` remains manual-only. Maintenance/documentation commits use `[skip ci]`.
 
 ## Evidence boundary
-CI #620 remains the authoritative signed DIGITAL PASS through H11/H11a/H11b. Physical Review IV (H12–H15 + H14a) is newer application/test/materializer work and remains **PRE-GATE** until a new user-dispatched canonical workflow passes.
+CI #620 remains the authoritative signed DIGITAL PASS through H11/H11a/H11b. Physical Review IV (H12–H15, including the H14a correction) is newer application/test work and remains **PRE-GATE** until a new user-dispatched canonical workflow passes.
 
 CI #621 / run ID `34998393778` / source `afecde0efd4d22e58115eaedadf60eea0eb3615c` is diagnostic evidence for Physical Review IV:
 - software/unit/performance/Lint/debug+release/provenance: **PASS**;
@@ -70,8 +70,9 @@ Physical Review IV materialization order:
 2. `.source-parts/H12LevelUi.patch`
 3. `.source-parts/H13TrimRuler.patch`
 4. `.source-parts/H14MixerHorizontalScroll.patch`
-5. `.source-parts/H14aMixerScrollViewportRegression.patch`
-6. `.source-parts/H15ResidentStudioReturn.patch` (includes in-app guide synchronization)
+5. `.source-parts/H15ResidentStudioReturn.patch` (includes in-app guide synchronization)
+
+H14a is folded into the revised `H14MixerHorizontalScroll.patch` so the canonical materializer does not need an additional stage after #621.
 
 The five patches were serially dry-run/applied against the exact materialized #620 source artifact. `git diff --check` passed and the final materialized tree matched the independently developed H12→H15 tree byte-for-byte for every changed/new source/test/help file.
 
@@ -79,8 +80,8 @@ Patch SHA-256 evidence:
 - H12 engine: `39c6a42bca192b1e6a829bd52c46ddb7e546d7cad09500d850e257dec57bc37c`
 - H12 UI: `db9a7e448a22f79e8be22b9b795d4a4008bd92b4bff9754ad640eb957895308d`
 - H13: `4fd47e9d55de072be9ccfbc64361f3e87f9e38d68aa57a76a5084085bce399b0`
-- H14: `af3bf0808a5724f8aab3f6f17dec15b041591871ae26e51283d85a03a28a3e43`
-- H14a: `eb347d29e3bdfa61af6da984d85d985ec0871bc8165ce6961a4043fdbb03c658`
+- H14 original (#621): `af3bf0808a5724f8aab3f6f17dec15b041591871ae26e51283d85a03a28a3e43`
+- H14 revised with H14a correction: `2a96869617205b56b94a5e7d97dac99a3859071c90605a7eed9715efac9e6b51`
 - H15: `79e4a98f996f86cb2c0916f1c152ef8a34529e369f7db1622ea4a5a7f427a1c9`
 
 ## Milestone state

@@ -125,7 +125,7 @@ apply_encoded_gzip_patch_once() {
 }
 
 # Compact text-safe archive of the post-#613 physical-review source/test delta.
-# The compatibity patch below replaces one Compose test assertion that is unavailable in the
+# The compatibility patch below replaces one Compose test assertion that is unavailable in the
 # project's current UI-test API. Guard the pair as one materialization unit so a second invocation
 # never tries to reverse-match the pre-compatibility snapshot.
 AUTO_SECTIONS_TEST_TARGET="$ROOT/app/src/androidTest/java/studio/guitarlab/app/AutoSectionsSlotInstrumentedTest.kt"
@@ -164,4 +164,41 @@ PHYSICAL_REVIEW_II_WAVEFORM="$ROOT/core/project/src/main/kotlin/studio/guitarlab
 PHYSICAL_REVIEW_II_GUIDE="$ROOT/app/src/main/java/studio/guitarlab/app/ui/StudioUserGuideDialog.kt"
 PHYSICAL_REVIEW_II_TRANSPORT="$ROOT/app/src/main/java/studio/guitarlab/app/ui/TransportBar.kt"
 PHYSICAL_REVIEW_II_MIXER="$ROOT/app/src/main/java/studio/guitarlab/app/ui/MixerDock.kt"
-if [[ -f "$PH
+if [[ -f "$PHYSICAL_REVIEW_II_VIEW_MODEL" && -f "$PHYSICAL_REVIEW_II_PLACEHOLDER" && -f "$PHYSICAL_REVIEW_II_WAVEFORM" \
+      && -f "$PHYSICAL_REVIEW_II_GUIDE" && -f "$PHYSICAL_REVIEW_II_TRANSPORT" && -f "$PHYSICAL_REVIEW_II_MIXER" ]] \
+    && [[ "$(git -C "$ROOT" hash-object "$PHYSICAL_REVIEW_II_VIEW_MODEL")" == "7c56d0b2c78f0b408df341d8a3744eee5c69bd93" ]] \
+    && [[ "$(git -C "$ROOT" hash-object "$PHYSICAL_REVIEW_II_PLACEHOLDER")" == "358dd75d45f3c25616eb737e99ddba42fe02a053" ]] \
+    && [[ "$(git -C "$ROOT" hash-object "$PHYSICAL_REVIEW_II_WAVEFORM")" == "07ab9a739020e8d06b6817b11888f99cd9dd9b1b" ]] \
+    && [[ "$(git -C "$ROOT" hash-object "$PHYSICAL_REVIEW_II_GUIDE")" == "59d4e5e23a2d59cd9b2857e5323f1baee0b00a2b" ]] \
+    && [[ "$(git -C "$ROOT" hash-object "$PHYSICAL_REVIEW_II_TRANSPORT")" == "f82b75102af830e8188c621b4740ecd53630a0c9" ]] \
+    && [[ "$(git -C "$ROOT" hash-object "$PHYSICAL_REVIEW_II_MIXER")" == "755fd157f86a7fea8a03e2d2c8b799d4ef0dfc41" ]]; then
+    echo "Source patch chain already materialized: Physical Review II H7-H10"
+else
+    apply_encoded_gzip_patch_once "$ROOT/.source-parts/H7StateLevelTransport.patch.gz"
+    apply_encoded_gzip_patch_once "$ROOT/.source-parts/H8WorkspaceFlow.patch.gz"
+    apply_encoded_gzip_patch_once "$ROOT/.source-parts/H9LiveWaveformStability.patch.gz"
+    apply_encoded_gzip_patch_once "$ROOT/.source-parts/H10StateRaceGuide.patch.gz"
+fi
+
+# Physical Review III / H11: Mixer segmented-bar simplification, waveform track selection and
+# live recording Peak/RMS projection. This is one final patch after H7-H10, so apply_patch_once
+# provides both forward application and reverse-match idempotence while failing closed on drift.
+apply_encoded_gzip_patch_once "$ROOT/.source-parts/H11MixerWaveformMetering.patch.gz"
+
+# CI #618 exposed a deterministic race in the H8 first-tap Trim entry: the menu click deferred
+# beginTrim through pending local Compose state + LaunchedEffect. H11a removes that asynchronous
+# handoff and dispatches beginTrim synchronously after closing the menu.
+apply_patch_once "$ROOT/.source-parts/H11TrimEntryRaceFix.patch"
+
+# CI #619 exposed a semantics regression introduced by H11 waveform selection: ancestor/disabled
+# clickables merged TrimHandle descendants out of the merged accessibility tree. H11b moves lane
+# selection to a sibling background target and removes clip clickable semantics while trimming.
+apply_patch_once "$ROOT/.source-parts/H11bWaveformSelectionSemantics.patch"
+
+# Physical Review IV / H12-H15: global level workflow, Trim ruler clarity, Mixer overflow and
+# resident Studio navigation return. Keep ordered/bisectable and fail closed on source drift.
+apply_patch_once "$ROOT/.source-parts/H12LevelEngine.patch"
+apply_patch_once "$ROOT/.source-parts/H12LevelUi.patch"
+apply_patch_once "$ROOT/.source-parts/H13TrimRuler.patch"
+apply_patch_once "$ROOT/.source-parts/H14MixerHorizontalScroll.patch"
+apply_patch_once "$ROOT/.source-parts/H15ResidentStudioReturn.patch"

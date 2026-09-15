@@ -56,7 +56,7 @@ H14a makes the regression viewport-independent without weakening the interaction
 - keeps exact MASTER left/right bounds assertions;
 - does not use `scrollToItem`, timeout inflation, unmerged-tree bypass or assertion removal.
 
-H14a patch SHA-256: `eb347d29e3bdfa61af6da984d85d985ec0871bc8165ce6961a4043fdbb03c658`.
+H14a is folded into the revised canonical `H14MixerHorizontalScroll.patch` rather than adding another materializer stage. Revised H14 patch SHA-256: `2a96869617205b56b94a5e7d97dac99a3859071c90605a7eed9715efac9e6b51`.
 Final expected `MixerDockInstrumentedTest.kt` blob after H14a: `5aa984d00035ee259cce21f9cc8717c2f5f759af`.
 
 ## H15 — resident Studio return + help synchronization
@@ -74,16 +74,15 @@ Required order after H11b:
 1. `H12LevelEngine.patch`
 2. `H12LevelUi.patch`
 3. `H13TrimRuler.patch`
-4. `H14MixerHorizontalScroll.patch`
-5. `H14aMixerScrollViewportRegression.patch` — #621 viewport-safe physical-swipe test correction
-6. `H15ResidentStudioReturn.patch` — resident return plus in-app guide synchronization
+4. `H14MixerHorizontalScroll.patch` — revised after #621 to include the viewport-safe H14a physical-swipe correction
+5. `H15ResidentStudioReturn.patch` — resident return plus in-app guide synchronization
 
 Patch SHA-256:
 - `H12LevelEngine.patch`: `39c6a42bca192b1e6a829bd52c46ddb7e546d7cad09500d850e257dec57bc37c`
 - `H12LevelUi.patch`: `db9a7e448a22f79e8be22b9b795d4a4008bd92b4bff9754ad640eb957895308d`
 - `H13TrimRuler.patch`: `4fd47e9d55de072be9ccfbc64361f3e87f9e38d68aa57a76a5084085bce399b0`
-- `H14MixerHorizontalScroll.patch`: `af3bf0808a5724f8aab3f6f17dec15b041591871ae26e51283d85a03a28a3e43`
-- `H14aMixerScrollViewportRegression.patch`: `eb347d29e3bdfa61af6da984d85d985ec0871bc8165ce6961a4043fdbb03c658`
+- `H14MixerHorizontalScroll.patch` original in #621: `af3bf0808a5724f8aab3f6f17dec15b041591871ae26e51283d85a03a28a3e43`
+- `H14MixerHorizontalScroll.patch` revised with H14a: `2a96869617205b56b94a5e7d97dac99a3859071c90605a7eed9715efac9e6b51`
 - `H15ResidentStudioReturn.patch`: `79e4a98f996f86cb2c0916f1c152ef8a34529e369f7db1622ea4a5a7f427a1c9`
 
 ## Source-validation evidence
