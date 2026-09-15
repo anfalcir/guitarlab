@@ -2,7 +2,7 @@
 
 Updated: 2026-09-15
 
-This is the only active residual physical checklist. Execute it on the next signed H11 candidate **after** its exact-source manual workflow passes. CI #617 remains the digitally homologated H0–H10 baseline but predates H11.
+This is the only active residual physical checklist. Execute it on the next signed H12–H15 candidate **after** its exact-source manual workflow passes. CI #620 remains the digitally homologated H0–H11 baseline and predates Physical Review IV.
 
 ## Candidate identity
 - versionName: `0.5.0-rc3`
@@ -11,74 +11,86 @@ This is the only active residual physical checklist. Execute it on the next sign
 - target: Samsung SM-X230 + M-VAVE MK-300 over USB
 - MK-300 hardware USB loopback: disabled
 - expected signer SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`
-- exact H11 source SHA: **fill from the next successful manual workflow**
+- exact H12–H15 source SHA: **fill from the next successful manual workflow**
 - signed APK SHA-256: **fill from that run's `SHA256SUMS.txt`**
 - signed APK: `GuitarLabStudio-0.5.0-rc3-homologacao.apk`
 
-Historical H10 baseline: CI #617 / source `abc0e2a9f8708dd141735915898b508ce0948f48` / signed SHA-256 `7f0c303ccc447c5455dfbd49e1bc022af482927582254eb826c9b29f3a84c6b6`.
+Historical H11 baseline: CI #620 / source `faaeb0ee4f9e52fbdcf369d097fa773e96d104a7` / signed SHA-256 `acbe61b006aa4abe8b3063faf35b4a9569ed55aaf7f1a2ca3e1726c927855b3c`.
 
 ## A. Upgrade and project integrity
-- Install the newly signed H11 RC3 over the previous official candidate.
+- Install the newly signed H12–H15 RC3 over the previous official candidate.
 - Open an existing project and confirm tracks, clips, takes, markers and sections remain intact.
 - Close/reopen the app and project and confirm persistence.
 
-## B. H11 Mixer segmented bar and persistence
-- Tap the top-bar `Mixer` button once: Mixer must open.
-- Confirm the dock header has no redundant `Mixer` title, Pin or X.
-- Confirm the header is visually one bar split into two equal horizontal blocks: **Comparação** and **Timeline**.
-- Confirm buttons have restrained, slightly rounded near-square geometry rather than pill styling.
-- Exercise controls in both blocks and check for overlap or clipping.
-- Tap the same top-bar `Mixer` button again: Mixer must close.
-- Open it again, leave it visible, change project and return; then restart the app/project.
+## B. H12 all-track level analysis
+- Open Mixer/practice controls and tap `Níveis`.
+- Confirm the dedicated modal lists every track with current gain and audible-material status.
+- Tap `Analisar todas` and verify useful PK/RMS/recommended-gain results appear per eligible track.
+- Reanalyze one track independently.
+- Apply one individual suggestion and verify only that track changes.
+- Reanalyze as needed, then use `Aplicar sugestões` with two or more actionable tracks.
+- Press Undo once.
 
-PASS: one top-bar toggle is the sole open/close control, the two segments are visually balanced, and visibility persists until the user explicitly changes it.
+PASS: the modal is practical/readable; busy state is clear; silent/no-audio tracks are handled safely; global application changes all actionable tracks as one project edit and one Undo restores that batch.
 
-## C. H11 waveform track selection
-- With at least two tracks visible, select track A through sidebar/Mixer.
-- Tap directly on track B's empty waveform/audio lane.
-- Tap one of track A's clip/waveform cards.
-- During a disposable REC, tap the active live waveform surface if ergonomically practical.
+## C. H13 Trim markers on timeline ruler
+- Enter `Cortar` on a clip.
+- Confirm waveform handles remain clear and no time bubble obscures them.
+- Confirm T1 and T2 appear on the fixed timeline time ruler above the tracks as yellow ticks with precise floating times.
+- Drag T1/T2 across different parts of the project, including across/near the playhead and near one another.
 
-PASS: each waveform/audio-area tap selects the corresponding track exactly as sidebar/Mixer selection does, without unintended edit or transport action.
+PASS: marker ticks remain proportional to timeline position; time labels remain readable, stay visually above competing playhead drawing, separate when close and do not obscure the waveform handles.
 
-## D. H11 real-time REC Peak/RMS
-- Select MK-300 input and arm one `My Guitar` track.
-- Start REC and play from silence through soft and strong attacks.
-- Observe that the recording target shows live **PK** and **RMS** in the timeline overlay and in the track's Mixer meters.
-- Confirm unrelated tracks do not mirror the raw input meter.
-- Stop, start another take and verify stale values do not carry over before new signal arrives.
+## D. H14 Mixer overflow with MASTER anchored
+- Use a project with enough tracks that all Mixer strips cannot fit at once.
+- Swipe horizontally across the track-strip region in both directions.
+- Reach the first and last tracks and exercise one hidden strip's controls.
+- Observe MASTER throughout the swipe.
 
-PASS: Peak responds quickly to attacks, RMS follows average energy, both are live only for the recording target, and meters reset cleanly between sessions.
+PASS: track strips scroll naturally without fighting their controls; hidden tracks become accessible; MASTER remains fixed at the right edge without jitter or horizontal displacement.
 
-## E. First-tap editing and trim ergonomics
+## E. H15 Studio return without flash
+- From Studio, open Config/Options and return to the same Studio repeatedly.
+- Repeat Studio → Home → same project Studio.
+- Before one round trip, make a reversible project edit so Undo is available.
+
+PASS: the same project returns immediately without the prior visible double-load/flicker; resident state remains coherent; Undo history is not unexpectedly discarded.
+
+## F. H11 retained Mixer/selection/REC metering
+- Top-bar Mixer button toggles persistent visibility.
+- Comparação/Timeline remains visually segmented and usable.
+- Tap waveform/clip/live waveform to select tracks.
+- During MK-300 REC, verify PK/RMS responds only on the recording target and resets cleanly next session.
+
+## G. First-tap editing and trim ergonomics
 - Open a clip pencil/actions menu and tap `Cortar` once several times across clips.
 - Confirm first valid tap always opens Trim or explains a blocked state.
 - Move both handles, Apply, Undo, Redo and save/reopen.
 
 PASS: no missed first tap/silent no-op; retained region survives history/persistence.
 
-## F. Level analysis convergence + history stress
+## H. Level analysis convergence + history stress
 - Analyze one guitar track, apply recommendation, analyze again.
 - Confirm the identical correction is not repeatedly proposed solely because source PCM is unchanged.
 - Perform multiple Undo/Redo operations and switch projects/back.
 
 PASS: effective level converges; history and transport controls remain responsive and project-scoped.
 
-## G. Stop during recording
+## I. Stop during recording
 - During countdown press Stop: countdown cancels safely.
 - Start REC again, let capture begin, press Stop.
 - Repeat using REC itself to stop.
 
 PASS: Stop and REC finalize through equivalent successful behavior with no duplicate take/corrupt WAV/stuck state.
 
-## H. Live REC waveform stability
+## J. Live REC waveform stability
 Record continuously for at least 2–3 minutes.
-- confirm historical waveform does not become sparse while recent material becomes dense;
+- historical waveform does not become sparse while recent material becomes dense;
 - right edge follows recorded duration monotonically;
 - no backward piling, acceleration, freeze/catch-up burst or timing migration;
 - finalized waveform remains aligned.
 
-## I. MK-300 routing and synchronization
+## K. MK-300 routing and synchronization
 - explicitly select MK-300 input/output with hardware loopback disabled;
 - record rhythm against backing;
 - confirm backing is not printed into guitar take;
@@ -86,16 +98,16 @@ Record continuously for at least 2–3 minutes.
 - disconnect selected input during a disposable take and verify fail-closed behavior;
 - listen for repeatable pops/dropouts/wrong speed/one-sided output.
 
-## J. Focused smoke
+## L. Focused smoke
 - Auto seções preview/application;
 - one Loop pass and live playhead seek;
 - at least two takes and active-take switch;
 - one short WAV or FLAC export and playback.
 
 ## PASS criteria
-- next exact-source H11 workflow fully green;
+- next exact-source H12–H15 workflow fully green;
 - signer/package/version/source/checksum verified;
-- no repeatable P0/P1 in sections B–J;
+- no repeatable P0/P1 in sections B–L;
 - no unintended input fallback/backing leakage;
 - no repeatable systematic guitar-vs-backing late placement;
 - explicit user approval of that exact signed APK.
