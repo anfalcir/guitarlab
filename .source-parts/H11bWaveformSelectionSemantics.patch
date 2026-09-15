@@ -1,0 +1,55 @@
+diff --git a/app/src/main/java/studio/guitarlab/app/ui/StudioPlaceholderScreen.kt b/app/src/main/java/studio/guitarlab/app/ui/StudioPlaceholderScreen.kt
+index 55c7f09..b1ef575 100644
+--- a/app/src/main/java/studio/guitarlab/app/ui/StudioPlaceholderScreen.kt
++++ b/app/src/main/java/studio/guitarlab/app/ui/StudioPlaceholderScreen.kt
+@@ -1487,13 +1487,6 @@ private fun StudioTrackLane(
+             modifier = Modifier
+                 .weight(1f)
+                 .fillMaxHeight()
+-                .testTag("track-waveform-area-${track.id}")
+-                .semantics {
+-                    role = Role.Button
+-                    this.selected = selected
+-                    contentDescription = "Área de áudio da pista ${track.name}"
+-                }
+-                .clickable(enabled = !dragInProgress, role = Role.Button, onClick = onSelect)
+                 .clip(RoundedCornerShape(8.dp))
+                 .background(if (track.armed) StudioRecord.copy(alpha = 0.055f) else MaterialTheme.colorScheme.surface.copy(alpha = 0.70f))
+                 .border(
+@@ -1502,6 +1495,21 @@ private fun StudioTrackLane(
+                     shape = RoundedCornerShape(8.dp),
+                 ),
+         ) {
++            // Keep the lane-level selection target as a sibling behind clip content. An ancestor
++            // clickable merges descendant semantics in Compose and would hide TrimHandle nodes
++            // from accessibility/testing while trim mode is active.
++            Box(
++                Modifier
++                    .matchParentSize()
++                    .testTag("track-waveform-area-${track.id}")
++                    .semantics {
++                        role = Role.Button
++                        this.selected = selected
++                        contentDescription = "Área de áudio da pista ${track.name}"
++                    }
++                    .clickable(enabled = !dragInProgress, role = Role.Button, onClick = onSelect),
++            )
++
+             if (clips.isEmpty() && liveWaveform.isEmpty()) {
+                 Text(
+                     "Sem áudio",
+@@ -1672,7 +1680,13 @@ private fun TimelineClipCard(
+                     },
+                 )
+             }
+-            .clickable(enabled = !dragging && !trimming, role = Role.Button, onClick = onSelect),
++            // Do not install clickable semantics at all while trimming. A disabled clickable still
++            // merges descendants and would make the two trim handles disappear from the merged
++            // semantics tree even though they remain visually rendered.
++            .then(
++                if (!dragging && !trimming) Modifier.clickable(role = Role.Button, onClick = onSelect)
++                else Modifier,
++            ),
+         shape = RoundedCornerShape(7.dp),
+         color = trackColor.copy(alpha = if (clip.muted) 0.10f else 0.20f),
+         border = BorderStroke(1.dp, if (trimming) StudioTrim else trackColor.copy(alpha = 0.72f)),
