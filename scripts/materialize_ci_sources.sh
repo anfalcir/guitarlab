@@ -194,3 +194,11 @@ apply_patch_once "$ROOT/.source-parts/H11TrimEntryRaceFix.patch"
 # clickables merged TrimHandle descendants out of the merged accessibility tree. H11b moves lane
 # selection to a sibling background target and removes clip clickable semantics while trimming.
 apply_patch_once "$ROOT/.source-parts/H11bWaveformSelectionSemantics.patch"
+
+# Physical Review IV / H12-H15: global level workflow, Trim ruler clarity, Mixer overflow and
+# resident Studio navigation return. Keep ordered/bisectable and fail closed on source drift.
+apply_patch_once "$ROOT/.source-parts/H12LevelEngine.patch"
+apply_patch_once "$ROOT/.source-parts/H12LevelUi.patch"
+apply_patch_once "$ROOT/.source-parts/H13TrimRuler.patch"
+apply_patch_once "$ROOT/.source-parts/H14MixerHorizontalScroll.patch"
+apply_patch_once "$ROOT/.source-parts/H15ResidentStudioReturn.patch"
