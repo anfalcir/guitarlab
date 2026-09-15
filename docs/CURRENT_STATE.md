@@ -37,6 +37,18 @@ The signed homologation job was correctly skipped. Root cause was a physically t
 
 The materializer repair restores the complete canonical tail, retains fail-closed guards, restores H14 and H14a as independent/bisectable source parts, and applies Physical Review IV in the exact order H12 engine → H12 UI → H13 → H14 → H14a → H15.
 
+### CI #623 — software gate PASS; isolated H14a gesture-lane diagnostic
+CI #623 / run ID `35003025673` / source `973ecae78ee3c159e975b4b1d65a2f733aedf59a`:
+- source materialization: **PASS**;
+- unit/core/audio/DSP/persistence/migration + performance evidence: **PASS**;
+- Android Lint, debug assembly, release assembly and unsigned provenance: **PASS**;
+- API 36 connected regression: **21/22 PASS, 1 FAIL**;
+- sole failure: `MixerDockInstrumentedTest.overflowingTracksSwipeHorizontallyWhileMasterRemainsAnchored`;
+- H12 all-track levels, H13 Trim-ruler and H15 resident-return regressions: **PASS**;
+- signed homologation: correctly **SKIPPED** because API 36 remained red.
+
+#623 proves the repaired materializer/build path is healthy. The remaining H14a failure is narrower than #621: the viewport-independent loop executed, but the default Compose `swipeLeft()` injects the gesture on the node centerline. In the Mixer that line crosses horizontal volume/pan sliders, so the regression can target child gesture consumers instead of the natural scroll chrome. H14a v2 keeps a real physical swipe but explicitly performs it through the non-slider track-header band (90%→10% width at 8% height), retains the 20-gesture ceiling, checks actual final-strip/viewport intersection, and preserves exact MASTER left/right bounds.
+
 ## Physical Review IV — H12–H15 — IMPLEMENTED / SOURCE-VALIDATED / PRE-GATE
 The #620 APK physical review exposed four polish gaps. They are implemented as ordered source parts after H11b.
 
@@ -63,7 +75,7 @@ Automated acceptance extends `PhysicalEditingHardeningInstrumentedTest` with `ti
 ### H14 / H14a — Mixer overflow with fixed MASTER
 - Track strips are inside a horizontally scrollable `LazyRow`.
 - MASTER is a separate sibling anchored at the right edge and does not move with track scrolling.
-- H14a makes the regression viewport-independent while preserving real swipe interaction and exact MASTER bound assertions.
+- H14a v2 makes the regression viewport-independent and routes the real swipe through non-slider track-header chrome while preserving exact MASTER bound assertions.
 
 Automated acceptance: `MixerDockInstrumentedTest` with a 10-track Mixer, bounded physical swipes to the final strip and invariant MASTER geometry.
 
@@ -90,28 +102,29 @@ Patch SHA-256 evidence:
 - H12 UI: `db9a7e448a22f79e8be22b9b795d4a4008bd92b4bff9754ad640eb957895308d`
 - H13: `4fd47e9d55de072be9ccfbc64361f3e87f9e38d68aa57a76a5084085bce399b0`
 - H14: `af3bf0808a5724f8aab3f6f17dec15b041591871ae26e51283d85a03a28a3e43`
-- H14a: `eb347d29e3bdfa61af6da984d85d985ec0871bc8165ce6961a4043fdbb03c658`
+- H14a v1 (#621/#623): `eb347d29e3bdfa61af6da984d85d985ec0871bc8165ce6961a4043fdbb03c658`
+- H14a v2 (post-#623): `0ecdfc2922311a3f6b0c773ece8cb4a27eb049780e8affa793bc2f496b71cef7`
 - H15: `79e4a98f996f86cb2c0916f1c152ef8a34529e369f7db1622ea4a5a7f427a1c9`
 
-Source validation performed after #622 repair:
+Source validation performed after #622 repair and the #623 H14a v2 refinement:
 - repaired materializer Git blob: `de488110153b8a800b69b520a29860230bcb5838`;
 - repaired materializer SHA-256: `612f171be1345b59e0f81e7f0e8cfbd78de0dcbc981fe4edcf22130b1b61779f`;
 - `bash -n scripts/materialize_ci_sources.sh`: **PASS** on the exact repaired file;
 - H12 → H13 → H14 → H14a → H15 dry-run/application from the exact #620 materialized source snapshot: **PASS**;
 - `git diff --check`: **PASS**;
-- final changed/new source/test/help blobs match the documented expected Physical Review IV tree, including `MixerDockInstrumentedTest.kt` `5aa984d00035ee259cce21f9cc8717c2f5f759af`.
+- final changed/new source/test/help blobs match the documented expected Physical Review IV tree, including revised `MixerDockInstrumentedTest.kt` `bf81aa9414a376679634f8ddf3f0b9bbf58fde5d`.
 
 The repository materializer is designed for a clean checkout/materialization pass. Re-running the entire historical script against an already fully materialized #620 artifact is not a supported idempotence test because earlier RC3 guards intentionally expect repository baselines. Idempotence is enforced at the supported patch/guard boundaries (`apply_patch_once`, explicit final-blob guards) and source drift fails closed rather than reverse-applying an earlier patch through later edits.
 
-No local Android SDK/Gradle environment was available in this session, so JVM tests, Android Lint, APK assembly and instrumentation were **not** re-run locally. #621 remains valid compilation/software evidence for H12–H15 before the H14a-only test correction; the next manual canonical CI is authoritative for the repaired materializer and H14a execution.
+#623 is now the strongest software/build evidence for Physical Review IV: materialization, unit/performance, Lint, debug/release assembly and unsigned provenance all passed on the repaired chain, while API36 reached 21/22. The post-#623 H14a v2 gesture-lane change is **SOURCE-VALIDATED / PRE-GATE** and still requires one new exact-source API36/signing run.
 
 ## Milestone state
 - M2–M6: PASS/CLOSED.
 - M7: #620 is the last digitally homologated baseline; H12–H15 + H14a are active PRE-GATE refinements from physical review.
-- M8: H0–H11 DIGITAL PASS; H12–H15 + H14a IMPLEMENTED / SOURCE-VALIDATED / PRE-GATE; #621 software PASS/API36 diagnostic FAIL; #622 infrastructure/materialization FAIL before build/test.
+- M8: H0–H11 DIGITAL PASS; H12–H15 + H14a IMPLEMENTED / SOURCE-VALIDATED / PRE-GATE; #621 H14 diagnostic; #622 infrastructure/materialization failure; #623 software/build PASS with API36 21/22 and sole H14a gesture-lane failure.
 
 ## Next authoritative gate
-After this source/materializer/documentation recovery is consolidated on `main`, the user must manually dispatch one new `GuitarLab Android CI` with `signed_homologation=true` on that exact `main` SHA.
+After the post-#623 H14a v2 refinement and documentation are consolidated on `main`, the user must manually dispatch one new `GuitarLab Android CI` with `signed_homologation=true` on that exact `main` SHA.
 
 Required PASS:
 1. full unit/core/audio/DSP/persistence/migration regression;
