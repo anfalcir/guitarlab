@@ -1,11 +1,11 @@
 # Android CI / release pipeline
 
-Updated: 2026-09-14
+Updated: 2026-09-15
 
 ## Purpose
-`.github/workflows/android-ci.yml` is the authoritative Android quality/homologation pipeline. It is intentionally manual-only (`workflow_dispatch`); commits do not trigger GitHub Actions automatically.
+`.github/workflows/android-ci.yml` is the authoritative Android quality/homologation pipeline. It remains intentionally manual-only (`workflow_dispatch`); commits do not trigger GitHub Actions automatically.
 
-Software and API 36 integration gates run independently/parallel where possible. The final signed job signs the exact unsigned artifact produced by the software gate; it does not rebuild source.
+Software and API 36 integration gates run independently where possible. The final signed job signs the exact unsigned artifact produced by the software gate; it does not rebuild source.
 
 ## Job graph
 ### 1. Software gate
@@ -40,33 +40,34 @@ Runs only when `signed_homologation=true` and both mandatory upstream gates pass
 `.source-parts/` plus `scripts/materialize_ci_sources.sh` are part of the build contract.
 
 Canonical hardening order:
-`H1 trim → H2 lineage/delete → H3 drag transaction → H4 timing → H5 waveform → H6 integrated regression/guide → H7 state/level/transport → H8 workspace flow → H9 waveform spatial stability → H10 race closure/guide`.
+`H1 trim → H2 lineage/delete → H3 drag transaction → H4 timing → H5 waveform → H6 integrated regression/guide → H7 state/level/transport → H8 workspace flow → H9 waveform spatial stability → H10 race closure/guide → H11 mixer/waveform/metering`.
 
-H7–H10 are guarded as one final-state unit because later stages refine files touched earlier. The materializer checks final Git blob hashes for the H7–H10 target set; a second invocation recognizes the finished state rather than reverse-matching an intermediate patch.
+H11 is represented by `.source-parts/H11MixerWaveformMetering.patch.gz` and is applied after H7–H10. It contains the segmented/persistent Mixer header refinement, waveform-to-track selection, live REC Peak/RMS projection and their regression tests.
 
-Requirements:
-- deterministic output for the same repository SHA;
-- idempotence-oriented repeated invocation;
+Requirements for the canonical CI path:
+- deterministic one-pass output for the same repository SHA;
+- H11 terminal patch forward/reverse recognition;
 - fail-fast drift detection;
-- no materialization bypass in any compile/test job.
+- no materialization bypass in compile/test jobs.
+
+The H11 terminal patch was separately validated against the exact #617 materialized source and reproduced the expected final application tree. A historical limitation remains in some earlier RC3 guards if the *entire* materializer is manually rerun over a later already-fully-materialized snapshot; this predates H11 and is outside the normal CI one-pass path. A future global idempotence refactor must preserve the proven canonical path rather than weakening drift detection.
 
 ## Artifacts
 Artifacts remain namespaced by `github.sha`: exact source snapshot, debug/software reports, unsigned candidate + identity, API36 reports/diagnostics, and signed APK + identity/checksums.
 
 ## Evidence history
-- CI #613: optimized full RC3 pipeline PASS.
-- CI #614: Compose test API compatibility failure; signing correctly blocked.
 - CI #615: full signed pre-H0–H6 baseline PASS.
-- CI #616 / source `3051619c219e346daca00d2242f60ef03f2d80db`: H0–H6 software + API36 + tablet geometry + signing PASS. Signed APK SHA-256 `92e806c6fbfd68b0fd44409570c17a976b922e56f2d206824a308c1fdc15bf9c`.
-- H7–H10 are newer than #616 and are PRE-GATE until a new exact-source run passes.
+- CI #616: H0–H6 digital PASS.
+- CI #617 / source `abc0e2a9f8708dd141735915898b508ce0948f48`: H0–H10 software + API36 + tablet geometry + signing PASS. Signed APK SHA-256 `7f0c303ccc447c5455dfbd49e1bc022af482927582254eb826c9b29f3a84c6b6`.
+- H11 is newer than #617 and remains PRE-GATE until a new exact-source run passes.
 
 ## Manual execution
-To create the next signed H7–H10 homologation candidate:
+To create the H11 signed homologation candidate:
 1. GitHub → Actions → **GuitarLab Android CI**.
-2. Run workflow on branch `main` only after source/docs consolidation.
+2. Run workflow on branch `main` only after H11 source/docs consolidation.
 3. Enable `signed_homologation=true`.
 4. Confirm all three jobs PASS.
 5. Confirm run `head_sha` equals the intended final `main` HEAD.
 6. Verify APK/`SHA256SUMS.txt`/`BUILD_IDENTITY.txt` package, version, source SHA and signer all agree.
 
-Do not treat a green run from another SHA as evidence for the active candidate.
+Do not dispatch/rerun CI automatically and do not treat a green run from another SHA as evidence for H11.
