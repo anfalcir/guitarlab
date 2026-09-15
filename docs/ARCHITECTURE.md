@@ -9,10 +9,11 @@ Updated: 2026-09-14
 
 ## Core boundaries
 - `core:model`: immutable project/track/clip metadata contracts, including managed source/proxy references.
-- `core:project`: deterministic editors/history, repository, managed media, portable bundle reader/writer, recording/session/timeline policies, interruption recovery and media integrity audit.
+- `core:project`: deterministic editors/history, repository, managed media, portable bundle reader/writer, recording/session/timeline policies, trim/drag policies, live-waveform frame envelope, interruption recovery and media integrity audit.
 - `core:codec`: WAV metadata/decoder/waveform primitives, import-format policy, Float32 WAV writer and pure encoding-timeline rules.
+- `core:audio`: pure audio/timing policies, including recording timing compensation.
 - `platform:codec-android`: Android compressed-format decode-to-proxy and master encoder adapters.
-- `platform:audio-android`: playback/capture engines, routing and offline master renderer.
+- `platform:audio-android`: playback/capture engines, routing, timing evidence and offline master renderer.
 - `app`: Compose presentation, ViewModels, SAF launchers, orchestration and Android instrumentation surface.
 
 ## Managed-media architecture
@@ -27,6 +28,8 @@ Sources are never auto-deleted by cleanup. Unreferenced sources and payload-bear
 
 Recording abandonment is lossless. Header-only `.recording.part.wav` may be discarded. A payload-bearing partial take is retained and inventoried. If a process dies before `FloatWavFileWriter.finish()` patches the header, recovery may repair only a canonical GuitarLab IEEE-Float32 WAV whose layout validates exactly; partial trailing bytes are reduced only to the last complete frame.
 
+Clip deletion never implies media deletion while any clip still references the same managed source/proxy.
+
 ## Portable project architecture
 `.guitarlab` is a versioned ZIP containing manifest, `project.json` and referenced managed media. Reader extraction occurs in hidden `.import-*` staging, blocks traversal/out-of-root paths, applies bounds, validates consistency, assigns a new project ID and only then publishes into managed storage.
 
@@ -39,42 +42,82 @@ Project duplication follows the same invariant: all referenced source/edit proxi
 
 Android encoder input converts the staged float stream to PCM16 for current FLAC/MP3 encoder adapters. Presentation timestamps are calculated from each chunk's start frame; EOS uses the final decoder frame position.
 
-FLAC output is a native FLAC stream, not merely raw encoded frames: mandatory `fLaC` + STREAMINFO codec-specific data is written exactly once before frames, whether the platform exposes it through output-format CSD or a codec-config buffer. Android API 36 instrumentation validates marker plus native extraction/decoding.
-
-MP3 remains capability-gated because the Android platform does not mandate an MP3 encoder.
+FLAC output is a native FLAC stream with `fLaC` + STREAMINFO codec-specific data written exactly once before frames. Android API 36 instrumentation validates native extraction/decoding. MP3 remains capability-gated because Android does not mandate an MP3 encoder.
 
 ## User-destination publication
-Project packages and master files are completely staged/validated before the selected SAF destination is opened. The final publisher uses truncating write mode, copies cooperatively with cancellation and attempts rollback-to-empty after final-write error/cancellation. This minimizes the risk that a partial external file appears to be a completed export.
+Project packages and masters are completely staged/validated before the selected SAF destination is opened. Final publication uses truncating write mode, cooperative cancellation and rollback-to-empty attempts after final-write error/cancellation.
 
 ## Studio output UX
-The Studio top bar owns Share > `Salvar e exportar`, separated into editable project (`.guitarlab`) and final master (WAV Float32, FLAC, MP3). Options owns routes, monitoring, preferences and diagnostics and does not duplicate those output actions as primary commands. Home reuses the same rename/export contracts rather than maintaining divergent render logic.
+The Studio top bar owns Share > `Salvar e exportar`, separated into editable project (`.guitarlab`) and final master (WAV Float32, FLAC, MP3). Options owns routes, monitoring, preferences and diagnostics and does not duplicate output actions as primary commands. Home reuses the same rename/export contracts.
 
-## Timeline and Mixer interaction
-Workspace-level drag state coordinates track reorder and clip migration. The ghost remains above the LazyColumn and follows pointer motion continuously; edge autoscroll is coroutine/geometry driven. Completed drop is one atomic metadata mutation; cancellation is a no-op.
+## Timeline/edit interaction architecture
+Workspace-level drag state coordinates track reorder and clip drag. The ghost remains above the LazyColumn and follows pointer continuously; edge autoscroll is coroutine/geometry driven.
 
+Clip drop is resolved before mutation as one explicit intent:
+- `Move(targetTrackId)`;
+- `Delete` when the pointer is inside the active trash target;
+- `NoOp` for same-origin/cancel/invalid drop.
+
+Source clip/track identity is snapshotted at drag start and revalidated before commit. Trash drop enters the same confirmation/domain-delete path as `Excluir clipe`; preview/hover never mutates project state.
+
+Trim uses independent start/end interaction handles backed by a pure pointer→frame policy. Handle ownership and source/timeline clamps are deterministic; labels/bubbles are presentation-only.
+
+## Recording-take lineage architecture
+Temporal split may leave multiple clip segments referencing one `RecordingTake`.
+
+When one segment is moved or deleted:
+- that segment is detached from the take lineage;
+- surviving siblings retain the take;
+- if the canonical `RecordingTake.clipId` leaves, a surviving sibling is promoted deterministically;
+- the take is removed only when no sibling remains;
+- active-take fallback is reconciled deterministically.
+
+This prevents split → move/delete from creating dangling take references during project validation/save/reopen.
+
+## Recording and synchronization architecture
+Recording owns a dedicated `AudioRecord` input stream and managed Float32 writer. Playback/backing and software monitoring do not feed that writer. When an input is explicitly selected, capture begins only after `AudioRecord.routedDevice` confirms that effective device and stops if the route changes.
+
+Recording synchronization separates three concepts that must never be collapsed into one magic offset:
+1. **per-session startup skew** between capture and backing presentation;
+2. **accepted route latency/calibration** for the effective input/output/sample-rate route;
+3. **creative punch/pre-roll offset**.
+
+Recording/playback engines expose trustworthy Android audio timestamp/monotonic timing evidence when available, with bounded fallback. Pure timing policy converts evidence to frames, combines compensation components exactly once and clamps final placement/trim to valid timeline/source bounds. A fixed hard-coded `-0.5 s` correction is prohibited.
+
+## Live recording waveform architecture
+Live waveform is a bounded **frame-span envelope**, not one point per callback.
+
+Each `LiveWaveformPoint` owns:
+- start frame;
+- end frame exclusive;
+- normalized peak.
+
+`recordingFrames` is authoritative for live clip duration. When the envelope exceeds its bound, adjacent spans are compacted while retaining complete covered time and the maximum transient. UI publication is conflated/rate-bounded instead of launching one main-thread state update per `AudioRecord` read. On finalization, canonical file-derived waveform data replaces transient live-envelope state without changing clip placement.
+
+## Mixer interaction
 Mixer/Master controls operate engine/project state. Mute/Solo/Arm expose button role, contextual content and state descriptions. Compact visuals may rely on Compose minimum touch expansion, but neighboring control centers are spaced to avoid hit-target collision; API 36 Compose tests verify callbacks/semantics.
 
 ## Lifecycle boundary
 Saveable navigation routes are encoded/decoded by a pure route codec and tested through real `ActivityScenario.recreate()`. Durable creative state lives in project persistence, not transient composable state. Interrupted import/recording artifacts are recovered/classified independently of Activity recreation.
 
 ## Build/release architecture
-`scripts/build_local.sh` is the default software build gate. It validates Java/Gradle/SDK prerequisites, materializes split sources, and runs JVM tests, Lint and debug assembly. Signed release assembly is explicit and uses environment-only credentials.
+`scripts/build_local.sh` is the local software build gate. It validates Java/Gradle/SDK prerequisites, materializes split sources, and runs JVM tests, Lint and debug assembly. Signed release assembly is explicit and uses environment-only credentials.
 
-`.github/workflows/android-ci.yml` is the canonical manually dispatched full software/API36/geometry/signing executor. It has no automatic commit trigger. Its software and API 36 gates remain independent prerequisites of `homologation-apk`; release compilation is produced once in the warm software job and the final job signs/verifies that exact unsigned binary without recompilation.
+`.github/workflows/android-ci.yml` is the canonical manually dispatched full software/API36/geometry/signing executor. It has no automatic commit trigger. Its software and API 36 gates are independent prerequisites of the signed homologation job; release compilation is produced once in the warm software job and the final job signs/verifies that exact unsigned binary without recompilation.
+
+### Serial source materialization
+Large RC3 deltas are versioned under `.source-parts` and materialized before tests/build. Post-615 hardening order is intentionally fixed:
+
+`H1 trim → H2 lineage/delete → H3 drag transaction → H4 recording timing → H5 live waveform → H6 integrated regression → H6 final test fix → H6 guide sync`.
+
+A patch must either apply cleanly or be recognized as already applied; otherwise materialization fails. This preserves diagnosability and blocks silent partial source.
 
 ## Current milestone boundary
-M5 and M6 are closed. M7 is technically hardened and remains open for one residual target-device gate. M8.A/B automated release hardening is covered for the current scope; M8.C is final exact-candidate/signing/physical closure work.
-
-## RC1 recording and practice architecture
-Recording owns a dedicated AudioRecord input stream and managed Float32 writer. Playback/backing and software monitoring do not feed that writer. When an input was explicitly selected, capture begins only after `AudioRecord.routedDevice` confirms that exact device and stops if the route changes.
-
-Live waveform data is a bounded peak accumulator published as transient UI state; the finalized waveform remains derived from committed media. Takes are persisted metadata with exactly one active take per track, and playback/export/timeline duration consume only active-take clips.
-
-Markers, sections, punch regions and take identity are additive project metadata. Section detection and level analysis produce reviewable suggestions; only explicit user actions commit sections or gain changes.
+M5 and M6 are closed. M7/M8 active RC hardening is implemented through H0–H6 but awaits an exact-source canonical workflow plus residual target-device validation. CI #615 is the last fully green signed baseline and predates the H0–H6 source.
 
 ## Studio information architecture
-Home and Studio share the same `StudioUserGuideDialog`; separate entry buttons are navigation affordances, not separate help implementations. The Studio practice-control row is responsive and uses a stable fixed slot for Auto-sections preview actions. Recording countdown is a z-indexed overlay and never participates in the workspace Column measurement.
+Home and Studio share the same `StudioUserGuideDialog`; separate entry buttons are navigation affordances, not separate help implementations. The guide documents trim handles, clip deletion/trash and current recording/practice behavior.
 
-The top bar uses three independent overlays: project title at the start, the complete transport/navigation group at the geometric center of the available screen, and global actions at the end. Centering applies to the navigation group as a unit, not to the Play button. The playhead already communicates current position, so no duplicate current/remaining-time field is shown there.
+The Studio practice-control row is responsive and uses a stable fixed slot for Auto-sections preview actions. Recording countdown is a z-indexed overlay and never participates in workspace Column measurement.
 
-Project-wide editing context belongs to the track workspace: the Pistas header reports track count, clip count and total project duration. Track creation is an explicit footer action below the final track, keeping the header informational and preserving alignment with the track sidebar.
+The top bar uses independent start/center/end regions so the complete transport/navigation group is geometrically centered as a unit. Project summary belongs to the Pistas header; track creation is an explicit footer action below the final track.
