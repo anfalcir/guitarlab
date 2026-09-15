@@ -4,27 +4,28 @@ Updated: 2026-09-15
 
 This checklist is intentionally residual. Do not repeat deterministic model/file/API36 checks already covered by CI.
 
-## Candidate identity rule
-Current last signed digital baseline:
-- CI #624 / source `7858dca021a51e0e08835e3fa3f86e6d3b657215`;
-- signed APK SHA-256 `82da7c41591c01e304e44e57031ebac6263a2175866ecd1b438d65da0539462b`.
-
-H16 is newer and PRE-GATE. **Do not use #624 as physical approval evidence for H16.** Run this final checklist only on the next signed APK after its exact-source manual CI passes.
-
-Expected candidate constants:
+## Canonical physical candidate
+Use only the exact signed APK from CI #625:
+- run ID `35010012582`;
+- source SHA `476fa740408130adf6a4e9665d166e724a9184dd`;
 - versionName `0.5.0-rc3`;
 - versionCode `23`;
 - package `studio.guitarlab.app`;
+- unsigned APK SHA-256 `46750bb10e70c70d350011aa46411d2cafb7766746c20b6e83add100b6f8055a`;
+- signed APK SHA-256 `107795f040ed18246bb130a9519044ba7e07f334a5835566b952cbc7fdb528e6`;
 - signer SHA-256 `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`;
-- target Samsung SM-X230 + M-VAVE MK-300 over USB;
+- signed artifact ID `10412879614`;
+- target: Samsung SM-X230 + M-VAVE MK-300 over USB;
 - MK-300 hardware loopback disabled.
+
+CI #625 already passed software/Lint/build/provenance, API36 **22/22**, isolated 1920×1200 geometry and signed homologation. The checks below cover only facts CI cannot establish.
 
 ## A. H16 practice bar
 - Open the Mixer so the docked practice bar is visible.
 - Confirm the bar reads **Comparação | Ajustes | Timeline** in that order.
 - Confirm the neutral comparison choice reads **Desativado**, while the separate top-bar panel toggle still reads **Mixer**.
 - Confirm `Níveis` sits only in Ajustes.
-- Judge the three blocks at the real tablet width: Ajustes should be compact, Timeline should have the most room, and the whole bar should look balanced rather than artificially equal.
+- Judge the three blocks at the real tablet width: Ajustes should be compact, Timeline should have the most room, and the bar should look balanced.
 
 PASS: labels are unambiguous, Níveis is visually separated from comparison modes, and no control feels cramped or disproportionately empty.
 
@@ -73,9 +74,10 @@ PASS: no visible double-load/flicker and Undo remains available.
 - Trim Apply → Undo → Redo → save/reopen.
 
 ## Final PASS criteria
-- exact-source H16 workflow fully green with signed homologation;
-- package/version/source/checksum/signer verified;
+- use only the exact #625 signed APK identified above;
 - no repeatable P0/P1 in A–G;
 - no unintended input fallback/backing leakage;
 - no repeatable systematic guitar-vs-backing late placement;
-- explicit user approval of that exact signed APK.
+- explicit user approval of this exact signed APK.
+
+If A–G pass, M7 physical closure and the RC3 release decision may be finalized without another digital CI run, provided no source/product code changes are introduced afterward.

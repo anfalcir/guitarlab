@@ -17,50 +17,62 @@ Closed after physical approval.
 ## M6 — Measured latency and synchronization — PASS/CLOSED
 Closed after physical approval.
 
-## M7 — Production audio polish
-Digital scope through H15/H14a is **PASS** at CI #624. H16 is the final polish delta and is PRE-GATE.
+## M7 — Production audio polish — DIGITAL PASS / PHYSICAL CLOSURE PENDING
+The complete digital scope through H16 is PASS at CI #625 / run `35010012582` / source `476fa740408130adf6a4e9665d166e724a9184dd`.
 
-## M8 — Release hardening
+The remaining M7 authority is final physical homologation on the real Samsung SM-X230 + M-VAVE MK-300 and human visual/auditory perception.
 
-### Canonical signed baseline — CI #624
-Run `35005147318`, exact source `7858dca021a51e0e08835e3fa3f86e6d3b657215`:
-- software + performance + Lint + debug/release/provenance: PASS;
-- API36 full regression: **22/22 PASS**;
+## M8 — Release hardening — DIGITAL PASS THROUGH H16
+
+### Canonical signed gate — CI #625
+Manual `workflow_dispatch`, exact source `476fa740408130adf6a4e9665d166e724a9184dd`:
+- source materialization: PASS;
+- software/unit/audio/DSP/persistence/migration regression: PASS;
+- performance evidence: PASS;
+- Android Lint: PASS;
+- debug + release build and unsigned provenance: PASS;
+- API36 full connected regression: **22/22 PASS**;
 - isolated 1920×1200 geometry: PASS;
 - signed homologation: PASS;
-- signed APK SHA-256: `82da7c41591c01e304e44e57031ebac6263a2175866ecd1b438d65da0539462b`;
-- signer SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
+- package/version/source/signer/checksum provenance: PASS.
+
+Canonical candidate identity:
+- version `0.5.0-rc3` / versionCode `23`;
+- package `studio.guitarlab.app`;
+- unsigned APK SHA-256 `46750bb10e70c70d350011aa46411d2cafb7766746c20b6e83add100b6f8055a`;
+- signed APK SHA-256 `107795f040ed18246bb130a9519044ba7e07f334a5835566b952cbc7fdb528e6`;
+- certificate SHA-256 `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
 
 ### H12–H15 + H14a — DIGITAL PASS
-H12 global level workflow, H13 Trim ruler, H14/H14a scrollable Mixer with fixed MASTER, and H15 resident same-project return are all digitally homologated by #624.
+H12 global levels, H13 Trim ruler, H14/H14a scrollable Mixer with fixed MASTER, and H15 resident same-project return remain digitally homologated and are retained by #625.
 
-### H16 — final practice-bar + Trim-overlay polish — IMPLEMENTED / SOURCE-VALIDATED / PRE-GATE
+### H16 — final practice-bar + Trim-overlay polish — DIGITAL PASS
 Practice bar:
-- comparison neutral label `Mixer` → `Desativado`;
+- neutral comparison label is `Desativado`;
 - top-bar Mixer panel toggle remains `Mixer`;
-- `Níveis` moved into a dedicated center **Ajustes** segment;
+- `Níveis` belongs to dedicated `Ajustes`;
 - docked order `Comparação | Ajustes | Timeline`;
-- proportional weights `0.34 / 0.16 / 0.50` for a compact center block and roomy Timeline.
+- proportional weights `0.34 / 0.16 / 0.50`.
 
 Trim geometry:
-- remove the ruler-only 8 dp right shrink that displaced T1/T2 left;
-- share exact timeline width with playhead/loop rail;
-- compact ruler `46.dp → 20.dp`;
-- zero vertical spacing between marker rail and ruler;
-- T1/T2 line and precise label overlay the existing marker rail/ruler while Cut is active, with higher visual priority than playhead/loop;
+- T1/T2 use the same effective width/projection as playhead/loop;
+- ruler-only 8 dp shrink removed;
+- compact ruler 20 dp;
+- zero spacing between marker rail and ruler;
+- T1/T2 overlay the existing rail/ruler while Cut is active;
 - no dedicated Trim lane and no waveform obstruction.
 
-Regression additions:
-- practice-bar test verifies three segments, labels, action placement and proportional widths;
-- physical-editing test verifies rail/ruler adjacency, compact height and canonical T1 X projection after drag.
+Regression evidence at #625:
+- `AutoSectionsSlotInstrumentedTest.dockedPracticeControlsRenderAsBalancedComparisonAdjustmentsAndTimelineSegments`: PASS;
+- retained `PhysicalEditingHardeningInstrumentedTest`: PASS;
+- overall connected API36 suite: **22/22 PASS**;
+- isolated target-tablet geometry: PASS.
 
 Source part:
 `.source-parts/H16FinalUiTrimOverlay.patch.gz`
 
 Decoded patch SHA-256:
 `40a4056644707c57291dfd876fde8487d8dbe9c436ba0409ccb7c6a60c31a0bb`
-
-Source validation against exact #624 materialized source: forward/reverse `patch` dry-run, `git apply --check`, application and `git diff --check` all PASS. Android runtime/compilation remains intentionally pending the canonical CI.
 
 ## Canonical materialization tail
 After H11b:
@@ -70,12 +82,12 @@ After H11b:
 4. H14 Mixer Horizontal Scroll
 5. H14a Mixer Scroll Viewport Regression
 6. H15 Resident Studio Return
-7. **H16 Final UI / Trim Overlay**
+7. H16 Final UI / Trim Overlay
 
-## Next acceptance gate
-The user manually dispatches `GuitarLab Android CI` on the exact final `main` SHA with `signed_homologation=true`.
+## Remaining release path
+No new digital gate is required unless source/product code changes.
 
-Promotion rule: H16 becomes DIGITAL PASS only if software/Lint/build/provenance, API36 full regression, tablet geometry and signed homologation all pass on that same source SHA. Until then, #624 remains the last signed digital baseline.
+Next step is the final physical checklist `RC3_FINAL_PHYSICAL_HOMOLOGATION.md` using the exact #625 signed APK. Physical approval must cover only what CI cannot establish: real tablet/MK-300 routing, REC behavior, synchronization/latency perception, listening quality, interaction feel, visual readability and absence of perceptible return flicker.
 
 ## Gate discipline
-The assistant must not dispatch or rerun Actions. `.github/workflows/android-ci.yml` remains manual-only.
+`.github/workflows/android-ci.yml` remains manual-only (`workflow_dispatch`). The assistant must not dispatch or rerun Actions. Documentation-only promotion commits use `[skip ci]` and do not replace the exact application/source SHA recorded above.
