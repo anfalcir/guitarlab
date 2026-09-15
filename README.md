@@ -6,40 +6,47 @@ Android-first guitar practice, recording, comparison and mixing workspace.
 The repository is the canonical source for scope, architecture, implementation state and homologation evidence. Chat history is supplementary only.
 
 Read first:
-- `docs/CURRENT_STATE.md` — live milestone/gate state;
+- `docs/CURRENT_STATE.md` — authoritative live candidate/gate state;
 - `docs/IMPLEMENTATION_ROADMAP.md` — milestone sequence and remaining release work;
-- `docs/ARCHITECTURE.md` — current module, media, lifecycle and CI architecture;
-- `docs/CODEC_SUPPORT_MATRIX.md` — implemented vs JVM/emulator/target-verified codec capabilities;
-- `docs/MANAGED_MEDIA_POLICY.md` — immutable-source/proxy/project-package contract;
-- `docs/TIMELINE_INTERACTION_GUIDELINES.md` — timeline/drag/trim contract;
-- `docs/STUDIO_OPTIONS_AND_MIXER.md` — Studio, routing, Mixer and Share-modal contract;
+- `docs/PHYSICAL_EDITING_RECORDING_HARDENING_PLAN.md` — H0–H6 trim/clip/drag/latency/live-waveform hardening record;
+- `docs/ARCHITECTURE.md` — current module, media, recording and CI architecture;
+- `docs/TIMELINE_INTERACTION_GUIDELINES.md` — timeline/drag/trim/delete contract;
 - `docs/TEST_AND_HOMOLOGATION_PLAN.md` — automated + residual physical gate policy;
-- `docs/M7_ALPHA1_HOMOLOGATION_CHECKLIST.md` — historical filename retained for the current residual M7/final-RC physical checklist;
-- `docs/M8_GLOBAL_DIGITAL_REGRESSION.md` — global regression matrix and corrected-defect evidence;
-- `docs/HISTORICAL_CANDIDATES.md` — superseded candidates.
+- `docs/RC3_FINAL_PHYSICAL_HOMOLOGATION.md` — active residual physical checklist after exact-source automated PASS;
+- `docs/CANDIDATE_IDENTITY_POLICY.md` — version/source/signer/checksum identity contract;
+- `docs/DOCUMENTATION_MAP.md` — active vs historical document map.
 
 ## Active RC3 state
-The active candidate remains `0.5.0-rc3` (versionCode 23). Manual workflow run **#613** fully passed software, API 36 instrumentation, isolated 1920×1200 geometry and signed homologation at source `db5a4208848e4b6ca2163ce715d0c5bb464cfe37`; that signed APK has SHA-256 `4b62d38c1caf3f449c94b4f9111263dacd87d8cf5e9116caa26245ecb716f341`.
+The active candidate remains `0.5.0-rc3` (versionCode 23).
 
-Source has since advanced with final physical-homologation UX corrections (Auto seções geometry/end-boundary hardening, shared Home/Studio guide access and a non-layout-shifting 3-second REC countdown overlay). Therefore #613 is the latest fully green **baseline**, not proof for the new HEAD; the next signed candidate requires another explicit manual workflow dispatch.
+Manual workflow **#615** fully passed software, API 36 instrumentation, isolated 1920×1200 geometry and signed homologation at source `74bf86efbec94d249c4968c3284bf1985cd66b44`. Its signed APK SHA-256 is `d443cb33a010d2d21dad43e9ff12554d7ada4f2bb783be0c80e3ac11bfe2d6c9`, with the locked homologation certificate `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
+
+After #615, physical use exposed a connected editing/recording workflow that required structural hardening. The current `main` therefore contains the serial H0–H6 program:
+- independent ergonomic trim handles instead of opaque slider acquisition;
+- safe split-take lineage and explicit clip deletion;
+- drag-to-trash plus transaction-safe clip movement;
+- measured recording startup skew/route-latency compensation instead of a hard-coded timing offset;
+- frame-based, bounded/conflated live REC waveform;
+- integrated persistence, timing, waveform and instrumented regression additions.
+
+Therefore #615 is the latest fully green **baseline**, not proof for the current HEAD. The next promoted APK must come from one new explicit manual workflow dispatch against the final current `main` SHA.
 
 ## Current development state
 - `main`: canonical branch; ordinary commits remain `[skip ci]`;
-- historical integration branch `dev/parallel-m3-m5` is merged and no longer the source of truth;
-- current hardware target for residual physical validation: Samsung SM-X230 + M-VAVE MK-300;
+- historical integration branch `dev/parallel-m3-m5` is merged and is not source of truth;
+- active hardware target: Samsung SM-X230 + M-VAVE MK-300;
 - active candidate identity: `0.5.0-rc3`, versionCode 23;
 - active residual checklist: `docs/RC3_FINAL_PHYSICAL_HOMOLOGATION.md`.
 
 ## Build, regression and signing
-`scripts/build_local.sh` is the default software gate and runs source materialization, JVM tests, Android Lint and debug assembly with pinned Gradle 9.6.1 / Android API 36 requirements. With explicit signing environment variables and `SIGNED_HOMOLOGATION=true`, it also builds the homologation release.
+`scripts/build_local.sh` is the local software gate and runs source materialization, JVM tests, Android Lint and debug assembly with pinned Gradle/Android requirements. With explicit signing environment variables and `SIGNED_HOMOLOGATION=true`, it can also build the homologation release.
 
-`.github/workflows/android-ci.yml` is retained as a manual emergency/full-emulator gate only. It has no `push` or `pull_request` trigger, so ordinary commits consume no GitHub Actions minutes. A signed manual run still requires both software and Android integration jobs to pass before signing.
+`.github/workflows/android-ci.yml` is the canonical manually dispatched full software/API36/geometry/signing executor. It has no `push` or `pull_request` trigger. A signed run requires both software and Android integration jobs to pass before the exact unsigned release artifact is signed and identity-checked.
+
+Large source deltas are versioned under `.source-parts` and applied serially by `scripts/materialize_ci_sources.sh`. The H1→H6 sequence is intentionally ordered so interaction, clip lineage, drag transaction, recording timing, live waveform and integrated regression remain separately diagnosable. Patch drift must fail the build rather than silently materialize a partial candidate.
 
 ## Physical validation policy
-Automatable mathematics, persistence invariants, malformed-input handling, lifecycle recreation, codec structure and UI semantics are not delegated back to the user. The final physical gate is intentionally residual: Samsung/M-VAVE MK-300 USB routing and capture, target-specific MP3 encoder availability, subjective latency/listening quality, real-tablet stress and tactile/visual ergonomics.
+Automatable mathematics, persistence invariants, clip-lineage rules, timing policy, malformed-input handling, lifecycle recreation, codec structure, UI semantics and generic geometry are not delegated back to the user. After the next exact-source automated PASS, the physical gate is intentionally short: trim-handle ergonomics, split/move/delete/trash flow, real MK-300 routing/isolation, guitar-vs-backing synchronization, multi-minute live waveform behavior, subjective monitoring/listening and one representative export/stress smoke.
 
 ## Security
 Never commit keystores, credentials, local SDK configuration or secret artifacts.
-
-## RC2 Studio refinement
-`0.4.0-rc2` introduced the current Studio layout: the complete transport/navigation group is centered on the full top bar; current time remains represented by the playhead; remaining time is removed; track count, clip count and total project duration live in the Pistas header; and Adicionar pista is an explicit footer action. These refinements remain in `0.5.0-rc1`.
