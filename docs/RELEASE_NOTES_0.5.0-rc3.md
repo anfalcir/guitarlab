@@ -2,56 +2,40 @@
 
 Updated: 2026-09-15
 
-## Canonical digital homologation — CI #626
-Run `35017084625`, manual `workflow_dispatch`, exact source `f187ab2ba7596c4aa04d223f007409b2fb39f490`:
-- source materialization through H17: **PASS**;
-- unit/core/audio/DSP/persistence/migration regression: **PASS**;
-- reproducible performance evidence: **PASS**;
-- Android Lint: **PASS**;
-- debug + release assembly and unsigned provenance: **PASS**;
-- API36 full connected regression: **22/22 PASS**;
-- isolated 1920×1200 tablet geometry: **1/1 PASS**;
-- signed homologation: **PASS**;
-- package/version/source/signer/checksum verification: **PASS**.
+## Last signed digital homologation — CI #626
+Run `35017084625`, source `f187ab2ba7596c4aa04d223f007409b2fb39f490`, is the signed DIGITAL PASS through H17. API36 was **22/22 PASS**, isolated 1920×1200 geometry was **1/1 PASS**, and signed homologation passed.
 
-Canonical identity:
+Identity:
 - package `studio.guitarlab.app`;
 - version `0.5.0-rc3` / versionCode `23`;
-- unsigned APK SHA-256 `28578bab8b76a611aa1b0cd92f8aa0b428826526779e1757ab45b5b34ce254b9`;
 - signed APK SHA-256 `93a7ed1ebfdedf7421cf21183db84a529d2d095c9564caafc87952506cb5426b`;
-- certificate SHA-256 `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`;
-- APK Signature Scheme v2 verified with one RSA-4096 signer.
+- certificate SHA-256 `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
 
-CI #626 supersedes #625 as the active signed digital baseline because it includes H17 while retaining the previously homologated H12–H16 behavior.
+## Physical review after #626
+The CUT presentation is physically accepted: numeric T1/T2 labels are gone and CUT ticks are confined to the time ruler. Ajustes/Níveis is also in the desired center location.
 
-## H17 — CUT ruler + practice spacing — DIGITAL PASS
+Two further defects were identified:
+- the final `Ambas` comparison control could be clipped by the fixed docked segment proportions;
+- MK-300 output could appear twice because Android exposed more than one logical USB output endpoint for the same physical interface, with one observed endpoint producing no sound.
 
-### CUT finalization
-- numeric T1/T2 label boxes removed;
-- yellow CUT markers reduced to short ticks inside the time ruler only;
-- ticks no longer enter the sections/playhead rail;
-- exact canonical timeline X projection retained;
-- Trim handles remain in the waveform and independently draggable.
+## H18 candidate delta — adaptive practice bar — PRE-GATE
+- fixed docked percentage allocation removed from the critical path;
+- Comparação/Ajustes size to content;
+- Timeline flexes into the remaining width and owns its own overflow;
+- narrow docked widths scroll the whole strip instead of clipping a control;
+- instrumentation now requires every comparison control to stay fully inside Comparação.
 
-### Practice-bar finalization
-- three-block `Comparação | Ajustes | Timeline` structure retained;
-- `Ajustes + Níveis` centered inside its dedicated segment;
-- Níveis remains fully inside Ajustes;
-- center content now has approximately symmetric breathing room to both neighbors.
+Patch SHA-256: `fba48ae2b0eedd2c87c269738197542f84a2772bac1aa55e0646ee722ef3627e`.
 
-### Regression status
-At #626:
-- `AutoSectionsSlotInstrumentedTest.dockedPracticeControlsRenderAsBalancedComparisonAdjustmentsAndTimelineSegments`: PASS;
-- `PhysicalEditingHardeningInstrumentedTest.trimHandlesAreIndependentlyDraggableAndClipDeleteRequiresConfirmation`: PASS;
-- `MixerDockInstrumentedTest`: PASS;
-- `GuitarLabLifecycleInstrumentedTest`: PASS;
-- overall API36 suite: **22/22 PASS**;
-- isolated target-tablet geometry: **1/1 PASS**.
+## H19 candidate delta — canonical USB output routing — PRE-GATE
+- one physical USB interface is represented once in the output selector even when Android publishes multiple logical endpoints;
+- old endpoint signatures migrate to one canonical route signature;
+- non-USB profiles remain distinct;
+- duplicate candidate endpoints are resolved by a silent stereo route probe and actual `routedDevice` confirmation rather than list order;
+- unconfirmed duplicates fail closed to the existing automatic-route fallback;
+- stale persistent selections are cleared on device refresh;
+- deterministic JVM tests cover canonicalization, migration, route separation and ranking.
 
-H17 source-part SHA-256:
-`38b3f494cf528fcc9fc818e6ef38ed0647389e106ec1bcc821e00ee2e65278dc`.
+Patch SHA-256: `21373fa0d85d55ee180fed29308e5677e7bde90b1b555e366c61a872a388eb06`.
 
-## Physical homologation boundary
-The exact #626 signed APK is now the intended physical-homologation candidate. Its embedded build identity correctly records `gate=software+android-integration-passed;physical-validation-pending`.
-
-No additional CI run is required unless product/source code changes. Final approval now requires only the residual real-device checklist in `RC3_FINAL_PHYSICAL_HOMOLOGATION.md`, focused on visual confirmation of the H17 CUT/Ajustes refinements plus MK-300 routing/REC/meters/synchronization, interaction feel, listening/perception and absence of perceptible Studio-return flicker.
+H18/H19 become part of the signed baseline only after the next manually dispatched exact-source workflow passes the full software/API36/tablet-geometry/signing gate. Real MK-300 endpoint consolidation/output remains a final hardware check.

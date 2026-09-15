@@ -2,82 +2,95 @@
 
 Updated: 2026-09-15
 
-## Active candidate
+## Active line
 - Repository/branch: `anfalcir/guitarlab` / `main`.
 - Version: `0.5.0-rc3`, versionCode `23`, package `studio.guitarlab.app`.
-- Canonical digitally homologated source SHA: `f187ab2ba7596c4aa04d223f007409b2fb39f490`.
-- Canonical PASS: CI #626 / run `35017084625`, manual `workflow_dispatch`.
-- Signed APK SHA-256: `93a7ed1ebfdedf7421cf21183db84a529d2d095c9564caafc87952506cb5426b`.
-- Unsigned APK SHA-256: `28578bab8b76a611aa1b0cd92f8aa0b428826526779e1757ab45b5b34ce254b9`.
+- Last signed DIGITAL PASS: CI #626 / run `35017084625` / exact source `f187ab2ba7596c4aa04d223f007409b2fb39f490`.
+- #626 signed APK SHA-256: `93a7ed1ebfdedf7421cf21183db84a529d2d095c9564caafc87952506cb5426b`.
+- #626 unsigned APK SHA-256: `28578bab8b76a611aa1b0cd92f8aa0b428826526779e1757ab45b5b34ce254b9`.
 - Locked signer SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
-- Signed artifact ID: `10415074932`.
-- Android integration artifact ID: `10416645621`.
-- `.github/workflows/android-ci.yml` remains manual-only (`workflow_dispatch`).
+- Workflow remains manual-only: `.github/workflows/android-ci.yml` uses `workflow_dispatch`.
 
 ## Evidence boundary
-CI #626 is the authoritative signed **DIGITAL PASS** for the complete RC3 digital gate through H17. It supersedes #625 as the active digitally homologated baseline. Physical validation remains pending and is the only authority for real tablet/MK-300/perception claims.
+CI #626 remains authoritative through H17. Physical review of the #626 APK confirmed the final CUT presentation and Ajustes/Níveis placement, then exposed two remaining issues: the last comparison button could be clipped by the fixed docked-bar proportions, and the MK-300 output selector could expose duplicate Android logical endpoints where only one endpoint actually produced sound.
 
-## CI #626 — canonical full PASS
-Exact source `f187ab2ba7596c4aa04d223f007409b2fb39f490`:
-- source materialization through H17: **PASS**;
-- unit/core/audio/DSP/persistence/migration regression: **PASS**;
-- reproducible performance evidence: **PASS**;
-- Android Lint: **PASS**;
-- debug + release assembly and unsigned provenance: **PASS**;
-- API 36 connected regression: **22/22 PASS**;
-- isolated 1920×1200 tablet geometry: **1/1 PASS**;
-- signed homologation: **PASS**;
-- package/version/source/signer/checksum validation: **PASS**.
+H18 and H19 are implemented after #626 and are currently **SOURCE-VALIDATED / PRE-GATE**. Because both change product source, #626 must not be treated as evidence for them.
 
-Canonical signed identity:
-- package: `studio.guitarlab.app`;
-- versionName: `0.5.0-rc3`;
-- versionCode: `23`;
-- source SHA: `f187ab2ba7596c4aa04d223f007409b2fb39f490`;
-- unsigned APK SHA-256: `28578bab8b76a611aa1b0cd92f8aa0b428826526779e1757ab45b5b34ce254b9`;
-- signed APK SHA-256: `93a7ed1ebfdedf7421cf21183db84a529d2d095c9564caafc87952506cb5426b`;
-- certificate SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`;
-- APK Signature Scheme v2: verified;
-- signers: 1, RSA 4096.
+## H18 — Adaptive practice bar — SOURCE-VALIDATED / PRE-GATE
+Cause: the docked bar used fixed `0.34 / 0.16 / 0.50` weights. At the physical tablet geometry the real intrinsic width of `Comparação + Desativado + Referência + Minha + Ambas` could exceed the allocated comparison segment and the final control was clipped at the Ajustes divider.
 
-## H17 — CUT ruler + Ajustes spacing — DIGITAL PASS
+Correction:
+- docked wide layout is content-first rather than percentage-first;
+- Comparação and Ajustes receive their measured content width;
+- Timeline receives the flexible remaining viewport and owns horizontal overflow for its longer action set;
+- narrow docked viewports scroll the complete segmented strip rather than clipping one section;
+- Ajustes retains symmetric internal padding and Níveis remains fully contained;
+- fixed proportional weights remain only in the separate non-docked layout where they are already guarded by the existing responsive branch.
 
-### CUT
-- visible T1/T2 time boxes are removed;
-- CUT markers are short yellow ticks confined to the **time ruler**;
-- ticks do not extend into the sections/playhead rail;
-- horizontal projection remains the canonical timeline geometry;
-- waveform Trim handles remain the editing controls.
+Regression hardening:
+- all four comparison controls (`Desativado`, `Referência`, `Minha`, `Ambas`) must be fully contained by the Comparação segment;
+- Ajustes/Níveis containment and centered insets remain enforced;
+- segment overlap remains forbidden.
 
-### Practice bar
-- `Comparação | Ajustes | Timeline` remains the three-block structure;
-- `Ajustes + Níveis` is centered inside the dedicated center segment;
-- Níveis remains fully contained in Ajustes;
-- left/right breathing room around the center cluster is approximately symmetric.
+Source part: `.source-parts/H18AdaptivePracticeBar.patch.gz`
 
-### Regression evidence at #626
-- `AutoSectionsSlotInstrumentedTest.dockedPracticeControlsRenderAsBalancedComparisonAdjustmentsAndTimelineSegments`: **PASS**;
-- `PhysicalEditingHardeningInstrumentedTest.trimHandlesAreIndependentlyDraggableAndClipDeleteRequiresConfirmation`: **PASS**;
-- overall connected API36 suite: **22/22 PASS**;
-- isolated target-tablet geometry: **1/1 PASS**.
+Patch SHA-256: `fba48ae2b0eedd2c87c269738197542f84a2772bac1aa55e0646ee722ef3627e`.
 
-## H17 source representation
-Source part: `.source-parts/H17CutRulerPracticeSpacing.patch`
+Expected materialized blobs:
+- `StudioPlaceholderScreen.kt`: `cf6521e1f53a829a66f3a9404fc3553c05f0573a`
+- `AutoSectionsSlotInstrumentedTest.kt`: `0d1614b7bbe474d11a3a1885c4bd913fdfb0d769`
 
-Patch SHA-256:
-`38b3f494cf528fcc9fc818e6ef38ed0647389e106ec1bcc821e00ee2e65278dc`
+## H19 — USB output route canonicalization — SOURCE-VALIDATED / PRE-GATE
+Root cause: `StudioAudioRoutingStore.outputChoices()` previously exposed every raw `AudioDeviceInfo` returned by `AudioManager.GET_DEVICES_OUTPUTS`. Android can represent one physical USB interface through multiple logical endpoint types. The UI therefore could show duplicate-looking MK-300 outputs, while selection correctness depended on a raw endpoint. Android's preferred-device API also does not guarantee that the preferred endpoint is the endpoint actually routed.
 
-Materialization order tail:
-`H16FinalUiTrimOverlay.patch.gz → H17CutRulerPracticeSpacing.patch`.
+Correction:
+- USB endpoints with the same physical identity are collapsed into one user-facing logical route;
+- non-USB profiles remain distinct;
+- persisted legacy endpoint signatures are migrated to the canonical physical-route signature when the route is present;
+- duplicate candidate endpoints are ranked only as an optimization, never by enumeration order;
+- the selected duplicate group is resolved with an inaudible short stereo `AudioTrack` probe;
+- correctness is confirmed from `AudioTrack.routedDevice` while the silent probe is playing;
+- the confirmed endpoint is cached for the current process and stale IDs are rejected after reconnect;
+- if no duplicate endpoint can be confirmed, explicit resolution fails closed and normal playback can use the existing automatic-route fallback rather than selecting a known-unconfirmed endpoint;
+- disconned selections are now cleared from both Compose state and persistent routing preferences on refresh.
+
+Tests:
+- duplicate USB logical endpoints collapse to one physical choice;
+- both legacy duplicate signatures migrate to one canonical signature;
+- different USB addresses remain distinct;
+- non-USB profiles are never collapsed merely because labels match;
+- compatibility ranking is deterministic and independent from Android enumeration order.
+
+Source part: `.source-parts/H19UsbOutputRouteCanonicalization.patch.gz`
+
+Patch SHA-256: `21373fa0d85d55ee180fed29308e5677e7bde90b1b555e366c61a872a388eb06`.
+
+Expected materialized blobs:
+- `StudioAudioRoutingStore.kt`: `b19f5b9ae0ec584168723f6cfce7cb66707fd154`
+- `StudioAudioRoutePolicy.kt`: `f7306776ba185098157929a936f8921465c85dea`
+- `SettingsScreen.kt`: `f5d7ab99c143981a83e75dde4c1ad27d7f2dacb6`
+- `StudioUserGuideDialog.kt`: `0f40df36f6c72c2604ce995c05c24d938de73357`
+- `StudioAudioRoutePolicyTest.kt`: `525f97ffa5563858179745edecf8394217ff4105`
+
+## Local/source validation
+Against the exact post-H17 materialized source emitted by CI #626:
+- H18 forward `git apply --check`: PASS;
+- H18 application: PASS;
+- H19 forward `git apply --check` after H18: PASS;
+- H19 application: PASS;
+- reverse checks and complete clean round-trip: PASS;
+- `git diff --check`: PASS;
+- pure `StudioAudioRoutePolicy` compiled locally with `kotlinc` and its canonicalization/ranking smoke assertions: PASS;
+- updated materializer `bash -n`: PASS.
+
+No Android runtime/USB hardware PASS is claimed locally.
 
 ## Milestone state
 - M2–M6: PASS/CLOSED.
-- M7: complete digital gate through H17 is **DIGITAL PASS** at #626; final physical closure remains pending.
-- M8: RC3 hardening through H17 is **DIGITAL PASS** at #626.
+- M7/M8 through H17: **DIGITAL PASS** at #626.
+- H18/H19: **IMPLEMENTED / SOURCE-VALIDATED / PRE-GATE**.
 
-## Residual physical gate
-No further CI rerun is required unless product/source code changes. Install the exact #626 signed APK and execute `RC3_FINAL_PHYSICAL_HOMOLOGATION.md`.
+## Next authoritative gate
+The user manually dispatches `GuitarLab Android CI` on the then-current `main` with signed homologation enabled. Required PASS: software/unit/Lint/build/provenance including the new route-policy unit tests, full API36 regression including the H18 containment assertions, isolated 1920×1200 geometry, and signed homologation on the exact same source SHA.
 
-Physical review now focuses only on facts automation cannot establish: CUT ruler readability on the real tablet, visual balance of Ajustes/Níveis, natural Mixer swipe with fixed MASTER, absence of visible Studio-return flicker, MK-300 routing/REC/meters/synchronization and listening/perception smoke.
-
-The signed artifact correctly records `gate=software+android-integration-passed;physical-validation-pending` until explicit physical approval.
+The assistant must not dispatch or rerun Actions.

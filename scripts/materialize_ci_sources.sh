@@ -211,3 +211,12 @@ apply_encoded_gzip_patch_once "$ROOT/.source-parts/H16FinalUiTrimOverlay.patch.g
 # Final physical-polish correction / H17: keep CUT ticks confined to the time ruler and
 # center Ajustes/Níveis within its dedicated practice-bar segment.
 apply_patch_once "$ROOT/.source-parts/H17CutRulerPracticeSpacing.patch"
+
+# Physical Review VI / H18: content-first adaptive practice bar. Comparison and Ajustes keep
+# their measured width; Timeline owns the flexible remainder and narrow docked widths scroll the
+# complete segmented strip instead of clipping controls.
+apply_encoded_gzip_patch_once "$ROOT/.source-parts/H18AdaptivePracticeBar.patch.gz"
+
+# Physical Review VI / H19: canonicalize duplicate Android USB output endpoints into one physical
+# route and resolve duplicate candidates through an inaudible routedDevice-confirmed probe.
+apply_encoded_gzip_patch_once "$ROOT/.source-parts/H19UsbOutputRouteCanonicalization.patch.gz"

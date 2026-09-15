@@ -6,7 +6,7 @@ Updated: 2026-09-15
 Project model, templates, persistence and repository structure.
 
 ## M2 — Android hardware/audio baseline — PASS/CLOSED
-Samsung SM-X230 USB-audio baseline established.
+Android USB-audio baseline established; historical hardware evidence remains scoped to the device pair actually tested.
 
 ## M3–M4 — Codec/import + Studio foundation — ABSORBED
 Consolidated into later milestones.
@@ -17,53 +17,42 @@ Closed after physical approval.
 ## M6 — Measured latency and synchronization — PASS/CLOSED
 Closed after physical approval.
 
-## M7 — Production audio polish — DIGITAL PASS / PHYSICAL CLOSURE PENDING
-The complete digital scope through H17 is PASS at CI #626 / run `35017084625` / source `f187ab2ba7596c4aa04d223f007409b2fb39f490`.
+## M7 — Production audio polish
+Digital scope through H17 is **PASS** at CI #626. Physical review after #626 produced H18/H19; therefore M7 physical closure remains pending until their exact-source gate and final MK-300 check pass.
 
-The remaining M7 authority is final physical homologation on the real Samsung SM-X230 + M-VAVE MK-300 and human visual/auditory perception.
+## M8 — Release hardening
 
-## M8 — Release hardening — DIGITAL PASS THROUGH H17
-
-### Canonical signed gate — CI #626
-Manual `workflow_dispatch`, exact source `f187ab2ba7596c4aa04d223f007409b2fb39f490`:
-- source materialization through H17: PASS;
-- software/unit/audio/DSP/persistence/migration regression: PASS;
-- performance evidence: PASS;
-- Android Lint: PASS;
-- debug + release build and unsigned provenance: PASS;
-- API36 full connected regression: **22/22 PASS**;
+### Retained canonical signed baseline — CI #626
+Run `35017084625`, source `f187ab2ba7596c4aa04d223f007409b2fb39f490`:
+- software/performance/Lint/build/provenance: PASS;
+- API36 connected regression: **22/22 PASS**;
 - isolated 1920×1200 geometry: **1/1 PASS**;
 - signed homologation: PASS;
-- package/version/source/signer/checksum provenance: PASS.
+- signed APK SHA-256: `93a7ed1ebfdedf7421cf21183db84a529d2d095c9564caafc87952506cb5426b`.
 
-Canonical candidate identity:
-- version `0.5.0-rc3` / versionCode `23`;
-- package `studio.guitarlab.app`;
-- unsigned APK SHA-256 `28578bab8b76a611aa1b0cd92f8aa0b428826526779e1757ab45b5b34ce254b9`;
-- signed APK SHA-256 `93a7ed1ebfdedf7421cf21183db84a529d2d095c9564caafc87952506cb5426b`;
-- certificate SHA-256 `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
+### H18 — Adaptive practice bar — IMPLEMENTED / SOURCE-VALIDATED / PRE-GATE
+- remove fixed percentage clipping from the docked practice bar;
+- measure Comparação/Ajustes by content;
+- assign remaining space to Timeline with local overflow;
+- whole-strip scroll fallback for narrow docked widths;
+- enforce full containment of all four comparison controls.
 
-### H12–H16 — retained DIGITAL PASS
-H12 global levels, H13 Trim ruler, H14/H14a Mixer overflow with fixed MASTER, H15 resident Studio return and H16 practice-bar/Trim-overlay polish remain digitally homologated and are retained by #626.
+Source part: `.source-parts/H18AdaptivePracticeBar.patch.gz`
 
-### H17 — final CUT ruler + practice spacing correction — DIGITAL PASS
-- visible T1/T2 time-label boxes removed;
-- short CUT ticks confined to the time ruler;
-- exact timeline X projection retained;
-- `Ajustes + Níveis` centered inside the dedicated center segment;
-- no overlap with Comparação or Timeline;
-- approximately equal left/right inset inside Ajustes.
+Patch SHA-256: `fba48ae2b0eedd2c87c269738197542f84a2772bac1aa55e0646ee722ef3627e`.
 
-Regression evidence at #626:
-- `AutoSectionsSlotInstrumentedTest.dockedPracticeControlsRenderAsBalancedComparisonAdjustmentsAndTimelineSegments`: PASS;
-- `PhysicalEditingHardeningInstrumentedTest.trimHandlesAreIndependentlyDraggableAndClipDeleteRequiresConfirmation`: PASS;
-- overall API36 suite: **22/22 PASS**;
-- isolated target-tablet geometry: **1/1 PASS**.
+### H19 — USB output route canonicalization — IMPLEMENTED / SOURCE-VALIDATED / PRE-GATE
+- collapse duplicate logical USB endpoints into one physical output choice;
+- retain distinct non-USB profiles;
+- migrate old endpoint signatures to the canonical physical route;
+- resolve duplicate candidates using a silent stereo probe and actual `routedDevice` confirmation;
+- never select by first/second enumeration order;
+- clear stale persistent selection when the route disappears;
+- add deterministic JVM policy tests.
 
-Source part:
-`.source-parts/H17CutRulerPracticeSpacing.patch`
+Source part: `.source-parts/H19UsbOutputRouteCanonicalization.patch.gz`
 
-Patch SHA-256: `38b3f494cf528fcc9fc818e6ef38ed0647389e106ec1bcc821e00ee2e65278dc`.
+Patch SHA-256: `21373fa0d85d55ee180fed29308e5677e7bde90b1b555e366c61a872a388eb06`.
 
 ## Canonical materialization tail
 After H11b:
@@ -75,11 +64,13 @@ After H11b:
 6. H15 Resident Studio Return
 7. H16 Final UI / Trim Overlay
 8. H17 CUT Ruler / Practice Spacing
+9. **H18 Adaptive Practice Bar**
+10. **H19 USB Output Route Canonicalization**
 
-## Remaining release path
-No new digital gate is required unless source/product code changes.
+## Next acceptance gate
+Because H18/H19 change product source, one new manual exact-source gate is required. They become DIGITAL PASS only if software/unit/Lint/build/provenance, full API36 connected regression, isolated tablet geometry and signed homologation all pass on the same source SHA.
 
-Next step is the final physical checklist `RC3_FINAL_PHYSICAL_HOMOLOGATION.md` using the exact #626 signed APK. Physical approval must cover only what CI cannot establish: real tablet/MK-300 routing, REC behavior, synchronization/latency perception, listening quality, interaction feel, visual readability and absence of perceptible return flicker.
+After that, physical closure should be narrowly focused on the exact new APK: all comparison buttons visible, one MK-300 output choice only, playback through that choice, reconnect/reselection behavior, and the retained recording/routing/listening smoke.
 
 ## Gate discipline
-`.github/workflows/android-ci.yml` remains manual-only (`workflow_dispatch`). The assistant must not dispatch or rerun Actions. Documentation-only promotion commits use `[skip ci]` and do not replace the exact application/source SHA recorded above.
+`.github/workflows/android-ci.yml` remains manual-only (`workflow_dispatch`). The assistant must not dispatch or rerun Actions.
