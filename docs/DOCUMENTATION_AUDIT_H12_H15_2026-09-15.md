@@ -44,12 +44,13 @@ Implementation contracts:
 
 Regression extension: `MixerDockInstrumentedTest` creates 10 strips, swipes to the final strip and asserts fixed MASTER left/right bounds.
 
-## H15 — resident Studio return
+## H15 — resident Studio return + help synchronization
 Implementation contracts:
 - same project already resident + not loading => no repository reload and no temporary `loading=true` publication;
 - playback/recording mode is normalized safely before returning;
 - project object/history/waveform-derived state is preserved for the resident session;
-- navigating to a different project still uses the normal load path.
+- navigating to a different project still uses the normal load path;
+- in-app `Ajuda` documents the new global level workflow, fixed-ruler T1/T2 presentation and Mixer overflow swipe with fixed MASTER.
 
 Regression extension: `GuitarLabLifecycleInstrumentedTest` performs Studio → Options → same Studio after a reversible edit and asserts the same resident project object plus retained Undo history.
 
@@ -59,14 +60,14 @@ Required order after H11b:
 2. `H12LevelUi.patch`
 3. `H13TrimRuler.patch`
 4. `H14MixerHorizontalScroll.patch`
-5. `H15ResidentStudioReturn.patch`
+5. `H15ResidentStudioReturn.patch` — resident return plus in-app guide synchronization
 
 Patch SHA-256:
 - `H12LevelEngine.patch`: `39c6a42bca192b1e6a829bd52c46ddb7e546d7cad09500d850e257dec57bc37c`
 - `H12LevelUi.patch`: `db9a7e448a22f79e8be22b9b795d4a4008bd92b4bff9754ad640eb957895308d`
 - `H13TrimRuler.patch`: `4fd47e9d55de072be9ccfbc64361f3e87f9e38d68aa57a76a5084085bce399b0`
 - `H14MixerHorizontalScroll.patch`: `af3bf0808a5724f8aab3f6f17dec15b041591871ae26e51283d85a03a28a3e43`
-- `H15ResidentStudioReturn.patch`: `d42c8822319ba5f46f6f62c1fdc973074b0478215df998488dff0e6bcb951772`
+- `H15ResidentStudioReturn.patch`: `79e4a98f996f86cb2c0916f1c152ef8a34529e369f7db1622ea4a5a7f427a1c9`
 
 ## Source-validation evidence
 The exact source snapshot uploaded by CI #620 (`faaeb0ee4f9e52fbdcf369d097fa773e96d104a7`) was used as the baseline.
@@ -75,10 +76,10 @@ Validation performed before repository consolidation:
 - each Physical Review IV patch forward dry-run: PASS;
 - ordered serial patch application H12→H15: PASS;
 - `git diff --check`: PASS;
-- final changed/new source/test files compared against the independently developed clean H12→H15 tree: byte-for-byte match;
+- final changed/new source/test/help files compared against the independently developed clean H12→H15 tree: byte-for-byte match;
 - no workflow file is part of Physical Review IV.
 
-Final expected materialized blobs for the changed/new application/test files:
+Final expected materialized blobs for the changed/new application/test/help files:
 - `AllTracksLevelDialogInstrumentedTest.kt`: `a8bdf73b58b8aa42170fc9254b48b9edcde3a9fa`
 - `GuitarLabLifecycleInstrumentedTest.kt`: `28a49b2b81baf9f86cff59de18e0b15973285986`
 - `MixerDockInstrumentedTest.kt`: `ec0380f23a343dea9b2c53f441060cc1cece3a89`
@@ -88,6 +89,7 @@ Final expected materialized blobs for the changed/new application/test files:
 - `StudioPlaceholderScreen.kt`: `1f98b57ab878184a5e5ea3f0d680891cc9f81eae`
 - `StudioShellScreen.kt`: `82d1dd26e3b25564fd11454aaeaf5b637122796f`
 - `StudioViewModel.kt`: `cd77f7a98cb9601b2c580acecb6dd25aff79c4c1`
+- `StudioUserGuideDialog.kt`: `70d6ff6678ee15a8445f7b4b3850697de25d6b99`
 
 ## Evidence boundary / closure
 H12–H15 status is **IMPLEMENTED / SOURCE-VALIDATED / PRE-GATE**.
