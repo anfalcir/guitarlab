@@ -1,0 +1,237 @@
+diff --git a/app/src/androidTest/java/studio/guitarlab/app/PhysicalEditingHardeningInstrumentedTest.kt b/app/src/androidTest/java/studio/guitarlab/app/PhysicalEditingHardeningInstrumentedTest.kt
+index 93b3e18..66c5bf8 100644
+--- a/app/src/androidTest/java/studio/guitarlab/app/PhysicalEditingHardeningInstrumentedTest.kt
++++ b/app/src/androidTest/java/studio/guitarlab/app/PhysicalEditingHardeningInstrumentedTest.kt
+@@ -82,6 +82,9 @@ class PhysicalEditingHardeningInstrumentedTest {
+             composeRule.onNodeWithTag("trim-end-handle").assertIsDisplayed()
+             composeRule.onNodeWithContentDescription("Marcador de início do corte").assertIsDisplayed()
+             composeRule.onNodeWithContentDescription("Marcador de fim do corte").assertIsDisplayed()
++            composeRule.onNodeWithTag("trim-ruler-start").assertIsDisplayed()
++            composeRule.onNodeWithTag("trim-ruler-end").assertIsDisplayed()
++            composeRule.onNodeWithTag("timeline-time-ruler").assertIsDisplayed()
+ 
+             val initialStart = requireNotNull(studio().state.value.trimControls).startFrame
+             composeRule.onNodeWithTag("trim-start-handle").performTouchInput {
+diff --git a/app/src/main/java/studio/guitarlab/app/ui/StudioPlaceholderScreen.kt b/app/src/main/java/studio/guitarlab/app/ui/StudioPlaceholderScreen.kt
+index b79bb2a..1f98b57 100644
+--- a/app/src/main/java/studio/guitarlab/app/ui/StudioPlaceholderScreen.kt
++++ b/app/src/main/java/studio/guitarlab/app/ui/StudioPlaceholderScreen.kt
+@@ -722,7 +722,7 @@ private fun ProjectWorkspace(
+                     )
+                 }
+ 
+-                TimelineRuler(project, projectEndFrame)
++                TimelineRuler(project, projectEndFrame, trimControls)
+ 
+                 val orderedTracks = project.tracks.sortedBy { it.order }
+                 val orderedIds = orderedTracks.map { it.id }
+@@ -919,7 +919,6 @@ private fun ProjectWorkspace(
+                                 canEditClip = clipEditingEnabled,
+                                 activeTrimClipId = trimControls?.clipId,
+                                 trimControls = trimControls,
+-                                sampleRate = project.sampleRate.fixedHz ?: clipSampleRate(project),
+                                 onTrimStartFrameChanged = onTrimStartFrameChanged,
+                                 onTrimEndFrameChanged = onTrimEndFrameChanged,
+                                 onSelect = { onSelectTrack(track.id) },
+@@ -1250,25 +1249,96 @@ private fun StereoWaveformMini(channelPeaks: List<List<Float>>, muted: Boolean,
+ }
+ 
+ @Composable
+-private fun TimelineRuler(project: GuitarProject, projectEndFrame: Long) {
++private fun TimelineRuler(
++    project: GuitarProject,
++    projectEndFrame: Long,
++    trimControls: TrimControlState?,
++) {
+     val sampleRate = project.sampleRate.fixedHz
+         ?: project.clips.firstOrNull { it.sourceSampleRateHz != null }?.sourceSampleRateHz
+         ?: 48_000
+-    Row(
+-        modifier = Modifier.fillMaxWidth().padding(start = TrackSidebarWidth + TrackLaneGap, end = 8.dp),
+-        horizontalArrangement = Arrangement.SpaceBetween,
++    BoxWithConstraints(
++        modifier = Modifier
++            .fillMaxWidth()
++            .height(46.dp)
++            .padding(start = TrackSidebarWidth + TrackLaneGap, end = 8.dp)
++            .testTag("timeline-time-ruler"),
+     ) {
+-        for (step in 0..4) {
+-            val frame = projectEndFrame * step / 4
+-            Text(
+-                formatTimelineTime(frame, sampleRate),
+-                style = MaterialTheme.typography.labelSmall,
+-                color = MaterialTheme.colorScheme.onSurfaceVariant,
++        Row(
++            modifier = Modifier.fillMaxSize(),
++            horizontalArrangement = Arrangement.SpaceBetween,
++            verticalAlignment = Alignment.Bottom,
++        ) {
++            for (step in 0..4) {
++                val frame = projectEndFrame * step / 4
++                Text(
++                    formatTimelineTime(frame, sampleRate),
++                    style = MaterialTheme.typography.labelSmall,
++                    color = MaterialTheme.colorScheme.onSurfaceVariant,
++                )
++            }
++        }
++
++        if (trimControls != null) {
++            val startFraction = TimelineControlPolicy.frameToFraction(trimControls.startFrame, projectEndFrame)
++            val endFraction = TimelineControlPolicy.frameToFraction(trimControls.endFrame, projectEndFrame)
++            val markersClose = kotlin.math.abs(endFraction - startFraction) < 0.16f
++            TrimRulerMarker(
++                fraction = startFraction,
++                label = "T1 ${formatPreciseTime(trimControls.startFrame, sampleRate)}",
++                tag = "trim-ruler-start",
++                labelYOffset = 0.dp,
++            )
++            TrimRulerMarker(
++                fraction = endFraction,
++                label = "T2 ${formatPreciseTime(trimControls.endFrame, sampleRate)}",
++                tag = "trim-ruler-end",
++                labelYOffset = if (markersClose) 15.dp else 0.dp,
+             )
+         }
+     }
+ }
+ 
++@Composable
++private fun BoxWithConstraintsScope.TrimRulerMarker(
++    fraction: Float,
++    label: String,
++    tag: String,
++    labelYOffset: androidx.compose.ui.unit.Dp,
++) {
++    val markerX = maxWidth * fraction.coerceIn(0f, 1f)
++    val labelWidth = 112.dp
++    val labelX = (markerX - labelWidth / 2).coerceIn(0.dp, (maxWidth - labelWidth).coerceAtLeast(0.dp))
++    Box(
++        modifier = Modifier
++            .offset(x = (markerX - 1.dp).coerceIn(0.dp, (maxWidth - 2.dp).coerceAtLeast(0.dp)), y = 23.dp)
++            .width(2.dp)
++            .height(23.dp)
++            .background(StudioTrim)
++            .zIndex(8f)
++            .semantics { contentDescription = label }
++            .testTag(tag),
++    )
++    Surface(
++        modifier = Modifier
++            .offset(x = labelX, y = labelYOffset)
++            .width(labelWidth)
++            .zIndex(9f),
++        shape = RoundedCornerShape(4.dp),
++        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.97f),
++        border = BorderStroke(1.dp, StudioTrim),
++        tonalElevation = 4.dp,
++    ) {
++        Text(
++            label,
++            modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp),
++            style = MaterialTheme.typography.labelSmall,
++            color = MaterialTheme.colorScheme.onSurface,
++            maxLines = 1,
++        )
++    }
++}
++
+ @Composable
+ private fun GlobalTimelineLines(
+     project: GuitarProject,
+@@ -1328,7 +1398,6 @@ private fun StudioTrackLane(
+     canEditClip: Boolean,
+     activeTrimClipId: String?,
+     trimControls: TrimControlState?,
+-    sampleRate: Int,
+     onTrimStartFrameChanged: (Long) -> Unit,
+     onTrimEndFrameChanged: (Long) -> Unit,
+     onSelect: () -> Unit,
+@@ -1545,7 +1614,6 @@ private fun StudioTrackLane(
+                         trackColor = trackColor,
+                         trimming = activeTrimClipId == clip.id,
+                         trimControls = trimControls?.takeIf { it.clipId == clip.id },
+-                        sampleRate = sampleRate,
+                         onTrimStartFrameChanged = onTrimStartFrameChanged,
+                         onTrimEndFrameChanged = onTrimEndFrameChanged,
+                         canEdit = canEditClip,
+@@ -1659,7 +1727,6 @@ private fun TimelineClipCard(
+     trackColor: Color,
+     trimming: Boolean,
+     trimControls: TrimControlState?,
+-    sampleRate: Int,
+     onTrimStartFrameChanged: (Long) -> Unit,
+     onTrimEndFrameChanged: (Long) -> Unit,
+     canEdit: Boolean,
+@@ -1713,7 +1780,6 @@ private fun TimelineClipCard(
+                         peaks = it,
+                         channelPeaks = channelPeaks,
+                         trackColor = trackColor,
+-                        sampleRate = sampleRate,
+                         onStartChanged = onTrimStartFrameChanged,
+                         onEndChanged = onTrimEndFrameChanged,
+                         modifier = Modifier.fillMaxSize(),
+@@ -1734,7 +1800,6 @@ private fun TrimWaveformEditor(
+     peaks: List<Float>,
+     channelPeaks: List<List<Float>>?,
+     trackColor: Color,
+-    sampleRate: Int,
+     onStartChanged: (Long) -> Unit,
+     onEndChanged: (Long) -> Unit,
+     modifier: Modifier = Modifier,
+@@ -1742,10 +1807,6 @@ private fun TrimWaveformEditor(
+     val startFraction = ((trim.startFrame - clip.startFrame).toFloat() / clip.lengthFrames.coerceAtLeast(1L)).coerceIn(0f, 1f)
+     val endFraction = ((trim.endFrame - clip.startFrame).toFloat() / clip.lengthFrames.coerceAtLeast(1L)).coerceIn(startFraction, 1f)
+     BoxWithConstraints(modifier) {
+-        val bubbleWidth = 88.dp
+-        val leftBubbleX = (maxWidth * startFraction - bubbleWidth / 2).coerceIn(0.dp, (maxWidth - bubbleWidth).coerceAtLeast(0.dp))
+-        val rightBubbleX = (maxWidth * endFraction - bubbleWidth / 2).coerceIn(0.dp, (maxWidth - bubbleWidth).coerceAtLeast(0.dp))
+-        val markersAreClose = endFraction - startFraction < 0.20f
+         Canvas(Modifier.fillMaxSize()) {
+             drawRect(
+                 color = StudioTrim.copy(alpha = 0.24f),
+@@ -1771,16 +1832,6 @@ private fun TrimWaveformEditor(
+             onFrameChanged = { onEndChanged(it.coerceAtLeast(trim.startFrame + 1L)) },
+             modifier = Modifier.fillMaxHeight(),
+         )
+-        TrimTimeBubble(
+-            label = "Início",
+-            time = formatPreciseTime(trim.startFrame, sampleRate),
+-            modifier = Modifier.offset(x = leftBubbleX, y = 2.dp).width(bubbleWidth),
+-        )
+-        TrimTimeBubble(
+-            label = "Fim",
+-            time = formatPreciseTime(trim.endFrame, sampleRate),
+-            modifier = Modifier.offset(x = rightBubbleX, y = if (markersAreClose) 44.dp else 2.dp).width(bubbleWidth),
+-        )
+     }
+ }
+ 
+@@ -1832,26 +1883,6 @@ private fun BoxWithConstraintsScope.TrimHandle(
+     }
+ }
+ 
+-@Composable
+-private fun TrimTimeBubble(label: String, time: String, modifier: Modifier = Modifier) {
+-    Surface(
+-        modifier = modifier,
+-        shape = RoundedCornerShape(6.dp),
+-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
+-        border = BorderStroke(1.dp, StudioTrim),
+-        tonalElevation = 6.dp,
+-    ) {
+-        Column(
+-            modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp),
+-            horizontalAlignment = Alignment.CenterHorizontally,
+-            verticalArrangement = Arrangement.spacedBy(0.dp),
+-        ) {
+-            Text(label, style = MaterialTheme.typography.labelSmall, color = StudioTrim, maxLines = 1)
+-            Text(time, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurface, maxLines = 1)
+-        }
+-    }
+-}
+-
+ @Composable
+ private fun TrimActionBar(
+     clipName: String,
