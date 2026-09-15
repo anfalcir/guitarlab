@@ -2,58 +2,35 @@
 
 Updated: 2026-09-15
 
-## Canonical digital homologation — CI #625
-Run `35010012582`, manual `workflow_dispatch`, exact source `476fa740408130adf6a4e9665d166e724a9184dd`:
-- source materialization: **PASS**;
-- unit/core/audio/DSP/persistence/migration regression: **PASS**;
-- reproducible performance evidence: **PASS**;
-- Android Lint: **PASS**;
-- debug + release assembly and unsigned provenance: **PASS**;
-- API36 full connected regression: **22/22 PASS**;
-- isolated 1920×1200 tablet geometry: **PASS**;
-- signed homologation: **PASS**;
-- package/version/source/signer/checksum verification: **PASS**.
+## Last signed digital homologation — CI #625
+Run `35010012582`, source `476fa740408130adf6a4e9665d166e724a9184dd`, remains the signed DIGITAL PASS through H16. API36 was **22/22 PASS**, isolated 1920×1200 geometry passed, and signed homologation passed.
 
-Canonical identity:
+Identity:
 - package `studio.guitarlab.app`;
 - version `0.5.0-rc3` / versionCode `23`;
-- unsigned APK SHA-256 `46750bb10e70c70d350011aa46411d2cafb7766746c20b6e83add100b6f8055a`;
 - signed APK SHA-256 `107795f040ed18246bb130a9519044ba7e07f334a5835566b952cbc7fdb528e6`;
-- certificate SHA-256 `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`;
-- APK Signature Scheme v2 verified with one RSA-4096 signer.
+- certificate SHA-256 `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
 
-CI #625 supersedes #624 as the active signed digital baseline because it includes H16 while retaining the previously homologated H12–H15/H14a behavior.
+## H17 candidate delta — PRE-GATE
+Physical review of #625 produced two final presentation corrections.
 
-## H16 — final UI / Trim overlay polish — DIGITAL PASS
+### CUT
+- remove visible T1/T2 time-label boxes;
+- keep only short yellow ticks in the time ruler;
+- never draw CUT ticks into the sections/playhead rail;
+- retain exact timeline X projection and waveform handle editing.
 
-### Practice bar clarity
-- Comparison neutral state is labeled **Desativado** instead of Mixer.
-- The independent top-bar Mixer open/close control keeps the name **Mixer**.
-- `Níveis` is moved into a dedicated **Ajustes** block between Comparação and Timeline.
-- The docked bar is proportioned `34% / 16% / 50%` for Comparação / Ajustes / Timeline.
-- Connected instrumentation verifies the three segments, labels, action placement and proportional geometry.
+### Practice bar
+- keep the three-block `Comparação | Ajustes | Timeline` structure;
+- center `Ajustes + Níveis` inside its dedicated center block;
+- preserve proportional segment widths while eliminating the visual collision with comparison controls.
 
-### Trim presentation correction
-- T1/T2 share the exact horizontal timeline geometry used by playhead/loop markers.
-- The old ruler-only 8 dp right shrink is removed.
-- The dedicated-looking Trim strip is removed: ruler height is 20 dp and directly touches the marker rail.
-- During Cut, yellow T1/T2 lines and precise labels overlay the existing marker rail/ruler with higher visual priority than playhead/loop.
-- Trim handles remain in the waveform and independently draggable.
-- Physical-editing instrumentation retains both handle behavior and validates the compact/aligned timeline presentation.
+### Regression hardening
+- CUT regression now requires no visible T1/T2 time text and constrains tick bounds to the time ruler;
+- practice-bar regression now requires Níveis to remain inside Ajustes and measures symmetric left/right inset of the center content cluster.
 
-### Regression status
-At #625:
-- `AutoSectionsSlotInstrumentedTest.dockedPracticeControlsRenderAsBalancedComparisonAdjustmentsAndTimelineSegments`: PASS;
-- `PhysicalEditingHardeningInstrumentedTest`: PASS;
-- `MixerDockInstrumentedTest`: PASS;
-- `GuitarLabLifecycleInstrumentedTest`: PASS;
-- overall API36 suite: **22/22 PASS**;
-- isolated target-tablet geometry: PASS.
+Implementation commit: `41534dd2fb1ba7b0fc18459dbe5c622e78f039cb`.
 
-H16 source-part decoded SHA-256:
-`40a4056644707c57291dfd876fde8487d8dbe9c436ba0409ccb7c6a60c31a0bb`
+H17 patch SHA-256: `38b3f494cf528fcc9fc818e6ef38ed0647389e106ec1bcc821e00ee2e65278dc`.
 
-## Physical homologation boundary
-The exact #625 signed APK is now the intended physical-homologation candidate. Its embedded build identity correctly records `gate=software+android-integration-passed;physical-validation-pending`.
-
-No additional CI run is required unless product/source code changes. Final approval now requires only the residual real-device checklist in `RC3_FINAL_PHYSICAL_HOMOLOGATION.md`, focused on MK-300 routing/REC/meters/synchronization, interaction feel, visual readability, listening/perception and absence of perceptible Studio-return flicker.
+H17 becomes part of the signed baseline only after the next manually dispatched exact-source workflow passes the full software/API36/tablet-geometry/signing gate.

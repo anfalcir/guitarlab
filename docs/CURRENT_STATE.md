@@ -2,80 +2,75 @@
 
 Updated: 2026-09-15
 
-## Active candidate
+## Active line
 - Repository/branch: `anfalcir/guitarlab` / `main`.
 - Version: `0.5.0-rc3`, versionCode `23`, package `studio.guitarlab.app`.
-- Canonical digitally homologated source SHA: `476fa740408130adf6a4e9665d166e724a9184dd`.
-- Canonical PASS: CI #625 / run `35010012582`, manual `workflow_dispatch`.
-- Signed APK SHA-256: `107795f040ed18246bb130a9519044ba7e07f334a5835566b952cbc7fdb528e6`.
-- Unsigned APK SHA-256: `46750bb10e70c70d350011aa46411d2cafb7766746c20b6e83add100b6f8055a`.
+- Last signed **DIGITAL PASS**: CI #625 / run `35010012582` / source `476fa740408130adf6a4e9665d166e724a9184dd`.
+- #625 signed APK SHA-256: `107795f040ed18246bb130a9519044ba7e07f334a5835566b952cbc7fdb528e6`.
+- #625 unsigned APK SHA-256: `46750bb10e70c70d350011aa46411d2cafb7766746c20b6e83add100b6f8055a`.
 - Locked signer SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
-- Signed artifact: `GuitarLabStudio-0.5.0-rc3-homologacao`, artifact ID `10412879614`.
-- Android integration artifact: `guitarlab-476fa740408130adf6a4e9665d166e724a9184dd-android-integration`, artifact ID `10413311710`.
-- `.github/workflows/android-ci.yml` remains manual-only (`workflow_dispatch`).
+- Workflow remains manual-only: `.github/workflows/android-ci.yml` uses `workflow_dispatch`.
 
 ## Evidence boundary
-CI #625 is now the authoritative signed **DIGITAL PASS** for the complete RC3 digital gate through H16. It supersedes #624 as the active digital homologation baseline. Physical validation remains pending and is the only authority for real tablet/MK-300/perception claims.
+CI #625 remains the authoritative signed digital baseline through H16. A final physical-review correction, **H17**, is implemented after #625 and is currently **SOURCE-VALIDATED / PRE-GATE**. Because H17 changes product/UI source, the #625 APK must not be treated as evidence for H17.
 
-## CI #625 — canonical full PASS
-Exact source `476fa740408130adf6a4e9665d166e724a9184dd`:
-- source materialization including H16: **PASS**;
-- unit/core/audio/DSP/persistence/migration regression: **PASS**;
-- reproducible performance evidence: **PASS**;
-- Android Lint: **PASS**;
-- debug + release assembly and unsigned provenance: **PASS**;
-- API 36 connected regression: **22/22 PASS**;
-- isolated 1920×1200 tablet geometry: **PASS**;
-- signed homologation: **PASS**;
-- package/version/source/signer/checksum validation: **PASS**.
+## CI #625 — retained canonical baseline
+Exact source `476fa740408130adf6a4e9665d166e724a9184dd` passed:
+- materialization through H16;
+- unit/core/audio/DSP/persistence/migration regression;
+- performance evidence;
+- Android Lint;
+- debug/release assembly and unsigned provenance;
+- API36 connected regression **22/22 PASS**;
+- isolated 1920×1200 tablet geometry;
+- signed homologation and package/version/source/signer/checksum verification.
 
-Canonical signed identity:
-- package: `studio.guitarlab.app`;
-- versionName: `0.5.0-rc3`;
-- versionCode: `23`;
-- source SHA: `476fa740408130adf6a4e9665d166e724a9184dd`;
-- unsigned APK SHA-256: `46750bb10e70c70d350011aa46411d2cafb7766746c20b6e83add100b6f8055a`;
-- signed APK SHA-256: `107795f040ed18246bb130a9519044ba7e07f334a5835566b952cbc7fdb528e6`;
-- certificate SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`;
-- APK Signature Scheme v2: verified;
-- signers: 1, RSA 4096.
+## H17 — CUT ruler + Ajustes spacing — SOURCE-VALIDATED / PRE-GATE
+Implementation commit: `41534dd2fb1ba7b0fc18459dbe5c622e78f039cb`.
 
-## H16 — final UI / Trim overlay polish — DIGITAL PASS
+### CUT
+- visible T1/T2 time boxes are removed;
+- CUT markers are reduced to short yellow ticks confined to the **time ruler**;
+- ticks no longer extend upward into the sections/playhead rail;
+- horizontal projection remains the same canonical timeline geometry as playhead/loop;
+- waveform Trim handles remain the editing controls.
 
 ### Practice bar
-- neutral comparison state is labeled **`Desativado`**;
-- the independent top-bar Mixer panel toggle remains **`Mixer`**;
-- `Níveis` is in a dedicated center block **`Ajustes`**;
-- docked order is **Comparação | Ajustes | Timeline**;
-- proportional layout remains `0.34 / 0.16 / 0.50` so Ajustes is compact and Timeline retains space;
-- `AutoSectionsSlotInstrumentedTest.dockedPracticeControlsRenderAsBalancedComparisonAdjustmentsAndTimelineSegments` passed at #625.
+- the `Ajustes` segment keeps its dedicated 16% block;
+- the **Ajustes + Níveis** content cluster is centered inside that block instead of being left-anchored;
+- this creates symmetric visual breathing room between Comparação and Timeline and prevents Níveis from visually colliding with comparison controls.
 
-### Trim overlay
-- T1/T2 use the same horizontal timeline geometry as playhead/loop;
-- the old ruler-only 8 dp shrink is removed;
-- the ruler is compact at 20 dp;
-- marker rail and ruler are directly adjacent, with no dedicated Trim lane;
-- while Cut is active, T1/T2 line/label overlay the existing rail/ruler with priority over competing playhead/loop presentation;
-- waveform Trim handles remain independently draggable;
-- retained `PhysicalEditingHardeningInstrumentedTest` passed at #625.
+### Regression hardening
+- `PhysicalEditingHardeningInstrumentedTest` now requires zero visible `T1 ` / `T2 ` text labels, exact X projection, and CUT ticks fully contained inside the time-ruler vertical bounds;
+- `AutoSectionsSlotInstrumentedTest` now verifies Níveis remains entirely inside Ajustes and that the Ajustes+Níveis cluster has approximately equal left/right inset inside the center segment.
 
-## H16 source representation
-Source part: `.source-parts/H16FinalUiTrimOverlay.patch.gz`
+### Source representation and validation
+Source part: `.source-parts/H17CutRulerPracticeSpacing.patch`
 
-Decoded patch SHA-256:
-`40a4056644707c57291dfd876fde8487d8dbe9c436ba0409ccb7c6a60c31a0bb`
+Patch SHA-256:
+`38b3f494cf528fcc9fc818e6ef38ed0647389e106ec1bcc821e00ee2e65278dc`
 
-Materialization order after H15:
-`H16FinalUiTrimOverlay.patch.gz`.
+Validated against the exact post-H16 materialized source emitted by #625:
+- `patch --dry-run -p1`: PASS;
+- forward patch application: PASS;
+- reverse dry-run after application: PASS;
+- `git apply --check`: PASS;
+- `git diff --check`: PASS;
+- changed Kotlin files: no parser-level syntax errors in the available local `kotlinc` parser pass;
+- updated materializer: `bash -n` PASS.
+
+Expected post-H17 blobs:
+- `StudioPlaceholderScreen.kt`: `bc5f70ab81243589caea4179bc4bf8f07f8eeec7`
+- `StudioUserGuideDialog.kt`: `839098bb7814b17060eaa60fe44306f28b1e1780`
+- `AutoSectionsSlotInstrumentedTest.kt`: `9757f4ea5bd0be2961cdac9716a8cc213ae27c77`
+- `PhysicalEditingHardeningInstrumentedTest.kt`: `8d1ee2bb3965b079e106756586b8bf0ff0d08bbb`
 
 ## Milestone state
 - M2–M6: PASS/CLOSED.
-- M7: complete digital gate through H16 is **DIGITAL PASS** at #625; final physical closure remains pending.
-- M8: RC3 hardening through H16 is **DIGITAL PASS** at #625.
+- M7/M8 through H16: **DIGITAL PASS** at #625.
+- H17: **IMPLEMENTED / SOURCE-VALIDATED / PRE-GATE**.
 
-## Residual physical gate
-No further CI rerun is required unless product/source code changes. Install the exact #625 signed APK and execute `RC3_FINAL_PHYSICAL_HOMOLOGATION.md`.
+## Next authoritative gate
+The user manually dispatches `GuitarLab Android CI` on the then-current `main` with signed homologation enabled. Required PASS: software/Lint/build/provenance, full API36 regression including the new H17 assertions, isolated 1920×1200 geometry, and signed homologation on the same source SHA.
 
-Physical review now focuses only on facts automation cannot establish: visual harmony/readability on the real tablet, T1/T2 overlay feel against playhead/loop, natural Mixer swipe with fixed MASTER, absence of visible Studio-return flicker, MK-300 routing/REC/meters/synchronization and listening/perception smoke.
-
-The signed artifact correctly records `gate=software+android-integration-passed;physical-validation-pending` until explicit physical approval.
+The assistant must not dispatch or rerun Actions.
