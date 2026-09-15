@@ -1,0 +1,264 @@
+diff --git a/app/src/main/java/studio/guitarlab/app/ui/StudioViewModel.kt b/app/src/main/java/studio/guitarlab/app/ui/StudioViewModel.kt
+index b6ea98a..9f575b3 100644
+--- a/app/src/main/java/studio/guitarlab/app/ui/StudioViewModel.kt
++++ b/app/src/main/java/studio/guitarlab/app/ui/StudioViewModel.kt
+@@ -127,6 +127,7 @@ data class StudioUiState(
+     val guitarAuditionMode: GuitarAuditionMode = GuitarAuditionMode.MIXER,
+     val sectionSuggestions: List<SectionBoundarySuggestion> = emptyList(),
+     val trackLevelAnalysis: Map<String, LevelAnalysis> = emptyMap(),
++    val trackLevelAnalysisBusy: Set<String> = emptySet(),
+     val masterGainDb: Float = 0f,
+     val masterMeter: MeterBallisticsState = MeterBallisticsState(),
+     val trackMeters: Map<String, MeterBallisticsState> = emptyMap(),
+@@ -1480,53 +1481,83 @@ class StudioViewModel(application: Application) : AndroidViewModel(application)
+     fun analyzeTrackLevel(trackId: String) {
+         val state = _state.value
+         val project = state.project ?: return
++        if (trackId in state.trackLevelAnalysisBusy) return
+         val track = project.tracks.firstOrNull { it.id == trackId } ?: return
+-        val analyzedClips = ActiveTakePolicy.audibleClips(project)
+-            .filter { it.trackId == trackId && !it.muted }
++        val analyzedClips = audibleLevelClips(project, trackId)
++        if (analyzedClips.isEmpty()) {
++            _state.value = state.copy(
++                trackLevelAnalysis = state.trackLevelAnalysis - trackId,
++                clipStatus = "A pista não possui clipes audíveis para analisar.",
++                error = null,
++            )
++            return
++        }
++        _state.value = state.copy(
++            trackLevelAnalysis = state.trackLevelAnalysis - trackId,
++            trackLevelAnalysisBusy = state.trackLevelAnalysisBusy + trackId,
++            error = null,
++        )
+         viewModelScope.launch {
+-            runCatching {
+-                withContext(Dispatchers.IO) {
+-                    val accumulator = TrackLevelAccumulator()
+-                    analyzedClips.forEach { clip ->
+-                        FileSeekableByteSource(mediaStore.resolveEditable(project.id, editingMediaPath(clip))).use { source ->
+-                            WavPcmDecoder(source).use { decoder ->
+-                                decoder.seekToFrame(clip.sourceStartFrame)
+-                                val buffer = FloatArray(2048 * decoder.metadata.channelCount)
+-                                val effectiveGain = TrackLevelAdvisor.gainLinear(track.gainDb + clip.gainDb)
+-                                var remaining = clip.lengthFrames
+-                                while (remaining > 0) {
+-                                    val requested = minOf(2048L, remaining).toInt()
+-                                    val read = decoder.readInterleaved(buffer, frameCount = requested)
+-                                    if (read <= 0) break
+-                                    accumulator.append(buffer, read * decoder.metadata.channelCount, effectiveGain)
+-                                    remaining -= read
+-                                }
+-                            }
+-                        }
++            runCatching { analyzeLevelSnapshot(project, track, analyzedClips) }
++                .onSuccess { analysis -> publishLevelAnalysis(project, track, analyzedClips, analysis) }
++                .onFailure { error ->
++                    val latest = _state.value
++                    if (latest.project?.id == project.id) {
++                        _state.value = latest.copy(error = error.message ?: "Não foi possível analisar o nível.")
+                     }
+-                    accumulator.finish()
+                 }
+-            }.onSuccess { analysis ->
+-                val latestState = _state.value
+-                val latestProject = latestState.project ?: return@onSuccess
+-                if (latestProject.id != project.id) return@onSuccess
+-                val latestTrack = latestProject.tracks.firstOrNull { it.id == trackId }
+-                val latestClips = ActiveTakePolicy.audibleClips(latestProject)
+-                    .filter { it.trackId == trackId && !it.muted }
+-                if (latestTrack != track || latestClips != analyzedClips) {
+-                    _state.value = latestState.copy(
+-                        trackLevelAnalysis = latestState.trackLevelAnalysis - trackId,
+-                        clipStatus = "A pista mudou durante a análise. Analise novamente.",
+-                        error = null,
+-                    )
+-                    return@onSuccess
++            val latest = _state.value
++            if (latest.project?.id == project.id) {
++                _state.value = latest.copy(trackLevelAnalysisBusy = latest.trackLevelAnalysisBusy - trackId)
++            }
++        }
++    }
++
++    fun analyzeAllTrackLevels() {
++        val state = _state.value
++        val project = state.project ?: return
++        if (state.trackLevelAnalysisBusy.isNotEmpty() || state.importing || state.editingClip || state.historyBusy || state.exporting || state.recordingSession.phase != RecordingSessionPhase.IDLE) return
++        val targets = project.tracks.sortedBy { it.order }.mapNotNull { track ->
++            val clips = audibleLevelClips(project, track.id)
++            if (clips.isEmpty()) null else Triple(track.id, track, clips)
++        }
++        if (targets.isEmpty()) {
++            _state.value = state.copy(clipStatus = "Não há pistas com áudio audível para analisar.", error = null)
++            return
++        }
++        val ids = targets.map { it.first }.toSet()
++        _state.value = state.copy(
++            trackLevelAnalysis = state.trackLevelAnalysis - ids,
++            trackLevelAnalysisBusy = ids,
++            clipStatus = "Analisando ${ids.size} ${if (ids.size == 1) "pista" else "pistas"}…",
++            error = null,
++        )
++        viewModelScope.launch {
++            var completed = 0
++            targets.forEach { (trackId, track, clips) ->
++                if (_state.value.project?.id != project.id) return@launch
++                runCatching { analyzeLevelSnapshot(project, track, clips) }
++                    .onSuccess { analysis ->
++                        if (publishLevelAnalysis(project, track, clips, analysis)) completed++
++                    }
++                    .onFailure { error ->
++                        val latest = _state.value
++                        if (latest.project?.id == project.id) {
++                            _state.value = latest.copy(error = error.message ?: "Não foi possível analisar a pista ${track.name}.")
++                        }
++                    }
++                val latest = _state.value
++                if (latest.project?.id == project.id) {
++                    _state.value = latest.copy(trackLevelAnalysisBusy = latest.trackLevelAnalysisBusy - trackId)
+                 }
+-                _state.value = latestState.copy(
+-                    trackLevelAnalysis = latestState.trackLevelAnalysis + (trackId to analysis),
++            }
++            val latest = _state.value
++            if (latest.project?.id == project.id) {
++                _state.value = latest.copy(
++                    trackLevelAnalysisBusy = latest.trackLevelAnalysisBusy - ids,
++                    clipStatus = "Análise de níveis concluída em $completed ${if (completed == 1) "pista" else "pistas"}.",
+                     error = null,
+                 )
+-            }.onFailure { error ->
+-                _state.value = _state.value.copy(error = error.message ?: "Não foi possível analisar o nível.")
+             }
+         }
+     }
+@@ -1536,7 +1567,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application)
+         val project = state.project ?: return
+         val analysis = state.trackLevelAnalysis[trackId] ?: return
+         val expectedTrack = project.tracks.firstOrNull { it.id == trackId } ?: return
+-        val expectedClips = ActiveTakePolicy.audibleClips(project).filter { it.trackId == trackId }
++        val expectedClips = audibleLevelClips(project, trackId)
+         if (analysis.silent || abs(analysis.recommendedGainDb) < LEVEL_GAIN_EPSILON_DB) {
+             _state.value = state.copy(
+                 trackLevelAnalysis = state.trackLevelAnalysis - trackId,
+@@ -1550,7 +1581,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application)
+                 saveLatest(project.id) { current ->
+                     val latestTrack = current.tracks.firstOrNull { it.id == trackId }
+                         ?: error("A pista analisada não existe mais.")
+-                    val latestClips = ActiveTakePolicy.audibleClips(current).filter { it.trackId == trackId }
++                    val latestClips = audibleLevelClips(current, trackId)
+                     require(latestTrack == expectedTrack && latestClips == expectedClips) {
+                         "A pista mudou depois da análise. Analise novamente antes de aplicar o ganho."
+                     }
+@@ -1571,6 +1602,109 @@ class StudioViewModel(application: Application) : AndroidViewModel(application)
+         }
+     }
+ 
++    fun applyAllTrackLevelSuggestions() {
++        val state = _state.value
++        val project = state.project ?: return
++        if (state.trackLevelAnalysisBusy.isNotEmpty()) return
++        val candidates = state.trackLevelAnalysis.mapNotNull { (trackId, analysis) ->
++            val track = project.tracks.firstOrNull { it.id == trackId } ?: return@mapNotNull null
++            if (analysis.silent || abs(analysis.recommendedGainDb) < LEVEL_GAIN_EPSILON_DB) return@mapNotNull null
++            val clips = audibleLevelClips(project, trackId)
++            BatchLevelCandidate(track, clips, analysis)
++        }
++        if (candidates.isEmpty()) {
++            _state.value = state.copy(clipStatus = "Nenhuma pista analisada precisa de ajuste.", error = null)
++            return
++        }
++        viewModelScope.launch {
++            runCatching {
++                saveLatest(project.id) { current ->
++                    candidates.forEach { candidate ->
++                        val latestTrack = current.tracks.firstOrNull { it.id == candidate.track.id }
++                            ?: error("A pista ${candidate.track.name} não existe mais.")
++                        val latestClips = audibleLevelClips(current, candidate.track.id)
++                        require(latestTrack == candidate.track && latestClips == candidate.clips) {
++                            "A pista ${candidate.track.name} mudou depois da análise. Analise todas novamente antes de aplicar."
++                        }
++                    }
++                    val suggestions = candidates.associate { it.track.id to it.analysis.recommendedGainDb }
++                    current.copy(
++                        tracks = current.tracks.map { track ->
++                            val adjustment = suggestions[track.id]
++                            if (adjustment == null) track else track.copy(gainDb = (track.gainDb + adjustment).coerceIn(-60f, 12f))
++                        },
++                        updatedAtEpochMs = System.currentTimeMillis(),
++                    )
++                }
++            }.onSuccess { saved ->
++                applySavedProject(saved, "Sugestões de nível aplicadas a ${candidates.size} ${if (candidates.size == 1) "pista" else "pistas"}")
++            }.onFailure { error ->
++                _state.value = _state.value.copy(error = error.message ?: "Não foi possível aplicar as sugestões de nível.")
++            }
++        }
++    }
++
++    private data class BatchLevelCandidate(
++        val track: AudioTrack,
++        val clips: List<AudioClip>,
++        val analysis: LevelAnalysis,
++    )
++
++    private fun audibleLevelClips(project: GuitarProject, trackId: String): List<AudioClip> =
++        ActiveTakePolicy.audibleClips(project).filter { it.trackId == trackId && !it.muted }
++
++    private suspend fun analyzeLevelSnapshot(
++        project: GuitarProject,
++        track: AudioTrack,
++        analyzedClips: List<AudioClip>,
++    ): LevelAnalysis = withContext(Dispatchers.IO) {
++        val accumulator = TrackLevelAccumulator()
++        analyzedClips.forEach { clip ->
++            FileSeekableByteSource(mediaStore.resolveEditable(project.id, editingMediaPath(clip))).use { source ->
++                WavPcmDecoder(source).use { decoder ->
++                    decoder.seekToFrame(clip.sourceStartFrame)
++                    val buffer = FloatArray(2048 * decoder.metadata.channelCount)
++                    val effectiveGain = TrackLevelAdvisor.gainLinear(track.gainDb + clip.gainDb)
++                    var remaining = clip.lengthFrames
++                    while (remaining > 0) {
++                        val requested = minOf(2048L, remaining).toInt()
++                        val read = decoder.readInterleaved(buffer, frameCount = requested)
++                        if (read <= 0) break
++                        accumulator.append(buffer, read * decoder.metadata.channelCount, effectiveGain)
++                        remaining -= read
++                    }
++                }
++            }
++        }
++        accumulator.finish()
++    }
++
++    private fun publishLevelAnalysis(
++        project: GuitarProject,
++        track: AudioTrack,
++        analyzedClips: List<AudioClip>,
++        analysis: LevelAnalysis,
++    ): Boolean {
++        val latestState = _state.value
++        val latestProject = latestState.project ?: return false
++        if (latestProject.id != project.id) return false
++        val latestTrack = latestProject.tracks.firstOrNull { it.id == track.id }
++        val latestClips = audibleLevelClips(latestProject, track.id)
++        if (latestTrack != track || latestClips != analyzedClips) {
++            _state.value = latestState.copy(
++                trackLevelAnalysis = latestState.trackLevelAnalysis - track.id,
++                clipStatus = "A pista ${track.name} mudou durante a análise. Analise novamente.",
++                error = null,
++            )
++            return false
++        }
++        _state.value = latestState.copy(
++            trackLevelAnalysis = latestState.trackLevelAnalysis + (track.id to analysis),
++            error = null,
++        )
++        return true
++    }
++
+     private fun updatePracticeProject(transform: (GuitarProject) -> GuitarProject) {
+         val state = _state.value; val project = state.project ?: return
+         if (!structuralEditingAllowed(state)) return
