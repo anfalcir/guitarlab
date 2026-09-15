@@ -94,7 +94,18 @@ Run ID `35000635666`, source `5832c6800a7523a0bed0b64b9400a00c1fa876c2`:
 
 Root cause: `scripts/materialize_ci_sources.sh` was truncated inside the H7–H10 guard. #622 does not invalidate H12–H15 implementation or the #620 baseline.
 
-## Physical Review IV source-validation evidence after #622 repair
+### CI #623 — repaired chain reaches API36; H14a gesture lane remains
+Run ID `35003025673`, source `973ecae78ee3c159e975b4b1d65a2f733aedf59a`:
+- source materialization: **PASS**;
+- complete software/unit/performance/Lint/debug+release/provenance gate: **PASS**;
+- API36: **21/22 PASS**;
+- only failure: `MixerDockInstrumentedTest.overflowingTracksSwipeHorizontallyWhileMasterRemainsAnchored`;
+- H12, H13 and H15 instrumentation: **PASS**;
+- signed homologation: skipped by the mandatory API36 gate.
+
+The H14a retry/viewport logic executed but used Compose `swipeLeft()`, whose default gesture path is the scroller centerline. That line intersects horizontal Mixer sliders. H14a v2 retains physical swipe semantics while moving the gesture to the non-slider track-header band using explicit `swipe(start, end)`, keeping the bounded retry loop, viewport-intersection assertion and fixed-MASTER bounds.
+
+## Physical Review IV source-validation evidence after #623 H14a v2
 Required order after H11b:
 1. `H12LevelEngine.patch`
 2. `H12LevelUi.patch`
@@ -109,19 +120,20 @@ Evidence:
 - `bash -n scripts/materialize_ci_sources.sh`: **PASS**;
 - six Physical Review IV source parts dry-run/applied serially from the exact #620 materialized source snapshot: **PASS**;
 - `git diff --check`: **PASS**;
-- final source/test/help blobs match the expected audited tree, including `MixerDockInstrumentedTest.kt` `5aa984d00035ee259cce21f9cc8717c2f5f759af`.
+- final source/test/help blobs match the expected audited tree, including `MixerDockInstrumentedTest.kt` `bf81aa9414a376679634f8ddf3f0b9bbf58fde5d`.
 
 Patch SHA-256:
 - H12 engine `39c6a42bca192b1e6a829bd52c46ddb7e546d7cad09500d850e257dec57bc37c`
 - H12 UI `db9a7e448a22f79e8be22b9b795d4a4008bd92b4bff9754ad640eb957895308d`
 - H13 `4fd47e9d55de072be9ccfbc64361f3e87f9e38d68aa57a76a5084085bce399b0`
 - H14 `af3bf0808a5724f8aab3f6f17dec15b041591871ae26e51283d85a03a28a3e43`
-- H14a `eb347d29e3bdfa61af6da984d85d985ec0871bc8165ce6961a4043fdbb03c658`
+- H14a v1 `eb347d29e3bdfa61af6da984d85d985ec0871bc8165ce6961a4043fdbb03c658`
+- H14a v2 `0ecdfc2922311a3f6b0c773ece8cb4a27eb049780e8affa793bc2f496b71cef7`
 - H15 `79e4a98f996f86cb2c0916f1c152ef8a34529e369f7db1622ea4a5a7f427a1c9`
 
 The materializer is a clean-checkout materialization contract. Whole-script rerun against an already fully materialized #620 artifact is not the supported idempotence path because historical RC3 guards deliberately validate repository baselines. Supported idempotence is provided by patch-level reverse-match detection plus explicit final-blob guards; unexpected drift fails closed.
 
-No local Android SDK/Gradle environment was available during this recovery, so no new local JVM/Lint/APK/instrumentation PASS is claimed. CI #621 remains compilation/software evidence for H12–H15 before the H14a-only test correction; the next manual canonical CI is authoritative for the repaired chain.
+#623 provides real CI evidence that the repaired materializer and full software/build path pass. The H14a v2 coordinate-lane refinement is newer than #623 and remains source-validated/pre-gate until the next exact-source API36/signing run.
 
 ## Next acceptance gate
 After final consolidation on `main`, manually dispatch `GuitarLab Android CI` with `signed_homologation=true` on the exact final SHA. It must pass:
