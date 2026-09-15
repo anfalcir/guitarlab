@@ -63,7 +63,18 @@ Run `35000635666`, source `5832c6800a7523a0bed0b64b9400a00c1fa876c2`:
 
 #622 is infrastructure evidence only and does not invalidate #620 or establish a functional failure in H12–H15/H14a.
 
-## Source-validation status after #622 recovery
+### CI #623
+Run `35003025673`, source `973ecae78ee3c159e975b4b1d65a2f733aedf59a`:
+- repaired source materialization: PASS;
+- software/unit/performance/Lint/debug+release/provenance: PASS;
+- API36: 21/22 PASS;
+- only failure: H14a Mixer overflow gesture regression;
+- H12/H13/H15 connected regressions: PASS;
+- signing: correctly skipped.
+
+The remaining regression was traced to H14a v1 using Compose `swipeLeft()` on the scroller centerline, which crosses horizontal slider controls. H14a v2 keeps a physical swipe but moves it to the non-slider track-header lane while retaining bounded retries, viewport intersection and fixed-MASTER assertions.
+
+## Source-validation status after #623 H14a v2
 The materializer was restored to the complete canonical chain and H14/H14a remain distinct, ordered source parts:
 `H12 engine → H12 UI → H13 → H14 → H14a → H15`.
 
@@ -73,8 +84,9 @@ Recovery evidence:
 - `bash -n scripts/materialize_ci_sources.sh`: PASS;
 - ordered Physical Review IV patch dry-run/application from exact #620 materialized source: PASS;
 - `git diff --check`: PASS;
-- final source/test/help blobs match the audited expected tree, including `MixerDockInstrumentedTest.kt` `5aa984d00035ee259cce21f9cc8717c2f5f759af`.
+- final source/test/help blobs match the audited expected tree, including revised `MixerDockInstrumentedTest.kt` `bf81aa9414a376679634f8ddf3f0b9bbf58fde5d`;
+- H14a v2 patch SHA-256 `0ecdfc2922311a3f6b0c773ece8cb4a27eb049780e8affa793bc2f496b71cef7`.
 
-No new local Android JVM/Lint/APK/API36 PASS is claimed because this recovery environment did not provide the project Android SDK/Gradle build stack.
+#623 provides CI PASS evidence for the repaired materializer plus JVM/performance/Lint/debug/release/provenance. The newer H14a v2 gesture-lane change remains source-validated/pre-gate until the next exact-source API36/signing run.
 
 H12–H15/H14a remain **IMPLEMENTED / SOURCE-VALIDATED / PRE-GATE** until a new manually dispatched workflow on the final `main` SHA passes software/Lint/build, API36 full regression, tablet geometry and signed homologation.
