@@ -30,10 +30,10 @@ Implementation contracts:
 - existing waveform Trim handles remain the manipulation controls;
 - T1/T2 presentation moves to the fixed timeline time ruler;
 - each marker exposes a yellow tick at the exact frame fraction and a precise floating time label;
-- elevated z-order preserves readability over playhead overlap;
+- elevated z-order preserves readability;
 - close marker labels use separate vertical offsets.
 
-Regression extension: `PhysicalEditingHardeningInstrumentedTest` now requires the fixed ruler and both T1/T2 ruler semantics in addition to both independent handles.
+Regression extension: `PhysicalEditingHardeningInstrumentedTest` requires the fixed ruler and both T1/T2 ruler semantics in addition to both independent handles.
 
 ## H14 — Mixer overflow
 Implementation contracts:
@@ -42,21 +42,23 @@ Implementation contracts:
 - strip selection and all existing Mixer controls remain on their original strips;
 - MASTER geometry must remain invariant while the track list is swiped.
 
-Regression extension: `MixerDockInstrumentedTest` creates 10 strips, swipes to the final strip and asserts fixed MASTER left/right bounds.
+Regression extension: `MixerDockInstrumentedTest` creates 10 strips, swipes toward the final strip and asserts fixed MASTER left/right bounds.
 
 ### CI #621 diagnostic and H14a correction
 CI #621 / run `34998393778` / source `afecde0efd4d22e58115eaedadf60eea0eb3615c` passed the complete software gate and failed exactly one of 22 API36 tests: the H14 overflow regression. Signed homologation was correctly skipped.
 
-The product implementation was not the failed assertion: the regression hard-coded `repeat(4)` swipes. On the default Pixel 7 emulator the fixed 198dp MASTER plus dock spacing leaves a much narrower track viewport than the target tablet, so four swipes cannot traverse ten 184dp strips.
+The regression hard-coded `repeat(4)` swipes. On the default Pixel 7 emulator the fixed MASTER plus dock spacing leaves a narrower track viewport than the target tablet, so four swipes are not sufficient to traverse ten strips.
 
 H14a makes the regression viewport-independent without weakening the interaction contract:
 - still performs real `swipeLeft` gestures on `mixer-track-scroll`;
-- after each gesture, checks whether the final strip is composed and intersects the actual scroller bounds;
+- after each gesture, checks whether the final strip intersects the actual scroller bounds;
 - uses a bounded 20-gesture safety ceiling rather than a fixed success count;
 - keeps exact MASTER left/right bounds assertions;
 - does not use `scrollToItem`, timeout inflation, unmerged-tree bypass or assertion removal.
 
-H14a is folded into the revised canonical `H14MixerHorizontalScroll.patch` rather than adding another materializer stage. Revised H14 patch SHA-256: `2a96869617205b56b94a5e7d97dac99a3859071c90605a7eed9715efac9e6b51`.
+H14a remains a distinct source-part after H14 for traceability and bisectability.
+
+H14a patch SHA-256: `eb347d29e3bdfa61af6da984d85d985ec0871bc8165ce6961a4043fdbb03c658`.
 Final expected `MixerDockInstrumentedTest.kt` blob after H14a: `5aa984d00035ee259cce21f9cc8717c2f5f759af`.
 
 ## H15 — resident Studio return + help synchronization
@@ -65,40 +67,57 @@ Implementation contracts:
 - playback/recording mode is normalized safely before returning;
 - project object/history/waveform-derived state is preserved for the resident session;
 - navigating to a different project still uses the normal load path;
-- in-app `Ajuda` documents the new global level workflow, fixed-ruler T1/T2 presentation and Mixer overflow swipe with fixed MASTER.
+- in-app `Ajuda` documents the H12–H14 user-facing workflows.
 
 Regression extension: `GuitarLabLifecycleInstrumentedTest` performs Studio → Options → same Studio after a reversible edit and asserts the same resident project object plus retained Undo history.
+
+## CI #622 — materializer failure and root cause
+CI #622 / run `35000635666` / source `5832c6800a7523a0bed0b64b9400a00c1fa876c2` did not reach compilation or functional tests.
+
+Both mandatory upstream jobs stopped in `Materialize split source` with:
+
+```text
+scripts/materialize_ci_sources.sh: line 167: unexpected EOF while looking for matching `"'
+```
+
+Signed homologation was correctly skipped. Repository inspection showed that `scripts/materialize_ci_sources.sh` had been physically truncated inside the H7–H10 guard at the start of `if [[ -f "$PH...`. The commit that added H14a had retained only the first part of the materializer, removing its canonical tail. This is an infrastructure/source-materialization defect, not evidence of an H12/H13/H14/H14a/H15 functional regression.
+
+The repair restored the complete canonical script and retained H14/H14a as independent stages rather than folding the regression correction into H14.
 
 ## Source materialization
 Required order after H11b:
 1. `H12LevelEngine.patch`
 2. `H12LevelUi.patch`
 3. `H13TrimRuler.patch`
-4. `H14MixerHorizontalScroll.patch` — revised after #621 to include the viewport-safe H14a physical-swipe correction
-5. `H15ResidentStudioReturn.patch` — resident return plus in-app guide synchronization
+4. `H14MixerHorizontalScroll.patch`
+5. `H14aMixerScrollViewportRegression.patch`
+6. `H15ResidentStudioReturn.patch`
 
 Patch SHA-256:
 - `H12LevelEngine.patch`: `39c6a42bca192b1e6a829bd52c46ddb7e546d7cad09500d850e257dec57bc37c`
 - `H12LevelUi.patch`: `db9a7e448a22f79e8be22b9b795d4a4008bd92b4bff9754ad640eb957895308d`
 - `H13TrimRuler.patch`: `4fd47e9d55de072be9ccfbc64361f3e87f9e38d68aa57a76a5084085bce399b0`
-- `H14MixerHorizontalScroll.patch` original in #621: `af3bf0808a5724f8aab3f6f17dec15b041591871ae26e51283d85a03a28a3e43`
-- `H14MixerHorizontalScroll.patch` revised with H14a: `2a96869617205b56b94a5e7d97dac99a3859071c90605a7eed9715efac9e6b51`
+- `H14MixerHorizontalScroll.patch`: `af3bf0808a5724f8aab3f6f17dec15b041591871ae26e51283d85a03a28a3e43`
+- `H14aMixerScrollViewportRegression.patch`: `eb347d29e3bdfa61af6da984d85d985ec0871bc8165ce6961a4043fdbb03c658`
 - `H15ResidentStudioReturn.patch`: `79e4a98f996f86cb2c0916f1c152ef8a34529e369f7db1622ea4a5a7f427a1c9`
 
-## Source-validation evidence
-The exact source snapshot uploaded by CI #620 (`faaeb0ee4f9e52fbdcf369d097fa773e96d104a7`) was used as the baseline.
+## Source-validation evidence after #622 recovery
+The exact source snapshot emitted by CI #620 (`faaeb0ee4f9e52fbdcf369d097fa773e96d104a7`) was used as the stable materialized H11 baseline for the Physical Review IV patch-chain check.
 
-Validation performed before repository consolidation:
-- each Physical Review IV patch forward dry-run: PASS;
-- ordered serial patch application H12→H15: PASS;
+Validation performed:
+- repaired materializer Git blob: `de488110153b8a800b69b520a29860230bcb5838`;
+- repaired materializer SHA-256: `612f171be1345b59e0f81e7f0e8cfbd78de0dcbc981fe4edcf22130b1b61779f`;
+- `bash -n scripts/materialize_ci_sources.sh`: PASS;
+- each Physical Review IV source part forward dry-run: PASS;
+- ordered serial patch application H12 engine → H12 UI → H13 → H14 → H14a → H15: PASS;
 - `git diff --check`: PASS;
-- final changed/new source/test/help files compared against the independently developed clean H12→H15 tree: byte-for-byte match;
-- no workflow file is part of Physical Review IV.
+- final changed/new source/test/help blobs: byte-for-byte match with the audited expected tree;
+- `.github/workflows/android-ci.yml` was not changed by the recovery.
 
-Final expected materialized blobs for the changed/new application/test/help files:
+Final expected materialized blobs:
 - `AllTracksLevelDialogInstrumentedTest.kt`: `a8bdf73b58b8aa42170fc9254b48b9edcde3a9fa`
 - `GuitarLabLifecycleInstrumentedTest.kt`: `28a49b2b81baf9f86cff59de18e0b15973285986`
-- `MixerDockInstrumentedTest.kt`: `5aa984d00035ee259cce21f9cc8717c2f5f759af` (after H14a)
+- `MixerDockInstrumentedTest.kt`: `5aa984d00035ee259cce21f9cc8717c2f5f759af`
 - `PhysicalEditingHardeningInstrumentedTest.kt`: `66c5bf83b43e5f7d806c0d06a21f5fffded95113`
 - `AllTracksLevelDialog.kt`: `2a4b2abfb3b8753f6e466b801b56eaee4b449aec`
 - `MixerDock.kt`: `14fb1c2c215e7e320c14cfb7a73feeefb2d19ac2`
@@ -107,9 +126,18 @@ Final expected materialized blobs for the changed/new application/test/help file
 - `StudioViewModel.kt`: `cd77f7a98cb9601b2c580acecb6dd25aff79c4c1`
 - `StudioUserGuideDialog.kt`: `70d6ff6678ee15a8445f7b4b3850697de25d6b99`
 
-## Evidence boundary / closure
-H12–H15 are implemented; CI #621 proved the complete software gate and all API36 tests except the viewport-assuming H14 regression. H14a is **SOURCE-VALIDATED / PRE-GATE** and requires a new exact-source run.
+### Idempotence boundary
+The full historical materializer is intended for a clean repository checkout. Re-running that whole script against an already fully materialized #620 source artifact is not the supported idempotence path because earlier RC3 guards intentionally validate repository baselines. Idempotence is instead enforced at patch/guard boundaries: exact reverse dry-run detection for independent patches and final-blob checks for overlapping chains. Unexpected drift fails closed.
 
-They become DIGITAL PASS only when a new manually dispatched canonical workflow on the final `main` SHA passes software/Lint/build, API36 full regression, isolated tablet geometry and signed homologation with matching source/package/version/signer/checksums.
+### Validation not claimed
+This recovery environment did not provide the project Android SDK/Gradle build stack. Therefore no new local JVM/Lint/APK/API36 PASS is claimed. CI #621 remains valid software/compile evidence for H12–H15 before the H14a-only test correction. The next user-dispatched canonical workflow is authoritative for the repaired materializer and H14a runtime regression.
+
+## Evidence boundary / closure
+- H0–H11/H11a/H11b: DIGITAL PASS via #620.
+- H12–H15 + H14a: **IMPLEMENTED / SOURCE-VALIDATED / PRE-GATE**.
+- #621: software PASS + one H14 test diagnostic failure.
+- #622: materializer infrastructure failure before build/test.
+
+H12–H15/H14a become DIGITAL PASS only when a new manually dispatched canonical workflow on the final `main` SHA passes software/Lint/build, API36 full regression, isolated tablet geometry and signed homologation with matching source/package/version/signer/checksums.
 
 CI must remain user-dispatched. Do not automatically run or rerun GitHub Actions.
