@@ -189,3 +189,8 @@ apply_encoded_gzip_patch_once "$ROOT/.source-parts/H11MixerWaveformMetering.patc
 # beginTrim through pending local Compose state + LaunchedEffect. H11a removes that asynchronous
 # handoff and dispatches beginTrim synchronously after closing the menu.
 apply_patch_once "$ROOT/.source-parts/H11TrimEntryRaceFix.patch"
+
+# CI #619 exposed a semantics regression introduced by H11 waveform selection: ancestor/disabled
+# clickables merged TrimHandle descendants out of the merged accessibility tree. H11b moves lane
+# selection to a sibling background target and removes clip clickable semantics while trimming.
+apply_patch_once "$ROOT/.source-parts/H11bWaveformSelectionSemantics.patch"
