@@ -154,3 +154,28 @@ apply_encoded_gzip_patch_once "$ROOT/.source-parts/H5LiveWaveform.patch.gz"
 apply_encoded_gzip_patch_once "$ROOT/.source-parts/H6IntegratedRegression.patch.gz"
 apply_patch_once "$ROOT/.source-parts/H6WaveformTestFix.patch"
 apply_encoded_gzip_patch_once "$ROOT/.source-parts/H6UserGuideSync.patch.gz"
+
+# Physical Review II hardening. H7-H10 deliberately form one guarded unit because H10 refines
+# StudioViewModel after H7; checking final target blobs keeps repeated materialization idempotent
+# without reverse-applying an earlier patch through later edits.
+PHYSICAL_REVIEW_II_VIEW_MODEL="$ROOT/app/src/main/java/studio/guitarlab/app/ui/StudioViewModel.kt"
+PHYSICAL_REVIEW_II_PLACEHOLDER="$ROOT/app/src/main/java/studio/guitarlab/app/ui/StudioPlaceholderScreen.kt"
+PHYSICAL_REVIEW_II_WAVEFORM="$ROOT/core/project/src/main/kotlin/studio/guitarlab/core/project/LiveWaveformAccumulator.kt"
+PHYSICAL_REVIEW_II_GUIDE="$ROOT/app/src/main/java/studio/guitarlab/app/ui/StudioUserGuideDialog.kt"
+PHYSICAL_REVIEW_II_TRANSPORT="$ROOT/app/src/main/java/studio/guitarlab/app/ui/TransportBar.kt"
+PHYSICAL_REVIEW_II_MIXER="$ROOT/app/src/main/java/studio/guitarlab/app/ui/MixerDock.kt"
+if [[ -f "$PHYSICAL_REVIEW_II_VIEW_MODEL" && -f "$PHYSICAL_REVIEW_II_PLACEHOLDER" && -f "$PHYSICAL_REVIEW_II_WAVEFORM" \
+      && -f "$PHYSICAL_REVIEW_II_GUIDE" && -f "$PHYSICAL_REVIEW_II_TRANSPORT" && -f "$PHYSICAL_REVIEW_II_MIXER" ]] \
+    && [[ "$(git -C "$ROOT" hash-object "$PHYSICAL_REVIEW_II_VIEW_MODEL")" == "7c56d0b2c78f0b408df341d8a3744eee5c69bd93" ]] \
+    && [[ "$(git -C "$ROOT" hash-object "$PHYSICAL_REVIEW_II_PLACEHOLDER")" == "358dd75d45f3c25616eb737e99ddba42fe02a053" ]] \
+    && [[ "$(git -C "$ROOT" hash-object "$PHYSICAL_REVIEW_II_WAVEFORM")" == "07ab9a739020e8d06b6817b11888f99cd9dd9b1b" ]] \
+    && [[ "$(git -C "$ROOT" hash-object "$PHYSICAL_REVIEW_II_GUIDE")" == "59d4e5e23a2d59cd9b2857e5323f1baee0b00a2b" ]] \
+    && [[ "$(git -C "$ROOT" hash-object "$PHYSICAL_REVIEW_II_TRANSPORT")" == "f82b75102af830e8188c621b4740ecd53630a0c9" ]] \
+    && [[ "$(git -C "$ROOT" hash-object "$PHYSICAL_REVIEW_II_MIXER")" == "755fd157f86a7fea8a03e2d2c8b799d4ef0dfc41" ]]; then
+    echo "Source patch chain already materialized: Physical Review II H7-H10"
+else
+    apply_encoded_gzip_patch_once "$ROOT/.source-parts/H7StateLevelTransport.patch.gz"
+    apply_encoded_gzip_patch_once "$ROOT/.source-parts/H8WorkspaceFlow.patch.gz"
+    apply_encoded_gzip_patch_once "$ROOT/.source-parts/H9LiveWaveformStability.patch.gz"
+    apply_encoded_gzip_patch_once "$ROOT/.source-parts/H10StateRaceGuide.patch.gz"
+fi
