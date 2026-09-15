@@ -77,8 +77,9 @@ Artifacts remain namespaced by `github.sha`: exact source snapshot, debug/softwa
 - **CI #620 / run `34924500870` / source `faaeb0ee4f9e52fbdcf369d097fa773e96d104a7`: canonical H0–H11 PASS.** Software, API36, unchanged Trim regression, tablet geometry and signed homologation all passed.
 - **CI #621 / run `34998393778` / source `afecde0efd4d22e58115eaedadf60eea0eb3615c`: Physical Review IV diagnostic.** Software/Lint/build/provenance PASS; API36 21/22 PASS; only failure was the H14 overflow regression because it assumed four swipes suffice on every viewport; signing skipped. H14a removes that viewport assumption while preserving real swipe and fixed-MASTER assertions.
 - **CI #622 / run `35000635666` / source `5832c6800a7523a0bed0b64b9400a00c1fa876c2`: materialization infrastructure FAIL.** Both software and API36 jobs stopped at `Materialize split source` before compilation/tests with `line 167: unexpected EOF while looking for matching '"'`; signing skipped. Root cause was a truncated materializer, not H12–H15 functional behavior.
+- **CI #623 / run `35003025673` / source `973ecae78ee3c159e975b4b1d65a2f733aedf59a`: repaired-chain software PASS / API36 21/22 diagnostic.** Materialization, unit/performance, Lint, debug+release assembly and unsigned provenance passed. API36 failed only `MixerDockInstrumentedTest.overflowingTracksSwipeHorizontallyWhileMasterRemainsAnchored`; H12/H13/H15 instrumentation passed; signing was skipped. This isolated H14a v1's gesture lane rather than product/materializer failure.
 
-## #622 materializer recovery
+## #622 materializer recovery + #623 H14a refinement
 Root cause was identified as a file truncation inside the H7–H10 guard introduced while adding H14a. The repair:
 - restores the complete canonical materializer tail;
 - preserves H12, H13, H14, H14a and H15 as independent source parts;
@@ -93,7 +94,8 @@ Validation evidence for the repaired script:
 - `bash -n scripts/materialize_ci_sources.sh`: **PASS**;
 - H12 → H13 → H14 → H14a → H15 serial dry-run/application from the exact #620 materialized source snapshot: **PASS**;
 - `git diff --check`: **PASS**;
-- final audited `MixerDockInstrumentedTest.kt` blob: `5aa984d00035ee259cce21f9cc8717c2f5f759af`.
+- post-#623 H14a v2 audited `MixerDockInstrumentedTest.kt` blob: `bf81aa9414a376679634f8ddf3f0b9bbf58fde5d`;
+- H14a v2 patch SHA-256: `0ecdfc2922311a3f6b0c773ece8cb4a27eb049780e8affa793bc2f496b71cef7`.
 
 The whole historical materializer is intended to execute from a clean repository checkout. Re-running it against an already fully materialized #620 source artifact is not a meaningful whole-script idempotence test because earlier RC3 guards intentionally validate repository baselines. Supported idempotence is patch/guard scoped; clean-checkout determinism and fail-closed drift handling remain the canonical contract.
 
@@ -111,9 +113,7 @@ The whole historical materializer is intended to execute from a clean repository
 - certificate SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
 
 ## Physical Review IV evidence boundary
-H12–H15/H14a are **IMPLEMENTED / SOURCE-VALIDATED / PRE-GATE**. Local source validation proves materialization consistency only. It does **not** replace Android compilation, Lint, emulator regression, tablet geometry or signing.
-
-No local Android SDK/Gradle environment was available during the #622 recovery, so no new local JVM/Lint/APK/instrumentation PASS is claimed. CI #621 remains valid software/compile evidence for H12–H15 before the H14a-only regression change.
+H12–H15/H14a are **IMPLEMENTED / SOURCE-VALIDATED / PRE-GATE**. #623 now proves the repaired chain passes materialization plus the complete software/Lint/build/provenance gate and reaches API36 with 21/22 passing. The newer H14a v2 gesture-lane change remains source-validated only until the next exact-source runtime gate.
 
 ## Next manual execution
 After the repaired chain and documentation are consolidated on `main`:
@@ -124,4 +124,4 @@ After the repaired chain and documentation are consolidated on `main`:
 5. Require software, API36/geometry and signed homologation to PASS.
 6. Verify APK/`SHA256SUMS.txt`/`BUILD_IDENTITY.txt` package, version, source SHA and signer all agree.
 
-Do not rerun #620/#621/#622 as substitute evidence for the repaired candidate and do not dispatch CI automatically.
+Do not rerun #620/#621/#622/#623 as substitute evidence for the revised H14a v2 candidate and do not dispatch CI automatically.
