@@ -1,8 +1,8 @@
 diff --git a/app/src/androidTest/java/studio/guitarlab/app/MixerDockInstrumentedTest.kt b/app/src/androidTest/java/studio/guitarlab/app/MixerDockInstrumentedTest.kt
-index 0889efe..5aa984d 100644
+index 0889efe..ec0380f 100644
 --- a/app/src/androidTest/java/studio/guitarlab/app/MixerDockInstrumentedTest.kt
 +++ b/app/src/androidTest/java/studio/guitarlab/app/MixerDockInstrumentedTest.kt
-@@ -5,10 +5,15 @@ import androidx.compose.ui.semantics.SemanticsProperties
+@@ -5,10 +5,14 @@ import androidx.compose.ui.semantics.SemanticsProperties
  import androidx.compose.ui.test.SemanticsMatcher
  import androidx.compose.ui.test.assert
  import androidx.compose.ui.test.assertIsEnabled
@@ -11,14 +11,13 @@ index 0889efe..5aa984d 100644
  import androidx.compose.ui.test.junit4.createComposeRule
  import androidx.compose.ui.test.onNodeWithContentDescription
 +import androidx.compose.ui.test.onNodeWithTag
-+import androidx.compose.ui.test.onAllNodesWithTag
  import androidx.compose.ui.test.performClick
 +import androidx.compose.ui.test.performTouchInput
 +import androidx.compose.ui.test.swipeLeft
  import androidx.test.ext.junit.runners.AndroidJUnit4
  import androidx.test.platform.app.InstrumentationRegistry
  import java.util.concurrent.atomic.AtomicInteger
-@@ -102,4 +107,61 @@ class MixerDockInstrumentedTest {
+@@ -102,4 +106,48 @@ class MixerDockInstrumentedTest {
          assertTrue("Mute/Solo expanded touch targets must not overlap", abs(soloCenter.x - muteCenter.x) >= minimumCenterDistancePx)
          assertTrue("Solo/Arm expanded touch targets must not overlap", abs(armCenter.x - soloCenter.x) >= minimumCenterDistancePx)
      }
@@ -56,24 +55,11 @@ index 0889efe..5aa984d 100644
 +        val master = composeRule.onNodeWithTag("mixer-master-strip").assertIsDisplayed()
 +        val masterBefore = master.fetchSemanticsNode().boundsInRoot
 +        val scroller = composeRule.onNodeWithTag("mixer-track-scroll").assertIsDisplayed()
-+        val scrollerBounds = scroller.fetchSemanticsNode().boundsInRoot
-+        var lastTrackVisible = false
-+        repeat(20) {
-+            if (!lastTrackVisible) {
-+                scroller.performTouchInput { swipeLeft(durationMillis = 220L) }
-+                composeRule.waitForIdle()
-+                val candidates = composeRule.onAllNodesWithTag("mixer-track-strip-overflow-9")
-+                    .fetchSemanticsNodes()
-+                lastTrackVisible = candidates.any { node ->
-+                    val bounds = node.boundsInRoot
-+                    bounds.right > scrollerBounds.left && bounds.left < scrollerBounds.right
-+                }
-+            }
++        repeat(4) {
++            scroller.performTouchInput { swipeLeft(durationMillis = 300L) }
++            composeRule.waitForIdle()
 +        }
-+        assertTrue(
-+            "Last mixer track must be reachable by repeated physical horizontal swipe regardless of viewport width",
-+            lastTrackVisible,
-+        )
++        composeRule.onNodeWithTag("mixer-track-strip-overflow-9").assertIsDisplayed()
 +        val masterAfter = composeRule.onNodeWithTag("mixer-master-strip").fetchSemanticsNode().boundsInRoot
 +        assertEquals(masterBefore.left, masterAfter.left, 1f)
 +        assertEquals(masterBefore.right, masterAfter.right, 1f)

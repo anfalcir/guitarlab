@@ -1,0 +1,39 @@
+--- a/app/src/androidTest/java/studio/guitarlab/app/MixerDockInstrumentedTest.kt
++++ b/app/src/androidTest/java/studio/guitarlab/app/MixerDockInstrumentedTest.kt
+@@ -10,6 +10,7 @@
+ import androidx.compose.ui.test.junit4.createComposeRule
+ import androidx.compose.ui.test.onNodeWithContentDescription
+ import androidx.compose.ui.test.onNodeWithTag
++import androidx.compose.ui.test.onAllNodesWithTag
+ import androidx.compose.ui.test.performClick
+ import androidx.compose.ui.test.performTouchInput
+ import androidx.compose.ui.test.swipeLeft
+@@ -140,11 +141,24 @@
+         val master = composeRule.onNodeWithTag("mixer-master-strip").assertIsDisplayed()
+         val masterBefore = master.fetchSemanticsNode().boundsInRoot
+         val scroller = composeRule.onNodeWithTag("mixer-track-scroll").assertIsDisplayed()
+-        repeat(4) {
+-            scroller.performTouchInput { swipeLeft(durationMillis = 300L) }
+-            composeRule.waitForIdle()
++        val scrollerBounds = scroller.fetchSemanticsNode().boundsInRoot
++        var lastTrackVisible = false
++        repeat(20) {
++            if (!lastTrackVisible) {
++                scroller.performTouchInput { swipeLeft(durationMillis = 220L) }
++                composeRule.waitForIdle()
++                val candidates = composeRule.onAllNodesWithTag("mixer-track-strip-overflow-9")
++                    .fetchSemanticsNodes()
++                lastTrackVisible = candidates.any { node ->
++                    val bounds = node.boundsInRoot
++                    bounds.right > scrollerBounds.left && bounds.left < scrollerBounds.right
++                }
++            }
+         }
+-        composeRule.onNodeWithTag("mixer-track-strip-overflow-9").assertIsDisplayed()
++        assertTrue(
++            "Last mixer track must be reachable by repeated physical horizontal swipe regardless of viewport width",
++            lastTrackVisible,
++        )
+         val masterAfter = composeRule.onNodeWithTag("mixer-master-strip").fetchSemanticsNode().boundsInRoot
+         assertEquals(masterBefore.left, masterAfter.left, 1f)
+         assertEquals(masterBefore.right, masterAfter.right, 1f)
