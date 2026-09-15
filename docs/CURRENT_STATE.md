@@ -4,73 +4,69 @@ Updated: 2026-09-14
 
 ## Active candidate
 - Canonical repository/branch: `anfalcir/guitarlab` / `main`.
-- Active candidate: `0.5.0-rc3`, versionCode `23`.
-- Canonical digitally homologated source SHA: `3051619c219e346daca00d2242f60ef03f2d80db`.
-- Signed APK: `GuitarLabStudio-0.5.0-rc3-homologacao.apk`.
-- Signed APK SHA-256: `92e806c6fbfd68b0fd44409570c17a976b922e56f2d206824a308c1fdc15bf9c`.
-- Unsigned release SHA-256: `a5fd846bc2fb54a2995ab7fd48f3fcef0055991e6b9678b05f641e739981d0e2`.
-- Locked homologation signer SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
-- Package: `studio.guitarlab.app`.
-- Ordinary commits remain `[skip ci]`; `.github/workflows/android-ci.yml` is manual-only.
+- Active version: `0.5.0-rc3`, versionCode `23`, package `studio.guitarlab.app`.
+- Last digitally homologated application source: `3051619c219e346daca00d2242f60ef03f2d80db` from CI #616.
+- CI #616 signed APK SHA-256: `92e806c6fbfd68b0fd44409570c17a976b922e56f2d206824a308c1fdc15bf9c`.
+- Locked signer SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
+- `.github/workflows/android-ci.yml` remains manual-only. Ordinary commits use `[skip ci]`.
+
+## Evidence boundary
+CI #616 is the authoritative digital PASS for H0–H6 only. Physical review of that APK exposed a new delta, Physical Review II H7–H10. H7–H10 are now **implemented/source-validated but PRE-GATE** and therefore require one new exact-source workflow before a replacement APK can be promoted.
 
 ## Milestone state
-- M2 through M6: PASS/CLOSED.
-- M7: automated/digital scope PASS for the exact active RC; final Samsung SM-X230 + M-VAVE MK-300 physical gate remains open.
-- M8 digital hardening: H0–H6 PASS on the exact active RC; final release closure still depends on residual target-device validation and explicit approval.
+- M2–M6: PASS/CLOSED.
+- M7: previous digital scope PASS; final physical closure remains open because H7–H10 change active application behavior.
+- M8: H0–H6 DIGITAL PASS in CI #616; H7–H10 IMPLEMENTED / PRE-GATE.
 
-## Authoritative digital evidence — CI #616
-Manual workflow **#616** (run ID `34912716297`) completed successfully against exact source `3051619c219e346daca00d2242f60ef03f2d80db`.
+## CI #616 retained evidence
+Run #616 / ID `34912716297` passed software, API 36 integration, isolated 1920×1200 geometry and signed homologation against exact source `3051619c219e346daca00d2242f60ef03f2d80db`. Package/version/provenance and the locked certificate matched. This evidence remains valid for unaffected behavior but does not validate the newer H7–H10 source.
 
-All mandatory jobs passed:
-- Unit tests + Lint + APK build — PASS;
-- API 36 emulator regression — PASS;
-- Signed homologation APK — PASS.
+## Physical Review II — H7–H10
+### H7 — state/history, level analysis and recording stop — IMPLEMENTED / PRE-GATE
+- project mutations now resynchronize history-derived `canUndo`/`canRedo`, playback/mixer/readiness state instead of leaving stale UI state;
+- asynchronous history/analysis work is guarded against project switches so a result from one project cannot be published into another;
+- level analysis reasons about the effective level after current track/clip gain, so apply → re-analyze converges instead of proposing the same correction repeatedly;
+- recording Stop and REC-during-capture use the same idempotent successful finalization path; Stop cancels countdown and cannot double-finalize.
 
-The run established:
-- source materialization PASS;
-- unit/JVM regression PASS, including H0–H6 editing/timing/waveform coverage;
-- performance evidence PASS;
-- Android Lint PASS;
-- debug/release assembly PASS;
-- full API 36 instrumented regression PASS;
-- isolated 1920×1200 target-geometry PASS;
-- unsigned release provenance/identity PASS;
-- signed homologation PASS;
-- APK Signature Scheme v2 PASS;
-- one official signer, RSA 4096;
-- signer certificate SHA-256 `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89` PASS;
-- package/version identity PASS;
-- final artifact identity/checksum PASS.
+### H8 — workspace flow and action semantics — IMPLEMENTED / PRE-GATE
+- `Cortar` must open on the first valid tap; blocked entry produces explicit user feedback instead of a silent no-op;
+- clip-level `Excluir clipe` remains contextual; track-wide destructive content clearing is presented as `Limpar toda a pista` in track configuration rather than as a second neighboring trash action;
+- the same Comparison/Timeline control surface is embedded into the Mixer header on wide layouts, preserving Mixer title left and Pin/Close right; when Mixer is closed the same component returns to workspace flow.
 
-`BUILD_IDENTITY.txt` records `gate=software+android-integration-passed;physical-validation-pending`. The H0–H6 source is therefore digitally homologated, but final physical homologation is intentionally still open.
+### H9 — live REC waveform spatial stability — IMPLEMENTED / PRE-GATE
+- the old pairwise global compaction behavior exposed by the physical video was replaced by uniform temporal bucketing;
+- old and new waveform material share one current temporal resolution instead of leaving sparse history and dense recent samples;
+- renderer spans each bucket across its represented time interval rather than drawing only a thin center stroke;
+- long/variable-cadence regression checks monotonic time coverage, stable bucket resolution and transient retention.
 
-## RC3 retained scope
-### Transport, sections and layout
-- Loop Play begins only inside `[loopStart, loopEnd)` and ends naturally at `L▶`, returning to `L◀`.
-- Ordinary natural completion returns to project start; manual Stop preserves the current position.
-- Playhead can be sought while ordinary Play is active; active Loop clamps seek inside its bounds.
-- `Auto seções` produces a non-persistent preview, normalizes edge-adjacent boundaries and never renders beyond the real song end.
-- `Auto seções` owns a stable slot; preview replaces that slot with `Aplicar` + red `X` without moving neighboring controls.
-- Comparação/Timeline use the available width responsively; `Limpar seções` remains in normal Timeline flow.
-- REC countdown is a large centered translucent `3 → 2 → 1` overlay and never changes workspace geometry.
-- Home and Studio use the same `StudioUserGuideDialog` implementation.
+### H10 — race closure, integrated regression and guide sync — IMPLEMENTED / PRE-GATE
+- history/analysis callbacks are session/project guarded;
+- integrated regression covers repeated level apply/analyze, history stress, project switching, first-tap trim entry, recording stop and long live waveform behavior;
+- `StudioUserGuideDialog` is synchronized with Stop-during-REC, analysis convergence, clip-vs-track deletion scope and Mixer-integrated practice controls;
+- H7–H10 are a guarded materialization unit under `.source-parts` with final-hash idempotence checks.
 
-### Physical editing/recording hardening — H0–H6 — DIGITAL PASS
-- H0: deterministic reproduction/invariant coverage for trim, split-lineage move/delete, timing and long live waveform.
-- H1: independent start/end trim handles with dedicated touch targets, semantics and deterministic frame mapping.
-- H2: recording-take lineage survives split/move/delete; canonical sibling promotion is deterministic; `Excluir clipe` is explicit and confirmed.
-- H3: drag/drop resolves to `Move`, `Delete` or `NoOp`; drag-to-trash uses the same domain deletion path and stale drops revalidate before mutation.
-- H4: recording synchronization measures per-session capture/backing startup skew separately from route calibration/punch offsets; no hard-coded `-0.5 s` correction is used.
-- H5: live REC waveform is frame-span based, compacts without losing time coverage/transients and publishes UI updates through a bounded/conflated cadence.
-- H6: integrated persistence, instrumentation, timing, waveform, guide synchronization and serial materialization regression passed in CI #616.
+## Next authoritative gate
+The next promoted candidate must be produced by one manually dispatched `GuitarLab Android CI` run on the final `main` HEAD after documentation consolidation. Required PASS:
+1. complete JVM/unit regression including H7–H10;
+2. Android Lint;
+3. debug/release assembly;
+4. API 36 full instrumentation;
+5. isolated 1920×1200 tablet geometry;
+6. signed homologation;
+7. exact package/version/source provenance;
+8. locked signer verification;
+9. published APK SHA-256.
 
-## Residual physical gate
-Only target-hardware facts remain:
-- reliably grab/move both trim handles on the Samsung tablet;
-- split a recorded clip, move one child to an empty compatible track, delete a child through both `Excluir clipe` and drag-to-trash, then save/reopen/Undo/Redo;
-- confirm selected MK-300 input remains fail-closed and backing is not recorded into the guitar take;
-- record guitar against backing and confirm there is no repeatable systematic late placement like the previously observed ~0.5 s;
-- record continuously for 2–3 minutes and confirm live waveform remains temporally stable without acceleration/backward piling;
-- perform a concise listening/transport/export/stress smoke on the real device.
+Do not reuse the #616 APK to validate H7–H10.
 
-`RC3_FINAL_PHYSICAL_HOMOLOGATION.md` is the only active manual checklist. Final M7/M8 closure requires explicit approval of this exact SHA/APK.
+## Residual physical gate after the new automated PASS
+Physical validation should be focused on facts automation cannot establish:
+- first-tap reliability of `Cortar` and trim-handle ergonomics;
+- level analysis → apply → analyze convergence and Undo/Redo responsiveness on the tablet;
+- transport/history controls remaining responsive after repeated edits and project switching;
+- Stop and REC both ending capture successfully;
+- Mixer-header Comparison/Timeline ergonomics and no layout collision;
+- 2–3 minute live REC waveform remaining spatially/temporally stable;
+- MK-300 route isolation, guitar-vs-backing alignment, listening for pops/dropouts and one representative export smoke.
+
+`RC3_FINAL_PHYSICAL_HOMOLOGATION.md` is the only active manual checklist after the new exact-source automated PASS.
