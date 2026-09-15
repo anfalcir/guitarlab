@@ -5,55 +5,50 @@ Updated: 2026-09-15
 ## Active candidate
 - Canonical repository/branch: `anfalcir/guitarlab` / `main`.
 - Active version: `0.5.0-rc3`, versionCode `23`, package `studio.guitarlab.app`.
-- Last digitally homologated application/source SHA: `abc0e2a9f8708dd141735915898b508ce0948f48`.
-- Last canonical PASS: CI #617 / run ID `34918430241`.
-- #617 signed APK SHA-256: `7f0c303ccc447c5455dfbd49e1bc022af482927582254eb826c9b29f3a84c6b6`.
+- Last digitally homologated application/source SHA: `faaeb0ee4f9e52fbdcf369d097fa773e96d104a7`.
+- Last canonical PASS: CI #620 / run ID `34924500870`.
+- #620 signed APK SHA-256: `acbe61b006aa4abe8b3063faf35b4a9569ed55aaf7f1a2ca3e1726c927855b3c`.
+- #620 unsigned release SHA-256: `14c4862371871cf6db85548bd6abc3405cdfcd278d726a5a9f097d533183bafd`.
 - Locked signer SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
-- `.github/workflows/android-ci.yml` remains manual-only. Ordinary commits use `[skip ci]`.
+- `.github/workflows/android-ci.yml` remains manual-only. Ordinary documentation commits use `[skip ci]`.
 
 ## Evidence boundary
-CI #617 remains the authoritative DIGITAL PASS through H10. Physical Review III / H11 is newer and remains PRE-GATE.
+CI #620 is the authoritative DIGITAL PASS through H11/H11a/H11b. It supersedes #617 as the active application candidate while preserving #617 as the previous H0–H10 baseline.
 
-CI #618 / run ID `34922529980` / source `e00ae08b1ea3a1d7c5f630d54fd5fb2aec7da3d2` and CI #619 / run ID `34923582119` / source `a30a4a04a8ffef2820d8f51745cd172ac6cbba3a` both passed the complete software gate and failed only API 36 integration. Signed homologation was correctly skipped in both runs.
+CI #618 and #619 remain diagnostic evidence only:
+- #618 / source `e00ae08b1ea3a1d7c5f630d54fd5fb2aec7da3d2`: software PASS, API36 FAIL, signing skipped;
+- #619 / source `a30a4a04a8ffef2820d8f51745cd172ac6cbba3a`: software PASS, API36 FAIL, signing skipped.
 
-In #619 the complete H11 feature-specific coverage passed, including waveform track selection, equal segmented practice controls, Mixer visibility persistence and live-recording meter policy. The sole remaining failure was again:
-- `PhysicalEditingHardeningInstrumentedTest.trimHandlesAreIndependentlyDraggableAndClipDeleteRequiresConfirmation`
-- timeout waiting for the independent `trim-start-handle` / `trim-end-handle` semantics nodes.
+Those runs exposed, respectively, the inherited deferred Trim-dispatch race and the H11 waveform-selection semantics collision. H11a and H11b corrected both without weakening the regression.
 
-## H11a — genuine race removed, but not sufficient
-#618 exposed a real inherited H8 race: `Cortar` deferred `beginTrim()` through `pendingTrimClipId` + `LaunchedEffect` after DropdownMenu dismissal. H11a removed that protocol and now dispatches `onBeginTrim(clip.id)` synchronously in the same click callback.
+## CI #620 — canonical H11 digital PASS
+Manual workflow #620 ran on exact source `faaeb0ee4f9e52fbdcf369d097fa773e96d104a7` and passed:
+1. Unit tests + performance evidence + Android Lint + debug/release assembly + unsigned provenance;
+2. API 36 full connected instrumentation, including the unchanged independent Trim-handle regression and H11 interaction coverage;
+3. isolated tablet geometry gate;
+4. signed homologation using the tested unsigned release artifact.
 
-#619 proved that this was a valid hardening fix but not the final blocker: the same instrumentation still could not observe the independent Trim handles.
+Signed identity:
+- package: `studio.guitarlab.app`;
+- versionName: `0.5.0-rc3`;
+- versionCode: `23`;
+- source: `faaeb0ee4f9e52fbdcf369d097fa773e96d104a7`;
+- unsigned APK SHA-256: `14c4862371871cf6db85548bd6abc3405cdfcd278d726a5a9f097d533183bafd`;
+- signed APK SHA-256: `acbe61b006aa4abe8b3063faf35b4a9569ed55aaf7f1a2ca3e1726c927855b3c`;
+- APK Signature Scheme v2: verified;
+- number of signers: 1;
+- key: RSA 4096;
+- certificate SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`;
+- signed artifact ID: `10380000533`.
 
-## CI #619 root cause and correction — H11b
-H11 had added track selection with `Modifier.clickable` on the ancestor waveform container and another clickable on the clip card. In Compose, clickable semantics merge descendants. During Trim, those semantics caused the two visible Trim handles to disappear as independent nodes from the merged accessibility/test tree. This is an accessibility/interaction architecture defect, not a timeout problem.
-
-H11b fixes the structure instead of weakening the test:
-1. waveform-lane selection is provided by a sibling background target behind clip content, not by an ancestor clickable;
-2. the clip installs click semantics only while it is not being trimmed;
-3. during Trim no clip-level clickable semantics can merge the two handle descendants;
-4. the existing `trim-start-handle` / `trim-end-handle` contract remains unchanged;
-5. waveform/clip/live-waveform track selection remains supported.
-
-Source representation:
-- `.source-parts/H11MixerWaveformMetering.patch.gz`
-- `.source-parts/H11TrimEntryRaceFix.patch`
-- `.source-parts/H11bWaveformSelectionSemantics.patch`
-- `scripts/materialize_ci_sources.sh` applies H11 → H11a → H11b after H7–H10.
-
-H11b exact source validation:
-- base `StudioPlaceholderScreen.kt` blob: `55c7f098416c9d69f6eca7e11c323220fa84173f`;
-- final H11b blob: `b1ef57568057d1665153d385de00afa720aebb0e`;
-- patch SHA-256: `315bbd8d247d25edf8fc4d19adb67fbafae2705f618863d2de98af0d003f570a`;
-- forward application and reverse dry-run: PASS against exact #619 materialized source;
-- no timeout increase or assertion weakening.
+The downloaded signed artifact was independently hashed after download and matched `SHA256SUMS.txt` exactly.
 
 ## Milestone state
 - M2–M6: PASS/CLOSED.
-- M7: digital baseline through H10 PASS; closure remains open because H11/H11a/H11b changes active Studio behavior.
-- M8: H0–H10 DIGITAL PASS in CI #617; H11 + H11a + H11b IMPLEMENTED / SOURCE-VALIDATED / PRE-GATE.
+- M7: digital candidate through H11 PASS; final physical gate remains open.
+- M8: H0–H11 DIGITAL PASS in CI #620; only real-device/human validation remains for the active candidate.
 
-## Physical Review III — H11 retained behavior
+## Physical Review III — H11 — DIGITAL PASS
 ### Segmented Mixer practice bar
 - redundant dock title `Mixer`, Pin and X removed;
 - top-bar Mixer action is the persistent visibility toggle;
@@ -63,32 +58,26 @@ H11b exact source validation:
 ### Waveform selects the track
 - tapping waveform/audio lane selects the corresponding track;
 - clip cards and live-recording waveform use the same selected-track state;
-- H11b preserves independent Trim-handle accessibility while retaining this behavior.
+- H11b isolates selection semantics so Trim handles remain independent accessibility/test nodes.
 
 ### Live recording Peak/RMS
 - raw capture Peak/RMS is projected only to the active recording track;
 - Mixer PK/RMS updates through the existing meter path;
-- live waveform shows a compact PK/RMS overlay;
+- live waveform shows compact PK/RMS feedback;
 - meter state resets across recording lifecycle boundaries.
 
-## Next authoritative gate
-One new manually dispatched `GuitarLab Android CI` run is required on the final H11b `main` HEAD. Required PASS:
-1. software/unit/Lint/build/provenance gate;
-2. API 36 full instrumentation including the unchanged independent Trim-handle regression;
-3. H11 selection/segmented-bar/persistence regressions;
-4. isolated 1920×1200 geometry;
-5. signed homologation;
-6. package/version/source/signer/checksum agreement.
+### Trim hardening retained
+- H11a dispatches `Cortar` synchronously on the first valid tap;
+- H11b prevents waveform/clip click semantics from merging the independent Trim handles;
+- the strict regression that failed #618/#619 passed unchanged in #620.
 
-Do not rerun #618 or #619 as evidence for the corrected source; use one new workflow on the new final `main` SHA.
-
-## Residual physical gate after digital PASS
-Keep manual validation focused on real-device facts:
-- visual harmony and touch ergonomics of the segmented Mixer bar;
-- persistent top-bar Mixer toggle;
-- track selection by tapping waveform/clip/live waveform;
-- Trim handles remain independently usable after waveform-selection hardening;
-- real MK-300 REC Peak/RMS responsiveness/plausibility;
+## Final physical gate
+Use the #620 signed APK for the remaining physical validation on Samsung SM-X230 + M-VAVE MK300. Focus only on facts automation cannot establish:
+- visual harmony/touch ergonomics of the segmented Mixer bar;
+- persistence and feel of the top-bar Mixer toggle;
+- natural track selection by tapping waveform/clip/live waveform;
+- independent physical usability of both Trim handles;
+- real MK300 Peak/RMS responsiveness/plausibility during REC;
 - retained level-analysis, Stop-during-REC, long-waveform, routing/isolation, synchronization and listening/export smoke.
 
-`RC3_FINAL_PHYSICAL_HOMOLOGATION.md` remains the single final physical checklist after the next exact-source PASS.
+`RC3_FINAL_PHYSICAL_HOMOLOGATION.md` remains the single final manual checklist.
