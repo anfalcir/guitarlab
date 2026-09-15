@@ -49,17 +49,17 @@ CI #621 / run `34998393778` / source `afecde0efd4d22e58115eaedadf60eea0eb3615c` 
 
 The regression hard-coded `repeat(4)` swipes. On the default Pixel 7 emulator the fixed MASTER plus dock spacing leaves a narrower track viewport than the target tablet, so four swipes are not sufficient to traverse ten strips.
 
-H14a makes the regression viewport-independent without weakening the interaction contract:
-- still performs real `swipeLeft` gestures on `mixer-track-scroll`;
-- after each gesture, checks whether the final strip intersects the actual scroller bounds;
-- uses a bounded 20-gesture safety ceiling rather than a fixed success count;
-- keeps exact MASTER left/right bounds assertions;
-- does not use `scrollToItem`, timeout inflation, unmerged-tree bypass or assertion removal.
+H14a v1 made the regression viewport-independent without weakening the interaction contract:
+- retained real `swipeLeft` gestures on `mixer-track-scroll`;
+- checked whether the final strip intersected the actual scroller bounds after each gesture;
+- used a bounded 20-gesture safety ceiling rather than a fixed success count;
+- kept exact MASTER left/right bounds assertions;
+- did not use `scrollToItem`, timeout inflation, unmerged-tree bypass or assertion removal.
 
 H14a remains a distinct source-part after H14 for traceability and bisectability.
 
-H14a patch SHA-256: `eb347d29e3bdfa61af6da984d85d985ec0871bc8165ce6961a4043fdbb03c658`.
-Final expected `MixerDockInstrumentedTest.kt` blob after H14a: `5aa984d00035ee259cce21f9cc8717c2f5f759af`.
+H14a v1 patch SHA-256: `eb347d29e3bdfa61af6da984d85d985ec0871bc8165ce6961a4043fdbb03c658`.
+H14a v1 final `MixerDockInstrumentedTest.kt` blob: `5aa984d00035ee259cce21f9cc8717c2f5f759af`.
 
 ## H15 — resident Studio return + help synchronization
 Implementation contracts:
@@ -84,6 +84,20 @@ Signed homologation was correctly skipped. Repository inspection showed that `sc
 
 The repair restored the complete canonical script and retained H14/H14a as independent stages rather than folding the regression correction into H14.
 
+## CI #623 — repaired chain validation and H14a v2
+CI #623 / run `35003025673` / source `973ecae78ee3c159e975b4b1d65a2f733aedf59a` validated that the #622 repair is operational:
+- materialization: **PASS**;
+- software/unit/performance/Lint/debug+release/provenance: **PASS**;
+- API36: **21/22 PASS**;
+- sole failure: the same Mixer overflow test;
+- H12/H13/H15 connected regressions: **PASS**;
+- signed homologation: skipped.
+
+Inspection of the exact #623 source and Compose touch-test semantics identified a narrower test issue. `swipeLeft()` uses the node centerline, and the Mixer centerline crosses horizontal volume/pan slider regions. H14a v2 therefore uses an explicit physical `swipe(start, end)` through the non-slider header band (90%→10% width, 8% height). It keeps the 20-attempt ceiling, actual viewport-intersection check and exact MASTER geometry assertions. No product scroll implementation is changed.
+
+H14a v2 patch SHA-256: `0ecdfc2922311a3f6b0c773ece8cb4a27eb049780e8affa793bc2f496b71cef7`.
+Final expected `MixerDockInstrumentedTest.kt` blob after H14a v2: `bf81aa9414a376679634f8ddf3f0b9bbf58fde5d`.
+
 ## Source materialization
 Required order after H11b:
 1. `H12LevelEngine.patch`
@@ -98,10 +112,11 @@ Patch SHA-256:
 - `H12LevelUi.patch`: `db9a7e448a22f79e8be22b9b795d4a4008bd92b4bff9754ad640eb957895308d`
 - `H13TrimRuler.patch`: `4fd47e9d55de072be9ccfbc64361f3e87f9e38d68aa57a76a5084085bce399b0`
 - `H14MixerHorizontalScroll.patch`: `af3bf0808a5724f8aab3f6f17dec15b041591871ae26e51283d85a03a28a3e43`
-- `H14aMixerScrollViewportRegression.patch`: `eb347d29e3bdfa61af6da984d85d985ec0871bc8165ce6961a4043fdbb03c658`
+- `H14aMixerScrollViewportRegression.patch` v1: `eb347d29e3bdfa61af6da984d85d985ec0871bc8165ce6961a4043fdbb03c658`
+- `H14aMixerScrollViewportRegression.patch` v2: `0ecdfc2922311a3f6b0c773ece8cb4a27eb049780e8affa793bc2f496b71cef7`
 - `H15ResidentStudioReturn.patch`: `79e4a98f996f86cb2c0916f1c152ef8a34529e369f7db1622ea4a5a7f427a1c9`
 
-## Source-validation evidence after #622 recovery
+## Source-validation evidence after #623 H14a v2
 The exact source snapshot emitted by CI #620 (`faaeb0ee4f9e52fbdcf369d097fa773e96d104a7`) was used as the stable materialized H11 baseline for the Physical Review IV patch-chain check.
 
 Validation performed:
@@ -117,7 +132,7 @@ Validation performed:
 Final expected materialized blobs:
 - `AllTracksLevelDialogInstrumentedTest.kt`: `a8bdf73b58b8aa42170fc9254b48b9edcde3a9fa`
 - `GuitarLabLifecycleInstrumentedTest.kt`: `28a49b2b81baf9f86cff59de18e0b15973285986`
-- `MixerDockInstrumentedTest.kt`: `5aa984d00035ee259cce21f9cc8717c2f5f759af`
+- `MixerDockInstrumentedTest.kt`: `bf81aa9414a376679634f8ddf3f0b9bbf58fde5d`
 - `PhysicalEditingHardeningInstrumentedTest.kt`: `66c5bf83b43e5f7d806c0d06a21f5fffded95113`
 - `AllTracksLevelDialog.kt`: `2a4b2abfb3b8753f6e466b801b56eaee4b449aec`
 - `MixerDock.kt`: `14fb1c2c215e7e320c14cfb7a73feeefb2d19ac2`
@@ -130,13 +145,14 @@ Final expected materialized blobs:
 The full historical materializer is intended for a clean repository checkout. Re-running that whole script against an already fully materialized #620 source artifact is not the supported idempotence path because earlier RC3 guards intentionally validate repository baselines. Idempotence is instead enforced at patch/guard boundaries: exact reverse dry-run detection for independent patches and final-blob checks for overlapping chains. Unexpected drift fails closed.
 
 ### Validation not claimed
-This recovery environment did not provide the project Android SDK/Gradle build stack. Therefore no new local JVM/Lint/APK/API36 PASS is claimed. CI #621 remains valid software/compile evidence for H12–H15 before the H14a-only test correction. The next user-dispatched canonical workflow is authoritative for the repaired materializer and H14a runtime regression.
+#623 provides actual CI evidence for materialization, JVM/performance, Lint, debug/release assembly and unsigned provenance on the repaired chain. The post-#623 H14a v2 change is newer test code and remains source-validated/pre-gate until one new exact-source API36/signing run.
 
 ## Evidence boundary / closure
 - H0–H11/H11a/H11b: DIGITAL PASS via #620.
 - H12–H15 + H14a: **IMPLEMENTED / SOURCE-VALIDATED / PRE-GATE**.
 - #621: software PASS + one H14 test diagnostic failure.
 - #622: materializer infrastructure failure before build/test.
+- #623: repaired-chain software/build PASS; API36 21/22 with sole H14a v1 gesture-lane failure.
 
 H12–H15/H14a become DIGITAL PASS only when a new manually dispatched canonical workflow on the final `main` SHA passes software/Lint/build, API36 full regression, isolated tablet geometry and signed homologation with matching source/package/version/signer/checksums.
 
