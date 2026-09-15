@@ -32,7 +32,7 @@ index 0d1614b..e68bcd1 100644
          composeRule.onNodeWithText("Ajustes").assertIsDisplayed()
 +        composeRule.onNodeWithText("Timeline").assertIsDisplayed()
          composeRule.onNodeWithTag("open-all-level-analysis").assertIsDisplayed().performClick()
- 
+
 +        val comparisonBounds = composeRule.onNodeWithTag("practice-comparison-segment")
 +            .assertIsDisplayed().fetchSemanticsNode().boundsInRoot
 +        val adjustmentsBounds = composeRule.onNodeWithTag("practice-adjustments-segment")
@@ -88,7 +88,7 @@ index 0d1614b..e68bcd1 100644
 @@ -132,7 +185,6 @@ class AutoSectionsSlotInstrumentedTest {
          val levelButtonBounds = composeRule.onNodeWithTag("open-all-level-analysis")
              .assertIsDisplayed().fetchSemanticsNode().boundsInRoot
- 
+
 -        assertTrue("Ajustes should stay compact", adjustmentsBounds.width < timelineBounds.width)
          assertTrue("Ajustes must not overlap Comparação", comparisonBounds.right <= adjustmentsBounds.left + 2f)
          assertTrue("Ajustes must not overlap Timeline", adjustmentsBounds.right <= timelineBounds.left + 2f)
@@ -106,7 +106,7 @@ index 0d1614b..e68bcd1 100644
 -        assertEquals(1, levelClicks.get())
 +        assertEquals(0, levelClicks.get())
      }
- 
+
  }
 diff --git a/app/src/main/java/studio/guitarlab/app/ui/StudioPlaceholderScreen.kt b/app/src/main/java/studio/guitarlab/app/ui/StudioPlaceholderScreen.kt
 index cf6521e..2724063 100644
@@ -158,7 +158,7 @@ index cf6521e..2724063 100644
 @@ -564,6 +563,16 @@ private fun PracticeSegmentDivider() {
      )
  }
- 
+
 +@Composable
 +private fun PracticeSegmentHorizontalDivider() {
 +    Box(
