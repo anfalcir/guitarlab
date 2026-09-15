@@ -2,24 +2,27 @@
 
 Updated: 2026-09-14
 
-This is the only active residual physical checklist for RC3. Execute it **only after** the canonical manual GitHub Actions run has passed all automated gates for the final current `main` HEAD and the signed artifact identity has been verified.
+This is the only active residual physical checklist for the digitally homologated RC3 H0–H6 candidate.
 
-## Candidate identity
+## Candidate identity — LOCKED
 - versionName: `0.5.0-rc3`
 - versionCode: `23`
+- package: `studio.guitarlab.app`
+- exact application source SHA: `3051619c219e346daca00d2242f60ef03f2d80db`
+- canonical workflow: CI #616 / run ID `34912716297`
+- signed APK: `GuitarLabStudio-0.5.0-rc3-homologacao.apk`
+- signed APK SHA-256: `92e806c6fbfd68b0fd44409570c17a976b922e56f2d206824a308c1fdc15bf9c`
+- unsigned release SHA-256: `a5fd846bc2fb54a2995ab7fd48f3fcef0055991e6b9678b05f641e739981d0e2`
+- signer SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`
 - target: Samsung SM-X230 + M-VAVE MK-300 over USB
 - MK-300 hardware USB loopback: disabled
-- expected signer SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`
-- exact source SHA: **fill from the next successful manual workflow `github.sha` for the post-H0–H6 source**
-- APK SHA-256: **fill from `SHA256SUMS.txt` after that successful run**
-- signed APK: `GuitarLabStudio-0.5.0-rc3-homologacao.apk`
 
-CI #615 at `74bf86efbec94d249c4968c3284bf1985cd66b44` is the latest fully green signed baseline but predates H0–H6 and therefore is **not** the APK for this final checklist.
+CI #616 passed the complete software, API 36, isolated tablet-geometry and signing/provenance matrix for this exact application source. `BUILD_IDENTITY.txt` records `software+android-integration-passed;physical-validation-pending`.
 
-Do not homologate an APK whose source SHA, checksum, package, version or signer differs from the successful exact-source run.
+Do not substitute another APK, source SHA, package, version, checksum or signer during this physical pass.
 
 ## A. Upgrade and project integrity
-- Install the new signed RC3 over the previous official candidate.
+- Install this signed RC3 over the previous official candidate.
 - Open one existing project and confirm tracks, clips, takes, markers and sections remain intact.
 - Close the app completely, reopen the same project and confirm persistence.
 
@@ -52,11 +55,11 @@ PASS: no generic repository-validation toast/error, no dangling take, no sibling
 - Play a backing track, arm exactly one My Guitar track and record a rhythm part with clearly audible attacks aligned to the backing.
 - Stop and immediately replay backing + recorded guitar.
 - Confirm the guitar is not audibly about ~0.5 s late as in the previous physical finding.
-- Confirm the recorded file/take contains guitar input only, not backing playback.
+- Confirm the recorded take contains guitar input only, not backing playback.
 - Repeat one short take with monitoring Off/Auto/On as practical; monitoring choice must not change recorded content.
 - Disconnect the selected input during a disposable short take and confirm capture stops safely rather than silently falling back to the tablet microphone.
 
-PASS: route remains fail-closed, backing is not printed into the guitar take, and guitar/backing alignment is musically coherent without a systematic late offset.
+PASS: route remains fail-closed, backing is not printed into the guitar take, and guitar/backing alignment is musically coherent without a repeatable systematic late offset.
 
 ## E. Live REC waveform stability
 Record continuously for at least 2–3 minutes on an armed guitar track.
@@ -68,7 +71,7 @@ Record continuously for at least 2–3 minutes on an armed guitar track.
 PASS: live waveform remains temporally stable for the whole take and finalized media-derived waveform does not visibly shift clip timing.
 
 ## F. Focused regression smoke
-Do not manually re-prove deterministic automated behavior; only confirm target-device integration.
+Do not manually re-prove deterministic behavior already established by CI #616; only confirm target-device integration.
 - Run `Auto seções`: no region after song end; preview slot changes to `Aplicar` + red `X` without layout shift.
 - Start REC and confirm centered translucent `3 → 2 → 1` does not move Comparação/Timeline/tracks.
 - Exercise ordinary Play/live seek and one Loop pass; transport must remain responsive.
@@ -77,12 +80,11 @@ Do not manually re-prove deterministic automated behavior; only confirm target-d
 - Export one short WAV or FLAC master and confirm playability; test MP3 only if the target reports encoder capability.
 
 ## PASS criteria
-- successful canonical automated workflow for the exact post-H0–H6 source SHA;
-- official signer/package/version/checksum verified;
+- exact run #616 identity above remains intact;
 - trim, split/move/delete/trash, recording sync and long live waveform pass on the real Samsung/MK-300 setup;
 - no repeatable P0/P1;
 - no GuitarLab-attributable backing leakage or unintended input fallback;
 - no repeatable systematic guitar-vs-backing late placement;
 - explicit user approval of this exact APK.
 
-Deterministic model/editor/history/timing-policy/file/codec math, generic API 36 integration and target-geometry assertions are automated and must not be manually duplicated here.
+Deterministic model/editor/history/timing-policy/file/codec math, generic API 36 integration and target-geometry assertions are already automated and must not be manually duplicated here.
