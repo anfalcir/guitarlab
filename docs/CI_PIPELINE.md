@@ -14,42 +14,43 @@ The pipeline has three authority layers:
 `.source-parts/` plus `scripts/materialize_ci_sources.sh` are part of the build contract. Unexpected source drift fails closed.
 
 Canonical tail after H11b:
-`H12 engine → H12 UI → H13 → H14 → H14a → H15 → H16 → H17 → H18 → H19 → H18a`.
+`H12 engine → H12 UI → H13 → H14 → H14a → H15 → H16 → H17 → H18 → H19 → H18a → H20 → H21`.
 
-Current tail files:
-- `.source-parts/H18AdaptivePracticeBar.patch.gz`
-- `.source-parts/H19UsbOutputRouteCanonicalization.patch.gz`
-- `.source-parts/H18aAdaptivePracticeBarNarrowFallback.patch`
+New tail files:
+- `.source-parts/H20PhysicalOutputCanonicalization.patch.gz`
+- `.source-parts/H21StudioVisualSystem.patch.gz`
 
-## Canonical signed authority — CI #631
-CI #631 / run `35025012392` / exact source `33fb05a504be2d047259b1d967e6ab1a7e48a68c` is the authoritative signed DIGITAL PASS through H18/H18a/H19.
+H20/H21 were validated against the exact materialized source emitted by CI #631. Forward application, reverse round-trip and `git diff --check` pass. The updated materializer passes `bash -n`.
 
-Evidence:
-- software/unit/performance/Lint/build/provenance: PASS;
-- H19 route-policy JVM tests: PASS;
-- standard API36 connected regression: **23/23 PASS**, 0 failures/errors/skips;
-- isolated tablet geometry: **1/1 PASS**;
-- H18a narrow semantic-group discoverability: PASS;
-- H18a target-tablet logical-width comparison containment: PASS;
-- signed homologation: PASS;
-- version `0.5.0-rc3`, versionCode `23`, package `studio.guitarlab.app`;
-- unsigned APK SHA-256 `895ed8ccc957bf0bb17addfdd98806fd3425cc695443f234e27bbae62607cfd8`;
+## Last signed authority — CI #631
+CI #631 / run `35025012392` / exact source `33fb05a504be2d047259b1d967e6ab1a7e48a68c` remains the authoritative signed DIGITAL PASS through H18/H18a/H19:
+- standard API36 **23/23 PASS**;
+- isolated 1920×1200 geometry **1/1 PASS**;
 - signed APK SHA-256 `61441b92e3065ba845d9f3e0ed6791d35d41975180a01bb21b612427b493c02d`;
-- certificate SHA-256 `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`;
-- APK Signature Scheme v2, one RSA-4096 signer.
+- certificate SHA-256 `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
 
-Keep the reporting distinction **23/23 standard + 1/1 isolated geometry**; do not flatten it to 24/24.
+Do not flatten the API36 report to 24/24; use **23/23 standard + 1/1 isolated geometry**.
 
-## Diagnostic history
-CI #628 / run `35021968990` / source `ec05eec58397dc09237d163d6537eb49cfbd3650` proved the software/H19 path but ended API36 at 21/22 because the first H18 narrow fallback could scroll `Ajustes` completely outside the viewport. H18a replaced that fallback with stacked semantic groups at narrow widths.
+## H20 next-gate requirements
+The next manual run must prove:
+- exact SM-X230-like built-in speaker duplicate policy tests pass;
+- USB H19 canonicalization tests remain green;
+- earpiece/Bluetooth/HDMI profile separation remains intact;
+- Android compilation/integration accepts built-in speaker family mapping and routed-device probing;
+- no routing regression appears in the existing recording/playback suite.
 
-CI #629/#630 on `60ba2740f5d1bb3fb286dd927f294aa5d188390c` stopped before build at `git diff --check`: four blank lines in the H18a source-part carried trailing spaces. Commit `33fb05a...` removed only that whitespace. The materialized H18a product output was unchanged, and #631 subsequently passed.
+## H21 next-gate requirements
+The next manual run must prove:
+- all existing UI/instrumented regressions remain green;
+- target-tablet comparison controls stay fully contained;
+- Comparação/Ajustes/Timeline chassis do not overlap;
+- each group title remains before and distinct from its first actionable control;
+- narrow discoverability remains green;
+- global theme/geometry changes do not regress Home/Studio/Options navigation or touch targets;
+- isolated 1920×1200 geometry still passes.
 
-## H19 evidence boundary
-The digital pipeline proves canonicalization policy, migration/ranking tests, compilation and integration. It cannot establish how the physical MK-300 publishes and routes its USB endpoints on the Samsung tablet. Therefore the following remain residual physical assertions:
-- the MK-300 is displayed once in the output selector;
-- selecting that choice produces audible playback;
-- disconnect/reconnect and reselection remain correct.
+## Evidence boundary
+Until a new exact-source workflow passes, H20/H21 are PRE-GATE. CI #631 remains the last signed DIGITAL PASS but is not the final candidate for the new source changes.
 
 ## Artifact identity discipline
-The exact product/source SHA for the #631 APK is `33fb05a504be2d047259b1d967e6ab1a7e48a68c`. Any later documentation-only commit must not replace this identity. If the exact #631 APK passes the residual physical checklist and no product code changes are made, no additional digital CI run is required for RC3 closure.
+Documentation-only commits never replace the exact source SHA that produced a signed APK. The next H20/H21 candidate must be identified by the exact product/source SHA dispatched by the user.

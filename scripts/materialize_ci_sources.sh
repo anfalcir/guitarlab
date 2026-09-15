@@ -224,3 +224,11 @@ apply_encoded_gzip_patch_once "$ROOT/.source-parts/H19UsbOutputRouteCanonicaliza
 # H18a / CI #628 correction: narrow docked widths stack semantic groups so Ajustes/Timeline
 # cannot be pushed completely off-screen; the target-tablet wide branch remains content-first.
 apply_patch_once "$ROOT/.source-parts/H18aAdaptivePracticeBarNarrowFallback.patch"
+
+# Physical Review VII / H20: collapse duplicate built-in speaker endpoints as one physical route,
+# while preserving earpiece/Bluetooth/HDMI profile distinctions and routedDevice verification.
+apply_encoded_gzip_patch_once "$ROOT/.source-parts/H20PhysicalOutputCanonicalization.patch.gz"
+
+# Physical Review VII / H21: app-wide hardware-inspired visual system and explicit practice-group
+# hierarchy. Geometry is standardized and title/action boundaries are regression-guarded.
+apply_encoded_gzip_patch_once "$ROOT/.source-parts/H21StudioVisualSystem.patch.gz"
