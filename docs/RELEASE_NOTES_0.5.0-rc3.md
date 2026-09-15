@@ -22,7 +22,7 @@ Two further defects were identified:
 - fixed docked percentage allocation removed from the critical path;
 - Comparação/Ajustes size to content;
 - Timeline flexes into the remaining width and owns its own overflow;
-- narrow docked widths scroll the whole strip instead of clipping a control;
+- narrow docked widths stack semantic groups instead of letting one group push the next completely off-screen;
 - instrumentation now requires every comparison control to stay fully inside Comparação.
 
 Patch SHA-256: `fba48ae2b0eedd2c87c269738197542f84a2772bac1aa55e0646ee722ef3627e`.
@@ -39,3 +39,11 @@ Patch SHA-256: `fba48ae2b0eedd2c87c269738197542f84a2772bac1aa55e0646ee722ef3627e
 Patch SHA-256: `21373fa0d85d55ee180fed29308e5677e7bde90b1b555e366c61a872a388eb06`.
 
 H18/H19 become part of the signed baseline only after the next manually dispatched exact-source workflow passes the full software/API36/tablet-geometry/signing gate. Real MK-300 endpoint consolidation/output remains a final hardware check.
+
+
+## CI #628 diagnostic + H18a correction
+CI #628 / run `35021968990` on `ec05eec58397dc09237d163d6537eb49cfbd3650` passed the complete software/Lint/build/provenance gate, including H19 route-policy unit tests, but the API36 suite finished 21/22. The only failure was the H18 narrow fallback: `Ajustes` was outside the visible viewport because the entire segmented strip scrolled as one unit. Signed homologation was correctly skipped.
+
+H18a keeps the wide/tablet content-first single row, but stacks Comparação, Ajustes and Timeline on narrow docked widths so all three groups remain discoverable. Regression coverage now separates narrow discoverability from target-tablet logical-width containment.
+
+H18a patch SHA-256: `cbb483c11fdc9166f8e23fb104378a81a4df98a0067164c8d5cd79d3ea84358b`.

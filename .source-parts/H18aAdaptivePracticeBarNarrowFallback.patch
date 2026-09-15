@@ -1,0 +1,174 @@
+diff --git a/app/src/androidTest/java/studio/guitarlab/app/AutoSectionsSlotInstrumentedTest.kt b/app/src/androidTest/java/studio/guitarlab/app/AutoSectionsSlotInstrumentedTest.kt
+index 0d1614b..e68bcd1 100644
+--- a/app/src/androidTest/java/studio/guitarlab/app/AutoSectionsSlotInstrumentedTest.kt
++++ b/app/src/androidTest/java/studio/guitarlab/app/AutoSectionsSlotInstrumentedTest.kt
+@@ -7,7 +7,10 @@ import androidx.compose.ui.test.onAllNodesWithTag
+ import androidx.compose.ui.test.onNodeWithTag
+ import androidx.compose.ui.test.onNodeWithText
+ import androidx.compose.ui.test.performClick
++import androidx.compose.runtime.CompositionLocalProvider
+ import androidx.compose.runtime.mutableStateOf
++import androidx.compose.ui.platform.LocalDensity
++import androidx.compose.ui.unit.Density
+ import androidx.test.ext.junit.runners.AndroidJUnit4
+ import java.util.concurrent.atomic.AtomicInteger
+ import org.junit.Assert.assertEquals
+@@ -88,9 +91,9 @@ class AutoSectionsSlotInstrumentedTest {
+         assertEquals(1, discardClicks.get())
+     }
+     @Test
+-    fun dockedPracticeControlsRenderAsBalancedComparisonAdjustmentsAndTimelineSegments() {
+-        val project = ProjectFactory(idGenerator = { "practice" }, clock = { 1L })
+-            .create("Practice", ProjectTemplate.BLANK)
++    fun dockedPracticeControlsKeepAllSemanticGroupsVisibleOnNarrowViewport() {
++        val project = ProjectFactory(idGenerator = { "practice-narrow" }, clock = { 1L })
++            .create("Practice narrow", ProjectTemplate.BLANK)
+         val levelClicks = AtomicInteger(0)
+         composeRule.setContent {
+             GuitarLabTheme(darkTheme = true) {
+@@ -119,8 +122,58 @@ class AutoSectionsSlotInstrumentedTest {
+         composeRule.onNodeWithTag("mixer-practice-segmented-bar").assertIsDisplayed()
+         composeRule.onNodeWithText("Desativado").assertIsDisplayed()
+         composeRule.onNodeWithText("Ajustes").assertIsDisplayed()
++        composeRule.onNodeWithText("Timeline").assertIsDisplayed()
+         composeRule.onNodeWithTag("open-all-level-analysis").assertIsDisplayed().performClick()
+ 
++        val comparisonBounds = composeRule.onNodeWithTag("practice-comparison-segment")
++            .assertIsDisplayed().fetchSemanticsNode().boundsInRoot
++        val adjustmentsBounds = composeRule.onNodeWithTag("practice-adjustments-segment")
++            .assertIsDisplayed().fetchSemanticsNode().boundsInRoot
++        val timelineBounds = composeRule.onNodeWithTag("practice-timeline-segment")
++            .assertIsDisplayed().fetchSemanticsNode().boundsInRoot
++        val levelButtonBounds = composeRule.onNodeWithTag("open-all-level-analysis")
++            .assertIsDisplayed().fetchSemanticsNode().boundsInRoot
++
++        assertTrue("Ajustes should stack below Comparação on narrow docked widths", adjustmentsBounds.top >= comparisonBounds.bottom - 2f)
++        assertTrue("Timeline should stack below Ajustes on narrow docked widths", timelineBounds.top >= adjustmentsBounds.bottom - 2f)
++        assertTrue("Níveis must stay fully inside Ajustes", levelButtonBounds.left >= adjustmentsBounds.left && levelButtonBounds.right <= adjustmentsBounds.right)
++        assertEquals(1, levelClicks.get())
++    }
++
++    @Test
++    fun dockedPracticeControlsContainComparisonAndAdjustmentsAtTargetTabletLogicalWidth() {
++        val project = ProjectFactory(idGenerator = { "practice-wide" }, clock = { 1L })
++            .create("Practice wide", ProjectTemplate.BLANK)
++        val levelClicks = AtomicInteger(0)
++        composeRule.setContent {
++            // The default CI device is phone-shaped. Override only Compose density so the same
++            // physical root exercises the ~1280dp landscape width used by the 1920x1200/240dpi
++            // target-tablet gate without depending on emulator window reconfiguration here.
++            CompositionLocalProvider(LocalDensity provides Density(density = 0.84f, fontScale = 1f)) {
++                GuitarLabTheme(darkTheme = true) {
++                    PracticeControls(
++                        project = project,
++                        auditionMode = GuitarAuditionMode.MIXER,
++                        suggestions = 0,
++                        enabled = true,
++                        loopEnabled = false,
++                        onAuditionMode = {},
++                        onAddMarker = {},
++                        onAddSection = {},
++                        onSuggestSections = {},
++                        onAcceptSections = {},
++                        onDiscardSections = {},
++                        onClearSections = {},
++                        onLoopSection = {},
++                        onRemoveMarker = {},
++                        onRemoveSection = {},
++                        onOpenLevelAnalysis = { levelClicks.incrementAndGet() },
++                        docked = true,
++                    )
++                }
++            }
++        }
++
+         val comparisonBounds = composeRule.onNodeWithTag("practice-comparison-segment")
+             .assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+         val adjustmentsBounds = composeRule.onNodeWithTag("practice-adjustments-segment")
+@@ -132,7 +185,6 @@ class AutoSectionsSlotInstrumentedTest {
+         val levelButtonBounds = composeRule.onNodeWithTag("open-all-level-analysis")
+             .assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+ 
+-        assertTrue("Ajustes should stay compact", adjustmentsBounds.width < timelineBounds.width)
+         assertTrue("Ajustes must not overlap Comparação", comparisonBounds.right <= adjustmentsBounds.left + 2f)
+         assertTrue("Ajustes must not overlap Timeline", adjustmentsBounds.right <= timelineBounds.left + 2f)
+         assertTrue("Níveis must stay fully inside Ajustes", levelButtonBounds.left >= adjustmentsBounds.left && levelButtonBounds.right <= adjustmentsBounds.right)
+@@ -146,12 +198,12 @@ class AutoSectionsSlotInstrumentedTest {
+         val leftInset = contentLeft - adjustmentsBounds.left
+         val rightInset = adjustmentsBounds.right - contentRight
+         assertEquals(
+-            "Ajustes + Níveis must be visually centered with equal spacing to its neighboring blocks",
++            "Ajustes + Níveis must remain visually centered in the wide docked segment",
+             leftInset,
+             rightInset,
+             6f,
+         )
+-        assertEquals(1, levelClicks.get())
++        assertEquals(0, levelClicks.get())
+     }
+ 
+ }
+diff --git a/app/src/main/java/studio/guitarlab/app/ui/StudioPlaceholderScreen.kt b/app/src/main/java/studio/guitarlab/app/ui/StudioPlaceholderScreen.kt
+index cf6521e..2724063 100644
+--- a/app/src/main/java/studio/guitarlab/app/ui/StudioPlaceholderScreen.kt
++++ b/app/src/main/java/studio/guitarlab/app/ui/StudioPlaceholderScreen.kt
+@@ -521,30 +521,29 @@ private fun SegmentedPracticeBar(
+                     )
+                 }
+             } else {
+-                // Narrow docked viewports keep every control intact and make the whole segmented
+-                // strip horizontally navigable instead of clipping an individual button.
+-                Row(
+-                    Modifier
+-                        .fillMaxWidth()
+-                        .height(48.dp)
+-                        .horizontalScroll(rememberScrollState()),
+-                ) {
++                // Narrow docked viewports stack the three semantic groups instead of scrolling the
++                // entire strip. This keeps Comparação, Ajustes and Timeline immediately discoverable
++                // while each group owns its own overflow. No neighboring group can be pushed fully
++                // off-screen by a long label or a larger font scale.
++                Column(Modifier.fillMaxWidth()) {
+                     SegmentedPracticeSection(
+                         title = "Comparação",
+-                        modifier = Modifier.wrapContentWidth().testTag("practice-comparison-segment"),
++                        modifier = Modifier.fillMaxWidth().height(48.dp).testTag("practice-comparison-segment"),
++                        horizontalScroll = true,
+                         content = comparisonContent,
+                     )
+-                    PracticeSegmentDivider()
++                    PracticeSegmentHorizontalDivider()
+                     SegmentedPracticeSection(
+                         title = "Ajustes",
+-                        modifier = Modifier.wrapContentWidth().testTag("practice-adjustments-segment"),
++                        modifier = Modifier.fillMaxWidth().height(48.dp).testTag("practice-adjustments-segment"),
+                         centerContent = true,
+                         content = adjustmentsContent,
+                     )
+-                    PracticeSegmentDivider()
++                    PracticeSegmentHorizontalDivider()
+                     SegmentedPracticeSection(
+                         title = "Timeline",
+-                        modifier = Modifier.wrapContentWidth().testTag("practice-timeline-segment"),
++                        modifier = Modifier.fillMaxWidth().height(48.dp).testTag("practice-timeline-segment"),
++                        horizontalScroll = true,
+                         content = timelineContent,
+                     )
+                 }
+@@ -564,6 +563,16 @@ private fun PracticeSegmentDivider() {
+     )
+ }
+ 
++@Composable
++private fun PracticeSegmentHorizontalDivider() {
++    Box(
++        Modifier
++            .fillMaxWidth()
++            .height(1.dp)
++            .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.42f)),
++    )
++}
++
+ @Composable
+ private fun SegmentedPracticeSection(
+     title: String,

@@ -220,3 +220,7 @@ apply_encoded_gzip_patch_once "$ROOT/.source-parts/H18AdaptivePracticeBar.patch.
 # Physical Review VI / H19: canonicalize duplicate Android USB output endpoints into one physical
 # route and resolve duplicate candidates through an inaudible routedDevice-confirmed probe.
 apply_encoded_gzip_patch_once "$ROOT/.source-parts/H19UsbOutputRouteCanonicalization.patch.gz"
+
+# H18a / CI #628 correction: narrow docked widths stack semantic groups so Ajustes/Timeline
+# cannot be pushed completely off-screen; the target-tablet wide branch remains content-first.
+apply_patch_once "$ROOT/.source-parts/H18aAdaptivePracticeBarNarrowFallback.patch"

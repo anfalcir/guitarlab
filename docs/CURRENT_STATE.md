@@ -14,7 +14,7 @@ Updated: 2026-09-15
 ## Evidence boundary
 CI #626 remains authoritative through H17. Physical review of the #626 APK confirmed the final CUT presentation and Ajustes/Níveis placement, then exposed two remaining issues: the last comparison button could be clipped by the fixed docked-bar proportions, and the MK-300 output selector could expose duplicate Android logical endpoints where only one endpoint actually produced sound.
 
-H18 and H19 are implemented after #626 and are currently **SOURCE-VALIDATED / PRE-GATE**. Because both change product source, #626 must not be treated as evidence for them.
+H18 and H19 were first gated at CI #628. The software gate passed, but one H18 narrow-viewport instrumentation assertion failed; H19 compiled and its unit-policy coverage passed. H18a is the focused correction after #628. H18/H18a/H19 remain **PRE-GATE** until a new exact-source run passes. CI #626 therefore remains the last signed DIGITAL PASS.
 
 ## H18 — Adaptive practice bar — SOURCE-VALIDATED / PRE-GATE
 Cause: the docked bar used fixed `0.34 / 0.16 / 0.50` weights. At the physical tablet geometry the real intrinsic width of `Comparação + Desativado + Referência + Minha + Ambas` could exceed the allocated comparison segment and the final control was clipped at the Ajustes divider.
@@ -85,10 +85,39 @@ Against the exact post-H17 materialized source emitted by CI #626:
 
 No Android runtime/USB hardware PASS is claimed locally.
 
+## CI #628 — diagnostic result, not a candidate
+Run `35021968990`, exact source `ec05eec58397dc09237d163d6537eb49cfbd3650`:
+- materialization through H19: PASS;
+- unit/core/audio/DSP/persistence/migration: PASS;
+- H19 route-policy JVM tests: PASS;
+- performance, Android Lint, debug/release assembly and unsigned provenance: PASS;
+- API36 connected regression: **21/22 PASS**;
+- sole failure: `AutoSectionsSlotInstrumentedTest.dockedPracticeControlsRenderAsBalancedComparisonAdjustmentsAndTimelineSegments`;
+- failure point: `Ajustes` was outside the visible viewport in the phone-shaped default emulator because the narrow H18 fallback scrolled the entire segmented strip;
+- signed homologation: correctly SKIPPED because the Android integration gate failed.
+
+This is layout-test/product fallback evidence only; it is not evidence against H19 USB canonicalization.
+
+## H18a — narrow adaptive fallback correction — SOURCE-VALIDATED / PRE-GATE
+- wide/tablet H18 remains content-first: Comparação and Ajustes measure to content, Timeline owns the flexible remainder;
+- below the docked single-row breakpoint, the three semantic groups stack vertically instead of scrolling the entire strip;
+- Comparação and Timeline may scroll internally, but Ajustes/Timeline can no longer be pushed completely off-screen by earlier content;
+- instrumentation now separately covers narrow discoverability and simulated ~1280dp target-tablet containment of all four comparison buttons.
+
+Source part: `.source-parts/H18aAdaptivePracticeBarNarrowFallback.patch`
+
+Patch SHA-256: `cbb483c11fdc9166f8e23fb104378a81a4df98a0067164c8d5cd79d3ea84358b`.
+
+Expected post-H18a blobs:
+- `StudioPlaceholderScreen.kt`: `27240634d16724c1985d3a853c9de1886d3a2c68`
+- `AutoSectionsSlotInstrumentedTest.kt`: `e68bcd102258c6a42d1f75d8678b4170d8c8bb68`
+
+Source validation against the exact post-H19 #628 source: forward patch application PASS, reverse dry-run PASS and `git diff --check` PASS.
+
 ## Milestone state
 - M2–M6: PASS/CLOSED.
 - M7/M8 through H17: **DIGITAL PASS** at #626.
-- H18/H19: **IMPLEMENTED / SOURCE-VALIDATED / PRE-GATE**.
+- H18/H18a/H19: **IMPLEMENTED / SOURCE-VALIDATED / PRE-GATE** after diagnostic CI #628.
 
 ## Next authoritative gate
 The user manually dispatches `GuitarLab Android CI` on the then-current `main` with signed homologation enabled. Required PASS: software/unit/Lint/build/provenance including the new route-policy unit tests, full API36 regression including the H18 containment assertions, isolated 1920×1200 geometry, and signed homologation on the exact same source SHA.
