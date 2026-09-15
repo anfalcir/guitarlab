@@ -20,55 +20,70 @@ Closed after explicit physical approval.
 ## M6 — Measured latency and synchronization — PASS/CLOSED
 Closed after explicit physical approval. Later timing work hardens per-session startup behavior without reopening M6.
 
-## M7 — Production audio polish — DIGITAL PASS THROUGH H11 / FINAL PHYSICAL GATE OPEN
-Managed media, SRC/editing domain, fades/crossfades, transactional recording/recovery, fail-closed input, monitoring isolation, takes, practice controls, level analysis, live REC waveform, H11 Mixer/selection/metering refinements and project/master export are implemented.
+## M7 — Production audio polish — DIGITAL PASS THROUGH H11 / H12–H15 PRE-GATE
+Managed media, SRC/editing domain, fades/crossfades, transactional recording/recovery, fail-closed input, monitoring isolation, takes, practice controls, level analysis, live REC waveform, Mixer/selection/metering refinements and project/master export are implemented.
 
-CI #620 is the authoritative active digital candidate.
+CI #620 is the authoritative active DIGITAL PASS through H11. Physical Review IV adds H12–H15 and requires one new exact-source gate.
 
 ## M8 — Release hardening
 ### H0–H10 — DIGITAL PASS baseline
-CI #617 / run ID `34918430241` / source `abc0e2a9f8708dd141735915898b508ce0948f48` passed software, API 36 full instrumentation, tablet geometry and signed homologation.
+CI #617 / run ID `34918430241` / source `abc0e2a9f8708dd141735915898b508ce0948f48` passed software, API36 full instrumentation, tablet geometry and signed homologation.
 
-### H11 — Physical Review III — DIGITAL PASS
-Implemented scope:
-- segmented Comparação/Timeline bar inside Mixer;
-- redundant dock title/Pin/X removed;
-- top-bar Mixer button is the persistent open/close toggle;
-- waveform/clip/live waveform taps select their track;
-- active recording track receives live Peak/RMS in Mixer and waveform overlay.
+### H11/H11a/H11b — DIGITAL PASS
+CI #620 / run ID `34924500870` / exact source `faaeb0ee4f9e52fbdcf369d097fa773e96d104a7` passed software, API36 full instrumentation, unchanged independent Trim regression, H11 interaction coverage, tablet geometry and signed homologation.
 
-### H11a — synchronous Trim dispatch — DIGITAL PASS
-Removed the inherited H8 `pendingTrimClipId` + `LaunchedEffect` handoff. `Cortar` now invokes Trim synchronously from the first valid click.
-
-### H11b — waveform-selection semantics isolation — DIGITAL PASS
-- waveform lane selection uses a sibling background hit target rather than an ancestor clickable;
-- clip click semantics are absent during Trim;
-- independent TrimHandle nodes remain exposed;
-- strict #618/#619 Trim regression remains unchanged.
-
-### Diagnostic runs retained
-- CI #618 / run `34922529980` / source `e00ae08b1ea3a1d7c5f630d54fd5fb2aec7da3d2`: software PASS, API36 FAIL, signing skipped.
-- CI #619 / run `34923582119` / source `a30a4a04a8ffef2820d8f51745cd172ac6cbba3a`: software PASS, API36 FAIL, signing skipped.
-
-### Canonical acceptance run — CI #620 — PASS
-Run ID `34924500870`, exact source `faaeb0ee4f9e52fbdcf369d097fa773e96d104a7`:
-1. complete JVM/unit regression: PASS;
-2. performance evidence: PASS;
-3. Android Lint + debug/release assembly: PASS;
-4. API 36 full connected regression: PASS;
-5. independent Trim-handle regression: PASS unchanged;
-6. H11 selection/segmented-bar/persistence coverage: PASS;
-7. isolated 1920×1200 geometry: PASS;
-8. signed homologation: PASS;
-9. package/version/source/signer/checksum provenance: PASS.
-
-Candidate identity:
+Candidate #620 identity:
 - version `0.5.0-rc3` / code `23`;
 - signed APK SHA-256 `acbe61b006aa4abe8b3063faf35b4a9569ed55aaf7f1a2ca3e1726c927855b3c`;
 - certificate SHA-256 `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
 
-## Remaining work
-No further digital implementation gate is required for H11. Proceed only with final physical validation on the #620 APK and fix new defects only if that real-device gate exposes objective regressions.
+### H12 — all-track level workflow — IMPLEMENTED / PRE-GATE
+- `Níveis` action integrated into the Comparação practice segment;
+- dedicated modal for all project tracks;
+- global and per-track analysis/reanalysis;
+- global and per-track apply;
+- global apply is one transactional project edit / one Undo step;
+- stale analysis rejected through exact track + audible-clip snapshot validation;
+- explicit per-track/global busy state;
+- new UI instrumentation for modal contracts.
+
+### H13 — Trim time-ruler projection — IMPLEMENTED / PRE-GATE
+- waveform-overlapping Trim time bubbles removed;
+- T1/T2 projected on the fixed timeline time ruler with short yellow ticks;
+- precise floating labels remain above ordinary timeline/playhead drawing priority;
+- nearby T1/T2 labels separate vertically;
+- existing independent Trim handles retained;
+- physical-editing instrumentation extended to require ruler markers.
+
+### H14 — Mixer horizontal overflow — IMPLEMENTED / PRE-GATE
+- track strips use `LazyRow` horizontal scrolling;
+- MASTER remains outside the scroll container and fixed at the right edge;
+- regression swipes a 10-track Mixer to the final track and asserts invariant MASTER bounds.
+
+### H15 — resident Studio navigation return — IMPLEMENTED / PRE-GATE
+- same-project `StudioViewModel.load()` returns from resident state rather than publishing `loading=true` and reloading;
+- Home/Options → same Studio preserves resident project/history and avoids the observed double-render flash;
+- lifecycle instrumentation asserts object identity and Undo retention after round-trip navigation.
+
+## Physical Review IV source-validation evidence
+All H12→H15 patches were applied serially against the exact #620 materialized source artifact. Patch dry-run/application succeeded, `git diff --check` passed, and the resulting changed/new source/test files matched the independently developed final tree byte-for-byte.
+
+Patch SHA-256:
+- H12 engine `39c6a42bca192b1e6a829bd52c46ddb7e546d7cad09500d850e257dec57bc37c`
+- H12 UI `db9a7e448a22f79e8be22b9b795d4a4008bd92b4bff9754ad640eb957895308d`
+- H13 `4fd47e9d55de072be9ccfbc64361f3e87f9e38d68aa57a76a5084085bce399b0`
+- H14 `af3bf0808a5724f8aab3f6f17dec15b041591871ae26e51283d85a03a28a3e43`
+- H15 `d42c8822319ba5f46f6f62c1fdc973074b0478215df998488dff0e6bcb951772`
+
+## Next acceptance gate
+After final consolidation on `main`, manually dispatch `GuitarLab Android CI` with `signed_homologation=true` on the exact final SHA. It must pass:
+1. complete JVM/unit regression;
+2. performance evidence;
+3. Android Lint and debug/release assembly;
+4. API36 full connected regression, including H12/H13/H14/H15 and retained H11 Trim contracts;
+5. isolated 1920×1200 geometry;
+6. signed homologation;
+7. exact source/package/version/signer/checksum provenance.
 
 ## Gate discipline
-`.github/workflows/android-ci.yml` remains manual-only. No assistant-triggered reruns. Documentation-only commits after #620 do not change the digitally homologated application source `faaeb0ee4f9e52fbdcf369d097fa773e96d104a7`.
+`.github/workflows/android-ci.yml` remains manual-only. No assistant-triggered dispatch or rerun. H12–H15 are not DIGITAL PASS until that new user-dispatched exact-source workflow succeeds.
