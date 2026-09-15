@@ -162,4 +162,52 @@ PHYSICAL_REVIEW_II_VIEW_MODEL="$ROOT/app/src/main/java/studio/guitarlab/app/ui/S
 PHYSICAL_REVIEW_II_PLACEHOLDER="$ROOT/app/src/main/java/studio/guitarlab/app/ui/StudioPlaceholderScreen.kt"
 PHYSICAL_REVIEW_II_WAVEFORM="$ROOT/core/project/src/main/kotlin/studio/guitarlab/core/project/LiveWaveformAccumulator.kt"
 PHYSICAL_REVIEW_II_GUIDE="$ROOT/app/src/main/java/studio/guitarlab/app/ui/StudioUserGuideDialog.kt"
-PHYSICAL_REVIE]}%%}QI9MA=IPôˆ‘I==P½…ÁÀ½ÍÉŒ½µ…¥¸½©…Ù„½ÍÑÕ‘¥¼½Õ¥Ñ…É±…ˆ½…ÁÀ½Õ¤½QÉ…¹ÍÁ½ÉÑ	…È¹­Ğˆ)A!eM%1}IY%]}%%}5%aHôˆ‘I==P½…ÁÀ½ÍÉŒ½µ…¥¸½©…Ù„½ÍÑÕ‘¥¼½Õ¥Ñ…É±…ˆ½…ÁÀ½Õ¤½5¥á•É½¬¹­Ğˆ)¥˜ml€µ˜€ˆ‘A!eM%1}IY%]}%%}Y%]}5=0ˆ€˜˜€µ˜€ˆ‘A!eM%1}IY%]}%%}A1!=1Hˆ€˜˜€µ˜€ˆ‘A!uM%1}IY%]}%%}]Y=I4ˆp(€€€€€€˜˜€µ˜€ˆ‘A!uM%1}IY%]}%%}U%ˆ€˜˜€µ˜€ˆ‘A!eM%1}IY%]}%%}QI9MA=IPˆ€˜˜€µ˜€ˆ‘A!uM%1}IY%]}%%}5%aHˆutp(€€€€˜˜ml€ˆ¡¥Ğ€µ€ˆ‘I==Pˆ¡…Í µ½‰©•Ğ€ˆ‘A!eM%1}IY%]}%%}Y%]}5=0ˆ¤ˆ€ôô€ˆİŒÔÙÁˆÉŒÜá˜ÁˆĞÀá‘˜ÌĞÅá„ÌÜĞÑ••”ÕŒØå‰äÌˆutp(€€€€˜˜ml€ˆ¡¥Ğ€µ€ˆ‘I==Pˆ¡…Í µ½‰©•Ğ€ˆ‘A!eM%1}IY%]}%%}A1!=1H„¤ˆ€ôô€ˆÌÔá‘ÜÕĞÕ˜ÍŒÈÔØÄÙ•ˆÜÌİ”äå‘‘‰„ĞÉ™”ÀÉ„ÀÔÌˆutp(€€€€˜˜ml€ˆ¡¥Ğ€µ€ˆ‘I==Pˆ¡…Í µ½‰©•Ğ€ˆ‘A!eM%1}IY%]}%%}]Y=I4ˆ¤ˆ€ôô€ˆÀİ…ˆå„ÜÌäÀÈÁ”áÀÙˆØàÄİˆÄÄààá˜äåå‘åˆÅˆˆutp(€€€€˜˜ml€ˆ¡¥Ğ€µ€ˆ‘I==Pˆ¡…Í µ½‰©•Ğ€ˆ‘A!uM%1}IY%]}%%}U%ˆ¤ˆ€ôô€ˆÔåÑ”Õ”ÈÍ„ÉÔååˆÈàÔİ”ÔÌÈÍ˜Å‰…•”ÁˆÀÁ„Éˆˆutp(€€€€˜˜ml€ˆ¡¥Ğ€µ€ˆ‘I==Pˆ¡…Í µ½‰©•Ğ€ˆ‘A!eM%1}IY%]}%%}QI9MA=IPˆ¤ˆ€ôô€‰˜àÉˆÜÔÄÀÉ…˜àÌÁ”àÄàáŒØÈÅˆĞÜĞÁ•ÔÌØÌÁ„ÁŒäˆutp(€€€€˜˜ml€ˆ¡¥Ğ€µ€ˆ‘I==Pˆ¡…Í µ½‰©•Ğ€ˆ‘A!uM%1}IY%]}%%}5%aHˆ¤ˆ€ôô€ˆÜÔÕ™ÄÔİ˜àÙ„İ™•„á„ÀÍ”ÉÉŒáˆÜäåÑ•˜Á‘™ŒĞÄˆutìÑ¡•¸(€€€•¡¼€‰M½ÕÉ”Á…Ñ ¡…¥¸…±É•…‘äµ…Ñ•É¥…±¥é•èA¡åÍ¥…°I•Ù¥•Ü%$ Üµ ÄÀˆ)•±Í”(€€€…ÁÁ±å}•¹½‘•‘}é¥Á}Á…Ñ¡}½¹”€ˆ‘I==P¼¹Í½ÕÉ”µÁ…ÉÑÌ½ İMÑ…Ñ•1•Ù•±QÉ…¹ÍÁ½ÉĞ¹Á…Ñ ¹èˆ(€€€…ÁÁ±å}•¹½‘•‘}é¥Á}Á…Ñ¡}½¹”€ˆ‘I==P¼¹Í½ÕÉ”µÁ…ÉÑÌ½ á]½É­ÍÁ…•±½Ü¹Á…Ñ ¹èˆ(€€€…ÁÁ±å}•¹½‘•‘}é¥Á}Á…Ñ¡}½¹”€ˆ‘I==P¼¹Í½ÕÉ”µÁ…ÉÑÌ½ å1¥Ù•]…Ù•™½ÉµMÑ…‰¥±¥Ñä¹Á…Ñ ¹èˆ(€€€…ÁÁ±å}•¹½‘•‘}é¥Á}Á…Ñ¡}½¹”€ˆ‘I==P¼¹Í½ÕÉ”µÁ…ÉÑÌ½ ÄÁMÑ…Ñ•I…•Õ¥‘”¹Á…Ñ ¹èˆ)™¤((ŒA¡åÍ¥…°I•Ù¥•Ü%%$€¼ ÄÄè5¥á•ÈÍ•µ•¹Ñ•µ‰…ÈÍ¥µÁ±¥™¥…Ñ¥½¸°İ…Ù•™½É´ÑÉ…¬Í•±•Ñ¥½¸…¹(Œ±¥Ù”É•½É‘¥¹œA•…¬½I5LÁÉ½©•Ñ¥½¸¸Q¡¥Ì¥Ì½¹”™¥¹…°Á…Ñ …™Ñ•È Üµ ÄÀ°Í¼…ÁÁ±å}Á…Ñ¡}½¹”(ŒÁÉ½Ù¥‘•Ì‰½Ñ ™½Éİ…É…ÁÁ±¥…Ñ¥½¸…¹É•Ù•ÉÍ”µµ…Ñ ¥‘•µÁ½Ñ•¹äİ¡¥±”™…¥±¥¹œ±½Í•½¸‘É¥™Ğ¸)…ÁÁ±å}•¹½‘•‘}é¥Á}Á…Ñ¡}½¹”€ˆ‘I==P¼¹Í½ÕÉ”µÁ…ÉÑÌ½ ÄÅ5¥á•É]…Ù•™½Éµ5•Ñ•É¥¹œ¹Á…Ñ ¹èˆ((Œ$€ŒØÄà•áÁ½Í•„‘•Ñ•Éµ¥¹¥ÍÑ¥ŒÉ…”¥¸Ñ¡” à™¥ÉÍĞµÑ…ÀQÉ¥´•¹ÑÉäèÑ¡”µ•¹Ô±¥¬‘•™•ÉÉ•(Œ‰•¥¹QÉ¥´Ñ¡É½Õ Á•¹‘¥¹œ±½…°½µÁ½Í”ÍÑ…Ñ”€¬1…Õ¹¡•‘™™•Ğ¸ ÄÅ„É•µ½Ù•ÌÑ¡…Ğ…Íå¹¡É½¹½ÕÌ(Œ¡…¹‘½™˜…¹‘¥ÍÁ…Ñ¡•Ì‰•¥¹QÉ¥´Íå¹¡É½¹½ÕÍ±ä…™Ñ•È±½Í¥¹œÑ¡”µ•¹Ô¸)…ÁÁ±å}Á…Ñ¡}½¹”€ˆ‘I==P¼¹Í½ÕÉ”µÁ…ÉÑÌ½ ÄÅQÉ¥µ¹ÑÉåI…•¥à¹Á…Ñ ˆ((Œ$€ŒØÄä•áÁ½Í•„Í•µ…¹Ñ¥ÌÉ•É•ÍÍ¥½¸¥¹ÑÉ½‘Õ•‰ä ÄÄİ…Ù•™½É´Í•±•Ñ¥½¸è…¹•ÍÑ½È½‘¥Í…‰±•(Œ±¥­…‰±•Ìµ•É•QÉ¥µ!…¹‘±”‘•Í•¹‘…¹ÑÌ½ÕĞ½˜Ñ¡”µ•É•…•ÍÍ¥‰¥±¥ÑäÑÉ•”¸ ÄÅˆµ½Ù•Ì±…¹”(ŒÍ•±•Ñ¥½¸Ñ¼„Í¥‰±¥¹œ‰…­É½Õ¹Ñ…É•Ğ…¹É•µ½Ù•Ì±¥À±¥­…‰±”Í•µ…¹Ñ¥Ìİ¡¥±”ÑÉ¥µµ¥¹œ¸)…ÁÁ±å}Á…Ñ¡}½¹”€ˆ‘I==P¼¹Í½ÕÉ”µÁ…ÉÑÌ½ ÄÅ‰]…Ù•™½ÉµM•±•Ñ¥½¹M•µ…¹Ñ¥Ì¹Á…Ñ ˆ((ŒA¡åÍ¥…°I•Ù¥•Ü%P€¼ ÄÈµ ÄÔè±½‰…°±•Ù•°İ½É­™±½Ü°QÉ¥´ÉÕ±•È±…É¥Ñä°5¥á•È½Ù•É™±½Ü…¹(ŒÉ•Í¥‘•¹ĞMÑÕ‘¥¼¹…Ù¥…Ñ¥½¸É•ÑÕÉ¸¸-••À½É‘•É•½‰¥Í•Ñ…‰±”…¹™…¥°±½Í•½¸Í½ÕÉ”‘É¥™Ğ¸)…ÁÁ±å}Á…Ñ¡}½¹”€ˆ‘I==P¼¹Í½ÕÉ”µÁ…ÉÑÌ½ ÄÉ1•Ù•±¹¥¹”¹Á…Ñ ˆ)…ÁÁ±å}Á…Ñ¡}½¹”€ˆ‘I==P¼¹Í½ÕÉ”µÁ…ÉÑÌ½ ÄÉ1•Ù•±U¤¹Á…Ñ ˆ)…ÁÁ±å}Á…Ñ¡}½¹”€ˆ‘I==P¼¹Í½ÕÉ”µÁ…ÉÑÌ½ ÄÍQÉ¥µIÕ±•È¹Á…Ñ ˆ)…ÁÁ±å}Á…Ñ¡}½¹”€ˆ‘I==P¼¹Í½ÕÉ”µÁ…ÉÑÌ½ ÄÑ5¥á•É!½É¥é½¹Ñ…±MÉ½±°¹Á…Ñ ˆ)…ÁÁ±å}Á…Ñ¡}½¹”€ˆ‘I==P¼¹Í½ÕÉ”µÁ…ÉÑÌ½ ÄÑ…5¥á•ÉMÉ½±±Y¥•İÁ½ÉÑI•É•ÍÍ¥½¸¹Á…Ñ ˆ)…ÁÁ±å}Á…Ñ¡}½¹”€ˆ‘I==P¼¹Í½ÕÉ”µÁ…ÉÑÌ½ ÄÕI•Í¥‘•¹ÑMÑÕ‘¥½I•ÑÕÉ¸¹Á…Ñ ˆ((Œ¥¹…°‰…Í•±¥¹”Á½±¥Í €¼ ÄØè±…É¥™äÁÉ…Ñ¥”µ‰…ÈÍ•µ…¹Ñ¥Ì…¹½µÁ…ĞQÉ¥´ÁÉ½©•Ñ¥½¸¸(ŒÁÁ±¥•ÍÑÉ¥Ñ±ä…™Ñ•È ÄÔÍ¼Ñ¡”€ŒØÈĞ‘¥¥Ñ…±±ä¡½µ½±½…Ñ• ÄÈµ ÄÔ¡…¥¸É•µ…¥¹ÌÑÉ…•…‰±”¸)…ÁÁ±å}•¹½‘•‘}é¥Á}Á…Ñ¡}½¹”€ˆ‘I==P¼¹Í½ÕÉ”µÁ…ÉÑÌ½ ÄÙ¥¹…±U¥QÉ¥µ=Ù•É±…ä¹Á…Ñ ¹èˆ((Œ¥¹…°Á¡åÍ¥…°µÁ½±¥Í ½ÉÉ•Ñ¥½¸€¼ ÄÜè­••ÀUPÑ¥­Ì½¹™¥¹•Ñ¼Ñ¡”Ñ¥µ”ÉÕ±•È…¹(Œ•¹Ñ•È©ÕÍÑ•Ì½;µÙ•¥Ìİ¥Ñ¡¥¸¥ÑÌ‘•‘¥…Ñ•ÁÉ…Ñ¥”µ‰…ÈÍ•µ•¹Ğ¸)…ÁÁ±å}Á…Ñ¡}½¹”€ˆ‘I==P¼¹Í½ÕÉ”µÁ…ÉÑÌ½ ÄİÕÑIÕ±•ÉAÉ…Ñ¥•MÁ…¥¹œ¹Á…Ñ ˆ(
+PHYSICAL_REVIEW_II_TRANSPORT="$ROOT/app/src/main/java/studio/guitarlab/app/ui/TransportBar.kt"
+PHYSICAL_REVIEW_II_MIXER="$ROOT/app/src/main/java/studio/guitarlab/app/ui/MixerDock.kt"
+if [[ -f "$PHYSICAL_REVIEW_II_VIEW_MODEL" && -f "$PHYSICAL_REVIEW_II_PLACEHOLDER" && -f "$PHYSICAL_REVIEW_II_WAVEFORM" \
+      && -f "$PHYSICAL_REVIEW_II_GUIDE" && -f "$PHYSICAL_REVIEW_II_TRANSPORT" && -f "$PHYSICAL_REVIEW_II_MIXER" ]] \
+    && [[ "$(git -C "$ROOT" hash-object "$PHYSICAL_REVIEW_II_VIEW_MODEL")" == "7c56d0b2c78f0b408df341d8a3744eee5c69bd93" ]] \
+    && [[ "$(git -C "$ROOT" hash-object "$PHYSICAL_REVIEW_II_PLACEHOLDER")" == "358dd75d45f3c25616eb737e99ddba42fe02a053" ]] \
+    && [[ "$(git -C "$ROOT" hash-object "$PHYSICAL_REVIEW_II_WAVEFORM")" == "07ab9a739020e8d06b6817b11888f99cd9dd9b1b" ]] \
+    && [[ "$(git -C "$ROOT" hash-object "$PHYSICAL_REVIEW_II_GUIDE")" == "59d4e5e23a2d59cd9b2857e5323f1baee0b00a2b" ]] \
+    && [[ "$(git -C "$ROOT" hash-object "$PHYSICAL_REVIEW_II_TRANSPORT")" == "f82b75102af830e8188c621b4740ecd53630a0c9" ]] \
+    && [[ "$(git -C "$ROOT" hash-object "$PHYSICAL_REVIEW_II_MIXER")" == "755fd157f86a7fea8a03e2d2c8b799d4ef0dfc41" ]]; then
+    echo "Source patch chain already materialized: Physical Review II H7-H10"
+else
+    apply_encoded_gzip_patch_once "$ROOT/.source-parts/H7StateLevelTransport.patch.gz"
+    apply_encoded_gzip_patch_once "$ROOT/.source-parts/H8WorkspaceFlow.patch.gz"
+    apply_encoded_gzip_patch_once "$ROOT/.source-parts/H9LiveWaveformStability.patch.gz"
+    apply_encoded_gzip_patch_once "$ROOT/.source-parts/H10StateRaceGuide.patch.gz"
+fi
+
+# Physical Review III / H11: Mixer segmented-bar simplification, waveform track selection and
+# live recording Peak/RMS projection. This is one final patch after H7-H10, so apply_patch_once
+# provides both forward application and reverse-match idempotence while failing closed on drift.
+apply_encoded_gzip_patch_once "$ROOT/.source-parts/H11MixerWaveformMetering.patch.gz"
+
+# CI #618 exposed a deterministic race in the H8 first-tap Trim entry: the menu click deferred
+# beginTrim through pending local Compose state + LaunchedEffect. H11a removes that asynchronous
+# handoff and dispatches beginTrim synchronously after closing the menu.
+apply_patch_once "$ROOT/.source-parts/H11TrimEntryRaceFix.patch"
+
+# CI #619 exposed a semantics regression introduced by H11 waveform selection: ancestor/disabled
+# clickables merged TrimHandle descendants out of the merged accessibility tree. H11b moves lane
+# selection to a sibling background target and removes clip clickable semantics while trimming.
+apply_patch_once "$ROOT/.source-parts/H11bWaveformSelectionSemantics.patch"
+
+# Physical Review IV / H12-H15: global level workflow, Trim ruler clarity, Mixer overflow and
+# resident Studio navigation return. Keep ordered/bisectable and fail closed on source drift.
+apply_patch_once "$ROOT/.source-parts/H12LevelEngine.patch"
+apply_patch_once "$ROOT/.source-parts/H12LevelUi.patch"
+apply_patch_once "$ROOT/.source-parts/H13TrimRuler.patch"
+apply_patch_once "$ROOT/.source-parts/H14MixerHorizontalScroll.patch"
+apply_patch_once "$ROOT/.source-parts/H14aMixerScrollViewportRegression.patch"
+apply_patch_once "$ROOT/.source-parts/H15ResidentStudioReturn.patch"
+
+# Final baseline polish / H16: clarify practice-bar semantics and compact Trim projection.
+# Applied strictly after H15 so the #624 digitally homologated H12-H15 chain remains traceable.
+apply_encoded_gzip_patch_once "$ROOT/.source-parts/H16FinalUiTrimOverlay.patch.gz"
+
+# Final physical-polish correction / H17: keep CUT ticks confined to the time ruler and
+# center Ajustes/NÃ­veis within its dedicated practice-bar segment.
+apply_patch_once "$ROOT/.source-parts/H17CutRulerPracticeSpacing.patch"
