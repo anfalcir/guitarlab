@@ -71,7 +71,7 @@ The failure came from the regression assuming four swipes were enough on every v
 
 ### H14a — viewport-independent physical swipe regression — IMPLEMENTED / SOURCE-VALIDATED / PRE-GATE
 - remains a separate source-part after H14 for bisectability;
-- retains real `swipeLeft` gestures on the Mixer track scroller;
+- retains a real physical swipe using explicit `swipe(start, end)` through non-slider track-header chrome;
 - checks after each gesture whether the final strip intersects the actual scroller viewport;
 - uses a bounded 20-gesture safety ceiling instead of a fixed successful swipe count;
 - keeps strict MASTER left/right geometry assertions;
