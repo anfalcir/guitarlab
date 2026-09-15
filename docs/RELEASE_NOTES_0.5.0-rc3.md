@@ -15,7 +15,7 @@ Canonical #620 identity:
 
 Established behavior through H11 includes loop-aware transport, Auto seções preview, REC countdown, independent Trim handles, safe split/take lineage, deletion/drag hardening, recording synchronization, level-analysis convergence, Stop-during-REC, history/race hardening, stable live waveform bucketing, the segmented Mixer practice bar, waveform track selection and live REC Peak/RMS.
 
-## Physical Review IV — H12–H15 — PRE-GATE
+## Physical Review IV — H12–H15 + H14a — PRE-GATE
 Real-device review after #620 identified four final workflow/ergonomic gaps. They are implemented and source-validated but require one new exact-source CI gate before promotion.
 
 ### H12 — all-track level analysis
@@ -29,21 +29,52 @@ Real-device review after #620 identified four final workflow/ergonomic gaps. The
 ### H13 — clearer Trim timing
 - removes the time bubbles that obscured waveform/Trim handles;
 - T1/T2 now appear on the fixed timeline time ruler as short yellow ticks with precise floating times;
-- labels have elevated visual priority over playhead overlap and separate vertically when close;
+- labels have elevated visual priority and separate vertically when close;
 - the existing independent drag handles remain the edit controls.
 
-### H14 — Mixer overflow
-- track strips now use a horizontally scrollable `LazyRow`;
+### H14 / H14a — Mixer overflow with viewport-independent regression
+- track strips use a horizontally scrollable `LazyRow`;
 - hidden strips become reachable by swipe;
 - MASTER remains outside the scrolling area and fixed at the right edge;
-- regression verifies final-track access and invariant MASTER geometry.
+- H14a keeps the regression as a real physical-swipe test but removes the fixed-four-swipes viewport assumption;
+- the test retries within a bounded 20-swipe ceiling until the final strip intersects the scroller viewport and still requires invariant MASTER bounds;
+- no `scrollToItem`, timeout inflation or assertion weakening is used.
 
 ### H15 — no redundant Studio reload on return
 - returning Home/Options → the same resident Studio project avoids a repository reload and transient `loading=true` state;
 - removes the observed double-render/flicker path;
-- preserves resident project state and Undo history while keeping recording/transport safety normalization.
+- preserves resident project state and Undo history while keeping recording/transport safety normalization;
+- switching to a different project still uses the normal load path.
 
-## Source-validation status
-H12–H15 were serially reapplied against the exact materialized #620 source artifact. Forward patch dry-runs/application passed, `git diff --check` passed, and all changed/new source/test files matched the independently developed final tree byte-for-byte.
+## CI evidence after implementation
+### CI #621
+Run `34998393778`, source `afecde0efd4d22e58115eaedadf60eea0eb3615c`:
+- complete software/unit/performance/Lint/build/provenance gate: PASS;
+- API36: 21/22 PASS;
+- only failure: the original H14 test assumed four swipes were sufficient on every viewport;
+- signing: correctly skipped.
 
-This is not Android gate evidence. H12–H15 remain **IMPLEMENTED / SOURCE-VALIDATED / PRE-GATE** until a new manually dispatched workflow on the final `main` SHA passes software/Lint/build, API36 full regression, tablet geometry and signed homologation.
+### CI #622
+Run `35000635666`, source `5832c6800a7523a0bed0b64b9400a00c1fa876c2`:
+- failed before compilation/tests in `Materialize split source` in both mandatory upstream jobs;
+- shell error: `line 167: unexpected EOF while looking for matching '"'`;
+- root cause: `scripts/materialize_ci_sources.sh` was physically truncated inside the H7–H10 guard;
+- signing: correctly skipped.
+
+#622 is infrastructure evidence only and does not invalidate #620 or establish a functional failure in H12–H15/H14a.
+
+## Source-validation status after #622 recovery
+The materializer was restored to the complete canonical chain and H14/H14a remain distinct, ordered source parts:
+`H12 engine → H12 UI → H13 → H14 → H14a → H15`.
+
+Recovery evidence:
+- repaired materializer Git blob `de488110153b8a800b69b520a29860230bcb5838`;
+- repaired materializer SHA-256 `612f171be1345b59e0f81e7f0e8cfbd78de0dcbc981fe4edcf22130b1b61779f`;
+- `bash -n scripts/materialize_ci_sources.sh`: PASS;
+- ordered Physical Review IV patch dry-run/application from exact #620 materialized source: PASS;
+- `git diff --check`: PASS;
+- final source/test/help blobs match the audited expected tree, including `MixerDockInstrumentedTest.kt` `5aa984d00035ee259cce21f9cc8717c2f5f759af`.
+
+No new local Android JVM/Lint/APK/API36 PASS is claimed because this recovery environment did not provide the project Android SDK/Gradle build stack.
+
+H12–H15/H14a remain **IMPLEMENTED / SOURCE-VALIDATED / PRE-GATE** until a new manually dispatched workflow on the final `main` SHA passes software/Lint/build, API36 full regression, tablet geometry and signed homologation.
