@@ -1,0 +1,210 @@
+--- a/app/src/main/java/studio/guitarlab/app/ui/StudioPlaceholderScreen.kt
++++ b/app/src/main/java/studio/guitarlab/app/ui/StudioPlaceholderScreen.kt
+@@ -502,6 +502,7 @@
+             SegmentedPracticeSection(
+                 title = "Ajustes",
+                 modifier = Modifier.weight(AdjustmentsPracticeWeight).testTag("practice-adjustments-segment"),
++                centerContent = true,
+                 content = adjustmentsContent,
+             )
+             PracticeSegmentDivider()
+@@ -529,14 +530,19 @@
+ private fun SegmentedPracticeSection(
+     title: String,
+     modifier: Modifier = Modifier,
++    centerContent: Boolean = false,
+     content: @Composable RowScope.() -> Unit,
+ ) {
++    val sectionModifier = modifier
++        .fillMaxHeight()
++        .padding(horizontal = 8.dp, vertical = 4.dp)
+     Row(
+-        modifier = modifier
+-            .fillMaxHeight()
+-            .horizontalScroll(rememberScrollState())
+-            .padding(horizontal = 8.dp, vertical = 4.dp),
+-        horizontalArrangement = Arrangement.spacedBy(5.dp),
++        modifier = if (centerContent) sectionModifier else sectionModifier.horizontalScroll(rememberScrollState()),
++        horizontalArrangement = if (centerContent) {
++            Arrangement.spacedBy(5.dp, Alignment.CenterHorizontally)
++        } else {
++            Arrangement.spacedBy(5.dp)
++        },
+         verticalAlignment = Alignment.CenterVertically,
+     ) {
+         Text(
+@@ -1313,18 +1319,15 @@
+         if (trimControls != null) {
+             val startFraction = TimelineControlPolicy.frameToFraction(trimControls.startFrame, projectEndFrame)
+             val endFraction = TimelineControlPolicy.frameToFraction(trimControls.endFrame, projectEndFrame)
+-            val markersClose = kotlin.math.abs(endFraction - startFraction) < 0.16f
+             TrimRulerMarker(
+                 fraction = startFraction,
+-                label = "T1 ${formatPreciseTime(trimControls.startFrame, sampleRate)}",
++                contentDescription = "Marcador T1 do corte",
+                 tag = "trim-ruler-start",
+-                labelYOffset = 0.dp,
+             )
+             TrimRulerMarker(
+                 fraction = endFraction,
+-                label = "T2 ${formatPreciseTime(trimControls.endFrame, sampleRate)}",
++                contentDescription = "Marcador T2 do corte",
+                 tag = "trim-ruler-end",
+-                labelYOffset = if (markersClose) (-24).dp else 0.dp,
+             )
+         }
+     }
+@@ -1333,44 +1336,20 @@
+ @Composable
+ private fun BoxWithConstraintsScope.TrimRulerMarker(
+     fraction: Float,
+-    label: String,
++    contentDescription: String,
+     tag: String,
+-    labelYOffset: androidx.compose.ui.unit.Dp,
+ ) {
+     val markerX = maxWidth * fraction.coerceIn(0f, 1f)
+-    val labelWidth = 112.dp
+-    val labelX = (markerX - labelWidth / 2).coerceIn(0.dp, (maxWidth - labelWidth).coerceAtLeast(0.dp))
+     Box(
+         modifier = Modifier
+-            .offset(
+-                x = (markerX - 1.dp).coerceIn(0.dp, (maxWidth - 2.dp).coerceAtLeast(0.dp)),
+-                y = -TimelineMarkerRailHeight,
+-            )
++            .offset(x = (markerX - 1.dp).coerceIn(0.dp, (maxWidth - 2.dp).coerceAtLeast(0.dp)))
+             .width(2.dp)
+-            .height(TimelineMarkerRailHeight + TimelineRulerHeight)
++            .height(10.dp)
+             .background(StudioTrim)
+             .zIndex(8f)
+-            .semantics { contentDescription = label }
++            .semantics { this.contentDescription = contentDescription }
+             .testTag(tag),
+     )
+-    Surface(
+-        modifier = Modifier
+-            .offset(x = labelX, y = (-30).dp + labelYOffset)
+-            .width(labelWidth)
+-            .zIndex(9f),
+-        shape = RoundedCornerShape(4.dp),
+-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.97f),
+-        border = BorderStroke(1.dp, StudioTrim),
+-        tonalElevation = 4.dp,
+-    ) {
+-        Text(
+-            label,
+-            modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp),
+-            style = MaterialTheme.typography.labelSmall,
+-            color = MaterialTheme.colorScheme.onSurface,
+-            maxLines = 1,
+-        )
+-    }
+ }
+ 
+ @Composable
+--- a/app/src/main/java/studio/guitarlab/app/ui/StudioUserGuideDialog.kt
++++ b/app/src/main/java/studio/guitarlab/app/ui/StudioUserGuideDialog.kt
+@@ -55,7 +55,7 @@
+                 )
+                 GuideSection(
+                     "Edição de clipes",
+-                    "Abra Ações do áudio para cortar, dividir, duplicar, aplicar fades ou excluir um trecho. Tocar na própria área de waveform também seleciona a pista, da mesma forma que tocar no cabeçalho lateral ou no Mixer. Um toque em Cortar abre a edição assim que o menu fecha; se a edição estiver temporariamente bloqueada, o GuitarLab informa o motivo em vez de ignorar o comando. Em Cortar, arraste separadamente os marcadores de início e fim; T1/T2 usam a mesma geometria da timeline, são desenhados sobre a própria régua e sobrepõem temporariamente os marcadores de playhead/loop para máxima legibilidade, sem criar uma faixa vertical extra nem cobrir a waveform; depois você aplica o corte. Excluir clipe remove somente aquele trecho; Limpar toda a pista fica em Configurar pista e remove todos os clipes/takes da pista sem excluir a própria pista. Arrastar um clipe até a lixeira usa a mesma exclusão confirmada e preserva arquivos de origem ainda compartilhados.",
++                    "Abra Ações do áudio para cortar, dividir, duplicar, aplicar fades ou excluir um trecho. Tocar na própria área de waveform também seleciona a pista, da mesma forma que tocar no cabeçalho lateral ou no Mixer. Um toque em Cortar abre a edição assim que o menu fecha; se a edição estiver temporariamente bloqueada, o GuitarLab informa o motivo em vez de ignorar o comando. Em Cortar, arraste separadamente os marcadores de início e fim; T1/T2 usam a mesma geometria da timeline e aparecem apenas como pequenos traços amarelos na régua de tempo, sem rótulos numéricos nem ocupar a régua de seções/playhead; depois você aplica o corte. Excluir clipe remove somente aquele trecho; Limpar toda a pista fica em Configurar pista e remove todos os clipes/takes da pista sem excluir a própria pista. Arrastar um clipe até a lixeira usa a mesma exclusão confirmada e preserva arquivos de origem ainda compartilhados.",
+                 )
+                 GuideSection(
+                     "Gravação",
+--- a/app/src/androidTest/java/studio/guitarlab/app/AutoSectionsSlotInstrumentedTest.kt
++++ b/app/src/androidTest/java/studio/guitarlab/app/AutoSectionsSlotInstrumentedTest.kt
+@@ -121,16 +121,33 @@
+         composeRule.onNodeWithText("Ajustes").assertIsDisplayed()
+         composeRule.onNodeWithTag("open-all-level-analysis").assertIsDisplayed().performClick()
+ 
+-        val comparisonWidth = composeRule.onNodeWithTag("practice-comparison-segment")
+-            .assertIsDisplayed().fetchSemanticsNode().boundsInRoot.width
+-        val adjustmentsWidth = composeRule.onNodeWithTag("practice-adjustments-segment")
+-            .assertIsDisplayed().fetchSemanticsNode().boundsInRoot.width
+-        val timelineWidth = composeRule.onNodeWithTag("practice-timeline-segment")
+-            .assertIsDisplayed().fetchSemanticsNode().boundsInRoot.width
++        val comparisonBounds = composeRule.onNodeWithTag("practice-comparison-segment")
++            .assertIsDisplayed().fetchSemanticsNode().boundsInRoot
++        val adjustmentsBounds = composeRule.onNodeWithTag("practice-adjustments-segment")
++            .assertIsDisplayed().fetchSemanticsNode().boundsInRoot
++        val timelineBounds = composeRule.onNodeWithTag("practice-timeline-segment")
++            .assertIsDisplayed().fetchSemanticsNode().boundsInRoot
++        val adjustmentsTitleBounds = composeRule.onNodeWithText("Ajustes")
++            .assertIsDisplayed().fetchSemanticsNode().boundsInRoot
++        val levelButtonBounds = composeRule.onNodeWithTag("open-all-level-analysis")
++            .assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+ 
+-        assertTrue("Ajustes should be the compact center segment", adjustmentsWidth < comparisonWidth)
+-        assertTrue("Ajustes should be the compact center segment", adjustmentsWidth < timelineWidth)
+-        assertTrue("Timeline should receive the most room for its longer actions", timelineWidth > comparisonWidth)
++        assertTrue("Ajustes should be the compact center segment", adjustmentsBounds.width < comparisonBounds.width)
++        assertTrue("Ajustes should be the compact center segment", adjustmentsBounds.width < timelineBounds.width)
++        assertTrue("Timeline should receive the most room for its longer actions", timelineBounds.width > comparisonBounds.width)
++        assertTrue("Ajustes must not overlap Comparação", comparisonBounds.right <= adjustmentsBounds.left + 2f)
++        assertTrue("Ajustes must not overlap Timeline", adjustmentsBounds.right <= timelineBounds.left + 2f)
++        assertTrue("Níveis must stay fully inside Ajustes", levelButtonBounds.left >= adjustmentsBounds.left && levelButtonBounds.right <= adjustmentsBounds.right)
++        val contentLeft = minOf(adjustmentsTitleBounds.left, levelButtonBounds.left)
++        val contentRight = maxOf(adjustmentsTitleBounds.right, levelButtonBounds.right)
++        val leftInset = contentLeft - adjustmentsBounds.left
++        val rightInset = adjustmentsBounds.right - contentRight
++        assertEquals(
++            "Ajustes + Níveis must be visually centered with equal spacing to its neighboring blocks",
++            leftInset,
++            rightInset,
++            6f,
++        )
+         assertEquals(1, levelClicks.get())
+     }
+ 
+--- a/app/src/androidTest/java/studio/guitarlab/app/PhysicalEditingHardeningInstrumentedTest.kt
++++ b/app/src/androidTest/java/studio/guitarlab/app/PhysicalEditingHardeningInstrumentedTest.kt
+@@ -3,8 +3,10 @@
+ import androidx.compose.ui.geometry.Offset
+ import androidx.compose.ui.test.assertIsDisplayed
+ import androidx.compose.ui.test.assertIsSelected
++import androidx.compose.ui.test.assertCountEquals
+ import androidx.compose.ui.test.junit4.createAndroidComposeRule
+ import androidx.compose.ui.test.onNodeWithContentDescription
++import androidx.compose.ui.test.onAllNodesWithText
+ import androidx.compose.ui.test.onNodeWithTag
+ import androidx.compose.ui.test.onNodeWithText
+ import androidx.compose.ui.test.performClick
+@@ -87,6 +89,8 @@
+             composeRule.onNodeWithTag("trim-ruler-end").assertIsDisplayed()
+             composeRule.onNodeWithTag("timeline-time-ruler").assertIsDisplayed()
+             composeRule.onNodeWithTag("timeline-marker-rail").assertIsDisplayed()
++            composeRule.onAllNodesWithText("T1 ", substring = true).assertCountEquals(0)
++            composeRule.onAllNodesWithText("T2 ", substring = true).assertCountEquals(0)
+ 
+             val railBounds = composeRule.onNodeWithTag("timeline-marker-rail").fetchSemanticsNode().boundsInRoot
+             val rulerBounds = composeRule.onNodeWithTag("timeline-time-ruler").fetchSemanticsNode().boundsInRoot
+@@ -114,6 +118,7 @@
+ 
+             val currentProject = requireNotNull(studio().state.value.project)
+             val currentRailBounds = composeRule.onNodeWithTag("timeline-marker-rail").fetchSemanticsNode().boundsInRoot
++            val currentRulerBounds = composeRule.onNodeWithTag("timeline-time-ruler").fetchSemanticsNode().boundsInRoot
+             val trimMarkerBounds = composeRule.onNodeWithTag("trim-ruler-start").fetchSemanticsNode().boundsInRoot
+             val expectedTrimX = currentRailBounds.left +
+                 TimelineControlPolicy.frameToFraction(movedStart, TimelineControlPolicy.projectEndFrame(currentProject)) * currentRailBounds.width
+@@ -123,6 +128,18 @@
+                 trimMarkerBounds.center.x,
+                 4f,
+             )
++            assertTrue(
++                "CUT ticks must start inside the time ruler, never in the sections/playhead rail",
++                trimMarkerBounds.top >= currentRulerBounds.top - 1.5f,
++            )
++            assertTrue(
++                "CUT ticks must remain completely inside the compact time ruler",
++                trimMarkerBounds.bottom <= currentRulerBounds.bottom + 1.5f,
++            )
++            assertTrue(
++                "CUT ticks must no longer extend into the sections/playhead rail",
++                trimMarkerBounds.top >= currentRailBounds.bottom - 1.5f,
++            )
+ 
+             val initialEnd = requireNotNull(studio().state.value.trimControls).endFrame
+             composeRule.onNodeWithTag("trim-end-handle").performTouchInput {
