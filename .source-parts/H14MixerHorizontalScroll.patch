@@ -1,0 +1,140 @@
+diff --git a/app/src/androidTest/java/studio/guitarlab/app/MixerDockInstrumentedTest.kt b/app/src/androidTest/java/studio/guitarlab/app/MixerDockInstrumentedTest.kt
+index 0889efe..ec0380f 100644
+--- a/app/src/androidTest/java/studio/guitarlab/app/MixerDockInstrumentedTest.kt
++++ b/app/src/androidTest/java/studio/guitarlab/app/MixerDockInstrumentedTest.kt
+@@ -5,10 +5,14 @@ import androidx.compose.ui.semantics.SemanticsProperties
+ import androidx.compose.ui.test.SemanticsMatcher
+ import androidx.compose.ui.test.assert
+ import androidx.compose.ui.test.assertIsEnabled
++import androidx.compose.ui.test.assertIsDisplayed
+ import androidx.compose.ui.test.hasClickAction
+ import androidx.compose.ui.test.junit4.createComposeRule
+ import androidx.compose.ui.test.onNodeWithContentDescription
++import androidx.compose.ui.test.onNodeWithTag
+ import androidx.compose.ui.test.performClick
++import androidx.compose.ui.test.performTouchInput
++import androidx.compose.ui.test.swipeLeft
+ import androidx.test.ext.junit.runners.AndroidJUnit4
+ import androidx.test.platform.app.InstrumentationRegistry
+ import java.util.concurrent.atomic.AtomicInteger
+@@ -102,4 +106,48 @@ class MixerDockInstrumentedTest {
+         assertTrue("Mute/Solo expanded touch targets must not overlap", abs(soloCenter.x - muteCenter.x) >= minimumCenterDistancePx)
+         assertTrue("Solo/Arm expanded touch targets must not overlap", abs(armCenter.x - soloCenter.x) >= minimumCenterDistancePx)
+     }
++    @Test
++    fun overflowingTracksSwipeHorizontallyWhileMasterRemainsAnchored() {
++        val tracks = List(10) { index -> AudioTrack(id = "overflow-$index", name = "Track $index", order = index) }
++        composeRule.setContent {
++            GuitarLabTheme(darkTheme = true) {
++                MixerDock(
++                    tracks = tracks,
++                    selectedTrackId = tracks.first().id,
++                    mixControlsEnabled = true,
++                    structuralControlsEnabled = true,
++                    masterGainDb = 0f,
++                    masterMeter = MeterBallisticsState(),
++                    trackMeters = emptyMap(),
++                    masterClipLatched = false,
++                    trackClipLatched = emptySet(),
++                    onSelectTrack = {},
++                    onGainPreview = { _, _ -> },
++                    onGainCommit = { _, _ -> },
++                    onPanPreview = { _, _ -> },
++                    onPanCommit = { _, _ -> },
++                    onToggleMute = {},
++                    onToggleSolo = {},
++                    onToggleArm = {},
++                    onMasterGainPreview = {},
++                    onMasterGainCommit = {},
++                    onClearTrackClip = {},
++                    onClearMasterClip = {},
++                )
++            }
++        }
++
++        val master = composeRule.onNodeWithTag("mixer-master-strip").assertIsDisplayed()
++        val masterBefore = master.fetchSemanticsNode().boundsInRoot
++        val scroller = composeRule.onNodeWithTag("mixer-track-scroll").assertIsDisplayed()
++        repeat(4) {
++            scroller.performTouchInput { swipeLeft(durationMillis = 300L) }
++            composeRule.waitForIdle()
++        }
++        composeRule.onNodeWithTag("mixer-track-strip-overflow-9").assertIsDisplayed()
++        val masterAfter = composeRule.onNodeWithTag("mixer-master-strip").fetchSemanticsNode().boundsInRoot
++        assertEquals(masterBefore.left, masterAfter.left, 1f)
++        assertEquals(masterBefore.right, masterAfter.right, 1f)
++    }
++
+ }
+diff --git a/app/src/main/java/studio/guitarlab/app/ui/MixerDock.kt b/app/src/main/java/studio/guitarlab/app/ui/MixerDock.kt
+index 17fe88b..14fb1c2 100644
+--- a/app/src/main/java/studio/guitarlab/app/ui/MixerDock.kt
++++ b/app/src/main/java/studio/guitarlab/app/ui/MixerDock.kt
+@@ -3,7 +3,6 @@ package studio.guitarlab.app.ui
+ import androidx.compose.foundation.BorderStroke
+ import androidx.compose.foundation.background
+ import androidx.compose.foundation.clickable
+-import androidx.compose.foundation.horizontalScroll
+ import androidx.compose.foundation.layout.Arrangement
+ import androidx.compose.foundation.layout.Box
+ import androidx.compose.foundation.layout.BoxWithConstraints
+@@ -17,7 +16,8 @@ import androidx.compose.foundation.layout.offset
+ import androidx.compose.foundation.layout.padding
+ import androidx.compose.foundation.layout.size
+ import androidx.compose.foundation.layout.width
+-import androidx.compose.foundation.rememberScrollState
++import androidx.compose.foundation.lazy.LazyRow
++import androidx.compose.foundation.lazy.items
+ import androidx.compose.foundation.shape.RoundedCornerShape
+ import androidx.compose.material.icons.Icons
+ import androidx.compose.material.icons.filled.FiberManualRecord
+@@ -40,6 +40,7 @@ import androidx.compose.ui.semantics.Role
+ import androidx.compose.ui.semantics.contentDescription
+ import androidx.compose.ui.semantics.semantics
+ import androidx.compose.ui.semantics.stateDescription
++import androidx.compose.ui.platform.testTag
+ import androidx.compose.ui.unit.dp
+ import kotlin.math.abs
+ import kotlin.math.log10
+@@ -99,11 +100,15 @@ fun MixerDock(
+                 modifier = Modifier.fillMaxWidth().weight(1f),
+                 horizontalArrangement = Arrangement.spacedBy(10.dp),
+             ) {
+-                Row(
+-                    modifier = Modifier.weight(1f).fillMaxHeight().horizontalScroll(rememberScrollState()),
++                LazyRow(
++                    modifier = Modifier
++                        .weight(1f)
++                        .fillMaxHeight()
++                        .testTag("mixer-track-scroll"),
+                     horizontalArrangement = Arrangement.spacedBy(8.dp),
++                    userScrollEnabled = true,
+                 ) {
+-                    tracks.sortedBy { it.order }.forEach { track ->
++                    items(tracks.sortedBy { it.order }, key = { it.id }) { track ->
+                         MixerTrackStrip(
+                             track = track,
+                             auditionMode = auditionMode,
+@@ -165,7 +170,12 @@ private fun MixerTrackStrip(
+     val borderColor = if (selected) accent else MaterialTheme.colorScheme.outline.copy(alpha = 0.55f)
+ 
+     Surface(
+-        modifier = Modifier.width(184.dp).fillMaxHeight().clip(RoundedCornerShape(12.dp)).clickable(onClick = onSelect),
++        modifier = Modifier
++            .width(184.dp)
++            .fillMaxHeight()
++            .testTag("mixer-track-strip-${track.id}")
++            .clip(RoundedCornerShape(12.dp))
++            .clickable(onClick = onSelect),
+         shape = RoundedCornerShape(12.dp),
+         color = if (selected) accent.copy(alpha = 0.10f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.28f),
+         border = BorderStroke(if (selected) 1.5.dp else 1.dp, borderColor),
+@@ -277,7 +287,7 @@ private fun MasterStrip(
+     var gainDraft by remember(gainDb) { mutableFloatStateOf(gainDb) }
+     val accent = MaterialTheme.colorScheme.secondary
+     Surface(
+-        modifier = Modifier.width(198.dp).fillMaxHeight(),
++        modifier = Modifier.width(198.dp).fillMaxHeight().testTag("mixer-master-strip"),
+         shape = RoundedCornerShape(12.dp),
+         color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.30f),
+         border = BorderStroke(1.5.dp, accent.copy(alpha = 0.78f)),
