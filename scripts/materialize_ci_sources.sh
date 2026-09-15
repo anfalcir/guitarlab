@@ -194,3 +194,12 @@ apply_patch_once "$ROOT/.source-parts/H11TrimEntryRaceFix.patch"
 # clickables merged TrimHandle descendants out of the merged accessibility tree. H11b moves lane
 # selection to a sibling background target and removes clip clickable semantics while trimming.
 apply_patch_once "$ROOT/.source-parts/H11bWaveformSelectionSemantics.patch"
+
+# Physical Review IV / H12-H16. Keep these source deltas serial and independently auditable:
+# batch level analysis -> Trim ruler projection -> Mixer overflow -> resident Studio re-entry ->
+# integrated accessibility/state consistency and user-guide coverage.
+apply_encoded_gzip_patch_once "$ROOT/.source-parts/H12TrackLevelBatch.patch.gz"
+apply_encoded_gzip_patch_once "$ROOT/.source-parts/H13TrimTimelineRuler.patch.gz"
+apply_encoded_gzip_patch_once "$ROOT/.source-parts/H14MixerOverflow.patch.gz"
+apply_encoded_gzip_patch_once "$ROOT/.source-parts/H15StudioReentry.patch.gz"
+apply_encoded_gzip_patch_once "$ROOT/.source-parts/H16IntegratedPolish.patch.gz"
