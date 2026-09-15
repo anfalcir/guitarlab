@@ -2,97 +2,60 @@
 
 Updated: 2026-09-14
 
-RC3 consolidates the final practice-workflow, transport, editing and recording refinements requested through physical use. The objective is one coherent guitar-practice/recording workflow without permanent UI clutter or hidden destructive behavior.
+RC3 consolidates the final practice, transport, editing, recording and release-hardening work.
 
-## Loop playback and completion
-- When Loop is enabled and the user presses Play, playback starts only inside `[loopStart, loopEnd)`.
-- A playhead before the loop, exactly at loop end or after the loop normalizes to loop start.
-- Explicit user Play treats the active loop as one bounded pass: `L▶` is the logical end.
-- Natural looped completion stops and returns the playhead to `L◀`.
-- Natural non-loop completion stops and returns to 00:00.
-- Recording/backing playback keeps repeating-loop semantics where required by punch capture.
+## Previously established RC3 behavior
+- loop-aware bounded Play and live playhead seek;
+- Auto seções preview/application and project-end clipping;
+- centered translucent `3 → 2 → 1` REC countdown;
+- shared Home/Studio user guide;
+- independent trim handles;
+- safe split/take lineage;
+- explicit clip deletion and confirmed drag-to-trash;
+- measured session startup skew separate from route latency;
+- frame-based live recording waveform;
+- source materialization and signed provenance gates.
 
-## Live playhead seek
-- The playhead may be dragged while ordinary Play is active; audio seeks inside the current playback session without a Stop/Play cycle.
-- Repeated drag updates coalesce so the most recent seek wins.
-- With Loop active, live seek is clamped inside `[L◀, L▶)`.
-- Countdown, recording and finalization reject playhead movement; structural timeline edits remain stopped-only.
+CI #616 digitally homologated H0–H6 against source `3051619c219e346daca00d2242f60ef03f2d80db`. Signed APK SHA-256: `92e806c6fbfd68b0fd44409570c17a976b922e56f2d206824a308c1fdc15bf9c`.
 
-## Studio organization and visual feedback
-- Comparison and Timeline controls sit below the workspace/timeline and before the Mixer.
-- `Comparação` and `Timeline` fill the available width; narrow layouts stack rather than clipping actions.
-- Comparison-state badges use vivid `ATIVA`/`OCULTA` semantics.
-- Armed tracks receive explicit red visual state in track header and timeline lane.
-- `Detectar seções` is renamed to `Auto seções`.
-- `Criar seção do loop` remains visible but is enabled only while Loop is active.
+## Physical Review II — H7–H10
+Physical use of the #616 candidate exposed additional workflow inconsistencies. The following changes are now implemented but await a new exact-source digital gate.
 
-## In-app help
-- Home and Studio both expose `Ajuda`; both open the same `StudioUserGuideDialog` implementation.
-- The guide has been synchronized with the new trim, clip deletion and drag-to-trash workflows.
+### Editing entry reliability
+- `Cortar` is now a first-valid-tap action: one tap opens Trim when allowed.
+- blocked trim entry produces explicit feedback instead of a silent no-op.
 
-## Section workflow
-- `Auto seções` exposes detected regions as a non-persistent timeline preview before acceptance.
-- Suggestions near project start/end are normalized to avoid meaningless micro-sections, and rendering is clipped to the true project-end width.
-- `Auto seções` owns a fixed slot; while preview exists, that same slot becomes `Aplicar` + red `X`, so neighboring controls do not shift.
-- Preview and persisted application use the same normalized boundaries.
-- Red `X` discards preview without mutating persisted sections.
-- `Limpar seções` removes sections without touching clips, markers or loop selection.
+### Level analysis convergence
+- level recommendation is based on the effective signal after current track/clip gain rather than repeatedly measuring raw PCM as if no gain had been applied;
+- applying a recommendation updates derived playback/mixer/history state;
+- re-analysis converges instead of proposing the identical correction indefinitely.
 
-## Recording with Loop enabled
-- REC countdown is `3 → 2 → 1` in a large centered translucent overlay and does not push workspace controls.
-- REC with Loop disabled uses the ordinary current-playhead path.
-- REC with Loop enabled offers `Somente o loop`, `Desde o início` or `Cancelar` for that recording only.
-- Persisted `punchRegion` remains readable for compatibility but does not silently arm future recording.
+### History/state hardening
+- project mutations resynchronize `canUndo`/`canRedo` and other derived UI state;
+- asynchronous history/analysis callbacks are project/session guarded so results from an old project cannot overwrite the newly opened project;
+- repeated level/history operations are covered by stress regression.
 
-## Physical editing hardening
-### Trim handles
-- Trim no longer relies on acquiring an opaque full-card `RangeSlider` gesture.
-- Start/end boundaries use independent interaction targets with deterministic frame mapping.
-- Time bubbles remain passive visuals and cannot steal handle gestures.
-- Trim stays non-destructive and bounded by immutable source availability.
+### Clearer destructive actions
+- `Excluir clipe` remains clip/segment scoped;
+- track-wide content clearing is labeled `Limpar toda a pista` in track configuration rather than appearing as a second neighboring trash action in the clip pencil flow.
 
-### Clip deletion and split lineage
-- A split recording may keep multiple clip segments tied to one recording-take lineage.
-- Moving or deleting one child no longer unconditionally deletes the shared `RecordingTake`.
-- If the canonical clip leaves, a surviving sibling is promoted deterministically; the take is removed only when no segment remains.
-- `Excluir clipe` is now an explicit confirmed clip-level action, distinct from `Limpar pista` and `Excluir pista`.
-- Shared managed source/proxy media is preserved while still referenced.
+### Mixer layout optimization
+- Comparison/Timeline controls are reused inside the Mixer header on wide layouts, with `Mixer` anchored left and Pin/Close anchored right;
+- closing Mixer returns the same control component to normal workspace flow, avoiding duplicated state/implementations.
 
-### Drag-to-trash and transaction hardening
-- Clip drop resolution is explicit: move to track, delete through trash, or no-op.
-- Dragging a clip exposes a trash target; dropping there invokes the same confirmed domain deletion as `Excluir clipe`.
-- Source clip/track state is revalidated before committing a drag mutation.
-- Same-origin/invalid/stale drops do not intentionally create partial project mutations.
+### Stop during recording
+- Stop while capture is active calls the same idempotent successful finalization routine as tapping REC again;
+- Stop during countdown cancels safely;
+- finalizing state rejects duplicate stop/finalize requests.
 
-## Recording synchronization hardening
-- The reported approximately 0.5 s late guitar placement is not addressed with a magic constant.
-- Recording sessions distinguish capture/backing startup skew from accepted route latency and punch/pre-roll offsets.
-- Android audio timestamps/monotonic timing evidence are used where trustworthy, with bounded fallback.
-- Startup skew and route compensation are combined once, preventing double correction.
-- Final take placement/trim applies frame-domain compensation while respecting zero/source bounds.
-
-## Live REC waveform hardening
-- Live waveform time is based on captured frame spans, not the number/rate of `AudioRecord` callbacks.
-- Each envelope point owns explicit recording-frame coverage.
-- Bounded compaction preserves total covered time and maximum transient.
-- UI publication is conflated/rate-bounded rather than posting one main-thread update per audio read.
-- `recordingFrames` remains authoritative for live clip width; finalized waveform is still derived from committed media.
-
-## Regression coverage added
-In addition to the existing transport/sections/countdown/guide tests, RC3 now carries deterministic coverage for:
-- trim-handle geometry/policy and physical interaction semantics;
-- split → move/delete recording-take lineage;
-- save/reopen after clip lineage operations;
-- drag `Move`/`Delete`/`NoOp` intent;
-- recording timing compensation policy;
-- long/variable-cadence live-waveform frame coverage, bounded compaction and transient preservation;
-- clip-delete confirmation and instrumented physical editing flows.
+### Live waveform spatial stability
+The physical video showed that H5's pairwise bounded compaction still produced sparse old material and dense recent material. H9 replaces that behavior with uniform temporal bucketing:
+- one global temporal resolution applies consistently to historical and new envelope data;
+- represented intervals retain full temporal width in the renderer;
+- maximum transient is retained per bucket;
+- long/variable-cadence capture regression checks monotonic coverage and stable density.
 
 ## Validation status
-- CI #613: earlier complete RC3 signed baseline PASS at `db5a4208848e4b6ca2163ce715d0c5bb464cfe37`.
-- CI #614: failed only while compiling a new Compose test using unavailable `assertDoesNotExist`; signing was correctly blocked.
-- CI #615: complete PASS at `74bf86efbec94d249c4968c3284bf1985cd66b44`, including unit/JVM, Lint, debug/release build, full API 36 regression, isolated 1920×1200 geometry and signed homologation. Signed APK SHA-256: `d443cb33a010d2d21dad43e9ff12554d7ada4f2bb783be0c80e3ac11bfe2d6c9`.
-
-The current source advanced **after #615** with the H0–H6 editing/recording hardening above. Therefore #615 is the latest fully green baseline, but it does not validate the current HEAD. One new manually dispatched exact-source workflow with signed homologation is required before a replacement APK is promoted.
-
-After that automated PASS, residual physical validation is intentionally short: trim-handle ergonomics, split/move/delete/trash flow, real MK-300 route/isolation, guitar-vs-backing synchronization, a multi-minute live waveform check, listening/monitoring feel and one representative export/stress smoke.
+- CI #616: H0–H6 DIGITAL PASS.
+- H7–H10: IMPLEMENTED / SOURCE-VALIDATED / PRE-GATE.
+- A new manually dispatched exact-source workflow is required before the next APK may be promoted for physical homologation.
