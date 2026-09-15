@@ -2,7 +2,7 @@
 
 Updated: 2026-09-15
 
-This is the only active residual physical checklist. Execute it on the next signed H12–H15 candidate **after** its exact-source manual workflow passes. CI #620 remains the digitally homologated H0–H11 baseline and predates Physical Review IV.
+This is the only active residual physical checklist. Execute it on the next signed H12–H15/H14a candidate **only after** its exact-source manual workflow passes. CI #620 remains the digitally homologated H0–H11 baseline and predates Physical Review IV. CI #621 was diagnostic; CI #622 failed in source materialization before build/test and is not a physical-homologation candidate.
 
 ## Candidate identity
 - versionName: `0.5.0-rc3`
@@ -11,14 +11,16 @@ This is the only active residual physical checklist. Execute it on the next sign
 - target: Samsung SM-X230 + M-VAVE MK-300 over USB
 - MK-300 hardware USB loopback: disabled
 - expected signer SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`
-- exact H12–H15 source SHA: **fill from the next successful manual workflow**
+- exact repaired H12–H15/H14a `main` source SHA: **fill from the next successful manual workflow**
 - signed APK SHA-256: **fill from that run's `SHA256SUMS.txt`**
 - signed APK: `GuitarLabStudio-0.5.0-rc3-homologacao.apk`
 
 Historical H11 baseline: CI #620 / source `faaeb0ee4f9e52fbdcf369d097fa773e96d104a7` / signed SHA-256 `acbe61b006aa4abe8b3063faf35b4a9569ed55aaf7f1a2ca3e1726c927855b3c`.
 
+Before installing, verify the new workflow is fully green and its source SHA equals the final `main` SHA. Do not use #621 or #622 artifacts as the final candidate.
+
 ## A. Upgrade and project integrity
-- Install the newly signed H12–H15 RC3 over the previous official candidate.
+- Install the newly signed H12–H15/H14a RC3 over the previous official candidate.
 - Open an existing project and confirm tracks, clips, takes, markers and sections remain intact.
 - Close/reopen the app and project and confirm persistence.
 
@@ -41,13 +43,13 @@ PASS: the modal is practical/readable; busy state is clear; silent/no-audio trac
 
 PASS: marker ticks remain proportional to timeline position; time labels remain readable, stay visually above competing playhead drawing, separate when close and do not obscure the waveform handles.
 
-## D. H14 Mixer overflow with MASTER anchored
+## D. H14/H14a Mixer overflow with MASTER anchored
 - Use a project with enough tracks that all Mixer strips cannot fit at once.
 - Swipe horizontally across the track-strip region in both directions.
 - Reach the first and last tracks and exercise one hidden strip's controls.
 - Observe MASTER throughout the swipe.
 
-PASS: track strips scroll naturally without fighting their controls; hidden tracks become accessible; MASTER remains fixed at the right edge without jitter or horizontal displacement.
+PASS: track strips scroll naturally without fighting their controls; hidden tracks become accessible regardless of viewport width; MASTER remains fixed at the right edge without jitter or horizontal displacement.
 
 ## E. H15 Studio return without flash
 - From Studio, open Config/Options and return to the same Studio repeatedly.
@@ -105,7 +107,7 @@ Record continuously for at least 2–3 minutes.
 - one short WAV or FLAC export and playback.
 
 ## PASS criteria
-- next exact-source H12–H15 workflow fully green;
+- next exact-source H12–H15/H14a workflow fully green;
 - signer/package/version/source/checksum verified;
 - no repeatable P0/P1 in sections B–L;
 - no unintended input fallback/backing leakage;
