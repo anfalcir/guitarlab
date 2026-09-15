@@ -1,0 +1,364 @@
+diff --git a/app/src/androidTest/java/studio/guitarlab/app/AllTracksLevelDialogInstrumentedTest.kt b/app/src/androidTest/java/studio/guitarlab/app/AllTracksLevelDialogInstrumentedTest.kt
+new file mode 100644
+index 0000000..a8bdf73
+--- /dev/null
++++ b/app/src/androidTest/java/studio/guitarlab/app/AllTracksLevelDialogInstrumentedTest.kt
+@@ -0,0 +1,78 @@
++package studio.guitarlab.app
++
++import androidx.compose.ui.test.assertIsDisplayed
++import androidx.compose.ui.test.assertIsEnabled
++import androidx.compose.ui.test.junit4.createComposeRule
++import androidx.compose.ui.test.onNodeWithTag
++import androidx.compose.ui.test.onNodeWithText
++import androidx.compose.ui.test.performClick
++import androidx.test.ext.junit.runners.AndroidJUnit4
++import java.util.concurrent.atomic.AtomicInteger
++import org.junit.Assert.assertEquals
++import org.junit.Rule
++import org.junit.Test
++import org.junit.runner.RunWith
++import studio.guitarlab.app.ui.AllTracksLevelDialog
++import studio.guitarlab.app.ui.theme.GuitarLabTheme
++import studio.guitarlab.core.model.AudioClip
++import studio.guitarlab.core.model.AudioTrack
++import studio.guitarlab.core.model.ProjectFactory
++import studio.guitarlab.core.model.ProjectTemplate
++import studio.guitarlab.core.project.LevelAnalysis
++
++@RunWith(AndroidJUnit4::class)
++class AllTracksLevelDialogInstrumentedTest {
++    @get:Rule
++    val composeRule = createComposeRule()
++
++    @Test
++    fun modalSupportsGlobalAndPerTrackAnalysisWithoutHidingTrackState() {
++        val analyzeAll = AtomicInteger(0)
++        val applyAll = AtomicInteger(0)
++        val analyzeTrack = AtomicInteger(0)
++        val applyTrack = AtomicInteger(0)
++        val project = ProjectFactory(idGenerator = { "levels-${System.nanoTime()}" }, clock = { 1L })
++            .create("Levels", ProjectTemplate.BLANK)
++            .copy(
++                tracks = listOf(
++                    AudioTrack(id = "l1", name = "Base", gainDb = -3f, order = 0),
++                    AudioTrack(id = "l2", name = "Guitar", gainDb = 1f, order = 1),
++                ),
++                clips = listOf(
++                    AudioClip(id = "c1", trackId = "l1", name = "Base", sourceUri = "managed://base.wav", startFrame = 0, lengthFrames = 48_000),
++                    AudioClip(id = "c2", trackId = "l2", name = "Guitar", sourceUri = "managed://guitar.wav", startFrame = 0, lengthFrames = 48_000),
++                ),
++            )
++        val analyses = mapOf(
++            "l1" to LevelAnalysis(peakDbfs = -6f, rmsDbfs = -24f, recommendedGainDb = 6f, clipped = false, silent = false),
++            "l2" to LevelAnalysis(peakDbfs = -4f, rmsDbfs = -18f, recommendedGainDb = 0f, clipped = false, silent = false),
++        )
++
++        composeRule.setContent {
++            GuitarLabTheme(darkTheme = true) {
++                AllTracksLevelDialog(
++                    project = project,
++                    analyses = analyses,
++                    busyTrackIds = emptySet(),
++                    onAnalyzeTrack = { analyzeTrack.incrementAndGet() },
++                    onAnalyzeAll = { analyzeAll.incrementAndGet() },
++                    onApplyTrack = { applyTrack.incrementAndGet() },
++                    onApplyAll = { applyAll.incrementAndGet() },
++                    onDismiss = {},
++                )
++            }
++        }
++
++        composeRule.onNodeWithTag("all-levels-dialog").assertIsDisplayed()
++        composeRule.onNodeWithTag("analyze-all-levels").assertIsEnabled().performClick()
++        composeRule.onNodeWithTag("apply-all-levels").assertIsEnabled().performClick()
++        composeRule.onNodeWithTag("all-level-row-l1").assertIsDisplayed()
++        composeRule.onNodeWithText("Aplicar").assertIsDisplayed().performClick()
++        composeRule.onNodeWithText("Dentro do alvo").assertIsDisplayed()
++
++        assertEquals(1, analyzeAll.get())
++        assertEquals(1, applyAll.get())
++        assertEquals(1, applyTrack.get())
++        assertEquals(0, analyzeTrack.get())
++    }
++}
+diff --git a/app/src/main/java/studio/guitarlab/app/ui/AllTracksLevelDialog.kt b/app/src/main/java/studio/guitarlab/app/ui/AllTracksLevelDialog.kt
+new file mode 100644
+index 0000000..2a4b2ab
+--- /dev/null
++++ b/app/src/main/java/studio/guitarlab/app/ui/AllTracksLevelDialog.kt
+@@ -0,0 +1,167 @@
++package studio.guitarlab.app.ui
++
++import androidx.compose.foundation.BorderStroke
++import androidx.compose.foundation.layout.Arrangement
++import androidx.compose.foundation.layout.Column
++import androidx.compose.foundation.layout.Row
++import androidx.compose.foundation.layout.fillMaxWidth
++import androidx.compose.foundation.layout.heightIn
++import androidx.compose.foundation.layout.padding
++import androidx.compose.foundation.lazy.LazyColumn
++import androidx.compose.foundation.lazy.items
++import androidx.compose.foundation.shape.RoundedCornerShape
++import androidx.compose.material3.AlertDialog
++import androidx.compose.material3.Button
++import androidx.compose.material3.CircularProgressIndicator
++import androidx.compose.material3.MaterialTheme
++import androidx.compose.material3.OutlinedButton
++import androidx.compose.material3.Surface
++import androidx.compose.material3.Text
++import androidx.compose.material3.TextButton
++import androidx.compose.runtime.Composable
++import androidx.compose.ui.Alignment
++import androidx.compose.ui.Modifier
++import androidx.compose.ui.platform.testTag
++import androidx.compose.ui.unit.dp
++import kotlin.math.abs
++import studio.guitarlab.core.model.AudioTrack
++import studio.guitarlab.core.model.GuitarProject
++import studio.guitarlab.core.project.ActiveTakePolicy
++import studio.guitarlab.core.project.LevelAnalysis
++
++@Composable
++internal fun AllTracksLevelDialog(
++    project: GuitarProject,
++    analyses: Map<String, LevelAnalysis>,
++    busyTrackIds: Set<String>,
++    onAnalyzeTrack: (String) -> Unit,
++    onAnalyzeAll: () -> Unit,
++    onApplyTrack: (String) -> Unit,
++    onApplyAll: () -> Unit,
++    onDismiss: () -> Unit,
++) {
++    val tracks = project.tracks.sortedBy { it.order }
++    val audibleCounts = tracks.associate { track ->
++        track.id to ActiveTakePolicy.audibleClips(project).count { it.trackId == track.id && !it.muted }
++    }
++    val actionable = tracks.count { track -> analyses[track.id]?.isActionableLevelSuggestion() == true }
++    val anyBusy = busyTrackIds.isNotEmpty()
++
++    AlertDialog(
++        modifier = Modifier.testTag("all-levels-dialog"),
++        onDismissRequest = { if (!anyBusy) onDismiss() },
++        title = {
++            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
++                Text("Níveis das pistas")
++                Text(
++                    "Análise assistida global",
++                    style = MaterialTheme.typography.bodySmall,
++                    color = MaterialTheme.colorScheme.onSurfaceVariant,
++                )
++            }
++        },
++        text = {
++            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
++                Text(
++                    "Analise o nível efetivo de todas as pistas audíveis. Você pode aplicar cada sugestão separadamente ou aplicar todas em uma única edição, preservando um único passo de Undo.",
++                    style = MaterialTheme.typography.bodySmall,
++                    color = MaterialTheme.colorScheme.onSurfaceVariant,
++                )
++                Row(
++                    modifier = Modifier.fillMaxWidth(),
++                    horizontalArrangement = Arrangement.spacedBy(8.dp),
++                    verticalAlignment = Alignment.CenterVertically,
++                ) {
++                    OutlinedButton(
++                        onClick = onAnalyzeAll,
++                        enabled = !anyBusy && audibleCounts.values.any { it > 0 },
++                        modifier = Modifier.weight(1f).testTag("analyze-all-levels"),
++                        shape = RoundedCornerShape(6.dp),
++                    ) { Text(if (anyBusy) "Analisando…" else "Analisar todas") }
++                    Button(
++                        onClick = onApplyAll,
++                        enabled = !anyBusy && actionable > 0,
++                        modifier = Modifier.weight(1f).testTag("apply-all-levels"),
++                        shape = RoundedCornerShape(6.dp),
++                    ) { Text("Aplicar sugestões ($actionable)") }
++                }
++                LazyColumn(
++                    modifier = Modifier.fillMaxWidth().heightIn(max = 430.dp).testTag("all-levels-list"),
++                    verticalArrangement = Arrangement.spacedBy(8.dp),
++                ) {
++                    items(tracks, key = { it.id }) { track ->
++                        LevelTrackRow(
++                            track = track,
++                            audibleClipCount = audibleCounts[track.id] ?: 0,
++                            analysis = analyses[track.id],
++                            busy = track.id in busyTrackIds,
++                            globalBusy = anyBusy,
++                            onAnalyze = { onAnalyzeTrack(track.id) },
++                            onApply = { onApplyTrack(track.id) },
++                        )
++                    }
++                }
++            }
++        },
++        confirmButton = {
++            TextButton(onClick = onDismiss, enabled = !anyBusy) { Text("Fechar") }
++        },
++    )
++}
++
++@Composable
++private fun LevelTrackRow(
++    track: AudioTrack,
++    audibleClipCount: Int,
++    analysis: LevelAnalysis?,
++    busy: Boolean,
++    globalBusy: Boolean,
++    onAnalyze: () -> Unit,
++    onApply: () -> Unit,
++) {
++    Surface(
++        modifier = Modifier.fillMaxWidth().testTag("all-level-row-${track.id}"),
++        shape = RoundedCornerShape(8.dp),
++        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.24f),
++        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.22f)),
++    ) {
++        Column(Modifier.padding(horizontal = 10.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
++            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
++                Column(Modifier.weight(1f)) {
++                    Text(track.name, style = MaterialTheme.typography.labelLarge, maxLines = 1)
++                    Text(
++                        "Ganho atual ${track.gainDb.formatSignedDb()} · $audibleClipCount ${if (audibleClipCount == 1) "clipe audível" else "clipes audíveis"}",
++                        style = MaterialTheme.typography.labelSmall,
++                        color = MaterialTheme.colorScheme.onSurfaceVariant,
++                    )
++                }
++                if (busy) CircularProgressIndicator(modifier = Modifier.padding(start = 8.dp), strokeWidth = 2.dp)
++            }
++
++            val status = when {
++                audibleClipCount == 0 -> "Sem áudio audível para análise."
++                busy -> "Analisando…"
++                analysis == null -> "Ainda não analisada."
++                analysis.silent -> "Silêncio detectado."
++                else -> "PK ${"%.1f".format(analysis.peakDbfs)} dBFS · RMS ${"%.1f".format(analysis.rmsDbfs)} dBFS · ajuste ${analysis.recommendedGainDb.formatSignedDb()}"
++            }
++            Text(status, style = MaterialTheme.typography.bodySmall)
++
++            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
++                OutlinedButton(
++                    onClick = onAnalyze,
++                    enabled = audibleClipCount > 0 && !globalBusy,
++                    shape = RoundedCornerShape(6.dp),
++                ) { Text(if (analysis == null) "Analisar" else "Reanalisar") }
++                if (analysis?.isActionableLevelSuggestion() == true) {
++                    Button(onClick = onApply, enabled = !globalBusy, shape = RoundedCornerShape(6.dp)) { Text("Aplicar") }
++                } else if (analysis != null && !analysis.silent) {
++                    Text("Dentro do alvo", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.secondary)
++                }
++            }
++        }
++    }
++}
++
++private fun LevelAnalysis.isActionableLevelSuggestion(): Boolean = !silent && abs(recommendedGainDb) >= 0.1f
++private fun Float.formatSignedDb(): String = if (this >= 0f) "+%.1f dB".format(this) else "%.1f dB".format(this)
+diff --git a/app/src/main/java/studio/guitarlab/app/ui/StudioPlaceholderScreen.kt b/app/src/main/java/studio/guitarlab/app/ui/StudioPlaceholderScreen.kt
+index b1ef575..b79bb2a 100644
+--- a/app/src/main/java/studio/guitarlab/app/ui/StudioPlaceholderScreen.kt
++++ b/app/src/main/java/studio/guitarlab/app/ui/StudioPlaceholderScreen.kt
+@@ -161,6 +161,7 @@ fun StudioPlaceholderScreen(
+     selectedTrackId: String? = null,
+     onSelectTrack: (String) -> Unit = {},
+     showPracticeControls: Boolean = true,
++    onOpenLevelAnalysis: () -> Unit = {},
+ ) {
+     val state by viewModel.state.collectAsState()
+     var pendingTrackId by remember { mutableStateOf<String?>(null) }
+@@ -237,6 +238,7 @@ fun StudioPlaceholderScreen(
+                 onLoopSection = viewModel::loopSection,
+                 onRemoveMarker = viewModel::removeMarker,
+                 onRemoveSection = viewModel::removeSection,
++                onOpenLevelAnalysis = onOpenLevelAnalysis,
+                 modifier = Modifier.fillMaxSize(),
+             )
+         }
+@@ -350,6 +352,7 @@ internal fun PracticeControls(
+     onLoopSection: (String) -> Unit,
+     onRemoveMarker: (String) -> Unit,
+     onRemoveSection: (String) -> Unit,
++    onOpenLevelAnalysis: () -> Unit = {},
+     compact: Boolean = false,
+     docked: Boolean = false,
+     modifier: Modifier = Modifier,
+@@ -375,6 +378,13 @@ internal fun PracticeControls(
+                 ) { Text(label) }
+             }
+         }
++        OutlinedButton(
++            onClick = onOpenLevelAnalysis,
++            enabled = enabled,
++            shape = buttonShape,
++            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
++            modifier = Modifier.testTag("open-all-level-analysis"),
++        ) { Text("Níveis") }
+     }
+     val timelineContent: @Composable RowScope.() -> Unit = {
+         OutlinedButton(onClick = onAddMarker, enabled = enabled, shape = buttonShape, contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp)) { Text("+ Marcador") }
+@@ -641,6 +651,7 @@ private fun ProjectWorkspace(
+     onLoopSection: (String) -> Unit,
+     onRemoveMarker: (String) -> Unit,
+     onRemoveSection: (String) -> Unit,
++    onOpenLevelAnalysis: () -> Unit,
+     modifier: Modifier = Modifier,
+ ) {
+     val baseProjectEndFrame = TimelineControlPolicy.projectEndFrame(project)
+@@ -993,6 +1004,7 @@ private fun ProjectWorkspace(
+                 onLoopSection = onLoopSection,
+                 onRemoveMarker = onRemoveMarker,
+                 onRemoveSection = onRemoveSection,
++                onOpenLevelAnalysis = onOpenLevelAnalysis,
+             )
+         }
+ 
+diff --git a/app/src/main/java/studio/guitarlab/app/ui/StudioShellScreen.kt b/app/src/main/java/studio/guitarlab/app/ui/StudioShellScreen.kt
+index b536bcf..82d1dd2 100644
+--- a/app/src/main/java/studio/guitarlab/app/ui/StudioShellScreen.kt
++++ b/app/src/main/java/studio/guitarlab/app/ui/StudioShellScreen.kt
+@@ -71,6 +71,7 @@ fun StudioShellScreen(
+     var selectedTrackId by rememberSaveable(projectId) { mutableStateOf<String?>(null) }
+     var exportDialogVisible by rememberSaveable(projectId) { mutableStateOf(false) }
+     var helpDialogVisible by rememberSaveable(projectId) { mutableStateOf(false) }
++    var allLevelsDialogVisible by rememberSaveable(projectId) { mutableStateOf(false) }
+     var pendingRecordMode by remember(projectId) { mutableStateOf(PracticeRecordingMode.CURRENT_PLAYHEAD) }
+     val snackbarHostState = remember { SnackbarHostState() }
+     val recordPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+@@ -188,6 +189,7 @@ fun StudioShellScreen(
+                     selectedTrackId = selectedTrackId,
+                     onSelectTrack = { selectedTrackId = it },
+                     showPracticeControls = !mixerVisible,
++                    onOpenLevelAnalysis = { allLevelsDialogVisible = true },
+                 )
+             }
+ 
+@@ -233,6 +235,7 @@ fun StudioShellScreen(
+                             onLoopSection = viewModel::loopSection,
+                             onRemoveMarker = viewModel::removeMarker,
+                             onRemoveSection = viewModel::removeSection,
++                            onOpenLevelAnalysis = { allLevelsDialogVisible = true },
+                             docked = true,
+                         )
+                     },
+@@ -245,6 +248,20 @@ fun StudioShellScreen(
+         )
+     }
+ 
++    val levelProject = state.project
++    if (allLevelsDialogVisible && levelProject != null) {
++        AllTracksLevelDialog(
++            project = levelProject,
++            analyses = state.trackLevelAnalysis,
++            busyTrackIds = state.trackLevelAnalysisBusy,
++            onAnalyzeTrack = viewModel::analyzeTrackLevel,
++            onAnalyzeAll = viewModel::analyzeAllTrackLevels,
++            onApplyTrack = viewModel::applyTrackLevelSuggestion,
++            onApplyAll = viewModel::applyAllTrackLevelSuggestions,
++            onDismiss = { allLevelsDialogVisible = false },
++        )
++    }
++
+     if (state.loopRecordingChoiceVisible) {
+         AlertDialog(
+             onDismissRequest = viewModel::dismissLoopRecordingChoice,
