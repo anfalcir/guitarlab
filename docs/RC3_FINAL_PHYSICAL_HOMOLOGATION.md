@@ -2,23 +2,28 @@
 
 Updated: 2026-09-14
 
-This is the only active residual physical checklist for RC3. Execute it **only after** a new canonical manual workflow passes for the final H7–H10 `main` HEAD and the signed artifact identity is verified.
+This is the only active residual physical checklist for the digitally homologated H0–H10 RC3 candidate.
 
-## Candidate identity
+## Candidate identity — LOCKED
 - versionName: `0.5.0-rc3`
 - versionCode: `23`
 - package: `studio.guitarlab.app`
+- exact application/source SHA: `abc0e2a9f8708dd141735915898b508ce0948f48`
+- canonical workflow: CI #617 / run ID `34918430241`
+- signed APK: `GuitarLabStudio-0.5.0-rc3-homologacao.apk`
+- signed APK SHA-256: `7f0c303ccc447c5455dfbd49e1bc022af482927582254eb826c9b29f3a84c6b6`
+- unsigned release SHA-256: `2aacc5c027bfd668fb85499bf8992c90b933dbe04d4abcdbfb732db60a77dd78`
+- signer SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`
+- signed artifact ID: `10377695262`
 - target: Samsung SM-X230 + M-VAVE MK-300 over USB
 - MK-300 hardware USB loopback: disabled
-- expected signer SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`
-- exact H7–H10 source SHA: **fill from the next successful manual workflow**
-- signed APK SHA-256: **fill from `SHA256SUMS.txt` after that run**
-- signed APK: `GuitarLabStudio-0.5.0-rc3-homologacao.apk`
 
-CI #616 at `3051619c219e346daca00d2242f60ef03f2d80db` remains the H0–H6 digital baseline but predates Physical Review II and is therefore not the final H7–H10 APK.
+CI #617 passed the software gate, complete API 36 instrumentation, isolated 1920×1200 tablet geometry and signing/provenance matrix for this exact source. `BUILD_IDENTITY.txt` records `software+android-integration-passed;physical-validation-pending`.
+
+Do not substitute another APK, source SHA, package, version, checksum or signer during this physical pass.
 
 ## A. Upgrade and project integrity
-- Install the newly signed RC3 over the previous official candidate.
+- Install this signed RC3 over the previous official candidate.
 - Open an existing project and confirm tracks, clips, takes, markers and sections remain intact.
 - Close/reopen the app and project and confirm persistence.
 
@@ -93,11 +98,10 @@ PASS: waveform density/time placement remains spatially coherent over the whole 
 - one short WAV or FLAC export and playback.
 
 ## PASS criteria
-- new exact-source H7–H10 workflow fully green;
-- signer/package/version/checksum verified;
+- exact CI #617 identity above remains intact;
 - no repeatable P0/P1 in sections B–I;
 - no unintended input fallback/backing leakage;
 - no repeatable systematic guitar-vs-backing late placement;
-- explicit user approval of that exact signed APK.
+- explicit user approval of this exact signed APK.
 
-Do not manually duplicate deterministic model/file/math checks already covered by the automated matrix.
+Do not manually duplicate deterministic model/file/math/API36 checks already covered by CI #617.
