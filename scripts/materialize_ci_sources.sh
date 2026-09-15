@@ -203,3 +203,7 @@ apply_patch_once "$ROOT/.source-parts/H13TrimRuler.patch"
 apply_patch_once "$ROOT/.source-parts/H14MixerHorizontalScroll.patch"
 apply_patch_once "$ROOT/.source-parts/H14aMixerScrollViewportRegression.patch"
 apply_patch_once "$ROOT/.source-parts/H15ResidentStudioReturn.patch"
+
+# Final baseline polish / H16: clarify practice-bar semantics and compact Trim projection.
+# Applied strictly after H15 so the #624 digitally homologated H12-H15 chain remains traceable.
+apply_encoded_gzip_patch_once "$ROOT/.source-parts/H16FinalUiTrimOverlay.patch.gz"
