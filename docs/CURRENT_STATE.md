@@ -10,74 +10,87 @@ Updated: 2026-09-15
 - #620 signed APK SHA-256: `acbe61b006aa4abe8b3063faf35b4a9569ed55aaf7f1a2ca3e1726c927855b3c`.
 - #620 unsigned release SHA-256: `14c4862371871cf6db85548bd6abc3405cdfcd278d726a5a9f097d533183bafd`.
 - Locked signer SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
-- `.github/workflows/android-ci.yml` remains manual-only. Ordinary documentation commits use `[skip ci]`.
+- `.github/workflows/android-ci.yml` remains manual-only. Maintenance/documentation commits use `[skip ci]`.
 
 ## Evidence boundary
-CI #620 is the authoritative DIGITAL PASS through H11/H11a/H11b. It supersedes #617 as the active application candidate while preserving #617 as the previous H0–H10 baseline.
+CI #620 remains the authoritative DIGITAL PASS through H11/H11a/H11b. Physical Review IV (H12–H15) is newer application/test/materializer work and is **IMPLEMENTED / SOURCE-VALIDATED / PRE-GATE** until a new user-dispatched canonical workflow passes.
 
-CI #618 and #619 remain diagnostic evidence only:
-- #618 / source `e00ae08b1ea3a1d7c5f630d54fd5fb2aec7da3d2`: software PASS, API36 FAIL, signing skipped;
-- #619 / source `a30a4a04a8ffef2820d8f51745cd172ac6cbba3a`: software PASS, API36 FAIL, signing skipped.
+CI #618 and #619 remain diagnostic history only. #620 superseded both and passed software, API36 full connected regression, tablet geometry and signed homologation on exact source `faaeb0ee4f9e52fbdcf369d097fa773e96d104a7`.
 
-Those runs exposed, respectively, the inherited deferred Trim-dispatch race and the H11 waveform-selection semantics collision. H11a and H11b corrected both without weakening the regression.
+## Physical Review IV — H12–H15 — IMPLEMENTED / PRE-GATE
+The #620 APK physical review exposed four polish gaps. They are now implemented as ordered source parts after H11b.
 
-## CI #620 — canonical H11 digital PASS
-Manual workflow #620 ran on exact source `faaeb0ee4f9e52fbdcf369d097fa773e96d104a7` and passed:
-1. Unit tests + performance evidence + Android Lint + debug/release assembly + unsigned provenance;
-2. API 36 full connected instrumentation, including the unchanged independent Trim-handle regression and H11 interaction coverage;
-3. isolated tablet geometry gate;
-4. signed homologation using the tested unsigned release artifact.
+### H12 — global assisted level analysis
+- `Níveis` is available from the Comparação side of the Comparação/Timeline practice bar.
+- A dedicated `Níveis das pistas` modal presents every project track, current gain, audible-clip count and per-track analysis state.
+- `Analisar todas` analyzes every track that has audible material while preserving the same effective-gain semantics already validated for single-track analysis.
+- Each track can still be analyzed/reanalyzed and applied independently.
+- `Aplicar sugestões (N)` applies only actionable recommendations and persists all selected gain deltas in **one project mutation / one Undo step**.
+- Source/track snapshot validation prevents stale analysis from being applied after the project changes.
+- Busy state is explicit per track and global application is blocked while analysis is running.
 
-Signed identity:
-- package: `studio.guitarlab.app`;
-- versionName: `0.5.0-rc3`;
-- versionCode: `23`;
-- source: `faaeb0ee4f9e52fbdcf369d097fa773e96d104a7`;
-- unsigned APK SHA-256: `14c4862371871cf6db85548bd6abc3405cdfcd278d726a5a9f097d533183bafd`;
-- signed APK SHA-256: `acbe61b006aa4abe8b3063faf35b4a9569ed55aaf7f1a2ca3e1726c927855b3c`;
-- APK Signature Scheme v2: verified;
-- number of signers: 1;
-- key: RSA 4096;
-- certificate SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`;
-- signed artifact ID: `10380000533`.
+Automated acceptance added: `AllTracksLevelDialogInstrumentedTest` plus shared engine snapshot validation.
 
-The downloaded signed artifact was independently hashed after download and matched `SHA256SUMS.txt` exactly.
+### H13 — Trim timing on the fixed timeline time ruler
+- The old `Início`/`Fim` bubbles were removed from directly over the waveform/handles.
+- T1/T2 are projected onto the fixed time ruler immediately above the tracks and below the playhead/section area.
+- Each marker has a short yellow tick at the exact proportional frame position and a compact floating label with precise time.
+- Marker labels use elevated z-order so they remain readable when coincident with the playhead; nearby T1/T2 labels separate vertically.
+- Existing draggable Trim handles remain independently accessible and unchanged in function.
+
+Automated acceptance extends `PhysicalEditingHardeningInstrumentedTest` with `timeline-time-ruler`, `trim-ruler-start` and `trim-ruler-end` contracts.
+
+### H14 — Mixer overflow with fixed MASTER
+- Track strips are now inside a horizontally scrollable `LazyRow`.
+- The MASTER strip remains a separate sibling anchored at the right edge and does not move with track scrolling.
+- The behavior scales to projects with more strips than the tablet width can display.
+
+Automated acceptance extends `MixerDockInstrumentedTest`: a 10-track Mixer is swiped to the last strip while the MASTER left/right bounds must remain unchanged.
+
+### H15 — resident Studio return without double-load flash
+- `StudioViewModel.load(projectId)` is now idempotent when the same project is already resident in the Activity-scoped ViewModel.
+- Returning Home/Options → the same Studio no longer clears state, publishes an unnecessary `loading=true`, reloads the repository, rebuilds waveform/history state, or visually renders a transient second Studio state.
+- Transport/recording safety is still normalized appropriately before the early return.
+- Undo history and the resident project object are preserved across the same-project return.
+
+Automated acceptance extends `GuitarLabLifecycleInstrumentedTest` and verifies same-object residency plus retained Undo capability.
+
+## Source representation and validation
+Physical Review IV materialization order:
+1. `.source-parts/H12LevelEngine.patch`
+2. `.source-parts/H12LevelUi.patch`
+3. `.source-parts/H13TrimRuler.patch`
+4. `.source-parts/H14MixerHorizontalScroll.patch`
+5. `.source-parts/H15ResidentStudioReturn.patch`
+
+The five patches were serially dry-run/applied against the exact materialized #620 source artifact. `git diff --check` passed and the final materialized tree matched the independently developed H12→H15 tree byte-for-byte for every changed/new source/test file.
+
+Patch SHA-256 evidence:
+- H12 engine: `39c6a42bca192b1e6a829bd52c46ddb7e546d7cad09500d850e257dec57bc37c`
+- H12 UI: `db9a7e448a22f79e8be22b9b795d4a4008bd92b4bff9754ad640eb957895308d`
+- H13: `4fd47e9d55de072be9ccfbc64361f3e87f9e38d68aa57a76a5084085bce399b0`
+- H14: `af3bf0808a5724f8aab3f6f17dec15b041591871ae26e51283d85a03a28a3e43`
+- H15: `d42c8822319ba5f46f6f62c1fdc973074b0478215df998488dff0e6bcb951772`
 
 ## Milestone state
 - M2–M6: PASS/CLOSED.
-- M7: digital candidate through H11 PASS; final physical gate remains open.
-- M8: H0–H11 DIGITAL PASS in CI #620; only real-device/human validation remains for the active candidate.
+- M7: #620 is the last digitally homologated baseline; H12–H15 are active PRE-GATE refinements from physical review.
+- M8: H0–H11 DIGITAL PASS; H12–H15 IMPLEMENTED / SOURCE-VALIDATED / PRE-GATE.
 
-## Physical Review III — H11 — DIGITAL PASS
-### Segmented Mixer practice bar
-- redundant dock title `Mixer`, Pin and X removed;
-- top-bar Mixer action is the persistent visibility toggle;
-- Mixer-open practice bar contains two equal horizontal segments: **Comparação** and **Timeline**;
-- restrained near-square corner radii replace pill-like buttons.
+## Next authoritative gate
+After H12–H15 source parts, materializer and documentation are consolidated on `main`, the user must manually dispatch one new `GuitarLab Android CI` with `signed_homologation=true` on that exact `main` SHA.
 
-### Waveform selects the track
-- tapping waveform/audio lane selects the corresponding track;
-- clip cards and live-recording waveform use the same selected-track state;
-- H11b isolates selection semantics so Trim handles remain independent accessibility/test nodes.
+Required PASS:
+1. full unit/core/audio/DSP/persistence/migration regression;
+2. Android Lint and debug/release assembly;
+3. API36 full instrumentation, including new H12/H13/H14/H15 contracts and retained H11 Trim regression;
+4. isolated 1920×1200 geometry;
+5. signed homologation;
+6. exact package/version/source/signer/checksum provenance.
 
-### Live recording Peak/RMS
-- raw capture Peak/RMS is projected only to the active recording track;
-- Mixer PK/RMS updates through the existing meter path;
-- live waveform shows compact PK/RMS feedback;
-- meter state resets across recording lifecycle boundaries.
+No assistant-triggered workflow or rerun is permitted.
 
-### Trim hardening retained
-- H11a dispatches `Cortar` synchronously on the first valid tap;
-- H11b prevents waveform/clip click semantics from merging the independent Trim handles;
-- the strict regression that failed #618/#619 passed unchanged in #620.
-
-## Final physical gate
-Use the #620 signed APK for the remaining physical validation on Samsung SM-X230 + M-VAVE MK300. Focus only on facts automation cannot establish:
-- visual harmony/touch ergonomics of the segmented Mixer bar;
-- persistence and feel of the top-bar Mixer toggle;
-- natural track selection by tapping waveform/clip/live waveform;
-- independent physical usability of both Trim handles;
-- real MK300 Peak/RMS responsiveness/plausibility during REC;
-- retained level-analysis, Stop-during-REC, long-waveform, routing/isolation, synchronization and listening/export smoke.
+## Residual physical gate after digital PASS
+Use the newly signed H12–H15 candidate only after the exact-source digital gate passes. Physical checks should focus on visual/touch facts automation cannot establish: modal ergonomics, Trim marker readability over a real timeline/playhead, natural Mixer swipe feel with MASTER fixed, absence of visible Studio return flash, plus retained MK300 routing/REC/meters/synchronization/listening smoke.
 
 `RC3_FINAL_PHYSICAL_HOMOLOGATION.md` remains the single final manual checklist.
