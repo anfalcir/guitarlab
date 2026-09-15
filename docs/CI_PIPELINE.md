@@ -40,17 +40,15 @@ Runs only when `signed_homologation=true` and both mandatory upstream gates pass
 `.source-parts/` plus `scripts/materialize_ci_sources.sh` are part of the build contract.
 
 Canonical hardening order:
-`H1 trim → H2 lineage/delete → H3 drag transaction → H4 timing → H5 waveform → H6 integrated regression/guide → H7 state/level/transport → H8 workspace flow → H9 waveform spatial stability → H10 race closure/guide → H11 mixer/waveform/metering`.
+`H1 trim → H2 lineage/delete → H3 drag transaction → H4 timing → H5 waveform → H6 integrated regression/guide → H7 state/level/transport → H8 workspace flow → H9 waveform spatial stability → H10 race closure/guide → H11 mixer/waveform/metering → H11a synchronous Trim entry`.
 
-H11 is represented by `.source-parts/H11MixerWaveformMetering.patch.gz` and is applied after H7–H10. It contains the segmented/persistent Mixer header refinement, waveform-to-track selection, live REC Peak/RMS projection and their regression tests.
+H11 is represented by `.source-parts/H11MixerWaveformMetering.patch.gz`. H11a is represented by `.source-parts/H11TrimEntryRaceFix.patch` and is applied immediately after H11.
 
 Requirements for the canonical CI path:
 - deterministic one-pass output for the same repository SHA;
-- H11 terminal patch forward/reverse recognition;
 - fail-fast drift detection;
-- no materialization bypass in compile/test jobs.
-
-The H11 terminal patch was separately validated against the exact #617 materialized source and reproduced the expected final application tree. A historical limitation remains in some earlier RC3 guards if the *entire* materializer is manually rerun over a later already-fully-materialized snapshot; this predates H11 and is outside the normal CI one-pass path. A future global idempotence refactor must preserve the proven canonical path rather than weakening drift detection.
+- no materialization bypass in compile/test jobs;
+- API 36 first-tap Trim regression must remain enabled; do not mask failures by increasing timeout or weakening assertions.
 
 ## Artifacts
 Artifacts remain namespaced by `github.sha`: exact source snapshot, debug/software reports, unsigned candidate + identity, API36 reports/diagnostics, and signed APK + identity/checksums.
@@ -59,15 +57,15 @@ Artifacts remain namespaced by `github.sha`: exact source snapshot, debug/softwa
 - CI #615: full signed pre-H0–H6 baseline PASS.
 - CI #616: H0–H6 digital PASS.
 - CI #617 / source `abc0e2a9f8708dd141735915898b508ce0948f48`: H0–H10 software + API36 + tablet geometry + signing PASS. Signed APK SHA-256 `7f0c303ccc447c5455dfbd49e1bc022af482927582254eb826c9b29f3a84c6b6`.
-- H11 is newer than #617 and remains PRE-GATE until a new exact-source run passes.
+- CI #618 / run ID `34922529980` / source `e00ae08b1ea3a1d7c5f630d54fd5fb2aec7da3d2`: software gate PASS; API 36 integration FAIL on one test, `PhysicalEditingHardeningInstrumentedTest.trimHandlesAreIndependentlyDraggableAndClipDeleteRequiresConfirmation`; signed homologation correctly skipped. Root cause was the deferred `pendingTrimClipId` + `LaunchedEffect` Trim dispatch. H11a removes that race.
 
 ## Manual execution
-To create the H11 signed homologation candidate:
+To create the corrected H11/H11a signed homologation candidate:
 1. GitHub → Actions → **GuitarLab Android CI**.
-2. Run workflow on branch `main` only after H11 source/docs consolidation.
+2. Run workflow on branch `main` only after source/docs consolidation.
 3. Enable `signed_homologation=true`.
 4. Confirm all three jobs PASS.
 5. Confirm run `head_sha` equals the intended final `main` HEAD.
 6. Verify APK/`SHA256SUMS.txt`/`BUILD_IDENTITY.txt` package, version, source SHA and signer all agree.
 
-Do not dispatch/rerun CI automatically and do not treat a green run from another SHA as evidence for H11.
+Do not rerun #618 as evidence for H11a and do not dispatch CI automatically.
