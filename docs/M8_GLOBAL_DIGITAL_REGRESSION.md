@@ -1,93 +1,97 @@
 # M8 Global Digital Regression
 
-Updated: 2026-09-11
+Updated: 2026-09-14
 
-Active signed candidate: `0.5.0-rc1`, source `5a14e4d6522ab9cc53eb8e1dd80a03306fc9d248`. RC2/CI #593 remains the latest fully executed API 36 and 1920×1200 emulator baseline.
+## Active state
+Active candidate: `0.5.0-rc3`, versionCode `23`.
+
+Latest fully green signed baseline: CI #615 at source `74bf86efbec94d249c4968c3284bf1985cd66b44`, which passed software, full API 36 instrumentation, isolated 1920×1200 target geometry and signed homologation. Signed APK SHA-256: `d443cb33a010d2d21dad43e9ff12554d7ada4f2bb783be0c80e3ac11bfe2d6c9`.
+
+Current `main` advanced after #615 with H0–H6 editing/recording hardening. Therefore H0–H6 rows below are **IMPLEMENTED / PRE-GATE** until one new exact-source canonical workflow passes. Historical PASS claims continue to apply to unchanged covered behavior but never substitute for the next candidate's exact-source gate.
 
 ## Objective coverage matrix
 
 | Area | Automatic/digital evidence | Residual physical need | Status |
 |---|---|---|---|
-| Project factory/template/roles/names | JVM model tests | none | PASS |
-| Live recording waveform | bounded accumulator tests + UI/instrumentation compilation | observe real capture cadence | PASS logic / physical visual residual |
+| Project factory/template/roles/names | JVM model tests | none | PASS baseline |
 | Selected USB input | fail-closed route policy tests | confirm MK-300 effective route | PASS policy / physical route residual |
-| Takes/audition/punch/sections/level | model/editor policy and invariant tests | workflow ergonomics and listening | PASS logic / physical UX residual |
-| Transport recovery | state policy + active engine interruption/flush/join | repeated real-device smoke | PASS logic / physical residual |
-| Save/load/list/delete | filesystem repository tests | none | PASS |
-| Duplicate project + managed media | source/proxy byte comparison, collision/missing-media rollback | none | PASS |
-| `.guitarlab` writer/reader | ZIP round trip, traversal, duplicate/ambiguous paths, version, zero/truncated input, interrupted staging and rollback | none | PASS |
-| Legacy JSON compatibility | pre-M5, M5, M6, pre-M7, partial metadata and current fixtures | none for covered fixtures | PASS |
-| Trim/split/move/reorder/drag policy | frame invariants and invalid-bound tests | tactile gesture ergonomics only | PASS logic / physical UX residual |
-| Undo/Redo | long mixed sequence, exact snapshot recovery and branch invalidation | none | PASS |
-| Mixer policy | mute/solo truth table, gain dB, pan law | listening optional | PASS core |
-| Mixer accessibility | semantics/state/context + Compose instrumented callbacks/spacing | final tablet/TalkBack observation optional | PASS digital |
-| SRC | multi-rate matrix; duration, pitch, RMS, channels, immutable original | listening sanity only | PASS digital |
-| Same-rate media | independent byte-behavior regression | none | PASS |
-| WAV codec/waveform | PCM16/24/float decode, seek, metadata, waveform/envelope tests | target listening smoke only | PASS |
-| Master render | deterministic PCM for placement/gain/pan/fade/crossfade/clipping/stereo | subjective listening only | PASS |
-| Realtime vs offline | shared PCM reader/mix kernel, chunk-size parity | real route/device only | PASS digital / physical route residual |
-| Home vs Studio export | canonical request factory and shared export service | final smoke only | PASS |
-| Recording state/placement | state-machine, managed-take, cancellation and recovery tests | real USB capture | PASS digital / physical capture residual |
-| Interrupted recording | lossless abandon inventory + canonical Float32 header repair | none for file-recovery invariant | PASS |
-| Media orphan policy | missing references, retained sources/proxies/recoverable takes, safe-derived cleanup | none | PASS |
-| SAF publication | full staging first, truncating publish, cancellation/error rollback attempt | provider-specific final smoke | PASS policy |
-| Latency compensation | synthetic policy/clock/calibration tests | real-route latency/feel | PARTIAL by nature |
-| FLAC Android export | `fLaC`/STREAMINFO + API 36 native extraction/decoding, 48 kHz stereo payload | listening smoke only | PASS emulator |
-| MP3 Android export | API 36 conditional capability contract | actual Samsung encoder availability | PASS behavior / target capability residual |
-| Lifecycle recreation | App route codec + `ActivityScenario.recreate()` | none for covered recreation path | PASS emulator |
-| Process-death storage safety | interrupted import/take recovery and safe repository listing | final OS/hardware smoke only | PASS persistence invariants |
-| Large-session performance | Small 5/10, Medium 12/50, Large 24/120 save/load/bundle/reopen/render; deterministic fuzz | Samsung realtime stress | PASS structural / physical performance residual |
+| Takes/audition/punch/sections/level | model/editor policy and invariant tests | workflow ergonomics/listening | PASS baseline |
+| Transport natural completion/live seek | deterministic policy + engine/instrumentation regression | tactile/listening smoke | PASS baseline |
+| Section preview/end-boundary/fixed slot | JVM + Compose geometry/semantics | final visual confirmation | PASS in #615 |
+| Countdown 3-second overlay | JVM + Compose instrumentation | final visual confirmation | PASS in #615 |
+| Shared Home/Studio guide | shared implementation + Compose regression | none beyond UI smoke | PASS in #615 |
+| Save/load/list/delete | filesystem repository tests | none | PASS baseline |
+| Duplicate project + managed media | source/proxy comparison + rollback | none | PASS baseline |
+| `.guitarlab` writer/reader | ZIP round trip/traversal/version/staging/rollback | none | PASS baseline |
+| Legacy JSON compatibility | historical/current fixtures | none for covered fixtures | PASS baseline |
+| Undo/Redo | mixed sequence/snapshot recovery/branch invalidation | none | PASS baseline |
+| Mixer policy/accessibility | audio truth tables + Compose semantics/callbacks | listening optional | PASS baseline |
+| SRC | multi-rate duration/pitch/RMS/channels/source immutability | listening sanity only | PASS baseline |
+| WAV codec/waveform | decode/seek/metadata/envelope tests | target listening smoke only | PASS baseline |
+| Master render/realtime parity | deterministic PCM/shared mix kernel/chunk parity | real route/device only | PASS baseline |
+| Recording transaction/recovery | state machine, managed take, cancellation, Float32 recovery | real USB capture | PASS baseline |
+| SAF publication | staging/truncating publish/error/cancel rollback | provider-specific smoke | PASS policy |
+| FLAC Android export | native FLAC extraction/decoding API 36 | listening smoke only | PASS emulator baseline |
+| MP3 Android export | conditional capability contract | Samsung encoder availability | PASS behavior / target capability residual |
+| Lifecycle recreation | route codec + `ActivityScenario.recreate()` | none for covered path | PASS emulator baseline |
+| Large/fuzz project performance | save/load/bundle/reopen/render scenarios | Samsung realtime stress | PASS structural baseline |
+| **H1 trim handles** | pure pointer→frame policy + new instrumented handle semantics/interaction | tactile acquisition/feel | IMPLEMENTED / next CI pending |
+| **H2 split take lineage/delete** | new editor/persistence regressions for sibling promotion/delete/move/save-reopen | one real workflow smoke | IMPLEMENTED / next CI pending |
+| **H3 drag transaction/trash** | `Move`/`Delete`/`NoOp` policy + confirmation instrumentation | real touch drag ergonomics | IMPLEMENTED / next CI pending |
+| **H4 recording startup synchronization** | pure timing compensation tests with independent startup/route components | MK-300 guitar-vs-backing confirmation | IMPLEMENTED / next CI pending |
+| **H5 live REC waveform** | frame-span accumulator, compaction/continuity/long-run tests | multi-minute real take visual confirmation | IMPLEMENTED / next CI pending |
+| **H6 integrated hardening regression** | save-reopen lineage, editing instrumentation, timing/waveform tests, guide sync/materialization | exact signed candidate only | IMPLEMENTED / next CI pending |
 
-## Defects found and corrected during global regression
+## Defects found and corrected during global regression history
 
-| Severity | Reproduction | Correction | Regression evidence |
+Historical corrected P0/P1/P2 items remain covered by regression, including duplicate-project media publication, persistence-boundary cancellation, interrupted recording retention/repair, interrupted-import ghost projects, encoder timestamps, SAF partial publication, FLAC native header construction and Mixer accessibility.
+
+### RC3 physical-review defects addressed by H0–H6
+| Severity | Reproduction/finding | Structural correction | Required next evidence |
 |---|---|---|---|
-| P1 | Duplicate project could publish JSON referencing managed media absent from the new project directory. | Transactional copy of each referenced source/proxy, rollback on failure, collision rejection. | Byte comparison and missing-media rollback PASS. |
-| P0 | Cancellation at persistence boundary could run rollback after media had already become referenced by committed project JSON. | Non-cancellable publication boundary + commit-aware rollback. | Focused tests + global gate PASS. |
-| P1 | Legacy `discard()`/startup cleanup could delete payload-bearing interrupted recordings. | Lossless abandon semantics; only header-only temporary takes are removable; recoverable inventory retained. | Recording-store and legacy-discard regression PASS. |
-| P1 | Process kill during Float32 capture could retain samples but leave WAV data length zero. | Conservative canonical GuitarLab Float32 WAV header repair and frame-aligned truncation only when required. | Simulated interrupted-writer recovery PASS. |
-| P2 | `.import-*` staging surviving process death could appear as a ghost Home project. | Hide internal dot-directories from repository listing and clean only GuitarLab `.import-*` staging at startup. | Interrupted-import recovery tests PASS. |
-| P1 | Android encoder timestamps began at the end of the first chunk and EOS could jump back to zero. | PTS derived from chunk start frame; EOS from final decoder position. | Pure timeline tests + Android build gate PASS. |
-| P2 | SAF final publication could leave a partially written user file after error/cancellation. | Stage first; publish with truncating mode, cooperative cancellation and rollback-to-empty attempt on failure. | Publisher copy/error/cancellation tests PASS. |
-| P3 | Compact Mixer controls lacked complete contextual/state semantics and could have overlapping minimum touch regions. | Role/state/context semantics + spacing discipline; instrumented callbacks/center-distance assertions. | Compose API 36 instrumentation PASS. |
-| P1 | FLAC master path omitted native codec-specific header on Codec2 output, producing an invalid/incomplete FLAC stream. | Capture/write validated `fLaC` + STREAMINFO from output format/config before encoded frames. | API 36 instrumented `fLaC` marker + native extraction/decoding PASS. |
-| Test defect | First FLAC instrumented assertion expected `audio/flac` from Android `MediaExtractor`; native FLACExtractor intentionally exposes decoded `audio/raw`. | Test now separates container identity (`fLaC`) from extractor track MIME and verifies decoded payload/rate/channels. | Android integration gate PASS. |
+| P1 | Trim start/end markers were not reliably touch-acquirable on tablet. | Independent explicit trim handles with deterministic frame mapping and passive bubbles. | API36/1920×1200 instrumentation + tactile physical confirmation. |
+| P1 | Split segment moved to another track could produce repository-validation error because a shared take was removed while sibling still referenced it. | Transactional take-lineage reconciliation; sibling promotion; remove take only when no child remains. | JVM persistence save/reopen + physical split/move smoke. |
+| P1 workflow gap | One cut segment had no direct clip-level deletion workflow. | Confirmed `Excluir clipe` plus drag-to-trash sharing one domain delete command. | Compose instrumentation + physical touch smoke. |
+| P1 | Recorded guitar could replay roughly 0.5 s late against backing. | Model per-session startup skew separately from route calibration/punch offsets; combine once; prohibit magic fixed offset. | Pure timing tests + real MK-300 alignment confirmation. |
+| P1 visual/workflow | Live REC waveform progressively accelerated/piled material backward. | Frame-span envelope, bounded time-preserving compaction and conflated/rate-bounded UI publication. | JVM long-run tests + multi-minute physical take. |
+| Test defect | H6 waveform regression initially called `.single()` on `append()` returning `Unit`. | Separate `append()` call then assert `snapshot().single()`. Versioned final test-fix patch added to materializer. | Next software gate compilation/tests. |
 
-No reproducible P0/P1 remains in the current automated scope after the listed corrections. CI #590 passed the full API 36 suite and the isolated 1920×1200 landscape geometry pass.
+No current H0–H6 P0/P1 may be declared closed until the exact post-hardening workflow passes and the target-only checks in `RC3_FINAL_PHYSICAL_HOMOLOGATION.md` are completed.
 
 ## Performance evidence policy
-CI metrics are regression evidence, not device benchmarks. Current scenarios measure save/load, bundle write, package reopen/import, JSON/bundle sizes, rough heap delta and a 1-second offline render. A previously captured Large baseline (24 tracks/120 clips) completed save+load/reopen in tens of milliseconds and offline 1-second render in sub-second runner time; exact per-run metrics are stored in `ci-diagnostics/performance-evidence.txt`.
+CI metrics are regression evidence, not device benchmarks. Existing scenarios measure save/load, bundle write/reopen/import, JSON/bundle sizes, rough heap delta and offline render. Exact per-run metrics remain stored in CI diagnostics. Physical realtime stress remains target-only.
 
 ## CI architecture
-The canonical workflow contains:
+Canonical workflow contains parallel:
 - `software-gate`;
 - `android-integration-gate`;
-- `homologation-apk`, which has `needs` on both.
+followed by `homologation-apk`, which needs both.
 
-The API 36 AVD uses a pinned snapshot cache. Signing remains skipped unless explicitly requested. A documentation or candidate claim must distinguish JVM, emulator and target-device evidence.
+GitHub Actions is manual-only. API 36 AVD uses the retained snapshot cache; integration Gradle cache is read-only; final signing reuses the exact unsigned release produced by software-gate and does not recompile.
 
-## Remaining physical checklist
-1. Install only the final signed RC on Samsung SM-X230.
-2. Connect the M-VAVE MK-300 and confirm real USB input/output plus real guitar recording/monitoring.
-3. Judge subjective latency/feel and listen for pops/dropouts/route artifacts.
-4. Validate actual Samsung MP3 encoder availability/playability.
-5. Stress one representative larger session and confirm touch/layout ergonomics.
-6. Perform one concise restart/reopen/export smoke.
+## Source materialization gate
+H1–H6 deltas are versioned under `.source-parts` and materialized serially:
 
-Everything else in this matrix stays digital and should not be manually repeated.
+`H1 trim → H2 lineage/delete → H3 drag → H4 sync → H5 waveform → H6 integrated regression → H6 waveform-test fix → H6 guide sync`.
 
-## Gate-efficiency decision
-The headless Home overflow popup assertion was removed after repeated evidence showed test-observation flakiness rather than a product regression. Rename was already physically approved in M6, while lifecycle, persistence, Home rehydration, navigation and production rename remain covered by the retained suite and prior evidence. This prevents redundant CI expenditure without weakening the P0/P1 release gate.
+A patch that is neither cleanly applicable nor already applied blocks the build. Partial source materialization is not acceptable evidence.
 
-## Final signed RC evidence — 2026-09-12
-- Candidate: `GuitarLabStudio-0.4.0-rc2-homologacao.apk` (`versionName 0.4.0-rc2`, `versionCode 20`).
-- Exact source commit: `573015d9bb98c704074ab7c4e731eb9a9dec6a2e`.
-- Canonical GitHub Actions run: [#593](https://github.com/anfalcir/guitarlab/actions/runs/34656567233).
-- Result: software gate PASS; Android API 36 full regression PASS; isolated 1920×1200 landscape geometry PASS; signed homologation job PASS.
-- APK SHA-256: `b067558e4ef6793df206d3e966faa029aa952b446ee63c8e47070a481297df85`.
-- Signer certificate SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
-- Artifact integrity was independently rechecked against `SHA256SUMS.txt`; APK ZIP structure is valid.
-- Digital hardening and RC production are complete. Only the residual Samsung SM-X230 + M-VAVE MK-300 physical homologation remains before explicit M7/M8 closure.
+## Remaining physical checklist after exact-source PASS
+1. Install only the newly signed post-H0–H6 RC3 artifact on Samsung SM-X230.
+2. Confirm both trim handles acquire reliably.
+3. Exercise split → move child → delete child via explicit action/trash → save/reopen/Undo/Redo.
+4. Connect MK-300 and confirm real fail-closed input/output + guitar-only capture.
+5. Record guitar against backing and confirm no repeatable systematic late placement.
+6. Record a 2–3 minute take and confirm live waveform remains temporally stable.
+7. Judge subjective monitoring/latency/listening and one representative export/stress smoke.
 
-## Canonical branch
-PR #1 was explicitly merged as `12aaa1c7d5762c1d4dd99e273418ed5b0c25c352`. `main` is now the source of truth for physical homologation evidence and final closure.
+Everything else objectively established by the automated matrix should not be manually repeated.
+
+## Candidate/evidence history
+- CI #593 / `0.4.0-rc2`: historical software + API36 + geometry + signed baseline.
+- CI #613 / RC3: earlier optimized full PASS at `db5a4208848e4b6ca2163ce715d0c5bb464cfe37`.
+- CI #614: Compose test-API compatibility failure; signing correctly blocked.
+- CI #615 / `74bf86efbec94d249c4968c3284bf1985cd66b44`: latest fully green signed pre-H0–H6 baseline; signed APK SHA-256 `d443cb33a010d2d21dad43e9ff12554d7ada4f2bb783be0c80e3ac11bfe2d6c9`; official signer verified.
+
+## Closure rule
+M7/M8 release closure requires zero repeatable P0/P1, a canonical exact-source automated PASS for the final current HEAD, verified package/version/checksum/signer, residual Samsung SM-X230 + M-VAVE MK-300 PASS and explicit user approval of that exact signed APK.
