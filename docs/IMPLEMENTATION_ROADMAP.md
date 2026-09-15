@@ -63,17 +63,18 @@ Candidate #620 identity:
 ### H15 — resident Studio navigation return — IMPLEMENTED / PRE-GATE
 - same-project `StudioViewModel.load()` returns from resident state rather than publishing `loading=true` and reloading;
 - Home/Options → same Studio preserves resident project/history and avoids the observed double-render flash;
-- lifecycle instrumentation asserts object identity and Undo retention after round-trip navigation.
+- lifecycle instrumentation asserts object identity and Undo retention after round-trip navigation;
+- in-app `Ajuda` is synchronized for the H12–H14 user-facing workflows.
 
 ## Physical Review IV source-validation evidence
-All H12→H15 patches were applied serially against the exact #620 materialized source artifact. Patch dry-run/application succeeded, `git diff --check` passed, and the resulting changed/new source/test files matched the independently developed final tree byte-for-byte.
+All H12→H15 patches were applied serially against the exact #620 materialized source artifact. Patch dry-run/application succeeded, `git diff --check` passed, and the resulting changed/new source/test/help files matched the independently developed final tree byte-for-byte.
 
 Patch SHA-256:
 - H12 engine `39c6a42bca192b1e6a829bd52c46ddb7e546d7cad09500d850e257dec57bc37c`
 - H12 UI `db9a7e448a22f79e8be22b9b795d4a4008bd92b4bff9754ad640eb957895308d`
 - H13 `4fd47e9d55de072be9ccfbc64361f3e87f9e38d68aa57a76a5084085bce399b0`
 - H14 `af3bf0808a5724f8aab3f6f17dec15b041591871ae26e51283d85a03a28a3e43`
-- H15 `d42c8822319ba5f46f6f62c1fdc973074b0478215df998488dff0e6bcb951772`
+- H15 `79e4a98f996f86cb2c0916f1c152ef8a34529e369f7db1622ea4a5a7f427a1c9`
 
 ## Next acceptance gate
 After final consolidation on `main`, manually dispatch `GuitarLab Android CI` with `signed_homologation=true` on the exact final SHA. It must pass:
