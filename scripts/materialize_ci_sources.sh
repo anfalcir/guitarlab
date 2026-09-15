@@ -184,3 +184,8 @@ fi
 # live recording Peak/RMS projection. This is one final patch after H7-H10, so apply_patch_once
 # provides both forward application and reverse-match idempotence while failing closed on drift.
 apply_encoded_gzip_patch_once "$ROOT/.source-parts/H11MixerWaveformMetering.patch.gz"
+
+# CI #618 exposed a deterministic race in the H8 first-tap Trim entry: the menu click deferred
+# beginTrim through pending local Compose state + LaunchedEffect. H11a removes that asynchronous
+# handoff and dispatches beginTrim synchronously after closing the menu.
+apply_patch_once "$ROOT/.source-parts/H11TrimEntryRaceFix.patch"
