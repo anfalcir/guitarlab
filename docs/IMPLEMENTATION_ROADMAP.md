@@ -38,7 +38,7 @@ Implemented scope:
 - active recording track receives live Peak/RMS in Mixer and waveform overlay.
 
 ### H11a — synchronous Trim dispatch — DIGITAL PASS
-Removed the inherited H8 `pendingTrimClipId` + `LaunchedEffect` handoff. `Cortar` now invokeses Trim synchronously from the first valid click.
+Removed the inherited H8 `pendingTrimClipId` + `LaunchedEffect` handoff. `Cortar` now invokes Trim synchronously from the first valid click.
 
 ### H11b — waveform-selection semantics isolation — DIGITAL PASS
 - waveform lane selection uses a sibling background hit target rather than an ancestor clickable;
