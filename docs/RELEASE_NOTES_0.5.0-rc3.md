@@ -2,40 +2,40 @@
 
 Updated: 2026-09-15
 
-## Last signed digital homologation — CI #631
-Run `35025012392`, exact source `33fb05a504be2d047259b1d967e6ab1a7e48a68c`, is the signed DIGITAL PASS through H18/H18a/H19.
+## Last signed digital homologation — CI #633
+Run `35033323990`, exact source `2204e0272f9e6e2f218bebd36889db424e006e03`, is the signed DIGITAL PASS through H21.
 
 Identity:
 - package `studio.guitarlab.app`;
 - version `0.5.0-rc3` / versionCode `23`;
-- unsigned APK SHA-256 `895ed8ccc957bf0bb17addfdd98806fd3425cc695443f234e27bbae62607cfd8`;
-- signed APK SHA-256 `61441b92e3065ba845d9f3e0ed6791d35d41975180a01bb21b612427b493c02d`;
+- unsigned APK SHA-256 `58165dc53cacaf39357a1f28315b6312ada3ed2b6669b59e32ddbe8e4d53c25d`;
+- signed APK SHA-256 `f40b24cb36b4cb1299efcb28a35b54e66b107af2ec3d578a870c70e2966ff52e`;
 - certificate SHA-256 `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
 
-## Physical findings after #631
-The adaptive comparison bar no longer clips `Ambas`, but physical review exposed:
-- the output selector still showed several built-in SM-X230 logical speaker endpoints (`SM-X230`, `• 0`, `• back`, `• bottom`);
-- the practice bar needed stronger title/action/group hierarchy;
-- application geometry still mixed compact hardware-style controls with larger rounded/pill surfaces elsewhere.
+CI evidence:
+- software/unit/audio/DSP/persistence/migration/performance/Lint/build/provenance: PASS;
+- API36 standard connected regression: 23/23 PASS;
+- isolated 1920×1200 geometry: 1/1 PASS;
+- signed homologation: PASS.
 
-## H20 candidate delta — physical output canonicalization v2 — PRE-GATE
+## H20 — physical output canonicalization v2 — DIGITAL PASS
 - built-in speaker logical endpoints for one device collapse into one physical output choice;
-- address suffixes used only to identify logical speaker endpoints are not exposed as separate user destinations;
+- the reproduced SM-X230 family (`SM-X230`, `• 0`, `• back`, `• bottom`) is covered by regression;
 - earpiece/Bluetooth/HDMI remain distinct;
 - USB H19 behavior is retained;
-- duplicate candidate resolution still uses a silent probe plus actual `routedDevice` confirmation;
-- new policy tests reproduce the four-entry SM-X230 topology exactly.
+- duplicate candidate resolution uses a silent probe plus actual `routedDevice` confirmation;
+- all 8 `StudioAudioRoutePolicyTest` regressions passed at #633.
 
-## H21 candidate delta — Studio visual system overhaul — PRE-GATE
-- global hardware-inspired geometry scale: 6dp controls, 8dp internal rows/cards, 10dp major panels/dialogs;
+## H21 — Studio visual system overhaul — DIGITAL PASS
+- global hardware-inspired geometry scale around 6dp controls, 8dp internal rows/cards and 10dp major panels/dialogs;
 - circles limited to genuine circular semantics;
-- icon actions receive a visible square chassis and preserved 48dp touch target;
-- surface and outline contrast strengthened;
+- icon actions use a visible square chassis with preserved touch targets;
 - Home, Novo Projeto, Studio, Mixer, Options, diagnostics, help/dialogs and track configuration inherit the normalized geometry;
-- practice bar now renders Comparação, Ajustes and Timeline as separate bordered chassis with fixed title areas;
-- blue identifies Comparação, teal identifies Ajustes and amber identifies Timeline;
-- action buttons inside each group inherit the same functional accent family;
-- regression coverage checks group containment and title-before-action geometry.
+- practice bar renders Comparação, Ajustes and Timeline as separate semantic chassis with fixed title areas and blue/teal/amber accents;
+- wide/narrow containment regressions and target-tablet geometry pass.
+
+## CI #632 transport incident
+#632 failed before Android compilation because the H21 source-part archive was corrupted during repository transport and failed gzip CRC/length validation. Source materialization was hardened without changing the intended H20/H21 product behavior; #633 then materialized and validated the complete source successfully.
 
 ## Release decision
-H20/H21 change product source, so #631 is retained as historical signed authority but is no longer the final physical candidate for these changes. One new exact-source manually dispatched full gate is required before a new APK can enter final physical homologation.
+H20/H21 are digitally homologated at #633. The remaining decision depends only on residual physical validation of real output enumeration/audibility/reconnect on SM-X230 + MK-300, the new visual hierarchy on the real tablet, and the retained recording/routing/listening smoke. If those pass with no further product/source changes, RC3 may proceed without another digital CI run.

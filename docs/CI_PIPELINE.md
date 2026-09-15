@@ -16,41 +16,38 @@ The pipeline has three authority layers:
 Canonical tail after H11b:
 `H12 engine → H12 UI → H13 → H14 → H14a → H15 → H16 → H17 → H18 → H19 → H18a → H20 → H21`.
 
-New tail files:
-- `.source-parts/H20PhysicalOutputCanonicalization.patch.gz`
-- `.source-parts/H21StudioVisualSystem.patch.gz`
+CI #632 exposed a transport corruption in the H21 source-part archive before compilation. The source materialization was hardened in exact source `2204e0272f9e6e2f218bebd36889db424e006e03`; CI #633 then materialized H20/H21 successfully and passed the complete gate.
 
-H20/H21 were validated against the exact materialized source emitted by CI #631. Forward application, reverse round-trip and `git diff --check` pass. The updated materializer passes `bash -n`.
-
-## Last signed authority — CI #631
-CI #631 / run `35025012392` / exact source `33fb05a504be2d047259b1d967e6ab1a7e48a68c` remains the authoritative signed DIGITAL PASS through H18/H18a/H19:
-- standard API36 **23/23 PASS**;
-- isolated 1920×1200 geometry **1/1 PASS**;
-- signed APK SHA-256 `61441b92e3065ba845d9f3e0ed6791d35d41975180a01bb21b612427b493c02d`;
+## Last signed authority — CI #633
+CI #633 / run `35033323990` / exact source `2204e0272f9e6e2f218bebd36889db424e006e03` is the authoritative signed DIGITAL PASS through H21:
+- software/unit/audio/DSP/persistence/migration/performance/Lint/build/provenance: PASS;
+- standard API36: **23/23 PASS**;
+- isolated 1920×1200 geometry: **1/1 PASS**;
+- signed homologation: PASS;
+- unsigned APK SHA-256 `58165dc53cacaf39357a1f28315b6312ada3ed2b6669b59e32ddbe8e4d53c25d`;
+- signed APK SHA-256 `f40b24cb36b4cb1299efcb28a35b54e66b107af2ec3d578a870c70e2966ff52e`;
 - certificate SHA-256 `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
 
 Do not flatten the API36 report to 24/24; use **23/23 standard + 1/1 isolated geometry**.
 
-## H20 next-gate requirements
-The next manual run must prove:
-- exact SM-X230-like built-in speaker duplicate policy tests pass;
-- USB H19 canonicalization tests remain green;
-- earpiece/Bluetooth/HDMI profile separation remains intact;
-- Android compilation/integration accepts built-in speaker family mapping and routed-device probing;
-- no routing regression appears in the existing recording/playback suite.
+## H20 evidence at #633
+Eight `StudioAudioRoutePolicyTest` cases passed, including:
+- built-in speaker logical endpoints collapse to one physical choice;
+- legacy built-in route migrates to the canonical route;
+- duplicate USB endpoints collapse correctly;
+- ordering does not affect compatibility ranking;
+- earpiece and built-in speaker remain distinct;
+- distinct USB addresses remain distinct routes.
 
-## H21 next-gate requirements
-The next manual run must prove:
-- all existing UI/instrumented regressions remain green;
-- target-tablet comparison controls stay fully contained;
-- Comparação/Ajustes/Timeline chassis do not overlap;
-- each group title remains before and distinct from its first actionable control;
-- narrow discoverability remains green;
-- global theme/geometry changes do not regress Home/Studio/Options navigation or touch targets;
-- isolated 1920×1200 geometry still passes.
+## H21 evidence at #633
+- materialization succeeds after the #632 transport hardening;
+- existing UI/instrumented regressions remain green;
+- target-tablet comparison controls remain contained;
+- narrow semantic groups remain visible;
+- isolated target-tablet geometry passes.
 
 ## Evidence boundary
-Until a new exact-source workflow passes, H20/H21 are PRE-GATE. CI #631 remains the last signed DIGITAL PASS but is not the final candidate for the new source changes.
+H20/H21 are DIGITAL PASS at #633. The remaining acceptance is physical only: real-route enumeration/audibility/reconnect on SM-X230 + MK-300 and human visual review of the new app-wide system.
 
 ## Artifact identity discipline
-Documentation-only commits never replace the exact source SHA that produced a signed APK. The next H20/H21 candidate must be identified by the exact product/source SHA dispatched by the user.
+Documentation-only commits after #633 do not replace the exact source SHA that produced the signed APK. The authoritative product/source SHA remains `2204e0272f9e6e2f218bebd36889db424e006e03`.
