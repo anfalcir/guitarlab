@@ -53,7 +53,7 @@ Requirements for the canonical CI path:
 - no materialization bypass in compile/test jobs;
 - API 36 first-tap/independent Trim-handle regression stays enabled;
 - waveform-selection tests stay enabled;
-- do not mask interaction failures by increasing timeout, using unmerged-tree test bypasses, or weakening assertions.
+- do not mask interaction failures by increasing timeout, using unmerged-tree test bypasses or weakening assertions.
 
 ## Artifacts
 Artifacts remain namespaced by `github.sha`: exact source snapshot, debug/software reports, unsigned candidate + identity, API36 reports/diagnostics, and signed APK + identity/checksums.
@@ -61,17 +61,27 @@ Artifacts remain namespaced by `github.sha`: exact source snapshot, debug/softwa
 ## Evidence history
 - CI #615: full signed pre-H0–H6 baseline PASS.
 - CI #616: H0–H6 digital PASS.
-- CI #617 / source `abc0e2a9f8708dd141735915898b508ce0948f48`: H0–H10 software + API36 + tablet geometry + signing PASS. Signed APK SHA-256 `7f0c303ccc447c5455dfbd49e1bc022af482927582254eb826c9b29f3a84c6b6`.
-- CI #618 / run `34922529980` / source `e00ae08b1ea3a1d7c5f630d54fd5fb2aec7da3d2`: software PASS; API 36 FAIL on the sole independent Trim-handle instrumentation; signing skipped. H11a removed a genuine deferred Trim-dispatch race.
-- CI #619 / run `34923582119` / source `a30a4a04a8ffef2820d8f51745cd172ac6cbba3a`: software PASS; H11 feature-specific integration tests PASS; API 36 FAIL on the same sole Trim-handle instrumentation; signing skipped. H11b isolates waveform-selection click semantics so TrimHandle descendants remain independent accessibility nodes.
+- CI #617 / source `abc0e2a9f8708dd141735915898b508ce0948f48`: H0–H10 software + API36 + tablet geometry + signing PASS.
+- CI #618 / run `34922529980` / source `e00ae08b1ea3a1d7c5f630d54fd5fb2aec7da3d2`: software PASS; API36 FAIL on the sole Trim-handle regression; signing skipped. H11a removed a genuine deferred Trim-dispatch race.
+- CI #619 / run `34923582119` / source `a30a4a04a8ffef2820d8f51745cd172ac6cbba3a`: software PASS; H11 feature-specific integration PASS; API36 FAIL on the same sole Trim-handle regression; signing skipped. H11b isolated waveform-selection semantics from the Trim subtree.
+- **CI #620 / run `34924500870` / source `faaeb0ee4f9e52fbdcf369d097fa773e96d104a7`: canonical H0–H11 PASS.** Software, API36, unchanged Trim regression, tablet geometry and signed homologation all passed.
 
-## Manual execution
-To create the corrected H11/H11a/H11b signed homologation candidate:
-1. GitHub → Actions → **GuitarLab Android CI**.
-2. Run workflow on branch `main` only after source/docs consolidation.
-3. Enable `signed_homologation=true`.
-4. Confirm all three jobs PASS.
-5. Confirm run `head_sha` equals the intended final `main` HEAD.
-6. Verify APK/`SHA256SUMS.txt`/`BUILD_IDENTITY.txt` package, version, source SHA and signer all agree.
+## CI #620 signed identity
+- artifact: `GuitarLabStudio-0.5.0-rc3-homologacao`, artifact ID `10380000533`;
+- package: `studio.guitarlab.app`;
+- versionName: `0.5.0-rc3`;
+- versionCode: `23`;
+- source SHA: `faaeb0ee4f9e52fbdcf369d097fa773e96d104a7`;
+- unsigned APK SHA-256: `14c4862371871cf6db85548bd6abc3405cdfcd278d726a5a9f097d533183bafd`;
+- signed APK SHA-256: `acbe61b006aa4abe8b3063faf35b4a9569ed55aaf7f1a2ca3e1726c927855b3c`;
+- APK Signature Scheme v2: true;
+- signers: 1;
+- key: RSA 4096;
+- certificate SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
 
-Do not rerun #618/#619 as evidence for H11b and do not dispatch CI automatically.
+The signed artifact downloaded from #620 was independently SHA-256 hashed after download and matched its published `SHA256SUMS.txt`.
+
+## Current execution policy
+No additional workflow is required merely because documentation was updated after #620. The application candidate remains the exact source SHA above until application/source/test/materializer code changes again.
+
+Future signed candidates continue to require manual dispatch by the user. Do not dispatch or rerun CI automatically.
