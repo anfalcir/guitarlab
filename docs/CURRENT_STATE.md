@@ -52,6 +52,7 @@ Automated acceptance extends `MixerDockInstrumentedTest`: a 10-track Mixer is sw
 - Returning Home/Options → the same Studio no longer clears state, publishes an unnecessary `loading=true`, reloads the repository, rebuilds waveform/history state, or visually renders a transient second Studio state.
 - Transport/recording safety is still normalized appropriately before the early return.
 - Undo history and the resident project object are preserved across the same-project return.
+- The in-app `Ajuda` is synchronized with H12 global levels, H13 timeline T1/T2 presentation and H14 Mixer horizontal scrolling.
 
 Automated acceptance extends `GuitarLabLifecycleInstrumentedTest` and verifies same-object residency plus retained Undo capability.
 
@@ -61,16 +62,16 @@ Physical Review IV materialization order:
 2. `.source-parts/H12LevelUi.patch`
 3. `.source-parts/H13TrimRuler.patch`
 4. `.source-parts/H14MixerHorizontalScroll.patch`
-5. `.source-parts/H15ResidentStudioReturn.patch`
+5. `.source-parts/H15ResidentStudioReturn.patch` (includes in-app guide synchronization)
 
-The five patches were serially dry-run/applied against the exact materialized #620 source artifact. `git diff --check` passed and the final materialized tree matched the independently developed H12→H15 tree byte-for-byte for every changed/new source/test file.
+The five patches were serially dry-run/applied against the exact materialized #620 source artifact. `git diff --check` passed and the final materialized tree matched the independently developed H12→H15 tree byte-for-byte for every changed/new source/test/help file.
 
 Patch SHA-256 evidence:
 - H12 engine: `39c6a42bca192b1e6a829bd52c46ddb7e546d7cad09500d850e257dec57bc37c`
 - H12 UI: `db9a7e448a22f79e8be22b9b795d4a4008bd92b4bff9754ad640eb957895308d`
 - H13: `4fd47e9d55de072be9ccfbc64361f3e87f9e38d68aa57a76a5084085bce399b0`
 - H14: `af3bf0808a5724f8aab3f6f17dec15b041591871ae26e51283d85a03a28a3e43`
-- H15: `d42c8822319ba5f46f6f62c1fdc973074b0478215df998488dff0e6bcb951772`
+- H15: `79e4a98f996f86cb2c0916f1c152ef8a34529e369f7db1622ea4a5a7f427a1c9`
 
 ## Milestone state
 - M2–M6: PASS/CLOSED.
