@@ -40,13 +40,14 @@ Runs only when `signed_homologation=true` and both mandatory upstream gates pass
 `.source-parts/` plus `scripts/materialize_ci_sources.sh` are part of the build contract.
 
 Canonical hardening order:
-`H1 trim → H2 lineage/delete → H3 drag transaction → H4 timing → H5 waveform → H6 integrated regression/guide → H7 state/level/transport → H8 workspace flow → H9 waveform spatial stability → H10 race closure/guide → H11 mixer/waveform/metering → H11a synchronous Trim entry → H11b waveform-selection semantics isolation → H12 all-track levels → H13 Trim ruler → H14 Mixer overflow → H15 resident Studio return`.
+`H1 trim → H2 lineage/delete → H3 drag transaction → H4 timing → H5 waveform → H6 integrated regression/guide → H7 state/level/transport → H8 workspace flow → H9 waveform spatial stability → H10 race closure/guide → H11 mixer/waveform/metering → H11a synchronous Trim entry → H11b waveform-selection semantics isolation → H12 all-track levels → H13 Trim ruler → H14 Mixer overflow → H14a viewport-safe swipe regression → H15 resident Studio return`.
 
 Physical Review IV source parts, in required order:
 - `.source-parts/H12LevelEngine.patch`
 - `.source-parts/H12LevelUi.patch`
 - `.source-parts/H13TrimRuler.patch`
 - `.source-parts/H14MixerHorizontalScroll.patch`
+- `.source-parts/H14aMixerScrollViewportRegression.patch`
 - `.source-parts/H15ResidentStudioReturn.patch`
 
 Requirements for the canonical CI path:
@@ -56,7 +57,7 @@ Requirements for the canonical CI path:
 - API36 first-tap/independent Trim-handle regression stays enabled;
 - H12 all-track level modal regression stays enabled;
 - H13 fixed Trim-ruler markers stay enabled;
-- H14 overflow swipe + fixed MASTER regression stays enabled;
+- H14/H14a overflow physical-swipe + fixed MASTER regression stays enabled and is viewport-independent;
 - H15 same-project lifecycle/resident-state regression stays enabled;
 - waveform-selection and H11 feature tests stay enabled;
 - do not mask interaction failures by increasing timeout, using unmerged-tree bypasses or weakening assertions.
@@ -71,6 +72,7 @@ Artifacts remain namespaced by `github.sha`: exact source snapshot, debug/softwa
 - CI #618 / source `e00ae08b1ea3a1d7c5f630d54fd5fb2aec7da3d2`: diagnostic software PASS / API36 FAIL / signing skipped.
 - CI #619 / source `a30a4a04a8ffef2820d8f51745cd172ac6cbba3a`: diagnostic software PASS / API36 FAIL / signing skipped.
 - **CI #620 / run `34924500870` / source `faaeb0ee4f9e52fbdcf369d097fa773e96d104a7`: canonical H0–H11 PASS.** Software, API36, unchanged Trim regression, tablet geometry and signed homologation all passed.
+- **CI #621 / run `34998393778` / source `afecde0efd4d22e58115eaedadf60eea0eb3615c`: Physical Review IV diagnostic.** Software/Lint/build/provenance PASS; API36 21/22 PASS with the only failure in the H14 overflow regression because it assumed four swipes suffice on every viewport; signing skipped. H14a removes that viewport assumption while preserving real swipe and fixed-MASTER assertions.
 
 ## CI #620 signed identity
 - artifact: `GuitarLabStudio-0.5.0-rc3-homologacao`, artifact ID `10380000533`;
@@ -91,7 +93,7 @@ H12–H15 were developed against the exact materialized source artifact emitted 
 This proves patch-chain consistency only. It does **not** replace Android compilation, Lint, emulator regression, tablet geometry or signing; therefore H12–H15 remain PRE-GATE until the next canonical manual workflow.
 
 ## Next manual execution
-After H12–H15 are consolidated on `main`:
+After H12–H15 plus H14a are consolidated on `main`:
 1. GitHub → Actions → **GuitarLab Android CI**.
 2. Select `main`.
 3. Set `signed_homologation=true`.

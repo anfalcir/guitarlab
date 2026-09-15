@@ -44,6 +44,21 @@ Implementation contracts:
 
 Regression extension: `MixerDockInstrumentedTest` creates 10 strips, swipes to the final strip and asserts fixed MASTER left/right bounds.
 
+### CI #621 diagnostic and H14a correction
+CI #621 / run `34998393778` / source `afecde0efd4d22e58115eaedadf60eea0eb3615c` passed the complete software gate and failed exactly one of 22 API36 tests: the H14 overflow regression. Signed homologation was correctly skipped.
+
+The product implementation was not the failed assertion: the regression hard-coded `repeat(4)` swipes. On the default Pixel 7 emulator the fixed 198dp MASTER plus dock spacing leaves a much narrower track viewport than the target tablet, so four swipes cannot traverse ten 184dp strips.
+
+H14a makes the regression viewport-independent without weakening the interaction contract:
+- still performs real `swipeLeft` gestures on `mixer-track-scroll`;
+- after each gesture, checks whether the final strip is composed and intersects the actual scroller bounds;
+- uses a bounded 20-gesture safety ceiling rather than a fixed success count;
+- keeps exact MASTER left/right bounds assertions;
+- does not use `scrollToItem`, timeout inflation, unmerged-tree bypass or assertion removal.
+
+H14a patch SHA-256: `eb347d29e3bdfa61af6da984d85d985ec0871bc8165ce6961a4043fdbb03c658`.
+Final expected `MixerDockInstrumentedTest.kt` blob after H14a: `5aa984d00035ee259cce21f9cc8717c2f5f759af`.
+
 ## H15 — resident Studio return + help synchronization
 Implementation contracts:
 - same project already resident + not loading => no repository reload and no temporary `loading=true` publication;
@@ -60,13 +75,15 @@ Required order after H11b:
 2. `H12LevelUi.patch`
 3. `H13TrimRuler.patch`
 4. `H14MixerHorizontalScroll.patch`
-5. `H15ResidentStudioReturn.patch` — resident return plus in-app guide synchronization
+5. `H14aMixerScrollViewportRegression.patch` — #621 viewport-safe physical-swipe test correction
+6. `H15ResidentStudioReturn.patch` — resident return plus in-app guide synchronization
 
 Patch SHA-256:
 - `H12LevelEngine.patch`: `39c6a42bca192b1e6a829bd52c46ddb7e546d7cad09500d850e257dec57bc37c`
 - `H12LevelUi.patch`: `db9a7e448a22f79e8be22b9b795d4a4008bd92b4bff9754ad640eb957895308d`
 - `H13TrimRuler.patch`: `4fd47e9d55de072be9ccfbc64361f3e87f9e38d68aa57a76a5084085bce399b0`
 - `H14MixerHorizontalScroll.patch`: `af3bf0808a5724f8aab3f6f17dec15b041591871ae26e51283d85a03a28a3e43`
+- `H14aMixerScrollViewportRegression.patch`: `eb347d29e3bdfa61af6da984d85d985ec0871bc8165ce6961a4043fdbb03c658`
 - `H15ResidentStudioReturn.patch`: `79e4a98f996f86cb2c0916f1c152ef8a34529e369f7db1622ea4a5a7f427a1c9`
 
 ## Source-validation evidence
@@ -82,7 +99,7 @@ Validation performed before repository consolidation:
 Final expected materialized blobs for the changed/new application/test/help files:
 - `AllTracksLevelDialogInstrumentedTest.kt`: `a8bdf73b58b8aa42170fc9254b48b9edcde3a9fa`
 - `GuitarLabLifecycleInstrumentedTest.kt`: `28a49b2b81baf9f86cff59de18e0b15973285986`
-- `MixerDockInstrumentedTest.kt`: `ec0380f23a343dea9b2c53f441060cc1cece3a89`
+- `MixerDockInstrumentedTest.kt`: `5aa984d00035ee259cce21f9cc8717c2f5f759af` (after H14a)
 - `PhysicalEditingHardeningInstrumentedTest.kt`: `66c5bf83b43e5f7d806c0d06a21f5fffded95113`
 - `AllTracksLevelDialog.kt`: `2a4b2abfb3b8753f6e466b801b56eaee4b449aec`
 - `MixerDock.kt`: `14fb1c2c215e7e320c14cfb7a73feeefb2d19ac2`
@@ -92,7 +109,7 @@ Final expected materialized blobs for the changed/new application/test/help file
 - `StudioUserGuideDialog.kt`: `70d6ff6678ee15a8445f7b4b3850697de25d6b99`
 
 ## Evidence boundary / closure
-H12–H15 status is **IMPLEMENTED / SOURCE-VALIDATED / PRE-GATE**.
+H12–H15 are implemented; CI #621 proved the complete software gate and all API36 tests except the viewport-assuming H14 regression. H14a is **SOURCE-VALIDATED / PRE-GATE** and requires a new exact-source run.
 
 They become DIGITAL PASS only when a new manually dispatched canonical workflow on the final `main` SHA passes software/Lint/build, API36 full regression, isolated tablet geometry and signed homologation with matching source/package/version/signer/checksums.
 

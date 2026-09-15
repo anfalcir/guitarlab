@@ -13,9 +13,15 @@ Updated: 2026-09-15
 - `.github/workflows/android-ci.yml` remains manual-only. Maintenance/documentation commits use `[skip ci]`.
 
 ## Evidence boundary
-CI #620 remains the authoritative DIGITAL PASS through H11/H11a/H11b. Physical Review IV (H12–H15) is newer application/test/materializer work and is **IMPLEMENTED / SOURCE-VALIDATED / PRE-GATE** until a new user-dispatched canonical workflow passes.
+CI #620 remains the authoritative signed DIGITAL PASS through H11/H11a/H11b. Physical Review IV (H12–H15 + H14a) is newer application/test/materializer work and remains **PRE-GATE** until a new user-dispatched canonical workflow passes.
 
-CI #618 and #619 remain diagnostic history only. #620 superseded both and passed software, API36 full connected regression, tablet geometry and signed homologation on exact source `faaeb0ee4f9e52fbdcf369d097fa773e96d104a7`.
+CI #621 / run ID `34998393778` / source `afecde0efd4d22e58115eaedadf60eea0eb3615c` is diagnostic evidence for Physical Review IV:
+- software/unit/performance/Lint/debug+release/provenance: **PASS**;
+- API 36 connected regression: **21/22 PASS, 1 FAIL**;
+- sole failure: `MixerDockInstrumentedTest.overflowingTracksSwipeHorizontallyWhileMasterRemainsAnchored`;
+- signed homologation: correctly **SKIPPED** because API 36 was red.
+
+The #621 failure did not expose an H12/H13/H15 product defect. The H14 test hard-coded four swipes, which is insufficient on the narrow default Pixel 7 emulator viewport even though the track region is a valid `LazyRow`. H14a corrects the regression to remain a real physical-swipe test while becoming viewport-independent.
 
 ## Physical Review IV — H12–H15 — IMPLEMENTED / PRE-GATE
 The #620 APK physical review exposed four polish gaps. They are now implemented as ordered source parts after H11b.
@@ -47,6 +53,8 @@ Automated acceptance extends `PhysicalEditingHardeningInstrumentedTest` with `ti
 
 Automated acceptance extends `MixerDockInstrumentedTest`: a 10-track Mixer is swiped to the last strip while the MASTER left/right bounds must remain unchanged.
 
+**#621 diagnostic:** the original regression incorrectly assumed four swipes were sufficient on every viewport. H14a now performs repeated physical left swipes (bounded to 20 attempts), detects when the final strip actually intersects the scroller viewport, and still asserts invariant MASTER geometry. No programmatic `scrollToItem`, timeout inflation or assertion removal is used.
+
 ### H15 — resident Studio return without double-load flash
 - `StudioViewModel.load(projectId)` is now idempotent when the same project is already resident in the Activity-scoped ViewModel.
 - Returning Home/Options → the same Studio no longer clears state, publishes an unnecessary `loading=true`, reloads the repository, rebuilds waveform/history state, or visually renders a transient second Studio state.
@@ -62,7 +70,8 @@ Physical Review IV materialization order:
 2. `.source-parts/H12LevelUi.patch`
 3. `.source-parts/H13TrimRuler.patch`
 4. `.source-parts/H14MixerHorizontalScroll.patch`
-5. `.source-parts/H15ResidentStudioReturn.patch` (includes in-app guide synchronization)
+5. `.source-parts/H14aMixerScrollViewportRegression.patch`
+6. `.source-parts/H15ResidentStudioReturn.patch` (includes in-app guide synchronization)
 
 The five patches were serially dry-run/applied against the exact materialized #620 source artifact. `git diff --check` passed and the final materialized tree matched the independently developed H12→H15 tree byte-for-byte for every changed/new source/test/help file.
 
@@ -71,12 +80,13 @@ Patch SHA-256 evidence:
 - H12 UI: `db9a7e448a22f79e8be22b9b795d4a4008bd92b4bff9754ad640eb957895308d`
 - H13: `4fd47e9d55de072be9ccfbc64361f3e87f9e38d68aa57a76a5084085bce399b0`
 - H14: `af3bf0808a5724f8aab3f6f17dec15b041591871ae26e51283d85a03a28a3e43`
+- H14a: `eb347d29e3bdfa61af6da984d85d985ec0871bc8165ce6961a4043fdbb03c658`
 - H15: `79e4a98f996f86cb2c0916f1c152ef8a34529e369f7db1622ea4a5a7f427a1c9`
 
 ## Milestone state
 - M2–M6: PASS/CLOSED.
-- M7: #620 is the last digitally homologated baseline; H12–H15 are active PRE-GATE refinements from physical review.
-- M8: H0–H11 DIGITAL PASS; H12–H15 IMPLEMENTED / SOURCE-VALIDATED / PRE-GATE.
+- M7: #620 is the last digitally homologated baseline; H12–H15 + H14a are active PRE-GATE refinements from physical review.
+- M8: H0–H11 DIGITAL PASS; H12–H15 implemented; #621 software PASS/API36 diagnostic FAIL; H14a SOURCE-VALIDATED / PRE-GATE.
 
 ## Next authoritative gate
 After H12–H15 source parts, materializer and documentation are consolidated on `main`, the user must manually dispatch one new `GuitarLab Android CI` with `signed_homologation=true` on that exact `main` SHA.

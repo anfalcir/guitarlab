@@ -20,7 +20,7 @@ Closed after explicit physical approval.
 ## M6 — Measured latency and synchronization — PASS/CLOSED
 Closed after explicit physical approval. Later timing work hardens per-session startup behavior without reopening M6.
 
-## M7 — Production audio polish — DIGITAL PASS THROUGH H11 / H12–H15 PRE-GATE
+## M7 — Production audio polish — DIGITAL PASS THROUGH H11 / H12–H15+H14a PRE-GATE
 Managed media, SRC/editing domain, fades/crossfades, transactional recording/recovery, fail-closed input, monitoring isolation, takes, practice controls, level analysis, live REC waveform, Mixer/selection/metering refinements and project/master export are implemented.
 
 CI #620 is the authoritative active DIGITAL PASS through H11. Physical Review IV adds H12–H15 and requires one new exact-source gate.
@@ -60,6 +60,22 @@ Candidate #620 identity:
 - MASTER remains outside the scroll container and fixed at the right edge;
 - regression swipes a 10-track Mixer to the final track and asserts invariant MASTER bounds.
 
+### CI #621 — diagnostic Physical Review IV failure
+Run ID `34998393778`, source `afecde0efd4d22e58115eaedadf60eea0eb3615c`:
+- software/unit/performance/Lint/build/provenance: **PASS**;
+- API 36: **21/22 PASS**;
+- sole failure: `MixerDockInstrumentedTest.overflowingTracksSwipeHorizontallyWhileMasterRemainsAnchored`;
+- signed homologation: skipped by the mandatory upstream gate.
+
+The failure came from the regression assuming four swipes were enough on every viewport. H12 all-track levels, H13 Trim ruler and H15 resident same-project return did not fail.
+
+### H14a — viewport-independent physical swipe regression — IMPLEMENTED / PRE-GATE
+- retains real `swipeLeft` gestures on the Mixer track scroller;
+- checks after each gesture whether the final strip is composed and intersects the actual scroller viewport;
+- uses a bounded 20-gesture safety ceiling instead of a fixed successful swipe count;
+- keeps strict MASTER left/right geometry assertions;
+- does not use `scrollToItem`, timeout inflation or weakened assertions.
+
 ### H15 — resident Studio navigation return — IMPLEMENTED / PRE-GATE
 - same-project `StudioViewModel.load()` returns from resident state rather than publishing `loading=true` and reloading;
 - Home/Options → same Studio preserves resident project/history and avoids the observed double-render flash;
@@ -67,13 +83,14 @@ Candidate #620 identity:
 - in-app `Ajuda` is synchronized for the H12–H14 user-facing workflows.
 
 ## Physical Review IV source-validation evidence
-All H12→H15 patches were applied serially against the exact #620 materialized source artifact. Patch dry-run/application succeeded, `git diff --check` passed, and the resulting changed/new source/test/help files matched the independently developed final tree byte-for-byte.
+H12→H15 were applied serially against the exact #620 materialized source artifact; H14a was then validated against the exact #621 materialized source artifact. Patch dry-run/application succeeded, `git diff --check` passed, and the resulting changed/new source/test/help files matched the independently developed final tree byte-for-byte.
 
 Patch SHA-256:
 - H12 engine `39c6a42bca192b1e6a829bd52c46ddb7e546d7cad09500d850e257dec57bc37c`
 - H12 UI `db9a7e448a22f79e8be22b9b795d4a4008bd92b4bff9754ad640eb957895308d`
 - H13 `4fd47e9d55de072be9ccfbc64361f3e87f9e38d68aa57a76a5084085bce399b0`
 - H14 `af3bf0808a5724f8aab3f6f17dec15b041591871ae26e51283d85a03a28a3e43`
+- H14a `eb347d29e3bdfa61af6da984d85d985ec0871bc8165ce6961a4043fdbb03c658`
 - H15 `79e4a98f996f86cb2c0916f1c152ef8a34529e369f7db1622ea4a5a7f427a1c9`
 
 ## Next acceptance gate
@@ -81,10 +98,10 @@ After final consolidation on `main`, manually dispatch `GuitarLab Android CI` wi
 1. complete JVM/unit regression;
 2. performance evidence;
 3. Android Lint and debug/release assembly;
-4. API36 full connected regression, including H12/H13/H14/H15 and retained H11 Trim contracts;
+4. API36 full connected regression, including H12/H13/H14/H14a/H15 and retained H11 Trim contracts;
 5. isolated 1920×1200 geometry;
 6. signed homologation;
 7. exact source/package/version/signer/checksum provenance.
 
 ## Gate discipline
-`.github/workflows/android-ci.yml` remains manual-only. No assistant-triggered dispatch or rerun. H12–H15 are not DIGITAL PASS until that new user-dispatched exact-source workflow succeeds.
+`.github/workflows/android-ci.yml` remains manual-only. No assistant-triggered dispatch or rerun. H12–H15/H14a are not DIGITAL PASS until that new user-dispatched exact-source workflow succeeds.
