@@ -3,50 +3,49 @@
 Updated: 2026-09-15
 
 ## Scope
-This audit records the final post-CI-#617 interaction/metering refinement. It does not invalidate the #617 evidence through H10; it defines the exact H11 delta that requires a new exact-source gate.
+This audit records the post-CI-#617 interaction/metering refinement and the CI #618 failure/fix loop. It does not invalidate #617 evidence through H10.
 
 ## Evidence boundary
 - CI #617 / source `abc0e2a9f8708dd141735915898b508ce0948f48`: authoritative H0–H10 DIGITAL PASS.
-- H11: IMPLEMENTED / SOURCE-VALIDATED / PRE-GATE.
-- The #617 signed APK must not be cited as evidence for H11 behavior.
+- H11/H11a: IMPLEMENTED / SOURCE-VALIDATED / PRE-GATE.
+- CI #618 / run ID `34922529980` / source `e00ae08b1ea3a1d7c5f630d54fd5fb2aec7da3d2`: software gate PASS, API 36 integration FAIL, signed homologation correctly skipped.
 
 ## Requested H11 behavior
-1. Mixer dock header becomes a visually segmented practice bar, not a title row with controls inserted into it.
+1. Mixer dock header becomes a visually segmented practice bar.
 2. Redundant dock title `Mixer`, Pin and X are removed.
-3. Top-bar Mixer action becomes the single persistent open/close toggle.
+3. Top-bar Mixer action is the single persistent open/close toggle.
 4. Comparação and Timeline occupy equal horizontal segments with restrained near-square button rounding.
 5. Tapping waveform/audio content selects the corresponding track.
 6. The actively recorded track exposes real-time Peak and RMS during REC.
 
 ## Source representation
 - `.source-parts/H11MixerWaveformMetering.patch.gz`
-- `scripts/materialize_ci_sources.sh` applies H11 after H7–H10.
+- `.source-parts/H11TrimEntryRaceFix.patch`
+- `scripts/materialize_ci_sources.sh` applies H11 then H11a after H7–H10.
 
-H11 source-part SHA-256 before publication: `c483c7a08af0f34bdd63a8b22fb11bd33e7ba10f034e2e1d7fde484c9dd56dbc`.
-Decoded H11 patch SHA-256: `f956f87e4f4e12850fbf527bce4b0d6b036e1a37c9ce07150b89bee8d7e74f7d`.
-
-## H11 automated contracts added
+## H11 automated contracts
 - recording Peak/RMS projection updates only the recording target and preserves unrelated meter entries;
 - two docked practice segments have equal geometry;
 - waveform/audio area tap selects the corresponding track;
 - Mixer visibility persists across preference-store recreation;
 - existing Mixer behavior tests are adapted to removal of Pin/X/title ownership.
 
-## Pre-gate validation
-- pure recording-meter policy harness: PASS;
-- H11 patch applies cleanly to the exact #617 materialized source;
-- H11 patch reverse-match succeeds after application;
-- result reproduces the exact expected `app/` tree;
-- `git diff --check`: PASS.
+## CI #618 diagnosis
+All software-side gates passed. The only failed instrumentation was `PhysicalEditingHardeningInstrumentedTest.trimHandlesAreIndependentlyDraggableAndClipDeleteRequiresConfirmation`, which timed out waiting for `trim-start-handle`/`trim-end-handle` after one `Cortar` click.
 
-A broader historical materializer re-entry limitation exists in old early RC3 guards when the script is rerun against an already fully materialized later snapshot; H11 does not introduce that limitation. H11's own terminal source-part is independently forward/reverse guarded, while the canonical CI path materializes once from repository state. Any future global materializer-idempotence refactor must preserve the currently proven one-pass CI contract.
+Root cause: the H8 first-tap implementation still dispatched Trim indirectly through `pendingTrimClipId` plus `LaunchedEffect` after DropdownMenu dismissal. That local Compose state handoff is race-prone and can miss the effective transition under instrumentation.
 
-## Documents synchronized
-- `CURRENT_STATE.md`
-- `IMPLEMENTATION_ROADMAP.md`
-- `RC3_FINAL_PHYSICAL_HOMOLOGATION.md`
-- `RELEASE_NOTES_0.5.0-rc3.md`
-- this audit
+## H11a correction
+H11a removes the deferred state/effect bridge and invokes `onBeginTrim(clip.id)` synchronously in the same `Cortar` click callback after setting `clipMenuExpanded = false`.
+
+The failing CI test is intentionally kept unchanged as the regression gate. No timeout was increased and no assertion was weakened.
+
+## Validation before next CI
+- H11 software/unit/Lint/build gate already PASS in #618;
+- H11a patch is minimal and limited to the Trim menu dispatch path;
+- patch applies cleanly against the H11 materialized `StudioPlaceholderScreen.kt`;
+- `git diff --check` PASS locally;
+- the existing first-tap instrumentation remains the authoritative acceptance test for this correction.
 
 ## Closure criteria
-H11 moves to DIGITAL PASS only when one manually dispatched canonical workflow on the final `main` HEAD passes software, Android integration/geometry and signed homologation with matching package/version/source/signer/checksum. After that, only real-device visual ergonomics, persistent toggle feel, live MK-300 metering plausibility and the retained physical smoke remain.
+H11/H11a moves to DIGITAL PASS only after a new manually dispatched workflow on the corrected final `main` SHA passes software, API 36 integration/geometry and signed homologation with matching package/version/source/signer/checksum.
