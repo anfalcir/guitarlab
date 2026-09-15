@@ -1,125 +1,123 @@
-# RC3 physical-review hardening plan — editing, drag/drop and recording sync
+# RC3 physical-review hardening — editing, drag/drop and recording sync
 
 Updated: 2026-09-14
 
 ## Objective
+Treat the latest physical findings as an end-to-end workflow review, not isolated UI fixes. The target is one hardened editing/recording flow whose domain invariants, Android audio timing, persistence, Undo/Redo, gestures, accessibility and failure handling agree before the next physical candidate is promoted.
 
-Treat the latest physical findings as an end-to-end workflow review, not isolated UI fixes. The target is a single hardened editing/recording flow whose domain invariants, Android audio timing, persistence, Undo/Redo, gestures, accessibility and failure handling agree with each other before the next physical candidate is produced.
+## Evidence baseline and current status
+- CI #614 failed only because a new Compose test used `assertDoesNotExist`, unavailable in the project's current test API. That compatibility defect was corrected independently.
+- CI #615 then passed the complete canonical matrix at `74bf86efbec94d249c4968c3284bf1985cd66b44`, including software, API 36, 1920×1200 geometry and signed homologation.
+- The current source advanced after #615 with the H0–H6 hardening below.
+- H0–H6 are **IMPLEMENTED / PRE-GATE**. This means source/materialization/tests/documentation are implemented and reviewed, but the current HEAD is not digitally homologated until a new exact-source manual workflow passes.
 
-The latest failed CI run is a separate release-engineering defect: run #614 reached the API 36 gate but failed while compiling `AutoSectionsSlotInstrumentedTest` because the current Compose test API does not expose `assertDoesNotExist`. That compatibility problem is fixed independently and must remain separate from the functional hardening below.
+## Root-cause findings from physical use
+1. **Trim acquisition:** the old full-card `RangeSlider` did not expose independent, deterministic handle targets suitable for target-tablet gesture testing.
+2. **Clip deletion:** domain/ViewModel removal capability existed, but clip-level deletion was not exposed coherently in lane UX.
+3. **Split → move failure:** split siblings shared one `takeId`; moving a child could remove the referenced `RecordingTake`, leaving a sibling with a dangling reference and causing repository validation/save failure.
+4. **Recording delay:** capture and backing startup were not represented by one session synchronization record. Route calibration alone could not distinguish per-session startup skew.
+5. **Live waveform drift:** callback-count-based peaks plus pairwise compaction and one UI coroutine per audio read destroyed a stable timebase and could create queued catch-up animation.
 
-## Source-level findings from the physical reports
+## Serial implementation record
+### H0 — reproduction contracts and invariants — IMPLEMENTED / PRE-GATE
+Added/expanded deterministic fixtures and regression contracts for:
+- recorded takes with split siblings sharing lineage;
+- split → move/delete → save/reopen;
+- trim geometry/handle acquisition;
+- independent capture/backing timing inputs;
+- long live-waveform runs with variable captured-frame cadence.
 
-1. **Trim handles need a gesture-level redesign, not only a larger visual.** The current trim UI is a `RangeSlider` stretched over the waveform, with time bubbles layered in the same box. There is no dedicated per-handle semantic/test target and no instrumented drag test proving that each edge can be acquired reliably on the target tablet geometry.
-2. **Single-clip deletion already exists in the domain/ViewModel but is not exposed in the lane UI.** `removeClip()` is wired into `StudioTrackLane`, but the current clip menu never invokes that callback. The only destructive command exposed there is `Limpar pista`.
-3. **The reported split → drag-to-empty-track error has a concrete take-lineage hazard.** A split copy inherits the same `takeId`. `moveClipToTrack()` currently detaches the moved clip and unconditionally removes the referenced `RecordingTake`; any sibling split segment still carrying that `takeId` then becomes invalid and repository validation can reject the save. This path must be redesigned as a take/clip lineage transaction rather than patched at the UI layer.
-4. **Recording start is not driven by one shared audio clock.** `AudioRecord` is started first; only after `onStarted` reaches the ViewModel is backing playback started. Placement compensation then uses only a previously accepted route calibration, if one exists. There is no per-session measurement of capture-start versus backing presentation-start. A route/startup skew can therefore become silence at the beginning of the take and present as a late guitar on playback.
-5. **The live waveform has two independent timebase risks.** One peak is appended per `AudioRecord` read callback, while old points are pairwise compacted after the bounded list fills; the renderer later assumes all points are uniformly spaced in time. In addition, every audio callback launches a main-thread coroutine, so UI updates can queue and later catch up in bursts. Both behaviors can produce the observed acceleration/compression effect during longer REC sessions.
+Gate rule remains: each physical defect should have a deterministic regression or measurable invariant whenever hardware is not genuinely required.
 
-## Serial implementation plan
+### H1 — trim interaction hardening — IMPLEMENTED / PRE-GATE
+- Replaced reliance on opaque full-card slider acquisition with independent start/end handles.
+- Handles have separate semantics/test identity and ergonomic touch targets.
+- Pointer X is converted to timeline frames by one pure policy and clamped against opposite handle/source bounds.
+- Time bubbles are passive visuals, not gesture owners.
+- Trim remains non-destructive, metadata-only and Undo/Redo compatible.
 
-### H0 — Reproduction contracts and invariants
+Acceptance after CI/physical gate: both handles repeatedly acquire on target geometry; close handles do not swap ownership unexpectedly; save/reopen preserves the result.
 
-Before changing behavior, add deterministic regressions for each reported path.
+### H2 — clip lifecycle, split lineage and deletion — IMPLEMENTED / PRE-GATE
+- Split children may share one recording-take lineage safely.
+- Moving/deleting one child detaches only that segment.
+- If the canonical `RecordingTake.clipId` leaves, a surviving sibling is promoted deterministically.
+- The take is removed only when no child still references it; active-take fallback is reconciled deterministically.
+- Shared immutable source/proxy media is not deleted while still referenced.
+- Added explicit confirmed `Excluir clipe` as a non-drag/accessibility path.
 
-- Create recorded-take fixtures with one clip, split clips sharing a take lineage, inactive/active alternate takes, and shared managed media.
-- Reproduce and lock down `split → move one segment → save/reopen` and `split → delete one segment → save/reopen`.
-- Add trim gesture instrumentation at the exact tablet geometry, including start handle, end handle, close handles, minimum-width clip and long clip.
-- Add a fake recording-session timing model with independently controllable capture-start, playback-start, output latency and input latency.
-- Add long live-waveform simulations with variable input chunk sizes and delayed/conflated UI consumers.
+Acceptance after CI/physical gate: split → move, split → delete left/right, canonical-child deletion, Undo/Redo and save/reopen produce no dangling take/media references.
 
-Gate: every issue must first have a failing automated test or a measurable invariant, except behavior that genuinely requires MK300 hardware.
+### H3 — drag/drop transaction hardening — IMPLEMENTED / PRE-GATE
+- Drop resolution is explicit: `Move`, `Delete` or `NoOp`.
+- Drag start snapshots clip/track identity; state is revalidated before commit.
+- Drag-to-trash appears only while a clip is dragged and enters the same confirmation/domain deletion path as `Excluir clipe`.
+- Same-origin/cancel/invalid drop is a no-op.
+- Failed/stale drop is designed to avoid partial project/history/media/cache mutation.
 
-### H1 — Trim interaction hardening
+Acceptance after CI/physical gate: valid split-child migration to an empty compatible track succeeds; trash confirmation deletes only the selected segment; no raw repository-validation toast is reachable from a valid gesture.
 
-Replace reliance on an opaque full-card `RangeSlider` gesture surface with explicit trim-handle interaction.
+### H4 — recording synchronization and latency architecture — IMPLEMENTED / PRE-GATE
+No hard-coded `-0.5 s` correction is used.
 
-- Two independent handles with minimum 48 dp touch targets, deterministic z-order and separate test tags/semantics.
-- Convert pointer X directly into timeline frames through one pure policy; clamp start/end against each other and immutable source bounds.
-- Keep time bubbles visual/passive so they cannot steal handle gestures.
-- Preserve non-destructive trim semantics, Undo/Redo and source provenance.
-- Support fine dragging when the two handles are close without swapping ownership unexpectedly.
+- Introduced session timing evidence for capture/backing startup.
+- Recording/playback engines expose trustworthy Android timestamp/monotonic evidence where available, with bounded fallback.
+- Session startup skew, accepted route latency and punch/pre-roll offsets are modeled separately.
+- Compensation components are combined exactly once to prevent double correction.
+- Final placement/trim is frame-domain and clamped to timeline/source bounds.
+- Route-scoped calibration remains distinct from volatile per-session startup timing.
 
-Acceptance: both handles can be grabbed repeatedly on the target geometry; no gesture conflict with clip drag, playhead or scrolling; trim remains valid after save/reopen/undo/redo.
+Acceptance after CI: fake timing inputs with known skew/latency must land within bounded frame tolerance and no component may be applied twice.
 
-### H2 — Clip lifecycle, split lineage and deletion
+Residual physical acceptance: one MK-300 guitar-against-backing synchronization check confirms the measured result.
 
-Make a clip segment a first-class editable object.
+### H5 — live REC waveform timebase rewrite — IMPLEMENTED / PRE-GATE
+- Replaced callback-count timebase with frame-span envelope points.
+- Each point records explicit start/end frame coverage plus normalized peak.
+- Pairwise compaction merges adjacent frame spans and preserves the maximum transient and full covered time.
+- `recordingFrames` is authoritative for the live clip width.
+- UI publication is conflated/rate-bounded instead of dispatching one main-thread update per audio read.
+- Finalized waveform remains canonical media-derived data.
 
-- Define take lineage explicitly: multiple split segments may belong to the same take and must remain active/inactive together.
-- Moving one split segment to another track detaches only that segment from the original take; it must not invalidate siblings.
-- Deleting a split child preserves the take while siblings exist. If the canonical `RecordingTake.clipId` is deleted, promote a surviving sibling deterministically; remove the take only when no clips reference it.
-- Keep shared source/proxy media immutable. A clip deletion must never delete a media file still referenced by another clip; orphan cleanup, if performed, happens only after a successfully persisted project state.
-- Add an explicit `Excluir clipe` action as an accessibility/non-drag fallback.
-- Add drag-to-trash as the primary direct-manipulation flow: trash target appears only while a clip is dragged, changes state when hovered, and dropping there opens confirmation naming the clip/segment. Confirm uses the same domain command as `Excluir clipe`; cancel is a no-op.
-- All delete/move/split operations participate in Undo/Redo and waveform-cache pruning without corrupting media ownership.
+Acceptance after CI: long/variable-cadence tests preserve monotonic frame coverage, bounded memory and transients.
 
-Acceptance: split → move, split → delete left/right, delete original canonical segment, undo/redo, save/reopen and project validation all pass without dangling take references.
+Residual physical acceptance: a multi-minute take must not visually accelerate, pile backward or jump ahead of captured duration.
 
-### H3 — Drag/drop transaction hardening
+### H6 — integrated regression, materialization and documentation — IMPLEMENTED / PRE-GATE
+- Added persistence regression for split/move/delete/save-reopen lineage.
+- Added editing-policy/instrumented interaction coverage.
+- Added timing-compensation and long-waveform regression.
+- Synchronized the in-app user guide with trim/delete/trash behavior.
+- H1→H6 are separate versioned patches under `.source-parts` and are applied in order by `scripts/materialize_ci_sources.sh`.
+- A final test-review defect (`append()` returns `Unit`) was corrected in `H6WaveformTestFix.patch`; that patch is explicitly part of the materialization chain.
+- Materialization remains fail-fast: a patch must apply cleanly or be recognized as already applied; ambiguous drift fails the build.
 
-Review the complete path from gesture acquisition to repository commit.
+## Canonical next gate
+Do not produce/promote another physical candidate from source review alone. The next authoritative step is one manual `.github/workflows/android-ci.yml` dispatch with signed homologation enabled against the final current `main` HEAD.
 
-- Separate drag geometry result from mutation intent (`MoveClip`, `DeleteClip`, `NoOp`) so an invalid drop never reaches persistence.
-- Snapshot source clip/track identity at drag start and revalidate at commit.
-- Keep destination-role restrictions explicit and return typed domain failures rather than raw `require()` text.
-- Surface user-safe messages while retaining diagnostic cause in logs/test output.
-- Verify autoscroll, lane retargeting, empty target tracks, scroll during drag, cancel, lifecycle recreation and rapid repeated drags.
-- Ensure a failed move leaves project, history, media and waveform caches byte-for-byte unchanged.
+Required evidence for that exact SHA:
+1. JVM/unit regression PASS;
+2. Android Lint PASS;
+3. debug/release assembly PASS;
+4. Android test compilation PASS;
+5. full API 36 instrumented regression PASS;
+6. isolated 1920×1200 target-geometry PASS;
+7. signed release PASS;
+8. package/version/source-provenance PASS;
+9. locked certificate PASS and APK SHA-256 publication.
 
-Acceptance: no generic repository-validation toast is reachable from a valid user drag; failure is transactional and non-destructive.
+## Residual physical gate after automated PASS
+Manual work is intentionally short and target-only:
+- trim start/end handle ergonomics;
+- split → move one child → delete one child via explicit action and trash → save/reopen/Undo/Redo;
+- MK-300 selected-input isolation/fail-closed routing;
+- guitar-against-backing synchronization;
+- multi-minute live waveform stability;
+- subjective monitoring/listening for pops/dropouts and one representative export/stress smoke.
 
-### H4 — Recording synchronization and latency architecture
+## Implementation order contract
+The diagnostic order remains fixed:
 
-Do **not** compensate the observed ~0.5 s by hard-coding an offset. Replace the start/placement model with one synchronized session clock.
+`H0 tests/reproduction → H1 trim → H2 lineage/delete → H3 drag transaction → H4 sync/latency → H5 live waveform → H6 integrated regression/documentation/release`.
 
-- Introduce a recording synchronization record containing monotonic timestamps/frame positions for capture readiness/start and backing presentation start.
-- Extend playback/recording engines to expose the earliest trustworthy Android audio timestamps (`AudioRecord`/`AudioTrack` timestamp when available), with a bounded monotonic-clock fallback.
-- Measure per-session capture↔backing startup skew and combine it exactly once with accepted route-specific round-trip calibration.
-- Distinguish three quantities in code/tests: session startup skew, route round-trip latency, and punch/pre-roll offset. Prevent double compensation.
-- Keep calibration keyed by effective input route + effective output route + sample rate, not merely requested routes; invalidate/fallback when routing changes.
-- At finalization, compensate through source trim and/or timeline placement with explicit bounds, preserving zero as a hard timeline floor.
-- Record diagnostic evidence for each take: effective routes, sample rate, compensation components and total applied frames. Do not persist volatile Android device IDs as long-term identity.
-- Exercise 44.1/48/88.2/96 kHz, start-at-zero, non-zero playhead, loop punch, route loss and no-calibration fallback.
-
-Acceptance: fake-engine tests with known offsets land within a small frame tolerance; no offset is applied twice; a route without calibration remains deterministic; final playback/export use the same corrected clip placement.
-
-Physical residual gate: one MK300 loopback/calibration check and one guitar-against-backing performance check. The human check should only confirm the already-measured result, not discover the algorithm.
-
-### H5 — Live REC waveform timebase rewrite
-
-Make rendering frame-based rather than callback-count-based.
-
-- Replace `List<Float>` callback samples with an envelope whose points carry frame/time coverage (for example start/end frame + peak).
-- Compaction must merge adjacent time spans while preserving their covered frame range and maximum transient; the renderer maps each point using frame coordinates, not list index.
-- Decouple the audio thread/callback cadence from Compose state updates with a conflated/latest-value pipeline and a bounded UI refresh rate (target roughly display-frame/30 Hz class, not one recomposition per audio read).
-- `recordingFrames` remains authoritative for the live clip width; waveform points cannot run ahead of or lag behind that frame count.
-- On stop, replace the live envelope with the canonical file-derived waveform, preserving the same timeline start/end.
-- Stress variable buffer sizes, long takes, silent takes, transients, UI stalls and background/foreground transitions.
-
-Acceptance: monotonic width and time mapping for long recordings; no burst catch-up or backward pile-up; memory remains bounded and transients remain visible.
-
-### H6 — Integrated regression and release gate
-
-After H1–H5 are green independently, run the complete suite as one integrated candidate.
-
-Required automated evidence:
-- core model/project/audio unit regressions;
-- persistence validator + save/reopen + migration coverage;
-- Undo/Redo across split/move/delete/trim;
-- instrumented trim-handle and drag-to-trash gestures;
-- API 36 full instrumentation plus target tablet geometry;
-- recording timing fake-engine tests and latency policy tests;
-- live waveform long-duration/conflation tests;
-- lint/debug/release/signing/source-provenance gates;
-- malformed/cancel/lifecycle regression unchanged.
-
-Only after the complete digital gate passes should a signed physical candidate be produced. The residual MK300/tablet checklist should be short: trim handle ergonomics, drag-to-trash confirmation, split/move/delete workflow, one synchronized recording, and visual confirmation of the live waveform over a multi-minute take.
-
-## Implementation order
-
-The implementation order is fixed to avoid masking causes:
-
-`H0 tests/reproduction → H1 trim → H2 clip lineage/delete → H3 drag transaction → H4 sync/latency → H5 live waveform → H6 full regression/documentation/release`.
-
-Do not mix H4 latency changes with H5 waveform changes in the same logical commit: both observe recording frames, so keeping them isolated preserves diagnosability and makes regressions bisectable.
+H4 and H5 remain logically separate because both observe recording frames; keeping them isolated preserves bisectability and prevents timing/waveform regressions from masking one another.
