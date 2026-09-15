@@ -9,11 +9,16 @@ H20_POLICY="$ROOT/app/src/main/java/studio/guitarlab/app/ui/StudioAudioRoutePoli
 H20_STORE="$ROOT/app/src/main/java/studio/guitarlab/app/ui/StudioAudioRoutingStore.kt"
 H21_THEME="$ROOT/app/src/main/java/studio/guitarlab/app/ui/theme/Theme.kt"
 H21_STUDIO="$ROOT/app/src/main/java/studio/guitarlab/app/ui/StudioPlaceholderScreen.kt"
+H22_POLICY="$ROOT/app/src/main/java/studio/guitarlab/app/ui/StudioAudioRoutePolicy.kt"
+H22_STORE="$ROOT/app/src/main/java/studio/guitarlab/app/ui/StudioAudioRoutingStore.kt"
+H22_TEST="$ROOT/app/src/test/java/studio/guitarlab/app/ui/StudioAudioRoutePolicyTest.kt"
 
-if [[ -f "$H21_THEME" && -f "$H21_STUDIO" ]] \
-    && [[ "$(hash_file "$H21_THEME")" == "5b09422ebd9f507cbb9ae603baa3e2d0a921c776" ]] \
-    && [[ "$(hash_file "$H21_STUDIO")" == "4868b26b4bbdd256450a093494c3bb73743a5892" ]]; then
-    echo "Source patch chain already materialized through H21"
+if [[ -f "$H22_POLICY" && -f "$H22_STORE" && -f "$H21_STUDIO" && -f "$H22_TEST" ]] \
+    && [[ "$(hash_file "$H22_POLICY")" == "fab05208fe0ffc04e63118827482ee721827ac57" ]] \
+    && [[ "$(hash_file "$H22_STORE")" == "55926042c204fe30d6677118759447660a902ec0" ]] \
+    && [[ "$(hash_file "$H21_STUDIO")" == "a5ba9851b42e894109b4c8b75968c3972206571c" ]] \
+    && [[ "$(hash_file "$H22_TEST")" == "7aecb2736d5beed414e6be6944c040b3e2669e67" ]]; then
+    echo "Source patch chain already materialized through H22"
     exit 0
 fi
 
@@ -69,4 +74,20 @@ done
 
 [[ "$(hash_file "$H21_THEME")" == "5b09422ebd9f507cbb9ae603baa3e2d0a921c776" ]]
 [[ "$(hash_file "$H21_STUDIO")" == "4868b26b4bbdd256450a093494c3bb73743a5892" ]]
-echo "Source patch chain materialized through H21 with verified final hashes"
+
+H22_ENCODED="$(mktemp)"
+trap 'rm -f "$H22_ENCODED"' EXIT
+cat \
+    "$ROOT/.source-parts/H22AudioRouteSemanticUx.patch.gz.part00" \
+    "$ROOT/.source-parts/H22AudioRouteSemanticUx.patch.gz.part01" \
+    "$ROOT/.source-parts/H22AudioRouteSemanticUx.patch.gz.part02" \
+    > "$H22_ENCODED"
+apply_encoded_gzip_patch_once "$H22_ENCODED"
+rm -f "$H22_ENCODED"
+trap - EXIT
+
+[[ "$(hash_file "$H22_POLICY")" == "fab05208fe0ffc04e63118827482ee721827ac57" ]]
+[[ "$(hash_file "$H22_STORE")" == "55926042c204fe30d6677118759447660a902ec0" ]]
+[[ "$(hash_file "$H21_STUDIO")" == "a5ba9851b42e894109b4c8b75968c3972206571c" ]]
+[[ "$(hash_file "$H22_TEST")" == "7aecb2736d5beed414e6be6944c040b3e2669e67" ]]
+echo "Source patch chain materialized through H22 with verified final hashes"

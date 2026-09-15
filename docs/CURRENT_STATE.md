@@ -12,40 +12,37 @@ Updated: 2026-09-15
 - Workflow remains manual-only: `.github/workflows/android-ci.yml` uses `workflow_dispatch`; the assistant must not dispatch or rerun it.
 
 ## Evidence boundary
-CI #633 is authoritative through H20/H21.
+CI #633 remains authoritative through H20/H21. Physical review of the exact #633 APK showed that the Samsung device exposes additional low-level audio endpoints not covered by H20. H22 is implemented/source-validated and requires a new exact-source full gate.
 
-### H20 — physical output canonicalization v2 — DIGITAL PASS
-- Built-in speaker endpoints such as `SM-X230`, `SM-X230 • 0`, `SM-X230 • back` and `SM-X230 • bottom` are canonicalized as one physical output.
-- Earpiece, Bluetooth profiles, HDMI and other materially distinct route classes remain separate.
-- H19 USB canonicalization is preserved.
-- Duplicate candidate resolution continues to use an inaudible `AudioTrack` probe plus authoritative `routedDevice` confirmation.
-- Route-policy unit tests, build, Lint and regression gates passed in CI #633.
+### H20/H21 — historical DIGITAL PASS at CI #633
+- H20 added output canonicalization but real SM-X230 hardware still exposed BUS/system endpoints such as `0`, `back`, `bottom` and `remote-submix`.
+- H21 established the app-wide hardware-inspired visual system and passed the complete #633 digital regression.
 
-### H21 — Studio visual system overhaul — DIGITAL PASS
-- Global hardware-inspired geometry contract: 6dp controls, 8dp internal cards/rows, 10dp panels/dialogs.
-- Practice groups `Comparação`, `Ajustes` and `Timeline` have explicit independent chassis and distinct title/action hierarchy.
-- Functional accents remain blue = Comparação, teal = Ajustes, amber = Timeline.
-- App-wide geometry/theme changes compiled and passed the complete CI #633 regression.
+### H22 — semantic physical audio routes + practice-bar action emphasis — IMPLEMENTED / SOURCE-VALIDATED / PRE-GATE
+- Canonicalization now applies to both recording inputs and playback outputs.
+- Samsung/OEM `TYPE_BUS` endpoints whose product identifies the current Android device are folded into the built-in physical microphone/speaker families.
+- Built-in microphone endpoints are shown as one user-facing `Microfone do tablet` route.
+- Built-in speaker endpoints are shown as one user-facing `Alto-falante do tablet` route.
+- `remote-submix` and telephony/system-only endpoints are removed from user-facing choices.
+- USB endpoints are grouped by physical interface identity; endpoint/device indices no longer create duplicate MK-300 choices.
+- Low-level addresses (`0`, `back`, `bottom`, `hsp:...`, endpoint ids) are never used as user-facing labels.
+- Legacy raw/H19/H20 selections migrate to the new canonical signatures instead of being silently lost.
+- Input groups resolve internally to a stable compatible Android endpoint; output groups retain silent probe + authoritative `routedDevice` resolution.
+- Practice-bar titles no longer own the tinted background; inactive action buttons now have a subtle accent fill inside their own borders, making title/group/action hierarchy clearer.
+- Route-policy smoke reproducing the physical evidence topology passes locally.
+- H22 source patch forward/reverse round-trip, `git diff --check`, encoded gzip integrity, materializer `bash -n`, first materialization and idempotent second materialization all pass locally.
 
-## CI #633 evidence
-- Source: `2204e0272f9e6e2f218bebd36889db424e006e03`.
-- Software/unit/Lint/build/provenance: PASS.
-- API 36 standard connected suite: 23/23 PASS.
-- Isolated target-tablet 1920×1200 geometry: 1/1 PASS.
-- Signed homologation job: PASS.
-- Package/version identity: `studio.guitarlab.app` / `0.5.0-rc3` / code 23.
-- Signed APK SHA-256: `f40b24cb36b4cb1299efcb28a35b54e66b107af2ec3d578a870c70e2966ff52e`.
-- Certificate SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
+## H22 expected physical UX
+With no external interface connected, Options → Áudio should expose only meaningful routes, e.g.:
+- Entrada: `Automático`, `Microfone do tablet` (plus genuinely external devices if present).
+- Saída: `Automático`, `Alto-falante do tablet` (plus genuinely external devices if present).
+
+With MK-300 connected, each direction should add one `MK-300` physical choice, not endpoint duplicates.
 
 ## Milestone state
 - M2–M6: PASS/CLOSED.
 - M7/M8 through H21: DIGITAL PASS at CI #633.
-- Physical validation remains pending for the real MK-300 route behavior, reconnect behavior, and final visual review on the tablet.
+- H22: PRE-GATE; final physical closure remains pending.
 
-## Next physical review
-Use the exact CI #633 signed APK. Verify:
-1. one user-facing built-in speaker route;
-2. one user-facing MK-300 route when connected;
-3. audible playback through the selected route before and after reconnect;
-4. final app-wide visual hierarchy/geometry on the physical tablet;
-5. focused recording/routing smoke with MK-300.
+## Next gate
+Run the full workflow manually on the exact H22 source. DIGITAL PASS requires software/unit/Lint/build/provenance, route-policy regressions, API36 connected regression, isolated target-tablet geometry and signed homologation all green on the same SHA.
