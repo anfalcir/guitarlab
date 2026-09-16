@@ -1,6 +1,6 @@
 # H26 — SAF Cloud Backup / Restore
 
-Status: **IMPLEMENTED / SOURCE-VALIDATED / PRE-GATE**  
+Status: **IMPLEMENTED / SOURCE-VALIDATED / PRE-GATE**
 Updated: 2026-09-16
 
 ## Goal
@@ -92,7 +92,7 @@ Pure/JVM coverage includes:
 Android instrumentation adds dedicated Backup screen action/confirmation coverage. Full Android compile/instrumentation is pending the next manual CI.
 
 ## Materialization
-Source parts: `.source-parts/H26SafCloudBackup.patch.gz.part00` through `.part04`  
+Source parts: `.source-parts/H26SafCloudBackup.patch.gz.part00` through `.part04`
 Canonical tail: `… → H23b → H24 → H24a → H25 → H26`.
 
 The H26 entrypoint validates the concatenated source archive on every invocation by base64 decode, gzip CRC and fixed SHA-256, delegates the frozen H18–H25 chain to `materialize_ci_sources_through_h25.sh`, then verifies exact Git blob hashes for all H26 files. Local proof covered clean H25→H26 application, idempotent rerun, byte-identical final files and fail-closed behavior for a corrupted encoded package even when H26 was already materialized.

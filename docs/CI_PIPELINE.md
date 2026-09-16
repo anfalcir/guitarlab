@@ -15,7 +15,7 @@ Authority layers:
 
 Canonical tail: `… → H23b → H24 → H24a → H25 → H26`.
 
-H26 source parts: `.source-parts/H26SafCloudBackup.patch.gz.part00` through `.part04`.  
+H26 source parts: `.source-parts/H26SafCloudBackup.patch.gz.part00` through `.part04`.
 Expected H26 final message: `Source patch chain materialized through H26 with verified final hashes`.
 
 Pre-publication H26 materializer proof:
