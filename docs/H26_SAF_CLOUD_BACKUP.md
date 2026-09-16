@@ -1,6 +1,6 @@
 # H26 — SAF Cloud Backup / Restore
 
-Status: **IMPLEMENTED / SOURCE-VALIDATED / PRE-GATE (H26a corrective)**
+Status: **DIGITAL PASS — CI #650 / H26e**
 Updated: 2026-09-16
 
 ## Goal
@@ -71,40 +71,48 @@ A process-wide `Mutex` serializes manual backup, automatic backup and restore. W
 ## Privacy / provider boundary
 H26 stores no Google credentials and makes no Drive REST API calls. SAF URI permission is the authority. Revoked/missing permission fails safely and prompts the user to reselect a folder.
 
-## Test contract
-Pure/JVM coverage includes:
-- retention minimum vs age and per-project isolation;
-- forever retention;
-- exact-revision incremental skip;
-- deterministic SHA-256;
-- strict `COMMITTED` metadata validation;
-- manual force vs automatic skip;
-- all-write-failure retention suspension;
-- partial-failure protection;
-- unchanged automatic run with safe retention;
-- single-project cleanup scope;
-- incompatible commit rejection;
-- retention-delete error reporting without invalidating a newly committed backup;
-- cancellation propagation/no cleanup;
-- corrupt restore rejection/no publish;
-- restore-all latest-per-project and failure isolation.
+## Automated evidence — CI #650
+Exact producer: `07c99155789774cb39f9b4382829f9e1d16649e3`.
 
-Android instrumentation adds dedicated Backup screen action/confirmation coverage. Full Android compile/instrumentation is pending the next manual CI.
+#650 completed all three jobs successfully and promoted this contract to DIGITAL PASS:
+- JVM/unit **285/285 PASS**, including H26 backup domain/coordinator coverage;
+- performance evidence PASS;
+- Android Lint PASS with non-blocking warnings/hints and no reported errors;
+- debug/release assembly + unsigned provenance PASS;
+- API36 **31/31 standard PASS**, including three dedicated `BackupScreenInstrumentedTest` cases;
+- isolated target geometry **1/1 PASS**;
+- exact tested unsigned artifact signed and provenance revalidated;
+- package/version/certificate/signature/zipalign PASS;
+- signing material cleanup PASS.
 
-## CI feedback and H26a corrective
-- CI #643 did not exercise H26 code; both jobs stopped at `Diff sanity` because of three Markdown trailing spaces. That documentation-only issue was corrected.
-- CI #644 passed `Diff sanity` and materialized H26 successfully in both jobs.
-- Both jobs then stopped on the same deterministic Kotlin compiler error in `SafBackupRemoteStore.copyPackage`: expression-body inference returned `Long` from `InputStream.copyTo`, while `ProjectBackupRemoteStore.copyPackage` requires `Unit`.
-- H26a preserves the core interface and coordinator semantics, makes the SAF override explicitly return `Unit`, and discards the internal byte-count return because restore already validates staged file length and SHA-256 after copying. No backup/restore policy is weakened.
-- The H26a materializer patch is SHA-256 pinned, applies serially after H26, verifies the resulting Git blob, is idempotent and fails closed when deliberately corrupted.
+Detailed evidence: `H26E_CI650_DIGITAL_PASS.md`.
 
-## Materialization
-Source parts: `.source-parts/H26SafCloudBackup.patch.gz.part00` through `.part04`
-Canonical tail: `… → H23b → H24 → H24a → H25 → H26 → H26a`.
+## Corrective/materialization history
+- H26a fixed only `SafBackupRemoteStore.copyPackage()` so the override explicitly satisfies the interface `Unit` return contract.
+- H26b removed use of Compose-test `assertExists`, unavailable in the pinned dependency version.
+- CI #646 then proved the production software gate and ran 31 standard tests; its three failures were confined to H26 Backup-screen test interactions below the `LazyColumn` fold.
+- H26c/H26d explored incremental source-patch recovery for the test scroll correction but exposed packaging/name/hash fragility in the corrective source-part, not a production H26 defect.
+- H26e is the definitive path: the complete known-good `BackupScreenInstrumentedTest.kt` is decoded and installed deterministically after validating both SHA-256 and final Git blob.
 
-H26a corrective source: `.source-parts/H26aSafCopyPackageContract.patch.b64`.
+## Canonical materialization
+Canonical tail: `… → H25 → H26 → H26a → H26b → H26e`.
 
-The H26 entrypoint validates the concatenated source archive on every invocation by base64 decode, gzip CRC and fixed SHA-256, delegates the frozen H18–H25 chain to `materialize_ci_sources_through_h25.sh`, then verifies exact Git blob hashes for all H26 files. The H26a layer validates its own fixed SHA-256, applies only after a valid H26 state, and verifies the corrected `SafBackupRemoteStore.kt` blob. Local proof covered clean H25→H26→H26a application, idempotent rerun, byte-identical H26 baseline verification, final H26a blob verification and fail-closed behavior for corrupted H26 or H26a source packages.
+H26e input: `.source-parts/H26eBackupScreenInstrumentedTest.kt.b64`.
+- decoded source SHA-256: `7f974aef7ad8b4052cd01b6a66ffe75cee78fb27c5e94585b9eda44e2bf322da`;
+- expected final Git blob: `8ebac066a3bef1b93ee0316cdb5dcc726fe4b056`;
+- final message: `Source patch chain materialized through H26e with verified final hashes`.
 
-## Promotion rule
-H26/H26a remains PRE-GATE until one exact-source manually dispatched signed workflow passes software gate, API36 standard + isolated geometry gate and signed homologation. Do not attribute H26 to CI #642.
+CI #650 produced that final message and then passed software, Android integration and signed homologation end to end.
+
+## Remaining physical boundary
+DIGITAL PASS does not prove real provider/device behavior. Final RC3 physical closure must still exercise on Samsung SM-X230 with Google Drive via SAF where available:
+- picker/provider access and persisted permission across app/device restart;
+- real single/full backup and cloud visibility;
+- safe target-folder replacement/disconnect with old data preserved;
+- single/full restore as independent local projects;
+- revoked/unavailable provider error behavior;
+- representative long transfer and cancellation;
+- practical retention behavior when enough versions exist;
+- automatic incremental behavior without redundant unchanged upload.
+
+RC3 remains non-final until those residuals plus retained audio/editing smoke checks pass with no repeatable P0/P1 and the user explicitly approves the exact signed APK.
