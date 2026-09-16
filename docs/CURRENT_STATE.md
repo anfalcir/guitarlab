@@ -9,72 +9,67 @@ Updated: 2026-09-16
 - Signed APK SHA-256: `a650afa5edfd2b8c4f8393e65b314ae9fbb59487a87c2d3ea85ef978d7d895dc`.
 - Unsigned APK SHA-256: `621e02355d265bdb6c24cb5e324b445b63e739f8e7d6adc233eebea3b31fe0d5`.
 - Locked signer SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
-- Workflow remains manual-only: `.github/workflows/android-ci.yml` uses `workflow_dispatch`; the assistant must not dispatch or rerun it.
+- `.github/workflows/android-ci.yml` remains manual-only (`workflow_dispatch`). The assistant must not dispatch or rerun it.
 
 ## Evidence boundary
-CI #638 is authoritative through H23/H23a. It passed software/unit/Lint/build/provenance, standard API36 **23/23**, isolated 1920×1200 geometry **1/1**, and signed homologation on the same exact source SHA.
+CI #638 is authoritative through H23/H23a only. It passed software/unit/Lint/build/provenance, standard API36 **23/23**, isolated 1920×1200 geometry **1/1**, and signed homologation on the same exact source SHA.
 
-CI #637 / source `086fa3b080f0994b9031f52cb8ac3f01754d5378` failed only because the new transient-feedback test used the wrong test annotation import. H23a changed only that test import to the app-standard JUnit 4 `org.junit.Test`; production H23 code did not change. CI #638 then passed fully.
+H23b changes product/test source after #638 and is therefore **PRE-GATE** until the user manually runs the full signed workflow on the H23b commit. A documentation-only commit never replaces the exact source SHA that produced an APK.
 
-## H22/H22a — DIGITAL PASS + focused physical route UX PASS
-Physical review of CI #636 confirmed the duplicate-route problem is resolved on the Samsung tablet. Built-in routes are shown semantically (`Microfone do tablet`, `Alto-falante do tablet`), low-level endpoints do not duplicate, and H23 prevents raw route identifiers from leaking into normal transient feedback.
+## H22/H22a — route UX
+Focused physical review on Samsung SM-X230 approved semantic physical routing: duplicate internal endpoints are collapsed, built-in devices show friendly labels, and MK-300 endpoints are consolidated. Do not regress this behavior.
 
-## H23/H23a — recording timing + transient-feedback hardening — DIGITAL PASS at CI #638
+## H23/H23a — DIGITAL PASS at CI #638
+H23 introduced the signed session-clock mapping, route/rate calibration, residual fine adjustment and centralized transient-feedback policy. H23a changed only the app test annotation import so the app test source set uses JUnit 4.
 
-### Recording timing — Plan A
-- Capture and backing start are mapped with a signed clock offset; capture-before-backing and capture-after-backing are represented.
-- Android hardware timestamps are accepted only after repeated observations produce a stable stream-origin estimate.
-- A single/stale timestamp is not authoritative.
-- Hardware timestamp time is never mixed with command-time fallback; incompatible clock evidence fails closed to zero startup correction.
-- Startup/session offset, measured route latency and residual fine adjustment are separate domains and are applied exactly once.
-- Punch recording crops from the final compensated take placement rather than duplicating latency math.
-- Recording timing state is cleared after stop/error to prevent stale compensation from contaminating the next take.
+## H23b — corrective hardening — SOURCE-VALIDATED / PRE-GATE
+H23b closes edge cases found by auditing the exact materialized source artifact from CI #638 rather than inventing a new latency model.
 
-### Latency analyzer — Plan B
-- Calibration uses the actual project/editing/recording sample rate rather than fixed 48 kHz.
-- Established AUTO projects can calibrate at 44.1/48/96 kHz; ambiguous mixed-rate editing domains fail closed instead of guessing.
-- Round-trip calibration is stored by input route + output route + sample rate and is applied only when accepted by confidence/jitter/drift policy.
-- Fine residual adjustment is stored separately on the same route/rate tuple, defaults to zero, is bounded to ±120 ms, and is intended only after automatic alignment/calibration has been assessed.
-- Positive fine adjustment advances the take; negative adjustment delays it.
+### Recording timing / Plan A
+- signed `captureOrigin - backingOrigin` mapping remains the authoritative session-clock relationship;
+- timestamp anchors now require genuinely progressing frame **and** monotonic-time observations; repeated/stale samples do not count as independent evidence and backwards progression fails closed;
+- hardware timestamp evidence is never mixed with command-clock fallback evidence;
+- nanoseconds-to-frames coverage explicitly includes **44.1 / 48 / 88.2 / 96 kHz**;
+- placement arithmetic saturates instead of wrapping at pathological `Long` bounds;
+- route latency and residual fine adjustment preserve the existing sign convention and remain separate from session-clock alignment;
+- punch continues to crop from the final compensated placement, so timing compensation is not applied twice;
+- timing policy remains stateless between takes; ViewModel stop/error paths clear active timing state.
 
-### Transient feedback contract
-- Normal Play/Stop, CUT/Trim entry, REC countdown/state, mute/solo, navigation and routine mode changes do not generate Snackbar feedback.
-- Snackbars are reserved for errors, meaningful degradation/warnings and asynchronous completion that is not otherwise obvious.
-- Repeated warnings use cooldown/de-duplication.
-- Normal feedback filters raw Android route tokens (`remote-submix`, `hsp:`, `route2:`, `route3:`, `• back/bottom/0`). Technical identifiers remain available only in diagnostics.
-- Progress belongs to its owning UI rather than being duplicated as transient feedback.
-- Contract: `docs/TRANSIENT_FEEDBACK_CONTRACT.md`.
+### Calibration / Plan B
+- calibration/fine adjustment is keyed by exact `input route + output route + sample rate` using an unambiguous v2 persistence key;
+- the prior 32-bit hashed key is **not** auto-applied by H23b because it cannot prove the originating route tuple in the event of a collision; after upgrading, rerun calibration before relying on route compensation;
+- unstable/rejected calibration remains diagnostic-only and cannot be auto-applied;
+- analyzer UI shows selected input/output, session rate, status, median latency, attempts, jitter, drift and confidence;
+- residual adjustment defaults to zero, remains bounded to ±120 ms and supports both signs.
 
-## H23 validation evidence
-- deterministic H23 source-parts + H23a test-only correction materialize successfully;
-- materializer final message: `Source patch chain materialized through H23a with verified final hashes`;
-- unit tests: PASS;
-- Android Lint: PASS;
-- debug + release assembly: PASS;
-- standard API36: **23/23 PASS**;
-- isolated target-tablet geometry: **1/1 PASS**;
-- signed homologation: PASS;
-- artifact package/version/certificate/provenance: PASS.
+### Transient feedback
+- normal Play/Stop/Pause, CUT/Trim mode, REC state/countdown, mute/solo/arm, navigation and visible state changes do not own a Snackbar;
+- Snackbar is reserved for errors, meaningful degradation/warnings and non-obvious asynchronous completion;
+- both centralized notices **and raw error strings** are passed through the same technical-route sanitizer before normal Studio display;
+- raw `deviceId`, `productName=`, `address=`, endpoint indices, `remote-submix`, `hsp:`, `route2:`, `route3:`, `back/bottom/0` stay out of normal transient UX;
+- technical identifiers remain available to diagnostics.
 
-## User evidence / physical status
-- H22 route UX is physically approved on target Samsung hardware.
-- User supplied `WATG - Enemy-master.wav`, 44.1 kHz; only the left channel is the valid recorded-guitar evidence channel.
-- That file demonstrated residual late placement before H23, but it is not an isolated calibration reference and therefore was not used to hard-code a compensation constant.
-- H23 timing correction is digitally validated but still requires focused real-hardware A/B to determine whether systematic late placement is eliminated on SM-X230 + MK-300.
+## Local H23b validation completed
+- exact source basis: materialized CI #638 source artifact (`c310be...`);
+- pure Kotlin policy compilation: PASS;
+- sample-rate policy compilation with serialization annotation stub: PASS;
+- 100,000 randomized timing-placement property checks: PASS;
+- explicit 44.1/48/88.2/96 kHz timing checks: PASS;
+- transient-feedback policy compile/smoke: PASS;
+- Android/Compose changed-source parser scan: no syntax/parser diagnostics; Android symbols intentionally unresolved without SDK/Compose classpath;
+- H23b source-part gzip integrity + base64 split round-trip: PASS;
+- patch forward dry-run/apply: PASS;
+- reverse dry-run/reverse byte round-trip to exact #638 materialized source: PASS;
+- materializer first H23b application: PASS;
+- second materializer execution idempotent: PASS;
+- final materialized source Git blob hashes: PASS;
+- `git diff --check`: PASS.
 
-## Milestone state
-- M2–M6: PASS/CLOSED.
-- M7/M8 through H22/H22a: DIGITAL PASS; focused route UX physically PASS.
-- H23/H23a: DIGITAL PASS at CI #638; focused physical REC/latency validation pending.
+No local Android Gradle build is claimed for H23b. The official build/Lint/API36/signing evidence must come from the next user-dispatched workflow.
 
-## Next physical gate
-Install only the signed CI #638 APK produced from exact source `c310be6779e6591c57399257f380588c27bdf20a`.
+## Next gate
+Do **not** use the #638 APK to physically approve H23b. After the H23b repository commit is published, the user must manually run:
 
-With fine adjustment at **0 ms** first:
-1. record a synchronized guitar take against a known backing on SM-X230 + MK-300;
-2. test the actual project rate, including 44.1 kHz when applicable;
-3. verify whether any repeatable systematic late placement remains;
-4. verify normal Play/CUT/REC no longer produces Snackbar spam or raw technical route names;
-5. retain smoke for route reconnect, live waveform/meters, punch/loop, trim/undo/redo and export.
+`Actions → GuitarLab Android CI → main → signed_homologation=true`
 
-If a stable residual remains after Plan A, use the route/rate latency analyzer first. Fine adjustment is Plan B and must remain zero unless objective or repeatable physical evidence justifies a non-zero value.
+Only after that exact H23b source passes all three gates should its signed APK be used for focused SM-X230 + MK-300 recording-latency validation, beginning with residual fine adjustment at `0.0 ms`.

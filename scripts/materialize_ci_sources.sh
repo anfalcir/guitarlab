@@ -38,6 +38,28 @@ H23_CHECKS=(
 H23_FEEDBACK_TEST="app/src/test/java/studio/guitarlab/app/ui/AppTransientFeedbackPolicyTest.kt"
 H23_FEEDBACK_TEST_BASE_HASH="5b7d0375814898978564dfc8353ed412bf7666ba"
 
+H23B_CHECKS=(
+    "app/src/main/java/studio/guitarlab/app/ui/AppTransientFeedbackPolicy.kt|ee71a316861ade7bef2751a954c31d2f6fb1ff78"
+    "app/src/main/java/studio/guitarlab/app/ui/HomeScreen.kt|39d1277f8356f54614b3ac80b2a4358e867df292"
+    "app/src/main/java/studio/guitarlab/app/ui/SettingsScreen.kt|af644197a0e806881ed7e33c1393f020a370de43"
+    "app/src/main/java/studio/guitarlab/app/ui/StudioLatencyCalibration.kt|70eb60585f49cf33dce08915c78b16e35261ceb1"
+    "app/src/main/java/studio/guitarlab/app/ui/StudioShellScreen.kt|641f05e93b874584bfab2065fea0361d0122be2d"
+    "app/src/main/java/studio/guitarlab/app/ui/StudioViewModel.kt|008e92474c6643fedcaad6fadbb0cf6c4cc43653"
+    "app/src/test/java/studio/guitarlab/app/ui/AppTransientFeedbackPolicyTest.kt|71af0e139e6250de09bcebce83475559ebb3ac51"
+    "core/audio/src/main/kotlin/studio/guitarlab/core/audio/AudioClockAnchorPolicy.kt|89146dee6677c7cbcf4255fccf515714983bc315"
+    "core/audio/src/main/kotlin/studio/guitarlab/core/audio/LatencyCalibrationPolicy.kt|7f43b016fdafd489fe8f8d0776c76aa90d776e02"
+    "core/audio/src/main/kotlin/studio/guitarlab/core/audio/RecordingTimingCompensationPolicy.kt|242d744fe551bdf98889a5bd90db18a7678008fa"
+    "core/audio/src/test/kotlin/studio/guitarlab/core/audio/AudioClockAnchorPolicyTest.kt|78c93c23ef2bfca724d39cd5f163b05219ca5072"
+    "core/audio/src/test/kotlin/studio/guitarlab/core/audio/LatencyCalibrationPolicyTest.kt|e2341c908ee7b65d71579edf8230c55f98c8482c"
+    "core/audio/src/test/kotlin/studio/guitarlab/core/audio/RecordingTimingCompensationPolicyTest.kt|a82daa7f864c40f16e12893a599307e24bd933c0"
+    "core/project/src/main/kotlin/studio/guitarlab/core/project/PracticeWorkflowPolicy.kt|4bae5c496a3e7a61d76c398f1281847030cacc39"
+    "core/project/src/main/kotlin/studio/guitarlab/core/project/RecordingProjectPolicy.kt|113667a8fe5089b491edc1702bd514a9a16a3e42"
+    "core/project/src/test/kotlin/studio/guitarlab/core/project/PracticeWorkflowPolicyTest.kt|100f9e41853a4387c39452ee73ae06a2e7a58787"
+    "core/project/src/test/kotlin/studio/guitarlab/core/project/RecordingProjectPolicyTest.kt|b39db48a9b92b8a1c0cbf7bac7821014beee9715"
+    "platform/audio-android/src/main/kotlin/studio/guitarlab/platform/audio/android/AndroidStudioPlaybackEngine.kt|de99b9b518d53f18b1a41eb569156f33271995f8"
+    "platform/audio-android/src/main/kotlin/studio/guitarlab/platform/audio/android/AndroidStudioRecordingEngine.kt|32e4c32b7ece29754e07b5b0d00ceb0d972689e6"
+)
+
 h23_ready() {
     local entry relative expected
     for entry in "${H23_CHECKS[@]}"; do
@@ -56,6 +78,16 @@ h23_base_ready() {
         if [[ "$relative" == "$H23_FEEDBACK_TEST" ]]; then
             expected="$H23_FEEDBACK_TEST_BASE_HASH"
         fi
+        [[ -f "$ROOT/$relative" ]] || return 1
+        [[ "$(hash_file "$ROOT/$relative")" == "$expected" ]] || return 1
+    done
+}
+
+h23b_ready() {
+    local entry relative expected
+    for entry in "${H23B_CHECKS[@]}"; do
+        relative="${entry%%|*}"
+        expected="${entry#*|}"
         [[ -f "$ROOT/$relative" ]] || return 1
         [[ "$(hash_file "$ROOT/$relative")" == "$expected" ]] || return 1
     done
@@ -87,15 +119,37 @@ apply_encoded_gzip_patch_once() {
     trap - RETURN
 }
 
+apply_h23b() {
+    local encoded
+    encoded="$(mktemp)"
+    trap 'rm -f "$encoded"' RETURN
+    cat \
+        "$ROOT/.source-parts/H23bRecordingTimingFeedbackCorrective.patch.gz.part00" \
+        "$ROOT/.source-parts/H23bRecordingTimingFeedbackCorrective.patch.gz.part01" \
+        > "$encoded"
+    apply_encoded_gzip_patch_once "$encoded"
+    rm -f "$encoded"
+    trap - RETURN
+}
+
+if h23b_ready; then
+    echo "Source patch chain already materialized through H23b"
+    exit 0
+fi
+
 if h23_ready; then
-    echo "Source patch chain already materialized through H23a"
+    apply_h23b
+    h23b_ready || { echo "H23b applied but final H23b hashes do not match." >&2; exit 1; }
+    echo "Source patch chain materialized through H23b with verified final hashes"
     exit 0
 fi
 
 if h23_base_ready; then
     apply_patch_once "$ROOT/.source-parts/H23aJUnitAnnotation.patch"
     h23_ready || { echo "H23a applied but final H23 hashes do not match." >&2; exit 1; }
-    echo "Source patch chain materialized through H23a with verified final hashes"
+    apply_h23b
+    h23b_ready || { echo "H23b applied after H23a but final H23b hashes do not match." >&2; exit 1; }
+    echo "Source patch chain materialized through H23b with verified final hashes"
     exit 0
 fi
 
@@ -173,4 +227,10 @@ if ! h23_ready; then
     echo "H23/H23a materialization completed but final source hashes do not match the audited contract." >&2
     exit 1
 fi
-echo "Source patch chain materialized through H23a with verified final hashes"
+
+apply_h23b
+if ! h23b_ready; then
+    echo "H23b materialization completed but final source hashes do not match the audited contract." >&2
+    exit 1
+fi
+echo "Source patch chain materialized through H23b with verified final hashes"

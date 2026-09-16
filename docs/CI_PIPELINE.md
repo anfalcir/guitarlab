@@ -3,23 +3,29 @@
 Updated: 2026-09-16
 
 ## Contract
-`.github/workflows/android-ci.yml` is manual-only (`workflow_dispatch`). Commits do not automatically consume hosted CI, and the assistant must not dispatch or rerun the workflow.
+`.github/workflows/android-ci.yml` is manual-only (`workflow_dispatch`). Commits do not automatically consume hosted CI. The assistant must not dispatch, rerun a workflow, rerun a job, or change this policy.
 
 The pipeline has three authority layers:
-1. software gate — materialization, JVM/unit/audio/DSP/persistence/migration, performance, Lint, debug/release build and unsigned provenance;
-2. API36 gate — standard connected instrumentation plus isolated 1920×1200 / 240dpi geometry;
-3. signed homologation — signs the exact tested unsigned artifact only after both mandatory gates pass.
+1. **software gate** — deterministic source materialization, JVM/unit/audio/DSP/persistence/migration tests, performance evidence, Lint, debug/release assembly and unsigned provenance;
+2. **API36 gate** — standard connected instrumentation plus isolated target-tablet geometry;
+3. **signed homologation** — signs the exact tested unsigned release artifact only after the required upstream gates pass.
 
-## Source materialization
-`.source-parts/` plus `scripts/materialize_ci_sources.sh` are part of the build contract. Unexpected source drift fails closed.
+## Source materialization contract
+`.source-parts/` plus `scripts/materialize_ci_sources.sh` are part of the source-of-truth build contract. Unexpected source drift fails closed by exact Git blob hashes.
 
 Canonical tail after H11b:
-`H12 engine → H12 UI → H13 → H14 → H14a → H15 → H16 → H17 → H18 → H19 → H18a → H20 → H21 → H22 → H22a → H23 → H23a`.
+`H12 engine → H12 UI → H13 → H14 → H14a → H15 → H16 → H17 → H18 → H19 → H18a → H20 → H21 → H22 → H22a → H23 → H23a → H23b`.
 
-H23 is stored as deterministic gzip+base64 source-parts. H23a is a test-only annotation correction applied after H23. The materializer verifies final hashes and reports `Source patch chain materialized through H23a with verified final hashes`.
+- H23: deterministic gzip+base64 source-parts.
+- H23a: test-only JUnit annotation alignment.
+- H23b: deterministic gzip+base64 corrective patch over the exact H23a materialized state.
+- H23b materialization verifies every modified final source/test blob, validates gzip before patching, uses `patch --dry-run`, and is idempotent on a second run.
+
+Expected final message after H23b materialization:
+`Source patch chain materialized through H23b with verified final hashes`.
 
 ## Last signed authority — CI #638
-CI #638 / run `35084703365` / exact source `c310be6779e6591c57399257f380588c27bdf20a` is the authoritative signed DIGITAL PASS through H23/H23a:
+CI #638 / run `35084703365` / exact source `c310be6779e6591c57399257f380588c27bdf20a` remains authoritative through H23/H23a:
 - software/unit/audio/DSP/persistence/migration/performance/Lint/build/provenance: PASS;
 - standard API36: **23/23 PASS**;
 - isolated 1920×1200 geometry: **1/1 PASS**;
@@ -28,23 +34,26 @@ CI #638 / run `35084703365` / exact source `c310be6779e6591c57399257f380588c27bd
 - signed APK SHA-256 `a650afa5edfd2b8c4f8393e65b314ae9fbb59487a87c2d3ea85ef978d7d895dc`;
 - certificate SHA-256 `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
 
-Do not flatten the API36 report to 24/24; use **23/23 standard + 1/1 isolated geometry**.
+Do not flatten the API36 report to 24/24; report **23/23 standard + 1/1 isolated geometry**.
 
-## CI #637 historical note
-CI #637 / source `086fa3b080f0994b9031f52cb8ac3f01754d5378` materialized H23 and passed API36, but the software gate stopped while compiling `AppTransientFeedbackPolicyTest` because the test used `kotlin.test.Test` rather than the app-standard JUnit 4 annotation. H23a corrected only the test import; production code is unchanged between the H23 product source and the H23a test correction.
+## H23b PRE-GATE evidence
+Before repository publication, H23b is locally source-validated against the exact #638 materialized source:
+- pure Kotlin timing/calibration/feedback policies compile;
+- 100,000 randomized placement cases pass invariants/determinism;
+- 44.1/48/88.2/96 kHz conversion checks pass;
+- H23b patch forward/reverse round-trip is byte-exact;
+- gzip/base64 split archive integrity passes;
+- first materialization passes and second materialization is idempotent;
+- all final modified blobs match the declared materializer hashes;
+- `git diff --check` passes.
 
-## H23-specific regression evidence
-The successful #638 gate covers the complete existing suite plus H23-specific contracts:
-- `AudioClockAnchorPolicy` stable/stale/inconsistent timestamp behavior;
-- signed startup offset behavior and mixed-clock-basis fail-closed logic;
-- route latency and fine adjustment applied exactly once;
-- recording sample-rate derivation from the editing domain;
-- punch crop after final compensation;
-- transient feedback contract and technical-route-token filtering;
-- all existing route, recording, playback and UI regressions retained.
+This is **not** an Android build/Lint/API36/signing PASS for H23b. Those labels are reserved for the official workflow.
+
+## Next signed gate
+After the H23b commit lands on `main`, the user manually runs:
+`Actions → GuitarLab Android CI → main → signed_homologation=true`.
+
+All three authority layers must be green on the exact same H23b SHA before that APK can become the new physical candidate.
 
 ## Artifact identity discipline
-A later documentation-only commit never replaces the exact source SHA that produced a signed APK. The authoritative H23 product/source remains `c310be6779e6591c57399257f380588c27bdf20a` from CI #638 until a later product commit itself receives a successful signed gate.
-
-## Remaining acceptance
-Digital H23/H23a is PASS. Remaining work is focused physical validation only: real SM-X230 + MK-300 REC alignment at the actual project sample rate, with fine adjustment initially 0 ms; transient-feedback UX smoke; and retained route/recording/editing/export smoke.
+A later documentation-only commit never becomes the source of an older APK. Keep product source SHA, APK hash and signing identity tied to the workflow run that actually produced the artifact.

@@ -3,65 +3,92 @@
 Updated: 2026-09-16
 
 ## Product goal
-A take played in time with the audible backing must land in time on the GuitarLab timeline without requiring manual movement. Manual fine adjustment is a fallback for route-specific residual hardware behavior, not the primary synchronization mechanism.
+A take played in time with the audible backing must land in time on the GuitarLab timeline without manual movement. Manual fine adjustment is a fallback for route-specific residual hardware behavior, not the primary synchronization mechanism.
+
+The detailed implementation model is documented in `docs/RECORDING_LATENCY_ARCHITECTURE.md`.
 
 ## Three independent timing domains
-1. **Session clock offset** — signed difference between capture stream origin and backing presentation stream origin.
-2. **Measured route latency** — accepted round-trip calibration for the exact physical input + output + sample rate.
-3. **Fine residual adjustment** — optional user correction for a repeatable residual not removed by automatic timing/calibration.
+1. **Session clock alignment** — signed relationship between capture stream origin and backing presentation stream origin.
+2. **Route latency compensation** — accepted physical round-trip calibration for the exact input + output + sample rate tuple.
+3. **Residual fine adjustment** — optional, small user correction for repeatable residual error after automatic alignment/calibration.
 
-These domains must never be folded together early or applied more than once.
+These values must not be folded together early, silently substituted for one another, or applied twice.
 
-## Plan A — automatic session synchronization
-- Capture and playback obtain monotonic audio clock observations.
-- Multiple observations are converted to stream-origin estimates.
-- Unstable/stale observations fail closed.
-- Capture and playback must use the same evidence class: hardware timestamp vs hardware timestamp, or command fallback vs command fallback.
-- The clock offset is signed: capture-before-backing is negative; capture-after-backing is positive.
-- Mapping operates in frames at the actual session sample rate.
-- Timeline cannot become negative; any required pre-zero portion is trimmed from the recorded source instead.
+## Sign convention
+Let:
+- `requested` = requested timeline start frame;
+- `sessionDelta` = capture stream origin minus backing presentation origin, in frames;
+- `routeLatency` = accepted non-negative route latency, in frames;
+- `fine` = residual adjustment, where **positive advances the take** and negative delays it.
 
-## Plan B — analyzer/calibration
-- Calibration is optional and requires explicit input/output selection plus a loopback path.
-- It runs at the same editing/recording rate used by the project.
-- Several passes are required; median, jitter, confidence and drift decide acceptance.
-- Rejected/unstable measurements are stored for diagnostics if useful but are never applied automatically.
-- Calibration keys include semantic route signature + sample rate.
+Before the timeline-zero bound is applied:
 
-## Fine adjustment
-- Default: 0 frames.
+`mappedStart = requested + sessionDelta - routeLatency - fine`
+
+If `mappedStart < 0`, timeline start is clamped to zero and the corresponding amount is trimmed from the recorded source. The source length must remain positive.
+
+## Plan A — automatic synchronization
+- Prefer hardware audio timestamp vs hardware audio timestamp when both sides produce a trustworthy anchor.
+- Otherwise use command monotonic clock vs command monotonic clock.
+- Never compare one hardware-timestamp basis with the other side's command clock.
+- Hardware anchors require multiple progressing observations; repeated/stale samples do not count and backwards frame/time progression fails closed.
+- Session delta is signed; capture-before-backing and capture-after-backing are both represented.
+- Conversion uses the actual session rate, including **44.1 / 48 / 88.2 / 96 kHz**.
+- Pathological arithmetic must saturate rather than wrap into invalid frames.
+- No trustworthy common basis means startup correction is zero; do not invent an offset.
+
+## Plan B — route analyzer/calibration
+- Calibration requires explicit input and output plus a valid test loopback path.
+- It runs at the same editing/recording rate as the project.
+- Several passes are required.
+- Median latency, jitter, confidence, drift and attempt count are retained.
+- Unstable/rejected calibration is diagnostic-only and never auto-applied.
+- Persistence scope is exact `input route + output route + sample rate`.
+- H23b uses an unambiguous v2 key; the prior 32-bit hashed key is not automatically applied because it cannot prove exact route identity under collision.
+
+## Fine residual adjustment
+- Default: `0` frames / `0.0 ms`.
 - Scope: exact input + output + sample-rate tuple.
-- Safety bound: ±120 ms.
-- Positive value advances the take; negative value delays it.
-- It is applied after the automatic clock mapping and measured route latency, exactly once.
-- Fine adjustment must never be silently copied between different sample rates or physical routes.
+- Range: ±120 ms maximum.
+- Positive advances the take; negative delays it.
+- UI provides practical ±1 ms / ±5 ms steps plus `Zerar`.
+- It is applied once, after automatic clock mapping and route latency terms are defined.
+- It must not be copied across routes or sample rates.
 
 ## Punch recording
-Punch pre-roll/post-roll controls capture extent only. Final kept source/timeline window is derived from the fully compensated take placement so startup offset and route latency are not double-counted.
+Punch pre-roll/post-roll controls capture extent. The final punch keep-window is derived **after** the take has one final compensated placement. Punch cropping must not repeat session-offset, route-latency or residual-adjustment math.
 
-## Failure rules
-- No trustworthy common clock basis → startup offset = 0 rather than inventing a value.
-- Selected input disappears → recording fails closed according to the explicit-route policy; no silent microphone fallback.
-- Selected output falls back → route-specific calibration/fine adjustment is invalidated for that take.
-- Project has conflicting editing sample rates → recording/calibration must require normalization instead of guessing.
+## Lifecycle and route failure
+- Stop/error/finalization clears active timing state before another take can begin.
+- Selected input disappearance fails closed; do not silently fall back to the tablet microphone.
+- If playback output falls back during REC, route-specific calibration/fine adjustment for that take is invalidated.
+- Mixed editing sample rates fail closed rather than guessing a recording/calibration rate.
 
-## Validation matrix
-Required deterministic coverage:
+## Required deterministic regression matrix
 - capture starts before backing;
 - capture starts after backing;
-- 44.1, 48 and 96 kHz frame/time conversion;
-- hardware/hardware vs command/command basis;
-- mixed basis fails closed;
-- timeline-zero trimming;
-- positive/negative/zero fine adjustment;
-- calibration absent/rejected/accepted;
-- route fallback invalidates route-specific compensation;
-- punch crop after compensation;
-- repeated takes cannot inherit stale timing state.
+- simultaneous start;
+- positive/negative/zero session delta;
+- 44.1/48/88.2/96 kHz ns→frame conversion;
+- deterministic rounding;
+- timeline-zero bounds and non-negative placement;
+- positive/zero route latency;
+- positive/negative/zero residual adjustment;
+- absent/rejected/accepted calibration;
+- other route/rate cannot match the current calibration key;
+- output fallback invalidates route-specific terms;
+- punch crop after final compensation;
+- consecutive takes do not share policy state;
+- stale/repeated/backwards timestamps fail closed;
+- fallback without trustworthy `AudioTimestamp` uses command/command basis only;
+- property/fuzz coverage with no overflow, invalid frame, nondeterminism or duplicate compensation.
 
-Required physical coverage on target hardware:
-- MK-300 input/output, loopback disabled for normal REC;
-- record against a transient-rich backing at the real project rate;
-- repeat at least three takes without changing setup;
-- verify the residual is not systematic before applying fine adjustment;
-- if fine adjustment is needed, verify one saved setting corrects repeated takes on that same route/rate and does not affect another route/rate.
+## Physical acceptance
+On SM-X230 + MK-300:
+1. begin with fine adjustment at `0.0 ms`;
+2. record at least three repeated takes against a transient-rich backing at the actual project rate;
+3. verify there is no repeatable systematic late/early placement;
+4. only if a stable residual remains, run the route/rate analyzer;
+5. only after accepted calibration, use the smallest residual fine adjustment if still necessary.
+
+`WATG - Enemy-master.wav` is historical physical evidence of the residual issue. Only its **left channel** is the relevant recorded-guitar evidence channel. It is not an isolated reference and must not be used to derive a global magic offset.
