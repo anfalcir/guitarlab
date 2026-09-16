@@ -78,6 +78,15 @@ H24A_CHECKS=(
     "core/project/src/test/kotlin/studio/guitarlab/core/project/ProjectLibraryPolicyTest.kt|9b09a64a8d7a173cffc3436f1b2c5e4f041a8f3a"
 )
 
+H25_CHECKS=(
+    "app/src/main/java/studio/guitarlab/app/ui/AppIconButton.kt|379bb35ab850eccfaeae10a02356c445ada67881"
+    "app/src/main/java/studio/guitarlab/app/ui/HomeScreen.kt|bfafbaf04d6b316c2a1dc13b73ba17e48df9ff38"
+    "app/src/main/java/studio/guitarlab/app/ui/SettingsScreen.kt|9d1f3c3e7a71d3464cb57b4174117dd561c1f7a3"
+    "app/src/main/java/studio/guitarlab/app/ui/StudioUserGuideDialog.kt|ac76597758c683159599d86a3a20c363447f58c8"
+    "app/src/androidTest/java/studio/guitarlab/app/ProjectDeleteConfirmationInstrumentedTest.kt|c8c5e4346e3dd2d58d762db743af47383276a8ba"
+    "app/src/androidTest/java/studio/guitarlab/app/SettingsCalibrationModalInstrumentedTest.kt|cd186a7fac8b1102663c6fb36620111b14613628"
+)
+
 h23_ready() {
     local entry relative expected
     for entry in "${H23_CHECKS[@]}"; do
@@ -124,6 +133,16 @@ h24_ready() {
 h24a_ready() {
     local entry relative expected
     for entry in "${H24A_CHECKS[@]}"; do
+        relative="${entry%%|*}"
+        expected="${entry#*|}"
+        [[ -f "$ROOT/$relative" ]] || return 1
+        [[ "$(hash_file "$ROOT/$relative")" == "$expected" ]] || return 1
+    done
+}
+
+h25_ready() {
+    local entry relative expected
+    for entry in "${H25_CHECKS[@]}"; do
         relative="${entry%%|*}"
         expected="${entry#*|}"
         [[ -f "$ROOT/$relative" ]] || return 1
@@ -178,15 +197,28 @@ apply_h24a() {
     apply_encoded_gzip_patch_once "$ROOT/.source-parts/H24aAndroidTestCompileFix.patch.gz.part00"
 }
 
+apply_h25() {
+    apply_encoded_gzip_patch_once "$ROOT/.source-parts/H25UiSettingsSafety.patch.gz.part00"
+}
+
+if h25_ready; then
+    echo "Source patch chain already materialized through H25"
+    exit 0
+fi
+
 if h24a_ready; then
-    echo "Source patch chain already materialized through H24a"
+    apply_h25
+    h25_ready || { echo "H25 applied but final H25 hashes do not match." >&2; exit 1; }
+    echo "Source patch chain materialized through H25 with verified final hashes"
     exit 0
 fi
 
 if h24_ready; then
     apply_h24a
     h24a_ready || { echo "H24a applied but final H24a hashes do not match." >&2; exit 1; }
-    echo "Source patch chain materialized through H24a with verified final hashes"
+    apply_h25
+    h25_ready || { echo "H25 applied after H24a but final H25 hashes do not match." >&2; exit 1; }
+    echo "Source patch chain materialized through H25 with verified final hashes"
     exit 0
 fi
 
@@ -195,7 +227,9 @@ if h23b_ready; then
     h24_ready || { echo "H24 applied but final H24 hashes do not match." >&2; exit 1; }
     apply_h24a
     h24a_ready || { echo "H24a applied after H24 but final H24a hashes do not match." >&2; exit 1; }
-    echo "Source patch chain materialized through H24a with verified final hashes"
+    apply_h25
+    h25_ready || { echo "H25 applied after H24a but final H25 hashes do not match." >&2; exit 1; }
+    echo "Source patch chain materialized through H25 with verified final hashes"
     exit 0
 fi
 
@@ -206,7 +240,9 @@ if h23_ready; then
     h24_ready || { echo "H24 applied after H23b but final H24 hashes do not match." >&2; exit 1; }
     apply_h24a
     h24a_ready || { echo "H24a applied after H24 but final H24a hashes do not match." >&2; exit 1; }
-    echo "Source patch chain materialized through H24a with verified final hashes"
+    apply_h25
+    h25_ready || { echo "H25 applied after H24a but final H25 hashes do not match." >&2; exit 1; }
+    echo "Source patch chain materialized through H25 with verified final hashes"
     exit 0
 fi
 
@@ -219,7 +255,9 @@ if h23_base_ready; then
     h24_ready || { echo "H24 applied after H23b but final H24 hashes do not match." >&2; exit 1; }
     apply_h24a
     h24a_ready || { echo "H24a applied after H24 but final H24a hashes do not match." >&2; exit 1; }
-    echo "Source patch chain materialized through H24a with verified final hashes"
+    apply_h25
+    h25_ready || { echo "H25 applied after H24a but final H25 hashes do not match." >&2; exit 1; }
+    echo "Source patch chain materialized through H25 with verified final hashes"
     exit 0
 fi
 
@@ -313,4 +351,9 @@ if ! h24a_ready; then
     echo "H24a materialization completed but final source hashes do not match the audited contract." >&2
     exit 1
 fi
-echo "Source patch chain materialized through H24a with verified final hashes"
+apply_h25
+if ! h25_ready; then
+    echo "H25 materialization completed but final source hashes do not match the audited contract." >&2
+    exit 1
+fi
+echo "Source patch chain materialized through H25 with verified final hashes"
