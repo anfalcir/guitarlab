@@ -13,8 +13,84 @@ H26E_SOURCE_PART="$ROOT/.source-parts/H26eBackupScreenInstrumentedTest.kt.b64"
 H26E_SOURCE_SHA256="7f974aef7ad8b4052cd01b6a66ffe75cee78fb27c5e94585b9eda44e2bf322da"
 H26E_TEST_HASH="8ebac066a3bef1b93ee0316cdb5dcc726fe4b056"
 H26E_TEST_PATH="$ROOT/app/src/androidTest/java/studio/guitarlab/app/BackupScreenInstrumentedTest.kt"
+H27_PATCH_ARCHIVE_PART="$ROOT/.source-parts/H27BackupReleaseUx.patch.gz.b64"
+H27_PATCH_ARCHIVE_SHA256="2cbfa3bf7d3291778d73d5a3ffdf04f2e16ebf0c129a893f807d9cc548f53c05"
+H27_PATCH_SHA256="c80f0b04f34fb1b92ea47c13f7eb70df6744e0c07392e81391875f3b10aa85e5"
+
+H27_CHECKS=(
+    "app/src/androidTest/java/studio/guitarlab/app/BackupScreenInstrumentedTest.kt|7294a0c8e6bd54f168bc851ee95427697b513050"
+    "app/src/main/java/studio/guitarlab/app/backup/AutomaticBackupWorker.kt|97af055e4db27f2a15bae22cf26627d54e492eb5"
+    "app/src/main/java/studio/guitarlab/app/backup/BackupScreen.kt|d2a97aa755233adc7e47427763a0fe5caccb6945"
+    "app/src/main/java/studio/guitarlab/app/backup/BackupSettingsStore.kt|8a339774521ea4ad254615429816991d2932a686"
+    "app/src/main/java/studio/guitarlab/app/backup/BackupViewModel.kt|bda61bf3ec412b1195e606e31427478db9297fd9"
+    "app/src/main/java/studio/guitarlab/app/backup/SafBackupRemoteStore.kt|63acce5a1b7cc6caec6a13ccb2fa279c45b9279b"
+    "app/src/main/java/studio/guitarlab/app/ui/SettingsScreen.kt|aa7bd86d7de3a5157789125202874d3f62e725a5"
+    "app/src/main/java/studio/guitarlab/app/ui/StudioAudioRoutingStore.kt|88021bbb59011b6a7dc8bac37aaa42bf363b7125"
+    "app/src/main/java/studio/guitarlab/app/ui/StudioUserGuideDialog.kt|7dc28ab5baa6b8da6d60fc8a32c4848fe07d4903"
+    "app/src/main/java/studio/guitarlab/app/ui/StudioViewModel.kt|fa0805298ae05cd9dd0d254c9019cd499354b6df"
+    "core/project/src/main/kotlin/studio/guitarlab/core/project/BackupDomain.kt|0eeb2aa6d41594f13feb2ca7e9affe856ee90b7a"
+    "core/project/src/main/kotlin/studio/guitarlab/core/project/ProjectBackupCoordinator.kt|cfbf26b19952d12ceb59396b7c456ea703522d2c"
+    "core/project/src/test/kotlin/studio/guitarlab/core/project/BackupDomainTest.kt|d27af3662e9f1d14f60aa753452e854a3841d403"
+    "core/project/src/test/kotlin/studio/guitarlab/core/project/ProjectBackupCoordinatorTest.kt|b58564e85ff099f77357d88ec951fd2d8266735e"
+)
 
 hash_file() { git -C "$ROOT" hash-object "$1"; }
+
+h27_ready() {
+    local entry relative expected
+    for entry in "${H27_CHECKS[@]}"; do
+        relative="${entry%%|*}"
+        expected="${entry#*|}"
+        [[ -f "$ROOT/$relative" ]] || return 1
+        [[ "$(hash_file "$ROOT/$relative")" == "$expected" ]] || return 1
+    done
+}
+
+decode_h27_patch() {
+    local output="$1" archive actual_archive
+    [[ -f "$H27_PATCH_ARCHIVE_PART" ]] || { echo "Missing H27 source archive: $H27_PATCH_ARCHIVE_PART" >&2; return 1; }
+    archive="$(mktemp)"
+    trap 'rm -f "$archive"' RETURN
+    base64 -d "$H27_PATCH_ARCHIVE_PART" > "$archive"
+    gzip -t "$archive"
+    actual_archive="$(sha256sum "$archive" | awk '{print $1}')"
+    [[ "$actual_archive" == "$H27_PATCH_ARCHIVE_SHA256" ]] || {
+        echo "H27 source archive SHA-256 mismatch: $actual_archive" >&2
+        return 1
+    }
+    gzip -dc "$archive" > "$output"
+    rm -f "$archive"
+    trap - RETURN
+}
+
+verify_h27_patch() {
+    local decoded actual
+    decoded="$(mktemp)"
+    trap 'rm -f "$decoded"' RETURN
+    decode_h27_patch "$decoded"
+    actual="$(sha256sum "$decoded" | awk '{print $1}')"
+    [[ "$actual" == "$H27_PATCH_SHA256" ]] || {
+        echo "H27 source patch SHA-256 mismatch: $actual" >&2
+        return 1
+    }
+    rm -f "$decoded"
+    trap - RETURN
+}
+
+apply_h27() {
+    local decoded
+    decoded="$(mktemp)"
+    trap 'rm -f "$decoded"' RETURN
+    decode_h27_patch "$decoded"
+    [[ "$(sha256sum "$decoded" | awk '{print $1}')" == "$H27_PATCH_SHA256" ]] || {
+        echo "H27 source patch changed between verify and apply." >&2
+        return 1
+    }
+    patch --dry-run -p1 -d "$ROOT" < "$decoded" >/dev/null
+    patch --batch --forward -p1 -d "$ROOT" < "$decoded"
+    rm -f "$decoded"
+    trap - RETURN
+}
 
 H26_CHECKS=(
     "app/build.gradle.kts|a1ced47c3dfa807daeb5c0bd9fd8c8fca230478a"
@@ -162,7 +238,7 @@ apply_h26b() {
 
 decode_h26a_patch() {
     local output="$1"
-    [[ -f "$H26A_PATCH_PART" ]] || { echo "Missing H26a patch part: $H26A_PATCH_PART" >&2; return 1; }
+    [[ -f "$H26A_PATCH_PART" ]] || { echo "Missing H26a source patch: $H26A_PATCH_PART" >&2; return 1; }
     base64 -d "$H26A_PATCH_PART" > "$output"
 }
 
@@ -238,27 +314,33 @@ verify_h26_archive
 verify_h26a_patch
 verify_h26b_patch
 verify_h26e_source
+verify_h27_patch
 
-if h26e_ready; then
-    echo "Source patch chain already materialized through H26e"
+if h27_ready; then
+    echo "Source patch chain already materialized through H27"
     exit 0
 fi
 
-if ! h26b_ready; then
-    if ! h26a_ready; then
-        if ! h26_ready; then
-            [[ -x "$PREVIOUS" ]] || { echo "Missing H25 materializer: $PREVIOUS" >&2; exit 1; }
-            bash "$PREVIOUS"
-            apply_h26
-            h26_ready || { echo "H26 applied but final H26 hashes do not match." >&2; exit 1; }
+if ! h26e_ready; then
+    if ! h26b_ready; then
+        if ! h26a_ready; then
+            if ! h26_ready; then
+                [[ -x "$PREVIOUS" ]] || { echo "Missing H25 materializer: $PREVIOUS" >&2; exit 1; }
+                bash "$PREVIOUS"
+                apply_h26
+                h26_ready || { echo "H26 applied but final H26 hashes do not match." >&2; exit 1; }
+            fi
+            apply_h26a
+            h26a_ready || { echo "H26a applied but final H26a hashes do not match." >&2; exit 1; }
         fi
-        apply_h26a
-        h26a_ready || { echo "H26a applied but final H26a hashes do not match." >&2; exit 1; }
+        apply_h26b
+        h26b_ready || { echo "H26b applied but final H26b hashes do not match." >&2; exit 1; }
     fi
-    apply_h26b
-    h26b_ready || { echo "H26b applied but final H26b hashes do not match." >&2; exit 1; }
+
+    install_h26e_source
+    h26e_ready || { echo "H26e installed but final H26e hashes do not match." >&2; exit 1; }
 fi
 
-install_h26e_source
-h26e_ready || { echo "H26e installed but final H26e hashes do not match." >&2; exit 1; }
-echo "Source patch chain materialized through H26e with verified final hashes"
+apply_h27
+h27_ready || { echo "H27 applied but final H27 hashes do not match." >&2; exit 1; }
+echo "Source patch chain materialized through H27 with verified final hashes"
