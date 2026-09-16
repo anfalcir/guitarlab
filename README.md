@@ -20,14 +20,28 @@ Read first:
 ## Active RC3 state
 Candidate: `0.5.0-rc3`, versionCode `23`, package `studio.guitarlab.app`.
 
-The last fully signed digital authority is **CI #639**, run `35096711936`, exact source `eb9c4a4ca2a6269fbe2f2211a0807b8c703e115c`. It passed 260/260 JVM/unit tests, Android Lint/build/provenance, API36 standard 23/23, isolated 1920×1200 geometry 1/1 and signed homologation. Signed APK SHA-256: `ffac9da48c17fe2bd28172d357c2f45e906c15b20a216443c1b8b78a9a893696`.
+The current fully signed digital authority is **CI #641**, run `35105065689`, exact producer source `b11769f340f7056c37dfb17d95b062909dad87bf`.
 
-H23b is therefore DIGITAL PASS. Focused SM-X230 + MK-300 physical recording-timing validation remains pending.
+It passed:
+- **269/269** JVM/unit tests;
+- Android Lint/build/unsigned provenance;
+- API36 standard **25/25**;
+- isolated 1920×1200 geometry **1/1**;
+- signed homologation with the locked certificate.
 
-## H24 — Home Project Library
-H24 is implemented and source-validated after CI #639. It adds efficient project search, combinable filters and deterministic ordering to Home without changing project schema or `.guitarlab` format.
+Signed APK SHA-256: `d3698067ed7117d3c3c844b0d94bb117c3448cac3da2897329e4dbfcd71e0f39`.
 
-The implementation is materialized through `.source-parts/H24HomeProjectLibrary.patch.gz.part00` and verified by `scripts/materialize_ci_sources.sh`. It remains **PRE-GATE** until a new user-dispatched full signed workflow succeeds on the then-current `main` SHA.
+Canonical Android reporting is **25/25 standard + 1/1 isolated geometry**.
+
+## H24/H24a — Home Project Library — DIGITAL PASS
+Home now provides efficient project search, combinable filters and deterministic ordering without changing project schema or `.guitarlab` format.
+
+Search/filter/sort operates over an immutable normalized in-memory index. Typing does not reread project files. H24a corrects only the Android-test compile import found by historical CI #640.
+
+CI #641 provides the full digital proof through H24a. Remaining H24 work is only a short target-tablet UX/touch smoke.
+
+## H23b physical residual
+Focused SM-X230 + MK-300 recording-timing validation remains pending. Start with fine adjustment 0.0 ms, loopback OFF for normal recording, include repeated 44.1 kHz takes and use calibration only if a repeatable route-specific residual exists.
 
 ## Current branch policy
 - `main` is canonical.
@@ -39,10 +53,12 @@ The implementation is materialized through `.source-parts/H24HomeProjectLibrary.
 ## Build and source materialization
 `scripts/build_local.sh` is the local software gate when the required Gradle/Android SDK environment is available. `.github/workflows/android-ci.yml` is the canonical full software/API36/geometry/signing executor.
 
-Large RC3 deltas are versioned under `.source-parts` and applied serially by `scripts/materialize_ci_sources.sh`. The current canonical tail ends at **H24** and must fail closed on source drift.
+Large RC3 deltas are versioned under `.source-parts` and applied serially by `scripts/materialize_ci_sources.sh`. The current canonical tail ends at **H24a** and fails closed on unexpected source drift.
 
 ## Physical validation policy
-Automatable mathematics, persistence invariants, timing policy, malformed-input handling, lifecycle behavior, accessibility semantics, generic geometry and Home-library selection logic are automated responsibilities. Physical review is reserved for target-device behavior that cannot be established digitally, especially real MK-300 routing, recording alignment, touch ergonomics and listening.
+Automatable mathematics, persistence invariants, timing policy, malformed-input handling, lifecycle behavior, accessibility semantics, generic geometry and Home-library selection logic are automated responsibilities. Physical review is reserved for real MK-300 routing/timing, touch ergonomics and listening.
+
+The exact physical candidate is the CI #641 signed APK produced by `b11769f340f7056c37dfb17d95b062909dad87bf`. Later documentation-only commits do not change that identity.
 
 ## Security
 Never commit keystores, credentials, local SDK configuration or secret artifacts.
