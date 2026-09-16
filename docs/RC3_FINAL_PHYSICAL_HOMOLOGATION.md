@@ -4,28 +4,33 @@ Updated: 2026-09-16
 
 This checklist is intentionally residual. Do not repeat deterministic checks already covered by the exact-source CI.
 
-## Candidate rule
-H22 route UX was physically approved and H23/H23a passed CI #638. H23b changes product source after #638, so the next physical timing candidate must be the exact signed APK produced by a **new successful full CI on the H23b SHA**.
+## Exact candidate — CI #639
+Use only the signed APK produced by run `35096711936` from exact product source `eb9c4a4ca2a6269fbe2f2211a0807b8c703e115c`.
 
-Locked identity that must remain unchanged:
+Locked identity:
 - versionName `0.5.0-rc3`;
 - versionCode `23`;
 - package `studio.guitarlab.app`;
+- unsigned APK SHA-256 `195aa82a581bbcc30890b278cab03bc029eb5d3376fa99130b67e24f6213e21a`;
+- signed APK SHA-256 `ffac9da48c17fe2bd28172d357c2f45e906c15b20a216443c1b8b78a9a893696`;
 - signer SHA-256 `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`;
 - target Samsung SM-X230 + M-VAVE MK-300 over USB;
 - MK-300 hardware loopback disabled for normal REC validation.
 
+CI #639 already passed unit/JVM **260/260**, Lint/build/provenance, API36 **23/23**, isolated target geometry **1/1**, and signed homologation. Do not repeat these digitally covered checks unless a physical symptom specifically points back to them.
+
 ## A. Retained H22 route UX smoke
-- Input: semantic physical choices only; no `remote-submix`, `0`, `back`, `bottom`, `hsp:...` duplicates.
-- Output: semantic physical choices only.
-- MK-300 appears once per direction and routes correctly after reconnect.
+- Input shows semantic physical choices only; no low-level duplicate endpoints.
+- Output shows semantic physical choices only.
+- Built-in labels remain user-friendly (`Microfone do tablet`, `Alto-falante do tablet`).
+- MK-300 appears once per physical direction and routes correctly after reconnect.
+- No normal UI exposes route internals such as `remote-submix`, `hsp:`, `route2:`, `route3:`, raw endpoint/device indices or address/product tokens.
 
 ## B. H23b transient-feedback acceptance
 - Play/Stop/Pause success produces no Snackbar.
 - Enter/exit CUT/Trim produces no Snackbar.
 - REC countdown/capturing/finalizing is visible in the owning UI but does not spam Snackbar.
 - Mute/Solo/Arm/selection/seek do not generate redundant transient success messages.
-- No normal Snackbar/error exposes `deviceId`, `productName=`, address, endpoint index, `SM-X230 • bottom/back/0`, `remote-submix`, `hsp:`, `route2:` or `route3:`.
 - A real error still produces a concise user-facing message.
 - A meaningful degraded recording state warns once and respects warning cooldown.
 - Async export completion may show one concise completion Snackbar.
@@ -34,19 +39,21 @@ Locked identity that must remain unchanged:
 Start with residual fine adjustment at **0.0 ms**.
 
 1. Select MK-300 input/output explicitly.
-2. Use a transient-rich backing and the project's real sample rate.
-3. Include **44.1 kHz** because the physical evidence was 44.1 kHz; if practical, also smoke 48 kHz. Digital tests cover 44.1/48/88.2/96 kHz.
-4. Record at least three independent takes while playing the same obvious transient/riff.
-5. Inspect/listen to every take against the backing.
-6. PASS only if no repeatable systematic late/early displacement is shared across takes.
-7. Exercise recording from timeline zero and a non-zero playhead.
-8. Exercise one loop-punch take and confirm crop/alignment remains correct.
-9. Stop, record again and verify the second/third take does not inherit timing state from the previous take.
+2. Keep hardware loopback disabled for normal REC.
+3. Use a transient-rich backing and the project's actual editing/recording sample rate.
+4. Include a **44.1 kHz** project; 48 kHz is a useful additional smoke. Digital policy coverage already includes 44.1/48/88.2/96 kHz.
+5. Record at least **three independent takes** while playing the same obvious transient/riff.
+6. Inspect/listen to every take against the backing.
+7. PASS only if no repeatable systematic late/early displacement is shared across takes.
+8. Exercise recording from timeline zero and from a non-zero playhead.
+9. Exercise one loop/punch take and confirm crop/alignment remains correct.
+10. Stop and record again; confirm later takes do not inherit timing state from earlier takes.
 
-A single human performance miss is not a timing failure; the concern is a repeatable systematic displacement.
+A single human performance miss is not a timing failure. The concern is a repeatable systematic displacement.
 
 ## D. Plan-B analyzer/calibration
-Only if section C reveals a stable route-specific residual:
+Use only if section C reveals a stable route-specific residual.
+
 1. Keep the exact same MK-300 input/output and sample rate.
 2. Connect/enable a valid loopback path specifically for calibration.
 3. Run `Calibrar latência` and inspect input, output, sample rate, attempts, median latency, jitter, drift, confidence and status.
@@ -55,14 +62,14 @@ Only if section C reveals a stable route-specific residual:
 6. Repeat section C with fine adjustment still at zero.
 7. Change route or sample rate and confirm the previous calibration is not reused.
 
-H23b intentionally does not auto-apply the old H23 32-bit hashed calibration entry. If this device/rate was calibrated before H23b, calibrate it again once on H23b.
+H23b intentionally does not auto-apply the old H23 32-bit hashed calibration entry. Calibrate once again on H23b before relying on route compensation.
 
 ## E. Fine residual adjustment
 Use only if a repeatable residual remains after Plan A + accepted calibration.
-- Start with ±1 ms; use ±5 ms only when clearly necessary.
-- Positive adjustment advances the take; negative delays it.
+- Start with ±1 ms; use larger values only when measured/audibly justified.
+- Positive adjustment advances the take; negative adjustment delays it.
 - Repeat three takes and confirm the correction is stable.
-- `Zerar` must return the exact route/rate residual to 0.
+- `Zerar` must return the exact route/rate residual to `0.0 ms`.
 - Change input, output or sample rate and confirm the previous fine adjustment is not silently reused.
 
 ## F. Retained production smoke
@@ -75,10 +82,10 @@ Use only if a repeatable residual remains after Plan A + accepted calibration.
 - Trim Apply → Undo → Redo → save/reopen.
 
 ## Final PASS criteria
-- exact H23b signed candidate source/artifact identity is verified;
+- exact CI #639 source/artifact/signing identity verified;
 - H22 semantic-route behavior remains correct;
-- transient-feedback contract passes;
+- H23b transient-feedback contract passes physically;
 - no repeatable P0/P1 recording timing defect remains;
-- no unintended input fallback/backing leakage;
+- no unintended input fallback or backing leakage;
 - fine adjustment remains zero if Plan A fully resolves the route, otherwise any non-zero value is route/rate-specific and physically verified;
-- explicit user approval of the exact signed APK.
+- explicit user approval of the exact signed APK SHA-256 `ffac9da48c17fe2bd28172d357c2f45e906c15b20a216443c1b8b78a9a893696`.

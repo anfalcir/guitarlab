@@ -24,36 +24,38 @@ Canonical tail after H11b:
 Expected final message after H23b materialization:
 `Source patch chain materialized through H23b with verified final hashes`.
 
-## Last signed authority — CI #638
-CI #638 / run `35084703365` / exact source `c310be6779e6591c57399257f380588c27bdf20a` remains authoritative through H23/H23a:
-- software/unit/audio/DSP/persistence/migration/performance/Lint/build/provenance: PASS;
-- standard API36: **23/23 PASS**;
+## Current signed authority — CI #639
+CI #639 / run `35096711936` / exact product source `eb9c4a4ca2a6269fbe2f2211a0807b8c703e115c` is authoritative through H23b:
+- H23b materializer final-hash verification: PASS;
+- unit/JVM suites: **260/260 PASS**, 0 failures/errors/skips;
+- Android Lint gate: PASS;
+- debug/release assembly and unsigned provenance: PASS;
+- standard API36 connected regression: **23/23 PASS**;
 - isolated 1920×1200 geometry: **1/1 PASS**;
 - signed homologation: PASS;
-- unsigned APK SHA-256 `621e02355d265bdb6c24cb5e324b445b63e739f8e7d6adc233eebea3b31fe0d5`;
-- signed APK SHA-256 `a650afa5edfd2b8c4f8393e65b314ae9fbb59487a87c2d3ea85ef978d7d895dc`;
-- certificate SHA-256 `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
+- package/version: `studio.guitarlab.app`, `0.5.0-rc3`, versionCode `23`;
+- unsigned APK SHA-256 `195aa82a581bbcc30890b278cab03bc029eb5d3376fa99130b67e24f6213e21a`;
+- signed APK SHA-256 `ffac9da48c17fe2bd28172d357c2f45e906c15b20a216443c1b8b78a9a893696`;
+- certificate SHA-256 `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`;
+- APK Signature Scheme v2 verification: PASS, one RSA-4096 signer;
+- signing bundle cleanup: PASS.
 
-Do not flatten the API36 report to 24/24; report **23/23 standard + 1/1 isolated geometry**.
+Do not flatten the Android report to 24/24; report **23/23 standard + 1/1 isolated geometry**.
 
-## H23b PRE-GATE evidence
-Before repository publication, H23b is locally source-validated against the exact #638 materialized source:
-- pure Kotlin timing/calibration/feedback policies compile;
-- 100,000 randomized placement cases pass invariants/determinism;
-- 44.1/48/88.2/96 kHz conversion checks pass;
-- H23b patch forward/reverse round-trip is byte-exact;
-- gzip/base64 split archive integrity passes;
-- first materialization passes and second materialization is idempotent;
-- all final modified blobs match the declared materializer hashes;
-- `git diff --check` passes.
+## Provenance chain for CI #639
+The signed job downloaded artifact `guitarlab-release-unsigned-eb9c4a4ca2a6269fbe2f2211a0807b8c703e115c`, verified its artifact digest, verified `UNSIGNED_SHA256SUMS.txt`, checked `sourceSha == GITHUB_SHA`, package/version/versionCode, then aligned and signed that exact tested APK.
 
-This is **not** an Android build/Lint/API36/signing PASS for H23b. Those labels are reserved for the official workflow.
+The homologation artifact `BUILD_IDENTITY.txt` records:
+- `commit=eb9c4a4ca2a6269fbe2f2211a0807b8c703e115c`;
+- `unsignedApkSha256=195aa82a581bbcc30890b278cab03bc029eb5d3376fa99130b67e24f6213e21a`;
+- `signedApkSha256=ffac9da48c17fe2bd28172d357c2f45e906c15b20a216443c1b8b78a9a893696`;
+- `gate=software+android-integration-passed;physical-validation-pending`.
 
-## Next signed gate
-After the H23b commit lands on `main`, the user manually runs:
-`Actions → GuitarLab Android CI → main → signed_homologation=true`.
-
-All three authority layers must be green on the exact same H23b SHA before that APK can become the new physical candidate.
+## Warnings versus failures
+Compiler/deprecation and environment warnings are non-gating unless a job fails. CI #639 completed all required jobs successfully; no blocking Lint/test/build/signing failure remains in the run. Emulator startup emitted transient environment warnings before recovery, but both connected test executions finished `BUILD SUCCESSFUL`.
 
 ## Artifact identity discipline
-A later documentation-only commit never becomes the source of an older APK. Keep product source SHA, APK hash and signing identity tied to the workflow run that actually produced the artifact.
+A documentation-only commit after CI #639 never becomes the source of its APK. Keep exact product source SHA `eb9c4a4ca2a6269fbe2f2211a0807b8c703e115c`, APK hashes and signer identity tied to run `35096711936`.
+
+## Next gate
+No additional CI is required merely to promote documentation. The remaining gate is focused physical validation of the exact CI #639 signed candidate on Samsung SM-X230 + M-VAVE MK-300, beginning with residual fine adjustment at `0.0 ms`.

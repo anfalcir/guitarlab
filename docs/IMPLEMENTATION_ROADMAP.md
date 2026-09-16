@@ -20,27 +20,29 @@ The original calibration foundation is closed. RC3 residual timing is handled as
 ## M7 — Production audio polish
 - H22/H22a: DIGITAL PASS at CI #636; focused physical route UX PASS on SM-X230.
 - H23/H23a: DIGITAL PASS at CI #638 / exact source `c310be6779e6591c57399257f380588c27bdf20a`.
-- H23b: corrective timing/calibration/feedback hardening, **SOURCE-VALIDATED / PRE-GATE** pending one user-dispatched signed CI.
+- H23b: **DIGITAL PASS at CI #639** / exact source `eb9c4a4ca2a6269fbe2f2211a0807b8c703e115c`; focused physical recording-timing validation remains pending.
 
 ## M8 — Release hardening
 
-### Last signed authority
-CI #638 / run `35084703365` / source `c310be6779e6591c57399257f380588c27bdf20a`:
-- software/unit/Lint/build/provenance: PASS;
+### Current signed authority
+CI #639 / run `35096711936` / exact product source `eb9c4a4ca2a6269fbe2f2211a0807b8c703e115c`:
+- unit/JVM: **260/260 PASS**;
+- Android Lint/build/provenance: PASS;
 - API36 standard: **23/23 PASS**;
 - isolated 1920×1200 geometry: **1/1 PASS**;
 - signed homologation: PASS;
-- signed APK SHA-256 `a650afa5edfd2b8c4f8393e65b314ae9fbb59487a87c2d3ea85ef978d7d895dc`;
+- unsigned APK SHA-256 `195aa82a581bbcc30890b278cab03bc029eb5d3376fa99130b67e24f6213e21a`;
+- signed APK SHA-256 `ffac9da48c17fe2bd28172d357c2f45e906c15b20a216443c1b8b78a9a893696`;
 - signer SHA-256 `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
 
-### H23b acceptance goals
-1. **Frame-exact signed clock mapping** in both startup directions with stale timestamp rejection.
-2. **Complete rate matrix** at 44.1 / 48 / 88.2 / 96 kHz.
-3. **No double compensation:** session clock, accepted route latency and residual fine adjustment remain independent.
-4. **Exact calibration scope:** input + output + sample rate, no lossy key used for auto-application.
-5. **Professional analyzer surface:** attempts, median, jitter, drift, confidence and valid/unstable/not-calibrated state.
-6. **Global feedback discipline:** routine actions stay silent; technical Android route identity never leaks through normal Snackbar/error display.
-7. **Regression retention:** H22 route semantics, punch/loop, recording state cleanup, import/export and prior editing behavior remain intact.
+### H23b acceptance status
+1. **Frame-exact signed clock mapping** with stale/backwards timestamp rejection — DIGITAL PASS.
+2. **Complete rate matrix** at 44.1 / 48 / 88.2 / 96 kHz — DIGITAL PASS.
+3. **No double compensation** across session clock, route latency and fine adjustment — DIGITAL PASS.
+4. **Exact calibration scope** by input + output + sample rate — DIGITAL PASS.
+5. **Analyzer telemetry surface** for attempts, median, jitter, drift, confidence and status — DIGITAL PASS.
+6. **Global feedback discipline and route-token sanitization** — DIGITAL PASS.
+7. **Regression retention** in automated gates — DIGITAL PASS; focused physical smoke remains.
 
 ## Canonical materialization tail
 After H11b:
@@ -64,14 +66,15 @@ After H11b:
 18. H23b Recording Timing / Calibration / Feedback Corrective Hardening
 
 ## Remaining release path
-1. Publish H23b source-parts/materializer/docs atomically with `[skip ci]`.
-2. User manually dispatches the full signed CI on the exact H23b `main` SHA.
-3. Audit software/API36/signing results and artifact provenance on that same SHA.
-4. Only then install the signed H23b candidate on SM-X230 + MK-300.
+1. **DONE:** H23b published atomically and materialized deterministically.
+2. **DONE:** user-dispatched full signed CI #639 on exact H23b source.
+3. **DONE:** software/API36/signing/provenance audit of CI #639.
+4. Install the exact CI #639 signed candidate on SM-X230 + MK-300.
 5. Start physical timing A/B with fine adjustment **0 ms**, including a 44.1 kHz project and at least three repeated takes.
-6. If a stable residual remains, use accepted route/rate calibration before any manual fine adjustment.
-7. Retain feedback, route reconnect, waveform/meters, punch/loop, export and trim/undo/redo smoke.
-8. Final RC3 approval requires no repeatable P0/P1 timing defect and explicit approval of the exact signed APK.
+6. Exercise timeline-zero/non-zero starts and one punch/loop take; verify no state carries into subsequent takes.
+7. If a stable residual remains, run accepted route/rate calibration before any manual fine adjustment.
+8. Retain H22 route UX, transient feedback, backing-leakage, waveform/meters, route reconnect, export and trim/undo/redo smoke.
+9. Final RC3 approval requires no repeatable P0/P1 timing defect and explicit approval of the exact signed APK with SHA-256 `ffac9da48c17fe2bd28172d357c2f45e906c15b20a216443c1b8b78a9a893696`.
 
 ## Gate discipline
-`.github/workflows/android-ci.yml` remains manual-only (`workflow_dispatch`). The assistant must not dispatch or rerun Actions.
+`.github/workflows/android-ci.yml` remains manual-only (`workflow_dispatch`). The assistant must not dispatch or rerun Actions. A later docs-only commit does not replace `eb9c4a4ca2a6269fbe2f2211a0807b8c703e115c` as the product source of CI #639.
