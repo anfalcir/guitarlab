@@ -4,63 +4,67 @@ Updated: 2026-09-16
 
 ## Active line
 - Repository/branch: `anfalcir/guitarlab` / `main`.
-- Version: `0.5.0-rc3`, versionCode `23`, package `studio.guitarlab.app`.
-- Current signed DIGITAL PASS: **CI #642** / run `35121955150` / exact producer source `7bfd876b6a5b0701ab0cf5203de36c31cd117632`.
+- Version line: `0.5.0-rc3`, versionCode `23`, package `studio.guitarlab.app`.
+- Current signed DIGITAL PASS: **CI #642** / run `35121955150` / exact producer source `7bfd876b6a5b0701ab0cf5203de36c31cd117632`, authoritative through H25 only.
 - Unsigned APK SHA-256: `f6b4f21d0f514bad06b80eabdad141dac5cd236a707842c21258ec2072868c0e`.
 - Signed APK SHA-256: `916758f694735febb8cccfe58f46f290562aaba1b5483ccc727e2be0cefba5aa`.
 - Signed APK size: `13,269,914` bytes.
 - Locked signer SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
 - Signed artifact ID: `10458236596`, name `GuitarLabStudio-0.5.0-rc3-homologacao`.
-- `.github/workflows/android-ci.yml` remains manual-only (`workflow_dispatch`); the assistant must not dispatch or rerun it without explicit user instruction.
+- `.github/workflows/android-ci.yml` remains manual-only (`workflow_dispatch`).
 
 ## Evidence boundary
-CI #642 is authoritative through **H25** and supersedes CI #641 as the current signed digital authority. Historical runs remain point-in-time evidence.
+CI #642 remains the latest signed authority and covers through **H25**. H26 changes source and is currently **IMPLEMENTED / SOURCE-VALIDATED / PRE-GATE**. Therefore the #642 APK must not be described as containing or validating H26.
 
-The APK producer identity is exactly `7bfd876b6a5b0701ab0cf5203de36c31cd117632`. Any later documentation-only commit does not change that producer SHA.
-
-## CI #642 — DIGITAL PASS
-All mandatory layers passed on the same exact source SHA:
-- source materialization through H25 with verified final hashes: PASS;
-- JVM/unit: **269/269 PASS**, 0 failures, 0 errors, 0 skipped;
+## CI #642 retained evidence
+- source materialization through H25: PASS;
+- JVM/unit: **269/269 PASS**, 0 failures/errors/skips;
 - performance evidence: PASS;
-- Android Lint: PASS; non-blocking warnings/deprecations remain and are not represented as zero warnings;
+- Android Lint: PASS with non-blocking warnings/deprecations;
 - debug + release assembly and unsigned provenance: PASS;
-- standard API36 connected regression: **28/28 PASS**;
-- isolated 1920×1200 target-tablet geometry: **1/1 PASS**;
-- signed homologation from the exact tested unsigned artifact: PASS;
-- package/version identity: `studio.guitarlab.app`, `0.5.0-rc3`, versionCode `23`;
-- APK Signature Scheme v2: PASS; v1/v3/v3.1/v4 false;
-- signer count 1, RSA 4096, locked certificate match: PASS;
-- signing material cleanup: PASS.
+- standard API36: **28/28 PASS**;
+- isolated 1920×1200 geometry: **1/1 PASS**;
+- signed homologation/package/version/signer/cleanup: PASS.
 
-Canonical Android reporting is **28/28 standard + 1/1 isolated geometry**. Do not flatten this to 29/29.
+Canonical Android reporting for #642 remains **28/28 standard + 1/1 isolated geometry**.
 
-## H22–H24a retained state
-- H22/H22a semantic route UX: DIGITAL PASS + focused SM-X230 PHYSICAL PASS.
-- H23b recording timing/calibration/transient-feedback hardening: DIGITAL PASS; focused physical recording-timing acceptance still pending.
-- H24/H24a Home Project Library: DIGITAL PASS; target-tablet UX smoke remains residual.
+## H25 — DIGITAL PASS
+Rounded-square interaction feedback, calibration modal, diagnostic consolidation and explicit project-delete confirmation are digitally proven at #642. Calibration remains optional; uncalibrated status alone does not block REC.
 
-## H25 — UI/settings/delete safety — DIGITAL PASS
-H25 provides:
-- rounded-square hover/press/focus/ripple feedback matching the icon-button chassis;
-- dedicated `Calibração` modal with route/rate/status/measurement/stability/compensation/residual controls;
-- cleaner main Options page with compact calibration summary/action;
-- consolidated `Diagnóstico` section without duplicate diagnostic entry points;
-- explicit project-delete confirmation naming the project, warning about managed files and requiring confirmation before deletion;
-- synchronized in-app Help;
-- Android instrumentation for both delete paths and calibration-modal behavior.
+## H26 — SAF Cloud Backup — PRE-GATE
+Implemented source contract:
+- provider-neutral Android SAF tree selection with persistable read/write permission;
+- real read/write/delete probe before adopting a target folder;
+- target-folder change is atomic from the app perspective: the old permission/data are retained until the new target passes probe; changing/disconnecting never deletes cloud content;
+- full backup and single-project backup;
+- full restore (latest valid version per project) and single-version restore;
+- restore always imports as a new independent local project; it never overwrites the current local project;
+- automatic incremental backup with coalesced save-triggered work plus periodic safety work;
+- WorkManager constraints for network, unmetered network option, charging option, battery-not-low and storage-not-low;
+- long-running automatic transfer promoted to a `dataSync` foreground operation;
+- one process-wide operation lock serializes manual/automatic backup and restore;
+- transactional remote version layout: metadata + package + `COMMITTED` marker;
+- remote package is re-read after upload and must match local byte count + SHA-256 before commit;
+- restore rechecks byte count + SHA-256 before project import;
+- incomplete/invalid-marker versions are invisible to restore;
+- retention supports 7/30/60/90/180/365 days or forever plus protected minimum 1/3/5/10 versions per project;
+- protected minimum overrides age expiration;
+- retention occurs only after a safe run; if every attempted upload fails, deletion is suspended; a project whose upload failed is excluded from that run's cleanup;
+- cancellation propagates and cannot be converted into a normal per-project failure followed by cleanup;
+- in-app dedicated Backup/Restauração screen plus per-project Home shortcut and clean Settings summary;
+- in-app Help synchronized.
 
-Calibration remains optional: an uncalibrated status alone does not block REC, and unstable calibration is not applied.
+Source validation completed before publication:
+- `git diff --check`: clean;
+- H25→H26 patch applies from the exact H25 materialized baseline;
+- second materializer execution is idempotent;
+- all 24 H26 final source hashes match and materialized files are byte-identical to the audited workspace;
+- H26 source archive is validated on every materializer invocation by base64 decode + gzip CRC + fixed SHA-256; deliberate corruption fails closed;
+- core backup policy/coordinator syntax checks and focused runtime policy/route-codec harnesses passed in the available local environment.
 
-H25 does not change DSP, project schema, managed-media layout or `.guitarlab` format.
+Local limitation: the downloaded CI source artifact does not contain a complete Gradle wrapper and no system Gradle executable is available. Therefore full Kotlin/Android compilation, Lint, JVM suite and API36 instrumentation remain mandatory at the next manual CI; they are not claimed as locally passed.
 
-## Current residual gate
-Do **not** rerun deterministic CI merely to reconfirm #642. Use only the exact #642 signed APK for physical closure:
-1. H25 rounded-square interaction, Settings/calibration modal, diagnostics and project-delete confirmation smoke on SM-X230;
-2. retained H24 Home-library smoke;
-3. retained H22 route smoke after MK-300 reconnect;
-4. H23b zero-adjustment repeated-take recording-timing validation, especially 44.1 kHz;
-5. backing-isolation/live-waveform/input-fail-closed/edit/export smoke;
-6. explicit approval of signed APK SHA `916758f694735febb8cccfe58f46f290562aaba1b5483ccc727e2be0cefba5aa`.
+## Next gate
+Run one fresh **manual** `GuitarLab Android CI` with signed homologation enabled after H26 publication. Audit actual test counts rather than predicting them. Only a passing exact-source run can promote H26 to DIGITAL PASS and produce the H26 physical candidate.
 
-Use `RC3_FINAL_PHYSICAL_HOMOLOGATION.md` as the authoritative physical checklist.
+After that, target-device residuals are SAF provider/persisted-permission/large-transfer/restore UX plus retained H25/H24/H23b checks. Use `RC3_FINAL_PHYSICAL_HOMOLOGATION.md` only after it is bound to the new signed H26 candidate.

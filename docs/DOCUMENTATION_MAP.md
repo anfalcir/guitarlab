@@ -3,31 +3,24 @@
 Updated: 2026-09-16
 
 ## Active authoritative set
-For `0.5.0-rc3`, use:
-- `CURRENT_STATE.md` — live candidate/evidence boundary;
+For the current RC line use:
+- `CURRENT_STATE.md` — live signed/pre-gate evidence boundary;
 - `IMPLEMENTATION_ROADMAP.md` — milestone/release path;
-- `CI_PIPELINE.md` — manual CI and materialization through H25;
-- `H24_HOME_PROJECT_LIBRARY.md` — Home library contract/digital evidence;
+- `CI_PIPELINE.md` — manual CI and materialization chain through H26;
+- `H26_SAF_CLOUD_BACKUP.md` — H26 SAF backup/restore/retention contract;
 - `H25_UI_SETTINGS_SAFETY.md` — H25 UI/settings/delete-safety contract and #642 evidence;
+- `H24_HOME_PROJECT_LIBRARY.md` — Home library contract;
 - `RELEASE_NOTES_0.5.0-rc3.md` — active behavior delta;
 - `TEST_AND_HOMOLOGATION_PLAN.md` — automated/manual gate discipline;
-- `RC3_FINAL_PHYSICAL_HOMOLOGATION.md` — residual target-device checklist for the exact #642 candidate;
-- architecture/product/user-guide/candidate-identity and subsystem documents remain authoritative within their scope unless superseded above.
+- `RC3_FINAL_PHYSICAL_HOMOLOGATION.md` — physical checklist, currently awaiting binding to a signed H26 candidate;
+- architecture/product/user-guide/candidate-identity and subsystem documents remain authoritative unless superseded above.
 
 ## Current evidence boundary
-The current signed DIGITAL PASS is **CI #642**, run `35121955150`, exact producer `7bfd876b6a5b0701ab0cf5203de36c31cd117632`, authoritative through H25.
+CI #642 / run `35121955150` / producer `7bfd876b6a5b0701ab0cf5203de36c31cd117632` remains the latest signed DIGITAL PASS through H25: 269/269 JVM/unit, Lint/build/provenance PASS, API36 **28/28 standard + 1/1 isolated geometry**, signed SHA-256 `916758f694735febb8cccfe58f46f290562aaba1b5483ccc727e2be0cefba5aa`.
 
-Evidence summary:
-- 269/269 JVM/unit PASS;
-- Android Lint/build/provenance PASS;
-- API36 **28/28 standard + 1/1 isolated geometry**;
-- signed homologation PASS;
-- signed APK SHA-256 `916758f694735febb8cccfe58f46f290562aaba1b5483ccc727e2be0cefba5aa`;
-- locked signer match PASS.
-
-H25 is therefore DIGITAL PASS. Remaining evidence is residual target-device UX/interaction smoke plus retained H24/H23b physical checks.
+H26 is source-implemented and PRE-GATE. It requires a new exact-source signed workflow before its behavior becomes digital evidence.
 
 Historical audit/checkpoint/alpha documents remain point-in-time evidence and are intentionally not rewritten.
 
 ## Producer identity rule
-Documentation-only commits never retroactively change an APK producer. The active physical candidate remains the APK produced by `7bfd876b6a5b0701ab0cf5203de36c31cd117632` / CI #642 until another source-changing candidate passes a later full signed workflow.
+Documentation/source publication after #642 does not retroactively change the #642 APK producer. A future H26 signed authority must be the exact head SHA of its own successful workflow.

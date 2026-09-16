@@ -2,51 +2,83 @@
 
 Updated: 2026-09-16
 
-## Active candidate
-`0.5.0-rc3` / versionCode `23` / package `studio.guitarlab.app`.
+## Evidence boundary
+Current signed DIGITAL PASS is still **CI #642** / run `35121955150` / producer `7bfd876b6a5b0701ab0cf5203de36c31cd117632`, through H25. Its signed SHA-256 is `916758f694735febb8cccfe58f46f290562aaba1b5483ccc727e2be0cefba5aa`.
 
-Current signed DIGITAL PASS: **CI #642** / run `35121955150` / exact producer `7bfd876b6a5b0701ab0cf5203de36c31cd117632`, authoritative through H25.
+H26 changes source and is **IMPLEMENTED / SOURCE-VALIDATED / PRE-GATE**. Do not use #642 as H26 evidence.
 
-Current signed APK SHA-256: `916758f694735febb8cccfe58f46f290562aaba1b5483ccc727e2be0cefba5aa`.
+## Retained #642 evidence
+- JVM/unit: 269/269 PASS;
+- Lint/build/unsigned provenance PASS;
+- API36: **28/28 standard + 1/1 isolated geometry**;
+- signed homologation PASS.
 
-## Automated coverage promoted at #642
-- source materialization through H25/final hashes: PASS;
-- JVM/unit: **269/269 PASS**, 0 failures/errors/skips;
-- performance evidence: PASS;
-- Android Lint: PASS;
-- debug/release build + unsigned provenance: PASS;
-- standard API36: **28/28 PASS**;
-- isolated 1920×1200 geometry: **1/1 PASS**;
-- signed homologation, checksum/package/version/signer verification and signing cleanup: PASS.
+## H26 local/source validation completed
+- patch generated from exact H25 materialized source;
+- `git diff --check` clean;
+- clean H25→H26 application PASS;
+- materializer second execution idempotent PASS;
+- exact 24 final source hashes PASS;
+- materialized source byte-identical to audited workspace PASS;
+- concatenated H26 source archive is validated on every invocation by base64 decode + gzip CRC + fixed SHA-256; deliberate corruption fails closed PASS;
+- focused core syntax/runtime policy checks PASS in the available local environment.
 
-Keep canonical Android reporting as **28/28 standard + 1/1 isolated geometry**.
+Full Gradle/JVM/Lint/Android execution is not claimed locally because the downloaded source artifact does not contain a complete Gradle wrapper and no system Gradle is available.
 
-## H25 promoted requirements
-Digital coverage establishes:
-- H25 materialization is exact, idempotent and fail-closed;
-- production/test sources compile under the pinned Android/Compose stack;
-- delete Cancel does not invoke destructive callback;
-- delete Confirm invokes it exactly once;
-- calibration details are absent from the main Settings surface;
-- `Calibração` opens the dedicated modal and closes cleanly;
-- existing standard API36 regression remains green after the H25 UI interaction-shape and diagnostic organization changes.
+## H26 automated requirements for next manual CI
+Mandatory:
+- materializer reaches H26 final hashes;
+- all existing JVM/unit suites + H26 policy/coordinator tests PASS;
+- Android Lint PASS;
+- debug/release assembly + unsigned provenance PASS;
+- standard API36 suite, including H26 Backup screen tests, PASS;
+- isolated 1920×1200 geometry PASS;
+- signed homologation signs the exact tested unsigned artifact;
+- package/version/certificate/zipalign/signature checks PASS;
+- signing cleanup PASS.
 
-## Canonical manual CI gate
-The canonical full gate remains `.github/workflows/android-ci.yml` with `signed_homologation=true`, manually dispatched by the user only. CI #642 satisfies the gate for H25. Do not rerun it merely for reassurance; a new full gate is required only after another source change or deliberate candidate.
+Do not predict the new test counts. Record the actual XML-derived counts after the run and keep standard API36 separate from isolated geometry.
 
-## Residual physical checks
-Use only the exact CI #642 APK:
-- rounded-square pointer/hover/press feedback visually conforms to the button chassis;
-- main Options page is cleaner and calibration modal is readable/scrollable with expected controls;
-- diagnostics are clear and non-duplicated;
-- project delete requires confirmation; Cancel is safe; Confirm removes the selected project;
-- retained H24 Home search/filter/sort smoke;
-- retained H22 semantic routes after MK-300 reconnect;
-- retained H23b zero-adjustment repeated-take synchronization, especially 44.1 kHz;
-- backing isolation, live waveform/meters and selected-input fail-closed behavior;
-- one representative edit/save/reopen/export smoke and subjective listening where programmatic comparison is insufficient.
+## H26 critical test matrix
+### Integrity
+- successful transaction becomes catalog-visible only after valid `COMMITTED`;
+- truncated/corrupt package rejected;
+- missing/partial/mismatched marker rejected;
+- remote upload must re-read to matching SHA-256 + bytes before commit;
+- restore must re-verify SHA-256 + bytes before import.
 
-Use `RC3_FINAL_PHYSICAL_HOMOLOGATION.md` as the physical checklist.
+### Incremental/efficiency
+- unchanged automatic project skipped;
+- repeated save triggers coalesce;
+- manual project/total backup forces explicit version;
+- periodic work remains configured with selected constraints.
 
-## Closure
-M7/M8/RC3 close only after exact-source #642 automated PASS and signed identity — **complete** — plus residual target-device PASS, no repeatable P0/P1 and explicit approval of signed APK SHA `916758f694735febb8cccfe58f46f290562aaba1b5483ccc727e2be0cefba5aa`.
+### Retention
+- minimum protected versions override age;
+- retention isolated per project;
+- forever deletes nothing by age;
+- all writes fail => cleanup suspended;
+- partial failure protects failed project;
+- manual single-project cleanup cannot touch other project groups;
+- delete failure is reported without invalidating new committed backup;
+- cancellation aborts and does not continue cleanup.
+
+### Restore
+- single version imports independent copy;
+- restore-all chooses latest valid committed version per project;
+- one corrupt project does not block others;
+- no local project overwrite.
+
+## Physical H26 residual after digital PASS
+On SM-X230 with Google Drive exposed in the Android picker:
+- select target folder and verify probe succeeds;
+- restart app/device and confirm persisted access;
+- single-project and total backup produce visible committed versions;
+- edit/save and verify automatic incremental behavior under configured constraints;
+- change target folder: old folder contents remain, new writes go to new target;
+- disconnect: cloud content remains untouched;
+- restore one version and restore-all create independent local projects;
+- revoke folder/provider access and confirm safe error/no local damage;
+- representative large `.guitarlab` transfer shows foreground transfer behavior and completes/cancels safely.
+
+Retained H25/H24/H23b physical checks remain required before final RC closure.

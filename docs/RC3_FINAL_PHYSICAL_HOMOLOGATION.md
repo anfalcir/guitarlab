@@ -2,44 +2,42 @@
 
 Updated: 2026-09-16
 
-This checklist is intentionally residual. Do not repeat deterministic checks already proven by exact-source CI #642 unless a physical symptom points back to them.
+## Candidate binding
+The previous signed physical candidate is CI #642 / producer `7bfd876b6a5b0701ab0cf5203de36c31cd117632`, SHA-256 `916758f694735febb8cccfe58f46f290562aaba1b5483ccc727e2be0cefba5aa`, DIGITAL PASS through H25.
 
-## Candidate rule
-Use **only** the exact signed APK from CI #642 / run `35121955150`, producer `7bfd876b6a5b0701ab0cf5203de36c31cd117632`.
+**H26 changes source and is PRE-GATE. Do not homologate H26 using the #642 APK.** Bind this checklist to the exact next H26 producer/SHA only after a new manually dispatched signed workflow passes.
 
-Locked identity:
-- versionName `0.5.0-rc3`;
-- versionCode `23`;
-- package `studio.guitarlab.app`;
-- signed APK SHA-256 `916758f694735febb8cccfe58f46f290562aaba1b5483ccc727e2be0cefba5aa`;
-- signer SHA-256 `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`;
-- target Samsung SM-X230 + M-VAVE MK-300 over USB;
-- MK-300 hardware loopback OFF for normal REC validation.
+## H26 target-device SAF smoke — execute only after H26 DIGITAL PASS
+On Samsung SM-X230:
+- open Backup/Restauração and select a Google Drive folder through the system SAF picker;
+- confirm read/write/delete probe succeeds and selected label/status are coherent;
+- restart the app and reboot the tablet; persisted access remains available;
+- run `Backup deste projeto` and verify a committed cloud version becomes visible;
+- run `Backup total agora` with multiple projects and verify independent versions;
+- modify/save a project and confirm automatic incremental backup under selected constraints without duplicate upload for an unchanged revision;
+- exercise a representative large project and confirm foreground transfer indication plus safe cancel/retry behavior;
+- change target folder: prior folder content remains untouched; subsequent backups target the new folder;
+- disconnect target: cloud data remains untouched and automation disables safely;
+- restore one selected version: a new independent local project is created, no overwrite;
+- restore latest of all: latest valid version per project is restored independently;
+- revoke SAF permission/provider availability and confirm clear safe error with no local project damage;
+- confirm incomplete/invalid versions are never offered to restore;
+- exercise retention with controlled versions and confirm the protected minimum is never deleted.
 
-Digital evidence already closed at #642: 269/269 JVM/unit, Lint/build/provenance, API36 **28/28 standard + 1/1 isolated geometry**, signed homologation and signer/checksum identity.
+## Retained H25 physical smoke
+- rounded-square icon feedback conforms to button chassis;
+- calibration lives in dedicated modal and uncalibrated status alone does not block REC;
+- diagnostic organization remains clean;
+- project delete requires explicit confirmation; Cancel safe, Confirm selected project only.
 
-## H25 physical smoke
-- rounded-square icon controls show hover/press feedback conforming to the rounded-square chassis, with no circular highlight protruding;
-- main Options page is cleaner and no longer displays the full calibration detail stack;
-- `Calibração` opens a dedicated readable/scrollable modal with route, rate, status, measurement/stability, compensation, residual adjustment and calibration action;
-- closing/canceling the modal does not mutate calibration;
-- an uncalibrated status by itself does not prevent normal REC;
-- `Diagnóstico` exposes clear Audio/devices and Codecs/files actions without duplicated diagnostic buttons elsewhere;
-- project overflow `Excluir` opens confirmation naming the project and permanence; Cancel leaves it intact; Confirm removes the selected project only.
-
-## Retained H24 Home smoke
-Search, accent/case handling, combined filters, `X de Y`, stable sorting, clear-filter behavior, no-results vs empty-library distinction and refresh after rename/duplicate remain coherent.
-
-## Retained H22/H23b critical smoke
-- semantic physical routes remain correct after MK-300 reconnect;
-- transient success operations do not spam Snackbars;
-- normal REC loopback OFF and fine adjustment starts at 0.0 ms;
-- include at least three repeated 44.1 kHz takes plus non-zero playhead and one loop/punch take;
-- no repeatable systematic early/late displacement;
-- backing is not printed into the guitar take;
-- live waveform/Peak/RMS and selected-input fail-closed behavior remain correct;
-- use calibration only if a repeatable route-specific residual exists; unstable calibration must not apply;
+## Retained H24/H22/H23b critical smoke
+- Home search/filter/sort behavior coherent;
+- semantic MK-300 route UX remains correct after reconnect;
+- normal REC loopback OFF, fine adjustment 0.0 ms baseline;
+- at least three repeated 44.1 kHz takes plus non-zero playhead and loop/punch;
+- no repeatable systematic timing displacement/backing leakage;
+- live waveform/meters and selected-input fail-closed behavior correct;
 - representative edit/save/reopen/WAV-FLAC export smoke passes.
 
 ## Final PASS
-Requires exact #642 candidate identity, all retained behaviors above, no repeatable P0/P1 and explicit user approval of signed APK SHA `916758f694735febb8cccfe58f46f290562aaba1b5483ccc727e2be0cefba5aa`.
+Requires a new exact H26 signed candidate with complete digital gate PASS, all applicable physical checks above, no repeatable P0/P1 and explicit user approval of that exact signed APK SHA-256.
