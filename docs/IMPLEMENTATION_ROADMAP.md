@@ -28,7 +28,7 @@ Evidence:
 - H23/H23a/H23b recording timing, route/rate calibration and transient-feedback hardening: DIGITAL PASS at #639.
 - Focused H23b physical recording-timing validation remains pending.
 
-## H24 — Home Project Library
+## H24/H24a — Home Project Library
 Status: **IMPLEMENTED / SOURCE-VALIDATED / PRE-GATE**.
 
 Acceptance goals:
@@ -44,6 +44,8 @@ Acceptance goals:
 10. Fail closed through the existing source materialization/hash contract.
 
 Implementation anchor: `96ffe7bd394e2eda68707cf2ad8c8596432cd26a`.
+
+CI #640 (`35103316449`) produced a complete software-gate PASS but stopped at Android-test compilation because the H24 instrumented test used one invalid Compose test import. H24a is a test-source-only corrective alignment; production Home behavior is unchanged.
 
 ## Canonical materialization tail
 After H11b:
@@ -65,13 +67,14 @@ After H11b:
 16. H23 Recording Timing + Transient Feedback Hardening
 17. H23a Transient Feedback Test Annotation Alignment
 18. H23b Recording Timing / Calibration / Feedback Corrective Hardening
-19. **H24 Home Project Library**
+19. H24 Home Project Library
+20. **H24a Android-test compile alignment**
 
 ## Remaining release path
-1. Documentation consolidation for H24 lands with `[skip ci]`.
-2. User manually dispatches the full signed CI on final `main`.
-3. Audit software/API36/geometry/signing and artifact provenance on the exact workflow SHA.
-4. If green, promote H24 to DIGITAL PASS in documentation.
+1. H24a corrective source/materializer/docs land with `[skip ci]`.
+2. User manually dispatches one fresh full signed CI on final `main`; do not rerun #640 because its source SHA is superseded.
+3. Audit software/API36/geometry/signing and artifact provenance on the exact new workflow SHA.
+4. If green, promote H24/H24a to DIGITAL PASS in documentation.
 5. Install only that exact signed candidate on SM-X230.
 6. Run short H24 Home-library physical smoke.
 7. Complete H23b zero-adjustment recording-timing validation on MK-300, including repeated 44.1 kHz takes and non-zero playhead/punch.

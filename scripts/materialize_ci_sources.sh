@@ -69,6 +69,15 @@ H24_CHECKS=(
     "core/project/src/test/kotlin/studio/guitarlab/core/project/ProjectLibraryPolicyTest.kt|9b09a64a8d7a173cffc3436f1b2c5e4f041a8f3a"
 )
 
+H24A_CHECKS=(
+    "app/src/main/java/studio/guitarlab/app/ui/HomeScreen.kt|643673855dd5683eccf04df614e634827cdd2a2d"
+    "app/src/main/java/studio/guitarlab/app/ui/HomeViewModel.kt|45d6ae5a51eb5aec60721426ea0a4f02c4cbacc0"
+    "app/src/main/java/studio/guitarlab/app/ui/StudioUserGuideDialog.kt|d8deca759a39638f507d2c23e883ec1413ac55cd"
+    "app/src/androidTest/java/studio/guitarlab/app/HomeProjectLibraryInstrumentedTest.kt|9ed877ddd44c5d271b69f4519e9cf4db68562493"
+    "core/project/src/main/kotlin/studio/guitarlab/core/project/ProjectLibraryPolicy.kt|96a51d1309b2c888770d49d32c58c1a732913462"
+    "core/project/src/test/kotlin/studio/guitarlab/core/project/ProjectLibraryPolicyTest.kt|9b09a64a8d7a173cffc3436f1b2c5e4f041a8f3a"
+)
+
 h23_ready() {
     local entry relative expected
     for entry in "${H23_CHECKS[@]}"; do
@@ -105,6 +114,16 @@ h23b_ready() {
 h24_ready() {
     local entry relative expected
     for entry in "${H24_CHECKS[@]}"; do
+        relative="${entry%%|*}"
+        expected="${entry#*|}"
+        [[ -f "$ROOT/$relative" ]] || return 1
+        [[ "$(hash_file "$ROOT/$relative")" == "$expected" ]] || return 1
+    done
+}
+
+h24a_ready() {
+    local entry relative expected
+    for entry in "${H24A_CHECKS[@]}"; do
         relative="${entry%%|*}"
         expected="${entry#*|}"
         [[ -f "$ROOT/$relative" ]] || return 1
@@ -155,15 +174,28 @@ apply_h24() {
     apply_encoded_gzip_patch_once "$ROOT/.source-parts/H24HomeProjectLibrary.patch.gz.part00"
 }
 
+apply_h24a() {
+    apply_encoded_gzip_patch_once "$ROOT/.source-parts/H24aAndroidTestCompileFix.patch.gz.part00"
+}
+
+if h24a_ready; then
+    echo "Source patch chain already materialized through H24a"
+    exit 0
+fi
+
 if h24_ready; then
-    echo "Source patch chain already materialized through H24"
+    apply_h24a
+    h24a_ready || { echo "H24a applied but final H24a hashes do not match." >&2; exit 1; }
+    echo "Source patch chain materialized through H24a with verified final hashes"
     exit 0
 fi
 
 if h23b_ready; then
     apply_h24
     h24_ready || { echo "H24 applied but final H24 hashes do not match." >&2; exit 1; }
-    echo "Source patch chain materialized through H24 with verified final hashes"
+    apply_h24a
+    h24a_ready || { echo "H24a applied after H24 but final H24a hashes do not match." >&2; exit 1; }
+    echo "Source patch chain materialized through H24a with verified final hashes"
     exit 0
 fi
 
@@ -172,7 +204,9 @@ if h23_ready; then
     h23b_ready || { echo "H23b applied but final H23b hashes do not match." >&2; exit 1; }
     apply_h24
     h24_ready || { echo "H24 applied after H23b but final H24 hashes do not match." >&2; exit 1; }
-    echo "Source patch chain materialized through H24 with verified final hashes"
+    apply_h24a
+    h24a_ready || { echo "H24a applied after H24 but final H24a hashes do not match." >&2; exit 1; }
+    echo "Source patch chain materialized through H24a with verified final hashes"
     exit 0
 fi
 
@@ -183,7 +217,9 @@ if h23_base_ready; then
     h23b_ready || { echo "H23b applied after H23a but final H23b hashes do not match." >&2; exit 1; }
     apply_h24
     h24_ready || { echo "H24 applied after H23b but final H24 hashes do not match." >&2; exit 1; }
-    echo "Source patch chain materialized through H24 with verified final hashes"
+    apply_h24a
+    h24a_ready || { echo "H24a applied after H24 but final H24a hashes do not match." >&2; exit 1; }
+    echo "Source patch chain materialized through H24a with verified final hashes"
     exit 0
 fi
 
@@ -272,4 +308,9 @@ if ! h24_ready; then
     echo "H24 materialization completed but final source hashes do not match the audited contract." >&2
     exit 1
 fi
-echo "Source patch chain materialized through H24 with verified final hashes"
+apply_h24a
+if ! h24a_ready; then
+    echo "H24a materialization completed but final source hashes do not match the audited contract." >&2
+    exit 1
+fi
+echo "Source patch chain materialized through H24a with verified final hashes"

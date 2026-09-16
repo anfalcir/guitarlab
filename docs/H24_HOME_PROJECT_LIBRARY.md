@@ -4,6 +4,8 @@ Updated: 2026-09-16
 
 Status: **IMPLEMENTED / SOURCE-VALIDATED / PRE-GATE**
 
+Corrective test-alignment block: **H24a**.
+
 Implementation anchor: `96ffe7bd394e2eda68707cf2ad8c8596432cd26a`.
 
 ## Goal
@@ -86,17 +88,18 @@ Search/filter/sort state is presentation state. It may survive a ViewModel refre
 The search field, clear action, filter button, sort button, active filters, visible count and no-results state expose stable semantics/test tags where needed. Filter and sort controls include meaningful content descriptions rather than relying only on icons.
 
 ## Source materialization
-Canonical source part:
-`.source-parts/H24HomeProjectLibrary.patch.gz.part00`.
+Canonical source parts:
+- `.source-parts/H24HomeProjectLibrary.patch.gz.part00`;
+- `.source-parts/H24aAndroidTestCompileFix.patch.gz.part00`.
 
-Final materializer message:
-`Source patch chain materialized through H24 with verified final hashes`.
+Final materializer message after the corrective block:
+`Source patch chain materialized through H24a with verified final hashes`.
 
 H24 final materialized blob identities:
 - `HomeScreen.kt` — `643673855dd5683eccf04df614e634827cdd2a2d`
 - `HomeViewModel.kt` — `45d6ae5a51eb5aec60721426ea0a4f02c4cbacc0`
 - `StudioUserGuideDialog.kt` — `d8deca759a39638f507d2c23e883ec1413ac55cd`
-- `HomeProjectLibraryInstrumentedTest.kt` — `1bafaa45a6372b5728d4a0eb3ba3a90d0eeb7c28`
+- `HomeProjectLibraryInstrumentedTest.kt` — H24 base `1bafaa45a6372b5728d4a0eb3ba3a90d0eeb7c28`; H24a corrected `9ed877ddd44c5d271b69f4519e9cf4db68562493`
 - `ProjectLibraryPolicy.kt` — `96a51d1309b2c888770d49d32c58c1a732913462`
 - `ProjectLibraryPolicyTest.kt` — `9b09a64a8d7a173cffc3436f1b2c5e4f041a8f3a`
 
@@ -114,6 +117,19 @@ H24 final materialized blob identities:
 - materializer shell syntax: PASS;
 - `git diff --check`: PASS;
 - Home parser/syntax scan: PASS within the limitation of no Android/Compose classpath.
+
+## CI #640 corrective evidence
+The first H24 workflow attempt, CI #640 / run `35103316449`, proved the software gate green but failed in `:app:compileDebugAndroidTestKotlin` because `HomeProjectLibraryInstrumentedTest.kt` imported `androidx.compose.ui.test.assertDoesNotExist`, which is not an importable top-level symbol in the pinned Compose test API. Instrumented tests therefore never executed, and signing was correctly skipped.
+
+H24a removes only that invalid import. No Home production behavior, project policy, schema, persistence or `.guitarlab` contract changes.
+
+H24a source validation:
+- exact #640 source snapshot apply: PASS;
+- reverse to original H24 test blob: PASS;
+- deterministic reapply: PASS;
+- second run idempotency: PASS;
+- encoded-patch corruption fails closed: PASS;
+- corrected instrumented-test blob: `9ed877ddd44c5d271b69f4519e9cf4db68562493`.
 
 ## Pending evidence
 No local Android Gradle/Lint/API36/signing label is claimed. H24 reaches DIGITAL PASS only after the user manually runs the canonical full workflow and every required gate succeeds on the same exact SHA.

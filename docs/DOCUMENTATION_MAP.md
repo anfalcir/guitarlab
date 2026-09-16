@@ -6,7 +6,7 @@ Updated: 2026-09-16
 For the active `0.5.0-rc3` line, use these documents together:
 - `CURRENT_STATE.md` — authoritative current candidate/gate state;
 - `IMPLEMENTATION_ROADMAP.md` — milestone progression and remaining release path;
-- `CI_PIPELINE.md` — manual CI graph and source-materialization contract through H24;
+- `CI_PIPELINE.md` — manual CI graph and source-materialization contract through H24a;
 - `H24_HOME_PROJECT_LIBRARY.md` — normative Home search/filter/sort contract;
 - `DOCUMENTATION_AUDIT_H24_2026-09-16.md` — current documentation/source synchronization audit;
 - `RELEASE_NOTES_0.5.0-rc3.md` — active RC3 behavior delta;
@@ -21,7 +21,7 @@ For the active `0.5.0-rc3` line, use these documents together:
 ## Current evidence boundary
 The last signed DIGITAL PASS is **CI #639**, run `35096711936`, exact producer source `eb9c4a4ca2a6269fbe2f2211a0807b8c703e115c`, authoritative through H23b.
 
-H24 Home Project Library is newer and is **IMPLEMENTED / SOURCE-VALIDATED / PRE-GATE**. Implementation anchor: `96ffe7bd394e2eda68707cf2ad8c8596432cd26a`. A new user-dispatched signed workflow is required before H24 can be promoted to DIGITAL PASS.
+H24 Home Project Library plus H24a test-source alignment are newer and remain **IMPLEMENTED / SOURCE-VALIDATED / PRE-GATE**. Implementation anchor: `96ffe7bd394e2eda68707cf2ad8c8596432cd26a`. CI #640 proved the software gate but failed while compiling the new Android test source; H24a corrects that import-only defect. A fresh user-dispatched signed workflow is required before H24/H24a can be promoted to DIGITAL PASS.
 
 ## Historical evidence
 Files whose names identify older ALPHA releases, H0–H23 checkpoint audits, physical-review snapshots, old gate summaries or candidate handoffs are **point-in-time historical evidence**. Their old CI numbers, SHA values and PRE-GATE/PASS labels are intentionally preserved as history and must not be interpreted as current state.

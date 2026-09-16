@@ -14,12 +14,12 @@ The pipeline has three authority layers:
 `.source-parts/` plus `scripts/materialize_ci_sources.sh` are part of the source-of-truth build contract. Unexpected source drift fails closed by exact Git blob hashes.
 
 Canonical tail after H11b:
-`H12 engine → H12 UI → H13 → H14 → H14a → H15 → H16 → H17 → H18 → H19 → H18a → H20 → H21 → H22 → H22a → H23 → H23a → H23b → H24`.
+`H12 engine → H12 UI → H13 → H14 → H14a → H15 → H16 → H17 → H18 → H19 → H18a → H20 → H21 → H22 → H22a → H23 → H23a → H23b → H24 → H24a`.
 
-H24 is stored as deterministic gzip+base64 source part `.source-parts/H24HomeProjectLibrary.patch.gz.part00`. Materialization validates gzip, dry-runs/apply semantics, recognizes already-materialized final hashes and remains idempotent.
+H24 is stored as deterministic gzip+base64 source part `.source-parts/H24HomeProjectLibrary.patch.gz.part00`. H24a adds `.source-parts/H24aAndroidTestCompileFix.patch.gz.part00` to correct only the instrumented-test import discovered by CI #640. Materialization validates gzip, dry-runs/apply semantics, recognizes both H24 and H24a final hashes and remains idempotent.
 
 Expected current final message:
-`Source patch chain materialized through H24 with verified final hashes`.
+`Source patch chain materialized through H24a with verified final hashes`.
 
 ## Last signed authority — CI #639
 CI #639 / run `35096711936` / exact producer source `eb9c4a4ca2a6269fbe2f2211a0807b8c703e115c` remains authoritative through H23b:
@@ -34,7 +34,7 @@ CI #639 / run `35096711936` / exact producer source `eb9c4a4ca2a6269fbe2f2211a08
 
 Do not flatten the API36 report to 24/24; report **23/23 standard + 1/1 isolated geometry** for #639.
 
-## H24 pre-gate evidence
+## H24/H24a pre-gate evidence
 H24 is locally/source-validated against the exact materialized H23b state:
 - pure Kotlin project-library policy compiles;
 - deterministic behavior checks pass;
@@ -48,7 +48,7 @@ H24 is locally/source-validated against the exact materialized H23b state:
 - materializer `bash -n` and `git diff --check` pass;
 - Home source parser scan reports no syntax/parser diagnostic without Android/Compose classpath.
 
-This is **not** an Android Gradle/Lint/API36/signing PASS for H24. Those labels are reserved for the official workflow.
+CI #640 produced software-gate PASS but failed while compiling the new H24 Android test source, before instrumentation ran. H24a corrects that compile-only defect. This is still **not** an API36/signing PASS for H24/H24a; those labels require a fresh full workflow.
 
 H24 adds Android instrumentation source for two Home-library behavior/semantics cases. Do not predict or report the next API36 pass count until the official run completes.
 

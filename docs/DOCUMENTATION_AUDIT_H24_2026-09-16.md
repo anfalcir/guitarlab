@@ -54,3 +54,9 @@ For current work use, in order:
 Documentation consolidation does not promote H24. CI #639 remains the last signed DIGITAL PASS until a new user-dispatched exact-source workflow succeeds.
 
 No automatic workflow is authorized or triggered by this audit.
+
+
+## Post-audit corrective evidence — CI #640 / H24a
+CI #640 (`35103316449`) later confirmed the H24 software gate but failed in `:app:compileDebugAndroidTestKotlin` before instrumentation because `HomeProjectLibraryInstrumentedTest.kt` imported a non-top-level Compose test assertion symbol. Signed homologation was skipped as designed.
+
+H24a corrects only that instrumented-test import and extends the materializer/hash contract through the corrected blob `9ed877ddd44c5d271b69f4519e9cf4db68562493`. No production Home behavior or persisted project contract changed. Active status remains PRE-GATE until a fresh full exact-source workflow passes.

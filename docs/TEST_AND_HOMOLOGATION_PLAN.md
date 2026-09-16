@@ -43,8 +43,8 @@ Android instrumentation coverage must verify at minimum:
 
 Do not predeclare a future test count. Report the official count only after the workflow completes.
 
-## H24 source materialization
-Current canonical tail ends at H24. Requirements:
+## H24/H24a source materialization
+Current canonical tail ends at H24a. Requirements:
 - deterministic gzip+base64 source part;
 - gzip integrity validation;
 - forward patch applicability or exact already-materialized recognition;
@@ -53,7 +53,10 @@ Current canonical tail ends at H24. Requirements:
 - fail closed on unexplained source corruption/drift.
 
 Expected message:
-`Source patch chain materialized through H24 with verified final hashes`.
+`Source patch chain materialized through H24a with verified final hashes`.
+
+### CI #640 lesson / H24a gate
+CI #640 reached a green software gate but Android integration stopped at `:app:compileDebugAndroidTestKotlin` because the H24 instrumented test had an invalid explicit import for `assertDoesNotExist`. H24a removes only that import and retains the assertion calls. A fresh full workflow is mandatory; #640 cannot be promoted or partially reused as Android/signing evidence.
 
 ## Canonical manual gate
 The user manually dispatches `.github/workflows/android-ci.yml` on final current `main` with `signed_homologation=true`.

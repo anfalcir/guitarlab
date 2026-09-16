@@ -12,7 +12,7 @@ Updated: 2026-09-16
 - `.github/workflows/android-ci.yml` remains manual-only (`workflow_dispatch`). The assistant must not dispatch or rerun it.
 
 ## Evidence boundary
-CI #639 is authoritative through **H23b** only. H24 changes product/test source after #639 and is therefore **IMPLEMENTED / SOURCE-VALIDATED / PRE-GATE** until a new user-dispatched full signed workflow succeeds.
+CI #639 is authoritative through **H23b** only. H24/H24a change product/test source after #639 and are therefore **IMPLEMENTED / SOURCE-VALIDATED / PRE-GATE** until a new user-dispatched full signed workflow succeeds.
 
 A later documentation-only commit never retroactively changes the source SHA that produced an older APK. For the next gate, the exact workflow `head_sha` becomes the new producer identity if all gates pass.
 
@@ -29,13 +29,38 @@ A later documentation-only commit never retroactively changes the source SHA tha
 
 Do not flatten Android regression to 24/24. Canonical reporting is **23/23 standard + 1/1 isolated geometry**.
 
+
+## CI #640 — FAILED before Android test execution
+Run `35103316449` targeted source `665bfbec78d032df21f467f226e353146595f67c`.
+
+Observed result:
+- software gate: **PASS** — unit tests, Android Lint, debug/release assembly and unsigned provenance all completed successfully;
+- API36 gate: **FAIL** during `:app:compileDebugAndroidTestKotlin`, before instrumented tests executed;
+- exact compiler error: unresolved import `androidx.compose.ui.test.assertDoesNotExist` in `HomeProjectLibraryInstrumentedTest.kt`;
+- signed homologation: **SKIPPED** because the Android integration prerequisite failed.
+
+This was a test-source compilation defect, not a runtime/functional failure of the Home Project Library.
+
+### H24a corrective alignment
+H24a removes the invalid explicit import while preserving the two `SemanticsNodeInteraction.assertDoesNotExist()` calls. The Compose test API in the pinned dependency exposes that assertion through the interaction object and does not provide the imported top-level symbol used by H24.
+
+H24a final corrected instrumented-test blob: `9ed877ddd44c5d271b69f4519e9cf4db68562493`.
+
+H24a validation completed before the next CI:
+- applied cleanly over the exact #640 source snapshot;
+- reverse patch restores the exact H24 blob `1bafaa45a6372b5728d4a0eb3ba3a90d0eeb7c28`;
+- reapply restores the exact H24a blob;
+- second materializer run is idempotent;
+- corrupted encoded patch fails closed;
+- materializer shell syntax PASS.
+
 ## H22/H22a — route UX — PHYSICAL PASS retained
 Samsung SM-X230 physical review approved semantic physical routing: duplicate internal endpoints are collapsed, built-in routes use friendly labels and MK-300 endpoints are consolidated. Later blocks must not regress this behavior.
 
 ## H23/H23a/H23b — recording timing and transient feedback
 H23/H23a introduced and aligned the session-clock mapping, route/rate calibration, residual adjustment and transient-feedback policy. H23b hardened stale timestamp rejection, exact route+rate calibration identity, 44.1/48/88.2/96 kHz coverage, overflow-safe placement, analyzer diagnostics and route-token sanitization. H23b is DIGITAL PASS at #639; focused physical recording-timing acceptance is still pending.
 
-## H24 — Home Project Library — IMPLEMENTED / SOURCE-VALIDATED / PRE-GATE
+## H24/H24a — Home Project Library — IMPLEMENTED / SOURCE-VALIDATED / PRE-GATE
 Implementation anchor commit: `96ffe7bd394e2eda68707cf2ad8c8596432cd26a`.
 
 H24 adds:
@@ -67,13 +92,13 @@ H24 does **not** change project schema, managed-media layout or `.guitarlab` pac
 - `git diff --check`: PASS;
 - Home Compose source parser scan: no syntax/parser diagnostics; Android/Compose symbols are intentionally unresolved without SDK/Compose classpath.
 
-No local Android Gradle/Lint/API36/signing PASS is claimed for H24. Those labels are reserved for the official workflow.
+CI #640 subsequently confirmed the full software gate PASS but exposed the Android-test compile import defect described above. H24a corrects only that test-source defect; a fresh exact-source API36/signing PASS is still required.
 
 ## Next gate
 The user should manually run the full signed workflow on the final current `main` after this documentation consolidation:
 
 `Actions → GuitarLab Android CI → main → signed_homologation=true`
 
-Required before H24 promotion: software/unit/Lint/build/provenance PASS, standard API36 PASS, isolated 1920×1200 geometry PASS and signed homologation PASS on the exact same `head_sha`.
+Required before H24/H24a promotion: software/unit/Lint/build/provenance PASS, standard API36 PASS, isolated 1920×1200 geometry PASS and signed homologation PASS on the exact same `head_sha`.
 
 After that, physical review should remain residual: H24 Home-library tablet smoke plus the still-pending H23b SM-X230 + MK-300 recording-timing/route validation.

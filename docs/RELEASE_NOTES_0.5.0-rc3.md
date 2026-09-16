@@ -48,5 +48,8 @@ Local/source validation includes pure Kotlin compile, deterministic functional c
 
 H24 is not Android-build/API36/signed PASS until the next manually dispatched full workflow succeeds.
 
+### H24a — Android test compile alignment
+CI #640 (`35103316449`) confirmed the software gate green but failed before instrumentation at `:app:compileDebugAndroidTestKotlin` because the new H24 instrumented test imported a Compose assertion symbol that is not top-level in the pinned API. H24a removes only that invalid import. Production Home behavior is unchanged; signing was correctly skipped and a fresh full workflow remains required.
+
 ## Release decision
 CI #639 remains the signed authority. The next promoted APK must be produced by one new full manual workflow on final current `main`. After digital PASS, physical work should be residual: Home-library tablet smoke plus the outstanding H23b SM-X230 + MK-300 recording-timing validation.
