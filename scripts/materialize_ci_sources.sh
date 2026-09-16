@@ -17,8 +17,8 @@ if [[ -f "$H22_POLICY" && -f "$H22_STORE" && -f "$H21_STUDIO" && -f "$H22_TEST" 
     && [[ "$(hash_file "$H22_POLICY")" == "fab05208fe0ffc04e63118827482ee721827ac57" ]] \
     && [[ "$(hash_file "$H22_STORE")" == "55926042c204fe30d6677118759447660a902ec0" ]] \
     && [[ "$(hash_file "$H21_STUDIO")" == "a5ba9851b42e894109b4c8b75968c3972206571c" ]] \
-    && [[ "$(hash_file "$H22_TEST")" == "7aecb2736d5beed414e6be6944c040b3e2669e67" ]]; then
-    echo "Source patch chain already materialized through H22"
+    && [[ "$(hash_file "$H22_TEST")" == "460e2d04263a9529afb3dd572d4f7237365c3b4c" ]]; then
+    echo "Source patch chain already materialized through H22a"
     exit 0
 fi
 
@@ -90,4 +90,6 @@ trap - EXIT
 [[ "$(hash_file "$H22_STORE")" == "55926042c204fe30d6677118759447660a902ec0" ]]
 [[ "$(hash_file "$H21_STUDIO")" == "a5ba9851b42e894109b4c8b75968c3972206571c" ]]
 [[ "$(hash_file "$H22_TEST")" == "7aecb2736d5beed414e6be6944c040b3e2669e67" ]]
-echo "Source patch chain materialized through H22 with verified final hashes"
+apply_patch_once "$ROOT/.source-parts/H22aUnitTestMigrationAssertion.patch"
+[[ "$(hash_file "$H22_TEST")" == "460e2d04263a9529afb3dd572d4f7237365c3b4c" ]]
+echo "Source patch chain materialized through H22a with verified final hashes"

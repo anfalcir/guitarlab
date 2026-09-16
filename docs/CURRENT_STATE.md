@@ -46,3 +46,14 @@ With MK-300 connected, each direction should add one `MK-300` physical choice, n
 
 ## Next gate
 Run the full workflow manually on the exact H22 source. DIGITAL PASS requires software/unit/Lint/build/provenance, route-policy regressions, API36 connected regression, isolated target-tablet geometry and signed homologation all green on the same SHA.
+
+## CI #634 evidence and H22a correction
+- CI #634 / run `35038703877` executed exact H22 source `31aaf7264063ac642e84f7d983ba4dd060fc1ae4`.
+- Source materialization through H22: PASS.
+- API 36 emulator regression: PASS.
+- Software gate stopped only at `StudioAudioRoutePolicyTest.duplicateUsbLogicalEndpointsCollapseToOnePhysicalChoice` (1 failure out of 20 app unit tests); Lint/build/signing were therefore skipped.
+- Root cause: the legacy H19/H20 assertion required `legacySignatures` to equal only the two raw USB endpoint signatures, while H22 intentionally also preserves the prior `route2:usb:` canonical signature for migration.
+- H22a changes only that regression assertion: it still requires both raw USB signatures and additionally requires a `route2:usb:` migration signature. Production routing code is unchanged.
+- H22a patch forward/reverse and `git diff --check` pass locally; final test-source Git blob is `460e2d04263a9529afb3dd572d4f7237365c3b4c`.
+
+H22/H22a remain PRE-GATE until one manually dispatched exact-source full workflow passes all software, API36 and signed-homologation gates.

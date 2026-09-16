@@ -1,0 +1,14 @@
+diff --git a/app/src/test/java/studio/guitarlab/app/ui/StudioAudioRoutePolicyTest.kt b/app/src/test/java/studio/guitarlab/app/ui/StudioAudioRoutePolicyTest.kt
+index 7aecb27..460e2d0 100644
+--- a/app/src/test/java/studio/guitarlab/app/ui/StudioAudioRoutePolicyTest.kt
++++ b/app/src/test/java/studio/guitarlab/app/ui/StudioAudioRoutePolicyTest.kt
+@@ -16,7 +16,8 @@ class StudioAudioRoutePolicyTest {
+         assertEquals(1, result.size)
+         assertEquals("MK-300", result.single().label)
+         assertEquals(listOf(41, 42), result.single().candidateDeviceIds)
+-        assertEquals(setOf("11|MK-300|", "22|MK-300|"), result.single().legacySignatures.toSet())
++        assertTrue(result.single().legacySignatures.containsAll(listOf("11|MK-300|", "22|MK-300|")))
++        assertTrue(result.single().legacySignatures.any { it.startsWith("route2:usb:") })
+         assertTrue(result.single().signature.startsWith("route3:usb:"))
+     }
+ 
