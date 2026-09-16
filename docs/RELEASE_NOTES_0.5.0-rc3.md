@@ -1,15 +1,15 @@
 # GuitarLab Studio 0.5.0-rc3
 
-Updated: 2026-09-15
+Updated: 2026-09-16
 
-## Last signed digital homologation — CI #633
-Run `35033323990`, exact source `2204e0272f9e6e2f218bebd36889db424e006e03`, is the signed DIGITAL PASS through H21.
+## Last signed digital homologation — CI #636
+Run `35040569179`, exact source `b0a39a765f7cfbb0e9320ee847809300bc1e3d01`, is the signed DIGITAL PASS through H22/H22a.
 
 Identity:
 - package `studio.guitarlab.app`;
 - version `0.5.0-rc3` / versionCode `23`;
-- unsigned APK SHA-256 `58165dc53cacaf39357a1f28315b6312ada3ed2b6669b59e32ddbe8e4d53c25d`;
-- signed APK SHA-256 `f40b24cb36b4cb1299efcb28a35b54e66b107af2ec3d578a870c70e2966ff52e`;
+- unsigned APK SHA-256 `de996298a451cd559320cf71498121a652f9e3ca8054dba8bf2d95a281d08c47`;
+- signed APK SHA-256 `b195d8fc4d90fa0f8fa8c826525d08328f65090859386a90eaa37e4bcdf4087e`;
 - certificate SHA-256 `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
 
 CI evidence:
@@ -18,24 +18,27 @@ CI evidence:
 - isolated 1920×1200 geometry: 1/1 PASS;
 - signed homologation: PASS.
 
-## H20 — physical output canonicalization v2 — DIGITAL PASS
-- built-in speaker logical endpoints for one device collapse into one physical output choice;
-- the reproduced SM-X230 family (`SM-X230`, `• 0`, `• back`, `• bottom`) is covered by regression;
-- earpiece/Bluetooth/HDMI remain distinct;
-- USB H19 behavior is retained;
-- duplicate candidate resolution uses a silent probe plus actual `routedDevice` confirmation;
-- all 8 `StudioAudioRoutePolicyTest` regressions passed at #633.
+## H22/H22a — route UX
+- duplicate Samsung internal microphone/speaker endpoints are collapsed into semantic physical choices;
+- system-only routes such as `remote-submix` are excluded;
+- MK-300 USB endpoints are grouped by physical interface identity;
+- focused physical review of the #636 candidate confirmed the duplicate-route issue is resolved and the built-in routes are presented with friendly labels.
 
-## H21 — Studio visual system overhaul — DIGITAL PASS
-- global hardware-inspired geometry scale around 6dp controls, 8dp internal rows/cards and 10dp major panels/dialogs;
-- circles limited to genuine circular semantics;
-- icon actions use a visible square chassis with preserved touch targets;
-- Home, Novo Projeto, Studio, Mixer, Options, diagnostics, help/dialogs and track configuration inherit the normalized geometry;
-- practice bar renders Comparação, Ajustes and Timeline as separate semantic chassis with fixed title areas and blue/teal/amber accents;
-- wide/narrow containment regressions and target-tablet geometry pass.
+## H23 — recording timing + feedback hardening — PRE-GATE
+H23 follows the #636 physical review that still found a small repeatable late placement in REC and an obsolete technical route name in playback feedback.
 
-## CI #632 transport incident
-#632 failed before Android compilation because the H21 source-part archive was corrupted during repository transport and failed gzip CRC/length validation. Source materialization was hardened without changing the intended H20/H21 product behavior; #633 then materialized and validated the complete source successfully.
+Changes:
+- repeated monotonic audio timestamps produce stable capture/playback stream-origin anchors;
+- signed capture-vs-backing startup offset handles both early and late capture start;
+- mixed hardware/command clock bases fail closed rather than creating a synthetic offset;
+- measured route latency, startup offset and residual fine adjustment are separate and applied once;
+- calibration uses the real project/editing sample rate, including 44.1 kHz sessions;
+- route/rate-specific fine adjustment is available as Plan B, bounded to ±120 ms and zero by default;
+- punch crop is derived from the final compensated take placement;
+- normal Play/Stop/CUT/REC-state changes no longer create Snackbar spam;
+- technical Android route identifiers are filtered from normal transient feedback;
+- feedback behavior is now governed by `docs/TRANSIENT_FEEDBACK_CONTRACT.md`;
+- timing behavior is governed by `docs/RECORDING_LATENCY_CONTRACT.md`.
 
 ## Release decision
-H20/H21 are digitally homologated at #633. The remaining decision depends only on residual physical validation of real output enumeration/audibility/reconnect on SM-X230 + MK-300, the new visual hierarchy on the real tablet, and the retained recording/routing/listening smoke. If those pass with no further product/source changes, RC3 may proceed without another digital CI run.
+The #636 APK remains the last signed authority until H23 receives a new full signed CI pass. After that, the remaining critical physical acceptance is repeatable REC alignment on SM-X230 + MK-300 at the real project sample rate, with fine adjustment at zero first. RC3 is not final while a repeatable systematic recording offset remains.

@@ -1,6 +1,6 @@
 # Current State — GuitarLab Studio
 
-Updated: 2026-09-15
+Updated: 2026-09-16
 
 ## Active line
 - Repository/branch: `anfalcir/guitarlab` / `main`.
@@ -12,47 +12,68 @@ Updated: 2026-09-15
 - Workflow remains manual-only: `.github/workflows/android-ci.yml` uses `workflow_dispatch`; the assistant must not dispatch or rerun it.
 
 ## Evidence boundary
-CI #636 is the authoritative digital baseline for H22/H22a. Physical validation on the Samsung SM-X230 + MK-300 is still required before final physical closure.
+CI #636 is the authoritative signed baseline through H22/H22a. Physical review of that exact APK confirmed that input/output presentation now behaves correctly on the Samsung tablet: built-in routes no longer duplicate and the UI uses semantic labels such as `Microfone do tablet` and `Alto-falante do tablet`.
 
-### H20/H21 — historical DIGITAL PASS at CI #633
-- H20 added output canonicalization but physical review of #633 still exposed low-level Samsung BUS/system endpoints.
-- H21 established the app-wide hardware-inspired visual system and passed the complete #633 digital regression.
+The same physical review exposed two residual product issues:
+1. normal playback feedback could still surface a low-level Android route name;
+2. recorded guitar remained repeatably a few milliseconds late against the backing.
 
-### H22/H22a — DIGITAL PASS at CI #636
-- Canonicalization applies to both recording inputs and playback outputs.
+User evidence `WATG - Enemy-master.wav` is a 44.1 kHz recording; the user identified the left channel as the valid recorded-guitar channel. The WAV is evidence of residual timing error, not a trustworthy source for a hard-coded compensation constant because it does not contain an isolated timing reference.
+
+## H22/H22a — DIGITAL PASS + focused physical route UX PASS
+- Canonicalization applies to recording inputs and playback outputs.
 - Samsung/OEM internal BUS endpoints are folded into semantic physical microphone/speaker families.
-- Built-in microphone endpoints are presented as one `Microfone do tablet` choice.
-- Built-in speaker endpoints are presented as one `Alto-falante do tablet` choice.
-- `remote-submix` and telephony/system-only endpoints are excluded from user-facing choices.
-- USB endpoints are grouped by physical interface identity; endpoint/device indices do not create duplicate MK-300 choices.
-- Low-level addresses such as `0`, `back`, `bottom`, `hsp:...` and endpoint ids are not user-facing labels.
-- Legacy raw/H19/H20 selections migrate to the new canonical signatures.
-- Input groups resolve internally to a compatible Android endpoint; output groups retain silent probe plus authoritative `routedDevice` resolution.
-- Practice-bar titles use the neutral group surface while the action buttons carry the accent fill inside their own borders.
-- H22a updates the USB migration regression to require both raw endpoint signatures and the prior `route2:usb:` migration signature; production routing logic is unchanged by H22a.
+- `remote-submix`, telephony/system-only endpoints and low-level address suffixes are not user-facing choices.
+- USB endpoints are grouped by physical interface identity.
+- Physical review confirmed the duplicate-route defect is resolved on the target tablet.
 
-## CI #636 digital evidence
-- Exact source: `b0a39a765f7cfbb0e9320ee847809300bc1e3d01`.
-- Unit tests + Android Lint + debug/release assembly + unsigned provenance: PASS.
-- `StudioAudioRoutePolicyTest`: 12/12 PASS, including built-in microphone grouping, built-in speaker grouping, `remote-submix` filtering, USB/MK-300 grouping and route2→route3 migration coverage.
-- API 36 standard connected regression: 23/23 PASS.
-- Isolated target-tablet geometry at 1920×1200 / 240 dpi: 1/1 PASS.
-- Signed homologation gate: PASS.
-- APK Signature Scheme v2: PASS; v1/v3/v3.1/v4 disabled as designed.
-- Signers: 1; RSA 4096; certificate SHA-256 matches the locked GuitarLab homologation certificate.
-- Package/version validated from the signed APK: `studio.guitarlab.app`, `0.5.0-rc3`, versionCode `23`.
+## H23 — recording timing + transient-feedback hardening — IMPLEMENTED / SOURCE-VALIDATED / PRE-GATE
 
-## Expected physical UX
-With no external interface connected, Options → Áudio should expose only meaningful routes, for example:
-- Entrada: `Automático`, `Microfone do tablet` (plus genuinely external devices if present).
-- Saída: `Automático`, `Alto-falante do tablet` (plus genuinely external devices if present).
+### Recording timing — Plan A
+- Capture and backing start are mapped using a signed clock offset; both capture-before-backing and capture-after-backing cases are represented.
+- Hardware timestamps are accepted only after repeated observations produce a stable stream-origin estimate.
+- A single/stale Android `AudioTimestamp` is never treated as authoritative.
+- Hardware-timestamp time is never mixed with command-time fallback. If capture and playback do not share the same clock-evidence class, startup offset fails closed to zero.
+- Route latency, startup clock offset and residual user adjustment are separate domains and are applied exactly once.
+- Punch recording derives the kept window from the final compensated take placement rather than duplicating latency math.
+- Recording timing state is cleared after stop/error so a later take cannot inherit stale compensation.
 
-With MK-300 connected, each direction should add one `MK-300` physical choice, not endpoint duplicates.
+### Latency analyzer — Plan B
+- Calibration now uses the actual project/editing/recording sample rate instead of a fixed 48 kHz assumption.
+- Auto projects with an established 44.1/48/96 kHz editing rate calibrate at that exact rate.
+- Ambiguous mixed editing rates fail closed rather than guessing.
+- Round-trip calibration remains route + sample-rate specific and is used only when accepted by confidence/jitter/drift policy.
+- Fine residual adjustment is stored separately for the same input + output + sample-rate tuple, bounded to ±120 ms and defaults to zero.
+- Positive fine adjustment advances the take; negative adjustment delays it.
+
+### Transient feedback contract
+- Normal Play/Stop, opening CUT, countdown/REC state, mute/solo, navigation and routine mode changes do not generate Snackbar feedback.
+- Snackbars are reserved for errors, meaningful degradation/warnings and asynchronous completion that is not otherwise obvious.
+- Repeated warnings use cooldown/de-duplication.
+- User-facing transient feedback is filtered so low-level route tokens such as `remote-submix`, `hsp:`, `route2:`, `route3:` and `• back/bottom/0` do not leak outside diagnostics.
+- Import/REC/export progress remains in the owning UI rather than being duplicated as transient feedback.
+- See `docs/TRANSIENT_FEEDBACK_CONTRACT.md`.
+
+## Local H23 validation
+- deterministic H23 patch generated against the exact materialized CI #636 source;
+- `git diff --check`: PASS;
+- source-part gzip integrity: PASS;
+- materializer shell syntax: PASS;
+- first H23 materialization: PASS;
+- second/idempotent H23 materialization: PASS;
+- all 19 H23 materialized source hashes match the audited contract exactly;
+- reverse patch round-trip returns all 19 source files byte-for-byte to the CI #636 baseline;
+- pure Kotlin timing policies compile locally;
+- 100,000 randomized timing-placement property checks: PASS;
+- transient-feedback policy compile/smoke: PASS;
+- model + recording/practice policies compile locally with only the serialization annotation stubbed;
+- sample-rate/punch smoke: PASS;
+- changed Android/Compose sources show no Kotlin syntax diagnostics in parser-oriented compilation; Android/Compose dependency resolution is intentionally left to the official CI gate.
 
 ## Milestone state
 - M2–M6: PASS/CLOSED.
-- M7/M8 through H22/H22a: DIGITAL PASS at CI #636.
-- Final physical closure: pending Samsung SM-X230 + MK-300 verification.
+- M7/M8 through H22/H22a: DIGITAL PASS at CI #636; H22 focused physical route UX is PASS.
+- H23: PRE-GATE; signed digital homologation and focused physical latency validation pending.
 
 ## Next gate
-Install the exact CI #636 signed APK and perform focused physical validation of input/output route presentation and real routing, disconnect/reconnect behavior, practice-bar visual hierarchy and retained recording/playback smoke. No additional CI is required unless physical validation exposes another product defect.
+Run the full workflow manually on the exact H23 source after the H23 repository commit is published. DIGITAL PASS requires software/unit/Lint/build/provenance, API36 connected regression, isolated target-tablet geometry and signed homologation all green on the same SHA. After that, perform a focused physical REC A/B on SM-X230 + MK-300 at the actual project rate (including 44.1 kHz where applicable) and verify no repeatable systematic late placement remains before using any non-zero fine adjustment.

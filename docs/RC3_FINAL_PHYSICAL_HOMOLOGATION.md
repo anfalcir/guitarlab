@@ -1,80 +1,75 @@
 # Final Physical Homologation — GuitarLab 0.5.0-rc3
 
-Updated: 2026-09-15
+Updated: 2026-09-16
 
 This checklist is intentionally residual. Do not repeat deterministic checks already covered by CI.
 
 ## Candidate rule
-Use only the exact signed candidate from CI #633:
-- run `35033323990`;
-- source `2204e0272f9e6e2f218bebd36889db424e006e03`;
+H22/H22a physical route UX was validated on CI #636. H23 changes product source, so do **not** use #636 to approve recording timing. The next physical timing candidate must be the exact signed APK produced by a successful full CI on the H23 source SHA.
+
+Locked identity that must remain unchanged:
 - versionName `0.5.0-rc3`;
 - versionCode `23`;
 - package `studio.guitarlab.app`;
-- signed APK SHA-256 `f40b24cb36b4cb1299efcb28a35b54e66b107af2ec3d578a870c70e2966ff52e`;
 - signer SHA-256 `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`;
 - target Samsung SM-X230 + M-VAVE MK-300 over USB;
-- MK-300 hardware loopback disabled.
+- MK-300 hardware loopback disabled for normal REC validation.
 
-## A. H20 physical output canonicalization
-1. Open Options → Áudio with the tablet speakers available and inspect `Saída principal`.
-2. Confirm the built-in speaker appears once as a physical `SM-X230` route; logical variants such as `SM-X230 • 0`, `• back` and `• bottom` must not be separate user choices.
-3. Select the single SM-X230 route and play audio; confirm audible output.
-4. Connect the MK-300, refresh and confirm it is represented once if Android exposes duplicate USB endpoints.
-5. Select MK-300 and confirm audible playback.
-6. Disconnect/reconnect the MK-300, refresh, reselect and repeat playback.
+## A. Retained H22 route UX smoke
+- Entrada: semantic physical choices only; no `remote-submix`, `0`, `back`, `bottom`, `hsp:...` duplicates.
+- Saída: semantic physical choices only.
+- MK-300 appears once per direction and routes correctly after reconnect.
 
-PASS: no dead duplicate user-facing outputs remain, each physical destination appears once, and explicit selection routes audibly before and after reconnect.
+## B. H23 transient-feedback acceptance
+- Play/Stop success produces no Snackbar.
+- Enter/exit CUT produces no Snackbar.
+- REC countdown/capturing/finalizing state is visible in the owning UI but does not spam Snackbar.
+- No normal Snackbar exposes `SM-X230 • bottom/back/0`, `remote-submix`, `hsp:`, `route2:` or `route3:`.
+- A real error still produces a concise user-facing message.
+- A meaningful degraded recording state still warns once and does not repeat continuously.
 
-## B. H21 practice-bar hierarchy
-- Open Mixer and inspect `Comparação | Ajustes | Timeline` at the real tablet width.
-- Confirm each group has a clearly bounded chassis.
-- Confirm the group title is visually a header, not a button.
-- Confirm `Comparação` precedes comparison buttons, `Ajustes` precedes `Níveis`, and `Timeline` precedes timeline actions.
-- Confirm functional accents remain consistent: blue / teal / amber.
-- Confirm `Desativado`, `Referência`, `Minha`, `Ambas` remain fully visible and interactive.
-- Confirm no group overlaps another and Timeline overflow stays local.
+## C. H23 zero-adjustment recording timing — critical gate
+Start with fine adjustment at **0.0 ms**.
 
-## C. H21 app-wide visual-system review
-Review Home, Novo Projeto, Studio top bar/transport, timeline/track panels, Mixer, Options, Audio diagnostics, Codec diagnostics, track settings, dialogs/help/export.
+1. Select MK-300 input/output explicitly.
+2. Use a transient-rich backing and the project's real sample rate. Include 44.1 kHz because the reported evidence was at 44.1 kHz.
+3. Record at least three independent takes while playing to the same obvious transient/riff.
+4. Stop and inspect/listen to each take against the backing.
+5. PASS only if no repeatable systematic late/early offset is evident across takes.
+6. Exercise recording from timeline zero and from a non-zero playhead.
+7. Exercise loop-punch once to verify compensated crop remains correct.
 
-PASS criteria:
-- buttons are recognizable as controls rather than labels;
-- section titles are recognizable as non-action headings;
-- group/panel boundaries are obvious without excessive color noise;
-- major shapes consistently read as squared rectangles with subtle rounding;
-- no old oversized pill/soft-card geometry remains in ordinary interaction chrome;
-- only semantically justified circular elements remain circular;
-- touch targets remain comfortable and no text/control is clipped at the tablet font scale.
+A single human performance miss is not a timing failure; the concern is a repeatable systematic displacement shared across takes.
 
-## D. Retained interaction smoke
-- H17 CUT: no numeric T1/T2 boxes; only short yellow ticks in the time ruler;
-- H12 Níveis: analyze/reanalyze/apply/Undo;
-- H14 Mixer overflow both directions with fixed MASTER;
-- H15 resident Studio return with no double-load/flicker and Undo retained.
+## D. Plan-B analyzer/calibration
+Only if section C still reveals a stable route-specific residual:
+1. Keep the same MK-300 input/output and sample rate.
+2. Connect/enable a valid loopback path specifically for calibration.
+3. Run `Calibrar latência` and require an accepted stable result; unstable measurements must not be applied.
+4. Disable the test loopback again for normal guitar recording.
+5. Repeat section C with fine adjustment still at zero.
 
-## E. Recording / MK-300 residual hardware gate
-- select MK-300 input/output with hardware loopback disabled;
-- record against backing and confirm backing is not printed into the guitar take;
-- verify live waveform and Peak/RMS;
-- exercise Stop/REC transitions;
-- listen for repeatable late placement, pops/dropouts, wrong speed or channel imbalance;
-- disconnect selected input during a disposable take and verify fail-closed behavior.
+## E. Fine residual adjustment
+Use only if a repeatable residual remains after Plan A + accepted calibration.
+- Apply the smallest correction necessary using ±1 ms first.
+- Positive adjustment must advance the take; negative must delay it.
+- Repeat three takes and confirm the correction is stable.
+- Change route or sample rate and confirm the previous adjustment is not silently reused.
 
-## F. Focused smoke
+## F. Retained production smoke
+- backing is not printed into the guitar take with MK-300 loopback disabled;
+- live waveform + Peak/RMS during REC;
+- selected-input disconnect fails closed;
 - loop + live seek;
 - Auto seções preview/application;
-- two takes + active-take switch;
 - short WAV/FLAC export and playback;
 - Trim Apply → Undo → Redo → save/reopen.
 
 ## Final PASS criteria
-- exact #633 candidate identity is verified;
-- no duplicate/dead physical output choices remain;
-- new visual system is coherent across all screens;
-- no repeatable P0/P1 in A–F;
+- exact H23 signed candidate identity is verified;
+- H22 semantic-route behavior remains correct;
+- transient-feedback contract passes;
+- no repeatable P0/P1 recording timing defect remains;
 - no unintended input fallback/backing leakage;
-- no repeatable systematic guitar-vs-backing late placement;
-- explicit user approval of this exact signed APK.
-
-If A–F pass and no source/product code changes follow, M7 physical closure and the RC3 release decision may be finalized without another digital CI run.
+- fine adjustment is zero if Plan A fully resolves the route, otherwise any non-zero value is route/rate-specific and physically verified;
+- explicit user approval of the exact signed APK.

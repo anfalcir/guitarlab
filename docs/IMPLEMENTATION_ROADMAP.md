@@ -1,6 +1,6 @@
 # Implementation Roadmap
 
-Updated: 2026-09-15
+Updated: 2026-09-16
 
 ## M1 — Foundation — CLOSED
 Project model, templates, persistence and repository structure.
@@ -15,38 +15,35 @@ Consolidated into later milestones.
 Closed after physical approval.
 
 ## M6 — Measured latency and synchronization — PASS/CLOSED
-Closed after physical approval.
+Original latency/calibration foundation closed after physical approval. Residual real-device timing discovered during RC3 hardening is handled as H23 regression hardening rather than reopening M6 architecture.
 
 ## M7 — Production audio polish
-Digital scope through H21 is PASS at CI #633. Physical closure remains pending only on the residual real-hardware/visual review of the exact #633 signed candidate.
+- H20/H21: superseded by later validation.
+- H22/H22a: DIGITAL PASS at CI #636.
+- H22 focused physical route UX: PASS on target Samsung tablet; duplicate low-level routes resolved and semantic labels approved.
+- H23 recording-timing/transient-feedback hardening: IMPLEMENTED / SOURCE-VALIDATED / PRE-GATE.
 
 ## M8 — Release hardening
 
-### Canonical signed baseline — CI #633
-Run `35033323990`, exact product/source SHA `2204e0272f9e6e2f218bebd36889db424e006e03`:
+### Last signed baseline — CI #636
+Run `35040569179`, exact product/source SHA `b0a39a765f7cfbb0e9320ee847809300bc1e3d01`:
 - software/unit/audio/DSP/persistence/migration/performance/Lint/build/provenance: PASS;
 - API36 connected regression: 23/23 PASS;
 - isolated 1920×1200 geometry: 1/1 PASS;
 - signed homologation: PASS;
-- unsigned APK SHA-256: `58165dc53cacaf39357a1f28315b6312ada3ed2b6669b59e32ddbe8e4d53c25d`;
-- signed APK SHA-256: `f40b24cb36b4cb1299efcb28a35b54e66b107af2ec3d578a870c70e2966ff52e`;
+- unsigned APK SHA-256: `de996298a451cd559320cf71498121a652f9e3ca8054dba8bf2d95a281d08c47`;
+- signed APK SHA-256: `b195d8fc4d90fa0f8fa8c826525d08328f65090859386a90eaa37e4bcdf4087e`;
 - signer SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
 
-### H20 — physical output canonicalization v2 — DIGITAL PASS
-- built-in speaker logical endpoints such as `SM-X230`, `SM-X230 • 0`, `• back`, `• bottom` collapse into one physical user-facing route;
-- H19 USB canonicalization remains intact;
-- earpiece/Bluetooth/HDMI remain distinct;
-- duplicate candidates are resolved by silent probe + authoritative `routedDevice` confirmation;
-- 8 route-policy unit regressions passed in #633.
+### H23 gate objectives
+1. **Automatic timing first:** signed capture/playback clock mapping with stable monotonic anchors.
+2. **No double compensation:** session offset, route calibration and fine residual adjustment remain separate.
+3. **Actual-rate calibration:** 44.1/48/96 kHz follows the project editing domain.
+4. **Plan-B tool:** route/rate-specific loopback analyzer plus bounded fine adjustment.
+5. **Feedback discipline:** no routine-state Snackbar spam and no raw Android route names in normal UI.
+6. **Regression:** punch, loop/REC, route fail-closed and previous H22 route UX must remain intact.
 
-### H21 — Studio visual system overhaul — DIGITAL PASS
-- hardware-inspired geometry standardized across the app;
-- controls/cards/panels normalized around 6/8/10dp radii;
-- practice bar renders Comparação, Ajustes and Timeline as distinct semantic chassis;
-- title/action boundaries, containment and narrow/wide behavior remain regression-guarded;
-- API36 and isolated target-tablet geometry both pass in #633.
-
-See `docs/UI_VISUAL_SYSTEM.md` for the screen-by-screen contract.
+See `docs/RECORDING_LATENCY_CONTRACT.md` and `docs/TRANSIENT_FEEDBACK_CONTRACT.md`.
 
 ## Canonical materialization tail
 After H11b:
@@ -63,16 +60,18 @@ After H11b:
 11. H18a Narrow Practice-Bar Fallback Correction
 12. H20 Physical Output Canonicalization v2
 13. H21 Studio Visual System Overhaul
+14. H22 Semantic Physical Audio Routes + Practice-Bar Action Emphasis
+15. H22a USB Migration Regression Alignment
+16. H23 Recording Timing + Transient Feedback Hardening
 
-## Final residual physical acceptance
-Run only on the exact #633 signed APK:
-- one SM-X230 physical speaker route;
-- one MK-300 route when connected;
-- audible playback/reconnect behavior;
-- app-wide visual hierarchy is clear on the real tablet;
-- retained recording/routing/live-waveform/meters/synchronization/listening smoke passes.
-
-If these pass and no product/source code changes follow, M7 physical closure and the RC3 release decision may be finalized without another digital CI run.
+## Remaining release path
+1. Manually run the full signed CI on the exact H23 commit.
+2. If green, install only that exact signed APK.
+3. Focused physical H23 REC A/B on SM-X230 + MK-300, especially 44.1 kHz evidence scenario.
+4. Verify no repeatable late placement with fine adjustment still at zero.
+5. If a stable route-specific residual remains, measure/calibrate first; use fine adjustment only as documented Plan B.
+6. Retained smoke: route presentation/reconnect, live waveform/meters, punch/loop, export, trim/undo/redo.
+7. Final RC3 decision only after no repeatable P0/P1 remains.
 
 ## Gate discipline
 `.github/workflows/android-ci.yml` remains manual-only (`workflow_dispatch`). The assistant must not dispatch or rerun Actions.
