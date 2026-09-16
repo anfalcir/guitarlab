@@ -9,9 +9,9 @@ H26A_SAF_HASH="caedc69c794a041653fae906b12e532e3e1b0498"
 H26B_PATCH_PART="$ROOT/.source-parts/H26bBackupScreenTestCompat.patch.b64"
 H26B_PATCH_SHA256="5a625e9cf034f39868d0a1db94d937e81b7187a73911b8c74fee8287fbf4ec67"
 H26B_TEST_HASH="a4ef2e752d27d7a9d7e80324029f3f3044b8241c"
-H26C_PATCH_PART="$ROOT/.source-parts/H26cBackupScreenScroll.patch.b64"
-H26C_PATCH_SHA256="0a5668d61e8e1f1a95a1ae424511e79506cd987347bf4701690e180eb18b2c51"
-H26C_TEST_HASH="953ec6dd18bb71354bbf9c72c16f8c28bbc14eee"
+H26D_PATCH_PART="$ROOT/.source-parts/H26dBackupScreenScroll.patch.b64"
+H26D_PATCH_SHA256="97fb62c177519bbb6b8790fe173639cbed2142994ee4fe0eec374c9aa1d37760"
+H26D_TEST_HASH="8ebac066a3bef1b93ee0316cdb5dcc726fe4b056"
 
 hash_file() { git -C "$ROOT" hash-object "$1"; }
 
@@ -80,7 +80,7 @@ h26b_ready() {
     done
 }
 
-h26c_ready() {
+h26d_ready() {
     local entry relative expected
     for entry in "${H26_CHECKS[@]}"; do
         relative="${entry%%|*}"
@@ -88,38 +88,38 @@ h26c_ready() {
         if [[ "$relative" == "app/src/main/java/studio/guitarlab/app/backup/SafBackupRemoteStore.kt" ]]; then
             expected="$H26A_SAF_HASH"
         elif [[ "$relative" == "app/src/androidTest/java/studio/guitarlab/app/BackupScreenInstrumentedTest.kt" ]]; then
-            expected="$H26C_TEST_HASH"
+            expected="$H26D_TEST_HASH"
         fi
         [[ -f "$ROOT/$relative" ]] || return 1
         [[ "$(hash_file "$ROOT/$relative")" == "$expected" ]] || return 1
     done
 }
 
-decode_h26c_patch() {
+decode_h26d_patch() {
     local output="$1"
-    [[ -f "$H26C_PATCH_PART" ]] || { echo "Missing H26c patch part: $H26C_PATCH_PART" >&2; return 1; }
-    base64 -d "$H26C_PATCH_PART" > "$output"
+    [[ -f "$H26D_PATCH_PART" ]] || { echo "Missing H26d patch part: $H26D_PATCH_PART" >&2; return 1; }
+    base64 -d "$H26D_PATCH_PART" > "$output"
 }
 
-verify_h26c_patch() {
+verify_h26d_patch() {
     local decoded actual
     decoded="$(mktemp)"
     trap 'rm -f "$decoded"' RETURN
-    decode_h26c_patch "$decoded"
+    decode_h26d_patch "$decoded"
     actual="$(sha256sum "$decoded" | awk '{print $1}')"
-    [[ "$actual" == "$H26C_PATCH_SHA256" ]] || {
-        echo "H26c source patch SHA-256 mismatch: $actual" >&2
+    [[ "$actual" == "$H26D_PATCH_SHA256" ]] || {
+        echo "H26d source patch SHA-256 mismatch: $actual" >&2
         return 1
     }
     rm -f "$decoded"
     trap - RETURN
 }
 
-apply_h26c() {
+apply_h26d() {
     local decoded
     decoded="$(mktemp)"
     trap 'rm -f "$decoded"' RETURN
-    decode_h26c_patch "$decoded"
+    decode_h26d_patch "$decoded"
     patch --dry-run -p1 -d "$ROOT" < "$decoded" >/dev/null
     patch --batch --forward -p1 -d "$ROOT" < "$decoded"
     rm -f "$decoded"
@@ -234,10 +234,10 @@ apply_h26() {
 verify_h26_archive
 verify_h26a_patch
 verify_h26b_patch
-verify_h26c_patch
+verify_h26d_patch
 
-if h26c_ready; then
-    echo "Source patch chain already materialized through H26c"
+if h26d_ready; then
+    echo "Source patch chain already materialized through H26d"
     exit 0
 fi
 
@@ -256,6 +256,6 @@ if ! h26b_ready; then
     h26b_ready || { echo "H26b applied but final H26b hashes do not match." >&2; exit 1; }
 fi
 
-apply_h26c
-h26c_ready || { echo "H26c applied but final H26c hashes do not match." >&2; exit 1; }
-echo "Source patch chain materialized through H26c with verified final hashes"
+apply_h26d
+h26d_ready || { echo "H26d applied but final H26d hashes do not match." >&2; exit 1; }
+echo "Source patch chain materialized through H26d with verified final hashes"
