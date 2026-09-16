@@ -20,7 +20,7 @@ H23_CHECKS=(
     "app/src/main/java/studio/guitarlab/app/ui/StudioLatencyCalibration.kt|28c459f5879065f1fb51166f17d1e12e4614899b"
     "app/src/main/java/studio/guitarlab/app/ui/StudioShellScreen.kt|952a78cf08242e097e1fb31b94147cfe09c8faee"
     "app/src/main/java/studio/guitarlab/app/ui/StudioViewModel.kt|008e92474c6643fedcaad6fadbb0cf6c4cc43653"
-    "app/src/test/java/studio/guitarlab/app/ui/AppTransientFeedbackPolicyTest.kt|5b7d0375814898978564dfc8353ed412bf7666ba"
+    "app/src/test/java/studio/guitarlab/app/ui/AppTransientFeedbackPolicyTest.kt|14c19afe655c68f6692dbada79d46c81e285d440"
     "core/audio/src/main/kotlin/studio/guitarlab/core/audio/AudioClockAnchorPolicy.kt|d599d4a7919e11bd31c158a93150b6d4d075bb92"
     "core/audio/src/main/kotlin/studio/guitarlab/core/audio/LatencyCalibrationPolicy.kt|a71337625718e4966279ff0b04e8b4772212a987"
     "core/audio/src/main/kotlin/studio/guitarlab/core/audio/RecordingTimingCompensationPolicy.kt|2b4cca7e06c0e498457bc1be4e004b9a5b468401"
@@ -35,6 +35,9 @@ H23_CHECKS=(
     "platform/audio-android/src/main/kotlin/studio/guitarlab/platform/audio/android/AndroidStudioRecordingEngine.kt|32e4c32b7ece29754e07b5b0d00ceb0d972689e6"
 )
 
+H23_FEEDBACK_TEST="app/src/test/java/studio/guitarlab/app/ui/AppTransientFeedbackPolicyTest.kt"
+H23_FEEDBACK_TEST_BASE_HASH="5b7d0375814898978564dfc8353ed412bf7666ba"
+
 h23_ready() {
     local entry relative expected
     for entry in "${H23_CHECKS[@]}"; do
@@ -45,10 +48,18 @@ h23_ready() {
     done
 }
 
-if h23_ready; then
-    echo "Source patch chain already materialized through H23"
-    exit 0
-fi
+h23_base_ready() {
+    local entry relative expected
+    for entry in "${H23_CHECKS[@]}"; do
+        relative="${entry%%|*}"
+        expected="${entry#*|}"
+        if [[ "$relative" == "$H23_FEEDBACK_TEST" ]]; then
+            expected="$H23_FEEDBACK_TEST_BASE_HASH"
+        fi
+        [[ -f "$ROOT/$relative" ]] || return 1
+        [[ "$(hash_file "$ROOT/$relative")" == "$expected" ]] || return 1
+    done
+}
 
 apply_patch_once() {
     local patch_file="$1"
@@ -75,6 +86,18 @@ apply_encoded_gzip_patch_once() {
     rm -f "$tmp_archive" "$tmp_patch"
     trap - RETURN
 }
+
+if h23_ready; then
+    echo "Source patch chain already materialized through H23a"
+    exit 0
+fi
+
+if h23_base_ready; then
+    apply_patch_once "$ROOT/.source-parts/H23aJUnitAnnotation.patch"
+    h23_ready || { echo "H23a applied but final H23 hashes do not match." >&2; exit 1; }
+    echo "Source patch chain materialized through H23a with verified final hashes"
+    exit 0
+fi
 
 H22A_READY=false
 if [[ -f "$H22_POLICY" && -f "$H22_STORE" && -f "$H21_STUDIO" && -f "$H22_TEST" ]] \
@@ -144,8 +167,10 @@ apply_encoded_gzip_patch_once "$H23_ENCODED"
 rm -f "$H23_ENCODED"
 trap - EXIT
 
+apply_patch_once "$ROOT/.source-parts/H23aJUnitAnnotation.patch"
+
 if ! h23_ready; then
-    echo "H23 materialization completed but final source hashes do not match the audited contract." >&2
+    echo "H23/H23a materialization completed but final source hashes do not match the audited contract." >&2
     exit 1
 fi
-echo "Source patch chain materialized through H23 with verified final hashes"
+echo "Source patch chain materialized through H23a with verified final hashes"

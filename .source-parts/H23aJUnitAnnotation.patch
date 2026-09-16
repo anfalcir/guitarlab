@@ -1,0 +1,5 @@
+--- a/app/src/test/java/studio/guitarlab/app/ui/AppTransientFeedbackPolicyTest.kt
++++ b/app/src/test/java/studio/guitarlab/app/ui/AppTransientFeedbackPolicyTest.kt
+@@ -3 +3 @@
+-import kotlin.test.Test
++import org.junit.Test

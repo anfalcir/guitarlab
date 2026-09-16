@@ -70,10 +70,19 @@ User evidence `WATG - Enemy-master.wav` is a 44.1 kHz recording; the user identi
 - sample-rate/punch smoke: PASS;
 - changed Android/Compose sources show no Kotlin syntax diagnostics in parser-oriented compilation; Android/Compose dependency resolution is intentionally left to the official CI gate.
 
+## CI #637 evidence and H23a correction
+- CI #637 / run `35083324060` executed exact H23 source `086fa3b080f0994b9031f52cb8ac3f01754d5378`.
+- Source materialization through H23: PASS.
+- API 36 emulator regression: PASS.
+- App production sources compiled successfully during the unit-test task.
+- Software gate stopped only while compiling `AppTransientFeedbackPolicyTest`: the new test imported `kotlin.test.Test`, while the Android app test source set is standardized on JUnit 4 `org.junit.Test`.
+- H23a changes only that test annotation import; production timing, calibration and transient-feedback code are unchanged.
+- H23a materialization on the exact #637 source snapshot: PASS; second/idempotent run: PASS; final test-source Git blob is `14c19afe655c68f6692dbada79d46c81e285d440`.
+
 ## Milestone state
 - M2–M6: PASS/CLOSED.
 - M7/M8 through H22/H22a: DIGITAL PASS at CI #636; H22 focused physical route UX is PASS.
-- H23: PRE-GATE; signed digital homologation and focused physical latency validation pending.
+- H23/H23a: PRE-GATE; CI #637 proved API36 PASS but the full signed gate remains pending after the test-only H23a correction.
 
 ## Next gate
-Run the full workflow manually on the exact H23 source after the H23 repository commit is published. DIGITAL PASS requires software/unit/Lint/build/provenance, API36 connected regression, isolated target-tablet geometry and signed homologation all green on the same SHA. After that, perform a focused physical REC A/B on SM-X230 + MK-300 at the actual project rate (including 44.1 kHz where applicable) and verify no repeatable systematic late placement remains before using any non-zero fine adjustment.
+Run the full workflow manually on the exact H23/H23a source after the H23a repository commit is published. DIGITAL PASS requires software/unit/Lint/build/provenance, API36 connected regression, isolated target-tablet geometry and signed homologation all green on the same SHA. After that, perform a focused physical REC A/B on SM-X230 + MK-300 at the actual project rate (including 44.1 kHz where applicable) and verify no repeatable systematic late placement remains before using any non-zero fine adjustment.
