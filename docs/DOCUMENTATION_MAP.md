@@ -1,31 +1,31 @@
 # Documentation map
 
-Updated: 2026-09-15
+Updated: 2026-09-16
 
+## Active authoritative set
 For the active `0.5.0-rc3` line, use these documents together:
-- `CURRENT_STATE.md` — authoritative current status: CI #620 H0–H11 DIGITAL PASS + H12–H15 PRE-GATE;
-- `IMPLEMENTATION_ROADMAP.md` — milestone/gate progression through Physical Review IV;
-- `DOCUMENTATION_AUDIT_H12_H15_2026-09-15.md` — **current document/source audit** for H12–H15;
-- `DOCUMENTATION_AUDIT_H11_2026-09-15.md` — historical Physical Review III/H11 failure-correction and #620 closure evidence;
-- `CANDIDATE_IDENTITY_POLICY.md` — version/source/signer/checksum contract;
-- `CI_PIPELINE.md` — manual CI graph and source-materialization contract through H15;
-- `RELEASE_NOTES_0.5.0-rc3.md` — RC3 behavior delta through H15;
-- `RC3_FINAL_PHYSICAL_HOMOLOGATION.md` — only active residual target-device checklist after the next exact-source PASS;
+- `CURRENT_STATE.md` — authoritative current candidate/gate state;
+- `IMPLEMENTATION_ROADMAP.md` — milestone progression and remaining release path;
+- `CI_PIPELINE.md` — manual CI graph and source-materialization contract through H24;
+- `H24_HOME_PROJECT_LIBRARY.md` — normative Home search/filter/sort contract;
+- `DOCUMENTATION_AUDIT_H24_2026-09-16.md` — current documentation/source synchronization audit;
+- `RELEASE_NOTES_0.5.0-rc3.md` — active RC3 behavior delta;
+- `RC3_FINAL_PHYSICAL_HOMOLOGATION.md` — only active residual target-device checklist after exact-source automated PASS;
 - `TEST_AND_HOMOLOGATION_PLAN.md` — canonical automated/manual gate discipline;
-- `ARCHITECTURE.md` — system/media/editing/recording architecture;
-- `DECISIONS.md` — durable product/architecture history; operational details of the newest review blocks are authoritative in current state/audits until separately promoted into durable decisions;
-- `STUDIO_WORKSPACE_GUIDELINES.md` — tablet workspace/state/recording/waveform interaction contract;
-- `TIMELINE_INTERACTION_GUIDELINES.md` — timeline trim/drag/delete/take-lineage contract;
-- `STUDIO_OPTIONS_AND_MIXER.md` — Studio actions/options/share/mixer behavior;
+- `ARCHITECTURE.md` — system/media/editing/recording/Home-library architecture;
 - `PRODUCT_REQUIREMENTS.md` — normative product requirements;
 - `USER_GUIDE_POLICY.md` — mandatory synchronization contract for in-app `Ajuda`;
-- `UI_COPY_STYLE.md` — user-visible copy conventions;
-- media/project support contracts and matrices remain authoritative in their dedicated documents.
+- `CANDIDATE_IDENTITY_POLICY.md` — version/source/signer/checksum contract;
+- `STUDIO_WORKSPACE_GUIDELINES.md`, `TIMELINE_INTERACTION_GUIDELINES.md`, `STUDIO_OPTIONS_AND_MIXER.md`, `UI_COPY_STYLE.md` and dedicated media/codec contracts remain authoritative for their subsystem scope unless superseded by an active document above.
 
-## Evidence boundary
-CI #620 / source `faaeb0ee4f9e52fbdcf369d097fa773e96d104a7` is the authoritative digitally homologated H0–H11 baseline. Physical Review IV / H12–H15 is newer and remains **IMPLEMENTED / SOURCE-VALIDATED / PRE-GATE** until a new exact-source manual workflow succeeds.
+## Current evidence boundary
+The last signed DIGITAL PASS is **CI #639**, run `35096711936`, exact producer source `eb9c4a4ca2a6269fbe2f2211a0807b8c703e115c`, authoritative through H23b.
 
-The next promoted source SHA and APK checksum are recorded only after that workflow passes on final `main`.
+H24 Home Project Library is newer and is **IMPLEMENTED / SOURCE-VALIDATED / PRE-GATE**. Implementation anchor: `96ffe7bd394e2eda68707cf2ad8c8596432cd26a`. A new user-dispatched signed workflow is required before H24 can be promoted to DIGITAL PASS.
 
-## Historical documentation
-H11/H7–H10/H0–H6 audits and older alpha/RC checkpoint files remain historical evidence and must not override the active documents above.
+## Historical evidence
+Files whose names identify older ALPHA releases, H0–H23 checkpoint audits, physical-review snapshots, old gate summaries or candidate handoffs are **point-in-time historical evidence**. Their old CI numbers, SHA values and PRE-GATE/PASS labels are intentionally preserved as history and must not be interpreted as current state.
+
+Examples include `ALPHA*.md`, older `DOCUMENTATION_AUDIT_H*.md`, older candidate/gate summaries and previous review-specific handoffs. When historical files conflict with `CURRENT_STATE.md`, the active documents above win.
+
+This classification is deliberate: updating historical records to today's state would destroy traceability.

@@ -1,72 +1,92 @@
 # Test and Homologation Plan
 
-Updated: 2026-09-14
+Updated: 2026-09-16
 
 ## Active candidate
-Active line: `0.5.0-rc3` / versionCode `23` / package `studio.guitarlab.app`.
+`0.5.0-rc3` / versionCode `23` / package `studio.guitarlab.app`.
 
-CI #616 at `3051619c219e346daca00d2242f60ef03f2d80db` is the latest fully green signed H0–H6 baseline. Physical Review II H7–H10 is newer and therefore requires one new exact-source manual workflow before promotion.
+Last signed DIGITAL PASS: CI #639 / run `35096711936` / source `eb9c4a4ca2a6269fbe2f2211a0807b8c703e115c`, authoritative through H23b.
 
-## Automated coverage
-### Retained H0–H6
-Transport/loop, Auto seções, countdown, trim handles, split/take lineage, clip deletion/drag-to-trash, recording timing compensation, live waveform frame accounting, persistence, lifecycle, accessibility, geometry and release provenance remain mandatory.
+H24 Home Project Library is newer and remains **IMPLEMENTED / SOURCE-VALIDATED / PRE-GATE** until one new exact-source full signed workflow succeeds.
 
-### H7 — state/history/level/recording stop
-Required coverage:
-- analyze → apply → analyze converges using effective level including current gains;
-- repeated apply/undo/redo keeps `canUndo`/`canRedo` synchronized;
-- project switch during pending history/analysis work cannot publish stale results into the new project;
-- Stop during countdown cancels safely;
-- Stop during capture and REC-during-capture use one successful idempotent finalization path;
-- duplicate finalization is rejected.
+## Automated coverage retained
+Promoted RC automation retains project persistence/package round-trip, media integrity, import/codecs, trim/split/drag/take-lineage, Undo/Redo, lifecycle, transport/loop/punch, waveform, mixer/export, route semantics, recording timing/calibration, transient-feedback, accessibility, responsive geometry and exact release provenance.
 
-### H8 — workspace/action flow
-Required coverage:
-- one valid tap on `Cortar` opens Trim;
-- blocked trim entry produces explicit feedback, never a silent no-op;
-- clip deletion and track-wide clearing have distinct scope/labels;
-- one reusable Comparison/Timeline component is used in Mixer header vs closed-Mixer workspace state;
-- wide tablet geometry preserves title left and Pin/Close right without overlap.
+### H23b retained requirements
+- progressing timestamp evidence; stale/backwards evidence fails closed;
+- exact route+sample-rate calibration/fine-adjustment scope;
+- 44.1/48/88.2/96 kHz timing coverage;
+- no double compensation;
+- route identifiers sanitized from normal transient UX;
+- unstable calibration remains diagnostic-only.
 
-### H9 — live waveform spatial stability
-Required coverage:
-- captured frames remain the timebase;
-- one uniform temporal bucket resolution applies to both historical and newly captured data;
-- rebucketing preserves contiguous covered time and maximum transient;
-- renderer uses represented interval width, not a single thin midpoint stroke;
-- long/variable callback cadence remains monotonic, bounded and spatially coherent.
+### H24 project-library requirements
+Pure/JVM policy coverage must include:
+- case-insensitive and accent-insensitive search;
+- query normalization determinism;
+- template/content/sample-rate filters independently and in combination;
+- content distinction: recordings vs any audio/clips vs no clips;
+- recording detection for existing take lineage metadata;
+- Auto + 44.1/48/88.2/96 kHz sample-rate matrix;
+- modified/created/name sorting in both directions;
+- deterministic tie-break under equal primary keys;
+- default updated-desc behavior;
+- clear-search/filter semantics without unwanted sort reset;
+- active-filter metadata;
+- randomized large-library determinism.
 
-### H10 — integrated regression
-Required scenario includes repeated level analysis/application, Undo/Redo stress, project switching, Trim entry, REC→Stop, long waveform capture and save/reopen without stuck transport/history state.
+Android instrumentation coverage must verify at minimum:
+- search and clear affordances are discoverable and semantically labeled;
+- filter control exposes active state and can open filter options;
+- sort control exposes current selection and updates semantics after selection;
+- controls remain part of the standard Home regression surface.
 
-## Source materialization
-Canonical order remains serial:
-`H1 → H2 → H3 → H4 → H5 → H6 → H7 → H8 → H9 → H10`.
+Do not predeclare a future test count. Report the official count only after the workflow completes.
 
-H7–H10 are treated as one guarded final-state materialization unit because H10 refines files already touched by H7. Final target hashes recognize an already materialized source and prevent reverse application through later edits.
+## H24 source materialization
+Current canonical tail ends at H24. Requirements:
+- deterministic gzip+base64 source part;
+- gzip integrity validation;
+- forward patch applicability or exact already-materialized recognition;
+- final Git blob hash verification for every H24-modified source/test file;
+- idempotent second materializer run;
+- fail closed on unexplained source corruption/drift.
 
-Requirements: deterministic, idempotence-oriented, fail-fast on drift, identical output for software and API 36 gates.
+Expected message:
+`Source patch chain materialized through H24 with verified final hashes`.
 
 ## Canonical manual gate
-The user manually dispatches `.github/workflows/android-ci.yml` on final `main` with `signed_homologation=true`.
+The user manually dispatches `.github/workflows/android-ci.yml` on final current `main` with `signed_homologation=true`.
 
 Mandatory:
-1. diff sanity + materialization;
-2. all JVM/unit tests including H7–H10;
+1. checkout exact `head_sha` + diff/materialization sanity;
+2. all JVM/unit suites including H24 policy tests;
 3. performance evidence;
 4. Android Lint;
-5. debug/release assembly;
-6. API 36 full connected regression;
+5. debug/release assembly and unsigned provenance;
+6. standard API36 connected regression including H24 instrumentation;
 7. isolated 1920×1200 tablet geometry;
 8. signed homologation from the exact tested unsigned artifact;
-9. source/package/version/checksum/signer verification.
+9. package/version/source/checksum/signer verification;
+10. signing material cleanup.
 
-Any failure blocks promotion. No green run from another SHA counts.
+Any failure blocks promotion. A green run from another SHA does not count.
 
 ## Residual physical checks
-After the exact H7–H10 automated PASS, only target-only evidence remains: first-tap Trim/tactile handle behavior, level convergence/history responsiveness, Stop-vs-REC recording flow, Mixer-header ergonomics, multi-minute waveform visual stability, real MK-300 routing/isolation/sync, listening and one export smoke.
+After exact-source H24 digital PASS, delegate only target-only evidence:
+- Home search/filter/sort visual/touch usability on SM-X230, including one combined-filter and one sort smoke;
+- retained H22 route semantics after MK-300 reconnect;
+- H23b zero-adjustment repeated-take recording synchronization, especially 44.1 kHz;
+- backing isolation, live waveform/meters and selected-input fail-closed behavior;
+- one representative edit/save/reopen/export smoke;
+- subjective listening where programmatic comparison is not sufficient.
 
-Use `RC3_FINAL_PHYSICAL_HOMOLOGATION.md` only.
+Use `RC3_FINAL_PHYSICAL_HOMOLOGATION.md` as the physical checklist.
 
 ## Closure
-M7/M8 close only after zero repeatable P0/P1, exact-source automated PASS, verified signed identity, residual target-device PASS and explicit user approval.
+M7/M8/RC3 close only after:
+- exact-source automated PASS;
+- verified signed identity;
+- no repeatable P0/P1;
+- residual target-device PASS;
+- explicit user approval of the exact signed APK.

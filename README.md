@@ -2,51 +2,47 @@
 
 Android-first guitar practice, recording, comparison and mixing workspace.
 
+Updated: 2026-09-16
+
 ## Repository truth
 The repository is the canonical source for scope, architecture, implementation state and homologation evidence. Chat history is supplementary only.
 
 Read first:
 - `docs/CURRENT_STATE.md` — authoritative live candidate/gate state;
 - `docs/IMPLEMENTATION_ROADMAP.md` — milestone sequence and remaining release work;
-- `docs/PHYSICAL_EDITING_RECORDING_HARDENING_PLAN.md` — H0–H6 trim/clip/drag/latency/live-waveform hardening record;
-- `docs/ARCHITECTURE.md` — current module, media, recording and CI architecture;
-- `docs/TIMELINE_INTERACTION_GUIDELINES.md` — timeline/drag/trim/delete contract;
+- `docs/H24_HOME_PROJECT_LIBRARY.md` — Home project search/filter/sort contract;
+- `docs/ARCHITECTURE.md` — current module, media, recording, Home-library and CI architecture;
 - `docs/TEST_AND_HOMOLOGATION_PLAN.md` — automated + residual physical gate policy;
-- `docs/RC3_FINAL_PHYSICAL_HOMOLOGATION.md` — active residual physical checklist after exact-source automated PASS;
-- `docs/CANDIDATE_IDENTITY_POLICY.md` — version/source/signer/checksum identity contract;
+- `docs/RC3_FINAL_PHYSICAL_HOMOLOGATION.md` — active residual physical checklist;
+- `docs/CANDIDATE_IDENTITY_POLICY.md` — source/version/signer/checksum identity contract;
 - `docs/DOCUMENTATION_MAP.md` — active vs historical document map.
 
 ## Active RC3 state
-The active candidate remains `0.5.0-rc3` (versionCode 23).
+Candidate: `0.5.0-rc3`, versionCode `23`, package `studio.guitarlab.app`.
 
-Manual workflow **#615** fully passed software, API 36 instrumentation, isolated 1920×1200 geometry and signed homologation at source `74bf86efbec94d249c4968c3284bf1985cd66b44`. Its signed APK SHA-256 is `d443cb33a010d2d21dad43e9ff12554d7ada4f2bb783be0c80e3ac11bfe2d6c9`, with the locked homologation certificate `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
+The last fully signed digital authority is **CI #639**, run `35096711936`, exact source `eb9c4a4ca2a6269fbe2f2211a0807b8c703e115c`. It passed 260/260 JVM/unit tests, Android Lint/build/provenance, API36 standard 23/23, isolated 1920×1200 geometry 1/1 and signed homologation. Signed APK SHA-256: `ffac9da48c17fe2bd28172d357c2f45e906c15b20a216443c1b8b78a9a893696`.
 
-After #615, physical use exposed a connected editing/recording workflow that required structural hardening. The current `main` therefore contains the serial H0–H6 program:
-- independent ergonomic trim handles instead of opaque slider acquisition;
-- safe split-take lineage and explicit clip deletion;
-- drag-to-trash plus transaction-safe clip movement;
-- measured recording startup skew/route-latency compensation instead of a hard-coded timing offset;
-- frame-based, bounded/conflated live REC waveform;
-- integrated persistence, timing, waveform and instrumented regression additions.
+H23b is therefore DIGITAL PASS. Focused SM-X230 + MK-300 physical recording-timing validation remains pending.
 
-Therefore #615 is the latest fully green **baseline**, not proof for the current HEAD. The next promoted APK must come from one new explicit manual workflow dispatch against the final current `main` SHA.
+## H24 — Home Project Library
+H24 is implemented and source-validated after CI #639. It adds efficient project search, combinable filters and deterministic ordering to Home without changing project schema or `.guitarlab` format.
 
-## Current development state
-- `main`: canonical branch; ordinary commits remain `[skip ci]`;
-- historical integration branch `dev/parallel-m3-m5` is merged and is not source of truth;
-- active hardware target: Samsung SM-X230 + M-VAVE MK-300;
-- active candidate identity: `0.5.0-rc3`, versionCode 23;
-- active residual checklist: `docs/RC3_FINAL_PHYSICAL_HOMOLOGATION.md`.
+The implementation is materialized through `.source-parts/H24HomeProjectLibrary.patch.gz.part00` and verified by `scripts/materialize_ci_sources.sh`. It remains **PRE-GATE** until a new user-dispatched full signed workflow succeeds on the then-current `main` SHA.
 
-## Build, regression and signing
-`scripts/build_local.sh` is the local software gate and runs source materialization, JVM tests, Android Lint and debug assembly with pinned Gradle/Android requirements. With explicit signing environment variables and `SIGNED_HOMOLOGATION=true`, it can also build the homologation release.
+## Current branch policy
+- `main` is canonical.
+- Ordinary development/documentation commits use `[skip ci]`.
+- `.github/workflows/android-ci.yml` remains manual-only (`workflow_dispatch`).
+- The assistant must not dispatch or rerun Actions.
+- Historical alpha/review/audit files remain evidence of their original checkpoints; they do not override active-state documents.
 
-`.github/workflows/android-ci.yml` is the canonical manually dispatched full software/API36/geometry/signing executor. It has no `push` or `pull_request` trigger. A signed run requires both software and Android integration jobs to pass before the exact unsigned release artifact is signed and identity-checked.
+## Build and source materialization
+`scripts/build_local.sh` is the local software gate when the required Gradle/Android SDK environment is available. `.github/workflows/android-ci.yml` is the canonical full software/API36/geometry/signing executor.
 
-Large source deltas are versioned under `.source-parts` and applied serially by `scripts/materialize_ci_sources.sh`. The H1→H6 sequence is intentionally ordered so interaction, clip lineage, drag transaction, recording timing, live waveform and integrated regression remain separately diagnosable. Patch drift must fail the build rather than silently materialize a partial candidate.
+Large RC3 deltas are versioned under `.source-parts` and applied serially by `scripts/materialize_ci_sources.sh`. The current canonical tail ends at **H24** and must fail closed on source drift.
 
 ## Physical validation policy
-Automatable mathematics, persistence invariants, clip-lineage rules, timing policy, malformed-input handling, lifecycle recreation, codec structure, UI semantics and generic geometry are not delegated back to the user. After the next exact-source automated PASS, the physical gate is intentionally short: trim-handle ergonomics, split/move/delete/trash flow, real MK-300 routing/isolation, guitar-vs-backing synchronization, multi-minute live waveform behavior, subjective monitoring/listening and one representative export/stress smoke.
+Automatable mathematics, persistence invariants, timing policy, malformed-input handling, lifecycle behavior, accessibility semantics, generic geometry and Home-library selection logic are automated responsibilities. Physical review is reserved for target-device behavior that cannot be established digitally, especially real MK-300 routing, recording alignment, touch ergonomics and listening.
 
 ## Security
 Never commit keystores, credentials, local SDK configuration or secret artifacts.
