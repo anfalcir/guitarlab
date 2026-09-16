@@ -60,6 +60,15 @@ H23B_CHECKS=(
     "platform/audio-android/src/main/kotlin/studio/guitarlab/platform/audio/android/AndroidStudioRecordingEngine.kt|32e4c32b7ece29754e07b5b0d00ceb0d972689e6"
 )
 
+H24_CHECKS=(
+    "app/src/main/java/studio/guitarlab/app/ui/HomeScreen.kt|643673855dd5683eccf04df614e634827cdd2a2d"
+    "app/src/main/java/studio/guitarlab/app/ui/HomeViewModel.kt|45d6ae5a51eb5aec60721426ea0a4f02c4cbacc0"
+    "app/src/main/java/studio/guitarlab/app/ui/StudioUserGuideDialog.kt|d8deca759a39638f507d2c23e883ec1413ac55cd"
+    "app/src/androidTest/java/studio/guitarlab/app/HomeProjectLibraryInstrumentedTest.kt|1bafaa45a6372b5728d4a0eb3ba3a90d0eeb7c28"
+    "core/project/src/main/kotlin/studio/guitarlab/core/project/ProjectLibraryPolicy.kt|96a51d1309b2c888770d49d32c58c1a732913462"
+    "core/project/src/test/kotlin/studio/guitarlab/core/project/ProjectLibraryPolicyTest.kt|9b09a64a8d7a173cffc3436f1b2c5e4f041a8f3a"
+)
+
 h23_ready() {
     local entry relative expected
     for entry in "${H23_CHECKS[@]}"; do
@@ -86,6 +95,16 @@ h23_base_ready() {
 h23b_ready() {
     local entry relative expected
     for entry in "${H23B_CHECKS[@]}"; do
+        relative="${entry%%|*}"
+        expected="${entry#*|}"
+        [[ -f "$ROOT/$relative" ]] || return 1
+        [[ "$(hash_file "$ROOT/$relative")" == "$expected" ]] || return 1
+    done
+}
+
+h24_ready() {
+    local entry relative expected
+    for entry in "${H24_CHECKS[@]}"; do
         relative="${entry%%|*}"
         expected="${entry#*|}"
         [[ -f "$ROOT/$relative" ]] || return 1
@@ -132,15 +151,28 @@ apply_h23b() {
     trap - RETURN
 }
 
+apply_h24() {
+    apply_encoded_gzip_patch_once "$ROOT/.source-parts/H24HomeProjectLibrary.patch.gz.part00"
+}
+
+if h24_ready; then
+    echo "Source patch chain already materialized through H24"
+    exit 0
+fi
+
 if h23b_ready; then
-    echo "Source patch chain already materialized through H23b"
+    apply_h24
+    h24_ready || { echo "H24 applied but final H24 hashes do not match." >&2; exit 1; }
+    echo "Source patch chain materialized through H24 with verified final hashes"
     exit 0
 fi
 
 if h23_ready; then
     apply_h23b
     h23b_ready || { echo "H23b applied but final H23b hashes do not match." >&2; exit 1; }
-    echo "Source patch chain materialized through H23b with verified final hashes"
+    apply_h24
+    h24_ready || { echo "H24 applied after H23b but final H24 hashes do not match." >&2; exit 1; }
+    echo "Source patch chain materialized through H24 with verified final hashes"
     exit 0
 fi
 
@@ -149,7 +181,9 @@ if h23_base_ready; then
     h23_ready || { echo "H23a applied but final H23 hashes do not match." >&2; exit 1; }
     apply_h23b
     h23b_ready || { echo "H23b applied after H23a but final H23b hashes do not match." >&2; exit 1; }
-    echo "Source patch chain materialized through H23b with verified final hashes"
+    apply_h24
+    h24_ready || { echo "H24 applied after H23b but final H24 hashes do not match." >&2; exit 1; }
+    echo "Source patch chain materialized through H24 with verified final hashes"
     exit 0
 fi
 
@@ -233,4 +267,9 @@ if ! h23b_ready; then
     echo "H23b materialization completed but final source hashes do not match the audited contract." >&2
     exit 1
 fi
-echo "Source patch chain materialized through H23b with verified final hashes"
+apply_h24
+if ! h24_ready; then
+    echo "H24 materialization completed but final source hashes do not match the audited contract." >&2
+    exit 1
+fi
+echo "Source patch chain materialized through H24 with verified final hashes"
