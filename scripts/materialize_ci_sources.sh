@@ -9,9 +9,10 @@ H26A_SAF_HASH="caedc69c794a041653fae906b12e532e3e1b0498"
 H26B_PATCH_PART="$ROOT/.source-parts/H26bBackupScreenTestCompat.patch.b64"
 H26B_PATCH_SHA256="5a625e9cf034f39868d0a1db94d937e81b7187a73911b8c74fee8287fbf4ec67"
 H26B_TEST_HASH="a4ef2e752d27d7a9d7e80324029f3f3044b8241c"
-H26D_PATCH_PART="$ROOT/.source-parts/H26dBackupScreenScroll.patch.b64"
-H26D_PATCH_SHA256="97fb62c177519bbb6b8790fe173639cbed2142994ee4fe0eec374c9aa1d37760"
-H26D_TEST_HASH="8ebac066a3bef1b93ee0316cdb5dcc726fe4b056"
+H26E_SOURCE_PART="$ROOT/.source-parts/H26eBackupScreenInstrumentedTest.kt.b64"
+H26E_SOURCE_SHA256="7f974aef7ad8b4052cd01b6a66ffe75cee78fb27c5e94585b9eda44e2bf322da"
+H26E_TEST_HASH="8ebac066a3bef1b93ee0316cdb5dcc726fe4b056"
+H26E_TEST_PATH="$ROOT/app/src/androidTest/java/studio/guitarlab/app/BackupScreenInstrumentedTest.kt"
 
 hash_file() { git -C "$ROOT" hash-object "$1"; }
 
@@ -80,7 +81,7 @@ h26b_ready() {
     done
 }
 
-h26d_ready() {
+h26e_ready() {
     local entry relative expected
     for entry in "${H26_CHECKS[@]}"; do
         relative="${entry%%|*}"
@@ -88,40 +89,42 @@ h26d_ready() {
         if [[ "$relative" == "app/src/main/java/studio/guitarlab/app/backup/SafBackupRemoteStore.kt" ]]; then
             expected="$H26A_SAF_HASH"
         elif [[ "$relative" == "app/src/androidTest/java/studio/guitarlab/app/BackupScreenInstrumentedTest.kt" ]]; then
-            expected="$H26D_TEST_HASH"
+            expected="$H26E_TEST_HASH"
         fi
         [[ -f "$ROOT/$relative" ]] || return 1
         [[ "$(hash_file "$ROOT/$relative")" == "$expected" ]] || return 1
     done
 }
 
-decode_h26d_patch() {
-    local output="$1"
-    [[ -f "$H26D_PATCH_PART" ]] || { echo "Missing H26d patch part: $H26D_PATCH_PART" >&2; return 1; }
-    base64 -d "$H26D_PATCH_PART" > "$output"
-}
-
-verify_h26d_patch() {
+verify_h26e_source() {
     local decoded actual
+    [[ -f "$H26E_SOURCE_PART" ]] || { echo "Missing H26e source part: $H26E_SOURCE_PART" >&2; return 1; }
     decoded="$(mktemp)"
     trap 'rm -f "$decoded"' RETURN
-    decode_h26d_patch "$decoded"
+    base64 -d "$H26E_SOURCE_PART" > "$decoded"
     actual="$(sha256sum "$decoded" | awk '{print $1}')"
-    [[ "$actual" == "$H26D_PATCH_SHA256" ]] || {
-        echo "H26d source patch SHA-256 mismatch: $actual" >&2
+    [[ "$actual" == "$H26E_SOURCE_SHA256" ]] || {
+        echo "H26e source SHA-256 mismatch: $actual" >&2
+        return 1
+    }
+    [[ "$(git -C "$ROOT" hash-object "$decoded")" == "$H26E_TEST_HASH" ]] || {
+        echo "H26e source git blob hash mismatch." >&2
         return 1
     }
     rm -f "$decoded"
     trap - RETURN
 }
 
-apply_h26d() {
+install_h26e_source() {
     local decoded
     decoded="$(mktemp)"
     trap 'rm -f "$decoded"' RETURN
-    decode_h26d_patch "$decoded"
-    patch --dry-run -p1 -d "$ROOT" < "$decoded" >/dev/null
-    patch --batch --forward -p1 -d "$ROOT" < "$decoded"
+    base64 -d "$H26E_SOURCE_PART" > "$decoded"
+    [[ "$(sha256sum "$decoded" | awk '{print $1}')" == "$H26E_SOURCE_SHA256" ]] || {
+        echo "H26e source changed between verify and install." >&2
+        return 1
+    }
+    install -m 0644 "$decoded" "$H26E_TEST_PATH"
     rm -f "$decoded"
     trap - RETURN
 }
@@ -234,10 +237,10 @@ apply_h26() {
 verify_h26_archive
 verify_h26a_patch
 verify_h26b_patch
-verify_h26d_patch
+verify_h26e_source
 
-if h26d_ready; then
-    echo "Source patch chain already materialized through H26d"
+if h26e_ready; then
+    echo "Source patch chain already materialized through H26e"
     exit 0
 fi
 
@@ -256,6 +259,6 @@ if ! h26b_ready; then
     h26b_ready || { echo "H26b applied but final H26b hashes do not match." >&2; exit 1; }
 fi
 
-apply_h26d
-h26d_ready || { echo "H26d applied but final H26d hashes do not match." >&2; exit 1; }
-echo "Source patch chain materialized through H26d with verified final hashes"
+install_h26e_source
+h26e_ready || { echo "H26e installed but final H26e hashes do not match." >&2; exit 1; }
+echo "Source patch chain materialized through H26e with verified final hashes"
