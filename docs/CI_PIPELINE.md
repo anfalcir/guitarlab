@@ -13,10 +13,11 @@ Authority layers:
 ## Source materialization
 `.source-parts/` + `scripts/materialize_ci_sources.sh` are source-of-truth build inputs. Unexpected drift fails closed by exact Git blob hashes.
 
-Canonical tail: `… → H23b → H24 → H24a → H25 → H26`.
+Canonical tail: `… → H23b → H24 → H24a → H25 → H26 → H26a`.
 
 H26 source parts: `.source-parts/H26SafCloudBackup.patch.gz.part00` through `.part04`.
-Expected H26 final message: `Source patch chain materialized through H26 with verified final hashes`.
+H26a corrective source: `.source-parts/H26aSafCopyPackageContract.patch.b64`.
+Expected current final message: `Source patch chain materialized through H26a with verified final hashes`.
 
 Pre-publication H26 materializer proof:
 - exact H25 baseline → H26 PASS;
@@ -34,10 +35,14 @@ CI #642 / run `35121955150` / producer `7bfd876b6a5b0701ab0cf5203de36c31cd117632
 - signed APK SHA-256 `916758f694735febb8cccfe58f46f290562aaba1b5483ccc727e2be0cefba5aa`;
 - signer SHA-256 `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
 
-## Next gate — H26
-H26 changes source, so one new full manually dispatched workflow with `signed_homologation=true` is mandatory. Audit actual counts and artifact identity from that run; do not reuse #642 counts as H26 evidence.
+## CI #643 / #644 feedback and next gate — H26a
+- #643 stopped at `Diff sanity` on three Markdown trailing spaces before materialization/build.
+- #644 passed `Diff sanity` and materialized H26 in both jobs, then both stopped at the same Kotlin compile mismatch in `SafBackupRemoteStore.copyPackage` (`Long` inferred vs interface `Unit`).
+- H26a corrects that contract only and extends the fail-closed materializer serially.
 
-The H26 gate must prove materialization through H26, new/existing JVM tests, Lint/build/provenance, standard API36 + isolated geometry, exact-artifact signing and signing cleanup.
+H26/H26a changes source, so one new full manually dispatched workflow with `signed_homologation=true` is mandatory. Audit actual counts and artifact identity from that run; do not reuse #642 counts as H26 evidence.
+
+The H26a gate must prove materialization through H26a, new/existing JVM tests, Lint/build/provenance, standard API36 + isolated geometry, exact-artifact signing and signing cleanup.
 
 ## Artifact identity discipline
 The signed authority SHA is always the exact workflow producer SHA. Later documentation-only commits never change an existing APK producer identity.

@@ -1,6 +1,6 @@
 # H26 — SAF Cloud Backup / Restore
 
-Status: **IMPLEMENTED / SOURCE-VALIDATED / PRE-GATE**
+Status: **IMPLEMENTED / SOURCE-VALIDATED / PRE-GATE (H26a corrective)**
 Updated: 2026-09-16
 
 ## Goal
@@ -91,11 +91,20 @@ Pure/JVM coverage includes:
 
 Android instrumentation adds dedicated Backup screen action/confirmation coverage. Full Android compile/instrumentation is pending the next manual CI.
 
+## CI feedback and H26a corrective
+- CI #643 did not exercise H26 code; both jobs stopped at `Diff sanity` because of three Markdown trailing spaces. That documentation-only issue was corrected.
+- CI #644 passed `Diff sanity` and materialized H26 successfully in both jobs.
+- Both jobs then stopped on the same deterministic Kotlin compiler error in `SafBackupRemoteStore.copyPackage`: expression-body inference returned `Long` from `InputStream.copyTo`, while `ProjectBackupRemoteStore.copyPackage` requires `Unit`.
+- H26a preserves the core interface and coordinator semantics, makes the SAF override explicitly return `Unit`, and discards the internal byte-count return because restore already validates staged file length and SHA-256 after copying. No backup/restore policy is weakened.
+- The H26a materializer patch is SHA-256 pinned, applies serially after H26, verifies the resulting Git blob, is idempotent and fails closed when deliberately corrupted.
+
 ## Materialization
 Source parts: `.source-parts/H26SafCloudBackup.patch.gz.part00` through `.part04`
-Canonical tail: `… → H23b → H24 → H24a → H25 → H26`.
+Canonical tail: `… → H23b → H24 → H24a → H25 → H26 → H26a`.
 
-The H26 entrypoint validates the concatenated source archive on every invocation by base64 decode, gzip CRC and fixed SHA-256, delegates the frozen H18–H25 chain to `materialize_ci_sources_through_h25.sh`, then verifies exact Git blob hashes for all H26 files. Local proof covered clean H25→H26 application, idempotent rerun, byte-identical final files and fail-closed behavior for a corrupted encoded package even when H26 was already materialized.
+H26a corrective source: `.source-parts/H26aSafCopyPackageContract.patch.b64`.
+
+The H26 entrypoint validates the concatenated source archive on every invocation by base64 decode, gzip CRC and fixed SHA-256, delegates the frozen H18–H25 chain to `materialize_ci_sources_through_h25.sh`, then verifies exact Git blob hashes for all H26 files. The H26a layer validates its own fixed SHA-256, applies only after a valid H26 state, and verifies the corrected `SafBackupRemoteStore.kt` blob. Local proof covered clean H25→H26→H26a application, idempotent rerun, byte-identical H26 baseline verification, final H26a blob verification and fail-closed behavior for corrupted H26 or H26a source packages.
 
 ## Promotion rule
-H26 remains PRE-GATE until one exact-source manually dispatched signed workflow passes software gate, API36 standard + isolated geometry gate and signed homologation. Do not attribute H26 to CI #642.
+H26/H26a remains PRE-GATE until one exact-source manually dispatched signed workflow passes software gate, API36 standard + isolated geometry gate and signed homologation. Do not attribute H26 to CI #642.

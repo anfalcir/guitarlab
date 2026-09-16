@@ -14,7 +14,7 @@ Updated: 2026-09-16
 - `.github/workflows/android-ci.yml` remains manual-only (`workflow_dispatch`).
 
 ## Evidence boundary
-CI #642 remains the latest signed authority and covers through **H25**. H26 changes source and is currently **IMPLEMENTED / SOURCE-VALIDATED / PRE-GATE**. Therefore the #642 APK must not be described as containing or validating H26.
+CI #642 remains the latest signed authority and covers through **H25**. H26/H26a changes source and is currently **IMPLEMENTED / SOURCE-VALIDATED / PRE-GATE**. Therefore the #642 APK must not be described as containing or validating H26.
 
 ## CI #642 retained evidence
 - source materialization through H25: PASS;
@@ -31,7 +31,7 @@ Canonical Android reporting for #642 remains **28/28 standard + 1/1 isolated geo
 ## H25 — DIGITAL PASS
 Rounded-square interaction feedback, calibration modal, diagnostic consolidation and explicit project-delete confirmation are digitally proven at #642. Calibration remains optional; uncalibrated status alone does not block REC.
 
-## H26 — SAF Cloud Backup — PRE-GATE
+## H26/H26a — SAF Cloud Backup — PRE-GATE
 Implemented source contract:
 - provider-neutral Android SAF tree selection with persistable read/write permission;
 - real read/write/delete probe before adopting a target folder;
@@ -60,11 +60,14 @@ Source validation completed before publication:
 - second materializer execution is idempotent;
 - all 24 H26 final source hashes match and materialized files are byte-identical to the audited workspace;
 - H26 source archive is validated on every materializer invocation by base64 decode + gzip CRC + fixed SHA-256; deliberate corruption fails closed;
-- core backup policy/coordinator syntax checks and focused runtime policy/route-codec harnesses passed in the available local environment.
+- core backup policy/coordinator syntax checks and focused runtime policy/route-codec harnesses passed in the available local environment;
+- CI #643 failed before build only on `git diff --check` because of three Markdown trailing spaces; corrected without source behavior changes;
+- CI #644 passed diff sanity and H26 materialization, then exposed one deterministic Android compile contract mismatch: `SafBackupRemoteStore.copyPackage()` inferred `Long` while `ProjectBackupRemoteStore` requires `Unit`; both software and API36 jobs stopped on that same compiler error before tests/instrumentation could execute;
+- H26a corrects only that contract mismatch and adds a serial fail-closed materializer layer with fixed source-patch SHA-256 and final Git blob verification. H25→H26→H26a, idempotent rerun and deliberate H26a-patch corruption were locally proven.
 
 Local limitation: the downloaded CI source artifact does not contain a complete Gradle wrapper and no system Gradle executable is available. Therefore full Kotlin/Android compilation, Lint, JVM suite and API36 instrumentation remain mandatory at the next manual CI; they are not claimed as locally passed.
 
 ## Next gate
-Run one fresh **manual** `GuitarLab Android CI` with signed homologation enabled after H26 publication. Audit actual test counts rather than predicting them. Only a passing exact-source run can promote H26 to DIGITAL PASS and produce the H26 physical candidate.
+Run one fresh **manual** `GuitarLab Android CI` with signed homologation enabled after H26a publication. Audit actual test counts rather than predicting them. Only a passing exact-source run can promote H26/H26a to DIGITAL PASS and produce the H26 physical candidate.
 
 After that, target-device residuals are SAF provider/persisted-permission/large-transfer/restore UX plus retained H25/H24/H23b checks. Use `RC3_FINAL_PHYSICAL_HOMOLOGATION.md` only after it is bound to the new signed H26 candidate.

@@ -3,6 +3,9 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PREVIOUS="$ROOT/scripts/materialize_ci_sources_through_h25.sh"
 H26_ARCHIVE_SHA256="20e58a470a2a3a720261699b0d0c4106617cf374455aaa1a6326e56615733f7e"
+H26A_PATCH_PART="$ROOT/.source-parts/H26aSafCopyPackageContract.patch.b64"
+H26A_PATCH_SHA256="ceb3c686f6bb85d2bbeaa47b7cee24650c64ce0cdcc1cc728a253ddfc7ab78ad"
+H26A_SAF_HASH="caedc69c794a041653fae906b12e532e3e1b0498"
 
 hash_file() { git -C "$ROOT" hash-object "$1"; }
 
@@ -41,6 +44,50 @@ h26_ready() {
         [[ -f "$ROOT/$relative" ]] || return 1
         [[ "$(hash_file "$ROOT/$relative")" == "$expected" ]] || return 1
     done
+}
+
+h26a_ready() {
+    local entry relative expected
+    for entry in "${H26_CHECKS[@]}"; do
+        relative="${entry%%|*}"
+        expected="${entry#*|}"
+        if [[ "$relative" == "app/src/main/java/studio/guitarlab/app/backup/SafBackupRemoteStore.kt" ]]; then
+            expected="$H26A_SAF_HASH"
+        fi
+        [[ -f "$ROOT/$relative" ]] || return 1
+        [[ "$(hash_file "$ROOT/$relative")" == "$expected" ]] || return 1
+    done
+}
+
+decode_h26a_patch() {
+    local output="$1"
+    [[ -f "$H26A_PATCH_PART" ]] || { echo "Missing H26a patch part: $H26A_PATCH_PART" >&2; return 1; }
+    base64 -d "$H26A_PATCH_PART" > "$output"
+}
+
+verify_h26a_patch() {
+    local decoded actual
+    decoded="$(mktemp)"
+    trap 'rm -f "$decoded"' RETURN
+    decode_h26a_patch "$decoded"
+    actual="$(sha256sum "$decoded" | awk '{print $1}')"
+    [[ "$actual" == "$H26A_PATCH_SHA256" ]] || {
+        echo "H26a source patch SHA-256 mismatch: $actual" >&2
+        return 1
+    }
+    rm -f "$decoded"
+    trap - RETURN
+}
+
+apply_h26a() {
+    local decoded
+    decoded="$(mktemp)"
+    trap 'rm -f "$decoded"' RETURN
+    decode_h26a_patch "$decoded"
+    patch --dry-run -p1 -d "$ROOT" < "$decoded" >/dev/null
+    patch --batch --forward -p1 -d "$ROOT" < "$decoded"
+    rm -f "$decoded"
+    trap - RETURN
 }
 
 build_h26_archive() {
@@ -87,14 +134,20 @@ apply_h26() {
 }
 
 verify_h26_archive
+verify_h26a_patch
 
-if h26_ready; then
-    echo "Source patch chain already materialized through H26"
+if h26a_ready; then
+    echo "Source patch chain already materialized through H26a"
     exit 0
 fi
 
-[[ -x "$PREVIOUS" ]] || { echo "Missing H25 materializer: $PREVIOUS" >&2; exit 1; }
-bash "$PREVIOUS"
-apply_h26
-h26_ready || { echo "H26 applied but final H26 hashes do not match." >&2; exit 1; }
-echo "Source patch chain materialized through H26 with verified final hashes"
+if ! h26_ready; then
+    [[ -x "$PREVIOUS" ]] || { echo "Missing H25 materializer: $PREVIOUS" >&2; exit 1; }
+    bash "$PREVIOUS"
+    apply_h26
+    h26_ready || { echo "H26 applied but final H26 hashes do not match." >&2; exit 1; }
+fi
+
+apply_h26a
+h26a_ready || { echo "H26a applied but final H26a hashes do not match." >&2; exit 1; }
+echo "Source patch chain materialized through H26a with verified final hashes"
