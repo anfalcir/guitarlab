@@ -16,47 +16,54 @@ The pipeline has three authority layers:
 Canonical tail after H11b:
 `H12 engine → H12 UI → H13 → H14 → H14a → H15 → H16 → H17 → H18 → H19 → H18a → H20 → H21 → H22 → H22a → H23 → H23a → H23b → H24 → H24a`.
 
-H24 is stored as deterministic gzip+base64 source part `.source-parts/H24HomeProjectLibrary.patch.gz.part00`. H24a adds `.source-parts/H24aAndroidTestCompileFix.patch.gz.part00` to correct only the instrumented-test import discovered by CI #640. Materialization validates gzip, dry-runs/apply semantics, recognizes both H24 and H24a final hashes and remains idempotent.
+H24 uses `.source-parts/H24HomeProjectLibrary.patch.gz.part00`. H24a uses `.source-parts/H24aAndroidTestCompileFix.patch.gz.part00` and corrects only the instrumented-test import discovered by CI #640.
 
-Expected current final message:
+Expected final materializer message:
 `Source patch chain materialized through H24a with verified final hashes`.
 
-## Last signed authority — CI #639
-CI #639 / run `35096711936` / exact producer source `eb9c4a4ca2a6269fbe2f2211a0807b8c703e115c` remains authoritative through H23b:
-- JVM/unit: **260/260 PASS**;
-- Lint/build/provenance: PASS;
-- standard API36: **23/23 PASS**;
+## Current signed authority — CI #641
+CI #641 / run `35105065689` / exact producer source `b11769f340f7056c37dfb17d95b062909dad87bf` is authoritative through H24a.
+
+Software gate:
+- **269/269** JVM/unit tests PASS, 0 failures/errors/skips;
+- Android Lint gate PASS; warnings/deprecations are non-blocking and are not represented as zero warnings;
+- debug + release assembly PASS;
+- unsigned release provenance PASS;
+- unsigned APK SHA-256 `824e8c070ebee6bbf920990dce3c948d2fc3474610524f3a087c38bd27ca5248`.
+
+Android integration gate:
+- standard API36: **25/25 PASS**;
 - isolated 1920×1200 geometry: **1/1 PASS**;
-- signed homologation: PASS;
-- unsigned APK SHA-256 `195aa82a581bbcc30890b278cab03bc029eb5d3376fa99130b67e24f6213e21a`;
-- signed APK SHA-256 `ffac9da48c17fe2bd28172d357c2f45e906c15b20a216443c1b8b78a9a893696`;
-- certificate SHA-256 `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
+- H24 Android test source compiles and participates in the standard regression.
 
-Do not flatten the API36 report to 24/24; report **23/23 standard + 1/1 isolated geometry** for #639.
+Canonical reporting is **25/25 standard + 1/1 isolated geometry**. Do not flatten it to 26/26.
 
-## H24/H24a pre-gate evidence
-H24 is locally/source-validated against the exact materialized H23b state:
-- pure Kotlin project-library policy compiles;
-- deterministic behavior checks pass;
-- 10,000 randomized libraries across every sort order pass deterministic invariants;
-- accent/case search, combined filters, Auto/44.1/48/88.2/96 kHz and tie-breaks pass;
-- forward/reverse patch round-trip is byte-exact;
-- gzip/base64 integrity passes;
-- first materialization passes and second materialization is idempotent;
-- corruption probe fails closed;
-- every modified final source/test blob matches declared H24 hashes;
-- materializer `bash -n` and `git diff --check` pass;
-- Home source parser scan reports no syntax/parser diagnostic without Android/Compose classpath.
+Signed homologation:
+- exact same-run unsigned artifact was downloaded and checksum-verified before signing;
+- package `studio.guitarlab.app`;
+- versionName `0.5.0-rc3`, versionCode `23`;
+- zipalign verification PASS;
+- APK Signature Scheme v2 PASS; v1/v3/v4 disabled;
+- signer count 1, RSA 4096;
+- certificate SHA-256 `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`;
+- signed APK SHA-256 `d3698067ed7117d3c3c844b0d94bb117c3448cac3da2897329e4dbfcd71e0f39`;
+- signed artifact ID `10450495802`;
+- signing material cleanup PASS.
 
-CI #640 produced software-gate PASS but failed while compiling the new H24 Android test source, before instrumentation ran. H24a corrects that compile-only defect. This is still **not** an API36/signing PASS for H24/H24a; those labels require a fresh full workflow.
+`BUILD_IDENTITY.txt`, `SHA256SUMS.txt`, job logs and independently recalculated downloaded-APK checksum agree on the producer/source and signed SHA.
 
-H24 adds Android instrumentation source for two Home-library behavior/semantics cases. Do not predict or report the next API36 pass count until the official run completes.
+## Historical CI #640
+CI #640 / run `35103316449` remains point-in-time evidence:
+- software gate PASS;
+- API36 job failed before instrumentation at `:app:compileDebugAndroidTestKotlin` because H24 imported `assertDoesNotExist` as an unavailable top-level symbol;
+- signing skipped.
 
-## Next signed gate
-After documentation consolidation, the user manually runs:
-`Actions → GuitarLab Android CI → main → signed_homologation=true`.
-
-All three authority layers must be green on the exact same workflow `head_sha` before the generated APK becomes the new physical candidate.
+H24a corrected only that test-source issue. CI #641 is the full superseding authority.
 
 ## Artifact identity discipline
-The SHA recorded as a signed authority is the exact workflow producer SHA. A documentation-only commit never retroactively changes an older APK's producer identity. Conversely, if a future workflow intentionally runs on a documentation-inclusive `main` SHA, that exact SHA is the producer identity of the new artifacts.
+The signed authority SHA is always the exact workflow producer SHA. A later documentation-only commit never changes the producer identity of an existing APK.
+
+For the current physical candidate, product/source identity remains `b11769f340f7056c37dfb17d95b062909dad87bf` even after documentation promotion.
+
+## Next gate
+No new deterministic CI is required merely to reconfirm #641. The active gate is residual physical homologation using the exact #641 APK. A new full workflow becomes necessary only if source changes after a physical finding or a deliberate next release candidate.

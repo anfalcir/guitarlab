@@ -2,31 +2,38 @@
 
 Updated: 2026-09-16
 
-## Last signed digital homologation — CI #639
-Run `35096711936`, exact producer source `eb9c4a4ca2a6269fbe2f2211a0807b8c703e115c`, is the signed DIGITAL PASS through H23b.
+## Current signed digital homologation — CI #641
+Run `35105065689`, exact producer source `b11769f340f7056c37dfb17d95b062909dad87bf`, is the current signed DIGITAL PASS through H24a.
 
 Identity:
 - package `studio.guitarlab.app`;
 - version `0.5.0-rc3` / versionCode `23`;
-- unsigned APK SHA-256 `195aa82a581bbcc30890b278cab03bc029eb5d3376fa99130b67e24f6213e21a`;
-- signed APK SHA-256 `ffac9da48c17fe2bd28172d357c2f45e906c15b20a216443c1b8b78a9a893696`;
-- certificate SHA-256 `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
+- unsigned APK SHA-256 `824e8c070ebee6bbf920990dce3c948d2fc3474610524f3a087c38bd27ca5248`;
+- signed APK SHA-256 `d3698067ed7117d3c3c844b0d94bb117c3448cac3da2897329e4dbfcd71e0f39`;
+- certificate SHA-256 `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`;
+- signed artifact ID `10450495802`.
 
-CI #639 evidence:
-- 260/260 JVM/unit PASS;
-- Lint/build/provenance PASS;
-- API36 standard **23/23 PASS**;
+CI #641 evidence:
+- **269/269** JVM/unit PASS;
+- Android Lint gate PASS;
+- debug/release build and unsigned provenance PASS;
+- API36 standard **25/25 PASS**;
 - isolated 1920×1200 geometry **1/1 PASS**;
-- signed homologation PASS.
+- signed homologation PASS;
+- v2 signature, one RSA-4096 signer, locked-certificate match PASS.
+
+Report Android regression as **25/25 standard + 1/1 isolated geometry**.
 
 ## H22/H22a — route UX
 Physical review confirmed semantic route consolidation on the Samsung target: duplicate built-in endpoints are removed, system-only endpoints are hidden and MK-300 is represented as a physical route rather than raw Android endpoints.
 
 ## H23/H23a/H23b — recording timing and feedback
-H23 introduced session-clock mapping, route/rate calibration, residual fine adjustment and transient-feedback discipline. H23b hardened progressing timestamp evidence, exact calibration scope, 44.1/48/88.2/96 kHz coverage, overflow-safe placement, analyzer diagnostics and technical-route sanitization. H23b received full DIGITAL PASS at CI #639; focused physical recording-timing acceptance remains pending.
+H23 introduced session-clock mapping, route/rate calibration, residual fine adjustment and transient-feedback discipline. H23b hardened progressing timestamp evidence, exact calibration scope, 44.1/48/88.2/96 kHz coverage, overflow-safe placement, analyzer diagnostics and technical-route sanitization.
 
-## H24 — Home Project Library — PRE-GATE
-H24 adds a production-grade project-library layer to Home:
+Digital hardening is PASS. Focused physical recording-timing acceptance remains pending.
+
+## H24/H24a — Home Project Library — DIGITAL PASS
+H24 adds:
 - accent/case-insensitive real-time name search;
 - template filters: all, Guitar and Blank;
 - content filters: all, with recordings, with audio/clips and no clips;
@@ -35,21 +42,21 @@ H24 adds a production-grade project-library layer to Home:
 - deterministic tie-breaks;
 - result counter `X de Y` when narrowed;
 - distinct empty-library and no-results states;
-- explicit clear-search/clear-filter flows;
-- accessible/testable controls and synchronized in-app Help.
+- clear-search/clear-filter flows;
+- accessible/testable controls and synchronized Help.
 
-Performance architecture: a repository refresh builds one immutable index containing pre-normalized names. Search/filter/sort operates entirely in memory; typing does not reread project files and does not renormalize every stored name.
+Performance architecture: repository refresh builds one immutable index containing pre-normalized names. Search/filter/sort then operates entirely in memory; typing does not reread project files.
 
 Compatibility: no project schema, managed-media or `.guitarlab` package change.
 
 Implementation anchor: `96ffe7bd394e2eda68707cf2ad8c8596432cd26a`.
 
-Local/source validation includes pure Kotlin compile, deterministic functional checks, 10,000 randomized libraries across all sort modes, patch forward/reverse round-trip, gzip/base64 integrity, idempotent materialization, corruption fail-closed, final blob hashes, `bash -n`, `git diff --check` and syntax/parser scan of changed Home source.
+H24a corrected only the invalid Compose-test import discovered by CI #640. It does not change production Home behavior.
 
-H24 is not Android-build/API36/signed PASS until the next manually dispatched full workflow succeeds.
-
-### H24a — Android test compile alignment
-CI #640 (`35103316449`) confirmed the software gate green but failed before instrumentation at `:app:compileDebugAndroidTestKotlin` because the new H24 instrumented test imported a Compose assertion symbol that is not top-level in the pinned API. H24a removes only that invalid import. Production Home behavior is unchanged; signing was correctly skipped and a fresh full workflow remains required.
+## Historical CI #640
+CI #640 (`35103316449`) completed the software gate successfully but failed before instrumentation at Android-test compilation due the invalid H24 import. Signing was correctly skipped. CI #641 supersedes that failed attempt with full exact-source digital PASS.
 
 ## Release decision
-CI #639 remains the signed authority. The next promoted APK must be produced by one new full manual workflow on final current `main`. After digital PASS, physical work should be residual: Home-library tablet smoke plus the outstanding H23b SM-X230 + MK-300 recording-timing validation.
+CI #641 is the signed authority. No new deterministic CI is required merely to reconfirm it. The exact #641 APK now advances to residual physical homologation on SM-X230 + MK-300.
+
+Final physical approval still requires the Home-library tablet smoke, retained route behavior, H23b recording-timing validation, no repeatable P0/P1, and explicit approval of signed APK SHA `d3698067ed7117d3c3c844b0d94bb117c3448cac3da2897329e4dbfcd71e0f39`.

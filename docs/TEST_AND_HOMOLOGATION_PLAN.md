@@ -5,12 +5,21 @@ Updated: 2026-09-16
 ## Active candidate
 `0.5.0-rc3` / versionCode `23` / package `studio.guitarlab.app`.
 
-Last signed DIGITAL PASS: CI #639 / run `35096711936` / source `eb9c4a4ca2a6269fbe2f2211a0807b8c703e115c`, authoritative through H23b.
+Current signed DIGITAL PASS: **CI #641** / run `35105065689` / exact producer source `b11769f340f7056c37dfb17d95b062909dad87bf`, authoritative through H24a.
 
-H24 Home Project Library is newer and remains **IMPLEMENTED / SOURCE-VALIDATED / PRE-GATE** until one new exact-source full signed workflow succeeds.
+Current signed APK SHA-256: `d3698067ed7117d3c3c844b0d94bb117c3448cac3da2897329e4dbfcd71e0f39`.
 
-## Automated coverage retained
-Promoted RC automation retains project persistence/package round-trip, media integrity, import/codecs, trim/split/drag/take-lineage, Undo/Redo, lifecycle, transport/loop/punch, waveform, mixer/export, route semantics, recording timing/calibration, transient-feedback, accessibility, responsive geometry and exact release provenance.
+## Automated coverage — promoted at #641
+The RC automation covers project persistence/package round-trip, media integrity, import/codecs, trim/split/drag/take-lineage, Undo/Redo, lifecycle, transport/loop/punch, waveform, mixer/export, route semantics, recording timing/calibration, transient-feedback, accessibility, responsive geometry, Home project-library behavior and exact release provenance.
+
+Promoted counts:
+- JVM/unit: **269/269 PASS**, 0 failures/errors/skips;
+- Android Lint gate: PASS;
+- standard API36 connected regression: **25/25 PASS**;
+- isolated 1920×1200 geometry: **1/1 PASS**;
+- signed homologation: PASS.
+
+Keep canonical Android reporting as **25/25 standard + 1/1 isolated geometry**.
 
 ### H23b retained requirements
 - progressing timestamp evidence; stale/backwards evidence fails closed;
@@ -20,64 +29,48 @@ Promoted RC automation retains project persistence/package round-trip, media int
 - route identifiers sanitized from normal transient UX;
 - unstable calibration remains diagnostic-only.
 
-### H24 project-library requirements
-Pure/JVM policy coverage must include:
-- case-insensitive and accent-insensitive search;
-- query normalization determinism;
-- template/content/sample-rate filters independently and in combination;
-- content distinction: recordings vs any audio/clips vs no clips;
-- recording detection for existing take lineage metadata;
-- Auto + 44.1/48/88.2/96 kHz sample-rate matrix;
-- modified/created/name sorting in both directions;
-- deterministic tie-break under equal primary keys;
-- default updated-desc behavior;
-- clear-search/filter semantics without unwanted sort reset;
-- active-filter metadata;
-- randomized large-library determinism.
+### H24/H24a project-library requirements — DIGITAL PASS
+Pure/JVM policy coverage includes:
+- case/accent-insensitive search and deterministic normalization;
+- template/content/sample-rate filters independently and combined;
+- recordings vs any clips vs no clips;
+- Auto + 44.1/48/88.2/96 kHz matrix;
+- modified/created/name sort in both directions;
+- deterministic tie-breaks and default updated-desc behavior;
+- clear-search/filter semantics and active-filter metadata;
+- randomized library determinism.
 
-Android instrumentation coverage must verify at minimum:
-- search and clear affordances are discoverable and semantically labeled;
-- filter control exposes active state and can open filter options;
-- sort control exposes current selection and updates semantics after selection;
-- controls remain part of the standard Home regression surface.
-
-Do not predeclare a future test count. Report the official count only after the workflow completes.
+Android instrumentation verifies Home search/filter/sort discoverability, semantic labels/state and standard regression participation. H24 contributed two standard API36 cases; #641 proves the complete standard suite at 25/25.
 
 ## H24/H24a source materialization
-Current canonical tail ends at H24a. Requirements:
-- deterministic gzip+base64 source part;
-- gzip integrity validation;
-- forward patch applicability or exact already-materialized recognition;
-- final Git blob hash verification for every H24-modified source/test file;
-- idempotent second materializer run;
-- fail closed on unexplained source corruption/drift.
+Canonical tail ends at H24a. The gate verifies deterministic gzip+base64 source parts, integrity, patch applicability/already-materialized recognition, final Git blob hashes, idempotency and fail-closed behavior on unexplained drift.
 
 Expected message:
 `Source patch chain materialized through H24a with verified final hashes`.
 
-### CI #640 lesson / H24a gate
-CI #640 reached a green software gate but Android integration stopped at `:app:compileDebugAndroidTestKotlin` because the H24 instrumented test had an invalid explicit import for `assertDoesNotExist`. H24a removes only that import and retains the assertion calls. A fresh full workflow is mandatory; #640 cannot be promoted or partially reused as Android/signing evidence.
+## Historical CI #640 lesson
+CI #640 reached a green software gate but Android integration stopped at test compilation because H24 had an invalid explicit `assertDoesNotExist` import. H24a removed only that import. CI #641 supersedes #640 with full exact-source API36/signing PASS.
 
-## Canonical manual gate
-The user manually dispatches `.github/workflows/android-ci.yml` on final current `main` with `signed_homologation=true`.
+## Canonical manual CI gate
+The canonical full gate remains `.github/workflows/android-ci.yml` with `signed_homologation=true`, manually dispatched by the user only.
 
-Mandatory:
-1. checkout exact `head_sha` + diff/materialization sanity;
-2. all JVM/unit suites including H24 policy tests;
+A full gate requires on one exact `head_sha`:
+1. checkout + diff/materialization sanity;
+2. JVM/unit suites;
 3. performance evidence;
 4. Android Lint;
-5. debug/release assembly and unsigned provenance;
-6. standard API36 connected regression including H24 instrumentation;
-7. isolated 1920×1200 tablet geometry;
-8. signed homologation from the exact tested unsigned artifact;
+5. debug/release assembly + unsigned provenance;
+6. standard API36 regression;
+7. isolated 1920×1200 geometry;
+8. signing from the exact tested unsigned artifact;
 9. package/version/source/checksum/signer verification;
-10. signing material cleanup.
+10. signing-material cleanup.
 
-Any failure blocks promotion. A green run from another SHA does not count.
+CI #641 satisfies this gate. Do not rerun it merely for reassurance. A new full gate is required only after a source change or deliberate next candidate.
 
 ## Residual physical checks
-After exact-source H24 digital PASS, delegate only target-only evidence:
-- Home search/filter/sort visual/touch usability on SM-X230, including one combined-filter and one sort smoke;
+Use exact CI #641 APK and delegate only target-only evidence:
+- H24 Home search/filter/sort visual/touch usability on SM-X230;
 - retained H22 route semantics after MK-300 reconnect;
 - H23b zero-adjustment repeated-take recording synchronization, especially 44.1 kHz;
 - backing isolation, live waveform/meters and selected-input fail-closed behavior;
@@ -88,8 +81,8 @@ Use `RC3_FINAL_PHYSICAL_HOMOLOGATION.md` as the physical checklist.
 
 ## Closure
 M7/M8/RC3 close only after:
-- exact-source automated PASS;
-- verified signed identity;
-- no repeatable P0/P1;
-- residual target-device PASS;
-- explicit user approval of the exact signed APK.
+- exact-source #641 automated PASS — **complete**;
+- verified signed identity — **complete**;
+- residual target-device PASS — pending;
+- no repeatable P0/P1 — pending physical confirmation;
+- explicit user approval of exact signed APK SHA `d3698067ed7117d3c3c844b0d94bb117c3448cac3da2897329e4dbfcd71e0f39` — pending.
