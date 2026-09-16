@@ -2,18 +2,19 @@
 
 Updated: 2026-09-16
 
-Status: **IMPLEMENTED / SOURCE-VALIDATED / PRE-GATE**.
+Status: **DIGITAL PASS — CI #642**.
 
-Last signed authority remains CI #641 / run `35105065689` / producer `b11769f340f7056c37dfb17d95b062909dad87bf`, authoritative through H24a only.
+Signed authority: CI #642 / run `35121955150` / exact producer `7bfd876b6a5b0701ab0cf5203de36c31cd117632`.
+Signed APK SHA-256: `916758f694735febb8cccfe58f46f290562aaba1b5483ccc727e2be0cefba5aa`.
 
 ## Scope
 H25 is a focused UX/safety block with no audio-DSP, project-schema or `.guitarlab` format change.
 
 ### Rounded-square interaction feedback
-`AppIconButton` now makes the visible rounded-square `Surface` the actual clickable control. Hover, press, focus and ripple indication therefore use the same 6 dp rounded-square silhouette as the button chassis instead of the circular `IconButton` interaction shape.
+`AppIconButton` makes the visible rounded-square `Surface` the clickable control. Hover, press, focus and ripple indication therefore use the same 6 dp rounded-square silhouette as the button chassis instead of the circular `IconButton` interaction shape.
 
 ### Calibration modal
-The main Options page keeps only a compact calibration summary and a `Calibração` action. Detailed calibration state and controls move into a dedicated modal:
+The main Options page keeps only a compact calibration summary and a `Calibração` action. Detailed calibration state and controls live in a dedicated modal:
 - selected input/output and session sample rate;
 - calibration status, median latency, jitter, drift and confidence when available;
 - accepted automatic route compensation;
@@ -23,21 +24,12 @@ The main Options page keeps only a compact calibration summary and a `Calibraç�
 Calibration remains optional. REC is not blocked merely because the route is uncalibrated; unstable calibration is not applied.
 
 ### Diagnostics organization
-Duplicate diagnostic entry points were removed from Audio/Import sections. A single `Diagnóstico` section now groups:
-- Audio and devices;
-- Codecs and files.
-
-`Atualizar dispositivos de áudio` remains in the Audio section because it is an operational route refresh, not a diagnostic workflow.
+Duplicate diagnostic entry points were removed from Audio/Import sections. A single `Diagnóstico` section groups Audio/devices and Codecs/files. `Atualizar dispositivos de áudio` remains in Audio because it is an operational route refresh rather than a diagnostic workflow.
 
 ### Project deletion confirmation
-The Home project menu no longer invokes deletion directly. Choosing `Excluir` opens a destructive confirmation dialog that:
-- identifies the project by name;
-- states that the project and managed files will be removed;
-- warns that the action cannot be undone;
-- offers `Cancelar` before the destructive action;
-- invokes repository deletion only after explicit confirmation.
+The Home project menu no longer invokes deletion directly. Choosing `Excluir` opens a destructive confirmation dialog that identifies the project, states that managed files are removed, warns that the action cannot be undone, offers `Cancelar`, and invokes repository deletion only after explicit confirmation.
 
-## Android tests added
+## Focused Android coverage
 - `ProjectDeleteConfirmationInstrumentedTest`
   - Cancel does not invoke the destructive callback;
   - explicit confirmation invokes it exactly once.
@@ -46,7 +38,7 @@ The Home project menu no longer invokes deletion directly. Choosing `Excluir` op
   - `Calibração` opens the dedicated modal;
   - the modal exposes the optional-calibration contract and closes cleanly.
 
-Do not predeclare the next standard API36 total before the official workflow completes.
+The complete #642 standard API36 suite is **28/28 PASS**; isolated 1920×1200 geometry is **1/1 PASS**.
 
 ## Materialization
 Source part: `.source-parts/H25UiSettingsSafety.patch.gz.part00`.
@@ -62,16 +54,13 @@ Final materialized Git blobs:
 - `ProjectDeleteConfirmationInstrumentedTest.kt` — `c8c5e4346e3dd2d58d762db743af47383276a8ba`
 - `SettingsCalibrationModalInstrumentedTest.kt` — `cd186a7fac8b1102663c6fb36620111b14613628`
 
-## Source validation completed
-- patch generation from the exact #641 materialized source snapshot: PASS;
-- patch whitespace/diff checks: PASS;
-- Kotlin parser scan: no syntax/parser diagnostics (Android/Compose classpath unavailable locally);
-- deterministic gzip+base64 integrity: PASS;
-- first materialization from exact H24a state: PASS;
-- second materialization idempotency: PASS;
-- reverse patch restores exact H24a files and removes new tests: PASS;
-- deterministic reapply restores exact H25 blobs: PASS;
-- corrupted source part fails closed: PASS;
-- materializer `bash -n`: PASS.
+## Evidence
+Pre-CI source validation passed patch integrity, exact H24a→H25 materialization, idempotency, reverse/reapply round-trip, final hashes, corruption fail-closed, shell syntax and diff/parser checks.
 
-Local Android Gradle/Lint/API36/signing is not claimed because this runtime does not provide the Android SDK/Gradle execution environment. H25 requires one fresh user-dispatched full signed workflow before DIGITAL PASS.
+CI #642 then supplied the authoritative Android/build evidence on the exact producer SHA:
+- 269/269 JVM/unit PASS;
+- Lint/build/unsigned provenance PASS;
+- 28/28 standard API36 + 1/1 isolated geometry PASS;
+- signed homologation and locked signer PASS.
+
+H25 is therefore digitally closed. Remaining evidence is only target-device visual/interaction smoke within the final RC3 physical checklist.

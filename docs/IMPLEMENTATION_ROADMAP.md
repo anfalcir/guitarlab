@@ -8,37 +8,48 @@ Updated: 2026-09-16
 - **M3–M4:** absorbed into later milestones.
 - **M5 — Reliable recording + Studio + Media I/O:** PASS/CLOSED.
 - **M6 — Measured latency/synchronization:** PASS/CLOSED.
-- **M7 — Production audio polish:** digital evidence retained; residual physical closure active.
-- **M8 — Release hardening:** H24a DIGITAL PASS; H25 PRE-GATE.
+- **M7 — Production audio polish:** digital scope PASS; residual physical closure active.
+- **M8 — Release hardening:** digital scope PASS through H25; residual physical closure active.
 
-## Last signed authority
-CI #641 / run `35105065689` / producer `b11769f340f7056c37dfb17d95b062909dad87bf` is the signed DIGITAL PASS through H24a: 269/269 JVM/unit, Lint/build/provenance PASS, API36 **25/25 standard + 1/1 isolated geometry**, signing PASS.
+## Current signed authority
+**CI #642** / run `35121955150` / exact producer `7bfd876b6a5b0701ab0cf5203de36c31cd117632` is the signed DIGITAL PASS through H25.
 
-## H25 — UI interaction / settings / destructive-action safety
-Status: **IMPLEMENTED / SOURCE-VALIDATED / PRE-GATE**.
+Evidence:
+- **269/269** JVM/unit PASS, 0 failures/errors/skips;
+- Android Lint, debug/release build and unsigned provenance PASS;
+- API36 **28/28 standard + 1/1 isolated geometry**;
+- signed homologation PASS;
+- unsigned APK SHA-256 `f6b4f21d0f514bad06b80eabdad141dac5cd236a707842c21258ec2072868c0e`;
+- signed APK SHA-256 `916758f694735febb8cccfe58f46f290562aaba1b5483ccc727e2be0cefba5aa`;
+- signer SHA-256 `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
 
-Acceptance goals:
-1. icon-button pointer/ripple feedback matches the visible rounded-square chassis;
+Report Android regression canonically as **28/28 standard + 1/1 isolated geometry**.
+
+## H25 — DIGITAL PASS
+Acceptance goals are digitally proven at #642:
+1. rounded-square pointer/ripple feedback matches the visible button chassis;
 2. calibration details/controls live in one dedicated modal;
-3. main Options page remains concise while exposing calibration status/action;
-4. diagnostics are not duplicated and are grouped by domain;
-5. project deletion requires explicit confirmation and cannot call delete directly from the overflow menu;
-6. Help reflects the current behavior;
-7. Android tests cover modal visibility and both cancel/confirm delete paths;
-8. materialization remains deterministic, idempotent and fail-closed.
+3. main Options page remains concise with calibration summary/action;
+4. diagnostics are grouped without duplicate entry points;
+5. project deletion requires explicit confirmation before repository deletion;
+6. Help reflects current behavior;
+7. Android tests cover calibration-modal behavior plus delete Cancel/Confirm paths;
+8. source materialization remains deterministic, idempotent and fail-closed.
 
 ## Canonical materialization tail
 `… → H23b → H24 → H24a → H25`.
 
-## Remaining release path
-1. Land H25 source/materializer/docs with `[skip ci]` and no automatic Actions.
-2. User manually dispatches one full signed workflow on the final H25 `main` SHA.
-3. Audit exact unit count, Lint/build/provenance, standard API36 count, isolated geometry, signing and artifact identity.
-4. If green, promote H25 to DIGITAL PASS in docs without changing producer identity.
-5. Install only that H25 signed candidate on SM-X230.
-6. Physically smoke H25 hover/press geometry, calibration modal/diagnostics organization and delete confirmation.
-7. Complete retained H24 Home smoke and H23b MK-300 recording-timing checks.
-8. Final RC3 approval requires no repeatable P0/P1 and explicit approval of the exact signed candidate.
+## Remaining RC3 release path
+1. Install the exact CI #642 signed candidate on SM-X230.
+2. Physically smoke H25 button feedback, Settings/calibration modal, diagnostics organization and delete confirmation.
+3. Run retained H24 Home-library smoke.
+4. Confirm retained H22 semantic route UX after MK-300 reconnect.
+5. Complete H23b zero-adjustment recording-timing validation on MK-300, including repeated 44.1 kHz takes, non-zero playhead and loop/punch.
+6. Use route/rate calibration only if a repeatable residual remains.
+7. Run retained backing-isolation/live-waveform/input-fail-closed/edit-save-reopen/export smoke.
+8. Final RC3 approval requires no repeatable P0/P1 and explicit approval of signed APK SHA `916758f694735febb8cccfe58f46f290562aaba1b5483ccc727e2be0cefba5aa`.
+
+No further deterministic CI rerun is required unless source changes.
 
 ## Gate discipline
-`.github/workflows/android-ci.yml` remains manual-only (`workflow_dispatch`). The assistant must not dispatch or rerun Actions.
+`.github/workflows/android-ci.yml` remains manual-only (`workflow_dispatch`). The assistant must not dispatch or rerun Actions without explicit user instruction.
