@@ -14,7 +14,9 @@ Candidate line: `0.5.0-rc3`, versionCode `23`, package `studio.guitarlab.app`.
 
 The current signed digital authority is **CI #653** / run `35207902169` / exact producer `d09fc003e2ae2d699238eb39ba699f75a746fea4`, with H28 DIGITAL PASS. Signed APK SHA-256: `1a36efcbe24d5995dd3609889237ca112670e52554e187d1b93ed5a8649263c0`.
 
-Target-device validation after #653 confirmed the corrected H28 backup workflow is functioning correctly. The remaining release-critical physical boundary is recording latency/synchronization on the intended USB route.
+Source checkpoint `1df91e16ad0a928b0d5ab93bfd975b49b6d2da62` stages H29-H33 as **SOURCE PRE-GATE READY / MANUAL CI PENDING**. It does not supersede H28 signed authority: Android build/Lint/API36/signing evidence for this source does not exist until the canonical workflow is manually dispatched and audited.
+
+Target-device validation after #653 confirmed the corrected H28 backup workflow is functioning correctly. The remaining stable-release physical boundary includes recording latency/synchronization plus the H29-H32 USB/recovery/10-minute residual defined in the active plan. H33 controller hardware acceptance remains a separate 1.1 boundary.
 
 ## H28 — stable project/revision identity + provider consistency
 H28 hardens the backup contract so that:
@@ -37,7 +39,7 @@ Before stable `1.0.0`, the project will harden existing recording/USB/recovery/t
 - the assistant must not dispatch or rerun Actions without explicit user instruction.
 
 ## Source materialization
-Large RC3 deltas are versioned in `.source-parts` and materialized serially by `scripts/materialize_ci_sources.sh`. Canonical tail: **`… → H25 → H26 → H26a → H26b → H26e → H27 → H28`**. Unexpected source/hash drift fails closed.
+Large deltas are versioned in `.source-parts` and materialized serially by `scripts/materialize_ci_sources.sh`. Canonical tail: **`… → H25 → H26 → H26a → H26b → H26e → H27 → H28 → H29 → H30 → H31 → H32 → H33`**. The H28 materializer is frozen byte-for-byte as `scripts/materialize_ci_sources_through_h28.sh`; H29-H33 are isolated in `scripts/materialize_ci_sources_h29_h33.sh`. Unexpected source/archive/patch/final-blob drift fails closed.
 
 ## Security
 Never commit keystores, credentials, local SDK configuration or secret artifacts. Backup provider access remains scoped to the user-selected document tree.

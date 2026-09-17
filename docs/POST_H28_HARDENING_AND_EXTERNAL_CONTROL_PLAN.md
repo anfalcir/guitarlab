@@ -1,7 +1,7 @@
 # Post-H28 Hardening and External Control Implementation Plan
 
 Updated: 2026-09-17  
-Status: **APPROVED SCOPE / IMPLEMENTATION PENDING**  
+Status: **SOURCE PRE-GATE READY / MANUAL CI PENDING**  
 Baseline: `0.5.0-rc3` / CI #653 / source `d09fc003e2ae2d699238eb39ba699f75a746fea4`
 
 ## 1. Purpose
@@ -30,7 +30,33 @@ The implementation baseline is the exact H28 signed candidate produced by CI #65
 - 1/1 isolated 1920×1200 geometry test PASS;
 - software, API36 and signed-homologation jobs all PASS.
 
-Target-device validation after #653 confirmed the corrected H28 backup/provider-consistency workflow is functioning correctly. The remaining RC3 physical blocker is recording latency/synchronization acceptance on the intended USB route.
+Target-device validation after #653 confirmed the corrected H28 backup/provider-consistency workflow is functioning correctly. H28/CI #653 remains the latest signed DIGITAL PASS.
+
+### Source implementation checkpoint — 2026-09-17
+Source commit `1df91e16ad0a928b0d5ab93bfd975b49b6d2da62` stages H29-H33 and the deterministic materialization chain. This checkpoint is **not** a digital promotion.
+
+Completed source work:
+- H29 Recording Session Health/timing diagnostics;
+- H30 interrupted-recording recovery and semantic USB route resilience;
+- H31 takes management and sanitized diagnostics;
+- H32 10-minute song-quality/stress gates;
+- H33 external MIDI/HID control mapped to existing Studio commands, disabled by default.
+
+Pre-gate proofs completed before publication:
+- the H28 materializer is preserved byte-for-byte as `materialize_ci_sources_through_h28.sh`;
+- H29-H33 use individually SHA-256-verified compressed/decoded patches and exact final Git blob checks;
+- first H28→H33 materialization PASS;
+- second materialization PASS/idempotent;
+- deliberate H33 archive corruption fails closed;
+- pure Kotlin policy/harness evidence PASS for the new deterministic logic;
+- 10-minute/96 kHz waveform stress remains bounded to at most 512 stored points.
+
+Still pending:
+- the user's single manual `workflow_dispatch` run for Android unit/integration/Lint/build/API36/geometry/provenance/signing evidence;
+- H29-H32 target-device physical residuals before stable 1.0;
+- H33 real-controller physical acceptance for its 1.1 milestone.
+
+H33 was source-staged early to share the integration gate and expose regressions sooner. This does not change the release acceptance sequence: H29-H32 define stable 1.0 completion; H33 hardware acceptance remains a distinct 1.1 requirement.
 
 ## 3. Locked scope
 
