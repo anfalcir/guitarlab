@@ -1,63 +1,47 @@
 # Current State — GuitarLab Studio
 
-Updated: 2026-09-16
+Updated: 2026-09-17
 
 ## Active line
 - Repository/branch: `anfalcir/guitarlab` / `main`.
 - Version: `0.5.0-rc3`, versionCode `23`, package `studio.guitarlab.app`.
-- Last signed DIGITAL PASS: **CI #651** / run `35166195527` / producer `0b6ae1e28214decbcfba622a38d90c0dcbe2acf9`.
-- #651 scope: H27 DIGITAL PASS.
-- Signed APK SHA-256: `d9ce720194812afcb281ecebd263d482d4320b4285f50044a2771fc6293736fe`.
+- Current repository HEAD before this documentation update: `d09fc003e2ae2d699238eb39ba699f75a746fea4`.
+- Latest signed DIGITAL PASS: **CI #653** / run `35207902169` / producer `d09fc003e2ae2d699238eb39ba699f75a746fea4`.
+- #653 scope: H28 through the canonical source materialization chain.
+- Signed APK SHA-256: `1a36efcbe24d5995dd3609889237ca112670e52554e187d1b93ed5a8649263c0`.
 - Signed APK size: `13,737,498` bytes.
 - Locked signer SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
-- Current corrective: **H28 IMPLEMENTED / SOURCE-VALIDATED / PRE-GATE**.
 - CI remains manual-only (`workflow_dispatch`).
 
-## #651 retained digital evidence
-- JVM/unit: **287/287 PASS**, 0 failures/errors/skips;
-- performance evidence PASS;
-- Android Lint PASS;
-- `assembleDebug` + `assembleRelease` PASS;
-- unsigned provenance PASS;
-- API36: **32/32 standard PASS + 1/1 isolated 1920×1200 geometry PASS**;
-- signed provenance/package/version/zipalign/signature/certificate PASS;
-- signing cleanup PASS.
+## #653 digital evidence
+All three canonical jobs passed on the exact producer SHA:
+- Unit tests + Android Lint + debug/release APK build/provenance: PASS;
+- API 36 emulator regression, including isolated target geometry path: PASS;
+- exact tested release candidate signing/homologation verification: PASS.
 
-Do not combine standard API36 and isolated geometry counts in canonical reporting.
+The materializer completed through H28 with verified final hashes.
 
-## Physical finding after #651
-The H27 candidate corrected history maximum/idempotency semantics, but target-device cloud backup still showed false commit failures and selective duplicates:
-- remote package was physically created while the app reported that it could not be confirmed;
-- an unchanged second run could fail to see that revision in the provider listing and upload it again;
-- the false failure could move between projects across runs.
+## H28 physical backup result
+Target-device testing after #653 confirmed the corrected backup behavior is working correctly. In particular, the false commit-failure/selective-duplicate behavior that triggered H28 is no longer reproduced in the accepted backup workflow.
 
-The behavior points to an eventually-consistent directory listing being used as immediate write confirmation. That is not a valid durability contract for a cloud-backed document provider.
+H28 remains a protected regression contract covering immutable `projectId`, deterministic `revisionId`, package SHA-256 integrity, provider-lag tolerance, idempotent unchanged backup and bounded retention.
 
-## H28 corrective
-H28 implements three identity/integrity layers:
-1. **projectId** — immutable `GuitarProject.id`; rename preserves it; duplicate/independent restore intentionally get new IDs;
-2. **revisionId** — deterministic `r_<updatedAtEpochMs>_<stateDigest>`, binding edit time to canonical project state;
-3. **package SHA-256** — exact byte-integrity identity.
+## Remaining RC3 physical blocker
+The remaining release-critical target-only item is **recording latency/synchronization acceptance** on the intended real USB route. The recording timing architecture is already implemented and digitally covered; the unresolved boundary is physical driver/hardware behavior.
 
-Provider hardening:
-- deterministic remote directory `v_<revisionId>`;
-- direct-URI metadata/package/commit verification after write;
-- targeted `(projectId, revisionId)` settling lookup before a retry upload;
-- v1 H26/H27 metadata remains backward compatible;
-- retention dedup uses revision identity + package hash instead of timestamp alone.
+Final RC3/1.0 promotion still requires no repeatable P0/P1 and explicit approval of the exact signed candidate.
 
-Full rationale: `H28_BACKUP_IDENTITY_CONSISTENCY.md`.
+## Approved next-development scope
+The authoritative plan is `POST_H28_HARDENING_AND_EXTERNAL_CONTROL_PLAN.md`.
 
-## H28 source validation
-- clean H27 → H28 materialization PASS;
-- final H28 Git blob verification PASS;
-- idempotent second materializer run PASS;
-- corrupted H28 source-part fails closed before source mutation;
-- `git diff --check` PASS;
-- materializer shell syntax PASS;
-- focused Kotlin compilation checks PASS.
+Before stable 1.0.0, implement and close:
+- recording synchronization/session-health hardening;
+- interrupted-recording recovery UX;
+- USB audio disconnect/reconnect resilience;
+- takes-management refinement;
+- song/session quality and stress coverage through 10 minutes;
+- diagnostics refinement;
+- H28 backup/restore regression hardening;
+- final UX/accessibility polish.
 
-## Evidence boundary / next gate
-CI #651 does **not** contain H28. Its APK must not be used to approve the corrected provider-consistency behavior.
-
-Next step: the user manually dispatches one fresh signed `GuitarLab Android CI`. Audit the exact counts, terminal materializer message, artifacts/provenance and signed APK identity from that run. The assistant must not dispatch or rerun it without explicit user instruction.
+The only approved new feature after the stable hardening line is external MIDI/footswitch control. Marker/section enhancements, clip-gain UI, Reference × My Guitar comparison enhancements and a separate large-project performance program are explicitly excluded from this roadmap.
