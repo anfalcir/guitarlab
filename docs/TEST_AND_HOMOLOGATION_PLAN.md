@@ -1,57 +1,57 @@
 # Test and Homologation Plan
 
-Updated: 2026-09-16
+Updated: 2026-09-17
 
-## Evidence boundary
-The last signed DIGITAL PASS is **CI #651** / run `35166195527` / producer `0b6ae1e28214decbcfba622a38d90c0dcbe2acf9`, through H27.
+## Current evidence boundary
+The current signed DIGITAL PASS is **CI #653** / run `35207902169` / producer `d09fc003e2ae2d699238eb39ba699f75a746fea4`, through H28.
 
-Signed APK SHA-256: `d9ce720194812afcb281ecebd263d482d4320b4285f50044a2771fc6293736fe`.
+Signed APK SHA-256: `1a36efcbe24d5995dd3609889237ca112670e52554e187d1b93ed5a8649263c0`.
 
-#651 passed 287/287 JVM/unit tests, Android Lint, debug/release assembly, unsigned provenance, 32/32 standard API36 tests, 1/1 isolated target-tablet geometry test and signed provenance. Physical backup testing then exposed the provider-consistency defect fixed by H28.
+Audited digital evidence:
+- 294/294 JVM/unit PASS, 0 failures/errors/skips;
+- performance evidence PASS;
+- Android Lint PASS, 0 errors;
+- debug/release assembly and unsigned provenance PASS;
+- 32/32 standard API36 PASS;
+- 1/1 isolated target-tablet geometry PASS;
+- exact tested-artifact signed homologation/provenance/certificate verification PASS.
 
-H28 is **IMPLEMENTED / SOURCE-VALIDATED / PRE-GATE**. Do not reuse #651 as H28 evidence.
+Target-device backup testing after #653 confirmed the H28 corrective is functioning correctly. The release-critical physical residual is now recording latency/synchronization on the intended USB route.
 
-## Mandatory H28 automated gate
-A fresh manually dispatched signed workflow must verify:
-- deterministic source materialization ending in `Source patch chain materialized through H28 with verified final hashes`;
-- all JVM/unit suites, including new project/revision identity, provider-lag and compatibility tests;
-- performance evidence;
-- Android Lint;
-- debug + release assembly and unsigned identity/provenance;
-- standard API36 instrumentation;
-- isolated 1920×1200 geometry;
-- signing of the exact tested unsigned artifact;
-- package/version, zipalign, v2 signature, expected certificate and signing cleanup.
-
-Actual counts and hashes must be taken from that run, not predicted.
-
-## H28 regression assertions
-Automated or programmatic coverage must prove:
+## Protected H28 regression contract
+Automated or programmatic coverage must continue to prove:
 - rename preserves `projectId`;
 - duplicate project receives a new `projectId`;
 - revision ID is deterministic for unchanged canonical state;
-- revision ID embeds the persisted edit timestamp and changes when canonical state changes, even if timestamp is equal;
-- v2 dedup never reduces two distinct same-timestamp states to one;
+- revision ID changes when canonical state changes, even under equal timestamp;
+- v2 dedup never collapses distinct same-timestamp states;
 - v1 backup metadata remains readable;
-- an initial stale catalog followed by targeted revision discovery performs zero duplicate commit calls;
-- exact remote write verification checks metadata, marker and package integrity without requiring immediate directory-list visibility;
+- targeted revision discovery prevents duplicate commit under stale provider listing;
+- exact remote write verification does not depend on immediate parent-list visibility;
 - retention remains bounded per project and fail-safe on partial/total failure.
 
-## Reduced physical residual after a passing H28 CI
-Use the exact signed H28 APK only:
-- start with an empty destination and refresh: zero versions visible;
-- press `Backup total agora` once: each changed project produces exactly one usable version and no false failure;
-- immediately press it again without editing: zero additional versions and both projects reported current;
-- rename one project, save and back up: one new revision appears under the same project identity/history, never as a separate project;
-- edit/save only one project and back up: only that project gains one revision;
-- with maximum 3, create >3 distinct revisions and confirm only the three newest unique revisions remain after a safe run;
-- refresh/restart/reboot and confirm the catalog converges without creating duplicates;
-- restore one and restore all; existing local projects are not silently overwritten;
-- change/disconnect destination and revoke provider access; failures remain safe and understandable;
-- exercise one representative large transfer/cancel/retry if practical; incomplete versions never become restorable.
+## Remaining RC3 physical residual
+Keep manual work limited to what software/emulator cannot prove:
+- intended USB input/output is the effective route during REC;
+- hardware loopback remains off and backing is not printed into the guitar take;
+- live waveform/meters remain temporally coherent;
+- no silent microphone fallback occurs;
+- no repeatable systematic late/early placement remains;
+- representative transport/edit/save/reopen/export smoke remains healthy.
 
-## Retained final smoke
-On the final exact candidate, retain a concise real-device audio/editing smoke: REC route, no backing printed into take, live waveform/meters, timing/alignment, transport including `|<`, edit→save→reopen and representative WAV/FLAC export.
+Everything objectively established by #653 does not need to be repeated manually unless a later source change invalidates that evidence.
+
+## Post-H28 forward quality plan
+The authoritative H29-H33 implementation/test plan is `POST_H28_HARDENING_AND_EXTERNAL_CONTROL_PLAN.md`.
+
+Key additions:
+- H29 recording session-health evidence and latency closure;
+- H30 interrupted-recording recovery + USB resilience;
+- H31 takes + diagnostic report refinement;
+- H32 quality/stress target for songs up to 10 minutes + backup regression + UX/accessibility;
+- H33 external MIDI/HID footswitch control after stable 1.0.
+
+For the 10-minute quality line, stress must model realistic song projects rather than create a separate artificial mega-project product requirement.
 
 ## Final rule
-RC3 FINAL requires a fresh H28-or-later signed DIGITAL PASS, the reduced physical residual above, no repeatable P0/P1 and explicit approval of the exact final signed APK SHA-256.
+Any promoted release requires exact-source digital PASS, only the genuinely hardware-dependent residual applicable to that source, no repeatable P0/P1 and explicit approval of the exact signed APK SHA-256.
