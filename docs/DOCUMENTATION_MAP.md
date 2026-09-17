@@ -4,24 +4,24 @@ Updated: 2026-09-16
 
 ## Active authoritative set
 For the current RC line use:
-- `CURRENT_STATE.md` — live evidence boundary and PRE-GATE state;
-- `H27_BACKUP_HISTORY_RELEASE_UX.md` — authoritative current backup-history and release-copy corrective;
-- `H26E_CI650_DIGITAL_PASS.md` — exact historical CI #650/H26e audit;
+- `CURRENT_STATE.md` — live evidence boundary and current PRE-GATE state;
+- `H28_BACKUP_IDENTITY_CONSISTENCY.md` — authoritative current backup identity/provider-consistency corrective;
+- `H27_BACKUP_HISTORY_RELEASE_UX.md` — H27 history semantics/release-copy corrective and #651 predecessor;
+- `H26E_CI650_DIGITAL_PASS.md` — historical CI #650/H26e audit;
 - `IMPLEMENTATION_ROADMAP.md` — milestone/release path;
-- `CI_PIPELINE.md` — manual CI, provenance discipline and materialization chain through H27;
-- `H26_SAF_CLOUD_BACKUP.md` — stable backup architecture and H26→H27 supersession boundary;
+- `CI_PIPELINE.md` — manual CI, provenance discipline and materialization chain through H28;
+- `H26_SAF_CLOUD_BACKUP.md` — original backup architecture and supersession boundary;
 - `UI_COPY_STYLE.md` — product-facing copy rules;
 - `RELEASE_NOTES_0.5.0-rc3.md` — active RC3 behavior delta;
-- `TEST_AND_HOMOLOGATION_PLAN.md` — H27 automated gate and next physical residual;
-- `RC3_FINAL_PHYSICAL_HOMOLOGATION.md` — final checklist awaiting binding to a passing signed H27 candidate;
-- architecture/product/user-guide/candidate-identity and subsystem documents remain authoritative unless superseded above.
+- `TEST_AND_HOMOLOGATION_PLAN.md` — H28 automated gate and physical residual;
+- `RC3_FINAL_PHYSICAL_HOMOLOGATION.md` — final checklist awaiting a passing signed H28-or-later candidate.
 
 ## Current evidence boundary
-CI #650 / run `35154021384` / producer `07c99155789774cb39f9b4382829f9e1d16649e3` is the last signed DIGITAL PASS through H26/H26e. Its signed APK SHA-256 is `fdb870d0996b7ee4ec6f72028af9c7291d4767b4303cbd5fa62894288757d2fe`.
+CI #651 / run `35166195527` / producer `0b6ae1e28214decbcfba622a38d90c0dcbe2acf9` is the last signed DIGITAL PASS through H27. Signed APK SHA-256: `d9ce720194812afcb281ecebd263d482d4320b4285f50044a2771fc6293736fe`.
 
-H27 changes source after physical backup feedback and is **IMPLEMENTED / SOURCE-VALIDATED / PRE-GATE**. Therefore the current repository HEAD may contain H27 while the last signed APK does not.
+H28 changes production source after target-device provider-consistency feedback and is **IMPLEMENTED / SOURCE-VALIDATED / PRE-GATE**. Therefore current repository HEAD may contain H28 while the last signed APK does not.
 
 Historical audit/checkpoint documents remain point-in-time evidence and are intentionally not globally rewritten.
 
 ## Producer identity rule
-A source/docs commit after #650 never retroactively changes the #650 APK producer. When H27 passes a new manual signed workflow, that new exact workflow producer/SHA and APK hash become the candidate identity.
+A source/docs commit after #651 never retroactively changes the #651 APK producer. When H28 passes a new manual signed workflow, that new exact workflow producer SHA and APK hash become the candidate identity.

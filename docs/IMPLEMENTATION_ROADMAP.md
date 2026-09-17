@@ -9,37 +9,38 @@ Updated: 2026-09-16
 - **M5 — Reliable recording + Studio + Media I/O:** PASS/CLOSED.
 - **M6 — Measured latency/synchronization:** PASS/CLOSED.
 - **M7 — Production audio polish:** digital scope PASS; residual physical closure active.
-- **M8 — Release hardening:** H26/H26e signed DIGITAL PASS at #650; **H27 backup-history/release-UX corrective PRE-GATE**.
+- **M8 — Release hardening:** H27 signed DIGITAL PASS at #651; **H28 backup identity/provider-consistency corrective PRE-GATE**.
 
 ## Last signed authority
-**CI #650** / run `35154021384` / producer `07c99155789774cb39f9b4382829f9e1d16649e3` remains the last signed DIGITAL PASS, through H26/H26e only.
+**CI #651** / run `35166195527` / producer `0b6ae1e28214decbcfba622a38d90c0dcbe2acf9` is the last signed DIGITAL PASS, through H27.
 
-Its exact signed APK SHA-256 is `fdb870d0996b7ee4ec6f72028af9c7291d4767b4303cbd5fa62894288757d2fe`.
+Signed APK SHA-256: `d9ce720194812afcb281ecebd263d482d4320b4285f50044a2771fc6293736fe`.
 
-## H27 — implemented / source-validated / PRE-GATE
-Physical feedback from #650 triggered a narrow but release-critical correction:
-1. unchanged manual backup is idempotent instead of forcing a duplicate version;
-2. automatic + manual runs share one revision-based incremental rule;
-3. configured history count is a maximum per project;
-4. duplicate copies of the same persisted revision are collapsed;
-5. newest valid version is always preserved;
-6. legacy count preference migrates to the new maximum-history meaning;
-7. partial failure names the affected project and records last execution accurately;
-8. backup/settings/help/readiness UI copy is hardened for a general end-user release and avoids internal APIs, release vocabulary or personal/model-specific status copy.
+## H28 — implemented / source-validated / PRE-GATE
+Physical feedback from #651 triggered a release-critical consistency correction:
+1. immutable project identity is explicitly `GuitarProject.id`, independent of project name;
+2. rename remains one project; Duplicate and independent restore intentionally receive new IDs;
+3. new backups persist deterministic revision IDs derived from project ID + edit timestamp + canonical state digest;
+4. package SHA-256 remains a separate integrity identity;
+5. same-timestamp but different project states remain distinct revisions;
+6. revision directories become deterministic and retry-idempotent;
+7. a successful write is confirmed from the exact document URIs, not an immediately refreshed parent listing;
+8. targeted settling lookup prevents duplicate upload when a cloud provider exposes the revision late;
+9. H26/H27 v1 backups remain readable and incrementally compatible.
 
 ## Canonical materialization tail
-`… → H25 → H26 → H26a → H26b → H26e → H27`.
+`… → H25 → H26 → H26a → H26b → H26e → H27 → H28`.
 
-H27 patch SHA-256: `c80f0b04f34fb1b92ea47c13f7eb70df6744e0c07392e81391875f3b10aa85e5`.
+H28 decoded patch SHA-256: `3d06aa851ad1dc88dd078d60bb24ea097bbca7ef4f3e93089f47c9bd4a0a6e71`.
 
 ## Next release path
-1. Publish H27 with `[skip ci]`; do not auto-dispatch Actions.
-2. User manually runs one fresh signed `GuitarLab Android CI` when ready.
-3. Audit actual JVM/API36 counts, Lint/build/provenance, H27 terminal materializer message and exact signed identity.
-4. If green, promote H27 to DIGITAL PASS and bind `RC3_FINAL_PHYSICAL_HOMOLOGATION.md` to that exact new APK.
-5. On the new candidate, verify: repeated unchanged manual backup creates no duplicate; a saved project revision creates one new version; history never exceeds the selected maximum after a safe run; pre-existing same-revision duplicates are cleaned; partial failure identifies the project without deleting that project's older backups.
-6. Complete the remaining provider/device and retained audio/editing smoke only on the H27 candidate or a later exact successor.
-7. Final RC3 approval requires no repeatable P0/P1 and explicit approval of the exact final signed APK SHA-256.
+1. Publish H28 with `[skip ci]`; do not auto-dispatch Actions.
+2. User manually runs one fresh signed `GuitarLab Android CI`.
+3. Audit JVM/API36 counts, Lint/build/provenance, H28 terminal materializer message and exact signed identity.
+4. If green, promote H28 to DIGITAL PASS and bind final physical homologation to that exact APK.
+5. Physical residual focuses on: empty-folder first backup, immediate unchanged retry, rename → backup, edit/save → backup, bounded history, restore and provider failure/revocation.
+6. Complete retained audio/edit/export smoke only on the exact final candidate.
+7. RC3 FINAL requires no repeatable P0/P1 and explicit approval of the exact signed APK SHA-256.
 
 ## Gate discipline
 `.github/workflows/android-ci.yml` remains manual-only (`workflow_dispatch`). Ordinary source/docs commits use `[skip ci]`; the assistant must not dispatch/rerun without explicit user instruction.

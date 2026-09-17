@@ -2,27 +2,25 @@
 
 Updated: 2026-09-16
 
-## Last signed digital homologation — CI #650
-Run `35154021384`, producer `07c99155789774cb39f9b4382829f9e1d16649e3`, remains the last signed DIGITAL PASS through H26/H26e.
+## Last signed digital homologation — CI #651
+Run `35166195527`, producer `0b6ae1e28214decbcfba622a38d90c0dcbe2acf9`, is the last signed DIGITAL PASS through H27.
 
-Signed APK SHA-256: `fdb870d0996b7ee4ec6f72028af9c7291d4767b4303cbd5fa62894288757d2fe`.
+Signed APK SHA-256: `d9ce720194812afcb281ecebd263d482d4320b4285f50044a2771fc6293736fe`.
 
-Physical backup validation of this build exposed a release-semantic defect, so #650 is no longer the candidate for final backup approval.
+Physical backup validation of this build exposed an eventual-consistency defect between successful provider writes and immediate directory-list confirmation, so #651 is not the final backup candidate.
 
-## H27 corrective — PRE-GATE
+## H28 corrective — PRE-GATE
 Prepared for the next signed candidate:
-- repeated backup of an unchanged saved project no longer creates another version;
-- manual and automatic backup share revision-based incremental behavior;
-- version history is bounded by a **maximum** per project rather than a protected minimum;
-- duplicate copies of the same saved revision are cleaned automatically during a safe run;
-- the newest valid version is always preserved;
-- existing configured version count migrates to the new maximum-history meaning;
-- last-run status and partial failure details identify what actually happened;
-- backup UI is written for a normal end user: internal storage/API/integrity protocol terms are removed from ordinary screens;
-- general settings no longer hard-code the user's current hardware model in device-detection status;
-- ordinary media-readiness copy avoids implementation terms when a user-actionable explanation is sufficient.
+- immutable project identity uses the existing `GuitarProject.id`, so rename never creates a separate backup project;
+- new backups persist deterministic revision identity tied to edit timestamp plus canonical project-state digest;
+- package SHA-256 remains independent integrity evidence;
+- deterministic revision paths make a retry naturally idempotent;
+- remote commit confirmation re-reads the exact URIs written instead of depending on immediate listing visibility;
+- targeted settling lookup checks for a just-published revision before uploading another copy;
+- legacy H26/H27 backups remain readable;
+- deduplication distinguishes different H28 states even if they happen to share the same edit timestamp.
 
 ## Validation state
-H27 source/materializer integrity, idempotency, corruption fail-closed behavior, focused backup-domain runtime logic and release-copy static checks have passed locally. Full Gradle/Lint/API36/signing gates have **not** been claimed for H27 yet.
+H28 source/materializer application, exact final hashes, idempotency, corruption fail-closed behavior, diff/shell checks and focused Kotlin compilation checks have passed locally.
 
-A fresh manually dispatched signed CI is required. CI #650 remains historical authority for the exact H26e source it tested and must not be represented as H27 evidence.
+Full Gradle/Lint/API36/signing gates have **not** been claimed for H28. A fresh manually dispatched signed CI is required.

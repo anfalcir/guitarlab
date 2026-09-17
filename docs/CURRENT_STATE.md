@@ -4,63 +4,60 @@ Updated: 2026-09-16
 
 ## Active line
 - Repository/branch: `anfalcir/guitarlab` / `main`.
-- Version line: `0.5.0-rc3`, versionCode `23`, package `studio.guitarlab.app`.
-- Last signed DIGITAL PASS: **CI #650** / run `35154021384` / exact APK producer `07c99155789774cb39f9b4382829f9e1d16649e3`.
-- #650 scope: H26/H26e DIGITAL PASS.
-- Signed APK SHA-256: `fdb870d0996b7ee4ec6f72028af9c7291d4767b4303cbd5fa62894288757d2fe`.
+- Version: `0.5.0-rc3`, versionCode `23`, package `studio.guitarlab.app`.
+- Last signed DIGITAL PASS: **CI #651** / run `35166195527` / producer `0b6ae1e28214decbcfba622a38d90c0dcbe2acf9`.
+- #651 scope: H27 DIGITAL PASS.
+- Signed APK SHA-256: `d9ce720194812afcb281ecebd263d482d4320b4285f50044a2771fc6293736fe`.
 - Signed APK size: `13,737,498` bytes.
 - Locked signer SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
-- Current source correction: **H27 IMPLEMENTED / SOURCE-VALIDATED / PRE-GATE**.
-- `.github/workflows/android-ci.yml` remains manual-only (`workflow_dispatch`).
+- Current corrective: **H28 IMPLEMENTED / SOURCE-VALIDATED / PRE-GATE**.
+- CI remains manual-only (`workflow_dispatch`).
 
-## Physical finding after #650
-Target-device validation exposed that the H26 user contract was not release-ready:
-- manual backup forced a new version even for an unchanged persisted revision;
-- automatic backup was incremental, so an auto run followed by a manual run could protect the same revision twice;
-- the `1/3/5/10` setting represented a protected minimum rather than the intended maximum history size;
-- aggregate status did not identify a failing project clearly;
-- normal user UI exposed implementation vocabulary and device-specific/development-oriented wording.
-
-The visible screenshot alone cannot prove the exact timing/order of all remote writes, but the source defect above is deterministic and sufficient to reject #650 as the final backup candidate.
-
-## H27 — PRE-GATE corrective
-H27 implements:
-- manual total/project backup with `force = false` so unchanged revisions are idempotent;
-- bounded history using `maximumVersionsPerProject`;
-- same-revision duplicate cleanup, preserving the newest copy;
-- newest valid version always preserved;
-- max-history enforcement even when age cleanup is disabled;
-- migration of the legacy configured count into the new maximum-history setting;
-- fail-safe cleanup rules retained for total failure, partial failure, cancellation and single-project scope;
-- `Última execução` state plus per-project failure detail;
-- end-user copy audit across backup/settings/help/readiness surfaces, removing internal API/release jargon and personal/model-specific status copy from normal product UI.
-
-Full details: `H27_BACKUP_HISTORY_RELEASE_UX.md`.
-
-## H27 source validation completed
-- exact H26e materialized baseline → H27 patch application PASS;
-- exact H27 patch SHA-256 `c80f0b04f34fb1b92ea47c13f7eb70df6744e0c07392e81391875f3b10aa85e5`;
-- exact final Git blob verification for 14 changed production/test files;
-- materializer idempotent rerun PASS;
-- deliberately corrupted H27 source-part fails closed before source mutation;
-- `git diff --check` PASS;
-- materializer shell syntax PASS;
-- focused backup-domain runtime harness PASS;
-- release-surface static copy audit PASS for the targeted internal/personal terms.
-
-## #650 retained evidence
-The previous gate remains valid evidence for the source it tested:
-- JVM/unit: **285/285 PASS**;
+## #651 retained digital evidence
+- JVM/unit: **287/287 PASS**, 0 failures/errors/skips;
 - performance evidence PASS;
-- Android Lint PASS with 44 warnings + 3 hints, 0 errors;
-- debug/release assembly and unsigned provenance PASS;
-- API36 **31/31 standard + 1/1 isolated geometry**;
+- Android Lint PASS;
+- `assembleDebug` + `assembleRelease` PASS;
+- unsigned provenance PASS;
+- API36: **32/32 standard PASS + 1/1 isolated 1920×1200 geometry PASS**;
 - signed provenance/package/version/zipalign/signature/certificate PASS;
 - signing cleanup PASS.
 
-It must **not** be reused as H27 evidence.
+Do not combine standard API36 and isolated geometry counts in canonical reporting.
 
-## Next gate
-Run one fresh **manual** `GuitarLab Android CI` with signed homologation after H27 publication. Audit actual test counts, source materializer terminal message, artifacts and exact signed identity from that run. The assistant must not dispatch or rerun it without explicit user instruction.
+## Physical finding after #651
+The H27 candidate corrected history maximum/idempotency semantics, but target-device cloud backup still showed false commit failures and selective duplicates:
+- remote package was physically created while the app reported that it could not be confirmed;
+- an unchanged second run could fail to see that revision in the provider listing and upload it again;
+- the false failure could move between projects across runs.
 
-Until that gate passes, do not continue final backup-history homologation on the #650 APK. Other #650 observations remain useful regression evidence, but final RC3 approval must be bound to the next signed H27 candidate and followed by the reduced real-device residual checklist.
+The behavior points to an eventually-consistent directory listing being used as immediate write confirmation. That is not a valid durability contract for a cloud-backed document provider.
+
+## H28 corrective
+H28 implements three identity/integrity layers:
+1. **projectId** — immutable `GuitarProject.id`; rename preserves it; duplicate/independent restore intentionally get new IDs;
+2. **revisionId** — deterministic `r_<updatedAtEpochMs>_<stateDigest>`, binding edit time to canonical project state;
+3. **package SHA-256** — exact byte-integrity identity.
+
+Provider hardening:
+- deterministic remote directory `v_<revisionId>`;
+- direct-URI metadata/package/commit verification after write;
+- targeted `(projectId, revisionId)` settling lookup before a retry upload;
+- v1 H26/H27 metadata remains backward compatible;
+- retention dedup uses revision identity + package hash instead of timestamp alone.
+
+Full rationale: `H28_BACKUP_IDENTITY_CONSISTENCY.md`.
+
+## H28 source validation
+- clean H27 → H28 materialization PASS;
+- final H28 Git blob verification PASS;
+- idempotent second materializer run PASS;
+- corrupted H28 source-part fails closed before source mutation;
+- `git diff --check` PASS;
+- materializer shell syntax PASS;
+- focused Kotlin compilation checks PASS.
+
+## Evidence boundary / next gate
+CI #651 does **not** contain H28. Its APK must not be used to approve the corrected provider-consistency behavior.
+
+Next step: the user manually dispatches one fresh signed `GuitarLab Android CI`. Audit the exact counts, terminal materializer message, artifacts/provenance and signed APK identity from that run. The assistant must not dispatch or rerun it without explicit user instruction.
