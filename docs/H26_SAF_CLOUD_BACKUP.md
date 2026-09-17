@@ -1,118 +1,50 @@
 # H26 — SAF Cloud Backup / Restore
 
-Status: **DIGITAL PASS — CI #650 / H26e**
+Status: **DIGITAL PASS at CI #650 / H26e; product semantics superseded by H27 corrective**
 Updated: 2026-09-16
 
-## Goal
-Provide robust cloud-capable backup without Google Drive API credentials by using Android Storage Access Framework (SAF). The user selects a document-tree provider/folder (Google Drive when exposed by the device, or another compatible provider) and GuitarLab receives persistable access only to that tree.
+## H26 evidence boundary
+CI #650 / producer `07c99155789774cb39f9b4382829f9e1d16649e3` proved the H26/H26e implementation end to end digitally: 285/285 JVM/unit, Lint/build/provenance, API36 31/31 standard + 1/1 isolated geometry and signed homologation all passed.
 
-## User flows
-### Target folder
-- `Opções → Backup e restauração` opens the dedicated screen.
-- `Escolher pasta` / `Alterar pasta` launches `OpenDocumentTree`.
-- GuitarLab takes persistable read/write permission and performs a real create/write/read/delete probe before adopting the folder.
-- a failed probe leaves the previous target untouched;
-- changing or disconnecting a target never deletes remote backup content.
+That evidence remains valid for the source tested by #650. Physical use then exposed release-level history/copy semantics that require H27 before final approval.
 
-### Manual backup
-- `Backup total agora`: force a new committed version for every current local project.
-- Home project menu `Backup deste projeto`: force a new committed version only for that project.
-- manual operations share the same transactional engine as automatic backup.
+## Stable H26 architecture retained by H27
+- user-selected provider-neutral document-tree destination with persisted scoped read/write access;
+- real destination probe before adoption;
+- safe target-folder change/disconnect without deleting existing remote content;
+- full and single-project backup;
+- automatic coalesced/incremental + periodic WorkManager backup;
+- one-version and restore-all flows as independent local copies, never silent overwrite;
+- transactional remote package publication with integrity verification and a final commit marker;
+- incomplete/invalid versions excluded from restore;
+- process-wide operation lock across backup/restore;
+- fail-safe cancellation and cleanup boundaries;
+- long-running automatic transfer foreground handling.
 
-### Automatic backup
-- opt-in, disabled by default;
-- cadence: 6 h / 12 h / daily / weekly;
-- optional unmetered-only and charging-only restrictions;
-- battery-not-low and storage-not-low always required;
-- project save/import/rename/duplicate/recording persistence points enqueue one coalesced delayed incremental job;
-- periodic work provides a safety sweep;
-- unchanged persisted project revisions are skipped rather than re-uploaded.
+These implementation details remain internal architecture; ordinary product UI should describe the user outcome rather than expose Android API/protocol vocabulary.
 
-### Restore
-- single remote version: explicit confirmation, verify package then import as a new local project;
-- restore all: restore the latest committed valid version of each cloud project independently;
-- one corrupt project does not prevent other projects from restoring;
-- restore never overwrites an existing local project.
+## H26 behavior corrected by H27
+The #650/H26 contract used:
+- manual `force = true`, which could create another version for an unchanged persisted project revision;
+- a protected **minimum** version count that overrode age cleanup.
 
-## Transaction / integrity contract
-Each remote version contains:
-1. `metadata.properties`;
-2. `project.guitarlab`;
-3. `COMMITTED` written last.
+H27 supersedes those release semantics with:
+- manual and automatic backup both incremental/idempotent for the same persisted revision;
+- a **maximum** history size per project;
+- automatic collapse of duplicate copies of the same revision;
+- newest valid version always preserved;
+- maximum-count cleanup active even when the age limit is disabled;
+- clearer last-run and per-project failure reporting;
+- end-user release copy with internal implementation terms removed from normal screens.
 
-Commit sequence:
-1. create uncommitted version directory;
-2. write metadata;
-3. copy local staged `.guitarlab`;
-4. re-read the remote package through the provider;
-5. require exact byte count and SHA-256 match;
-6. write `COMMITTED` containing the same identity;
-7. re-read/parse the commit marker and require exact project/timestamp/size/hash agreement.
+See `H27_BACKUP_HISTORY_RELEASE_UX.md` for the authoritative current behavior.
 
-Catalog and restore ignore directories without a valid marker. Restore again checks bytes + SHA-256 before delegating to the existing `ProjectBundleReader`.
+## Materialization history
+H26/H26e canonical tail was `… → H25 → H26 → H26a → H26b → H26e` and was proven by #650.
 
-## Retention contract
-Parameters:
-- maximum age: 7 / 30 / 60 / 90 / 180 / 365 days or forever;
-- protected minimum: 1 / 3 / 5 / 10 latest committed versions **per project**.
+Current source tail is now `… → H25 → H26 → H26a → H26b → H26e → H27`.
 
-Rules:
-- protected minimum always wins over age;
-- deletion only considers committed valid versions;
-- incomplete transactions are handled separately after a grace interval;
-- all attempted writes failed => no retention deletion for that run;
-- a project whose backup failed is excluded from cleanup in a partially successful run;
-- a manual single-project run never cleans versions belonging to other projects;
-- cancellation aborts the routine and does not continue into retention.
+H26c/H26d remain historical recovery experiments and are not part of the current materialization path.
 
-## Concurrency / lifecycle
-A process-wide `Mutex` serializes manual backup, automatic backup and restore. WorkManager owns persistent automatic execution and uses a `dataSync` foreground operation for long transfers. Local staging files are temporary and stale staging is cleaned conservatively.
-
-## Privacy / provider boundary
-H26 stores no Google credentials and makes no Drive REST API calls. SAF URI permission is the authority. Revoked/missing permission fails safely and prompts the user to reselect a folder.
-
-## Automated evidence — CI #650
-Exact producer: `07c99155789774cb39f9b4382829f9e1d16649e3`.
-
-#650 completed all three jobs successfully and promoted this contract to DIGITAL PASS:
-- JVM/unit **285/285 PASS**, including H26 backup domain/coordinator coverage;
-- performance evidence PASS;
-- Android Lint PASS with non-blocking warnings/hints and no reported errors;
-- debug/release assembly + unsigned provenance PASS;
-- API36 **31/31 standard PASS**, including three dedicated `BackupScreenInstrumentedTest` cases;
-- isolated target geometry **1/1 PASS**;
-- exact tested unsigned artifact signed and provenance revalidated;
-- package/version/certificate/signature/zipalign PASS;
-- signing material cleanup PASS.
-
-Detailed evidence: `H26E_CI650_DIGITAL_PASS.md`.
-
-## Corrective/materialization history
-- H26a fixed only `SafBackupRemoteStore.copyPackage()` so the override explicitly satisfies the interface `Unit` return contract.
-- H26b removed use of Compose-test `assertExists`, unavailable in the pinned dependency version.
-- CI #646 then proved the production software gate and ran 31 standard tests; its three failures were confined to H26 Backup-screen test interactions below the `LazyColumn` fold.
-- H26c/H26d explored incremental source-patch recovery for the test scroll correction but exposed packaging/name/hash fragility in the corrective source-part, not a production H26 defect.
-- H26e is the definitive path: the complete known-good `BackupScreenInstrumentedTest.kt` is decoded and installed deterministically after validating both SHA-256 and final Git blob.
-
-## Canonical materialization
-Canonical tail: `… → H25 → H26 → H26a → H26b → H26e`.
-
-H26e input: `.source-parts/H26eBackupScreenInstrumentedTest.kt.b64`.
-- decoded source SHA-256: `7f974aef7ad8b4052cd01b6a66ffe75cee78fb27c5e94585b9eda44e2bf322da`;
-- expected final Git blob: `8ebac066a3bef1b93ee0316cdb5dcc726fe4b056`;
-- final message: `Source patch chain materialized through H26e with verified final hashes`.
-
-CI #650 produced that final message and then passed software, Android integration and signed homologation end to end.
-
-## Remaining physical boundary
-DIGITAL PASS does not prove real provider/device behavior. Final RC3 physical closure must still exercise on Samsung SM-X230 with Google Drive via SAF where available:
-- picker/provider access and persisted permission across app/device restart;
-- real single/full backup and cloud visibility;
-- safe target-folder replacement/disconnect with old data preserved;
-- single/full restore as independent local projects;
-- revoked/unavailable provider error behavior;
-- representative long transfer and cancellation;
-- practical retention behavior when enough versions exist;
-- automatic incremental behavior without redundant unchanged upload.
-
-RC3 remains non-final until those residuals plus retained audio/editing smoke checks pass with no repeatable P0/P1 and the user explicitly approves the exact signed APK.
+## Promotion boundary
+CI #650 must not be described as containing or validating H27. A fresh manually dispatched signed workflow is required before the corrected backup behavior can become DIGITAL PASS or be rebound to final physical homologation.
