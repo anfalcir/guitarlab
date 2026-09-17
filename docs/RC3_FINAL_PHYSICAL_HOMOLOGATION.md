@@ -1,38 +1,39 @@
 # Final Physical Homologation — GuitarLab 0.5.0-rc3
 
-Updated: 2026-09-16
+Updated: 2026-09-17
 
 ## Candidate binding
-**Not currently bound to a final candidate.**
+Current signed candidate:
+- CI #653 / run `35207902169`;
+- producer `d09fc003e2ae2d699238eb39ba699f75a746fea4`;
+- package `studio.guitarlab.app`;
+- version `0.5.0-rc3` / versionCode `23`;
+- signed APK SHA-256 `1a36efcbe24d5995dd3609889237ca112670e52554e187d1b93ed5a8649263c0`;
+- signed APK size `13,737,498` bytes;
+- signer certificate SHA-256 `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
 
-CI #651 / producer `0b6ae1e28214decbcfba622a38d90c0dcbe2acf9` is a valid H27 DIGITAL PASS, but target-device backup validation exposed the provider-consistency behavior corrected by H28. Do not approve final backup behavior using the #651 APK.
+CI #653 is H28 DIGITAL PASS.
 
-After H28 passes a fresh manual signed workflow, record here before testing: CI/run, exact producer SHA, package/version, signed APK SHA-256/size and signer certificate SHA-256.
+## H28 backup physical result
+**PASS for the defect that triggered H28.** Target-device retest confirms backup is now functioning correctly without the previously reproduced false confirmation/selective-duplicate behavior.
 
-## H28 backup target-device checklist
-On the exact new signed H28 candidate:
-- [ ] Empty the test destination and refresh; zero versions are shown.
-- [ ] With at least two projects, run `Backup total agora` once; each changed project creates exactly one usable version and no false confirmation failure appears.
-- [ ] Immediately run it again without edits; no additional version appears and both projects are treated as current.
-- [ ] Rename one project, save and back up; the new revision stays in the same project history/identity.
-- [ ] Edit/save only one project; only it gains a new revision.
-- [ ] Configure maximum 3 versions; after >3 distinct revisions only the three newest unique revisions remain following a safe run.
-- [ ] Refresh, restart the app and reboot the tablet; converged remote history remains stable and no retry creates duplicates.
-- [ ] Change/disconnect destination without deleting prior remote data.
-- [ ] Restore one version and restore all without silently overwriting an existing local project.
-- [ ] Revoke provider access and confirm safe, understandable failure with no local project damage.
-- [ ] Exercise a representative large transfer and cancel/retry if practical; incomplete data never becomes restorable.
+Backup/restore remains under normal regression protection; it is no longer the current release blocker.
 
-## Retained audio/editing smoke
+## Remaining recording/audio physical closure
+On the exact signed candidate or a later candidate that preserves the same behavior:
 - [ ] normal REC with intended USB audio device and hardware loopback OFF;
 - [ ] backing is not printed into the guitar take;
-- [ ] live waveform/meters update;
-- [ ] route fails closed rather than silently falling back;
-- [ ] no repeatable systematic timing displacement;
+- [ ] live waveform/meters update coherently;
+- [ ] selected route fails closed rather than silently falling back;
+- [ ] no repeatable systematic late/early placement remains between played guitar and backing;
+- [ ] route/sample-rate-specific calibration is not reused across incompatible tuples;
+- [ ] representative disconnect/reconnect remains safe if exercised;
 - [ ] transport including `|<` remains coherent;
 - [ ] representative edit → save → reopen survives;
 - [ ] representative WAV/FLAC export succeeds;
 - [ ] no repeatable P0/P1 regression.
 
 ## Final PASS
-RC3 FINAL requires a fresh H28-or-later signed DIGITAL PASS, all applicable checks above, no repeatable P0/P1 and explicit approval of that exact signed APK SHA-256.
+RC3 FINAL requires the exact signed candidate to retain DIGITAL PASS, complete the remaining recording/audio physical closure, contain no repeatable P0/P1 and receive explicit approval of that exact signed APK SHA-256.
+
+The post-H28 hardening program beyond RC3 is tracked separately in `POST_H28_HARDENING_AND_EXTERNAL_CONTROL_PLAN.md`.
