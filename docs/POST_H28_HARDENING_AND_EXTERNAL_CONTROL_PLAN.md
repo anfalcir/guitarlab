@@ -1,7 +1,7 @@
 # Post-H28 Hardening and External Control Implementation Plan
 
-Updated: 2026-09-17  
-Status: **SOURCE PRE-GATE READY / MANUAL CI PENDING**  
+Updated: 2026-09-17
+Status: **SOURCE PRE-GATE READY / MANUAL CI PENDING**
 Baseline: `0.5.0-rc3` / CI #653 / source `d09fc003e2ae2d699238eb39ba699f75a746fea4`
 
 ## 1. Purpose
