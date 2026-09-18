@@ -8,6 +8,12 @@ on:
         required: true
         type: boolean
         default: false
+  # One-shot CI trigger for the H33a corrective. Remove after the run is closed.
+  push:
+    branches:
+      - main
+    paths:
+      - ".source-parts/H33aExternalControlCiCorrective.patch.gz.b64"
 
 permissions:
   contents: read
@@ -144,7 +150,7 @@ jobs:
       - name: Assemble debug and release candidate
         shell: bash
         env:
-          BUILD_SIGNED_HOMOLOGATION: ${{ inputs.signed_homologation }}
+          BUILD_SIGNED_HOMOLOGATION: ${{ github.event_name == 'push' || inputs.signed_homologation }}
         run: |
           set +e
           mkdir -p ci-diagnostics
@@ -158,7 +164,7 @@ jobs:
           exit $STATUS
 
       - name: Validate and stage unsigned release candidate
-        if: ${{ inputs.signed_homologation == true }}
+        if: ${{ github.event_name == 'push' || inputs.signed_homologation == true }}
         shell: bash
         run: |
           set -euo pipefail
@@ -197,7 +203,7 @@ jobs:
           } > release-candidate/RELEASE_BUILD_IDENTITY.txt
 
       - name: Upload unsigned release candidate
-        if: ${{ inputs.signed_homologation == true }}
+        if: ${{ github.event_name == 'push' || inputs.signed_homologation == true }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: guitarlab-release-unsigned-${{ github.sha }}
@@ -348,7 +354,7 @@ jobs:
   homologation-apk:
     name: Signed homologation APK
     needs: [software-gate, android-integration-gate]
-    if: ${{ inputs.signed_homologation == true }}
+    if: ${{ github.event_name == 'push' || inputs.signed_homologation == true }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:

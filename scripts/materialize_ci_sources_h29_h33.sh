@@ -17,6 +17,9 @@ H32_PATCH_SHA256="63d62e3734ec0081b309bceffef05bd18cbc7c6d77ad4fc695a5534c8c3e5f
 H33_PATCH_PART="$ROOT/.source-parts/H33ExternalControl.patch.gz.b64"
 H33_ARCHIVE_SHA256="d88a320ba2323ebac7a9db24d1f9314af270cc595d209d1bbfdfefc81be0f6a9"
 H33_PATCH_SHA256="46880223ffd10711bbf660feedb705ea9c3fa6cd6a111017bd3b6ad32e7172dc"
+H33A_PATCH_PART="$ROOT/.source-parts/H33aExternalControlCiCorrective.patch.gz.b64"
+H33A_ARCHIVE_SHA256="63d2abf7b51e2e1a448c2743d8e119ac3da4d25a3f6212f6e789229ac2ae55f2"
+H33A_PATCH_SHA256="4c25592453728272888f26abbd4e58c58d273e38709da1909892bf8389b120f1"
 
 H29_CHECKS=(
     "app/src/main/java/studio/guitarlab/app/ui/AudioProbeScreen.kt|4dcaee3e2691206601c53ccafacba8575f5eda9e"
@@ -68,6 +71,10 @@ H33_CHECKS=(
     "core/project/src/main/kotlin/studio/guitarlab/core/project/ExternalControlPolicy.kt|92bbf7bbba82729a4d3ea41e2d0190d283799d11"
     "core/project/src/test/kotlin/studio/guitarlab/core/project/ExternalControlPolicyTest.kt|09824c95c4cc30d16b6c5b78c6732fed5205f4c8"
 )
+H33A_CHECKS=(
+    "app/src/androidTest/java/studio/guitarlab/app/ExternalControlSettingsInstrumentedTest.kt|6277df8aac413cb9f45d03293923be71ba1fab2c"
+    "app/src/main/java/studio/guitarlab/app/MainActivity.kt|70b22de5011ab2233b7633326436ce689ee52045"
+)
 
 checks_ready() {
     local array_name="$1" entry relative expected
@@ -84,6 +91,7 @@ h30_ready() { checks_ready H30_CHECKS; }
 h31_ready() { checks_ready H31_CHECKS; }
 h32_ready() { checks_ready H32_CHECKS; }
 h33_ready() { checks_ready H33_CHECKS; }
+h33a_ready() { checks_ready H33A_CHECKS; }
 
 decode_verified_patch() {
     local label="$1" encoded="$2" archive_sha="$3" patch_sha="$4" output="$5" archive actual
@@ -126,30 +134,55 @@ verify_new_patch H30 "$H30_PATCH_PART" "$H30_ARCHIVE_SHA256" "$H30_PATCH_SHA256"
 verify_new_patch H31 "$H31_PATCH_PART" "$H31_ARCHIVE_SHA256" "$H31_PATCH_SHA256"
 verify_new_patch H32 "$H32_PATCH_PART" "$H32_ARCHIVE_SHA256" "$H32_PATCH_SHA256"
 verify_new_patch H33 "$H33_PATCH_PART" "$H33_ARCHIVE_SHA256" "$H33_PATCH_SHA256"
+verify_new_patch H33a "$H33A_PATCH_PART" "$H33A_ARCHIVE_SHA256" "$H33A_PATCH_SHA256"
 
-if h33_ready; then
-    echo "Source patch tail already materialized through H33"
+if h33a_ready; then
+    echo "Source patch tail already materialized through H33a"
     exit 0
 fi
-if ! h29_ready; then
-    apply_new_patch H29 "$H29_PATCH_PART" "$H29_ARCHIVE_SHA256" "$H29_PATCH_SHA256"
-    h29_ready || { echo "H29 applied but final H29 hashes do not match." >&2; exit 1; }
-fi
-if ! h30_ready; then
-    apply_new_patch H30 "$H30_PATCH_PART" "$H30_ARCHIVE_SHA256" "$H30_PATCH_SHA256"
-    h30_ready || { echo "H30 applied but final H30 hashes do not match." >&2; exit 1; }
-fi
-if ! h31_ready; then
-    apply_new_patch H31 "$H31_PATCH_PART" "$H31_ARCHIVE_SHA256" "$H31_PATCH_SHA256"
-    h31_ready || { echo "H31 applied but final H31 hashes do not match." >&2; exit 1; }
-fi
-if ! h32_ready; then
+
+# Detect the highest valid materialized stage. Later blocks legitimately modify files
+# whose earlier-stage hashes no longer match, so never walk backwards from H33/H32.
+if h33_ready; then
+    :
+elif h32_ready; then
+    apply_new_patch H33 "$H33_PATCH_PART" "$H33_ARCHIVE_SHA256" "$H33_PATCH_SHA256"
+    h33_ready || { echo "H33 applied but final H33 hashes do not match." >&2; exit 1; }
+elif h31_ready; then
     apply_new_patch H32 "$H32_PATCH_PART" "$H32_ARCHIVE_SHA256" "$H32_PATCH_SHA256"
     h32_ready || { echo "H32 applied but final H32 hashes do not match." >&2; exit 1; }
-fi
-if ! h33_ready; then
+    apply_new_patch H33 "$H33_PATCH_PART" "$H33_ARCHIVE_SHA256" "$H33_PATCH_SHA256"
+    h33_ready || { echo "H33 applied but final H33 hashes do not match." >&2; exit 1; }
+elif h30_ready; then
+    apply_new_patch H31 "$H31_PATCH_PART" "$H31_ARCHIVE_SHA256" "$H31_PATCH_SHA256"
+    h31_ready || { echo "H31 applied but final H31 hashes do not match." >&2; exit 1; }
+    apply_new_patch H32 "$H32_PATCH_PART" "$H32_ARCHIVE_SHA256" "$H32_PATCH_SHA256"
+    h32_ready || { echo "H32 applied but final H32 hashes do not match." >&2; exit 1; }
+    apply_new_patch H33 "$H33_PATCH_PART" "$H33_ARCHIVE_SHA256" "$H33_PATCH_SHA256"
+    h33_ready || { echo "H33 applied but final H33 hashes do not match." >&2; exit 1; }
+elif h29_ready; then
+    apply_new_patch H30 "$H30_PATCH_PART" "$H30_ARCHIVE_SHA256" "$H30_PATCH_SHA256"
+    h30_ready || { echo "H30 applied but final H30 hashes do not match." >&2; exit 1; }
+    apply_new_patch H31 "$H31_PATCH_PART" "$H31_ARCHIVE_SHA256" "$H31_PATCH_SHA256"
+    h31_ready || { echo "H31 applied but final H31 hashes do not match." >&2; exit 1; }
+    apply_new_patch H32 "$H32_PATCH_PART" "$H32_ARCHIVE_SHA256" "$H32_PATCH_SHA256"
+    h32_ready || { echo "H32 applied but final H32 hashes do not match." >&2; exit 1; }
+    apply_new_patch H33 "$H33_PATCH_PART" "$H33_ARCHIVE_SHA256" "$H33_PATCH_SHA256"
+    h33_ready || { echo "H33 applied but final H33 hashes do not match." >&2; exit 1; }
+else
+    apply_new_patch H29 "$H29_PATCH_PART" "$H29_ARCHIVE_SHA256" "$H29_PATCH_SHA256"
+    h29_ready || { echo "H29 applied but final H29 hashes do not match." >&2; exit 1; }
+    apply_new_patch H30 "$H30_PATCH_PART" "$H30_ARCHIVE_SHA256" "$H30_PATCH_SHA256"
+    h30_ready || { echo "H30 applied but final H30 hashes do not match." >&2; exit 1; }
+    apply_new_patch H31 "$H31_PATCH_PART" "$H31_ARCHIVE_SHA256" "$H31_PATCH_SHA256"
+    h31_ready || { echo "H31 applied but final H31 hashes do not match." >&2; exit 1; }
+    apply_new_patch H32 "$H32_PATCH_PART" "$H32_ARCHIVE_SHA256" "$H32_PATCH_SHA256"
+    h32_ready || { echo "H32 applied but final H32 hashes do not match." >&2; exit 1; }
     apply_new_patch H33 "$H33_PATCH_PART" "$H33_ARCHIVE_SHA256" "$H33_PATCH_SHA256"
     h33_ready || { echo "H33 applied but final H33 hashes do not match." >&2; exit 1; }
 fi
 
-echo "Source patch tail materialized through H33 with verified final hashes"
+apply_new_patch H33a "$H33A_PATCH_PART" "$H33A_ARCHIVE_SHA256" "$H33A_PATCH_SHA256"
+h33a_ready || { echo "H33a applied but final H33a hashes do not match." >&2; exit 1; }
+
+echo "Source patch tail materialized through H33a with verified final hashes"
