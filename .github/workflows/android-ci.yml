@@ -8,12 +8,12 @@ on:
         required: true
         type: boolean
         default: false
-  # One-shot CI trigger for the H33a corrective. Remove after the run is closed.
+  # One-shot CI trigger for the H33b corrective. Remove after the run is closed.
   push:
     branches:
       - main
     paths:
-      - ".source-parts/H33aExternalControlCiCorrective.patch.gz.b64"
+      - ".source-parts/H33bExternalControlScrollTestCorrective.patch.gz.b64"
 
 permissions:
   contents: read
