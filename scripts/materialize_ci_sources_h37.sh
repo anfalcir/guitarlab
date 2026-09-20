@@ -2,9 +2,15 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PREVIOUS="$ROOT/scripts/materialize_ci_sources_h29_h33.sh"
-H37_PART="$ROOT/.source-parts/H37DriveV3Backup.patch.gz.b64"
-H37_ARCHIVE_SHA256="13756660eb462b99650bef9f95784a614cc29952d1f3210b16be8f1b2ef86ca0"
-H37_PATCH_SHA256="8014e8193b0f0eda07140ba136f58d606d6240f722131cf589c526eba50072b6"
+H37_PARTS=(
+    "$ROOT/.source-parts/H37DriveV3Backup.patch.gz.b64.part00"
+    "$ROOT/.source-parts/H37DriveV3Backup.patch.gz.b64.part01"
+    "$ROOT/.source-parts/H37DriveV3Backup.patch.gz.b64.part02"
+    "$ROOT/.source-parts/H37DriveV3Backup.patch.gz.b64.part03"
+    "$ROOT/.source-parts/H37DriveV3Backup.patch.gz.b64.part04"
+)
+H37_ARCHIVE_SHA256="b50c966cc6d95b4dce4268d1e9a4616c841d73d3d8be6758472e22555c895e19"
+H37_PATCH_SHA256="80c47320730cb665a6523f6f4ed404a9a1cc758e142e34de47c6dfdce3fdbb92"
 
 H37_CHECKS=(
     "app/build.gradle.kts|60007f2be41eadf6c9987f8af70aee561ed21f20"
@@ -42,11 +48,16 @@ h37_ready() {
 }
 
 decode_h37_patch() {
-    local output="$1" archive actual_archive
-    [[ -f "$H37_PART" ]] || { echo "Missing H37 source archive: $H37_PART" >&2; return 1; }
+    local output="$1" encoded archive actual_archive part
+    encoded="$(mktemp)"
     archive="$(mktemp)"
-    trap 'rm -f "$archive"' RETURN
-    base64 -d "$H37_PART" > "$archive"
+    trap 'rm -f "$encoded" "$archive"' RETURN
+    : > "$encoded"
+    for part in "${H37_PARTS[@]}"; do
+        [[ -f "$part" ]] || { echo "Missing H37 source archive part: $part" >&2; return 1; }
+        cat "$part" >> "$encoded"
+    done
+    base64 -d "$encoded" > "$archive"
     gzip -t "$archive"
     actual_archive="$(sha256sum "$archive" | awk '{print $1}')"
     [[ "$actual_archive" == "$H37_ARCHIVE_SHA256" ]] || {
@@ -54,7 +65,7 @@ decode_h37_patch() {
         return 1
     }
     gzip -dc "$archive" > "$output"
-    rm -f "$archive"
+    rm -f "$encoded" "$archive"
     trap - RETURN
 }
 
