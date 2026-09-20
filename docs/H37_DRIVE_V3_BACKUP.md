@@ -1,6 +1,6 @@
 # H37 — Native Google Drive API v3 Backup Transport
 
-Status: **H37a SOURCE PRE-GATE**
+Status: **H37b SOURCE PRE-GATE**
 Updated: 2026-09-20
 Target line: `0.5.0-rc4` / versionCode `24`
 Signed authority remains: **CI #663 / `0.5.0-rc3`** until the manual canonical gate passes.
@@ -22,6 +22,11 @@ The legacy SAF implementation remains only as a one-time migration source for us
 - Resumable upload session URLs are stored only in app-private SharedPreferences for crash recovery and are excluded from Android cloud backup/device transfer.
 - Drive connection/account binding is also device-local and excluded from Android backup/device transfer.
 - Disconnect revokes the granted Drive scope, clears local recovery state and does **not** delete remote backups.
+
+## Shared Google Cloud/Firebase project boundary
+GBW and GuitarLab may intentionally use the same Google Cloud/Firebase project as preparation for a future product unification. This does **not** merge Android OAuth identity: GuitarLab remains package `studio.guitarlab.app` and requires its own Android app/OAuth client registration for the locked signing certificate.
+
+The H37 backup path remains direct Google Identity Services + Drive API v3. No Firebase SDK, `google-services.json`, Cloud Functions or Cloud Run hop is required for backup bytes. A Firebase configuration belonging only to another package must never be embedded merely because both apps share the cloud project.
 
 ## Google Cloud OAuth prerequisite
 Enable Google Drive API and register an OAuth 2.0 Android client for the signed GuitarLab application.
@@ -127,7 +132,7 @@ Local pre-publication evidence:
 ## Evidence boundary / next gate
 This is **not yet DIGITAL PASS**. The current execution environment does not contain the Gradle wrapper/Android SDK/dependency cache needed to run the canonical Android gate locally.
 
-CI #663 remains the signed authority. H37 producer `abecc73e4eab181a7776d98cc731758b17c64b06` was exercised by manual CI #664 / run `35544867278`, which failed deterministically at Kotlin compilation before Lint/build/signing. H37a is the current compile-corrected source candidate and requires a fresh manual canonical run.
+CI #663 remains the signed authority. H37 producer `abecc73e4eab181a7776d98cc731758b17c64b06` was exercised by manual CI #664 / run `35544867278`, which failed deterministically at Kotlin compilation before Lint/build/signing. H37a corrects the compile failure; H37b additionally clears rejected OAuth access tokens from the Google Identity Services local cache and is the current source candidate requiring a fresh manual canonical run.
 
 Required first physical OAuth/Drive acceptance after a successful H37 CI:
 - connect the intended Google account;
@@ -185,3 +190,40 @@ Pre-publication H37a evidence:
 - deliberately corrupted H37a archive rejected before source mutation PASS.
 
 No Drive domain, OAuth scope, upload protocol, retention, migration or restore semantics are changed by H37a.
+
+
+## H37b — rejected-token cache hardening
+
+After H37a, the final pre-CI audit identified a 401 recovery edge: clearing only GuitarLab's in-memory token reference is insufficient because Google Identity Services can retain the same access token in its own local cache.
+
+Google's authorization API exposes `AuthorizationClient.clearToken(ClearTokenRequest)` specifically to clear an access token from that local cache. H37b therefore:
+- captures the exact token that received 401;
+- clears GuitarLab's in-memory copy first;
+- clears that rejected token from Google Identity Services;
+- reacquires authorization through the existing `drive.file` request;
+- preserves the one-refresh-on-401 bound and resumable-upload server-offset reconciliation.
+
+H37b source part:
+`.source-parts/H37bDriveTokenCacheHardening.patch.gz.b64`
+
+Encoded Base64 file SHA-256:
+`22a4a8b962836d337407e3151d508a857526e7bd43159ed25697119bfcf3fbf8`
+
+Compressed archive SHA-256:
+`e9e79f2c46e47f0e04ccf0f9aaead83908afa04cb3f99c81bbd3438d250cc824`
+
+Decoded patch SHA-256:
+`9ebfb1e69a6ad4e888e9782c07d54f9566630814ba40b8f6163e82727bc85c5d`
+
+Terminal Git blobs:
+- `DriveAuthorization.kt`: `4e727ae8d2a7e24a8e2c960380ade30ad1be1bf3`
+- `DriveV3Protocol.kt`: `83a46bcd0d98007c376b3476e99a97d3d6a96a9b`
+
+Pre-publication validation:
+- official API signature verification PASS;
+- targeted Kotlin/coroutines compile probe PASS;
+- clean H37a → H37b materialization PASS;
+- second materialization idempotent PASS;
+- corrupted H37b archive rejected fail-closed before source mutation PASS.
+
+No H28 identity, Drive file model, resumable protocol, integrity gate, retention, restore or SAF-migration contract changes in H37b.
