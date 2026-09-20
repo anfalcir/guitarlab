@@ -41,6 +41,9 @@ H36A_PATCH_SHA256="f5c8b3acdbd87ce4bbb3ffa8b95be3af018b3bb4df7acc27ff0fd0794a036
 H36B_PATCH_PART="$ROOT/.source-parts/H36bSettingsScrollTestCorrective.patch.gz.b64"
 H36B_ARCHIVE_SHA256="ac06c0d951355e2d0885203e010509bbb1aade05af173e6ba848a47e1184f692"
 H36B_PATCH_SHA256="a78b88bc6545a98fd109c353fe68910931897290f5feb93a0ebd648055dd3ee1"
+H36C_PATCH_PART="$ROOT/.source-parts/H36cSettingsCalibrationSemanticTagCorrective.patch.gz.b64"
+H36C_ARCHIVE_SHA256="9742596963536b5b9c55d59653ea68e1542bad8953f73028eff159736756b505"
+H36C_PATCH_SHA256="279ef2e51579bfd706a3071300ddf245fa06a4f0d22e9b868907a5c38bf877f7"
 
 H29_CHECKS=(
     "app/src/main/java/studio/guitarlab/app/ui/AudioProbeScreen.kt|4dcaee3e2691206601c53ccafacba8575f5eda9e"
@@ -137,6 +140,10 @@ H36B_CHECKS=(
     "app/src/androidTest/java/studio/guitarlab/app/SettingsVisualHierarchyInstrumentedTest.kt|eb8ee06396a0bba865f18bd49c42f356f3bec763"
     "app/src/main/java/studio/guitarlab/app/ui/SettingsScreen.kt|6c98b72b674743eeeebfe3991c0636e824ef8a09"
 )
+H36C_CHECKS=(
+    "app/src/androidTest/java/studio/guitarlab/app/SettingsCalibrationModalInstrumentedTest.kt|4f687ae905d421aafeaa426cca39e1afbabacc45"
+    "app/src/main/java/studio/guitarlab/app/ui/SettingsScreen.kt|6c98b72b674743eeeebfe3991c0636e824ef8a09"
+)
 
 checks_ready() {
     local array_name="$1" entry relative expected
@@ -161,6 +168,7 @@ h35a_ready() { checks_ready H35A_CHECKS; }
 h36_ready() { checks_ready H36_CHECKS; }
 h36a_ready() { checks_ready H36A_CHECKS; }
 h36b_ready() { checks_ready H36B_CHECKS; }
+h36c_ready() { checks_ready H36C_CHECKS; }
 
 decode_verified_patch() {
     local label="$1" encoded="$2" archive_sha="$3" patch_sha="$4" output="$5" archive actual
@@ -211,15 +219,24 @@ verify_new_patch H35a "$H35A_PATCH_PART" "$H35A_ARCHIVE_SHA256" "$H35A_PATCH_SHA
 verify_new_patch H36 "$H36_PATCH_PART" "$H36_ARCHIVE_SHA256" "$H36_PATCH_SHA256"
 verify_new_patch H36a "$H36A_PATCH_PART" "$H36A_ARCHIVE_SHA256" "$H36A_PATCH_SHA256"
 verify_new_patch H36b "$H36B_PATCH_PART" "$H36B_ARCHIVE_SHA256" "$H36B_PATCH_SHA256"
+verify_new_patch H36c "$H36C_PATCH_PART" "$H36C_ARCHIVE_SHA256" "$H36C_PATCH_SHA256"
 
+if h36c_ready; then
+    echo "Source patch tail already materialized through H36c"
+    exit 0
+fi
 if h36b_ready; then
-    echo "Source patch tail already materialized through H36b"
+    apply_new_patch H36c "$H36C_PATCH_PART" "$H36C_ARCHIVE_SHA256" "$H36C_PATCH_SHA256"
+    h36c_ready || { echo "H36c applied but final H36c hashes do not match." >&2; exit 1; }
+    echo "Source patch tail materialized through H36c with verified final hashes"
     exit 0
 fi
 if h36a_ready; then
     apply_new_patch H36b "$H36B_PATCH_PART" "$H36B_ARCHIVE_SHA256" "$H36B_PATCH_SHA256"
     h36b_ready || { echo "H36b applied but final H36b hashes do not match." >&2; exit 1; }
-    echo "Source patch tail materialized through H36b with verified final hashes"
+    apply_new_patch H36c "$H36C_PATCH_PART" "$H36C_ARCHIVE_SHA256" "$H36C_PATCH_SHA256"
+    h36c_ready || { echo "H36c applied but final H36c hashes do not match." >&2; exit 1; }
+    echo "Source patch tail materialized through H36c with verified final hashes"
     exit 0
 fi
 if h36_ready; then
@@ -227,7 +244,9 @@ if h36_ready; then
     h36a_ready || { echo "H36a applied but final H36a hashes do not match." >&2; exit 1; }
     apply_new_patch H36b "$H36B_PATCH_PART" "$H36B_ARCHIVE_SHA256" "$H36B_PATCH_SHA256"
     h36b_ready || { echo "H36b applied but final H36b hashes do not match." >&2; exit 1; }
-    echo "Source patch tail materialized through H36b with verified final hashes"
+    apply_new_patch H36c "$H36C_PATCH_PART" "$H36C_ARCHIVE_SHA256" "$H36C_PATCH_SHA256"
+    h36c_ready || { echo "H36c applied but final H36c hashes do not match." >&2; exit 1; }
+    echo "Source patch tail materialized through H36c with verified final hashes"
     exit 0
 fi
 if h35a_ready; then
@@ -344,5 +363,7 @@ apply_new_patch H36a "$H36A_PATCH_PART" "$H36A_ARCHIVE_SHA256" "$H36A_PATCH_SHA2
 h36a_ready || { echo "H36a applied but final H36a hashes do not match." >&2; exit 1; }
     apply_new_patch H36b "$H36B_PATCH_PART" "$H36B_ARCHIVE_SHA256" "$H36B_PATCH_SHA256"
     h36b_ready || { echo "H36b applied but final H36b hashes do not match." >&2; exit 1; }
+    apply_new_patch H36c "$H36C_PATCH_PART" "$H36C_ARCHIVE_SHA256" "$H36C_PATCH_SHA256"
+    h36c_ready || { echo "H36c applied but final H36c hashes do not match." >&2; exit 1; }
 
-echo "Source patch tail materialized through H36b with verified final hashes"
+echo "Source patch tail materialized through H36c with verified final hashes"

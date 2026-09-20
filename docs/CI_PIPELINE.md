@@ -13,7 +13,7 @@ Authority layers:
 ## Current source materialization
 `.source-parts/` + `scripts/materialize_ci_sources.sh` are source-of-truth build inputs. Unexpected drift fails closed by exact SHA-256/Git blob checks.
 
-Canonical tail: `… → H25 → H26 → H26a → H26b → H26e → H27 → H28 → H29 → H30 → H31 → H32 → H33 → H33a → H33b → H34 → H35 → H35a → H36 → H36a → H36b`.
+Canonical tail: `… → H25 → H26 → H26a → H26b → H26e → H27 → H28 → H29 → H30 → H31 → H32 → H33 → H33a → H33b → H34 → H35 → H35a → H36 → H36a → H36b → H36c`.
 
 The previously accepted H28 materializer is preserved byte-for-byte as `scripts/materialize_ci_sources_through_h28.sh`. The entrypoint then runs `scripts/materialize_ci_sources_h29_h33.sh`.
 
@@ -31,9 +31,10 @@ New tail inputs:
 - H35a `.source-parts/H35aLintPermissionCorrective.patch.gz.b64` — gzip `eb766693ffdf31c611ea038ba70ce46378b81d067a27f092cc40e960c2de8bb7`, patch `8fb5be6b03b6f8897ddb78dc38ff1c1ad565767160d11e3cba5007f4320b9179`;
 - H36 `.source-parts/H36SettingsUxPolish.patch.gz.b64` — gzip `22895aa6e1d39a3c6988f503467e763893b0448ca1b087ba23614a1a2b162eaf`, patch `9489fe121cbbc6c43bf9675701cd74c2556c7d8c1461c48030745711c1b54852`;
 - H36a `.source-parts/H36aSettingsTestImportCorrective.patch.gz.b64` — gzip `949c740dc67545016a27652630ed1e6504f76ae9322feaecd554191ee5753c22`, patch `f5c8b3acdbd87ce4bbb3ffa8b95be3af018b3bb4df7acc27ff0fd0794a03686a`;
-- H36b `.source-parts/H36bSettingsScrollTestCorrective.patch.gz.b64` — gzip `ac06c0d951355e2d0885203e010509bbb1aade05af173e6ba848a47e1184f692`, patch `a78b88bc6545a98fd109c353fe68910931897290f5feb93a0ebd648055dd3ee1`.
+- H36b `.source-parts/H36bSettingsScrollTestCorrective.patch.gz.b64` — gzip `ac06c0d951355e2d0885203e010509bbb1aade05af173e6ba848a47e1184f692`, patch `a78b88bc6545a98fd109c353fe68910931897290f5feb93a0ebd648055dd3ee1`;
+- H36c `.source-parts/H36cSettingsCalibrationSemanticTagCorrective.patch.gz.b64` — gzip `9742596963536b5b9c55d59653ea68e1542bad8953f73028eff159736756b505`, patch `279ef2e51579bfd706a3071300ddf245fa06a4f0d22e9b868907a5c38bf877f7`.
 
-Expected terminal message: `Source patch chain materialized through H36b with verified final hashes`.
+Expected terminal message: `Source patch chain materialized through H36c with verified final hashes`.
 
 Pre-publication source proofs on the exact H28 baseline:
 - first H28→H33 materialization PASS;
@@ -50,7 +51,7 @@ H36 extends the signed #659 source only at the Settings presentation/test layer.
 - corrupt H36 archive rejected before source mutation;
 - final Git blobs verified for SettingsScreen and both H36 instrumented tests.
 
-CI #660 on H36 passed the software gate completely but API36 stopped at Android-test compilation on one invalid test-only import. H36a removed that import. CI #661 again passed the software gate, compiled Android tests, and executed 34 app instrumented tests; 31 passed and 3 failed only because the tests asserted `displayed` on controls below the current vertical viewport (`settings-external-hid-toggle`, `+1 ms`, and `Diagnóstico`). H36b changes only the three tests to scroll the owning Settings/modal container to the target before asserting visibility. Runtime UI remains unchanged.
+CI #660 on H36 passed the software gate completely but API36 stopped at Android-test compilation on one invalid test-only import. H36a removed that import. CI #661 again passed the software gate, compiled Android tests, and executed 34 app instrumented tests; 31 passed and 3 failed only because the tests asserted `displayed` on controls below the current vertical viewport (`settings-external-hid-toggle`, `+1 ms`, and `Diagnóstico`). H36b changes only the three tests to scroll the owning Settings/modal container to the target before asserting visibility. Runtime UI remains unchanged. CI #662 then executed all 34 app instrumented tests with 33 PASS / 1 FAIL; the sole failure was a stale copy-dependent lookup for `Medir latência física`. H36c changes that test to target stable semantic tag `settings-run-calibration`. No runtime source changes are introduced.
 
 ## Current signed authority — CI #659
 CI #659 / run `35512894518` / producer `a6a53e8ba9e75b32565e451870758c7c65ad687f` is the signed DIGITAL PASS through H35a.

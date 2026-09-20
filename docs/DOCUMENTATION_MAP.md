@@ -7,7 +7,7 @@ Repository documentation is split into **live authority**, **normative contracts
 
 A historical document may intentionally contain an old statement such as “current”, “latest”, “pending”, an old branch name or an old hardware target because it preserves contemporaneous evidence. Such statements apply only to that document's dated context and **never override the live authority set below**.
 
-## Live authority — signed #659 / current H36-H36b source line
+## Live authority — signed #659 / current H36-H36c source line
 Use these first for current status, release identity and remaining work:
 - `README.md` — repository entry point;
 - `CURRENT_STATE.md` — current signed authority and remaining physical residual;
@@ -22,7 +22,7 @@ Use these first for current status, release identity and remaining work:
 - `RC3_FINAL_PHYSICAL_HOMOLOGATION.md` — current target-device checklist bound to CI #659;
 - `RELEASE_NOTES_0.5.0-rc3.md` — active RC3 behavior delta;
 - `H35_TAKE_SYNC_QUIET_CALIBRATION.md` — global-vs-take synchronization and quiet/silent calibration contract;
-- `H36_SETTINGS_UX_POLISH.md` — current Settings/calibration presentation refinement plus H36a/H36b CI correctives and pre-gate evidence.
+- `H36_SETTINGS_UX_POLISH.md` — current Settings/calibration presentation refinement plus H36a/H36b/H36c CI correctives and pre-gate evidence.
 
 ## Normative subsystem contracts
 These define behavior and remain valid unless explicitly superseded:
@@ -52,7 +52,7 @@ CI #659 / run `35512894518` / producer `a6a53e8ba9e75b32565e451870758c7c65ad687f
 
 Signed APK SHA-256: `e7ddce638a83d92af0ef2a01e46a10152f8c0eb4c535f0ddbc8671d9b94a1295`.
 
-H28 backup/provider-consistency behavior is already physically accepted. H36/H36a/H36b are SOURCE PRE-GATE on top of #659; the correctives are test-only and do not change audio/runtime semantics. Remaining stable-1.0 physical work is recording alignment, USB loss/reconnect/capture preservation, the continuous 10-minute quality exercise and H35 target-device synchronization/calibration behavior. H33 real-controller physical acceptance is a separate 1.1 boundary.
+H28 backup/provider-consistency behavior is already physically accepted. H36/H36a/H36b/H36c are SOURCE PRE-GATE on top of #659; the correctives are test-only and do not change audio/runtime semantics. Remaining stable-1.0 physical work is recording alignment, USB loss/reconnect/capture preservation, the continuous 10-minute quality exercise and H35 target-device synchronization/calibration behavior. H33 real-controller physical acceptance is a separate 1.1 boundary.
 
 ## Repository audits
 - `REPOSITORY_SANITIZATION_2026-09-20.md` records the branch audit supporting a single-branch (`main`) repository cleanup.

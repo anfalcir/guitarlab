@@ -33,7 +33,7 @@ Target-device retest after #653 confirms the backup workflow is now functioning 
 
 The remaining RC3 physical closure is recording latency/synchronization on the intended USB route.
 
-## Current source after #659 — H36/H36a/H36b PRE-GATE
+## Current source after #659 — H36/H36a/H36b/H36c PRE-GATE
 H36 refines Settings UX without changing audio behavior:
 - main Settings is centered/capped on tablets instead of stretching across the display;
 - section/card hierarchy is lighter and secondary actions become compact responsive trailing buttons;
@@ -43,7 +43,7 @@ H36 refines Settings UX without changing audio behavior:
 - silent/physical calibration actions share the same compact responsive component;
 - new/expanded Compose instrumentation protects Settings hierarchy and calibration-control visibility.
 
-CI #660 passed H36's software gate but failed Android-test compilation; H36a corrected that import. CI #661 then compiled and ran instrumentation, with 31/34 passing and three viewport-only Settings assertions failing. H36b corrects those tests without changing runtime UI. CI #659 remains the signed authority until a complete exact-source canonical gate passes.
+CI #660 passed H36's software gate but failed Android-test compilation; H36a corrected that import. CI #661 then compiled and ran instrumentation, with 31/34 passing and three viewport-only Settings assertions failing. H36b corrects those tests without changing runtime UI. CI #662 reached 33/34 app instrumentation PASS; H36c corrects the sole remaining stale text-based calibration test using the stable semantic tag, without changing runtime UI. CI #659 remains the signed authority until a complete exact-source canonical gate passes.
 
 ## Forward development
 The approved post-H28 hardening and external-control roadmap is documented in `POST_H28_HARDENING_AND_EXTERNAL_CONTROL_PLAN.md`.

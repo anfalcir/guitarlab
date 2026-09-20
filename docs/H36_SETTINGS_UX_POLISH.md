@@ -1,7 +1,7 @@
 # H36 — Settings UX Polish
 
 Updated: 2026-09-20
-Status: **SOURCE PRE-GATE READY — H36b corrective line**
+Status: **SOURCE PRE-GATE READY — H36c corrective line**
 
 ## Problem
 Physical review found two related presentation defects:
@@ -100,3 +100,27 @@ H36b identities:
 - Settings hierarchy test blob: `eb8ee06396a0bba865f18bd49c42f356f3bec763`.
 
 Direct H36a→H36b dry-run/application PASS; second direct application rejected as already applied; corrupted H36b archive rejected before source mutation with the H36a source hash preserved.
+
+
+## H36c — CI #662 stable-semantics test corrective
+CI #662 passed the complete software gate and ran all 34 app instrumented tests. Result: **33 PASS / 1 FAIL / 0 errors**.
+
+The only failure was in `SettingsCalibrationModalInstrumentedTest`: the test still searched for the old text `Medir latência física`. H36 intentionally changed the presentation to the compact action row `Calibração física round-trip` + button `Medir`, while preserving stable semantic tag `settings-run-calibration`.
+
+H36c changes only that assertion:
+- old: copy-dependent `onNodeWithText("Medir latência física")`;
+- new: semantic `onNodeWithTag("settings-run-calibration")`;
+- runtime `SettingsScreen.kt` unchanged;
+- corrected calibration test blob: `4f687ae905d421aafeaa426cca39e1afbabacc45`.
+
+H36c identities:
+- gzip SHA-256: `9742596963536b5b9c55d59653ea68e1542bad8953f73028eff159736756b505`;
+- decoded patch SHA-256: `279ef2e51579bfd706a3071300ddf245fa06a4f0d22e9b868907a5c38bf877f7`.
+
+Validation before publication:
+- direct H36b→H36c dry-run/application PASS;
+- second direct application rejected as already applied;
+- deliberate gzip corruption rejected before source mutation;
+- final materializer first run PASS;
+- final materializer second run PASS/idempotent;
+- final tail/wrapper blobs match the locally validated scripts.
