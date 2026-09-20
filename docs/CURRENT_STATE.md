@@ -4,8 +4,8 @@ Updated: 2026-09-20
 
 ## Active line
 - Repository/branch: `anfalcir/guitarlab` / `main`.
-- Source candidate: `0.5.0-rc4`, versionCode `24`, H37 — **SOURCE PRE-GATE**.
-- Current signed version remains `0.5.0-rc3`, versionCode `23`, package `studio.guitarlab.app`, until H37 passes the manual canonical gate.
+- Source candidate: `0.5.0-rc4`, versionCode `24`, H37a — **SOURCE PRE-GATE**.
+- Current signed version remains `0.5.0-rc3`, versionCode `23`, package `studio.guitarlab.app`, until H37a passes the manual canonical gate.
 - Current signed source line: CI #663 producer `51d4098fa7b1b44a9fa315e939541020f594654d`.
 - Latest signed DIGITAL PASS: **CI #663** / run `35523442620` / producer `51d4098fa7b1b44a9fa315e939541020f594654d`.
 - #663 scope: H28 → H29 → H30 → H31 → H32 → H33 → H33a → H33b → H34 → H35 → H35a → H36 → H36a → H36b → H36c.
@@ -55,6 +55,29 @@ Closed behavior:
 
 CI progression is retained as evidence: #660 exposed a test-import issue, #661 exposed three viewport assumptions, #662 reached 33/34 instrumentation PASS, and #663 closed the complete canonical gate at 34/34 + geometry + signing.
 
+## CI #664 — H37 compile failure and H37a corrective
+Manual CI #664 / run `35544867278` executed the merged H37 producer `abecc73e4eab181a7776d98cc731758b17c64b06` and failed before Lint/build/signing because both parallel Android jobs reached the same Kotlin compile failure.
+
+The failure was deterministic and limited to H37 code:
+- `DriveAuthorization.kt` used `tryResume/completeResume` and `tryResumeWithException/completeResume`, which Kotlin/coroutines 1.11.0 rejects as internal API usage;
+- `DriveV3Protocol.kt` used an expression-bodied `withContext<DriveHttpResponse>` loop whose lambda terminal type was inferred as `Unit`.
+
+H37a is a minimal compile corrective:
+- switches the Google Task bridge to public stable `Continuation.resume` / `resumeWithException` and handles Task cancellation explicitly;
+- rewrites the authorized HTTP loop around an explicit nullable completed response and `checkNotNull`, preserving the one-refresh-on-401 semantics;
+- keeps all H37 Drive domain, OAuth, integrity, resumable-upload and migration behavior unchanged;
+- adds a deterministic H37a source part and materializer on top of H37.
+
+Pre-publication H37a evidence:
+- targeted Kotlin/coroutines compile probe PASS;
+- exact H37 → H37a patch apply PASS;
+- terminal Git blob verification PASS;
+- actual H37a materializer first run PASS;
+- second materializer run idempotent PASS;
+- corrupted H37a archive rejected fail-closed before source mutation PASS.
+
+CI #664 is retained as failed compile evidence only. CI #663 remains the signed DIGITAL PASS authority until H37a completes the full manual canonical gate.
+
 ## H37 — Native Drive v3 backup transport — SOURCE PRE-GATE
 H37 is implemented as the next source block on top of the signed H36c baseline. It changes the primary backup transport from SAF to direct Google Drive API v3 while preserving the H28 domain identity and retention contract.
 
@@ -77,12 +100,12 @@ Source integrity evidence before publication:
 - deliberately corrupted H37 source archive failed closed before H37 source mutation;
 - shell syntax, `git diff --check` and static credential/scope audits PASS.
 
-H37 is **not DIGITAL PASS yet**. The canonical Android compile/Lint/API36/signing workflow has not been dispatched. CI #663 therefore remains the signed authority.
+H37 reached canonical CI #664 but failed at Kotlin compilation before Lint/build/signing. H37a corrects that compile boundary and is **not DIGITAL PASS yet** until a new manual canonical run passes. CI #663 therefore remains the signed authority.
 
 ## Remaining RC3 physical blocker
 The remaining release-critical target-only item is **recording latency/synchronization acceptance** on the intended real USB route. The recording timing architecture is already implemented and digitally covered; the unresolved boundary is physical driver/hardware behavior.
 
-Final stable promotion now has two independent boundaries: the existing RC3 hardware residual still requires no repeatable P0/P1 and explicit approval of an exact signed candidate; H37 additionally requires its manual exact-source digital gate plus first real OAuth/Drive backup/restore acceptance before RC4 can supersede RC3.
+Final stable promotion now has two independent boundaries: the existing RC3 hardware residual still requires no repeatable P0/P1 and explicit approval of an exact signed candidate; H37a additionally requires its manual exact-source digital gate plus first real OAuth/Drive backup/restore acceptance before RC4 can supersede RC3.
 
 ## Approved next-development scope
 The authoritative plan is `POST_H28_HARDENING_AND_EXTERNAL_CONTROL_PLAN.md`.
