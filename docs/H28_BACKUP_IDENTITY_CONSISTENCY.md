@@ -120,3 +120,11 @@ The local/source proofs above were subsequently exercised by canonical Android C
 H28 first became signed DIGITAL PASS at CI #653 / run `35207902169` / producer `d09fc003e2ae2d699238eb39ba699f75a746fea4`. Target-device retest then confirmed that the false confirmation/selective-duplicate defect that triggered H28 was no longer reproduced.
 
 The current signed authority is CI #663 / run `35523442620` / producer `51d4098fa7b1b44a9fa315e939541020f594654d`, which preserves H28 inside the H36c exact-source regression baseline. H28 is therefore a protected backup/restore contract rather than pending work.
+
+
+## H37 transport preservation boundary
+H37 is a later **SOURCE PRE-GATE** transport migration. It does not replace the H28 identity model: immutable `projectId`, deterministic `revisionId`, package SHA-256, bounded retention, unchanged-revision idempotency and restore-as-independent-copy remain the authoritative domain contract.
+
+H37 moves the primary Android remote-store edge from SAF to direct Google Drive API v3 with OAuth `drive.file`, resumable uploads and Drive-reported size/SHA-256 verification. Existing SAF histories remain readable only as a one-time migration source and are not released locally until all selected history has migrated successfully.
+
+Until the manual H37 canonical workflow passes, CI #663 remains the signed evidence that H28 itself is protected. H37 source readiness must not be described as a signed or physical supersession of that evidence.

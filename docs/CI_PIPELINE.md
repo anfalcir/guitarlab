@@ -13,9 +13,9 @@ Authority layers:
 ## Current source materialization
 `.source-parts/` + `scripts/materialize_ci_sources.sh` are source-of-truth build inputs. Unexpected drift fails closed by exact SHA-256/Git blob checks.
 
-Canonical tail: `… → H25 → H26 → H26a → H26b → H26e → H27 → H28 → H29 → H30 → H31 → H32 → H33 → H33a → H33b → H34 → H35 → H35a → H36 → H36a → H36b → H36c`.
+Canonical source tail: `… → H25 → H26 → H26a → H26b → H26e → H27 → H28 → H29 → H30 → H31 → H32 → H33 → H33a → H33b → H34 → H35 → H35a → H36 → H36a → H36b → H36c → H37`.
 
-The previously accepted H28 materializer is preserved byte-for-byte as `scripts/materialize_ci_sources_through_h28.sh`. The entrypoint then runs `scripts/materialize_ci_sources_h29_h33.sh`.
+The previously accepted H28 materializer is preserved byte-for-byte as `scripts/materialize_ci_sources_through_h28.sh`. The canonical entrypoint then runs `scripts/materialize_ci_sources_h37.sh`; H37 invokes the existing `scripts/materialize_ci_sources_h29_h33.sh` H29-H36c tail before applying the H37 delta.
 
 H28 input remains `.source-parts/H28BackupIdentityConsistency.patch.gz.b64` with gzip SHA-256 `1abd8101361b241dfb443950c2a635141b41fecca77442d86343eb3f3025d3be` and decoded patch SHA-256 `3d06aa851ad1dc88dd078d60bb24ea097bbca7ef4f3e93089f47c9bd4a0a6e71`.
 
@@ -33,8 +33,9 @@ New tail inputs:
 - H36a `.source-parts/H36aSettingsTestImportCorrective.patch.gz.b64` — gzip `949c740dc67545016a27652630ed1e6504f76ae9322feaecd554191ee5753c22`, patch `f5c8b3acdbd87ce4bbb3ffa8b95be3af018b3bb4df7acc27ff0fd0794a03686a`;
 - H36b `.source-parts/H36bSettingsScrollTestCorrective.patch.gz.b64` — gzip `ac06c0d951355e2d0885203e010509bbb1aade05af173e6ba848a47e1184f692`, patch `a78b88bc6545a98fd109c353fe68910931897290f5feb93a0ebd648055dd3ee1`;
 - H36c `.source-parts/H36cSettingsCalibrationSemanticTagCorrective.patch.gz.b64` — gzip `9742596963536b5b9c55d59653ea68e1542bad8953f73028eff159736756b505`, patch `279ef2e51579bfd706a3071300ddf245fa06a4f0d22e9b868907a5c38bf877f7`.
+- H37 `.source-parts/H37DriveV3Backup.patch.gz.b64.part00` … `.part04` — reconstructed gzip `253953752a421a5b2299a040024c7f897940cfaa7de17aec914bcc2793ce9000`, decoded patch `d4d7da1d1a097c9451644d78b92cc10dae6faf35b523b0339cce906ab01007a2`.
 
-Expected terminal message: `Source patch chain materialized through H36c with verified final hashes`.
+Expected terminal message for the current source candidate: `Source patch chain materialized through H37 with verified final hashes`.
 
 Pre-publication source proofs on the exact H28 baseline:
 - first H28→H33 materialization PASS;
@@ -43,6 +44,17 @@ Pre-publication source proofs on the exact H28 baseline:
 - each H29-H33 block verifies both archive/decoded-patch SHA-256 and exact final Git blob hashes.
 
 These pre-gate proofs were exercised by the canonical #659 workflow on the exact H35a source.
+
+## H37 source pre-gate evidence
+H37 is not yet a DIGITAL PASS. Local/source proofs before publication establish only source integrity and deterministic materialization:
+- clean H36c → H37 materialization PASS;
+- second full materialization PASS/idempotent;
+- all 20 H37 terminal source Git blobs match the materializer contract;
+- a deliberately corrupted H37 source archive is rejected before H37 source mutation;
+- shell syntax and `git diff --check` PASS;
+- static audit finds only OAuth `drive.file` and no Firebase/backend credential/service-account/client-secret/refresh-token path.
+
+The canonical manual workflow must still prove JVM/unit, Android Lint, build/provenance, API36 instrumentation/geometry and signing before H37 can become signed authority.
 
 ## H36 closure evidence
 H36 is digitally closed by CI #663. The source-materialization/idempotence/fail-closed proofs remain valid, while the canonical Android gate now additionally proves compilation, Lint, **34/34 standard instrumentation**, isolated geometry and signing. H36a/H36b/H36c are test-only correctives and introduce no runtime source change after H36.
@@ -54,12 +66,12 @@ Audited evidence:
 - **330/330 JVM/unit tests PASS**;
 - Android Lint PASS with **0 errors, 50 warnings and 4 hints**;
 - debug/release assembly and unsigned provenance PASS;
-- unsigned tested APK SHA-256 `4351458825b7a07c53ff2827e69477414896b497b0a77e3aa7e681c29d97c5da`;
+- unsigned tested APK SHA-256 `215315f8b943704b9b820f98b4b7747df2fbbc62b862ab08e6c14d4dea9e89ad`;
 - **33/33 standard API36 PASS**;
 - **1/1 isolated 1920×1200 geometry PASS**;
 - exact tested-artifact signing/zipalign/package/version/certificate PASS;
 - signer certificate SHA-256 `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`;
-- signed APK SHA-256 `e7ddce638a83d92af0ef2a01e46a10152f8c0eb4c535f0ddbc8671d9b94a1295`.
+- signed APK SHA-256 `8e6e0f555bc5e834c4bccbdb011134c42d124806ce0316dd28787a6c98fe7bf3`.
 
 CI #658 is retained only as failed intermediate evidence: H35 materialization, unit tests and API36 passed there, but Lint rejected the missing local permission proof. H35a corrected that issue and CI #659 closed the full gate.
 

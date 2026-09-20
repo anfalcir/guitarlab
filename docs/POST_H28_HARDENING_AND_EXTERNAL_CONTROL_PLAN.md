@@ -1,7 +1,7 @@
 # Post-H28 Hardening and External Control Implementation Plan
 
 Updated: 2026-09-20
-Status: **H29-H36c DIGITAL PASS (#663) / PHYSICAL RESIDUAL ONLY**
+Status: **H29-H36c DIGITAL PASS (#663) / H37 BACKUP TRANSPORT SOURCE PRE-GATE / PHYSICAL RESIDUAL**
 Initial baseline: `0.5.0-rc3` / H28 CI #653 / source `d09fc003e2ae2d699238eb39ba699f75a746fea4`
 
 ## 1. Purpose
@@ -9,7 +9,7 @@ Initial baseline: `0.5.0-rc3` / H28 CI #653 / source `d09fc003e2ae2d699238eb39ba
 This document is the authoritative implementation plan for the GuitarLab development line after H28. It deliberately separates:
 
 1. **hardening/refinement of capabilities already present**, which must be completed before stable `1.0.0`; and
-2. **one new feature family only**: external MIDI/footswitch control, planned after the stable hardening line.
+2. **one new feature family only**: external MIDI/footswitch control, planned after the stable hardening line. H37 is not a new product feature family; it is a reliability/security transport replacement for the already-existing backup capability.
 
 The plan preserves the current guitar-first scope. It does not turn GuitarLab into a general-purpose DAW and does not reopen feature families explicitly excluded below.
 
@@ -49,7 +49,7 @@ H34-H36c are no longer pre-gate:
 - physical calibration validates the exact live routes before emitting the short adaptive chirp;
 - H35a provides the explicit local RECORD_AUDIO permission guard required by Lint.
 
-Remaining stable-1.0 work is hardware-only: H29 real alignment, H30 real USB disconnect/reconnect and capture preservation, H32 continuous 10-minute quality/save/reopen/export, and H35 target-device synchronization/calibration behavior. H33 real-controller acceptance remains the separate 1.1 physical gate.
+On the signed #663/RC3 baseline, the remaining audio work is hardware-only: H29 real alignment, H30 real USB disconnect/reconnect and capture preservation, H32 continuous 10-minute quality/save/reopen/export, and H35 target-device synchronization/calibration behavior. H37 subsequently introduces a source-candidate backup transport change and therefore adds its own exact-source CI + OAuth/Drive target acceptance before an RC4/stable candidate can supersede RC3. H33 real-controller acceptance remains the separate 1.1 physical gate.
 ## 3. Locked scope
 
 ### 3.1 Hardening/refinement to complete before 1.0.0
