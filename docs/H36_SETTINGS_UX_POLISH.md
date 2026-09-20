@@ -62,3 +62,15 @@ H36 source identities:
 
 ## Evidence boundary
 No Android compile/Lint/API36/signing claim is made for H36 yet. CI #659 / producer `a6a53e8ba9e75b32565e451870758c7c65ad687f` remains the latest signed DIGITAL PASS until a manual exact-source workflow closes H36.
+
+## H36a — CI #660 Android-test compile corrective
+CI #660 passed H36 materialization, JVM/unit tests, Android Lint and debug/release assembly/provenance. The API36 job failed before instrumentation because the new Settings hierarchy test imported `androidx.compose.ui.test.onNode`, which is not a top-level import in the project's Compose Test API. The test already invokes the correct `composeRule.onNode(...)` method.
+
+H36a removes only that invalid import:
+- runtime/UI code unchanged;
+- SettingsScreen blob remains `6c98b72b674743eeeebfe3991c0636e824ef8a09`;
+- corrected test blob `ca2333c7f732212ded2cb06f027e3f5357ee1294`;
+- H36a gzip SHA-256 `949c740dc67545016a27652630ed1e6504f76ae9322feaecd554191ee5753c22`;
+- decoded patch SHA-256 `f5c8b3acdbd87ce4bbb3ffa8b95be3af018b3bb4df7acc27ff0fd0794a03686a`.
+
+H36a remains SOURCE PRE-GATE until the complete API36/signing pipeline passes.

@@ -35,6 +35,9 @@ H35A_PATCH_SHA256="8fb5be6b03b6f8897ddb78dc38ff1c1ad565767160d11e3cba5007f4320b9
 H36_PATCH_PART="$ROOT/.source-parts/H36SettingsUxPolish.patch.gz.b64"
 H36_ARCHIVE_SHA256="22895aa6e1d39a3c6988f503467e763893b0448ca1b087ba23614a1a2b162eaf"
 H36_PATCH_SHA256="9489fe121cbbc6c43bf9675701cd74c2556c7d8c1461c48030745711c1b54852"
+H36A_PATCH_PART="$ROOT/.source-parts/H36aSettingsTestImportCorrective.patch.gz.b64"
+H36A_ARCHIVE_SHA256="949c740dc67545016a27652630ed1e6504f76ae9322feaecd554191ee5753c22"
+H36A_PATCH_SHA256="f5c8b3acdbd87ce4bbb3ffa8b95be3af018b3bb4df7acc27ff0fd0794a03686a"
 
 H29_CHECKS=(
     "app/src/main/java/studio/guitarlab/app/ui/AudioProbeScreen.kt|4dcaee3e2691206601c53ccafacba8575f5eda9e"
@@ -121,6 +124,10 @@ H36_CHECKS=(
     "app/src/androidTest/java/studio/guitarlab/app/SettingsVisualHierarchyInstrumentedTest.kt|5f8560042219f51216e02637e3b48f22ca947623"
     "app/src/main/java/studio/guitarlab/app/ui/SettingsScreen.kt|6c98b72b674743eeeebfe3991c0636e824ef8a09"
 )
+H36A_CHECKS=(
+    "app/src/androidTest/java/studio/guitarlab/app/SettingsVisualHierarchyInstrumentedTest.kt|ca2333c7f732212ded2cb06f027e3f5357ee1294"
+    "app/src/main/java/studio/guitarlab/app/ui/SettingsScreen.kt|6c98b72b674743eeeebfe3991c0636e824ef8a09"
+)
 
 checks_ready() {
     local array_name="$1" entry relative expected
@@ -143,6 +150,7 @@ h34_ready() { checks_ready H34_CHECKS; }
 h35_ready() { checks_ready H35_CHECKS; }
 h35a_ready() { checks_ready H35A_CHECKS; }
 h36_ready() { checks_ready H36_CHECKS; }
+h36a_ready() { checks_ready H36A_CHECKS; }
 
 decode_verified_patch() {
     local label="$1" encoded="$2" archive_sha="$3" patch_sha="$4" output="$5" archive actual
@@ -191,9 +199,16 @@ verify_new_patch H34 "$H34_PATCH_PART" "$H34_ARCHIVE_SHA256" "$H34_PATCH_SHA256"
 verify_new_patch H35 "$H35_PATCH_PART" "$H35_ARCHIVE_SHA256" "$H35_PATCH_SHA256"
 verify_new_patch H35a "$H35A_PATCH_PART" "$H35A_ARCHIVE_SHA256" "$H35A_PATCH_SHA256"
 verify_new_patch H36 "$H36_PATCH_PART" "$H36_ARCHIVE_SHA256" "$H36_PATCH_SHA256"
+verify_new_patch H36a "$H36A_PATCH_PART" "$H36A_ARCHIVE_SHA256" "$H36A_PATCH_SHA256"
 
+if h36a_ready; then
+    echo "Source patch tail already materialized through H36a"
+    exit 0
+fi
 if h36_ready; then
-    echo "Source patch tail already materialized through H36"
+    apply_new_patch H36a "$H36A_PATCH_PART" "$H36A_ARCHIVE_SHA256" "$H36A_PATCH_SHA256"
+    h36a_ready || { echo "H36a applied but final H36a hashes do not match." >&2; exit 1; }
+    echo "Source patch tail materialized through H36a with verified final hashes"
     exit 0
 fi
 if h35a_ready; then
@@ -306,4 +321,7 @@ h35a_ready || { echo "H35a applied but final H35a hashes do not match." >&2; exi
 apply_new_patch H36 "$H36_PATCH_PART" "$H36_ARCHIVE_SHA256" "$H36_PATCH_SHA256"
 h36_ready || { echo "H36 applied but final H36 hashes do not match." >&2; exit 1; }
 
-echo "Source patch tail materialized through H36 with verified final hashes"
+apply_new_patch H36a "$H36A_PATCH_PART" "$H36A_ARCHIVE_SHA256" "$H36A_PATCH_SHA256"
+h36a_ready || { echo "H36a applied but final H36a hashes do not match." >&2; exit 1; }
+
+echo "Source patch tail materialized through H36a with verified final hashes"

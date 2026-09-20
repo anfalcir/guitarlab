@@ -42,7 +42,7 @@ H34/H35/H35a are now part of the exact signed candidate:
 - physical calibration validates the exact live input/output IDs before emitting a deterministic 32 ms windowed chirp capped at 12% peak;
 - the H35a explicit RECORD_AUDIO guard passed Android Lint without suppression.
 
-## H36 — Settings UX Polish — SOURCE PRE-GATE READY
+## H36/H36a — Settings UX Polish — SOURCE PRE-GATE READY
 H36 is a presentation/UX-only block on top of the #659 H35a source.
 
 Implemented:
@@ -67,7 +67,7 @@ Regression/source evidence before publication:
 - corrupt H36 archive rejected with nonzero exit before source mutation;
 - H36 terminal blobs: Settings `6c98b72b674743eeeebfe3991c0636e824ef8a09`, calibration UI test `df31fc2dcc05ef619dc79062e9b29666ed176dd4`, Settings hierarchy test `5f8560042219f51216e02637e3b48f22ca947623`.
 
-No Android compile/Lint/API36/signing result is claimed yet for H36. CI #659 remains the latest signed DIGITAL PASS.
+CI #660 proved H36 materialization, JVM/unit tests, Android Lint and debug/release build/provenance, but the API36 job stopped at Android-test compilation because `SettingsVisualHierarchyInstrumentedTest` imported a non-existent top-level `androidx.compose.ui.test.onNode`. H36a removes only that invalid import; the test continues to call `composeRule.onNode(...)`, matching the Compose Test API already used by the project. CI #659 remains the latest signed DIGITAL PASS until H36a receives a complete exact-source gate.
 
 ## Remaining RC3 physical blocker
 The remaining release-critical target-only item is **recording latency/synchronization acceptance** on the intended real USB route. The recording timing architecture is already implemented and digitally covered; the unresolved boundary is physical driver/hardware behavior.

@@ -13,7 +13,7 @@ Authority layers:
 ## Current source materialization
 `.source-parts/` + `scripts/materialize_ci_sources.sh` are source-of-truth build inputs. Unexpected drift fails closed by exact SHA-256/Git blob checks.
 
-Canonical tail: `… → H25 → H26 → H26a → H26b → H26e → H27 → H28 → H29 → H30 → H31 → H32 → H33 → H33a → H33b → H34 → H35 → H35a → H36`.
+Canonical tail: `… → H25 → H26 → H26a → H26b → H26e → H27 → H28 → H29 → H30 → H31 → H32 → H33 → H33a → H33b → H34 → H35 → H35a → H36 → H36a`.
 
 The previously accepted H28 materializer is preserved byte-for-byte as `scripts/materialize_ci_sources_through_h28.sh`. The entrypoint then runs `scripts/materialize_ci_sources_h29_h33.sh`.
 
@@ -29,9 +29,10 @@ New tail inputs:
 - H34 `.source-parts/H34FineLatencyRange.patch.gz.b64` — gzip `d7ea906f7300d7b00c8a384ac945e140f386e7faf0023dad1f0672b8cda17bad`, patch `4b47bdc21b58c68e5ca9616314dca495ca5c5f5b72a1be76d25c1dc9116565c0`;
 - H35 `.source-parts/H35TakeSyncQuietCalibration.patch.gz.b64` — gzip `38cc7f6ab3098ad253a3584d6e96a1780d7b316f8d8506fab981597a6d050a90`, patch `3a255b8bad4ce79463293e290ad36d66d0031983d30b443cf07441353d286043`;
 - H35a `.source-parts/H35aLintPermissionCorrective.patch.gz.b64` — gzip `eb766693ffdf31c611ea038ba70ce46378b81d067a27f092cc40e960c2de8bb7`, patch `8fb5be6b03b6f8897ddb78dc38ff1c1ad565767160d11e3cba5007f4320b9179`;
-- H36 `.source-parts/H36SettingsUxPolish.patch.gz.b64` — gzip `22895aa6e1d39a3c6988f503467e763893b0448ca1b087ba23614a1a2b162eaf`, patch `9489fe121cbbc6c43bf9675701cd74c2556c7d8c1461c48030745711c1b54852`.
+- H36 `.source-parts/H36SettingsUxPolish.patch.gz.b64` — gzip `22895aa6e1d39a3c6988f503467e763893b0448ca1b087ba23614a1a2b162eaf`, patch `9489fe121cbbc6c43bf9675701cd74c2556c7d8c1461c48030745711c1b54852`;
+- H36a `.source-parts/H36aSettingsTestImportCorrective.patch.gz.b64` — gzip `949c740dc67545016a27652630ed1e6504f76ae9322feaecd554191ee5753c22`, patch `f5c8b3acdbd87ce4bbb3ffa8b95be3af018b3bb4df7acc27ff0fd0794a03686a`.
 
-Expected terminal message: `Source patch chain materialized through H36 with verified final hashes`.
+Expected terminal message: `Source patch chain materialized through H36a with verified final hashes`.
 
 Pre-publication source proofs on the exact H28 baseline:
 - first H28→H33 materialization PASS;
@@ -48,7 +49,7 @@ H36 extends the signed #659 source only at the Settings presentation/test layer.
 - corrupt H36 archive rejected before source mutation;
 - final Git blobs verified for SettingsScreen and both H36 instrumented tests.
 
-No H36 Android build/Lint/API36/signing evidence exists until the manual canonical workflow is dispatched on the H36 producer.
+CI #660 on H36 passed the software gate completely: materialization, JVM/unit tests, Lint, debug/release assembly and unsigned provenance. API36 stopped at `compileDebugAndroidTestKotlin` on one invalid test-only import (`androidx.compose.ui.test.onNode`), so signing was correctly blocked. H36a removes that import without changing Settings UI or runtime behavior.
 
 ## Current signed authority — CI #659
 CI #659 / run `35512894518` / producer `a6a53e8ba9e75b32565e451870758c7c65ad687f` is the signed DIGITAL PASS through H35a.
