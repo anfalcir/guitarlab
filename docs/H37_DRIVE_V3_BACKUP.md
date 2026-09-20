@@ -103,17 +103,17 @@ Background authorization failure is fail-closed: WorkManager does not attempt to
 H37 is stored using the repository's deterministic source-part mechanism. The compressed Base64 archive is split into five repository parts (`.part00` ... `.part04`) and concatenated byte-for-byte before decode; the materializer validates the reconstructed gzip, the decoded patch and every terminal Git blob.
 
 Final source patch SHA-256:
-`80c47320730cb665a6523f6f4ed404a9a1cc758e142e34de47c6dfdce3fdbb92`
+`d4d7da1d1a097c9451644d78b92cc10dae6faf35b523b0339cce906ab01007a2`
 
 Compressed archive SHA-256:
-`b50c966cc6d95b4dce4268d1e9a4616c841d73d3d8be6758472e22555c895e19`
+`253953752a421a5b2299a040024c7f897940cfaa7de17aec914bcc2793ce9000`
 
 Source-part SHA-256:
-- `.part00`: `48b073aa4ad6f3c18299431ea436d39c5394dfdd9e84e9f9d7bc19a6a7154ce0`
-- `.part01`: `fd82b1fbd104912412f4914e95c57f50b042335005b177c6881d0ec056c78bc4`
-- `.part02`: `fa4d4924a418c84ac12c0a7fd3dc81c8872c492c525e812d5ab6f27cab7e26f7`
-- `.part03`: `95d2541cf8ae298490eff215a3697471d1103a847c6dffe4a8ee6dd2738ac45e`
-- `.part04`: `93c40a58059892425324e05e6dd7601a955bb911c740ae3c9a0d9af8665fa6f8`
+- `.part00`: `d1f6d661fef4e2175f120ec7451a90d186618dd86c1c3024a2dcd5fa45198197`
+- `.part01`: `7e1dde4ea9aeb096b831ec830b102bbb6b81b3624d208cbdab238f9107d5709e`
+- `.part02`: `e38bfb214b994d053300b85ca7d6d100f6cc21db02a3a66b4df59a18a006ea02`
+- `.part03`: `cae909f86f773b7f5962d6c5f1128d0e0c8acd0934f71122524fcd5f786ef85b`
+- `.part04`: `fdae3c09f45f9bfa7bbeb6142aa8854e3e731c9b8e76601750f8c37c99099842`
 
 Local pre-publication evidence:
 - clean H36c -> H37 materialization PASS;
