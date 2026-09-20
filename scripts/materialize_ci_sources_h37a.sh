@@ -78,7 +78,7 @@ if h37a_ready; then
     exit 0
 fi
 
-[[ -x "$PREVIOUS" ]] || { echo "Missing H37 materializer: $PREVIOUS" >&2; exit 1; }
+[[ -f "$PREVIOUS" ]] || { echo "Missing H37 materializer: $PREVIOUS" >&2; exit 1; }
 bash "$PREVIOUS"
 apply_h37a
 h37a_ready || { echo "H37a applied but final H37a hashes do not match." >&2; exit 1; }
