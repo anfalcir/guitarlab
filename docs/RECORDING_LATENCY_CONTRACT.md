@@ -1,6 +1,6 @@
 # Recording Timing and Latency Contract
 
-Updated: 2026-09-16
+Updated: 2026-09-20
 
 ## Product goal
 A take played in time with the audible backing must land in time on the GuitarLab timeline without manual movement. Manual fine adjustment is a fallback for route-specific residual hardware behavior, not the primary synchronization mechanism.
@@ -40,20 +40,34 @@ If `mappedStart < 0`, timeline start is clamped to zero and the corresponding am
 ## Plan B — route analyzer/calibration
 - Calibration requires explicit input and output plus a valid test loopback path.
 - It runs at the same editing/recording rate as the project.
+- **Silent digital verification** is a separate operation: PCM zero only, exact current routed-device confirmation, stable capture/playback timestamp anchors, clock delta/jitter reporting, and no physical-latency persistence.
+- Physical round-trip calibration activates the route with PCM zero first and emits no non-zero signal until both effective devices match the selected live `AudioDeviceInfo.id` values.
+- Its stimulus is a deterministic 32 ms windowed chirp, band-limited from 700 Hz to a sample-rate-safe upper bound of at most 6.5 kHz.
+- Peak gain is adaptive: 0.03 → 0.06 → maximum 0.12. The old harsh pseudo-random ±0.62 burst is not used.
 - Several passes are required.
 - Median latency, jitter, confidence, drift and attempt count are retained.
 - Unstable/rejected calibration is diagnostic-only and never auto-applied.
 - Persistence scope is exact `input route + output route + sample rate`.
 - H23b uses an unambiguous v2 key; the prior 32-bit hashed key is not automatically applied because it cannot prove exact route identity under collision.
 
-## Fine residual adjustment
+## Global fine residual adjustment — future recordings
 - Default: `0` frames / `0.0 ms`.
 - Scope: exact input + output + sample-rate tuple.
 - Range: ±500 ms maximum. This is a product guardrail for manual residual correction, not a DSP/Android limit.
-- Positive advances the take; negative delays it.
+- Positive advances a **new** take; negative delays it.
 - UI provides practical ±1 ms / ±5 ms / ±25 ms steps plus `Zerar`.
-- It is applied once, after automatic clock mapping and route latency terms are defined.
+- The value is captured at recording-session start and applied once after automatic clock mapping and route-latency terms are defined.
+- Changing this Settings value never repositions a take that already exists.
 - It must not be copied across routes or sample rates.
+
+## Take-specific synchronization — post-recording edit
+- Each `RecordingTake` owns a persistent `fineAdjustmentFrames`, default 0.
+- This value is independent from the current global Settings value.
+- A change applies only `newFine - oldFine` to every clip carrying that `takeId`.
+- Source offsets, clip lengths and audio bytes are unchanged; split/moved lineage retains its internal spacing.
+- Repeated edits therefore do not accumulate drift, and returning to 0 applies the exact inverse delta.
+- If advancing would cross timeline frame 0, the entire operation fails closed; H35 never hides a source trim to force the requested take edit.
+- The edit is persisted through normal project save/reopen and participates in the existing Undo/Redo history.
 
 ## Punch recording
 Punch pre-roll/post-roll controls capture extent. The final punch keep-window is derived **after** the take has one final compensated placement. Punch cropping must not repeat session-offset, route-latency or residual-adjustment math.
@@ -73,7 +87,8 @@ Punch pre-roll/post-roll controls capture extent. The final punch keep-window is
 - deterministic rounding;
 - timeline-zero bounds and non-negative placement;
 - positive/zero route latency;
-- positive/negative/zero residual adjustment;
+- positive/negative/zero global residual adjustment;
+- per-take delta adjustment, split-lineage preservation, exact return-to-zero and timeline-zero fail-closed;
 - absent/rejected/accepted calibration;
 - other route/rate cannot match the current calibration key;
 - output fallback invalidates route-specific terms;

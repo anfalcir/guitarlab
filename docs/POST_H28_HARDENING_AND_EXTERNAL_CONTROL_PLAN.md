@@ -1,7 +1,7 @@
 # Post-H28 Hardening and External Control Implementation Plan
 
-Updated: 2026-09-17
-Status: **H29-H33 DIGITAL PASS (#657) / H34 SOURCE PRE-GATE**
+Updated: 2026-09-20
+Status: **H29-H33 DIGITAL PASS (#657) / H34-H35 SOURCE PRE-GATE**
 Baseline: `0.5.0-rc3` / CI #653 / source `d09fc003e2ae2d699238eb39ba699f75a746fea4`
 
 ## 1. Purpose
@@ -44,6 +44,17 @@ H34 is a narrow user-requested flexibility change:
 - H34 is not DIGITAL PASS until the canonical Android gate passes.
 
 The 120 ms value had been a conservative product guardrail for a small residual correction, not a DSP/Android/hardware requirement.
+
+### H35 refinement checkpoint
+H35 refines the latency/take workflow without changing the H23b automatic placement architecture:
+- global route/rate fine adjustment is future-recording-only and never retroactively moves existing takes;
+- each take may store its own persistent synchronization correction, changed by delta across the complete take lineage;
+- take correction is non-destructive and fails closed rather than trimming audio at timeline zero;
+- silent digital verification validates route/clocks using PCM zero and does not masquerade as physical calibration;
+- physical round-trip calibration confirms exact live route IDs before emitting a 32 ms windowed chirp at adaptive 3%/6%/12% peak levels;
+- no legacy take migration is required for the user's current data state.
+
+H35 local/materialization validation is complete; Android CI is intentionally left for the user's next manual workflow dispatch.
 
 ## 3. Locked scope
 

@@ -1,6 +1,6 @@
 # Android CI / release pipeline
 
-Updated: 2026-09-17
+Updated: 2026-09-20
 
 ## Contract
 `.github/workflows/android-ci.yml` is manual-only (`workflow_dispatch`). Commits do not automatically consume hosted CI. The assistant must not dispatch or rerun workflows/jobs without explicit user instruction.
@@ -13,7 +13,7 @@ Authority layers:
 ## Current source materialization
 `.source-parts/` + `scripts/materialize_ci_sources.sh` are source-of-truth build inputs. Unexpected drift fails closed by exact SHA-256/Git blob checks.
 
-Canonical tail: `… → H25 → H26 → H26a → H26b → H26e → H27 → H28 → H29 → H30 → H31 → H32 → H33 → H33a → H33b → H34`.
+Canonical tail: `… → H25 → H26 → H26a → H26b → H26e → H27 → H28 → H29 → H30 → H31 → H32 → H33 → H33a → H33b → H34 → H35`.
 
 The previously accepted H28 materializer is preserved byte-for-byte as `scripts/materialize_ci_sources_through_h28.sh`. The entrypoint then runs `scripts/materialize_ci_sources_h29_h33.sh`.
 
@@ -26,9 +26,10 @@ New tail inputs:
 - H32 `.source-parts/H32TenMinuteQualityGate.patch.gz.b64` — gzip `41c5b3aba13e70b688b630bdbc5035ae92905257bd01db61b2cb6f69ba2e6435`, patch `63d62e3734ec0081b309bceffef05bd18cbc7c6d77ad4fc695a5534c8c3e5fb4`;
 - H33 `.source-parts/H33ExternalControl.patch.gz.b64` — gzip `d88a320ba2323ebac7a9db24d1f9314af270cc595d209d1bbfdfefc81be0f6a9`, patch `46880223ffd10711bbf660feedb705ea9c3fa6cd6a111017bd3b6ad32e7172dc`;
 - H33a/H33b — external-control CI correctives included in signed #657;
-- H34 `.source-parts/H34FineLatencyRange.patch.gz.b64` — gzip `d7ea906f7300d7b00c8a384ac945e140f386e7faf0023dad1f0672b8cda17bad`, patch `4b47bdc21b58c68e5ca9616314dca495ca5c5f5b72a1be76d25c1dc9116565c0`.
+- H34 `.source-parts/H34FineLatencyRange.patch.gz.b64` — gzip `d7ea906f7300d7b00c8a384ac945e140f386e7faf0023dad1f0672b8cda17bad`, patch `4b47bdc21b58c68e5ca9616314dca495ca5c5f5b72a1be76d25c1dc9116565c0`;
+- H35 `.source-parts/H35TakeSyncQuietCalibration.patch.gz.b64` — gzip `38cc7f6ab3098ad253a3584d6e96a1780d7b316f8d8506fab981597a6d050a90`, patch `3a255b8bad4ce79463293e290ad36d66d0031983d30b443cf07441353d286043`.
 
-Expected terminal message: `Source patch chain materialized through H34 with verified final hashes`.
+Expected terminal message: `Source patch chain materialized through H35 with verified final hashes`.
 
 Pre-publication source proofs on the exact H28 baseline:
 - first H28→H33 materialization PASS;
@@ -51,7 +52,7 @@ Audited evidence:
 - signer certificate SHA-256 `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`;
 - signed APK SHA-256 `05d6eaf71fb69ce55b28b8e3214e619a15f3b862dada973740927c2b9ecf2cd6`.
 
-H34 is source-only PRE-GATE. Local proofs: pure Kotlin ±500 ms boundary/placement harness PASS, H33b→H34 and H28→H34 materialization PASS, idempotence PASS, corrupt source-part fail-closed PASS.
+H34/H35 are source-only PRE-GATE. H35 local proofs: actual-domain take/stimulus harness PASS, exact H34→H35 and full H28→H35 materialization PASS, idempotence PASS for both paths, corrupt H35 source-part fail-closed PASS, and all 12 terminal source blobs match the reviewed H35 workspace.
 
 ## Forward gate policy
 For H29 onward, every promoted source block must preserve the same exact-source discipline: deterministic materialization, current tests plus new block-specific regression, Lint/build/provenance, API36 standard + isolated geometry, and signing of the exact tested unsigned artifact.

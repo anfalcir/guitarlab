@@ -26,6 +26,9 @@ H33B_PATCH_SHA256="c2bf706a0f2cb10d9c9f106732b317f48f1e239f923973e67056f4a0db54b
 H34_PATCH_PART="$ROOT/.source-parts/H34FineLatencyRange.patch.gz.b64"
 H34_ARCHIVE_SHA256="d7ea906f7300d7b00c8a384ac945e140f386e7faf0023dad1f0672b8cda17bad"
 H34_PATCH_SHA256="4b47bdc21b58c68e5ca9616314dca495ca5c5f5b72a1be76d25c1dc9116565c0"
+H35_PATCH_PART="$ROOT/.source-parts/H35TakeSyncQuietCalibration.patch.gz.b64"
+H35_ARCHIVE_SHA256="38cc7f6ab3098ad253a3584d6e96a1780d7b316f8d8506fab981597a6d050a90"
+H35_PATCH_SHA256="3a255b8bad4ce79463293e290ad36d66d0031983d30b443cf07441353d286043"
 
 H29_CHECKS=(
     "app/src/main/java/studio/guitarlab/app/ui/AudioProbeScreen.kt|4dcaee3e2691206601c53ccafacba8575f5eda9e"
@@ -90,6 +93,20 @@ H34_CHECKS=(
     "core/audio/src/main/kotlin/studio/guitarlab/core/audio/LatencyCalibrationPolicy.kt|cb40c760708adb7c649775d35feda8b9066fb53d"
     "core/audio/src/test/kotlin/studio/guitarlab/core/audio/LatencyCalibrationPolicyTest.kt|badaf95ae2187b0281a54fc31d8180233fc021b0"
 )
+H35_CHECKS=(
+    "app/src/androidTest/java/studio/guitarlab/app/SettingsCalibrationModalInstrumentedTest.kt|ff7ba85afe249de15317af3ae287468b7a71ff1f"
+    "app/src/main/java/studio/guitarlab/app/ui/SettingsScreen.kt|871a0470dac647d09d3e868f911c34505c80eee6"
+    "app/src/main/java/studio/guitarlab/app/ui/StudioLatencyCalibration.kt|335064b36639480e60178c5c414fd6d3e9ad29d1"
+    "app/src/main/java/studio/guitarlab/app/ui/StudioPlaceholderScreen.kt|d6601560b43fd4c3f8b0254be13156badb9dcb2a"
+    "app/src/main/java/studio/guitarlab/app/ui/StudioUserGuideDialog.kt|ed03b956ee8aa49551bfa2786cf8b060d9bca56e"
+    "app/src/main/java/studio/guitarlab/app/ui/StudioViewModel.kt|1604363d7e1801c3a9dc3c7833ed6abfc2aa76e0"
+    "core/audio/src/main/kotlin/studio/guitarlab/core/audio/LatencyCalibrationStimulusPolicy.kt|d899c898d91b674ae8baf4ec14d2c1093f4e9e35"
+    "core/audio/src/test/kotlin/studio/guitarlab/core/audio/LatencyCalibrationStimulusPolicyTest.kt|7a09cc120536fbfd2379d8d1badd5ce1797fbd65"
+    "core/model/src/main/kotlin/studio/guitarlab/core/model/ProjectModels.kt|60b4cf1d1dc79b9240d260ccad2c4bf074cf6285"
+    "core/project/src/main/kotlin/studio/guitarlab/core/project/TakeManagementPolicy.kt|885e8299afd51361186d6bd1a4a45a9953ff6e45"
+    "core/project/src/test/kotlin/studio/guitarlab/core/project/ProjectCodecCompatibilityTest.kt|dcc828a0c57ad6a1f5f379170f817e1ea2146332"
+    "core/project/src/test/kotlin/studio/guitarlab/core/project/TakeManagementPolicyTest.kt|dcfaf426a2692f6e1ca0eee58b061c5fc0ce6688"
+)
 
 checks_ready() {
     local array_name="$1" entry relative expected
@@ -109,6 +126,7 @@ h33_ready() { checks_ready H33_CHECKS; }
 h33a_ready() { checks_ready H33A_CHECKS; }
 h33b_ready() { checks_ready H33B_CHECKS; }
 h34_ready() { checks_ready H34_CHECKS; }
+h35_ready() { checks_ready H35_CHECKS; }
 
 decode_verified_patch() {
     local label="$1" encoded="$2" archive_sha="$3" patch_sha="$4" output="$5" archive actual
@@ -154,15 +172,24 @@ verify_new_patch H33 "$H33_PATCH_PART" "$H33_ARCHIVE_SHA256" "$H33_PATCH_SHA256"
 verify_new_patch H33a "$H33A_PATCH_PART" "$H33A_ARCHIVE_SHA256" "$H33A_PATCH_SHA256"
 verify_new_patch H33b "$H33B_PATCH_PART" "$H33B_ARCHIVE_SHA256" "$H33B_PATCH_SHA256"
 verify_new_patch H34 "$H34_PATCH_PART" "$H34_ARCHIVE_SHA256" "$H34_PATCH_SHA256"
+verify_new_patch H35 "$H35_PATCH_PART" "$H35_ARCHIVE_SHA256" "$H35_PATCH_SHA256"
 
+if h35_ready; then
+    echo "Source patch tail already materialized through H35"
+    exit 0
+fi
 if h34_ready; then
-    echo "Source patch tail already materialized through H34"
+    apply_new_patch H35 "$H35_PATCH_PART" "$H35_ARCHIVE_SHA256" "$H35_PATCH_SHA256"
+    h35_ready || { echo "H35 applied but final H35 hashes do not match." >&2; exit 1; }
+    echo "Source patch tail materialized through H35 with verified final hashes"
     exit 0
 fi
 if h33b_ready; then
     apply_new_patch H34 "$H34_PATCH_PART" "$H34_ARCHIVE_SHA256" "$H34_PATCH_SHA256"
     h34_ready || { echo "H34 applied but final H34 hashes do not match." >&2; exit 1; }
-    echo "Source patch tail materialized through H34 with verified final hashes"
+    apply_new_patch H35 "$H35_PATCH_PART" "$H35_ARCHIVE_SHA256" "$H35_PATCH_SHA256"
+    h35_ready || { echo "H35 applied but final H35 hashes do not match." >&2; exit 1; }
+    echo "Source patch tail materialized through H35 with verified final hashes"
     exit 0
 fi
 if h33a_ready; then
@@ -170,7 +197,9 @@ if h33a_ready; then
     h33b_ready || { echo "H33b applied but final H33b hashes do not match." >&2; exit 1; }
     apply_new_patch H34 "$H34_PATCH_PART" "$H34_ARCHIVE_SHA256" "$H34_PATCH_SHA256"
     h34_ready || { echo "H34 applied but final H34 hashes do not match." >&2; exit 1; }
-    echo "Source patch tail materialized through H34 with verified final hashes"
+    apply_new_patch H35 "$H35_PATCH_PART" "$H35_ARCHIVE_SHA256" "$H35_PATCH_SHA256"
+    h35_ready || { echo "H35 applied but final H35 hashes do not match." >&2; exit 1; }
+    echo "Source patch tail materialized through H35 with verified final hashes"
     exit 0
 fi
 
@@ -224,4 +253,7 @@ h33b_ready || { echo "H33b applied but final H33b hashes do not match." >&2; exi
 apply_new_patch H34 "$H34_PATCH_PART" "$H34_ARCHIVE_SHA256" "$H34_PATCH_SHA256"
 h34_ready || { echo "H34 applied but final H34 hashes do not match." >&2; exit 1; }
 
-echo "Source patch tail materialized through H34 with verified final hashes"
+apply_new_patch H35 "$H35_PATCH_PART" "$H35_ARCHIVE_SHA256" "$H35_PATCH_SHA256"
+h35_ready || { echo "H35 applied but final H35 hashes do not match." >&2; exit 1; }
+
+echo "Source patch tail materialized through H35 with verified final hashes"

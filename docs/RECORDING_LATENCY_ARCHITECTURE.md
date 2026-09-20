@@ -1,6 +1,6 @@
 # Recording Latency Architecture
 
-Updated: 2026-09-16
+Updated: 2026-09-20
 
 ## Goal
 `played in sync → saved take in sync`, automatically. No song-specific offset, global magic constant or hidden manual correction is acceptable.
@@ -25,8 +25,11 @@ A hardware anchor is never paired with a command anchor. Mixed evidence fails cl
 ### 2. Route latency
 Optional measured physical round-trip latency for one exact input/output/rate tuple. It is accepted only after multi-pass stability/confidence policy succeeds.
 
-### 3. Residual fine adjustment
-Optional signed correction, default zero, bounded ±500 ms, scoped to the same exact tuple. Positive advances the take; negative delays it. The bound is a product guardrail, not a mathematical/DSP limitation.
+### 3. Global residual fine adjustment
+Optional signed correction, default zero, bounded ±500 ms, scoped to the same exact route/rate tuple. It is captured when REC starts and affects only that new take's initial placement. Changing the Settings value later never moves existing takes.
+
+### 4. Take-specific synchronization
+A post-recording creative/technical edit stored on `RecordingTake.fineAdjustmentFrames`. Positive advances that take; negative delays it. The policy shifts every clip in the same `takeId` lineage by only the delta from the prior stored value, preserving source offsets, lengths and media bytes. Timeline-zero crossing fails closed instead of introducing a hidden trim.
 
 ## Stable audio anchor acquisition
 A single timestamp immediately after `startRecording()`/`play()` is not authoritative.
@@ -77,9 +80,16 @@ After that single computation:
 No timing term is re-applied after crop.
 
 ## Route/rate key
-Calibration and fine adjustment use an exact v2 key built from length-prefixed input signature, output signature and sample rate. A calibration for MK-300@44.1k is therefore a different entry from MK-300@48k or tablet input + MK-300 output.
+Calibration and the **global future-recording adjustment** use an exact v2 key built from length-prefixed input signature, output signature and sample rate. The take-specific adjustment is project metadata owned by the take and is not route-store state. A calibration for MK-300@44.1k is therefore a different entry from MK-300@48k or tablet input + MK-300 output.
 
 The old H23 32-bit hashed key is not auto-applied in H23b because a collision cannot prove route identity. Recalibration after H23b is intentionally safer than applying an unverifiable legacy tuple.
+
+## Silent verification and physical stimulus
+H35 separates two diagnostics:
+- **Digital silent verification:** PCM zero only; exact live routed-device IDs must match selection; stable AudioRecord/AudioTrack anchors report clock delta/jitter. It never becomes a physical round-trip latency calibration.
+- **Physical round-trip calibration:** starts with silence, confirms exact live input/output IDs, then emits a deterministic 32 ms windowed chirp with adaptive 3%/6%/12% peak gain. If exact routing cannot be confirmed, it aborts before any chirp.
+
+This preserves the distinction between software clock synchronization and actual hardware/DSP path delay.
 
 ## Analyzer result
 The normal options UI exposes:
@@ -100,7 +110,8 @@ Unstable measurement may be displayed diagnostically but must not become active 
 ## Failure behavior
 - no common trustworthy clock basis → startup delta 0;
 - selected recording input unavailable → fail closed;
-- recording backing/output falls back → clear route-specific latency/fine terms for that take;
+- recording backing/output falls back → clear route-specific automatic/global fine terms for that recording session;
+- physical calibration effective route differs from selected current device ID → abort while still silent;
 - conflicting project editing rates → require a single editing domain rather than guessing;
 - stop/error → clear temporal state before next take.
 

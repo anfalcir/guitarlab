@@ -1,10 +1,11 @@
 # Documentation map
 
-Updated: 2026-09-17
+Updated: 2026-09-20
 
 ## Active authoritative set
 For the current RC and approved forward plan use:
 - `CURRENT_STATE.md` — live signed authority, physical evidence boundary and current residual;
+- `H35_TAKE_SYNC_QUIET_CALIBRATION.md` — H35 source contract for global-vs-take synchronization and quiet/silent calibration behavior;
 - `POST_H28_HARDENING_AND_EXTERNAL_CONTROL_PLAN.md` — authoritative implementation plan for H29-H33 / 1.0→1.1;
 - `H28_BACKUP_IDENTITY_CONSISTENCY.md` — backup identity/provider-consistency architecture and H28 corrective;
 - `H27_BACKUP_HISTORY_RELEASE_UX.md` — predecessor history semantics/release-copy corrective;
@@ -24,7 +25,7 @@ CI #657 / run `35290128876` / producer `e371bb2a5c8040c668b926b2077c03d1c7c8c7d6
 
 Signed APK SHA-256: `05d6eaf71fb69ce55b28b8e3214e619a15f3b862dada973740927c2b9ecf2cd6`.
 
-H34 is SOURCE PRE-GATE READY and changes only the route/rate-scoped manual residual latency range from ±120 ms to ±500 ms, with deterministic local/materialization proofs. #657 remains the signed authority until H34 receives its exact-source Android gate.
+H34/H35 are SOURCE PRE-GATE READY. H34 expands the global residual range to ±500 ms; H35 separates future-recording global adjustment from persistent take-specific synchronization and hardens digital/physical calibration behavior. Deterministic local/materialization proofs are complete; #657 remains the signed authority until the H34/H35 source receives its exact-source Android gate.
 
 Target-device backup testing after #653 remains valid physical evidence for the protected H28 contract.
 

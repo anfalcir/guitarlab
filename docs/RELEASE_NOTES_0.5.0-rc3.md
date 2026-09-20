@@ -1,18 +1,23 @@
 # GuitarLab Studio 0.5.0-rc3
 
-Updated: 2026-09-17
+Updated: 2026-09-20
 
-## Current signed digital homologation — CI #653
-Run `35207902169`, producer `d09fc003e2ae2d699238eb39ba699f75a746fea4`, is the signed DIGITAL PASS through H28.
+## Current signed digital homologation — CI #657
+Run `35290128876`, producer `e371bb2a5c8040c668b926b2077c03d1c7c8c7d6`, is the signed DIGITAL PASS through H33b.
 
-Signed APK SHA-256: `1a36efcbe24d5995dd3609889237ca112670e52554e187d1b93ed5a8649263c0`.
+Signed APK SHA-256: `05d6eaf71fb69ce55b28b8e3214e619a15f3b862dada973740927c2b9ecf2cd6`.
 
 Digital gate summary:
-- H28 materialization PASS;
-- 294/294 JVM/unit PASS;
-- Android Lint/build/provenance PASS;
-- 32/32 standard API36 PASS + 1/1 isolated target geometry PASS;
+- 323/323 JVM/unit PASS;
+- Android Lint PASS with 0 errors;
+- debug/release build and unsigned provenance PASS;
+- 33/33 standard API36 PASS + 1/1 isolated target geometry PASS;
 - exact tested-artifact signing/certificate/package verification PASS.
+
+## Current source after #657 — H34/H35 PRE-GATE
+H34 expands global manual residual latency adjustment to ±500 ms. H35 separates that global future-recording setting from a persistent take-specific synchronization edit and replaces the harsh calibration burst with an exact-route-validated, short low-level adaptive chirp. H35 also adds a PCM-zero silent digital route/clock verification that never stores a fake physical latency.
+
+The #657 APK does not contain H34/H35; a new exact-source CI run is required before these changes become a signed candidate.
 
 ## H28 backup identity/provider-consistency corrective
 H28 adds:

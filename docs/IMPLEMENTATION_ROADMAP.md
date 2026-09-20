@@ -1,6 +1,6 @@
 # Implementation Roadmap
 
-Updated: 2026-09-17
+Updated: 2026-09-20
 
 ## Milestones
 - **M1 — Foundation:** CLOSED.
@@ -24,10 +24,10 @@ The remaining RC3 blocker is physical recording latency/synchronization acceptan
 ## Approved post-H28 implementation path
 Detailed authority: `POST_H28_HARDENING_AND_EXTERNAL_CONTROL_PLAN.md`.
 
-H29-H33/H33a/H33b are DIGITAL PASS at CI #657. **H34 — Fine latency range flexibility** is SOURCE PRE-GATE READY: manual residual adjustment expands from ±120 ms to ±500 ms without changing automatic calibration/clock alignment.
+H29-H33/H33a/H33b are DIGITAL PASS at CI #657. **H34/H35 are SOURCE PRE-GATE READY**: H34 expands the global future-recording residual adjustment to ±500 ms; H35 adds independent take-specific synchronization plus silent digital verification and quieter fail-closed physical calibration.
 
 ### H29 — Recording synchronization closure and session health
-**Status: DIGITAL PASS at #657; target-device timing acceptance pending. H34 source delta PRE-GATE.**
+**Status: DIGITAL PASS at #657; target-device timing acceptance pending. H34/H35 source delta PRE-GATE.**
 - preserve H23b measured timing architecture;
 - add bounded per-session timing/route health evidence and diagnostics;
 - close physical latency/alignment on exact signed candidate.
@@ -55,6 +55,15 @@ H29-H33/H33a/H33b are DIGITAL PASS at CI #657. **H34 — Fine latency range flex
 - final TalkBack/touch-target/font-scale/error/loading/help polish;
 - exact signed final hardening gate.
 
+### H34/H35 — Latency-control refinement
+**Status: SOURCE PRE-GATE READY.**
+- global manual residual calibration remains route/rate-scoped, default zero and applies only to future takes;
+- per-take synchronization is an explicit persistent edit in the take UI, independent from the current global value;
+- take lineage movement is delta-based, non-destructive, Undo/Redo-aware and fails closed at timeline zero;
+- silent digital verification validates exact routes and stable clocks with PCM zero but never stores a fake physical latency;
+- physical round-trip calibration confirms exact live route IDs before emitting a short windowed adaptive chirp capped at 12% peak;
+- no migration heuristics are required because no retained user takes depend on the pre-H35 take schema.
+
 ### 1.0.0 — Stable release
 Requires H29-H32 complete, exact-source digital PASS, target recording/USB/10-minute physical residual PASS, no repeatable P0/P1 and explicit approval of the exact signed APK.
 
@@ -78,9 +87,9 @@ Do not add to this line:
 - per-track independent physical output routing.
 
 ## Canonical materialization tail
-Current source chain: `… → H25 → H26 → H26a → H26b → H26e → H27 → H28 → H29 → H30 → H31 → H32 → H33 → H33a → H33b → H34`.
+Current source chain: `… → H25 → H26 → H26a → H26b → H26e → H27 → H28 → H29 → H30 → H31 → H32 → H33 → H33a → H33b → H34 → H35`.
 
-H28 is frozen in `materialize_ci_sources_through_h28.sh`; the post-H28 tail through H34 is independently hash-verified, idempotent and fail-closed. Future implementation blocks must extend this chain deterministically and preserve the same guarantees.
+H28 is frozen in `materialize_ci_sources_through_h28.sh`; the post-H28 tail through H35 is independently hash-verified, idempotent and fail-closed. Future implementation blocks must extend this chain deterministically and preserve the same guarantees.
 
 ## Gate discipline
 `.github/workflows/android-ci.yml` remains manual-only (`workflow_dispatch`). Ordinary source/docs commits use `[skip ci]`; the assistant must not dispatch/rerun without explicit user instruction.

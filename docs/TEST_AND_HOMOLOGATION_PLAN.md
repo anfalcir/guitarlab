@@ -1,6 +1,6 @@
 # Test and Homologation Plan
 
-Updated: 2026-09-17
+Updated: 2026-09-20
 
 ## Current evidence boundary
 The current signed DIGITAL PASS is **CI #657** / run `35290128876` / producer `e371bb2a5c8040c668b926b2077c03d1c7c8c7d6`, through H33b.
@@ -16,21 +16,27 @@ Audited digital evidence:
 - 1/1 isolated target-tablet geometry PASS;
 - exact tested-artifact signed homologation/provenance/certificate verification PASS.
 
-Target-device backup testing after #653 confirmed the H28 corrective is functioning correctly. H28 remains the latest signed DIGITAL PASS.
+Target-device backup testing after #653 confirmed the H28 corrective is functioning correctly. CI #657 remains the latest signed DIGITAL PASS through H33b; H34/H35 are source PRE-GATE.
 
-## H29-H33 digital closure and H34 pre-gate evidence
+## H29-H33 digital closure and H34/H35 pre-gate evidence
 CI #657 digitally closes H29-H33/H33a/H33b on exact source.
 
-H34 local/source evidence:
-- ±500 ms clamp is exact at 44.1/48/88.2/96 kHz;
-- out-of-range positive/negative values clamp deterministically;
-- placement sign behavior remains unchanged;
-- automatic route calibration is untouched;
-- H33b→H34 and full H28→H34 materialization PASS;
-- second materialization PASS/idempotent;
-- corrupt H34 archive rejected fail-closed.
+H34/H35 local/source evidence:
+- ±500 ms global future-recording clamp remains exact at 44.1/48/88.2/96 kHz;
+- per-take synchronization shifts every clip in one take lineage by the exact stored-value delta with no drift;
+- sourceStartFrame/length/media bytes remain unchanged by take synchronization;
+- returning take adjustment to zero restores the exact inverse movement;
+- advancing across timeline zero fails closed atomically;
+- the take-specific value round-trips through project serialization;
+- the calibration chirp is deterministic/windowed and capped at 0.12 peak for 44.1/48/88.2/96 kHz;
+- silent digital verification is explicitly non-calibrating;
+- physical calibration requires exact effective live routes before any non-zero stimulus;
+- exact H34→H35 and full H28→H35 materialization PASS;
+- second materialization PASS/idempotent for both paths;
+- corrupt H35 archive rejected fail-closed;
+- all 12 terminal H35 Git blobs match the reviewed workspace.
 
-H34 still requires the normal exact-source Android gate before becoming DIGITAL PASS.
+H34/H35 still require the normal exact-source Android unit/Lint/build/API36/signing gate before becoming DIGITAL PASS.
 
 ## Protected H28 regression contract
 Automated or programmatic coverage must continue to prove:
@@ -45,6 +51,12 @@ Automated or programmatic coverage must continue to prove:
 - retention remains bounded per project and fail-safe on partial/total failure.
 
 ## Remaining target-device residual
+For H35, physical validation should additionally confirm that:
+- changing the global Settings value does not move an already recorded take;
+- changing the take-specific value in the take editor moves that take/splits coherently and survives save/reopen;
+- silent digital verification produces no intentional non-zero test signal;
+- physical calibration no longer emits the previous harsh burst and aborts silently if the selected output/input are not the actual routed devices.
+
 Keep manual work limited to what software/emulator cannot prove for the exact future signed candidate:
 - intended USB input/output is the effective route during REC;
 - hardware loopback remains off and backing is not printed into the guitar take;
