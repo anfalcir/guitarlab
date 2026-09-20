@@ -15,7 +15,7 @@ Updated: 2026-09-20
 - `core:audio`: pure audio/timing/calibration policies.
 - `platform:codec-android`: Android compressed-format decode/encode adapters.
 - `platform:audio-android`: playback/capture engines, routing, timing evidence and offline master renderer.
-- `app`: Compose presentation, ViewModels, Android orchestration, SAF and instrumentation surface.
+- `app`: Compose presentation, ViewModels, Android orchestration, direct Google Drive API v3 backup transport, legacy SAF migration and instrumentation surface.
 
 ## Managed media and portable projects
 Imported external media is copied into project-controlled immutable source storage before becoming authoritative. Optional edit proxies, waveforms and renders are derivatives and may be regenerated. Non-destructive edits remain metadata operations.
@@ -80,7 +80,14 @@ Durable creative state belongs in project persistence, not transient Composable 
 ## Build/release architecture
 `scripts/build_local.sh` is the local software gate when its environment is available. The GitHub workflow is the canonical full software/API36/geometry/signing executor.
 
-Large RC3 deltas are materialized from `.source-parts` serially. The current canonical tail ends at H35a. Every stage verifies its encoded/decoded input and expected terminal source state; unexplained drift blocks the build.
+Large deltas are materialized from `.source-parts` serially. The current source-candidate tail ends at H37: accepted H28 → existing H29-H36c tail → H37 Drive transport. H37 reconstructs a five-part archive, verifies gzip + decoded patch hashes and exact terminal Git blobs. Unexplained drift blocks the build.
+
+## Backup transport boundary — H37 source candidate
+The protected H28 domain remains transport-agnostic: `ProjectBackupCoordinator` owns project/revision identity, deduplication, retention and restore semantics. H37 changes the Android remote-store edge from SAF to direct Drive API v3.
+
+Primary path: Android + Google Identity Services OAuth `drive.file` → Drive v3 resumable upload/download. The Drive store uses private `appProperties` plus Drive `fileId`, byte size and SHA-256 for remote commit identity. Incomplete uploads are not catalogued as committed revisions. Persisted resumable session state is app-private and excluded from Android cloud/device backup. SAF remains only as a bounded one-time legacy migration source until all retained H26-H28 history has copied successfully.
+
+No Firebase/Cloud Run/Functions hop, service account, client secret or refresh-token custody is part of this backup architecture.
 
 ## Current milestone boundary
-M5 and M6 are closed. M7/M8 release hardening is digitally approved through H36c at CI #663. H28 backup behavior is physically accepted and protected by regression. Final RC3/1.0 closure is now hardware-only for recording alignment, real USB disconnect/reconnect/capture preservation, the continuous 10-minute quality smoke and the H35 target-device synchronization/calibration behavior on Samsung SM-X230 + M-VAVE MK-300. H33 controller hardware acceptance remains a separate 1.1 gate.
+M5 and M6 are closed. M7/M8 behavior through H36c is digitally approved at CI #663, and the H28 SAF backup corrective is physically accepted there. H37 is a SOURCE PRE-GATE backup-transport migration and requires its own exact-source digital gate plus real OAuth/Drive acceptance before becoming a release authority. Existing recording alignment, real USB disconnect/reconnect/capture preservation, the continuous 10-minute quality smoke and H35 target-device synchronization/calibration behavior remain physical residuals. H33 controller hardware acceptance remains a separate 1.1 gate.
