@@ -100,13 +100,20 @@ The existing WorkManager scheduling policy is retained, but jobs are scheduled o
 Background authorization failure is fail-closed: WorkManager does not attempt to bypass user consent. The UI must reconnect the account.
 
 ## Source materialization evidence
-H37 is stored using the repository's deterministic source-part mechanism.
+H37 is stored using the repository's deterministic source-part mechanism. The compressed Base64 archive is split into five repository parts (`.part00` ... `.part04`) and concatenated byte-for-byte before decode; the materializer validates the reconstructed gzip, the decoded patch and every terminal Git blob.
 
 Final source patch SHA-256:
-`8014e8193b0f0eda07140ba136f58d606d6240f722131cf589c526eba50072b6`
+`80c47320730cb665a6523f6f4ed404a9a1cc758e142e34de47c6dfdce3fdbb92`
 
 Compressed archive SHA-256:
-`13756660eb462b99650bef9f95784a614cc29952d1f3210b16be8f1b2ef86ca0`
+`b50c966cc6d95b4dce4268d1e9a4616c841d73d3d8be6758472e22555c895e19`
+
+Source-part SHA-256:
+- `.part00`: `48b073aa4ad6f3c18299431ea436d39c5394dfdd9e84e9f9d7bc19a6a7154ce0`
+- `.part01`: `fd82b1fbd104912412f4914e95c57f50b042335005b177c6881d0ec056c78bc4`
+- `.part02`: `fa4d4924a418c84ac12c0a7fd3dc81c8872c492c525e812d5ab6f27cab7e26f7`
+- `.part03`: `95d2541cf8ae298490eff215a3697471d1103a847c6dffe4a8ee6dd2738ac45e`
+- `.part04`: `93c40a58059892425324e05e6dd7601a955bb911c740ae3c9a0d9af8665fa6f8`
 
 Local pre-publication evidence:
 - clean H36c -> H37 materialization PASS;
