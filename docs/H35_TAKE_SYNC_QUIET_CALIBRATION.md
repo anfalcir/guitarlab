@@ -66,3 +66,6 @@ If the selected route cannot be confirmed, calibration aborts while still silent
 
 ## Evidence boundary
 No Android CI has been run for H35. CI #657 remains the latest signed DIGITAL PASS until the user manually dispatches the canonical workflow on the H35 producer SHA.
+
+## H35a — CI #658 Lint corrective
+CI #658 proved H35 materialization, unit tests and API36, but Android Lint reported one `MissingPermission` at `AudioRecord.Builder` inside `buildRecorder()`. H35a adds an explicit `ContextCompat.checkSelfPermission(... RECORD_AUDIO)` guard in that method immediately before constructing `AudioRecord`. No suppression is used and runtime behavior remains fail-closed. H35a passed H35→H35a, full H28→H35a, idempotence and corrupt-source fail-closed materialization proofs locally.

@@ -13,7 +13,7 @@ Authority layers:
 ## Current source materialization
 `.source-parts/` + `scripts/materialize_ci_sources.sh` are source-of-truth build inputs. Unexpected drift fails closed by exact SHA-256/Git blob checks.
 
-Canonical tail: `… → H25 → H26 → H26a → H26b → H26e → H27 → H28 → H29 → H30 → H31 → H32 → H33 → H33a → H33b → H34 → H35`.
+Canonical tail: `… → H25 → H26 → H26a → H26b → H26e → H27 → H28 → H29 → H30 → H31 → H32 → H33 → H33a → H33b → H34 → H35 → H35a`.
 
 The previously accepted H28 materializer is preserved byte-for-byte as `scripts/materialize_ci_sources_through_h28.sh`. The entrypoint then runs `scripts/materialize_ci_sources_h29_h33.sh`.
 
@@ -27,9 +27,10 @@ New tail inputs:
 - H33 `.source-parts/H33ExternalControl.patch.gz.b64` — gzip `d88a320ba2323ebac7a9db24d1f9314af270cc595d209d1bbfdfefc81be0f6a9`, patch `46880223ffd10711bbf660feedb705ea9c3fa6cd6a111017bd3b6ad32e7172dc`;
 - H33a/H33b — external-control CI correctives included in signed #657;
 - H34 `.source-parts/H34FineLatencyRange.patch.gz.b64` — gzip `d7ea906f7300d7b00c8a384ac945e140f386e7faf0023dad1f0672b8cda17bad`, patch `4b47bdc21b58c68e5ca9616314dca495ca5c5f5b72a1be76d25c1dc9116565c0`;
-- H35 `.source-parts/H35TakeSyncQuietCalibration.patch.gz.b64` — gzip `38cc7f6ab3098ad253a3584d6e96a1780d7b316f8d8506fab981597a6d050a90`, patch `3a255b8bad4ce79463293e290ad36d66d0031983d30b443cf07441353d286043`.
+- H35 `.source-parts/H35TakeSyncQuietCalibration.patch.gz.b64` — gzip `38cc7f6ab3098ad253a3584d6e96a1780d7b316f8d8506fab981597a6d050a90`, patch `3a255b8bad4ce79463293e290ad36d66d0031983d30b443cf07441353d286043`;
+- H35a `.source-parts/H35aLintPermissionCorrective.patch.gz.b64` — gzip `eb766693ffdf31c611ea038ba70ce46378b81d067a27f092cc40e960c2de8bb7`, patch `8fb5be6b03b6f8897ddb78dc38ff1c1ad565767160d11e3cba5007f4320b9179`.
 
-Expected terminal message: `Source patch chain materialized through H35 with verified final hashes`.
+Expected terminal message: `Source patch chain materialized through H35a with verified final hashes`.
 
 Pre-publication source proofs on the exact H28 baseline:
 - first H28→H33 materialization PASS;
@@ -52,7 +53,7 @@ Audited evidence:
 - signer certificate SHA-256 `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`;
 - signed APK SHA-256 `05d6eaf71fb69ce55b28b8e3214e619a15f3b862dada973740927c2b9ecf2cd6`.
 
-H34/H35 are source-only PRE-GATE. H35 local proofs: actual-domain take/stimulus harness PASS, exact H34→H35 and full H28→H35 materialization PASS, idempotence PASS for both paths, corrupt H35 source-part fail-closed PASS, and all 12 terminal source blobs match the reviewed H35 workspace.
+H34/H35/H35a are source-only PRE-GATE. CI #658 proved H35 materialization, unit tests and API36, but failed Lint on one MissingPermission finding; H35a corrects that finding with an explicit local permission guard. H35 local proofs: actual-domain take/stimulus harness PASS, exact H34→H35 and full H28→H35 materialization PASS, idempotence PASS for both paths, corrupt H35 source-part fail-closed PASS, and all 12 terminal source blobs match the reviewed H35 workspace.
 
 ## Forward gate policy
 For H29 onward, every promoted source block must preserve the same exact-source discipline: deterministic materialization, current tests plus new block-specific regression, Lint/build/provenance, API36 standard + isolated geometry, and signing of the exact tested unsigned artifact.

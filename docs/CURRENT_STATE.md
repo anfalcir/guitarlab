@@ -5,7 +5,7 @@ Updated: 2026-09-20
 ## Active line
 - Repository/branch: `anfalcir/guitarlab` / `main`.
 - Version: `0.5.0-rc3`, versionCode `23`, package `studio.guitarlab.app`.
-- Current source line: signed #657 producer plus H34/H35 source-only deltas.
+- Current source line: signed #657 producer plus H34/H35/H35a source-only deltas.
 - Latest signed DIGITAL PASS: **CI #657** / run `35290128876` / producer `e371bb2a5c8040c668b926b2077c03d1c7c8c7d6`.
 - #657 scope: H28 → H29 → H30 → H31 → H32 → H33 → H33a → H33b.
 - Signed APK SHA-256: `05d6eaf71fb69ce55b28b8e3214e619a15f3b862dada973740927c2b9ecf2cd6`.
@@ -52,7 +52,7 @@ H34/H35 are **SOURCE PRE-GATE READY**:
 
 There are no retained user takes requiring a legacy per-take synchronization migration, so H35 intentionally avoids speculative legacy reconstruction.
 
-#657 remains the signed authority until H34/H35 receive the canonical exact-source Android CI gate.
+#658 reached materialization, all unit tests and API36 successfully, but failed Android Lint on one `MissingPermission` finding in `StudioLatencyCalibration.buildRecorder()`. H35a adds an explicit in-method `RECORD_AUDIO` permission check immediately before `AudioRecord.Builder`, without suppressing Lint. #657 remains the signed authority until H34/H35/H35a receive a complete canonical exact-source Android CI pass.
 
 ## Remaining RC3 physical blocker
 The remaining release-critical target-only item is **recording latency/synchronization acceptance** on the intended real USB route. The recording timing architecture is already implemented and digitally covered; the unresolved boundary is physical driver/hardware behavior.
