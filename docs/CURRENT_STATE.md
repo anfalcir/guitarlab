@@ -5,7 +5,7 @@ Updated: 2026-09-20
 ## Active line
 - Repository/branch: `anfalcir/guitarlab` / `main`.
 - Version: `0.5.0-rc3`, versionCode `23`, package `studio.guitarlab.app`.
-- Current source line: signed CI #659 producer plus H36 source-only UX delta.
+- Current source line: signed CI #659 producer plus H36/H36a/H36b source-only UX/test delta.
 - Latest signed DIGITAL PASS: **CI #659** / run `35512894518` / producer `a6a53e8ba9e75b32565e451870758c7c65ad687f`.
 - #659 scope: H28 → H29 → H30 → H31 → H32 → H33 → H33a → H33b → H34 → H35 → H35a.
 - Signed APK SHA-256: `e7ddce638a83d92af0ef2a01e46a10152f8c0eb4c535f0ddbc8671d9b94a1295`.
@@ -42,7 +42,7 @@ H34/H35/H35a are now part of the exact signed candidate:
 - physical calibration validates the exact live input/output IDs before emitting a deterministic 32 ms windowed chirp capped at 12% peak;
 - the H35a explicit RECORD_AUDIO guard passed Android Lint without suppression.
 
-## H36/H36a — Settings UX Polish — SOURCE PRE-GATE READY
+## H36/H36a/H36b — Settings UX Polish — SOURCE PRE-GATE READY
 H36 is a presentation/UX-only block on top of the #659 H35a source.
 
 Implemented:
@@ -67,7 +67,7 @@ Regression/source evidence before publication:
 - corrupt H36 archive rejected with nonzero exit before source mutation;
 - H36 terminal blobs: Settings `6c98b72b674743eeeebfe3991c0636e824ef8a09`, calibration UI test `df31fc2dcc05ef619dc79062e9b29666ed176dd4`, Settings hierarchy test `5f8560042219f51216e02637e3b48f22ca947623`.
 
-CI #660 proved H36 materialization, JVM/unit tests, Android Lint and debug/release build/provenance, but the API36 job stopped at Android-test compilation because `SettingsVisualHierarchyInstrumentedTest` imported a non-existent top-level `androidx.compose.ui.test.onNode`. H36a removes only that invalid import; the test continues to call `composeRule.onNode(...)`, matching the Compose Test API already used by the project. CI #659 remains the latest signed DIGITAL PASS until H36a receives a complete exact-source gate.
+CI #660 proved H36 materialization, JVM/unit tests, Android Lint and debug/release build/provenance, but the API36 job stopped at Android-test compilation because `SettingsVisualHierarchyInstrumentedTest` imported a non-existent top-level `androidx.compose.ui.test.onNode`. H36a removed only that invalid import. CI #661 then passed Android-test compilation and executed 34 app instrumented tests: 31 passed and 3 failed only on `assertIsDisplayed` after the H36 layout moved valid controls below the current viewport. H36b makes those tests scroll the owning Settings/modal container to the target before asserting visibility. Runtime `SettingsScreen.kt` remains byte-identical to H36. CI #659 remains the latest signed DIGITAL PASS until H36b receives a complete exact-source gate.
 
 ## Remaining RC3 physical blocker
 The remaining release-critical target-only item is **recording latency/synchronization acceptance** on the intended real USB route. The recording timing architecture is already implemented and digitally covered; the unresolved boundary is physical driver/hardware behavior.

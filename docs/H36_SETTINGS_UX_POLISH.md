@@ -1,7 +1,7 @@
 # H36 — Settings UX Polish
 
 Updated: 2026-09-20
-Status: **SOURCE PRE-GATE READY**
+Status: **SOURCE PRE-GATE READY — H36b corrective line**
 
 ## Problem
 Physical review found two related presentation defects:
@@ -74,3 +74,29 @@ H36a removes only that invalid import:
 - decoded patch SHA-256 `f5c8b3acdbd87ce4bbb3ffa8b95be3af018b3bb4df7acc27ff0fd0794a03686a`.
 
 H36a remains SOURCE PRE-GATE until the complete API36/signing pipeline passes.
+
+
+## H36b — CI #661 viewport-aware instrumentation corrective
+CI #661 passed the entire software gate, compiled Android tests and executed 34 app instrumented tests. Result: 31 PASS / 3 FAIL / 0 errors.
+
+All three failures were test-only viewport assumptions after the H36 layout change:
+- External Control: HID toggle existed but was below the current Settings viewport immediately after enabling External Control;
+- calibration modal: +1 ms existed but was below the current dialog viewport after previous assertions;
+- Settings hierarchy: Diagnostics existed but the direct text-level `performScrollTo()` did not move the owning LazyColumn sufficiently.
+
+H36b changes only instrumentation:
+- scroll the Settings LazyColumn to `settings-external-hid-toggle` before asserting it;
+- explicitly `performScrollTo()` each relevant fine-adjustment/reset target in the vertically scrollable calibration dialog;
+- scroll the Settings LazyColumn with `performScrollToNode(hasText("Diagnóstico"))` before asserting Diagnostics.
+
+No production source changes:
+- `SettingsScreen.kt` remains blob `6c98b72b674743eeeebfe3991c0636e824ef8a09`.
+
+H36b identities:
+- gzip SHA-256: `ac06c0d951355e2d0885203e010509bbb1aade05af173e6ba848a47e1184f692`;
+- decoded patch SHA-256: `a78b88bc6545a98fd109c353fe68910931897290f5feb93a0ebd648055dd3ee1`;
+- External Control test blob: `2a59ede15b2f19579a5f720f1fc8fc2d5e779230`;
+- calibration modal test blob: `6dbd1f42ed8476e34a9278f224e317feaec88718`;
+- Settings hierarchy test blob: `eb8ee06396a0bba865f18bd49c42f356f3bec763`.
+
+Direct H36a→H36b dry-run/application PASS; second direct application rejected as already applied; corrupted H36b archive rejected before source mutation with the H36a source hash preserved.

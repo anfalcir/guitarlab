@@ -9,7 +9,7 @@ Updated: 2026-09-20
 - **M5 — Reliable recording + Studio + Media I/O:** PASS/CLOSED.
 - **M6 — Measured latency/synchronization:** PASS/CLOSED.
 - **M7 — Production audio polish:** digital scope PASS; final physical latency closure still active.
-- **M8 — Release hardening:** H29-H35a signed DIGITAL PASS at CI #659; H36 Settings UX source PRE-GATE; target backup corrective physically accepted; hardware residual remains.
+- **M8 — Release hardening:** H29-H35a signed DIGITAL PASS at CI #659; H36/H36a/H36b Settings UX source PRE-GATE; target backup corrective physically accepted; hardware residual remains.
 
 ## Current signed authority
 **CI #659** / run `35512894518` / producer `a6a53e8ba9e75b32565e451870758c7c65ad687f` is the current signed DIGITAL PASS through H35a.
@@ -64,7 +64,7 @@ H29-H35a are DIGITAL PASS at CI #659. H34/H35/H35a are now part of the signed ex
 - physical round-trip calibration confirms exact live route IDs before emitting a short windowed adaptive chirp capped at 12% peak;
 - no migration heuristics are required because no retained user takes depend on the pre-H35 take schema.
 
-### H36 — Settings UX Polish
+### H36/H36a/H36b — Settings UX Polish
 **Status: SOURCE PRE-GATE READY.**
 - reduce visual density in the main Settings screen, especially large full-width action buttons and nested card chrome;
 - center/cap wide-tablet Settings content while remaining responsive on narrow screens;
@@ -72,7 +72,7 @@ H29-H35a are DIGITAL PASS at CI #659. H34/H35/H35a are now part of the signed ex
 - make external-control and diagnostics configuration easier to scan;
 - replace calibration fine-adjustment horizontal scrolling with a fixed visible 2×3 adjustment grid plus reset;
 - preserve all H35a behavior, semantics/test tags and calibration/routing contracts;
-- exact-source Android compile/Lint/API36/signing gate remains pending.
+- #660 passed the software gate; #661 compiled and executed instrumentation but exposed three viewport-assumption failures in Settings tests. H36b corrects only test scrolling. A complete exact-source API36/signing gate remains pending.
 
 ### 1.0.0 — Stable release
 Requires H29-H32 complete, exact-source digital PASS, target recording/USB/10-minute physical residual PASS, no repeatable P0/P1 and explicit approval of the exact signed APK.
@@ -97,9 +97,9 @@ Do not add to this line:
 - per-track independent physical output routing.
 
 ## Canonical materialization tail
-Current source chain: `… → H25 → H26 → H26a → H26b → H26e → H27 → H28 → H29 → H30 → H31 → H32 → H33 → H33a → H33b → H34 → H35 → H35a → H36`.
+Current source chain: `… → H25 → H26 → H26a → H26b → H26e → H27 → H28 → H29 → H30 → H31 → H32 → H33 → H33a → H33b → H34 → H35 → H35a → H36 → H36a → H36b`.
 
-H28 is frozen in `materialize_ci_sources_through_h28.sh`; the post-H28 tail through H36 is independently hash-verified, idempotent and fail-closed. Future implementation blocks must extend this chain deterministically and preserve the same guarantees.
+H28 is frozen in `materialize_ci_sources_through_h28.sh`; the post-H28 tail through H36b is independently hash-verified, idempotent and fail-closed. Future implementation blocks must extend this chain deterministically and preserve the same guarantees.
 
 ## Gate discipline
 `.github/workflows/android-ci.yml` remains manual-only (`workflow_dispatch`). Ordinary source/docs commits use `[skip ci]`; the assistant must not dispatch/rerun without explicit user instruction.
