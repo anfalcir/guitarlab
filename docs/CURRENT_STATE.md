@@ -4,7 +4,8 @@ Updated: 2026-09-20
 
 ## Active line
 - Repository/branch: `anfalcir/guitarlab` / `main`.
-- Version: `0.5.0-rc3`, versionCode `23`, package `studio.guitarlab.app`.
+- Source candidate: `0.5.0-rc4`, versionCode `24`, H37 — **SOURCE PRE-GATE**.
+- Current signed version remains `0.5.0-rc3`, versionCode `23`, package `studio.guitarlab.app`, until H37 passes the manual canonical gate.
 - Current signed source line: CI #663 producer `51d4098fa7b1b44a9fa315e939541020f594654d`.
 - Latest signed DIGITAL PASS: **CI #663** / run `35523442620` / producer `51d4098fa7b1b44a9fa315e939541020f594654d`.
 - #663 scope: H28 → H29 → H30 → H31 → H32 → H33 → H33a → H33b → H34 → H35 → H35a → H36 → H36a → H36b → H36c.
@@ -54,10 +55,34 @@ Closed behavior:
 
 CI progression is retained as evidence: #660 exposed a test-import issue, #661 exposed three viewport assumptions, #662 reached 33/34 instrumentation PASS, and #663 closed the complete canonical gate at 34/34 + geometry + signing.
 
+## H37 — Native Drive v3 backup transport — SOURCE PRE-GATE
+H37 is implemented as the next source block on top of the signed H36c baseline. It changes the primary backup transport from SAF to direct Google Drive API v3 while preserving the H28 domain identity and retention contract.
+
+Implemented source behavior:
+- OAuth uses only `https://www.googleapis.com/auth/drive.file`;
+- no Firebase/Cloud Run/Functions, service account, client secret or refresh token is in the backup data path;
+- regular `.guitarlab` files are stored in the user's Drive with private `appProperties` for project/revision/commit identity;
+- resumable 8 MiB uploads persist the session URL locally and always query the server-confirmed offset before retransmission;
+- completed uploads are accepted only after Drive size + SHA-256 match and the remote state is promoted to `committed`;
+- 401, 429, transient 5xx, I/O interruption, process death and a lost final commit response have bounded/fail-closed recovery paths;
+- package ZIP entry timestamps are deterministic so a persisted revision regenerates byte-identical package content for safe resume;
+- existing H26-H28 SAF history can be migrated without deleting remote legacy content, and the old SAF permission is released only after zero migration failures;
+- Drive account/session recovery state is excluded from Android cloud backup/device transfer;
+- automatic WorkManager backup remains constrained by the existing scheduling policy and is enabled only when Drive is connected.
+
+Source integrity evidence before publication:
+- clean H36c → H37 materialization PASS;
+- second materialization idempotent PASS;
+- every H37 terminal Git blob matched its declared hash;
+- deliberately corrupted H37 source archive failed closed before H37 source mutation;
+- shell syntax, `git diff --check` and static credential/scope audits PASS.
+
+H37 is **not DIGITAL PASS yet**. The canonical Android compile/Lint/API36/signing workflow has not been dispatched. CI #663 therefore remains the signed authority.
+
 ## Remaining RC3 physical blocker
 The remaining release-critical target-only item is **recording latency/synchronization acceptance** on the intended real USB route. The recording timing architecture is already implemented and digitally covered; the unresolved boundary is physical driver/hardware behavior.
 
-Final RC3/1.0 promotion still requires no repeatable P0/P1 and explicit approval of the exact signed candidate.
+Final stable promotion now has two independent boundaries: the existing RC3 hardware residual still requires no repeatable P0/P1 and explicit approval of an exact signed candidate; H37 additionally requires its manual exact-source digital gate plus first real OAuth/Drive backup/restore acceptance before RC4 can supersede RC3.
 
 ## Approved next-development scope
 The authoritative plan is `POST_H28_HARDENING_AND_EXTERNAL_CONTROL_PLAN.md`.
