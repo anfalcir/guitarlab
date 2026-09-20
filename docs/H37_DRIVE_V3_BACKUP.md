@@ -1,6 +1,6 @@
 # H37 — Native Google Drive API v3 Backup Transport
 
-Status: **SOURCE PRE-GATE**
+Status: **H37a SOURCE PRE-GATE**
 Updated: 2026-09-20
 Target line: `0.5.0-rc4` / versionCode `24`
 Signed authority remains: **CI #663 / `0.5.0-rc3`** until the manual canonical gate passes.
@@ -127,7 +127,7 @@ Local pre-publication evidence:
 ## Evidence boundary / next gate
 This is **not yet DIGITAL PASS**. The current execution environment does not contain the Gradle wrapper/Android SDK/dependency cache needed to run the canonical Android gate locally.
 
-CI #663 remains the signed authority until the user manually runs `.github/workflows/android-ci.yml` for the H37 source and the complete software/API36/signing pipeline passes.
+CI #663 remains the signed authority. H37 producer `abecc73e4eab181a7776d98cc731758b17c64b06` was exercised by manual CI #664 / run `35544867278`, which failed deterministically at Kotlin compilation before Lint/build/signing. H37a is the current compile-corrected source candidate and requires a fresh manual canonical run.
 
 Required first physical OAuth/Drive acceptance after a successful H37 CI:
 - connect the intended Google account;
@@ -138,3 +138,50 @@ Required first physical OAuth/Drive acceptance after a successful H37 CI:
 - restore and verify project/package integrity;
 - test disconnect/reconnect without deleting remote history;
 - if legacy SAF history exists, execute one-time migration and verify the old destination is preserved until full success.
+
+
+## H37a — compile corrective after CI #664
+
+CI #664 proved that H37 materialization itself was valid but exposed two Kotlin compilation issues before any runtime/instrumentation gate:
+
+- `DriveAuthorization.kt` used `CancellableContinuation.tryResume/completeResume` and `tryResumeWithException/completeResume`, which coroutines 1.11.0 treats as internal API;
+- `DriveV3Protocol.kt` expressed the authorized request loop as `withContext<DriveHttpResponse> { while (true) ... }`, and Kotlin inferred the lambda terminal type as `Unit`.
+
+H37a keeps the Drive behavior unchanged and applies the smallest source correction:
+
+- Task success uses stable `kotlin.coroutines.resume`;
+- Task failure uses stable `kotlin.coroutines.resumeWithException`;
+- Google Task cancellation explicitly cancels the coroutine continuation;
+- the authorized HTTP loop accumulates an explicit `DriveHttpResponse?` and returns `checkNotNull(completed)`, while preserving one token invalidation/retry on HTTP 401.
+
+H37a source part:
+
+`.source-parts/H37aDriveCompileCorrective.patch.gz.b64`
+
+Encoded file SHA-256:
+
+`16e20f2d7fd971327c3df4d1059518dfb9b1abe671529985f477ab7860b55548`
+
+Compressed archive SHA-256:
+
+`77f5d9ad6f5ebced2e9763dc13ed37a7ac7b4da3412f40c5f6498e813e5b4565`
+
+Decoded patch SHA-256:
+
+`5b623309e98c2b8f79434db437068ec80f197f855ec7efc8b5f8eb45b3163cae`
+
+Expected terminal Git blobs:
+
+- `DriveAuthorization.kt`: `be34ca749b70e33eac826eb904a71679796e4c5d`
+- `DriveV3Protocol.kt`: `0a8b5dc97f8c3760cb3956f22fd80a7b413fe5eb`
+
+Pre-publication H37a evidence:
+
+- targeted Kotlin/coroutines compile probe PASS;
+- clean H37 → H37a patch application PASS;
+- exact terminal Git blob verification PASS;
+- actual H37a materializer first execution PASS;
+- second materializer execution idempotent PASS;
+- deliberately corrupted H37a archive rejected before source mutation PASS.
+
+No Drive domain, OAuth scope, upload protocol, retention, migration or restore semantics are changed by H37a.

@@ -7,10 +7,10 @@ Repository documentation is split into **live authority**, **normative contracts
 
 A historical document may intentionally contain an old statement such as “current”, “latest”, “pending”, an old branch name or an old hardware target because it preserves contemporaneous evidence. Such statements apply only to that document's dated context and **never override the live authority set below**.
 
-## Live authority — signed #663 / H37 source-candidate line
+## Live authority — signed #663 / H37a source-candidate line
 Use these first for current status, release identity and remaining work:
 - `README.md` — repository entry point;
-- `CURRENT_STATE.md` — current signed authority, H37 source-candidate state and remaining physical residual;
+- `CURRENT_STATE.md` — current signed authority, H37a source-candidate state and remaining physical residual;
 - `H37_DRIVE_V3_BACKUP.md` — normative H37 direct Drive v3 transport, OAuth/security, resume/integrity and SAF-migration contract;
 - `ARCHITECTURE.md` — current system/release architecture;
 - `DECISIONS.md` — durable product/engineering decisions, with later decisions superseding earlier ones;
@@ -22,7 +22,7 @@ Use these first for current status, release identity and remaining work:
 - `TEST_AND_HOMOLOGATION_PLAN.md` — current automated/physical evidence boundary;
 - `RC3_FINAL_PHYSICAL_HOMOLOGATION.md` — current target-device checklist bound to CI #663;
 - `RELEASE_NOTES_0.5.0-rc3.md` — current signed RC3 behavior delta;
-- `RELEASE_NOTES_0.5.0-rc4.md` — H37 RC4 source-candidate delta; SOURCE PRE-GATE until a later signed CI supersedes #663;
+- `RELEASE_NOTES_0.5.0-rc4.md` — H37/H37a RC4 source-candidate delta; SOURCE PRE-GATE until a later signed CI supersedes #663;
 - `H35_TAKE_SYNC_QUIET_CALIBRATION.md` — global-vs-take synchronization and quiet/silent calibration contract;
 - `H36_SETTINGS_UX_POLISH.md` — Settings/calibration presentation refinement plus H36a/H36b/H36c corrective history and #663 DIGITAL PASS evidence.
 
@@ -54,7 +54,7 @@ CI #663 / run `35523442620` / producer `51d4098fa7b1b44a9fa315e939541020f594654d
 
 Signed APK SHA-256: `8e6e0f555bc5e834c4bccbdb011134c42d124806ce0316dd28787a6c98fe7bf3`.
 
-H28 backup/provider-consistency behavior is already physically accepted in the signed #663 baseline. H36/H36a/H36b/H36c are included in that signed authority. H37 is a later SOURCE PRE-GATE transport migration to direct Drive API v3 and does not become signed authority until the manual canonical workflow passes; its first real OAuth/Drive backup/restore acceptance is also still required. Remaining audio physical work is recording alignment, USB loss/reconnect/capture preservation, the continuous 10-minute quality exercise and H35 target-device synchronization/calibration behavior. H33 real-controller physical acceptance remains a separate 1.1 boundary.
+H28 backup/provider-consistency behavior is already physically accepted in the signed #663 baseline. H36/H36a/H36b/H36c are included in that signed authority. H37 reached CI #664 but failed at Kotlin compilation; H37a is the later SOURCE PRE-GATE corrective and does not become signed authority until a fresh manual canonical workflow passes; its first real OAuth/Drive backup/restore acceptance is also still required. Remaining audio physical work is recording alignment, USB loss/reconnect/capture preservation, the continuous 10-minute quality exercise and H35 target-device synchronization/calibration behavior. H33 real-controller physical acceptance remains a separate 1.1 boundary.
 
 ## Repository audits
 - `REPOSITORY_SANITIZATION_2026-09-20.md` records the branch audit supporting a single-branch (`main`) repository cleanup.

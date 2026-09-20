@@ -13,9 +13,9 @@ Authority layers:
 ## Current source materialization
 `.source-parts/` + `scripts/materialize_ci_sources.sh` are source-of-truth build inputs. Unexpected drift fails closed by exact SHA-256/Git blob checks.
 
-Canonical source tail: `… → H25 → H26 → H26a → H26b → H26e → H27 → H28 → H29 → H30 → H31 → H32 → H33 → H33a → H33b → H34 → H35 → H35a → H36 → H36a → H36b → H36c → H37`.
+Canonical source tail: `… → H25 → H26 → H26a → H26b → H26e → H27 → H28 → H29 → H30 → H31 → H32 → H33 → H33a → H33b → H34 → H35 → H35a → H36 → H36a → H36b → H36c → H37 → H37a`.
 
-The previously accepted H28 materializer is preserved byte-for-byte as `scripts/materialize_ci_sources_through_h28.sh`. The canonical entrypoint then runs `scripts/materialize_ci_sources_h37.sh`; H37 invokes the existing `scripts/materialize_ci_sources_h29_h33.sh` H29-H36c tail before applying the H37 delta.
+The previously accepted H28 materializer is preserved byte-for-byte as `scripts/materialize_ci_sources_through_h28.sh`. The canonical entrypoint now runs `scripts/materialize_ci_sources_h37a.sh`; H37a invokes `scripts/materialize_ci_sources_h37.sh`, which in turn invokes the existing H29-H36c tail before applying H37 and then the H37a compile corrective.
 
 H28 input remains `.source-parts/H28BackupIdentityConsistency.patch.gz.b64` with gzip SHA-256 `1abd8101361b241dfb443950c2a635141b41fecca77442d86343eb3f3025d3be` and decoded patch SHA-256 `3d06aa851ad1dc88dd078d60bb24ea097bbca7ef4f3e93089f47c9bd4a0a6e71`.
 
@@ -34,8 +34,9 @@ New tail inputs:
 - H36b `.source-parts/H36bSettingsScrollTestCorrective.patch.gz.b64` — gzip `ac06c0d951355e2d0885203e010509bbb1aade05af173e6ba848a47e1184f692`, patch `a78b88bc6545a98fd109c353fe68910931897290f5feb93a0ebd648055dd3ee1`;
 - H36c `.source-parts/H36cSettingsCalibrationSemanticTagCorrective.patch.gz.b64` — gzip `9742596963536b5b9c55d59653ea68e1542bad8953f73028eff159736756b505`, patch `279ef2e51579bfd706a3071300ddf245fa06a4f0d22e9b868907a5c38bf877f7`.
 - H37 `.source-parts/H37DriveV3Backup.patch.gz.b64.part00` … `.part04` — reconstructed gzip `253953752a421a5b2299a040024c7f897940cfaa7de17aec914bcc2793ce9000`, decoded patch `d4d7da1d1a097c9451644d78b92cc10dae6faf35b523b0339cce906ab01007a2`.
+- H37a `.source-parts/H37aDriveCompileCorrective.patch.gz.b64` — gzip `77f5d9ad6f5ebced2e9763dc13ed37a7ac7b4da3412f40c5f6498e813e5b4565`, decoded patch `5b623309e98c2b8f79434db437068ec80f197f855ec7efc8b5f8eb45b3163cae`.
 
-Expected terminal message for the current source candidate: `Source patch chain materialized through H37 with verified final hashes`.
+Expected terminal message for the current source candidate: `Source patch chain materialized through H37a with verified final hashes`.
 
 Pre-publication source proofs on the exact H28 baseline:
 - first H28→H33 materialization PASS;
@@ -45,8 +46,25 @@ Pre-publication source proofs on the exact H28 baseline:
 
 These pre-gate proofs were exercised by the canonical #659 workflow on the exact H35a source.
 
+## CI #664 failure and H37a compile corrective
+Manual CI #664 / run `35544867278` on H37 producer `abecc73e4eab181a7776d98cc731758b17c64b06` materialized H37 successfully, then failed during `:app:compileDebugKotlin` in both parallel jobs before Lint, APK assembly or signed homologation.
+
+Compiler findings:
+- four internal-coroutines API diagnostics in `DriveAuthorization.kt` around `tryResume/completeResume`;
+- one return-type mismatch in `DriveV3Protocol.kt`: expected `DriveHttpResponse`, actual `Unit`.
+
+H37a addresses only those compile issues. Local evidence before publication:
+- targeted Kotlin/coroutines compile probe PASS;
+- clean H37 → H37a apply PASS;
+- terminal blobs `DriveAuthorization.kt=be34ca749b70e33eac826eb904a71679796e4c5d` and `DriveV3Protocol.kt=0a8b5dc97f8c3760cb3956f22fd80a7b413fe5eb` PASS;
+- actual H37a materializer first run PASS;
+- second run idempotent PASS;
+- corrupted H37a source part rejected before source mutation PASS.
+
+CI #664 remains failed evidence and must not be promoted. A fresh manual workflow run is required for H37a.
+
 ## H37 source pre-gate evidence
-H37 is not yet a DIGITAL PASS. Local/source proofs before publication establish only source integrity and deterministic materialization:
+H37a is not yet a DIGITAL PASS. H37's source-integrity proofs remain valid, while H37a adds the compile-corrective evidence above. The candidate still requires the canonical Android gate:
 - clean H36c → H37 materialization PASS;
 - second full materialization PASS/idempotent;
 - all 20 H37 terminal source Git blobs match the materializer contract;
