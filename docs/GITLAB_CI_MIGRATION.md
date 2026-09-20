@@ -1,5 +1,7 @@
 # GitLab CI como motor externo do GuitarLab
 
+> **HISTORICAL / INACTIVE.** Esta proposta de migração foi abandonada. O repositório canônico é público no GitHub, não há `.gitlab-ci.yml` ativo na linha atual, e o pipeline oficial é `.github/workflows/android-ci.yml` com `workflow_dispatch` manual. Preserve este arquivo apenas como registro de uma alternativa avaliada.
+
 O GitHub permanece como origem oficial do código. O GitLab executa o pipeline definido em
 `.gitlab-ci.yml`. Para não consumir minutos compartilhados, use um GitLab Runner próprio com
 Linux, virtualização/KVM e a tag `android-kvm`.

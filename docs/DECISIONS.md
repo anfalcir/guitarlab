@@ -1,6 +1,6 @@
 # Architectural and Product Decisions
 
-Updated: 2026-09-14
+Updated: 2026-09-20
 
 This log records decisions that must survive chat/context loss. Historical decisions remain binding unless a later numbered decision explicitly supersedes them.
 
@@ -25,8 +25,8 @@ Never change speed/pitch accidentally. Mismatches require validated resampling.
 ## D-007 — Capability claims follow gates
 Planned/partial features are not advertised as supported.
 
-## D-008 — M2 hardware gate is closed
-Pocket Amp + Samsung SM-X230 / Android 16(API 36) is PASS/CLOSED for the tested USB audio path. Other hardware combinations require their own evidence.
+## D-008 — Historical M2 Pocket Amp hardware gate is closed
+Pocket Amp + Samsung SM-X230 / Android 16(API 36) is PASS/CLOSED only for the hardware combination tested at that milestone. D-052 supersedes it for the active physical target: Samsung SM-X230 + M-VAVE MK-300.
 
 ## D-009 — Production audio is distinct from diagnostics
 Diagnostic probes never substitute for Studio transport/recording architecture.
@@ -152,7 +152,7 @@ The canonical CI contains a software gate and API 36 emulator gate. The signed h
 Anything objectively established by automated model/file/JVM/emulator regression is removed from the manual checklist. The final physical pass is limited to target-hardware routing/capture, optional target codec capability, subjective latency/listening, real-device stress and ergonomics.
 
 ## D-050 — Commits do not automatically consume hosted CI
-The default gate is `scripts/build_local.sh` on a prepared Android build host. GitHub Actions remains a manually dispatched fallback for the full API 36 emulator/signing matrix and has no `push` or `pull_request` trigger. No candidate may be called validated solely because automatic CI was disabled; build, test, signature and checksum evidence remain mandatory.
+`scripts/build_local.sh` may be used as an optional prepared-host preflight. Canonical candidate promotion uses the manually dispatched GitHub workflow for the full software/API36/geometry/signing matrix and has no `push` or `pull_request` trigger. No candidate may be called validated solely because automatic CI is disabled; build, test, signature and checksum evidence remain mandatory.
 
 ## D-051 — Studio navigation is centered as one unit
 The complete transport/navigation control group is geometrically centered on the full Studio top bar; no individual control (including Play) is privileged as the center anchor. The current position remains conveyed by the playhead and remaining time is not duplicated. General project summary belongs to the Pistas header, while Adicionar pista is placed below the final track as an explicit workspace action.

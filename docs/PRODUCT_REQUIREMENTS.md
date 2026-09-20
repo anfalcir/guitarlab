@@ -1,6 +1,6 @@
 # Product Requirements
 
-Updated: 2026-09-16
+Updated: 2026-09-20
 
 ## Projects and Home library
 - Create Blank or Guitar-template projects.
@@ -77,13 +77,16 @@ Target V1 interoperability includes WAV PCM, FLAC, AIFF/AIFC PCM, MP3, AAC/M4A, 
 - A track may retain multiple takes with one active take for playback/export.
 
 ### Recording synchronization
-- Never correct device/session timing with a hard-coded global offset.
-- Distinguish per-session capture/backing mapping, accepted route+rate calibration, residual fine adjustment and punch/pre-roll logic.
+- Never correct device/session timing with a hidden hard-coded offset.
+- Distinguish per-session capture/backing mapping, accepted route+rate physical calibration, global future-recording residual adjustment, take-specific post-recording synchronization and punch/pre-roll logic.
+- Global fine adjustment is default-zero, route+rate scoped, bounded at ±500 ms and captured when REC starts; changing it never moves an existing take.
+- Take-specific synchronization is stored on the take, applies only the delta from its prior value to the complete take lineage, preserves source bytes/trim offsets/durations and fails closed rather than crossing timeline frame zero.
+- Silent digital verification may validate routes/clocks with PCM zero but must never be persisted as physical round-trip calibration.
+- Physical calibration must confirm the exact live selected input/output before emitting a non-zero stimulus.
 - Trustworthy Android audio timestamps/monotonic clocks are preferred with bounded fallback.
 - Stale/backwards timestamp evidence fails closed.
 - Compensation components combine exactly once; double compensation is blocking.
 - Placement/trim remain in valid timeline/source bounds, including zero-time starts and pathological arithmetic bounds.
-- Calibration/fine adjustment is scoped to exact effective input+output+sample-rate identity.
 
 ### Live recording waveform
 - Captured frames/time coverage is authoritative, not callback count.
@@ -120,7 +123,7 @@ Offline export respects current timeline/mix and never modifies authoritative so
 
 ## Reliability and security
 - Mandatory promoted-RC gates: JVM/unit, Android Lint, debug/release assembly, API36 connected regression, isolated target geometry, exact artifact provenance and locked signing verification.
-- Current regression scope retains prior editing/persistence/audio/routing/timing/waveform behavior plus H23b and H24 Home-library policy/semantics.
+- Current regression scope retains prior editing/persistence/audio/routing/timing/waveform/Home/backup behavior through H35a, including global-vs-take synchronization and quiet/silent calibration contracts.
 - Source materialization must be deterministic, hash-verified, idempotent and fail closed on drift.
 - Signed homologation uses CI-only signing material and locked certificate verification.
 - Portable package extraction defends against traversal/out-of-root writes and bounded-resource abuse.

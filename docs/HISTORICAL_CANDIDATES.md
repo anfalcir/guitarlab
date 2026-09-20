@@ -1,6 +1,6 @@
 # Historical candidate index
 
-Updated: 2026-09-14
+Updated: 2026-09-20
 
 Historical documents preserve contemporaneous evidence and do not override current canonical sources. A statement such as `pending`, `active candidate` or an old version number inside a historical checkpoint is interpreted only in that document's original time context.
 
@@ -28,27 +28,31 @@ Historical documents preserve contemporaneous evidence and do not override curre
 - older release notes such as `RELEASE_NOTES_0.4.0-alpha2.md`, `RELEASE_NOTES_0.5.0-rc1.md` and `RELEASE_NOTES_0.5.0-rc2.md` preserve candidate history.
 
 ## RC3 evidence progression
-- CI #613 at `db5a4208848e4b6ca2163ce715d0c5bb464cfe37` — earlier fully green optimized RC3 signed baseline;
-- CI #614 at `9be232643f1d34f7e3a08417e44773e4f8b9ef7f` — historical workflow/test-API compatibility failure; signing correctly blocked;
-- CI #615 at `74bf86efbec94d249c4968c3284bf1985cd66b44` — latest fully green signed pre-H0–H6 RC3 baseline; signed APK SHA-256 `d443cb33a010d2d21dad43e9ff12554d7ada4f2bb783be0c80e3ac11bfe2d6c9`.
+- CI #613 / #615 — earlier RC3 signed baselines retained as historical evidence;
+- CI #620–#651 — intermediate hardening/backup milestones retained by their dated audit/checkpoint files;
+- CI #653 — H28 signed DIGITAL PASS; the triggering backup/provider-consistency defect was subsequently accepted on target hardware;
+- CI #657 — H29-H33/H33a/H33b signed DIGITAL PASS;
+- CI #658 — H35 intermediate run: materialization, unit tests and API36 passed; Lint correctly blocked signing;
+- **CI #659 / run `35512894518` / producer `a6a53e8ba9e75b32565e451870758c7c65ad687f` — current signed DIGITAL PASS through H35a**, signed APK SHA-256 `e7ddce638a83d92af0ef2a01e46a10152f8c0eb4c535f0ddbc8671d9b94a1295`.
 
-The current source advanced after #615 with H0–H6 editing/recording hardening. Therefore #615 remains historical baseline evidence and cannot be used as proof for the new HEAD.
-
+Older candidate statements using words such as “current”, “latest”, “pending”, “active branch” or “PR draft” remain true only in their dated historical context.
 ## Current canonical sources
 Current truth is defined by the active documents indexed in `DOCUMENTATION_MAP.md`, principally:
 - `CURRENT_STATE.md`;
-- `IMPLEMENTATION_ROADMAP.md`;
-- `PHYSICAL_EDITING_RECORDING_HARDENING_PLAN.md`;
 - `ARCHITECTURE.md`;
 - `DECISIONS.md`;
-- `PRODUCT_REQUIREMENTS.md`;
-- `TIMELINE_INTERACTION_GUIDELINES.md`;
-- `MANAGED_MEDIA_POLICY.md`;
+- `PRODUCT_VISION.md` and `PRODUCT_REQUIREMENTS.md`;
+- `IMPLEMENTATION_ROADMAP.md`;
+- `POST_H28_HARDENING_AND_EXTERNAL_CONTROL_PLAN.md`;
+- `RECORDING_LATENCY_ARCHITECTURE.md` and `RECORDING_LATENCY_CONTRACT.md`;
+- `H35_TAKE_SYNC_QUIET_CALIBRATION.md`;
 - `CANDIDATE_IDENTITY_POLICY.md`;
 - `CI_PIPELINE.md`;
-- `M8_GLOBAL_DIGITAL_REGRESSION.md`;
 - `TEST_AND_HOMOLOGATION_PLAN.md`;
 - `RELEASE_NOTES_0.5.0-rc3.md`;
-- `RC3_FINAL_PHYSICAL_HOMOLOGATION.md`.
+- `RC3_FINAL_PHYSICAL_HOMOLOGATION.md`;
+- media, timeline and UI contract documents explicitly classified as normative in `DOCUMENTATION_MAP.md`.
 
-No Alpha/M5/M6/M7 historical checklist may override those RC3 documents.
+`PHYSICAL_EDITING_RECORDING_HARDENING_PLAN.md`, `M8_GLOBAL_DIGITAL_REGRESSION.md`, `GITLAB_CI_MIGRATION.md`, dated documentation audits and Alpha/M4/M5/M6/M7 checkpoint/checklist files are historical evidence, not current status.
+
+No historical checklist or dated audit may override the active set above.

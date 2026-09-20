@@ -1,16 +1,16 @@
 # GuitarLab Architecture
 
-Updated: 2026-09-16
+Updated: 2026-09-20
 
 ## Repository and release boundary
 - `main` is canonical.
 - Product behavior is promoted only after exact-source automated gates and, where required, residual physical validation.
 - `.github/workflows/android-ci.yml` is manual-only (`workflow_dispatch`).
-- CI #639 is the last signed DIGITAL PASS through H23b; H24 is newer and PRE-GATE.
+- CI #659 / run `35512894518` / producer `a6a53e8ba9e75b32565e451870758c7c65ad687f` is the current signed DIGITAL PASS through H35a.
 
 ## Module boundaries
 - `core:model`: immutable project/track/clip/take metadata contracts.
-- `core:project`: deterministic editors/history, repository, managed media, portable package handling, practice/recording policies and the H24 project-library selection policy.
+- `core:project`: deterministic editors/history, repository, managed media, portable package handling and practice/recording/take policies.
 - `core:codec`: WAV/format/waveform primitives and encoding-timeline rules.
 - `core:audio`: pure audio/timing/calibration policies.
 - `platform:codec-android`: Android compressed-format decode/encode adapters.
@@ -30,11 +30,12 @@ Recording owns a dedicated `AudioRecord` input path and managed Float32 writer. 
 
 Timing keeps distinct layers:
 1. per-session capture/backing startup mapping;
-2. accepted route+sample-rate calibration;
-3. bounded residual fine adjustment;
-4. punch/pre-roll creative region logic.
+2. accepted route+sample-rate physical calibration;
+3. global route/rate residual adjustment captured at REC start and applied only to that new take;
+4. take-specific post-recording synchronization stored on the recorded take and applied by exact delta across its lineage;
+5. punch/pre-roll creative region logic.
 
-H23b requires progressing monotonic timestamp evidence, rejects stale/backwards clocks, never mixes incompatible evidence bases, protects placement arithmetic from overflow and scopes calibration/fine adjustment to exact input+output+sample-rate identity.
+H23b requires progressing monotonic timestamp evidence, rejects stale/backwards clocks, never mixes incompatible evidence bases and protects placement arithmetic from overflow. H34/H35/H35a add the ±500 ms global future-recording guardrail, persistent take-specific synchronization, PCM-zero silent route/clock verification, exact live-route confirmation before physical calibration stimulus, and the explicit RECORD_AUDIO permission guard.
 
 ## Live recording waveform
 Live waveform uses captured frame coverage as its timebase. Bounded envelope compaction preserves represented duration and transient peaks. UI publication is bounded/conflated; finalized file-derived waveform replaces transient state without changing clip placement.
@@ -79,7 +80,7 @@ Durable creative state belongs in project persistence, not transient Composable 
 ## Build/release architecture
 `scripts/build_local.sh` is the local software gate when its environment is available. The GitHub workflow is the canonical full software/API36/geometry/signing executor.
 
-Large RC3 deltas are materialized from `.source-parts` serially. The current canonical tail ends at H24. Every patch must apply cleanly or match an already-materialized final hash state; any unexplained drift blocks the build.
+Large RC3 deltas are materialized from `.source-parts` serially. The current canonical tail ends at H35a. Every stage verifies its encoded/decoded input and expected terminal source state; unexplained drift blocks the build.
 
 ## Current milestone boundary
-M5 and M6 are closed. M7/M8 release hardening is digitally approved through H23b at CI #639. H24 is implemented/source-validated and awaits exact-source full CI. Final RC3 closure still requires residual target-device approval, chiefly H24 Home ergonomics and H23b recording synchronization/routing on SM-X230 + MK-300.
+M5 and M6 are closed. M7/M8 release hardening is digitally approved through H35a at CI #659. H28 backup behavior is physically accepted and protected by regression. Final RC3/1.0 closure is now hardware-only for recording alignment, real USB disconnect/reconnect/capture preservation, the continuous 10-minute quality smoke and the H35 target-device synchronization/calibration behavior on Samsung SM-X230 + M-VAVE MK-300. H33 controller hardware acceptance remains a separate 1.1 gate.

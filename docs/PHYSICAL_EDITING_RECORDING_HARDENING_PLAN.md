@@ -1,11 +1,13 @@
 # RC3 physical-review hardening — editing, drag/drop and recording sync
 
+> **HISTORICAL IMPLEMENTATION RATIONALE — SUPERSEDED AS A LIVE PLAN.** H0–H6 are already incorporated into the current code/regression baseline. Preserve this file as design history; use `CURRENT_STATE.md`, `POST_H28_HARDENING_AND_EXTERNAL_CONTROL_PLAN.md`, `TEST_AND_HOMOLOGATION_PLAN.md` and `RC3_FINAL_PHYSICAL_HOMOLOGATION.md` for current status and remaining work.
+
 Updated: 2026-09-14
 
 ## Objective
 Treat the latest physical findings as an end-to-end workflow review, not isolated UI fixes. The target is one hardened editing/recording flow whose domain invariants, Android audio timing, persistence, Undo/Redo, gestures, accessibility and failure handling agree before the next physical candidate is promoted.
 
-## Evidence baseline and current status
+## Historical evidence baseline and status at 2026-09-14
 - CI #614 failed only because a new Compose test used `assertDoesNotExist`, unavailable in the project's current test API. That compatibility defect was corrected independently.
 - CI #615 then passed the complete canonical matrix at `74bf86efbec94d249c4968c3284bf1985cd66b44`, including software, API 36, 1920×1200 geometry and signed homologation.
 - The current source advanced after #615 with the H0–H6 hardening below.

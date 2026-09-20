@@ -1,7 +1,7 @@
 # H28 — Backup identity and provider-consistency hardening
 
-Status: **IMPLEMENTED / SOURCE-VALIDATED / PRE-GATE**
-Updated: 2026-09-16
+Status: **DIGITAL PASS / TARGET DEFECT ACCEPTED / PROTECTED REGRESSION**
+Updated: 2026-09-20
 
 ## Trigger
 Physical homologation of the signed H27 candidate from CI #651 showed that history semantics were improved but the remote commit path was still not robust enough for an eventually-consistent document provider.
@@ -114,11 +114,9 @@ Final H28 Git blobs verified by the materializer:
 - `bash -n scripts/materialize_ci_sources.sh` PASS;
 - focused Kotlin compilation checks for the backup domain/coordinator/SAF delta PASS.
 
-Full Gradle/JVM/Lint/API36/release-signing execution is intentionally not claimed locally. A fresh manually dispatched workflow is required before H28 can become DIGITAL PASS.
+The local/source proofs above were subsequently exercised by canonical Android CI.
 
 ## Evidence boundary
-CI #651 / run `35166195527` / producer `0b6ae1e28214decbcfba622a38d90c0dcbe2acf9` is the signed DIGITAL PASS for H27, not H28.
+H28 first became signed DIGITAL PASS at CI #653 / run `35207902169` / producer `d09fc003e2ae2d699238eb39ba699f75a746fea4`. Target-device retest then confirmed that the false confirmation/selective-duplicate defect that triggered H28 was no longer reproduced.
 
-Its signed APK SHA-256 is `d9ce720194812afcb281ecebd263d482d4320b4285f50044a2771fc6293736fe`.
-
-Physical use of that exact APK exposed the provider-consistency defect described above. It remains valuable H27 digital evidence but is not the final backup candidate.
+The current signed authority is CI #659 / run `35512894518` / producer `a6a53e8ba9e75b32565e451870758c7c65ad687f`, which preserves H28 inside the H35a exact-source regression baseline. H28 is therefore a protected backup/restore contract rather than pending work.

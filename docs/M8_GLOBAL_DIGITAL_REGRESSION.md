@@ -1,8 +1,10 @@
 # M8 Global Digital Regression
 
+> **HISTORICAL SNAPSHOT — SUPERSEDED.** This file preserves the 2026-09-14 regression state around CI #615. It is not the current release authority. Use `CURRENT_STATE.md`, `TEST_AND_HOMOLOGATION_PLAN.md`, `CI_PIPELINE.md` and `RC3_FINAL_PHYSICAL_HOMOLOGATION.md` for the current #659/H35a state.
+
 Updated: 2026-09-14
 
-## Active state
+## Historical state at 2026-09-14
 Active candidate: `0.5.0-rc3`, versionCode `23`.
 
 Latest fully green signed baseline: CI #615 at source `74bf86efbec94d249c4968c3284bf1985cd66b44`, which passed software, full API 36 instrumentation, isolated 1920×1200 target geometry and signed homologation. Signed APK SHA-256: `d443cb33a010d2d21dad43e9ff12554d7ada4f2bb783be0c80e3ac11bfe2d6c9`.

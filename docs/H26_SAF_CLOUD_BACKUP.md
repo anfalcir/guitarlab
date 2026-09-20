@@ -1,7 +1,7 @@
 # H26 — SAF Cloud Backup / Restore
 
 Status: **DIGITAL PASS at CI #650 / H26e; product semantics superseded by H27/H28**
-Updated: 2026-09-16
+Updated: 2026-09-20
 
 ## H26 evidence boundary
 CI #650 / producer `07c99155789774cb39f9b4382829f9e1d16649e3` proved the H26/H26e implementation digitally. That evidence remains historical for the exact source tested by #650.
@@ -30,4 +30,4 @@ Canonical current tail:
 H26c/H26d remain historical recovery experiments and are not part of the current canonical path.
 
 ## Promotion boundary
-CI #650 must not be described as containing H27/H28. CI #651 contains H27 but not H28. A fresh manual signed workflow is required before H28 can become the final backup candidate.
+CI #650 must not be described as containing H27/H28, and CI #651 contains H27 but not H28. H28 subsequently passed at CI #653, its triggering target defect was physically accepted, and the protected backup contract remains included in the current CI #659 signed baseline.

@@ -1,8 +1,8 @@
 # Post-H28 Hardening and External Control Implementation Plan
 
 Updated: 2026-09-20
-Status: **H29-H33 DIGITAL PASS (#657) / H34-H35 SOURCE PRE-GATE**
-Baseline: `0.5.0-rc3` / CI #653 / source `d09fc003e2ae2d699238eb39ba699f75a746fea4`
+Status: **H29-H35a DIGITAL PASS (#659) / PHYSICAL RESIDUAL ONLY**
+Initial baseline: `0.5.0-rc3` / H28 CI #653 / source `d09fc003e2ae2d699238eb39ba699f75a746fea4`
 
 ## 1. Purpose
 
@@ -30,32 +30,26 @@ The implementation baseline is the exact H28 signed candidate produced by CI #65
 - 1/1 isolated 1920×1200 geometry test PASS;
 - software, API36 and signed-homologation jobs all PASS.
 
-Target-device validation after #653 confirmed the corrected H28 backup/provider-consistency workflow is functioning correctly. CI #657 / run `35290128876` / producer `e371bb2a5c8040c668b926b2077c03d1c7c8c7d6` is now the signed DIGITAL PASS through H33b.
+Target-device validation after #653 confirmed the corrected H28 backup/provider-consistency workflow is functioning correctly. CI #659 / run `35512894518` / producer `a6a53e8ba9e75b32565e451870758c7c65ad687f` is now the signed DIGITAL PASS through H35a.
 
-### Digital checkpoint and H34 follow-up
-CI #657 closes H29-H33/H33a/H33b digitally with 323/323 unit tests, Lint 0 errors, 33/33 standard API36, 1/1 isolated geometry and signed homologation PASS.
+### Current digital checkpoint — CI #659
+CI #659 closes H29-H35a digitally on the exact producer `a6a53e8ba9e75b32565e451870758c7c65ad687f`:
+- 330/330 JVM/unit tests PASS;
+- Android Lint 0 errors (50 warnings + 4 hints);
+- debug/release build and unsigned provenance PASS;
+- 33/33 standard API36 PASS;
+- 1/1 isolated 1920×1200 geometry PASS;
+- exact tested-artifact signing/package/version/certificate verification PASS;
+- signed APK SHA-256 `e7ddce638a83d92af0ef2a01e46a10152f8c0eb4c535f0ddbc8671d9b94a1295`.
 
-H34 is a narrow user-requested flexibility change:
-- manual residual fine adjustment expands from ±120 ms to ±500 ms;
-- automatic session-clock alignment and automatic route analyzer/calibration are unchanged;
-- the adjustment remains default-zero and scoped to exact input + output + sample rate;
-- UI adds ±25 ms steps while retaining ±5/±1 and reset;
-- local policy/placement tests and deterministic materialization proofs pass;
-- H34 is not DIGITAL PASS until the canonical Android gate passes.
+H34/H35/H35a are therefore no longer pre-gate:
+- global residual fine adjustment is bounded at ±500 ms and affects future recordings only;
+- take-specific synchronization is persistent, delta-based and non-destructive;
+- silent digital verification uses PCM zero and never stores fake physical round-trip latency;
+- physical calibration validates the exact live routes before emitting the short adaptive chirp;
+- H35a provides the explicit local RECORD_AUDIO permission guard required by Lint.
 
-The 120 ms value had been a conservative product guardrail for a small residual correction, not a DSP/Android/hardware requirement.
-
-### H35 refinement checkpoint
-H35 refines the latency/take workflow without changing the H23b automatic placement architecture:
-- global route/rate fine adjustment is future-recording-only and never retroactively moves existing takes;
-- each take may store its own persistent synchronization correction, changed by delta across the complete take lineage;
-- take correction is non-destructive and fails closed rather than trimming audio at timeline zero;
-- silent digital verification validates route/clocks using PCM zero and does not masquerade as physical calibration;
-- physical round-trip calibration confirms exact live route IDs before emitting a 32 ms windowed chirp at adaptive 3%/6%/12% peak levels;
-- no legacy take migration is required for the user's current data state.
-
-H35 local/materialization validation is complete; Android CI is intentionally left for the user's next manual workflow dispatch.
-
+Remaining stable-1.0 work is hardware-only: H29 real alignment, H30 real USB disconnect/reconnect and capture preservation, H32 continuous 10-minute quality/save/reopen/export, and H35 target-device synchronization/calibration behavior. H33 real-controller acceptance remains the separate 1.1 physical gate.
 ## 3. Locked scope
 
 ### 3.1 Hardening/refinement to complete before 1.0.0
@@ -537,8 +531,8 @@ For H29 onward:
 4. prove first materialization, idempotent second materialization and corrupted-part fail-closed behavior;
 5. run local/source checks whenever available;
 6. publish ordinary commits with `[skip ci]`;
-7. **never dispatch or rerun GitHub Actions automatically**;
-8. the user manually dispatches the canonical workflow when a block is ready;
+7. do not dispatch or rerun GitHub Actions without explicit user instruction;
+8. normal release operation uses the canonical manual `workflow_dispatch`;
 9. promote to DIGITAL PASS only after auditing the actual run and exact artifact identity;
 10. execute only the reduced physical residual genuinely required by that block.
 
