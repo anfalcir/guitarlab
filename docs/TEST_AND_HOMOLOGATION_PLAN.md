@@ -22,6 +22,16 @@ Target-device backup testing after #653 confirmed the H28 corrective is function
 ## H29-H35a digital closure
 CI #659 digitally closes H29-H35a on exact source. The H34/H35 take-synchronization, silent-verification and quieter calibration code is therefore covered by the canonical unit/Lint/build/API36/signing pipeline.
 
+## H36 Settings UX pre-gate coverage
+H36 must preserve all #659 functional behavior while proving the presentation change:
+- existing calibration-modal instrumentation still opens/closes the dedicated panel and sees silent/physical calibration actions;
+- calibration instrumentation now verifies both extreme manual controls (−25 ms and +25 ms), inner ±1 ms controls and `Zerar ajuste` are visible without a horizontal adjustment carousel;
+- new Settings hierarchy instrumentation verifies the centered Settings root and compact Audio/External Control actions remain discoverable through the vertical Settings flow;
+- existing External Control settings instrumentation continues to exercise opt-in, HID and each Learn mapping tag;
+- API36/isolated geometry must catch clipping/overflow regressions on the canonical Android gate.
+
+No extra physical audio test is required solely because of H36; it changes presentation, not routing/DSP/calibration semantics. Physical H35 behavior remains the existing target-device residual.
+
 ## Protected H28 regression contract
 Automated or programmatic coverage must continue to prove:
 - rename preserves `projectId`;

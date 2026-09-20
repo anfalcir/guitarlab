@@ -16,6 +16,8 @@ The current signed digital authority is **CI #659** / run `35512894518` / exact 
 
 H34/H35/H35a are now part of that signed authority. 330/330 JVM/unit tests PASS, Android Lint 0 errors (50 warnings + 4 hints), 33/33 standard API36 PASS, 1/1 isolated 1920×1200 geometry PASS, debug/release build + unsigned provenance PASS, and exact tested-artifact signing/package/certificate verification PASS.
 
+**H36 — Settings UX Polish is SOURCE PRE-GATE READY.** It refines the main Settings information hierarchy and calibration modal layout without changing routing, DSP, persistence or calibration behavior. CI #659 remains the signed authority until H36 receives an exact-source canonical gate.
+
 Target-device validation after #653 had already accepted the H28 backup corrective. The remaining stable-release physical boundary continues to be H29 timing/alignment, H30 real USB hot-unplug/reconnect/capture preservation and H32 continuous 10-minute quality. H33 real-controller acceptance remains a separate 1.1 boundary.
 
 ## H28 — stable project/revision identity + provider consistency
@@ -39,7 +41,7 @@ Before stable `1.0.0`, the project will harden existing recording/USB/recovery/t
 - the assistant must not dispatch or rerun Actions without explicit user instruction.
 
 ## Source materialization
-Large deltas are versioned in `.source-parts` and materialized serially by `scripts/materialize_ci_sources.sh`. Canonical tail: **`… → H25 → H26 → H26a → H26b → H26e → H27 → H28 → H29 → H30 → H31 → H32 → H33 → H33a → H33b → H34 → H35`**. The H28 materializer is frozen byte-for-byte as `scripts/materialize_ci_sources_through_h28.sh`; the post-H28 tail through H35 is isolated in `scripts/materialize_ci_sources_h29_h33.sh`. Unexpected source/archive/patch/final-blob drift fails closed.
+Large deltas are versioned in `.source-parts` and materialized serially by `scripts/materialize_ci_sources.sh`. Canonical tail: **`… → H25 → H26 → H26a → H26b → H26e → H27 → H28 → H29 → H30 → H31 → H32 → H33 → H33a → H33b → H34 → H35 → H35a → H36`**. The H28 materializer is frozen byte-for-byte as `scripts/materialize_ci_sources_through_h28.sh`; the post-H28 tail through H36 is isolated in `scripts/materialize_ci_sources_h29_h33.sh`. Unexpected source/archive/patch/final-blob drift fails closed.
 
 ## Security
 Never commit keystores, credentials, local SDK configuration or secret artifacts. Backup provider access remains scoped to the user-selected document tree.

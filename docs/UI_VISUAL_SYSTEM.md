@@ -118,3 +118,13 @@ Functional accents:
 - hidden controls used as a workaround for insufficient width;
 - circular controls used solely as decoration;
 - per-screen shape systems that diverge from the 6/8/10dp contract without a documented semantic reason.
+
+
+## Settings information hierarchy
+Settings is a configuration surface, not a wall of primary CTAs.
+- On wide/tablet layouts, keep the readable Settings column centered and bounded rather than stretching controls edge-to-edge.
+- A section groups related information once; avoid unnecessary card-within-card chrome for read-only rows.
+- Secondary actions should be compact trailing actions on wide layouts and may stack/full-width only when narrow width requires it.
+- Filled primary buttons are reserved for genuinely primary/committing actions, not routine diagnostics or toggles.
+- Maintain at least 48 dp action height and preserve clear labels/semantics.
+- Dense control sets such as latency increments must remain fully visible without hidden horizontal carousels when a compact grid can represent the same choices.

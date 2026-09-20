@@ -33,5 +33,17 @@ Target-device retest after #653 confirms the backup workflow is now functioning 
 
 The remaining RC3 physical closure is recording latency/synchronization on the intended USB route.
 
+## Current source after #659 — H36 PRE-GATE
+H36 refines Settings UX without changing audio behavior:
+- main Settings is centered/capped on tablets instead of stretching across the display;
+- section/card hierarchy is lighter and secondary actions become compact responsive trailing buttons;
+- Audio refresh, Backup, External Control/HID and Diagnostics no longer present wide primary-looking actions on tablet layouts;
+- external-control mapping rows are denser/responsive;
+- calibration fine adjustment replaces horizontal scrolling with visible −25/−5/−1 and +1/+5/+25 ms rows plus reset;
+- silent/physical calibration actions share the same compact responsive component;
+- new/expanded Compose instrumentation protects Settings hierarchy and calibration-control visibility.
+
+CI #659 remains the signed authority until H36 passes the exact-source canonical gate.
+
 ## Forward development
 The approved post-H28 hardening and external-control roadmap is documented in `POST_H28_HARDENING_AND_EXTERNAL_CONTROL_PLAN.md`.
