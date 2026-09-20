@@ -1,0 +1,101 @@
+#!/usr/bin/env bash
+set -euo pipefail
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+PREVIOUS="$ROOT/scripts/materialize_ci_sources_h29_h33.sh"
+H37_PART="$ROOT/.source-parts/H37DriveV3Backup.patch.gz.b64"
+H37_ARCHIVE_SHA256="13756660eb462b99650bef9f95784a614cc29952d1f3210b16be8f1b2ef86ca0"
+H37_PATCH_SHA256="8014e8193b0f0eda07140ba136f58d606d6240f722131cf589c526eba50072b6"
+
+H37_CHECKS=(
+    "app/build.gradle.kts|60007f2be41eadf6c9987f8af70aee561ed21f20"
+    "app/src/androidTest/java/studio/guitarlab/app/BackupScreenInstrumentedTest.kt|6b6c0ef5fe11e3c796dcd32bfca833783f390699"
+    "app/src/main/AndroidManifest.xml|790f061d61ba77306e8c5f41bc18611b49959de8"
+    "app/src/main/java/studio/guitarlab/app/backup/AutomaticBackupWorker.kt|7df2deabe332b7aacc947174d33bfef95ec6b333"
+    "app/src/main/java/studio/guitarlab/app/backup/BackupScheduler.kt|c840e4ed2cd5dd2442377d30137d657dd186a4d8"
+    "app/src/main/java/studio/guitarlab/app/backup/BackupScreen.kt|f52417280bc8aef5c1733ee7509d037a57b90229"
+    "app/src/main/java/studio/guitarlab/app/backup/BackupSettingsStore.kt|706e2e34b19b01b9543394626236756fe1636d54"
+    "app/src/main/java/studio/guitarlab/app/backup/BackupViewModel.kt|e19efc16b57ebc1938dca9852e06b92952fc5d12"
+    "app/src/main/java/studio/guitarlab/app/backup/DriveAuthorization.kt|e52728ea9c177327177a370b7792f46f40299d7f"
+    "app/src/main/java/studio/guitarlab/app/backup/DriveBackupStateStore.kt|a6530240235b1aa90e616f499fbff040bb5ac6ab"
+    "app/src/main/java/studio/guitarlab/app/backup/DriveV3BackupRemoteStore.kt|7fc287421c15a1c9f25ec81784f618409db93272"
+    "app/src/main/java/studio/guitarlab/app/backup/DriveV3Protocol.kt|4743991632f29e95d1c9c4230a4cbbbbf9de82e7"
+    "app/src/main/java/studio/guitarlab/app/backup/LegacySafBackupMigrator.kt|69f313ff9a1d6d39207ae9e1c46dc28bb143b921"
+    "app/src/main/res/xml/backup_rules.xml|27f920406bc5933c4ea83265b8b38acd1b5c75cd"
+    "app/src/main/res/xml/data_extraction_rules.xml|c17a585891d9fc3067ec41e72863dfce53b6ac0b"
+    "app/src/test/java/studio/guitarlab/app/backup/DriveV3BackupRemoteStoreTest.kt|6fc055d9ea5777f790a5203ba85edc010009d492"
+    "app/src/test/java/studio/guitarlab/app/backup/DriveV3ProtocolTest.kt|c43b11f3c550ff9f9431ea3be256e067ca4ce162"
+    "core/project/src/main/kotlin/studio/guitarlab/core/project/ProjectBundleWriter.kt|923b3e4e7cb089793281b8851af64b363670534f"
+    "core/project/src/test/kotlin/studio/guitarlab/core/project/ProjectBundleWriterTest.kt|a27d06d3f2002901bb9a6e8023c83d3ec6bdebef"
+    "gradle/libs.versions.toml|77f310769ceaa9d51bcaf74bbc37200080c282ee"
+)
+
+hash_file() { git -C "$ROOT" hash-object "$1"; }
+
+h37_ready() {
+    local entry relative expected
+    for entry in "${H37_CHECKS[@]}"; do
+        relative="${entry%%|*}"
+        expected="${entry#*|}"
+        [[ -f "$ROOT/$relative" ]] || return 1
+        [[ "$(hash_file "$ROOT/$relative")" == "$expected" ]] || return 1
+    done
+}
+
+decode_h37_patch() {
+    local output="$1" archive actual_archive
+    [[ -f "$H37_PART" ]] || { echo "Missing H37 source archive: $H37_PART" >&2; return 1; }
+    archive="$(mktemp)"
+    trap 'rm -f "$archive"' RETURN
+    base64 -d "$H37_PART" > "$archive"
+    gzip -t "$archive"
+    actual_archive="$(sha256sum "$archive" | awk '{print $1}')"
+    [[ "$actual_archive" == "$H37_ARCHIVE_SHA256" ]] || {
+        echo "H37 source archive SHA-256 mismatch: $actual_archive" >&2
+        return 1
+    }
+    gzip -dc "$archive" > "$output"
+    rm -f "$archive"
+    trap - RETURN
+}
+
+verify_h37_patch() {
+    local decoded actual
+    decoded="$(mktemp)"
+    trap 'rm -f "$decoded"' RETURN
+    decode_h37_patch "$decoded"
+    actual="$(sha256sum "$decoded" | awk '{print $1}')"
+    [[ "$actual" == "$H37_PATCH_SHA256" ]] || {
+        echo "H37 source patch SHA-256 mismatch: $actual" >&2
+        return 1
+    }
+    rm -f "$decoded"
+    trap - RETURN
+}
+
+apply_h37() {
+    local decoded
+    decoded="$(mktemp)"
+    trap 'rm -f "$decoded"' RETURN
+    decode_h37_patch "$decoded"
+    [[ "$(sha256sum "$decoded" | awk '{print $1}')" == "$H37_PATCH_SHA256" ]] || {
+        echo "H37 source patch changed between verify and apply." >&2
+        return 1
+    }
+    patch --dry-run -p1 -d "$ROOT" < "$decoded" >/dev/null
+    patch --batch --forward -p1 -d "$ROOT" < "$decoded"
+    rm -f "$decoded"
+    trap - RETURN
+}
+
+verify_h37_patch
+
+if h37_ready; then
+    echo "Source patch chain already materialized through H37"
+    exit 0
+fi
+
+[[ -x "$PREVIOUS" ]] || { echo "Missing H36c materializer: $PREVIOUS" >&2; exit 1; }
+bash "$PREVIOUS"
+apply_h37
+h37_ready || { echo "H37 applied but final H37 hashes do not match." >&2; exit 1; }
+echo "Source patch chain materialized through H37 with verified final hashes"
