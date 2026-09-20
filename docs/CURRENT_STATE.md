@@ -4,8 +4,8 @@ Updated: 2026-09-20
 
 ## Active line
 - Repository/branch: `anfalcir/guitarlab` / `main`.
-- Source candidate: `0.5.0-rc4`, versionCode `24`, H37a — **SOURCE PRE-GATE**.
-- Current signed version remains `0.5.0-rc3`, versionCode `23`, package `studio.guitarlab.app`, until H37a passes the manual canonical gate.
+- Source candidate: `0.5.0-rc4`, versionCode `24`, H37b — **SOURCE PRE-GATE**.
+- Current signed version remains `0.5.0-rc3`, versionCode `23`, package `studio.guitarlab.app`, until H37b passes the manual canonical gate.
 - Current signed source line: CI #663 producer `51d4098fa7b1b44a9fa315e939541020f594654d`.
 - Latest signed DIGITAL PASS: **CI #663** / run `35523442620` / producer `51d4098fa7b1b44a9fa315e939541020f594654d`.
 - #663 scope: H28 → H29 → H30 → H31 → H32 → H33 → H33a → H33b → H34 → H35 → H35a → H36 → H36a → H36b → H36c.
@@ -76,7 +76,21 @@ Pre-publication H37a evidence:
 - second materializer run idempotent PASS;
 - corrupted H37a archive rejected fail-closed before source mutation PASS.
 
-CI #664 is retained as failed compile evidence only. CI #663 remains the signed DIGITAL PASS authority until H37a completes the full manual canonical gate.
+CI #664 is retained as failed compile evidence only. CI #663 remains the signed DIGITAL PASS authority until H37b completes the full manual canonical gate.
+
+## H37b — OAuth token-cache hardening — SOURCE PRE-GATE
+H37b is the final pre-CI hardening on top of H37a. Google documents `AuthorizationClient.clearToken(ClearTokenRequest)` as the API that removes a rejected access token from the local Google Identity Services cache. H37b uses it whenever Drive returns HTTP 401, then reacquires authorization through the existing `drive.file` flow instead of risking reuse of the same rejected token.
+
+H37b changes no backup identity, upload, retention, restore or SAF-migration semantics. Pre-publication evidence:
+- official Google Identity Services API signatures verified for `clearToken` / `ClearTokenRequest`;
+- targeted authorization/coroutines compile probe PASS;
+- clean H37a → H37b apply PASS;
+- terminal Git blob verification PASS;
+- actual H37b materializer first run PASS;
+- second run idempotent PASS;
+- corrupted H37b archive rejected before H37b source mutation PASS.
+
+Infrastructure decision: GuitarLab may share the same Google Cloud/Firebase project used by GBW, but `studio.guitarlab.app` remains a distinct Android app/OAuth client identity. Firebase SDK is not required by the Drive backup transport.
 
 ## H37 — Native Drive v3 backup transport — SOURCE PRE-GATE
 H37 is implemented as the next source block on top of the signed H36c baseline. It changes the primary backup transport from SAF to direct Google Drive API v3 while preserving the H28 domain identity and retention contract.
@@ -100,12 +114,12 @@ Source integrity evidence before publication:
 - deliberately corrupted H37 source archive failed closed before H37 source mutation;
 - shell syntax, `git diff --check` and static credential/scope audits PASS.
 
-H37 reached canonical CI #664 but failed at Kotlin compilation before Lint/build/signing. H37a corrects that compile boundary and is **not DIGITAL PASS yet** until a new manual canonical run passes. CI #663 therefore remains the signed authority.
+H37 reached canonical CI #664 but failed at Kotlin compilation before Lint/build/signing. H37a corrects the compile boundary; H37b additionally clears rejected access tokens from the Google Identity Services cache before reauthorization. H37b is **not DIGITAL PASS yet** until a new manual canonical run passes. CI #663 therefore remains the signed authority.
 
 ## Remaining RC3 physical blocker
 The remaining release-critical target-only item is **recording latency/synchronization acceptance** on the intended real USB route. The recording timing architecture is already implemented and digitally covered; the unresolved boundary is physical driver/hardware behavior.
 
-Final stable promotion now has two independent boundaries: the existing RC3 hardware residual still requires no repeatable P0/P1 and explicit approval of an exact signed candidate; H37a additionally requires its manual exact-source digital gate plus first real OAuth/Drive backup/restore acceptance before RC4 can supersede RC3.
+Final stable promotion now has two independent boundaries: the existing RC3 hardware residual still requires no repeatable P0/P1 and explicit approval of an exact signed candidate; H37b additionally requires its manual exact-source digital gate plus first real OAuth/Drive backup/restore acceptance before RC4 can supersede RC3.
 
 ## Approved next-development scope
 The authoritative plan is `POST_H28_HARDENING_AND_EXTERNAL_CONTROL_PLAN.md`.
