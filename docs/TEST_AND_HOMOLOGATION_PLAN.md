@@ -17,7 +17,7 @@ Audited digital evidence:
 - exact tested-artifact signed homologation/provenance/certificate verification PASS;
 - signed APK SHA-256 `8e6e0f555bc5e834c4bccbdb011134c42d124806ce0316dd28787a6c98fe7bf3`.
 
-Target-device backup testing after #653 confirmed the H28 SAF corrective is functioning correctly. CI #663 is the latest signed DIGITAL PASS through H36c. H37a is the current SOURCE PRE-GATE Drive transport candidate and does not supersede this evidence.
+Target-device backup testing after #653 confirmed the H28 SAF corrective is functioning correctly. CI #663 is the latest signed DIGITAL PASS through H36c. H37b is the current SOURCE PRE-GATE Drive transport candidate and does not supersede this evidence.
 
 ## H29-H36c digital closure
 CI #663 digitally closes H29-H36c on exact source. The H34/H35 take-synchronization, silent-verification and quieter calibration code is therefore covered by the canonical unit/Lint/build/API36/signing pipeline.
@@ -44,12 +44,14 @@ Automated or programmatic coverage must continue to prove:
 - exact remote write verification does not depend on immediate parent-list visibility;
 - retention remains bounded per project and fail-safe on partial/total failure.
 
-## H37/H37a Drive v3 pre-gate and acceptance contract
-H37 changes the backup transport and therefore requires new digital and target evidence before promotion. Manual CI #664 failed before those gates at Kotlin compilation; H37a is the compile corrective and must be the source exercised by the next run.
+## H37/H37a/H37b Drive v3 pre-gate and acceptance contract
+H37 changes the backup transport and therefore requires new digital and target evidence before promotion. Manual CI #664 failed before those gates at Kotlin compilation; H37a is the compile corrective; H37b is the final OAuth token-cache hardening and must be the source exercised by the next run.
 
 Canonical automated gate must additionally prove:
 - H37 five-part archive reconstructs to the declared gzip/patch hashes and all terminal Git blobs;
 - H37a corrective archive reconstructs to its declared gzip/patch hashes and terminal blobs;
+- H37b corrective archive reconstructs to its declared gzip/patch hashes and terminal blobs;
+- rejected-token recovery uses Google Identity Services `clearToken` before requesting a replacement token;
 - Drive protocol/query/property encoding tests pass;
 - remote-store tests cover committed-catalog filtering, exact revision lookup, idempotency and integrity mismatch rejection;
 - deterministic project bundle tests prove the same persisted state regenerates byte-identical package bytes;
