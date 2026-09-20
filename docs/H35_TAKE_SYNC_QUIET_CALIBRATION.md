@@ -1,7 +1,7 @@
 # H35 — Take-Specific Synchronization and Quiet Calibration
 
 Updated: 2026-09-20
-Status: SOURCE PRE-GATE READY
+Status: DIGITAL PASS — CI #659
 
 ## Purpose
 H35 separates two different user intents that must not share retroactive behavior:
@@ -64,8 +64,16 @@ If the selected route cannot be confirmed, calibration aborts while still silent
 - all 12 H35 terminal Git blob hashes match between the reviewed workspace and the full materialization path;
 - diff whitespace sanity PASS.
 
-## Evidence boundary
-No Android CI has been run for H35. CI #657 remains the latest signed DIGITAL PASS until the user manually dispatches the canonical workflow on the H35 producer SHA.
+## Digital evidence — CI #659
+Run `35512894518`, producer `a6a53e8ba9e75b32565e451870758c7c65ad687f`, is the exact signed DIGITAL PASS for H35/H35a.
+
+Evidence:
+- 330/330 JVM/unit tests PASS;
+- Android Lint 0 errors, 50 warnings, 4 hints;
+- debug/release build and unsigned provenance PASS;
+- 33/33 standard API36 + 1/1 isolated target geometry PASS;
+- signed APK SHA-256 `e7ddce638a83d92af0ef2a01e46a10152f8c0eb4c535f0ddbc8671d9b94a1295`;
+- signer certificate SHA-256 `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
 
 ## H35a — CI #658 Lint corrective
-CI #658 proved H35 materialization, unit tests and API36, but Android Lint reported one `MissingPermission` at `AudioRecord.Builder` inside `buildRecorder()`. H35a adds an explicit `ContextCompat.checkSelfPermission(... RECORD_AUDIO)` guard in that method immediately before constructing `AudioRecord`. No suppression is used and runtime behavior remains fail-closed. H35a passed H35→H35a, full H28→H35a, idempotence and corrupt-source fail-closed materialization proofs locally.
+CI #658 proved H35 materialization, unit tests and API36, but Android Lint reported one `MissingPermission` at `AudioRecord.Builder` inside `buildRecorder()`. H35a adds an explicit `ContextCompat.checkSelfPermission(... RECORD_AUDIO)` guard in that method immediately before constructing `AudioRecord`. No suppression is used and runtime behavior remains fail-closed. H35a passed H35→H35a, full H28→H35a, idempotence and corrupt-source fail-closed materialization proofs locally; CI #659 then passed the complete canonical gate.

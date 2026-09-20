@@ -38,22 +38,23 @@ Pre-publication source proofs on the exact H28 baseline:
 - deliberate H33 source corruption rejected with nonzero exit before ready-state acceptance;
 - each H29-H33 block verifies both archive/decoded-patch SHA-256 and exact final Git blob hashes.
 
-These are source/pre-gate proofs only. The canonical Android workflow has not yet been manually run on source checkpoint `1df91e16ad0a928b0d5ab93bfd975b49b6d2da62`.
+These pre-gate proofs were exercised by the canonical #659 workflow on the exact H35a source.
 
-## Current signed authority — CI #657
-CI #657 / run `35290128876` / producer `e371bb2a5c8040c668b926b2077c03d1c7c8c7d6` is the signed DIGITAL PASS through H33b.
+## Current signed authority — CI #659
+CI #659 / run `35512894518` / producer `a6a53e8ba9e75b32565e451870758c7c65ad687f` is the signed DIGITAL PASS through H35a.
 
 Audited evidence:
-- **323/323 JVM/unit tests PASS**;
-- Android Lint PASS with 0 errors;
+- **330/330 JVM/unit tests PASS**;
+- Android Lint PASS with **0 errors, 50 warnings and 4 hints**;
 - debug/release assembly and unsigned provenance PASS;
+- unsigned tested APK SHA-256 `4351458825b7a07c53ff2827e69477414896b497b0a77e3aa7e681c29d97c5da`;
 - **33/33 standard API36 PASS**;
 - **1/1 isolated 1920×1200 geometry PASS**;
 - exact tested-artifact signing/zipalign/package/version/certificate PASS;
 - signer certificate SHA-256 `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`;
-- signed APK SHA-256 `05d6eaf71fb69ce55b28b8e3214e619a15f3b862dada973740927c2b9ecf2cd6`.
+- signed APK SHA-256 `e7ddce638a83d92af0ef2a01e46a10152f8c0eb4c535f0ddbc8671d9b94a1295`.
 
-H34/H35/H35a are source-only PRE-GATE. CI #658 proved H35 materialization, unit tests and API36, but failed Lint on one MissingPermission finding; H35a corrects that finding with an explicit local permission guard. H35 local proofs: actual-domain take/stimulus harness PASS, exact H34→H35 and full H28→H35 materialization PASS, idempotence PASS for both paths, corrupt H35 source-part fail-closed PASS, and all 12 terminal source blobs match the reviewed H35 workspace.
+CI #658 is retained only as failed intermediate evidence: H35 materialization, unit tests and API36 passed there, but Lint rejected the missing local permission proof. H35a corrected that issue and CI #659 closed the full gate.
 
 ## Forward gate policy
 For H29 onward, every promoted source block must preserve the same exact-source discipline: deterministic materialization, current tests plus new block-specific regression, Lint/build/provenance, API36 standard + isolated geometry, and signing of the exact tested unsigned artifact.

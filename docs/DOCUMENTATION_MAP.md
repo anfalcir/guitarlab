@@ -21,11 +21,11 @@ For the current RC and approved forward plan use:
 - `RC3_FINAL_PHYSICAL_HOMOLOGATION.md` — final target-device checklist.
 
 ## Current evidence boundary
-CI #657 / run `35290128876` / producer `e371bb2a5c8040c668b926b2077c03d1c7c8c7d6` is the current signed DIGITAL PASS through H33b.
+CI #659 / run `35512894518` / producer `a6a53e8ba9e75b32565e451870758c7c65ad687f` is the current signed DIGITAL PASS through H35a.
 
-Signed APK SHA-256: `05d6eaf71fb69ce55b28b8e3214e619a15f3b862dada973740927c2b9ecf2cd6`.
+Signed APK SHA-256: `e7ddce638a83d92af0ef2a01e46a10152f8c0eb4c535f0ddbc8671d9b94a1295`.
 
-H34/H35 are SOURCE PRE-GATE READY. H34 expands the global residual range to ±500 ms; H35 separates future-recording global adjustment from persistent take-specific synchronization and hardens digital/physical calibration behavior. Deterministic local/materialization proofs are complete; #657 remains the signed authority until the H34/H35 source receives its exact-source Android gate.
+H34/H35/H35a are included in that signed authority. Their global-vs-take synchronization, silent digital verification, quieter physical calibration and explicit permission guard passed the exact-source #659 gate.
 
 Target-device backup testing after #653 remains valid physical evidence for the protected H28 contract.
 

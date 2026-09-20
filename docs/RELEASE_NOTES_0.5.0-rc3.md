@@ -2,22 +2,20 @@
 
 Updated: 2026-09-20
 
-## Current signed digital homologation — CI #657
-Run `35290128876`, producer `e371bb2a5c8040c668b926b2077c03d1c7c8c7d6`, is the signed DIGITAL PASS through H33b.
+## Current signed digital homologation — CI #659
+Run `35512894518`, producer `a6a53e8ba9e75b32565e451870758c7c65ad687f`, is the signed DIGITAL PASS through H35a.
 
-Signed APK SHA-256: `05d6eaf71fb69ce55b28b8e3214e619a15f3b862dada973740927c2b9ecf2cd6`.
+Signed APK SHA-256: `e7ddce638a83d92af0ef2a01e46a10152f8c0eb4c535f0ddbc8671d9b94a1295`.
 
 Digital gate summary:
-- 323/323 JVM/unit PASS;
-- Android Lint PASS with 0 errors;
+- 330/330 JVM/unit PASS;
+- Android Lint PASS with 0 errors / 50 warnings / 4 hints;
 - debug/release build and unsigned provenance PASS;
 - 33/33 standard API36 PASS + 1/1 isolated target geometry PASS;
 - exact tested-artifact signing/certificate/package verification PASS.
 
-## Current source after #657 — H34/H35 PRE-GATE
-H34 expands global manual residual latency adjustment to ±500 ms. H35 separates that global future-recording setting from a persistent take-specific synchronization edit and replaces the harsh calibration burst with an exact-route-validated, short low-level adaptive chirp. H35 also adds a PCM-zero silent digital route/clock verification that never stores a fake physical latency.
-
-The #657 APK does not contain H34/H35; a new exact-source CI run is required before these changes become a signed candidate.
+## H34/H35/H35a included in #659
+H34 expands global manual residual latency adjustment to ±500 ms. H35 separates the global future-recording setting from a persistent take-specific synchronization edit, adds PCM-zero silent route/clock verification, and replaces the harsh calibration burst with an exact-route-validated low-level adaptive chirp. H35a adds the explicit local RECORD_AUDIO permission guard required by Lint. All are included in the signed #659 candidate.
 
 ## H28 backup identity/provider-consistency corrective
 H28 adds:

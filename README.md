@@ -12,9 +12,9 @@ Read first: `docs/CURRENT_STATE.md`, `docs/H35_TAKE_SYNC_QUIET_CALIBRATION.md`, 
 ## Active RC3 state
 Candidate line: `0.5.0-rc3`, versionCode `23`, package `studio.guitarlab.app`.
 
-The current signed digital authority is **CI #657** / run `35290128876` / exact producer `e371bb2a5c8040c668b926b2077c03d1c7c8c7d6`, with H29-H33/H33a/H33b DIGITAL PASS. Signed APK SHA-256: `05d6eaf71fb69ce55b28b8e3214e619a15f3b862dada973740927c2b9ecf2cd6`.
+The current signed digital authority is **CI #659** / run `35512894518` / exact producer `a6a53e8ba9e75b32565e451870758c7c65ad687f`, with H29-H35a DIGITAL PASS. Signed APK SHA-256: `e7ddce638a83d92af0ef2a01e46a10152f8c0eb4c535f0ddbc8671d9b94a1295`.
 
-H34/H35 are now **SOURCE PRE-GATE READY** on top of signed #657. H34 expands the global route/rate-scoped residual adjustment to ±500 ms. H35 then separates that global value from a new persistent take-specific synchronization edit and hardens calibration UX: global adjustment affects future recordings only; an existing take can be adjusted from its edit UI without touching audio bytes; silent digital verification uses PCM zero; physical round-trip calibration confirms the exact live routes before emitting a short low-level adaptive chirp. #657 remains the signed authority until this source receives its own exact-source digital gate.
+H34/H35/H35a are now part of that signed authority. 330/330 JVM/unit tests PASS, Android Lint 0 errors (50 warnings + 4 hints), 33/33 standard API36 PASS, 1/1 isolated 1920×1200 geometry PASS, debug/release build + unsigned provenance PASS, and exact tested-artifact signing/package/certificate verification PASS.
 
 Target-device validation after #653 had already accepted the H28 backup corrective. The remaining stable-release physical boundary continues to be H29 timing/alignment, H30 real USB hot-unplug/reconnect/capture preservation and H32 continuous 10-minute quality. H33 real-controller acceptance remains a separate 1.1 boundary.
 

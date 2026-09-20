@@ -9,12 +9,12 @@ Updated: 2026-09-20
 - **M5 — Reliable recording + Studio + Media I/O:** PASS/CLOSED.
 - **M6 — Measured latency/synchronization:** PASS/CLOSED.
 - **M7 — Production audio polish:** digital scope PASS; final physical latency closure still active.
-- **M8 — Release hardening:** H29-H33/H33a/H33b signed DIGITAL PASS at CI #657; target backup corrective physically accepted; hardware residual remains.
+- **M8 — Release hardening:** H29-H35a signed DIGITAL PASS at CI #659; target backup corrective physically accepted; hardware residual remains.
 
 ## Current signed authority
-**CI #657** / run `35290128876` / producer `e371bb2a5c8040c668b926b2077c03d1c7c8c7d6` is the current signed DIGITAL PASS through H33b.
+**CI #659** / run `35512894518` / producer `a6a53e8ba9e75b32565e451870758c7c65ad687f` is the current signed DIGITAL PASS through H35a.
 
-Signed APK SHA-256: `05d6eaf71fb69ce55b28b8e3214e619a15f3b862dada973740927c2b9ecf2cd6`.
+Signed APK SHA-256: `e7ddce638a83d92af0ef2a01e46a10152f8c0eb4c535f0ddbc8671d9b94a1295`.
 
 H28 backup/provider-consistency behavior has subsequently passed the user's target-device functional check and is now a protected regression contract.
 
@@ -24,16 +24,16 @@ The remaining RC3 blocker is physical recording latency/synchronization acceptan
 ## Approved post-H28 implementation path
 Detailed authority: `POST_H28_HARDENING_AND_EXTERNAL_CONTROL_PLAN.md`.
 
-H29-H33/H33a/H33b are DIGITAL PASS at CI #657. **H34/H35 are SOURCE PRE-GATE READY**: H34 expands the global future-recording residual adjustment to ±500 ms; H35 adds independent take-specific synchronization plus silent digital verification and quieter fail-closed physical calibration.
+H29-H35a are DIGITAL PASS at CI #659. H34/H35/H35a are now part of the signed exact-source baseline.
 
 ### H29 — Recording synchronization closure and session health
-**Status: DIGITAL PASS at #657; target-device timing acceptance pending. H34/H35 source delta PRE-GATE.**
+**Status: DIGITAL PASS at #659; target-device timing acceptance pending.**
 - preserve H23b measured timing architecture;
 - add bounded per-session timing/route health evidence and diagnostics;
 - close physical latency/alignment on exact signed candidate.
 
 ### H30 — Interrupted recording recovery + USB resilience
-**Status: DIGITAL PASS at #657; target USB interruption/reconnect acceptance pending.**
+**Status: DIGITAL PASS at #659; target USB interruption/reconnect acceptance pending.**
 - user-facing recovery of preserved `.recording.part.wav` payloads;
 - idempotent transactional recovery/discard semantics;
 - robust USB loss/reconnect state machine;
@@ -41,13 +41,13 @@ H29-H33/H33a/H33b are DIGITAL PASS at CI #657. **H34/H35 are SOURCE PRE-GATE REA
 - preserve valid captured audio on route loss.
 
 ### H31 — Takes management + diagnostics refinement
-**Status: DIGITAL PASS at #657.**
+**Status: DIGITAL PASS at #659.**
 - activate, rename, delete, note, favorite and rapid audition for takes;
 - preserve active-take and shared-media invariants;
 - extend the existing audio diagnostics/support report with recording-session health and sanitized failure context.
 
 ### H32 — 10-minute song-quality gate + backup regression + final UX/accessibility
-**Status: DIGITAL PASS at #657; 10-minute target-device quality smoke pending.**
+**Status: DIGITAL PASS at #659; 10-minute target-device quality smoke pending.**
 - release-quality target is representative songs/sessions up to **10 minutes**;
 - no separate artificial mega-project performance program;
 - long-recording waveform/timing/save/export quality through 10 minutes;
@@ -55,8 +55,8 @@ H29-H33/H33a/H33b are DIGITAL PASS at CI #657. **H34/H35 are SOURCE PRE-GATE REA
 - final TalkBack/touch-target/font-scale/error/loading/help polish;
 - exact signed final hardening gate.
 
-### H34/H35 — Latency-control refinement
-**Status: SOURCE PRE-GATE READY.**
+### H34/H35/H35a — Latency-control refinement
+**Status: DIGITAL PASS at #659; target-device behavior smoke pending.**
 - global manual residual calibration remains route/rate-scoped, default zero and applies only to future takes;
 - per-take synchronization is an explicit persistent edit in the take UI, independent from the current global value;
 - take lineage movement is delta-based, non-destructive, Undo/Redo-aware and fails closed at timeline zero;
@@ -68,7 +68,7 @@ H29-H33/H33a/H33b are DIGITAL PASS at CI #657. **H34/H35 are SOURCE PRE-GATE REA
 Requires H29-H32 complete, exact-source digital PASS, target recording/USB/10-minute physical residual PASS, no repeatable P0/P1 and explicit approval of the exact signed APK.
 
 ### H33 / 1.1 — External MIDI/footswitch control
-**Status: DIGITAL PASS at #657 and disabled by default; real-controller acceptance remains a separate 1.1 gate.** The source was staged early to share the digital integration gate, without changing the 1.0 H29-H32 acceptance contract.
+**Status: DIGITAL PASS at #659 and disabled by default; real-controller acceptance remains a separate 1.1 gate.** The source was staged early to share the digital integration gate, without changing the 1.0 H29-H32 acceptance contract.
 Only approved new feature family after stable hardening:
 - Android MIDI (USB/Bluetooth when exposed by the platform) plus opt-in HID/keyboard-style footswitch mapping;
 - Learn mode and persistent mappings;
@@ -87,9 +87,9 @@ Do not add to this line:
 - per-track independent physical output routing.
 
 ## Canonical materialization tail
-Current source chain: `… → H25 → H26 → H26a → H26b → H26e → H27 → H28 → H29 → H30 → H31 → H32 → H33 → H33a → H33b → H34 → H35`.
+Current source chain: `… → H25 → H26 → H26a → H26b → H26e → H27 → H28 → H29 → H30 → H31 → H32 → H33 → H33a → H33b → H34 → H35 → H35a`.
 
-H28 is frozen in `materialize_ci_sources_through_h28.sh`; the post-H28 tail through H35 is independently hash-verified, idempotent and fail-closed. Future implementation blocks must extend this chain deterministically and preserve the same guarantees.
+H28 is frozen in `materialize_ci_sources_through_h28.sh`; the post-H28 tail through H35a is independently hash-verified, idempotent and fail-closed. Future implementation blocks must extend this chain deterministically and preserve the same guarantees.
 
 ## Gate discipline
 `.github/workflows/android-ci.yml` remains manual-only (`workflow_dispatch`). Ordinary source/docs commits use `[skip ci]`; the assistant must not dispatch/rerun without explicit user instruction.

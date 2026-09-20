@@ -3,40 +3,24 @@
 Updated: 2026-09-20
 
 ## Current evidence boundary
-The current signed DIGITAL PASS is **CI #657** / run `35290128876` / producer `e371bb2a5c8040c668b926b2077c03d1c7c8c7d6`, through H33b.
+The current signed DIGITAL PASS is **CI #659** / run `35512894518` / producer `a6a53e8ba9e75b32565e451870758c7c65ad687f`, through H35a.
 
-Signed APK SHA-256: `05d6eaf71fb69ce55b28b8e3214e619a15f3b862dada973740927c2b9ecf2cd6`.
+Signed APK SHA-256: `e7ddce638a83d92af0ef2a01e46a10152f8c0eb4c535f0ddbc8671d9b94a1295`.
 
 Audited digital evidence:
-- 323/323 JVM/unit PASS, 0 failures/errors/skips;
-- performance evidence PASS;
-- Android Lint PASS, 0 errors;
+- 330/330 JVM/unit PASS, 0 failures/errors/skips;
+- Android Lint PASS, 0 errors / 50 warnings / 4 hints;
 - debug/release assembly and unsigned provenance PASS;
+- unsigned tested APK SHA-256 `4351458825b7a07c53ff2827e69477414896b497b0a77e3aa7e681c29d97c5da`;
 - 33/33 standard API36 PASS;
 - 1/1 isolated target-tablet geometry PASS;
-- exact tested-artifact signed homologation/provenance/certificate verification PASS.
+- exact tested-artifact signed homologation/provenance/certificate verification PASS;
+- signed APK SHA-256 `e7ddce638a83d92af0ef2a01e46a10152f8c0eb4c535f0ddbc8671d9b94a1295`.
 
-Target-device backup testing after #653 confirmed the H28 corrective is functioning correctly. CI #657 remains the latest signed DIGITAL PASS through H33b; H34/H35 are source PRE-GATE.
+Target-device backup testing after #653 confirmed the H28 corrective is functioning correctly. CI #659 is the latest signed DIGITAL PASS through H35a.
 
-## H29-H33 digital closure and H34/H35 pre-gate evidence
-CI #657 digitally closes H29-H33/H33a/H33b on exact source.
-
-H34/H35 local/source evidence:
-- ±500 ms global future-recording clamp remains exact at 44.1/48/88.2/96 kHz;
-- per-take synchronization shifts every clip in one take lineage by the exact stored-value delta with no drift;
-- sourceStartFrame/length/media bytes remain unchanged by take synchronization;
-- returning take adjustment to zero restores the exact inverse movement;
-- advancing across timeline zero fails closed atomically;
-- the take-specific value round-trips through project serialization;
-- the calibration chirp is deterministic/windowed and capped at 0.12 peak for 44.1/48/88.2/96 kHz;
-- silent digital verification is explicitly non-calibrating;
-- physical calibration requires exact effective live routes before any non-zero stimulus;
-- exact H34→H35 and full H28→H35 materialization PASS;
-- second materialization PASS/idempotent for both paths;
-- corrupt H35 archive rejected fail-closed;
-- all 12 terminal H35 Git blobs match the reviewed workspace.
-
-H34/H35 still require the normal exact-source Android unit/Lint/build/API36/signing gate before becoming DIGITAL PASS.
+## H29-H35a digital closure
+CI #659 digitally closes H29-H35a on exact source. The H34/H35 take-synchronization, silent-verification and quieter calibration code is therefore covered by the canonical unit/Lint/build/API36/signing pipeline.
 
 ## Protected H28 regression contract
 Automated or programmatic coverage must continue to prove:
@@ -69,7 +53,7 @@ Keep manual work limited to what software/emulator cannot prove for the exact fu
 
 H33 real-controller connect/map/reconnect/tactile double-trigger acceptance remains the separate 1.1 physical residual and is not a stable-1.0 completion requirement.
 
-Everything objectively established by #657 does not need to be repeated manually unless a later source change invalidates that evidence.
+Everything objectively established by #659 does not need to be repeated manually unless a later source change invalidates that evidence.
 
 ## Post-H28 forward quality plan
 The authoritative H29-H33 implementation/test plan is `POST_H28_HARDENING_AND_EXTERNAL_CONTROL_PLAN.md`.
