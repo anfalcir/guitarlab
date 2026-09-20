@@ -11,19 +11,19 @@ Audited digital evidence:
 - 330/330 JVM/unit PASS, 0 failures/errors/skips;
 - Android Lint PASS, 0 errors / 50 warnings / 4 hints;
 - debug/release assembly and unsigned provenance PASS;
-- unsigned tested APK SHA-256 `4351458825b7a07c53ff2827e69477414896b497b0a77e3aa7e681c29d97c5da`;
-- 33/33 standard API36 PASS;
+- unsigned tested APK SHA-256 `215315f8b943704b9b820f98b4b7747df2fbbc62b862ab08e6c14d4dea9e89ad`;
+- 34/34 standard API36 instrumented PASS;
 - 1/1 isolated target-tablet geometry PASS;
 - exact tested-artifact signed homologation/provenance/certificate verification PASS;
-- signed APK SHA-256 `e7ddce638a83d92af0ef2a01e46a10152f8c0eb4c535f0ddbc8671d9b94a1295`.
+- signed APK SHA-256 `8e6e0f555bc5e834c4bccbdb011134c42d124806ce0316dd28787a6c98fe7bf3`.
 
-Target-device backup testing after #653 confirmed the H28 corrective is functioning correctly. CI #659 is the latest signed DIGITAL PASS through H35a.
+Target-device backup testing after #653 confirmed the H28 SAF corrective is functioning correctly. CI #663 is the latest signed DIGITAL PASS through H36c. H37 is a later SOURCE PRE-GATE Drive transport candidate and does not supersede this evidence.
 
-## H29-H35a digital closure
-CI #659 digitally closes H29-H35a on exact source. The H34/H35 take-synchronization, silent-verification and quieter calibration code is therefore covered by the canonical unit/Lint/build/API36/signing pipeline.
+## H29-H36c digital closure
+CI #663 digitally closes H29-H36c on exact source. The H34/H35 take-synchronization, silent-verification and quieter calibration code is therefore covered by the canonical unit/Lint/build/API36/signing pipeline.
 
 ## H36/H36a/H36b/H36c Settings UX digital closure
-H36 must preserve all #659 functional behavior while proving the presentation change:
+H36 preserves all prior signed functional behavior while proving the presentation change:
 - existing calibration-modal instrumentation still opens/closes the dedicated panel and sees silent/physical calibration actions;
 - calibration instrumentation now verifies both extreme manual controls (−25 ms and +25 ms), inner ±1 ms controls and `Zerar ajuste` are visible without a horizontal adjustment carousel;
 - new Settings hierarchy instrumentation verifies the centered Settings root and compact Audio/External Control actions remain discoverable through the vertical Settings flow;
@@ -43,6 +43,31 @@ Automated or programmatic coverage must continue to prove:
 - targeted revision discovery prevents duplicate commit under stale provider listing;
 - exact remote write verification does not depend on immediate parent-list visibility;
 - retention remains bounded per project and fail-safe on partial/total failure.
+
+## H37 Drive v3 pre-gate and acceptance contract
+H37 changes the backup transport and therefore requires new digital and target evidence before promotion.
+
+Canonical automated gate must additionally prove:
+- H37 five-part archive reconstructs to the declared gzip/patch hashes and all terminal Git blobs;
+- Drive protocol/query/property encoding tests pass;
+- remote-store tests cover committed-catalog filtering, exact revision lookup, idempotency and integrity mismatch rejection;
+- deterministic project bundle tests prove the same persisted state regenerates byte-identical package bytes;
+- authorization state and resumable-session metadata are excluded from Android cloud backup/device transfer;
+- all pre-existing H28 coordinator/domain regressions still pass;
+- Android Lint, debug/release build, API36 instrumentation/geometry and signing remain green on the exact H37 producer.
+
+First target OAuth/Drive acceptance must cover:
+- Google Drive API enabled and an Android OAuth client registered for package `studio.guitarlab.app` and signer SHA-1 `42:C7:0C:79:D3:B5:CB:2C:FE:BD:F7:FF:80:93:1B:BB:F4:D1:00:37`;
+- consent requests only `drive.file`;
+- first manual full backup creates committed revisions visible in Drive;
+- repeating an unchanged backup creates no duplicate logical revision;
+- changed project creates exactly one new revision and retention remains bounded;
+- interrupt a representative larger resumable upload, then confirm resume from the server-confirmed offset rather than restart/blind replay;
+- restore validates package integrity and creates an independent local project copy;
+- disconnect/reconnect revokes/reobtains authorization without deleting remote backups;
+- if legacy SAF history exists, migrate it and confirm SAF access is retained until every selected revision succeeds.
+
+A failed/partial upload must never appear in the restore catalog, and a completed upload whose final commit response was lost must be reconciled without duplicating package content.
 
 ## Remaining target-device residual
 For H35, physical validation should additionally confirm that:
@@ -66,14 +91,15 @@ H33 real-controller connect/map/reconnect/tactile double-trigger acceptance rema
 Everything objectively established by #663 does not need to be repeated manually unless a later source change invalidates that evidence.
 
 ## Post-H28 forward quality plan
-The authoritative H29-H33 implementation/test plan is `POST_H28_HARDENING_AND_EXTERNAL_CONTROL_PLAN.md`.
+The post-H28 audio/external-control plan remains `POST_H28_HARDENING_AND_EXTERNAL_CONTROL_PLAN.md`; H37 backup transport is additionally governed by `H37_DRIVE_V3_BACKUP.md`.
 
 Key additions:
 - H29 recording session-health evidence and latency closure;
 - H30 interrupted-recording recovery + USB resilience;
 - H31 takes + diagnostic report refinement;
 - H32 quality/stress target for songs up to 10 minutes + backup regression + UX/accessibility;
-- H33 external MIDI/HID footswitch control after stable 1.0.
+- H33 external MIDI/HID footswitch control after stable 1.0;
+- H37 direct Drive v3 backup transport with exact-source digital gate and first OAuth/Drive target acceptance.
 
 For the 10-minute quality line, stress must model realistic song projects rather than create a separate artificial mega-project product requirement.
 
