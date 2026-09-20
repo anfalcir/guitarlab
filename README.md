@@ -10,8 +10,8 @@ The repository is canonical for scope, architecture, implementation state and ho
 Read first: `docs/CURRENT_STATE.md`, `docs/H37_DRIVE_V3_BACKUP.md`, `docs/H35_TAKE_SYNC_QUIET_CALIBRATION.md`, `docs/POST_H28_HARDENING_AND_EXTERNAL_CONTROL_PLAN.md`, `docs/H28_BACKUP_IDENTITY_CONSISTENCY.md`, `docs/IMPLEMENTATION_ROADMAP.md`, `docs/TEST_AND_HOMOLOGATION_PLAN.md`, `docs/RC3_FINAL_PHYSICAL_HOMOLOGATION.md`, `docs/CANDIDATE_IDENTITY_POLICY.md` and `docs/DOCUMENTATION_MAP.md`.
 
 ## Active source/release state
-Source candidate: **`0.5.0-rc4` / versionCode `24` / H37 — SOURCE PRE-GATE**.
-Current signed candidate remains **`0.5.0-rc3` / versionCode `23`**, package `studio.guitarlab.app`, until the manual H37 canonical gate passes.
+Source candidate: **`0.5.0-rc4` / versionCode `24` / H37a — SOURCE PRE-GATE**.
+Current signed candidate remains **`0.5.0-rc3` / versionCode `23`**, package `studio.guitarlab.app`, until the manual H37a canonical gate passes.
 
 The current signed digital authority is **CI #663** / run `35523442620` / exact producer `51d4098fa7b1b44a9fa315e939541020f594654d`, with the complete H29-H36c line DIGITAL PASS. Signed APK SHA-256: `8e6e0f555bc5e834c4bccbdb011134c42d124806ce0316dd28787a6c98fe7bf3`.
 
@@ -26,7 +26,7 @@ H37 replaces SAF as the primary backup transport with direct Google Drive API v3
 
 The transport adds resumable uploads, server-confirmed resume offsets, Drive size/SHA-256 verification, private `appProperties` catalog identity, crash reconciliation and bounded backoff. Existing H26-H28 SAF history remains supported as a one-time migration source and is not released locally until migration completes with zero failures.
 
-H37 is **SOURCE PRE-GATE**. CI #663 / RC3 remains the signed authority until the user manually runs the canonical workflow and H37 passes software, API36 and signing gates. See `docs/H37_DRIVE_V3_BACKUP.md`.
+H37 producer `abecc73e4eab181a7776d98cc731758b17c64b06` reached manual CI #664, which failed deterministically at Kotlin compilation before Lint/build/signing. H37a is the minimal compile corrective and remains **SOURCE PRE-GATE**. CI #663 / RC3 is still the signed authority until a fresh manual H37a workflow passes. See `docs/H37_DRIVE_V3_BACKUP.md`.
 
 ## H28 — stable project/revision identity + provider consistency
 H28 hardens the backup contract so that:
@@ -49,7 +49,7 @@ Before stable `1.0.0`, the project will harden existing recording/USB/recovery/t
 - the assistant must not dispatch or rerun Actions without explicit user instruction.
 
 ## Source materialization
-Large deltas are versioned in `.source-parts` and materialized serially by `scripts/materialize_ci_sources.sh`. Canonical source tail: **`… → H25 → H26 → H26a → H26b → H26e → H27 → H28 → H29 → H30 → H31 → H32 → H33 → H33a → H33b → H34 → H35 → H35a → H36 → H36a → H36b → H36c → H37`**. The accepted H28 materializer remains frozen in `scripts/materialize_ci_sources_through_h28.sh`; `scripts/materialize_ci_sources_h37.sh` composes the existing H29-H36c tail and the hash-verified H37 source archive. Unexpected source/archive/patch/final-blob drift fails closed.
+Large deltas are versioned in `.source-parts` and materialized serially by `scripts/materialize_ci_sources.sh`. Canonical source tail: **`… → H25 → H26 → H26a → H26b → H26e → H27 → H28 → H29 → H30 → H31 → H32 → H33 → H33a → H33b → H34 → H35 → H35a → H36 → H36a → H36b → H36c → H37 → H37a`**. The accepted H28 materializer remains frozen in `scripts/materialize_ci_sources_through_h28.sh`; `scripts/materialize_ci_sources_h37a.sh` composes H37 and then applies the hash-verified H37a compile corrective. Unexpected source/archive/patch/final-blob drift fails closed.
 
 ## Security
 Never commit keystores, credentials, local SDK configuration or secret artifacts. H37 Drive access is limited to OAuth `drive.file`; no client secret, refresh token, service-account key or Firebase/backend credential belongs in the APK or repository. SAF persists only as a legacy migration source for existing H26-H28 histories.
