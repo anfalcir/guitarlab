@@ -33,7 +33,7 @@ New tail inputs:
 - H36a `.source-parts/H36aSettingsTestImportCorrective.patch.gz.b64` — gzip `949c740dc67545016a27652630ed1e6504f76ae9322feaecd554191ee5753c22`, patch `f5c8b3acdbd87ce4bbb3ffa8b95be3af018b3bb4df7acc27ff0fd0794a03686a`;
 - H36b `.source-parts/H36bSettingsScrollTestCorrective.patch.gz.b64` — gzip `ac06c0d951355e2d0885203e010509bbb1aade05af173e6ba848a47e1184f692`, patch `a78b88bc6545a98fd109c353fe68910931897290f5feb93a0ebd648055dd3ee1`;
 - H36c `.source-parts/H36cSettingsCalibrationSemanticTagCorrective.patch.gz.b64` — gzip `9742596963536b5b9c55d59653ea68e1542bad8953f73028eff159736756b505`, patch `279ef2e51579bfd706a3071300ddf245fa06a4f0d22e9b868907a5c38bf877f7`.
-- H37 `.source-parts/H37DriveV3Backup.patch.gz.b64.part00` … `.part04` — reconstructed gzip `b50c966cc6d95b4dce4268d1e9a4616c841d73d3d8be6758472e22555c895e19`, decoded patch `80c47320730cb665a6523f6f4ed404a9a1cc758e142e34de47c6dfdce3fdbb92`.
+- H37 `.source-parts/H37DriveV3Backup.patch.gz.b64.part00` … `.part04` — reconstructed gzip `253953752a421a5b2299a040024c7f897940cfaa7de17aec914bcc2793ce9000`, decoded patch `d4d7da1d1a097c9451644d78b92cc10dae6faf35b523b0339cce906ab01007a2`.
 
 Expected terminal message for the current source candidate: `Source patch chain materialized through H37 with verified final hashes`.
 
