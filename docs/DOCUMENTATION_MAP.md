@@ -7,10 +7,11 @@ Repository documentation is split into **live authority**, **normative contracts
 
 A historical document may intentionally contain an old statement such as “current”, “latest”, “pending”, an old branch name or an old hardware target because it preserves contemporaneous evidence. Such statements apply only to that document's dated context and **never override the live authority set below**.
 
-## Live authority — signed #663 / H36c line
+## Live authority — signed #663 / H37 source-candidate line
 Use these first for current status, release identity and remaining work:
 - `README.md` — repository entry point;
-- `CURRENT_STATE.md` — current signed authority and remaining physical residual;
+- `CURRENT_STATE.md` — current signed authority, H37 source-candidate state and remaining physical residual;
+- `H37_DRIVE_V3_BACKUP.md` — normative H37 direct Drive v3 transport, OAuth/security, resume/integrity and SAF-migration contract;
 - `ARCHITECTURE.md` — current system/release architecture;
 - `DECISIONS.md` — durable product/engineering decisions, with later decisions superseding earlier ones;
 - `PRODUCT_VISION.md` and `PRODUCT_REQUIREMENTS.md` — destination and required behavior;
@@ -20,7 +21,8 @@ Use these first for current status, release identity and remaining work:
 - `CI_PIPELINE.md` — manual CI, source materialization and signing provenance;
 - `TEST_AND_HOMOLOGATION_PLAN.md` — current automated/physical evidence boundary;
 - `RC3_FINAL_PHYSICAL_HOMOLOGATION.md` — current target-device checklist bound to CI #663;
-- `RELEASE_NOTES_0.5.0-rc3.md` — active RC3 behavior delta;
+- `RELEASE_NOTES_0.5.0-rc3.md` — current signed RC3 behavior delta;
+- `RELEASE_NOTES_0.5.0-rc4.md` — H37 RC4 source-candidate delta; SOURCE PRE-GATE until a later signed CI supersedes #663;
 - `H35_TAKE_SYNC_QUIET_CALIBRATION.md` — global-vs-take synchronization and quiet/silent calibration contract;
 - `H36_SETTINGS_UX_POLISH.md` — Settings/calibration presentation refinement plus H36a/H36b/H36c corrective history and #663 DIGITAL PASS evidence.
 
@@ -34,7 +36,7 @@ These define behavior and remain valid unless explicitly superseded:
 - `STUDIO_WORKSPACE_GUIDELINES.md` and `STUDIO_OPTIONS_AND_MIXER.md`;
 - `UI_VISUAL_SYSTEM.md`, `UI_COPY_STYLE.md`, `TRANSIENT_FEEDBACK_CONTRACT.md`, `USER_GUIDE_POLICY.md`;
 - `SHARE_MODAL_CONTRACT.md`;
-- `H28_BACKUP_IDENTITY_CONSISTENCY.md` as the protected current backup identity/provider-consistency contract;
+- `H28_BACKUP_IDENTITY_CONSISTENCY.md` as the protected backup identity/revision contract preserved by H37;
 - `H26_SAF_CLOUD_BACKUP.md` and `H27_BACKUP_HISTORY_RELEASE_UX.md` only for the retained architecture/supersession details they explicitly identify.
 
 ## Historical/superseded evidence
@@ -52,7 +54,7 @@ CI #663 / run `35523442620` / producer `51d4098fa7b1b44a9fa315e939541020f594654d
 
 Signed APK SHA-256: `8e6e0f555bc5e834c4bccbdb011134c42d124806ce0316dd28787a6c98fe7bf3`.
 
-H28 backup/provider-consistency behavior is already physically accepted. H36/H36a/H36b/H36c are included in the signed #663 authority; H36a/H36b/H36c are test-only correctives and do not change audio/runtime semantics. Remaining stable-1.0 physical work is recording alignment, USB loss/reconnect/capture preservation, the continuous 10-minute quality exercise and H35 target-device synchronization/calibration behavior. H33 real-controller physical acceptance is a separate 1.1 boundary.
+H28 backup/provider-consistency behavior is already physically accepted in the signed #663 baseline. H36/H36a/H36b/H36c are included in that signed authority. H37 is a later SOURCE PRE-GATE transport migration to direct Drive API v3 and does not become signed authority until the manual canonical workflow passes; its first real OAuth/Drive backup/restore acceptance is also still required. Remaining audio physical work is recording alignment, USB loss/reconnect/capture preservation, the continuous 10-minute quality exercise and H35 target-device synchronization/calibration behavior. H33 real-controller physical acceptance remains a separate 1.1 boundary.
 
 ## Repository audits
 - `REPOSITORY_SANITIZATION_2026-09-20.md` records the branch audit supporting a single-branch (`main`) repository cleanup.
