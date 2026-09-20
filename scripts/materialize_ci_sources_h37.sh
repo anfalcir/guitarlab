@@ -9,11 +9,11 @@ H37_PARTS=(
     "$ROOT/.source-parts/H37DriveV3Backup.patch.gz.b64.part03"
     "$ROOT/.source-parts/H37DriveV3Backup.patch.gz.b64.part04"
 )
-H37_ARCHIVE_SHA256="b50c966cc6d95b4dce4268d1e9a4616c841d73d3d8be6758472e22555c895e19"
-H37_PATCH_SHA256="80c47320730cb665a6523f6f4ed404a9a1cc758e142e34de47c6dfdce3fdbb92"
+H37_ARCHIVE_SHA256="253953752a421a5b2299a040024c7f897940cfaa7de17aec914bcc2793ce9000"
+H37_PATCH_SHA256="d4d7da1d1a097c9451644d78b92cc10dae6faf35b523b0339cce906ab01007a2"
 
 H37_CHECKS=(
-    "app/build.gradle.kts|60007f2be41eadf6c9987f8af70aee561ed21f20"
+    "app/build.gradle.kts|e725ebf5dc8f225422b0b9616e3c2082ab11ede5"
     "app/src/androidTest/java/studio/guitarlab/app/BackupScreenInstrumentedTest.kt|6b6c0ef5fe11e3c796dcd32bfca833783f390699"
     "app/src/main/AndroidManifest.xml|790f061d61ba77306e8c5f41bc18611b49959de8"
     "app/src/main/java/studio/guitarlab/app/backup/AutomaticBackupWorker.kt|7df2deabe332b7aacc947174d33bfef95ec6b333"
@@ -32,7 +32,7 @@ H37_CHECKS=(
     "app/src/test/java/studio/guitarlab/app/backup/DriveV3ProtocolTest.kt|c43b11f3c550ff9f9431ea3be256e067ca4ce162"
     "core/project/src/main/kotlin/studio/guitarlab/core/project/ProjectBundleWriter.kt|923b3e4e7cb089793281b8851af64b363670534f"
     "core/project/src/test/kotlin/studio/guitarlab/core/project/ProjectBundleWriterTest.kt|a27d06d3f2002901bb9a6e8023c83d3ec6bdebef"
-    "gradle/libs.versions.toml|77f310769ceaa9d51bcaf74bbc37200080c282ee"
+    "gradle/libs.versions.toml|ffb4a90fa2b00de4c96cbbd18ef2e3f94c1904df"
 )
 
 hash_file() { git -C "$ROOT" hash-object "$1"; }
