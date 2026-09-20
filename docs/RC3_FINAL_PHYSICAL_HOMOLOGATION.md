@@ -4,16 +4,16 @@ Updated: 2026-09-20
 
 ## Candidate binding
 Current signed candidate:
-- CI #659 / run `35512894518`;
-- producer `a6a53e8ba9e75b32565e451870758c7c65ad687f`;
+- CI #663 / run `35523442620`;
+- producer `51d4098fa7b1b44a9fa315e939541020f594654d`;
 - package `studio.guitarlab.app`;
 - version `0.5.0-rc3` / versionCode `23`;
-- unsigned tested APK SHA-256 `4351458825b7a07c53ff2827e69477414896b497b0a77e3aa7e681c29d97c5da`;
-- signed APK SHA-256 `e7ddce638a83d92af0ef2a01e46a10152f8c0eb4c535f0ddbc8671d9b94a1295`;
+- unsigned tested APK SHA-256 `215315f8b943704b9b820f98b4b7747df2fbbc62b862ab08e6c14d4dea9e89ad`;
+- signed APK SHA-256 `8e6e0f555bc5e834c4bccbdb011134c42d124806ce0316dd28787a6c98fe7bf3`;
 - signed APK size `13,835,802` bytes;
 - signer certificate SHA-256 `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
 
-CI #659 is DIGITAL PASS through H35a: 330/330 JVM/unit tests, Android Lint with 0 errors, 33/33 standard API36 tests, 1/1 isolated target geometry, debug/release/provenance and exact-artifact signing all passed.
+CI #663 is DIGITAL PASS through H36c: 330/330 JVM/unit tests, Android Lint with 0 errors, 34/34 standard API36 instrumented tests, 1/1 isolated target geometry, debug/release/provenance and exact-artifact signing all passed.
 
 ## H28 backup physical result
 **PASS for the defect that triggered H28.** Target-device retest confirmed backup functions without the previously reproduced false confirmation/selective-duplicate behavior.
@@ -21,7 +21,7 @@ CI #659 is DIGITAL PASS through H35a: 330/330 JVM/unit tests, Android Lint with 
 Backup/restore remains under normal regression protection; it is no longer the current release blocker.
 
 ## Remaining recording/audio physical closure
-Use the exact #659 signed APK unless a later exact-source candidate explicitly supersedes it.
+Use the exact #663 signed APK unless a later exact-source candidate explicitly supersedes it.
 
 ### Route and recording isolation
 - [ ] intended MK-300 input/output are the effective routes during REC;
@@ -50,4 +50,4 @@ Use the exact #659 signed APK unless a later exact-source candidate explicitly s
 H33 MIDI/HID controller hardware acceptance belongs to 1.1 and is not a stable-1.0 blocker.
 
 ## Final PASS
-RC3 FINAL / stable-1.0 readiness requires this exact signed candidate to retain DIGITAL PASS, complete the applicable hardware-only residual above, contain no repeatable P0/P1 and receive explicit approval of signed APK SHA-256 `e7ddce638a83d92af0ef2a01e46a10152f8c0eb4c535f0ddbc8671d9b94a1295`.
+RC3 FINAL / stable-1.0 readiness requires this exact signed candidate to retain DIGITAL PASS, complete the applicable hardware-only residual above, contain no repeatable P0/P1 and receive explicit approval of signed APK SHA-256 `8e6e0f555bc5e834c4bccbdb011134c42d124806ce0316dd28787a6c98fe7bf3`.

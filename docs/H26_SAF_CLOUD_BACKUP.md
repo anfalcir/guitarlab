@@ -30,4 +30,4 @@ Canonical current tail:
 H26c/H26d remain historical recovery experiments and are not part of the current canonical path.
 
 ## Promotion boundary
-CI #650 must not be described as containing H27/H28, and CI #651 contains H27 but not H28. H28 subsequently passed at CI #653, its triggering target defect was physically accepted, and the protected backup contract remains included in the current CI #659 signed baseline.
+CI #650 must not be described as containing H27/H28, and CI #651 contains H27 but not H28. H28 subsequently passed at CI #653, its triggering target defect was physically accepted, and the protected backup contract remains included in the current CI #663 signed baseline.

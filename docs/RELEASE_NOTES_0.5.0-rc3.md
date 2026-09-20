@@ -2,16 +2,16 @@
 
 Updated: 2026-09-20
 
-## Current signed digital homologation — CI #659
-Run `35512894518`, producer `a6a53e8ba9e75b32565e451870758c7c65ad687f`, is the signed DIGITAL PASS through H35a.
+## Current signed digital homologation — CI #663
+Run `35523442620`, producer `51d4098fa7b1b44a9fa315e939541020f594654d`, is the signed DIGITAL PASS through H36c.
 
-Signed APK SHA-256: `e7ddce638a83d92af0ef2a01e46a10152f8c0eb4c535f0ddbc8671d9b94a1295`.
+Signed APK SHA-256: `8e6e0f555bc5e834c4bccbdb011134c42d124806ce0316dd28787a6c98fe7bf3`.
 
 Digital gate summary:
 - 330/330 JVM/unit PASS;
 - Android Lint PASS with 0 errors / 50 warnings / 4 hints;
 - debug/release build and unsigned provenance PASS;
-- 33/33 standard API36 PASS + 1/1 isolated target geometry PASS;
+- 34/34 standard API36 instrumented PASS + 1/1 isolated target geometry PASS;
 - exact tested-artifact signing/certificate/package verification PASS.
 
 ## H34/H35/H35a included in #659
@@ -33,7 +33,7 @@ Target-device retest after #653 confirms the backup workflow is now functioning 
 
 The remaining RC3 physical closure is recording latency/synchronization on the intended USB route.
 
-## Current source after #659 — H36/H36a/H36b/H36c PRE-GATE
+## H36/H36a/H36b/H36c included in #663
 H36 refines Settings UX without changing audio behavior:
 - main Settings is centered/capped on tablets instead of stretching across the display;
 - section/card hierarchy is lighter and secondary actions become compact responsive trailing buttons;
@@ -43,7 +43,7 @@ H36 refines Settings UX without changing audio behavior:
 - silent/physical calibration actions share the same compact responsive component;
 - new/expanded Compose instrumentation protects Settings hierarchy and calibration-control visibility.
 
-CI #660 passed H36's software gate but failed Android-test compilation; H36a corrected that import. CI #661 then compiled and ran instrumentation, with 31/34 passing and three viewport-only Settings assertions failing. H36b corrects those tests without changing runtime UI. CI #662 reached 33/34 app instrumentation PASS; H36c corrects the sole remaining stale text-based calibration test using the stable semantic tag, without changing runtime UI. CI #659 remains the signed authority until a complete exact-source canonical gate passes.
+CI #660/#661/#662 are retained as corrective history. CI #663 passes the complete exact-source software/API36/geometry/signing gate, so the Settings UX polish and final stable-tag tests are now part of the signed candidate.
 
 ## Forward development
 The approved post-H28 hardening and external-control roadmap is documented in `POST_H28_HARDENING_AND_EXTERNAL_CONTROL_PLAN.md`.

@@ -5,25 +5,25 @@ Updated: 2026-09-20
 ## Active line
 - Repository/branch: `anfalcir/guitarlab` / `main`.
 - Version: `0.5.0-rc3`, versionCode `23`, package `studio.guitarlab.app`.
-- Current source line: signed CI #659 producer plus H36/H36a/H36b/H36c source-only UX/test delta.
-- Latest signed DIGITAL PASS: **CI #659** / run `35512894518` / producer `a6a53e8ba9e75b32565e451870758c7c65ad687f`.
-- #659 scope: H28 → H29 → H30 → H31 → H32 → H33 → H33a → H33b → H34 → H35 → H35a.
-- Signed APK SHA-256: `e7ddce638a83d92af0ef2a01e46a10152f8c0eb4c535f0ddbc8671d9b94a1295`.
+- Current signed source line: CI #663 producer `51d4098fa7b1b44a9fa315e939541020f594654d`.
+- Latest signed DIGITAL PASS: **CI #663** / run `35523442620` / producer `51d4098fa7b1b44a9fa315e939541020f594654d`.
+- #663 scope: H28 → H29 → H30 → H31 → H32 → H33 → H33a → H33b → H34 → H35 → H35a → H36 → H36a → H36b → H36c.
+- Signed APK SHA-256: `8e6e0f555bc5e834c4bccbdb011134c42d124806ce0316dd28787a6c98fe7bf3`.
 - Signed APK size: `13,835,802` bytes.
 - Locked signer SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
 - CI remains manual-only (`workflow_dispatch`).
 
-## #659 digital evidence
+## #663 digital evidence
 All three canonical jobs passed on the exact producer SHA:
-- deterministic materialization through H35a PASS;
+- deterministic materialization through H36c PASS;
 - **330/330 JVM/unit tests PASS**, 0 failures/errors/skips;
 - Android Lint PASS with **0 errors, 50 warnings and 4 hints**;
 - debug/release assembly and unsigned provenance PASS;
-- unsigned tested APK SHA-256 `4351458825b7a07c53ff2827e69477414896b497b0a77e3aa7e681c29d97c5da`;
-- **33/33 standard API36 PASS**;
+- unsigned tested APK SHA-256 `215315f8b943704b9b820f98b4b7747df2fbbc62b862ab08e6c14d4dea9e89ad`;
+- **34/34 standard API36 instrumented tests PASS**;
 - **1/1 isolated 1920×1200 geometry PASS**;
 - exact tested-artifact signing, zipalign, package/version and certificate verification PASS;
-- signed APK SHA-256 `e7ddce638a83d92af0ef2a01e46a10152f8c0eb4c535f0ddbc8671d9b94a1295`.
+- signed APK SHA-256 `8e6e0f555bc5e834c4bccbdb011134c42d124806ce0316dd28787a6c98fe7bf3`.
 
 Locked signer SHA-256 remains `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
 
@@ -32,8 +32,8 @@ Target-device testing after #653 confirmed the corrected backup behavior is work
 
 H28 remains a protected regression contract covering immutable `projectId`, deterministic `revisionId`, package SHA-256 integrity, provider-lag tolerance, idempotent unchanged backup and bounded retention.
 
-## H29-H35a digital closure
-H29-H35a are digitally closed by CI #659.
+## H29-H36c digital closure
+H29-H36c are digitally closed by CI #663.
 
 H34/H35/H35a are now part of the exact signed candidate:
 - global route/rate manual residual range is ±500 ms and applies only to future recordings;
@@ -42,32 +42,17 @@ H34/H35/H35a are now part of the exact signed candidate:
 - physical calibration validates the exact live input/output IDs before emitting a deterministic 32 ms windowed chirp capped at 12% peak;
 - the H35a explicit RECORD_AUDIO guard passed Android Lint without suppression.
 
-## H36/H36a/H36b/H36c — Settings UX Polish — SOURCE PRE-GATE READY
-H36 is a presentation/UX-only block on top of the #659 H35a source.
+## H36/H36a/H36b/H36c — Settings UX Polish — DIGITAL PASS
+H36 is now part of the exact signed #663 candidate.
 
-Implemented:
-- main Settings content is centered and capped at 920 dp on wide/tablet layouts instead of stretching across the full screen;
-- section chrome is lighter: one section surface, reduced nested-card treatment and clearer title/content hierarchy;
-- reusable responsive action rows keep secondary actions compact on wide layouts and stack safely on narrow layouts;
-- full-width primary-looking actions were removed from Audio refresh, Backup management, External Control/HID and Diagnostics on wide Settings layouts;
-- external-control mappings are denser/responsive while preserving existing Learn/Clear semantics and test tags;
-- informational option rows now avoid unnecessary nested cards and stack value/detail safely below 500 dp;
-- calibration modal is capped at 640 dp and the manual fine-adjustment controls no longer use horizontal scrolling;
-- manual adjustment is rendered as two visible three-button rows: −25/−5/−1 ms and +1/+5/+25 ms, with separate `Zerar ajuste`;
-- silent verification and physical calibration reuse the same compact responsive action pattern;
-- all touch actions retain at least 48 dp minimum height.
+Closed behavior:
+- main Settings content is centered/capped on wide tablet layouts;
+- section chrome and secondary actions use the compact responsive hierarchy;
+- the calibration modal exposes all ±25/±5/±1 ms controls without horizontal scrolling;
+- Settings/External Control/diagnostics/calibration instrumented coverage passes on API36;
+- H36a/H36b/H36c remain traceable test-only correctives; runtime `SettingsScreen.kt` is unchanged from H36.
 
-Regression/source evidence before publication:
-- `git diff --check` PASS;
-- Settings source contract confirms no `horizontalScroll`, 920 dp page cap, compact action component and all six fine-adjustment extremes;
-- H35a→H36 first materialization PASS;
-- H35a→H36 second materialization PASS/idempotent;
-- full H28→H36 first materialization PASS;
-- full H28→H36 second materialization PASS/idempotent;
-- corrupt H36 archive rejected with nonzero exit before source mutation;
-- H36 terminal blobs: Settings `6c98b72b674743eeeebfe3991c0636e824ef8a09`, calibration UI test `df31fc2dcc05ef619dc79062e9b29666ed176dd4`, Settings hierarchy test `5f8560042219f51216e02637e3b48f22ca947623`.
-
-CI #660 proved H36 materialization, JVM/unit tests, Android Lint and debug/release build/provenance, but the API36 job stopped at Android-test compilation because `SettingsVisualHierarchyInstrumentedTest` imported a non-existent top-level `androidx.compose.ui.test.onNode`. H36a removed only that invalid import. CI #661 then passed Android-test compilation and executed 34 app instrumented tests: 31 passed and 3 failed only on `assertIsDisplayed` after the H36 layout moved valid controls below the current viewport. H36b makes those tests scroll the owning Settings/modal container to the target before asserting visibility. Runtime `SettingsScreen.kt` remains byte-identical to H36. CI #662 then passed the software gate and executed all 34 app instrumented tests: 33 PASS / 1 FAIL / 0 errors. The sole failure was a stale test expectation for the removed text `Medir latência física`; H36 already exposes the same physical-calibration action through stable tag `settings-run-calibration`, title `Calibração física round-trip` and button `Medir`. H36c changes only that assertion to use the stable tag. `SettingsScreen.kt` remains byte-identical to H36. CI #659 remains the latest signed DIGITAL PASS until H36c receives a complete exact-source gate.
+CI progression is retained as evidence: #660 exposed a test-import issue, #661 exposed three viewport assumptions, #662 reached 33/34 instrumentation PASS, and #663 closed the complete canonical gate at 34/34 + geometry + signing.
 
 ## Remaining RC3 physical blocker
 The remaining release-critical target-only item is **recording latency/synchronization acceptance** on the intended real USB route. The recording timing architecture is already implemented and digitally covered; the unresolved boundary is physical driver/hardware behavior.
@@ -77,7 +62,7 @@ Final RC3/1.0 promotion still requires no repeatable P0/P1 and explicit approval
 ## Approved next-development scope
 The authoritative plan is `POST_H28_HARDENING_AND_EXTERNAL_CONTROL_PLAN.md`.
 
-Before stable 1.0.0, the #659 baseline is digitally closed; only the remaining hardware-only H29/H30/H32/H35 residual must now be physically closed:
+Before stable 1.0.0, the #663 baseline is digitally closed; only the remaining hardware-only H29/H30/H32/H35 residual must now be physically closed:
 - recording synchronization/session-health hardening;
 - interrupted-recording recovery UX;
 - USB audio disconnect/reconnect resilience;

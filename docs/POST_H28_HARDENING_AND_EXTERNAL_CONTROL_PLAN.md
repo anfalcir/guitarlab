@@ -1,7 +1,7 @@
 # Post-H28 Hardening and External Control Implementation Plan
 
 Updated: 2026-09-20
-Status: **H29-H35a DIGITAL PASS (#659) / PHYSICAL RESIDUAL ONLY**
+Status: **H29-H36c DIGITAL PASS (#663) / PHYSICAL RESIDUAL ONLY**
 Initial baseline: `0.5.0-rc3` / H28 CI #653 / source `d09fc003e2ae2d699238eb39ba699f75a746fea4`
 
 ## 1. Purpose
@@ -30,19 +30,19 @@ The implementation baseline is the exact H28 signed candidate produced by CI #65
 - 1/1 isolated 1920×1200 geometry test PASS;
 - software, API36 and signed-homologation jobs all PASS.
 
-Target-device validation after #653 confirmed the corrected H28 backup/provider-consistency workflow is functioning correctly. CI #659 / run `35512894518` / producer `a6a53e8ba9e75b32565e451870758c7c65ad687f` is now the signed DIGITAL PASS through H35a.
+Target-device validation after #653 confirmed the corrected H28 backup/provider-consistency workflow is functioning correctly. CI #663 / run `35523442620` / producer `51d4098fa7b1b44a9fa315e939541020f594654d` is now the signed DIGITAL PASS through H36c.
 
-### Current digital checkpoint — CI #659
-CI #659 closes H29-H35a digitally on the exact producer `a6a53e8ba9e75b32565e451870758c7c65ad687f`:
+### Current digital checkpoint — CI #663
+CI #663 closes H29-H36c digitally on the exact producer `51d4098fa7b1b44a9fa315e939541020f594654d`:
 - 330/330 JVM/unit tests PASS;
 - Android Lint 0 errors (50 warnings + 4 hints);
 - debug/release build and unsigned provenance PASS;
-- 33/33 standard API36 PASS;
+- 34/34 standard API36 instrumented PASS;
 - 1/1 isolated 1920×1200 geometry PASS;
 - exact tested-artifact signing/package/version/certificate verification PASS;
-- signed APK SHA-256 `e7ddce638a83d92af0ef2a01e46a10152f8c0eb4c535f0ddbc8671d9b94a1295`.
+- signed APK SHA-256 `8e6e0f555bc5e834c4bccbdb011134c42d124806ce0316dd28787a6c98fe7bf3`.
 
-H34/H35/H35a are therefore no longer pre-gate:
+H34-H36c are no longer pre-gate:
 - global residual fine adjustment is bounded at ±500 ms and affects future recordings only;
 - take-specific synchronization is persistent, delta-based and non-destructive;
 - silent digital verification uses PCM zero and never stores fake physical round-trip latency;

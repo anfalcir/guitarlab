@@ -44,17 +44,11 @@ Pre-publication source proofs on the exact H28 baseline:
 
 These pre-gate proofs were exercised by the canonical #659 workflow on the exact H35a source.
 
-## H36 pre-gate source evidence
-H36 extends the signed #659 source only at the Settings presentation/test layer. Pre-publication proofs:
-- H35a→H36 first and second materialization PASS/idempotent;
-- full H28→H36 first and second materialization PASS/idempotent;
-- corrupt H36 archive rejected before source mutation;
-- final Git blobs verified for SettingsScreen and both H36 instrumented tests.
+## H36 closure evidence
+H36 is digitally closed by CI #663. The source-materialization/idempotence/fail-closed proofs remain valid, while the canonical Android gate now additionally proves compilation, Lint, **34/34 standard instrumentation**, isolated geometry and signing. H36a/H36b/H36c are test-only correctives and introduce no runtime source change after H36.
 
-CI #660 on H36 passed the software gate completely but API36 stopped at Android-test compilation on one invalid test-only import. H36a removed that import. CI #661 again passed the software gate, compiled Android tests, and executed 34 app instrumented tests; 31 passed and 3 failed only because the tests asserted `displayed` on controls below the current vertical viewport (`settings-external-hid-toggle`, `+1 ms`, and `Diagnóstico`). H36b changes only the three tests to scroll the owning Settings/modal container to the target before asserting visibility. Runtime UI remains unchanged. CI #662 then executed all 34 app instrumented tests with 33 PASS / 1 FAIL; the sole failure was a stale copy-dependent lookup for `Medir latência física`. H36c changes that test to target stable semantic tag `settings-run-calibration`. No runtime source changes are introduced.
-
-## Current signed authority — CI #659
-CI #659 / run `35512894518` / producer `a6a53e8ba9e75b32565e451870758c7c65ad687f` is the signed DIGITAL PASS through H35a.
+## Current signed authority — CI #663
+CI #663 / run `35523442620` / producer `51d4098fa7b1b44a9fa315e939541020f594654d` is the signed DIGITAL PASS through H36c.
 
 Audited evidence:
 - **330/330 JVM/unit tests PASS**;

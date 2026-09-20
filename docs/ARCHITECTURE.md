@@ -6,7 +6,7 @@ Updated: 2026-09-20
 - `main` is canonical.
 - Product behavior is promoted only after exact-source automated gates and, where required, residual physical validation.
 - `.github/workflows/android-ci.yml` is manual-only (`workflow_dispatch`).
-- CI #659 / run `35512894518` / producer `a6a53e8ba9e75b32565e451870758c7c65ad687f` is the current signed DIGITAL PASS through H35a.
+- CI #663 / run `35523442620` / producer `51d4098fa7b1b44a9fa315e939541020f594654d` is the current signed DIGITAL PASS through H36c.
 
 ## Module boundaries
 - `core:model`: immutable project/track/clip/take metadata contracts.
@@ -83,4 +83,4 @@ Durable creative state belongs in project persistence, not transient Composable 
 Large RC3 deltas are materialized from `.source-parts` serially. The current canonical tail ends at H35a. Every stage verifies its encoded/decoded input and expected terminal source state; unexplained drift blocks the build.
 
 ## Current milestone boundary
-M5 and M6 are closed. M7/M8 release hardening is digitally approved through H35a at CI #659. H28 backup behavior is physically accepted and protected by regression. Final RC3/1.0 closure is now hardware-only for recording alignment, real USB disconnect/reconnect/capture preservation, the continuous 10-minute quality smoke and the H35 target-device synchronization/calibration behavior on Samsung SM-X230 + M-VAVE MK-300. H33 controller hardware acceptance remains a separate 1.1 gate.
+M5 and M6 are closed. M7/M8 release hardening is digitally approved through H36c at CI #663. H28 backup behavior is physically accepted and protected by regression. Final RC3/1.0 closure is now hardware-only for recording alignment, real USB disconnect/reconnect/capture preservation, the continuous 10-minute quality smoke and the H35 target-device synchronization/calibration behavior on Samsung SM-X230 + M-VAVE MK-300. H33 controller hardware acceptance remains a separate 1.1 gate.

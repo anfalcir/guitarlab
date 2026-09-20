@@ -1,7 +1,7 @@
 # H36 — Settings UX Polish
 
 Updated: 2026-09-20
-Status: **SOURCE PRE-GATE READY — H36c corrective line**
+Status: **DIGITAL PASS — CI #663**
 
 ## Problem
 Physical review found two related presentation defects:
@@ -60,8 +60,20 @@ H36 source identities:
 - calibration modal test blob: `df31fc2dcc05ef619dc79062e9b29666ed176dd4`;
 - Settings hierarchy test blob: `5f8560042219f51216e02637e3b48f22ca947623`.
 
-## Evidence boundary
-No Android compile/Lint/API36/signing claim is made for H36 yet. CI #659 / producer `a6a53e8ba9e75b32565e451870758c7c65ad687f` remains the latest signed DIGITAL PASS until a manual exact-source workflow closes H36.
+## Digital closure — CI #663
+CI #663 / run `35523442620` / producer `51d4098fa7b1b44a9fa315e939541020f594654d` closes the complete H36 corrective line.
+
+Canonical evidence:
+- 330/330 JVM/unit PASS;
+- Android Lint 0 errors / 50 warnings / 4 hints;
+- 34/34 standard API36 instrumented tests PASS;
+- 1/1 isolated 1920×1200 geometry PASS;
+- debug/release build and unsigned provenance PASS;
+- unsigned tested APK SHA-256 `215315f8b943704b9b820f98b4b7747df2fbbc62b862ab08e6c14d4dea9e89ad`;
+- signed APK SHA-256 `8e6e0f555bc5e834c4bccbdb011134c42d124806ce0316dd28787a6c98fe7bf3`;
+- signer certificate SHA-256 `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
+
+The runtime Settings implementation is the H36 UI; H36a/H36b/H36c are retained only as test-corrective history.
 
 ## H36a — CI #660 Android-test compile corrective
 CI #660 passed H36 materialization, JVM/unit tests, Android Lint and debug/release assembly/provenance. The API36 job failed before instrumentation because the new Settings hierarchy test imported `androidx.compose.ui.test.onNode`, which is not a top-level import in the project's Compose Test API. The test already invokes the correct `composeRule.onNode(...)` method.
@@ -124,3 +136,7 @@ Validation before publication:
 - final materializer first run PASS;
 - final materializer second run PASS/idempotent;
 - final tail/wrapper blobs match the locally validated scripts.
+
+
+## Final closure note
+CI #663 confirms that the final H36c test semantics are correct in the canonical API36 suite: **34/34 standard app instrumented tests PASS** and **1/1 target geometry PASS**. H36 is therefore no longer PRE-GATE.

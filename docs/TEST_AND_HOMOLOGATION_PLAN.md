@@ -3,9 +3,9 @@
 Updated: 2026-09-20
 
 ## Current evidence boundary
-The current signed DIGITAL PASS is **CI #659** / run `35512894518` / producer `a6a53e8ba9e75b32565e451870758c7c65ad687f`, through H35a.
+The current signed DIGITAL PASS is **CI #663** / run `35523442620` / producer `51d4098fa7b1b44a9fa315e939541020f594654d`, through H36c.
 
-Signed APK SHA-256: `e7ddce638a83d92af0ef2a01e46a10152f8c0eb4c535f0ddbc8671d9b94a1295`.
+Signed APK SHA-256: `8e6e0f555bc5e834c4bccbdb011134c42d124806ce0316dd28787a6c98fe7bf3`.
 
 Audited digital evidence:
 - 330/330 JVM/unit PASS, 0 failures/errors/skips;
@@ -22,7 +22,7 @@ Target-device backup testing after #653 confirmed the H28 corrective is function
 ## H29-H35a digital closure
 CI #659 digitally closes H29-H35a on exact source. The H34/H35 take-synchronization, silent-verification and quieter calibration code is therefore covered by the canonical unit/Lint/build/API36/signing pipeline.
 
-## H36/H36a/H36b/H36c Settings UX pre-gate coverage
+## H36/H36a/H36b/H36c Settings UX digital closure
 H36 must preserve all #659 functional behavior while proving the presentation change:
 - existing calibration-modal instrumentation still opens/closes the dedicated panel and sees silent/physical calibration actions;
 - calibration instrumentation now verifies both extreme manual controls (−25 ms and +25 ms), inner ±1 ms controls and `Zerar ajuste` are visible without a horizontal adjustment carousel;
@@ -30,7 +30,7 @@ H36 must preserve all #659 functional behavior while proving the presentation ch
 - existing External Control settings instrumentation continues to exercise opt-in, HID and each Learn mapping tag;
 - API36/isolated geometry must catch clipping/overflow regressions on the canonical Android gate.
 
-CI #661 executed 34 app instrumented tests after H36a; 31 passed and 3 failed on viewport-only visibility assumptions. H36b now scrolls to the HID toggle, the relevant manual-calibration controls/reset, and the Diagnostics section before asserting `displayed`. No extra physical audio test is required solely because of H36/H36a/H36b; runtime audio/routing/DSP/calibration semantics are unchanged. CI #662 advanced the H36 line to 33/34 app instrumentation PASS; H36c removes the last stale copy-dependent assertion by targeting `settings-run-calibration`. Physical H35 behavior remains the existing target-device residual.
+CI #661 executed 34 app instrumented tests after H36a; 31 passed and 3 failed on viewport-only visibility assumptions. H36b now scrolls to the HID toggle, the relevant manual-calibration controls/reset, and the Diagnostics section before asserting `displayed`. No extra physical audio test is required solely because of H36/H36a/H36b; runtime audio/routing/DSP/calibration semantics are unchanged. CI #663 closes the H36 line at **34/34 app instrumentation PASS** plus isolated target geometry and signing. The H36c stable-tag assertion is therefore confirmed in the canonical emulator gate. Physical H35 behavior remains the existing target-device residual.
 
 ## Protected H28 regression contract
 Automated or programmatic coverage must continue to prove:
@@ -63,7 +63,7 @@ Keep manual work limited to what software/emulator cannot prove for the exact fu
 
 H33 real-controller connect/map/reconnect/tactile double-trigger acceptance remains the separate 1.1 physical residual and is not a stable-1.0 completion requirement.
 
-Everything objectively established by #659 does not need to be repeated manually unless a later source change invalidates that evidence.
+Everything objectively established by #663 does not need to be repeated manually unless a later source change invalidates that evidence.
 
 ## Post-H28 forward quality plan
 The authoritative H29-H33 implementation/test plan is `POST_H28_HARDENING_AND_EXTERNAL_CONTROL_PLAN.md`.

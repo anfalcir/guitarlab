@@ -119,4 +119,4 @@ The local/source proofs above were subsequently exercised by canonical Android C
 ## Evidence boundary
 H28 first became signed DIGITAL PASS at CI #653 / run `35207902169` / producer `d09fc003e2ae2d699238eb39ba699f75a746fea4`. Target-device retest then confirmed that the false confirmation/selective-duplicate defect that triggered H28 was no longer reproduced.
 
-The current signed authority is CI #659 / run `35512894518` / producer `a6a53e8ba9e75b32565e451870758c7c65ad687f`, which preserves H28 inside the H35a exact-source regression baseline. H28 is therefore a protected backup/restore contract rather than pending work.
+The current signed authority is CI #663 / run `35523442620` / producer `51d4098fa7b1b44a9fa315e939541020f594654d`, which preserves H28 inside the H36c exact-source regression baseline. H28 is therefore a protected backup/restore contract rather than pending work.
