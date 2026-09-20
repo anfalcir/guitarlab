@@ -9,7 +9,7 @@ Updated: 2026-09-20
 - **M5 — Reliable recording + Studio + Media I/O:** PASS/CLOSED.
 - **M6 — Measured latency/synchronization:** PASS/CLOSED.
 - **M7 — Production audio polish:** digital scope PASS; final physical latency closure still active.
-- **M8 — Release hardening:** H29-H36c signed DIGITAL PASS at CI #663; H37 native Drive v3 backup transport is SOURCE PRE-GATE; the H28 SAF corrective remains physically accepted as the signed fallback baseline; hardware residual remains.
+- **M8 — Release hardening:** H29-H36c signed DIGITAL PASS at CI #663; H37a native Drive v3 backup transport is SOURCE PRE-GATE; the H28 SAF corrective remains physically accepted as the signed fallback baseline; hardware residual remains.
 
 ## Current signed authority
 **CI #663** / run `35523442620` / producer `51d4098fa7b1b44a9fa315e939541020f594654d` is the current signed DIGITAL PASS through H36c.
@@ -19,7 +19,7 @@ Signed APK SHA-256: `8e6e0f555bc5e834c4bccbdb011134c42d124806ce0316dd28787a6c98f
 H28 backup/provider-consistency behavior has subsequently passed the user's target-device functional check and is now a protected regression contract.
 
 ## Current release closure
-The signed RC3 baseline still has a physical recording latency/synchronization residual on the intended real USB route. H37 adds a separate source-candidate gate for the new backup transport: it must pass exact-source software/API36/signing CI and first real Google OAuth/Drive backup/restore acceptance before RC4 can supersede the signed RC3 candidate. All further hardening must preserve the H28 project/revision identity and the digitally approved recording/editing baseline.
+The signed RC3 baseline still has a physical recording latency/synchronization residual on the intended real USB route. H37a carries the separate source-candidate gate for the new backup transport: it must pass exact-source software/API36/signing CI and first real Google OAuth/Drive backup/restore acceptance before RC4 can supersede the signed RC3 candidate. All further hardening must preserve the H28 project/revision identity and the digitally approved recording/editing baseline.
 
 ## Approved post-H28 implementation path
 Detailed authority: `POST_H28_HARDENING_AND_EXTERNAL_CONTROL_PLAN.md`.
@@ -74,8 +74,8 @@ H29-H36c are DIGITAL PASS at CI #663. H34-H36c are part of the signed exact-sour
 - preserve all H35a behavior, semantics/test tags and calibration/routing contracts;
 - #660/#661/#662 are retained as corrective evidence; #663 passes the complete exact-source software/API36/geometry/signing gate with 34/34 standard instrumentation.
 
-### H37 — Native Google Drive API v3 backup transport
-**Status: SOURCE PRE-GATE (`0.5.0-rc4` / versionCode `24`).**
+### H37/H37a — Native Google Drive API v3 backup transport
+**Status: H37a SOURCE PRE-GATE (`0.5.0-rc4` / versionCode `24`); H37 CI #664 failed at compile.**
 - replace SAF as the primary backup transport with direct client-side Drive API v3 and OAuth `drive.file`;
 - preserve H28 immutable `projectId`, deterministic `revisionId`, package SHA-256, deduplication, bounded history and restore-as-copy semantics;
 - use resumable uploads with persisted session recovery, server-confirmed offsets, bounded retry/backoff and no blind byte replay;
@@ -84,7 +84,8 @@ H29-H36c are DIGITAL PASS at CI #663. H34-H36c are part of the signed exact-sour
 - keep Firebase/Cloud Run/Functions and long-lived backend credentials out of the backup data path;
 - preserve legacy H26-H28 SAF history as a one-time migration source, never deleting remote legacy content and only releasing SAF access after full migration success;
 - exclude Drive connection/resumable-session state from Android cloud backup/device transfer;
-- require a canonical manual CI pass and target OAuth/Drive acceptance before promotion.
+- H37a fixes the CI #664 Kotlin compile blockers without changing Drive semantics;
+- require a fresh canonical manual CI pass and target OAuth/Drive acceptance before promotion.
 
 ### 1.0.0 — Stable release
 Requires H29-H32 complete, exact-source digital PASS, target recording/USB/10-minute physical residual PASS, no repeatable P0/P1 and explicit approval of the exact signed APK.
@@ -109,9 +110,9 @@ Do not add to this line:
 - per-track independent physical output routing.
 
 ## Canonical materialization tail
-Current source chain: `… → H25 → H26 → H26a → H26b → H26e → H27 → H28 → H29 → H30 → H31 → H32 → H33 → H33a → H33b → H34 → H35 → H35a → H36 → H36a → H36b → H36c → H37`.
+Current source chain: `… → H25 → H26 → H26a → H26b → H26e → H27 → H28 → H29 → H30 → H31 → H32 → H33 → H33a → H33b → H34 → H35 → H35a → H36 → H36a → H36b → H36c → H37 → H37a`.
 
-H28 is frozen in `materialize_ci_sources_through_h28.sh`; the existing H29-H36c tail remains independently verified by `materialize_ci_sources_h29_h33.sh`; H37 is layered by `materialize_ci_sources_h37.sh`, which verifies the five-part source archive, decoded patch and terminal Git blobs. Future blocks must extend this chain deterministically and preserve the same fail-closed guarantees.
+H28 is frozen in `materialize_ci_sources_through_h28.sh`; the existing H29-H36c tail remains independently verified by `materialize_ci_sources_h29_h33.sh`; H37 is layered by `materialize_ci_sources_h37.sh`; H37a is layered by `materialize_ci_sources_h37a.sh`, which verifies the compile-corrective archive/patch and its terminal Git blobs. Future blocks must extend this chain deterministically and preserve the same fail-closed guarantees.
 
 ## Gate discipline
 `.github/workflows/android-ci.yml` remains manual-only (`workflow_dispatch`). Ordinary source/docs commits use `[skip ci]`; the assistant must not dispatch/rerun without explicit user instruction.
