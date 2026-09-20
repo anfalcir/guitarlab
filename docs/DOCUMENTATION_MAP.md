@@ -20,15 +20,13 @@ For the current RC and approved forward plan use:
 - `RC3_FINAL_PHYSICAL_HOMOLOGATION.md` — final target-device checklist.
 
 ## Current evidence boundary
-CI #653 / run `35207902169` / producer `d09fc003e2ae2d699238eb39ba699f75a746fea4` is the current signed DIGITAL PASS through H28.
+CI #657 / run `35290128876` / producer `e371bb2a5c8040c668b926b2077c03d1c7c8c7d6` is the current signed DIGITAL PASS through H33b.
 
-Signed APK SHA-256: `1a36efcbe24d5995dd3609889237ca112670e52554e187d1b93ed5a8649263c0`.
+Signed APK SHA-256: `05d6eaf71fb69ce55b28b8e3214e619a15f3b862dada973740927c2b9ecf2cd6`.
 
-Target-device backup testing after #653 confirms the H28 corrected backup workflow is functioning as intended.
+H34 is SOURCE PRE-GATE READY and changes only the route/rate-scoped manual residual latency range from ±120 ms to ±500 ms, with deterministic local/materialization proofs. #657 remains the signed authority until H34 receives its exact-source Android gate.
 
-Source checkpoint `1df91e16ad0a928b0d5ab93bfd975b49b6d2da62` stages H29-H33 as **SOURCE PRE-GATE READY / MANUAL CI PENDING**. It has deterministic materialization/idempotency/fail-closed evidence, but no Android CI/signing evidence yet. H28/CI #653 therefore remains the signed authority until a manually dispatched run is audited.
-
-Historical checkpoint documents remain point-in-time evidence and are intentionally not rewritten to pretend they described later H28/H29+ behavior.
+Target-device backup testing after #653 remains valid physical evidence for the protected H28 contract.
 
 ## Forward-plan boundary
 The H29-H33 plan is intentionally narrow:

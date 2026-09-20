@@ -49,9 +49,9 @@ If `mappedStart < 0`, timeline start is clamped to zero and the corresponding am
 ## Fine residual adjustment
 - Default: `0` frames / `0.0 ms`.
 - Scope: exact input + output + sample-rate tuple.
-- Range: ±120 ms maximum.
+- Range: ±500 ms maximum. This is a product guardrail for manual residual correction, not a DSP/Android limit.
 - Positive advances the take; negative delays it.
-- UI provides practical ±1 ms / ±5 ms steps plus `Zerar`.
+- UI provides practical ±1 ms / ±5 ms / ±25 ms steps plus `Zerar`.
 - It is applied once, after automatic clock mapping and route latency terms are defined.
 - It must not be copied across routes or sample rates.
 

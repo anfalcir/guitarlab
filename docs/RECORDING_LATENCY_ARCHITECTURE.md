@@ -26,7 +26,7 @@ A hardware anchor is never paired with a command anchor. Mixed evidence fails cl
 Optional measured physical round-trip latency for one exact input/output/rate tuple. It is accepted only after multi-pass stability/confidence policy succeeds.
 
 ### 3. Residual fine adjustment
-Optional signed correction, default zero, bounded ±120 ms, scoped to the same exact tuple. Positive advances the take; negative delays it.
+Optional signed correction, default zero, bounded ±500 ms, scoped to the same exact tuple. Positive advances the take; negative delays it. The bound is a product guardrail, not a mathematical/DSP limitation.
 
 ## Stable audio anchor acquisition
 A single timestamp immediately after `startRecording()`/`play()` is not authoritative.

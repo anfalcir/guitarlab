@@ -3,40 +3,34 @@
 Updated: 2026-09-17
 
 ## Current evidence boundary
-The current signed DIGITAL PASS is **CI #653** / run `35207902169` / producer `d09fc003e2ae2d699238eb39ba699f75a746fea4`, through H28.
+The current signed DIGITAL PASS is **CI #657** / run `35290128876` / producer `e371bb2a5c8040c668b926b2077c03d1c7c8c7d6`, through H33b.
 
-Signed APK SHA-256: `1a36efcbe24d5995dd3609889237ca112670e52554e187d1b93ed5a8649263c0`.
+Signed APK SHA-256: `05d6eaf71fb69ce55b28b8e3214e619a15f3b862dada973740927c2b9ecf2cd6`.
 
 Audited digital evidence:
-- 294/294 JVM/unit PASS, 0 failures/errors/skips;
+- 323/323 JVM/unit PASS, 0 failures/errors/skips;
 - performance evidence PASS;
 - Android Lint PASS, 0 errors;
 - debug/release assembly and unsigned provenance PASS;
-- 32/32 standard API36 PASS;
+- 33/33 standard API36 PASS;
 - 1/1 isolated target-tablet geometry PASS;
 - exact tested-artifact signed homologation/provenance/certificate verification PASS.
 
 Target-device backup testing after #653 confirmed the H28 corrective is functioning correctly. H28 remains the latest signed DIGITAL PASS.
 
-## H29-H33 source pre-gate evidence
-Source checkpoint `1df91e16ad0a928b0d5ab93bfd975b49b6d2da62` is **SOURCE PRE-GATE READY / MANUAL CI PENDING**.
+## H29-H33 digital closure and H34 pre-gate evidence
+CI #657 digitally closes H29-H33/H33a/H33b on exact source.
 
-Already established locally/programmatically:
-- deterministic first materialization from H28 through H33;
-- idempotent second materialization;
-- corrupted source-part fail-closed behavior;
-- pure policy/harness coverage for H29 session-health/mixed-clock handling, H30 recovery/route state, H31 take invariants/report sanitization and H33 MIDI/HID parsing/debounce/command mapping;
-- H32 duration/frame matrix for 1/3/5/10 minutes at 44.1/48/88.2/96 kHz;
-- worst local waveform stress at 10 minutes / 96 kHz / 57,600,000 frames / 60,000 irregular updates while storage remains bounded to at most 512 points.
+H34 local/source evidence:
+- ±500 ms clamp is exact at 44.1/48/88.2/96 kHz;
+- out-of-range positive/negative values clamp deterministically;
+- placement sign behavior remains unchanged;
+- automatic route calibration is untouched;
+- H33b→H34 and full H28→H34 materialization PASS;
+- second materialization PASS/idempotent;
+- corrupt H34 archive rejected fail-closed.
 
-Not yet established for this new source:
-- Android compile/assemble;
-- Android Lint;
-- API36 connected regression;
-- isolated 1920×1200 geometry;
-- unsigned provenance and exact signed-artifact verification.
-
-Those items require the single canonical manual workflow run and must not be inferred from H28.
+H34 still requires the normal exact-source Android gate before becoming DIGITAL PASS.
 
 ## Protected H28 regression contract
 Automated or programmatic coverage must continue to prove:
@@ -63,7 +57,7 @@ Keep manual work limited to what software/emulator cannot prove for the exact fu
 
 H33 real-controller connect/map/reconnect/tactile double-trigger acceptance remains the separate 1.1 physical residual and is not a stable-1.0 completion requirement.
 
-Everything objectively established by #653 does not need to be repeated manually unless a later source change invalidates that evidence.
+Everything objectively established by #657 does not need to be repeated manually unless a later source change invalidates that evidence.
 
 ## Post-H28 forward quality plan
 The authoritative H29-H33 implementation/test plan is `POST_H28_HARDENING_AND_EXTERNAL_CONTROL_PLAN.md`.

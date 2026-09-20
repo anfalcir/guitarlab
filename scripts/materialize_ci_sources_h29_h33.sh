@@ -23,6 +23,9 @@ H33A_PATCH_SHA256="4c25592453728272888f26abbd4e58c58d273e38709da1909892bf8389b12
 H33B_PATCH_PART="$ROOT/.source-parts/H33bExternalControlScrollTestCorrective.patch.gz.b64"
 H33B_ARCHIVE_SHA256="838bd9927ee5fefb23c4038da5c1e8cd68ad8d354a5409eab6d572e0e6c6d02d"
 H33B_PATCH_SHA256="c2bf706a0f2cb10d9c9f106732b317f48f1e239f923973e67056f4a0db54bca7"
+H34_PATCH_PART="$ROOT/.source-parts/H34FineLatencyRange.patch.gz.b64"
+H34_ARCHIVE_SHA256="d7ea906f7300d7b00c8a384ac945e140f386e7faf0023dad1f0672b8cda17bad"
+H34_PATCH_SHA256="4b47bdc21b58c68e5ca9616314dca495ca5c5f5b72a1be76d25c1dc9116565c0"
 
 H29_CHECKS=(
     "app/src/main/java/studio/guitarlab/app/ui/AudioProbeScreen.kt|4dcaee3e2691206601c53ccafacba8575f5eda9e"
@@ -82,6 +85,11 @@ H33B_CHECKS=(
     "app/src/androidTest/java/studio/guitarlab/app/ExternalControlSettingsInstrumentedTest.kt|dac03e9f668e44f37744ce4bf9d7a958b2c15cef"
     "app/src/main/java/studio/guitarlab/app/MainActivity.kt|70b22de5011ab2233b7633326436ce689ee52045"
 )
+H34_CHECKS=(
+    "app/src/main/java/studio/guitarlab/app/ui/SettingsScreen.kt|9b47f0d91a7aab651a81ff9e0753fa0b45785b7f"
+    "core/audio/src/main/kotlin/studio/guitarlab/core/audio/LatencyCalibrationPolicy.kt|cb40c760708adb7c649775d35feda8b9066fb53d"
+    "core/audio/src/test/kotlin/studio/guitarlab/core/audio/LatencyCalibrationPolicyTest.kt|badaf95ae2187b0281a54fc31d8180233fc021b0"
+)
 
 checks_ready() {
     local array_name="$1" entry relative expected
@@ -100,6 +108,7 @@ h32_ready() { checks_ready H32_CHECKS; }
 h33_ready() { checks_ready H33_CHECKS; }
 h33a_ready() { checks_ready H33A_CHECKS; }
 h33b_ready() { checks_ready H33B_CHECKS; }
+h34_ready() { checks_ready H34_CHECKS; }
 
 decode_verified_patch() {
     local label="$1" encoded="$2" archive_sha="$3" patch_sha="$4" output="$5" archive actual
@@ -144,15 +153,24 @@ verify_new_patch H32 "$H32_PATCH_PART" "$H32_ARCHIVE_SHA256" "$H32_PATCH_SHA256"
 verify_new_patch H33 "$H33_PATCH_PART" "$H33_ARCHIVE_SHA256" "$H33_PATCH_SHA256"
 verify_new_patch H33a "$H33A_PATCH_PART" "$H33A_ARCHIVE_SHA256" "$H33A_PATCH_SHA256"
 verify_new_patch H33b "$H33B_PATCH_PART" "$H33B_ARCHIVE_SHA256" "$H33B_PATCH_SHA256"
+verify_new_patch H34 "$H34_PATCH_PART" "$H34_ARCHIVE_SHA256" "$H34_PATCH_SHA256"
 
+if h34_ready; then
+    echo "Source patch tail already materialized through H34"
+    exit 0
+fi
 if h33b_ready; then
-    echo "Source patch tail already materialized through H33b"
+    apply_new_patch H34 "$H34_PATCH_PART" "$H34_ARCHIVE_SHA256" "$H34_PATCH_SHA256"
+    h34_ready || { echo "H34 applied but final H34 hashes do not match." >&2; exit 1; }
+    echo "Source patch tail materialized through H34 with verified final hashes"
     exit 0
 fi
 if h33a_ready; then
     apply_new_patch H33b "$H33B_PATCH_PART" "$H33B_ARCHIVE_SHA256" "$H33B_PATCH_SHA256"
     h33b_ready || { echo "H33b applied but final H33b hashes do not match." >&2; exit 1; }
-    echo "Source patch tail materialized through H33b with verified final hashes"
+    apply_new_patch H34 "$H34_PATCH_PART" "$H34_ARCHIVE_SHA256" "$H34_PATCH_SHA256"
+    h34_ready || { echo "H34 applied but final H34 hashes do not match." >&2; exit 1; }
+    echo "Source patch tail materialized through H34 with verified final hashes"
     exit 0
 fi
 
@@ -203,4 +221,7 @@ h33a_ready || { echo "H33a applied but final H33a hashes do not match." >&2; exi
 apply_new_patch H33b "$H33B_PATCH_PART" "$H33B_ARCHIVE_SHA256" "$H33B_PATCH_SHA256"
 h33b_ready || { echo "H33b applied but final H33b hashes do not match." >&2; exit 1; }
 
-echo "Source patch tail materialized through H33b with verified final hashes"
+apply_new_patch H34 "$H34_PATCH_PART" "$H34_ARCHIVE_SHA256" "$H34_PATCH_SHA256"
+h34_ready || { echo "H34 applied but final H34 hashes do not match." >&2; exit 1; }
+
+echo "Source patch tail materialized through H34 with verified final hashes"

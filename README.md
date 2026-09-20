@@ -12,11 +12,11 @@ Read first: `docs/CURRENT_STATE.md`, `docs/POST_H28_HARDENING_AND_EXTERNAL_CONTR
 ## Active RC3 state
 Candidate line: `0.5.0-rc3`, versionCode `23`, package `studio.guitarlab.app`.
 
-The current signed digital authority is **CI #653** / run `35207902169` / exact producer `d09fc003e2ae2d699238eb39ba699f75a746fea4`, with H28 DIGITAL PASS. Signed APK SHA-256: `1a36efcbe24d5995dd3609889237ca112670e52554e187d1b93ed5a8649263c0`.
+The current signed digital authority is **CI #657** / run `35290128876` / exact producer `e371bb2a5c8040c668b926b2077c03d1c7c8c7d6`, with H29-H33/H33a/H33b DIGITAL PASS. Signed APK SHA-256: `05d6eaf71fb69ce55b28b8e3214e619a15f3b862dada973740927c2b9ecf2cd6`.
 
-Source checkpoint `1df91e16ad0a928b0d5ab93bfd975b49b6d2da62` stages H29-H33 as **SOURCE PRE-GATE READY / MANUAL CI PENDING**. It does not supersede H28 signed authority: Android build/Lint/API36/signing evidence for this source does not exist until the canonical workflow is manually dispatched and audited.
+H34 is now **SOURCE PRE-GATE READY** and expands only the route/rate-scoped manual residual latency adjustment from ±120 ms to **±500 ms**, with practical ±25/±5/±1 ms controls. The automatic route-latency analyzer remains unchanged; #657 therefore remains the signed authority until H34 receives its own exact-source digital gate.
 
-Target-device validation after #653 confirmed the corrected H28 backup workflow is functioning correctly. The remaining stable-release physical boundary includes recording latency/synchronization plus the H29-H32 USB/recovery/10-minute residual defined in the active plan. H33 controller hardware acceptance remains a separate 1.1 boundary.
+Target-device validation after #653 had already accepted the H28 backup corrective. The remaining stable-release physical boundary continues to be H29 timing/alignment, H30 real USB hot-unplug/reconnect/capture preservation and H32 continuous 10-minute quality. H33 real-controller acceptance remains a separate 1.1 boundary.
 
 ## H28 — stable project/revision identity + provider consistency
 H28 hardens the backup contract so that:
@@ -39,7 +39,7 @@ Before stable `1.0.0`, the project will harden existing recording/USB/recovery/t
 - the assistant must not dispatch or rerun Actions without explicit user instruction.
 
 ## Source materialization
-Large deltas are versioned in `.source-parts` and materialized serially by `scripts/materialize_ci_sources.sh`. Canonical tail: **`… → H25 → H26 → H26a → H26b → H26e → H27 → H28 → H29 → H30 → H31 → H32 → H33`**. The H28 materializer is frozen byte-for-byte as `scripts/materialize_ci_sources_through_h28.sh`; H29-H33 are isolated in `scripts/materialize_ci_sources_h29_h33.sh`. Unexpected source/archive/patch/final-blob drift fails closed.
+Large deltas are versioned in `.source-parts` and materialized serially by `scripts/materialize_ci_sources.sh`. Canonical tail: **`… → H25 → H26 → H26a → H26b → H26e → H27 → H28 → H29 → H30 → H31 → H32 → H33 → H33a → H33b → H34`**. The H28 materializer is frozen byte-for-byte as `scripts/materialize_ci_sources_through_h28.sh`; H29-H33 are isolated in `scripts/materialize_ci_sources_h29_h33.sh`. Unexpected source/archive/patch/final-blob drift fails closed.
 
 ## Security
 Never commit keystores, credentials, local SDK configuration or secret artifacts. Backup provider access remains scoped to the user-selected document tree.

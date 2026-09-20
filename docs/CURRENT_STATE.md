@@ -5,48 +5,48 @@ Updated: 2026-09-17
 ## Active line
 - Repository/branch: `anfalcir/guitarlab` / `main`.
 - Version: `0.5.0-rc3`, versionCode `23`, package `studio.guitarlab.app`.
-- Source checkpoint immediately before this documentation update: `1df91e16ad0a928b0d5ab93bfd975b49b6d2da62`.
-- Latest signed DIGITAL PASS: **CI #653** / run `35207902169` / producer `d09fc003e2ae2d699238eb39ba699f75a746fea4`.
-- #653 scope: H28 through the canonical source materialization chain.
-- Signed APK SHA-256: `1a36efcbe24d5995dd3609889237ca112670e52554e187d1b93ed5a8649263c0`.
-- Signed APK size: `13,737,498` bytes.
+- Current source line: signed #657 producer plus H34 source-only delta.
+- Latest signed DIGITAL PASS: **CI #657** / run `35290128876` / producer `e371bb2a5c8040c668b926b2077c03d1c7c8c7d6`.
+- #657 scope: H28 → H29 → H30 → H31 → H32 → H33 → H33a → H33b.
+- Signed APK SHA-256: `05d6eaf71fb69ce55b28b8e3214e619a15f3b862dada973740927c2b9ecf2cd6`.
+- Signed APK size: `13,835,802` bytes.
 - Locked signer SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
 - CI remains manual-only (`workflow_dispatch`).
 
-## #653 digital evidence
+## #657 digital evidence
 All three canonical jobs passed on the exact producer SHA:
-- Unit tests + Android Lint + debug/release APK build/provenance: PASS;
-- API 36 emulator regression, including isolated target geometry path: PASS;
-- exact tested release candidate signing/homologation verification: PASS.
+- deterministic materialization through H33b PASS;
+- **323/323 JVM/unit tests PASS**, 0 failures/errors/skips;
+- Android Lint PASS with **0 errors**;
+- debug/release assembly and unsigned provenance PASS;
+- **33/33 standard API36 PASS**;
+- **1/1 isolated 1920×1200 geometry PASS**;
+- exact tested-artifact signing, zipalign, package/version and certificate verification PASS.
 
-The materializer completed through H28 with verified final hashes.
+Locked signer SHA-256 remains `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
 
 ## H28 physical backup result
 Target-device testing after #653 confirmed the corrected backup behavior is working correctly. In particular, the false commit-failure/selective-duplicate behavior that triggered H28 is no longer reproduced in the accepted backup workflow.
 
 H28 remains a protected regression contract covering immutable `projectId`, deterministic `revisionId`, package SHA-256 integrity, provider-lag tolerance, idempotent unchanged backup and bounded retention.
 
-## H29-H33 source pre-gate checkpoint
-Source commit `1df91e16ad0a928b0d5ab93bfd975b49b6d2da62` stages the complete H29-H33 source/materialization chain without running hosted CI.
+## H29-H33 digital closure + H34 source delta
+H29-H33/H33a/H33b are digitally closed by CI #657.
 
-Implemented source scope:
-- **H29:** bounded Recording Session Health, mixed-clock rejection and expanded timing/route diagnostics without changing the H23b compensation formula;
-- **H30:** transactional interrupted-recording recovery plus semantic USB route-loss/reconnect state handling, no silent microphone fallback and no automatic REC resume;
-- **H31:** take metadata/activation/audition/delete policy with split-lineage protection and sanitized diagnostics;
-- **H32:** 1/3/5/10-minute song-quality timing/waveform gates across 44.1/48/88.2/96 kHz;
-- **H33:** disabled-by-default MIDI/HID external control mapped onto the same guarded Studio commands, with stable descriptors, Learn mode, held/debounce handling and foreground-only input.
+H34 is **SOURCE PRE-GATE READY**:
+- increases only `LatencyFineAdjustmentPolicy.MAX_ABS_MILLISECONDS` from 120.0 to **500.0**;
+- leaves automatic clock alignment and automatic route-latency calibration unchanged;
+- keeps adjustment exact-route + exact-sample-rate scoped and default zero;
+- adds ±25 ms controls while retaining ±5/±1 ms and `Zerar`;
+- adds exact boundary tests for 44.1/48/88.2/96 kHz;
+- local pure-Kotlin harness PASS;
+- exact H33b→H34 and H28→H34 materialization PASS;
+- second materialization idempotent;
+- corrupt H34 source-part rejected fail-closed.
 
-Local/source evidence before publication:
-- H28 materializer preserved byte-for-byte as `materialize_ci_sources_through_h28.sh`;
-- clean H28→H33 materialization PASS with exact final Git blob hashes;
-- second materialization PASS/idempotent;
-- intentionally corrupted H33 source-part rejected fail-closed before accepting the materialized state;
-- pure Kotlin policy/harness coverage PASS for session health, route state, recovery convergence, take invariants, diagnostic sanitization and MIDI/HID normalization;
-- H32 worst local stress PASS at 10 minutes / 96 kHz / 57,600,000 frames / 60,000 irregular waveform updates while remaining bounded to at most 512 stored points.
+The former ±120 ms value was a conservative product guardrail for a “small residual correction”; it is not required by the DSP/placement arithmetic. Placement arithmetic already saturates and has extreme-value regression coverage.
 
-Evidence boundary: this is **SOURCE PRE-GATE READY**, not DIGITAL PASS. Android Lint/build, API36 instrumentation/1920×1200 geometry, unsigned provenance and signed homologation for this exact source remain pending the user's single manual workflow dispatch.
-
-H33 was source-staged early so the same digital gate can catch integration regressions. Its real-controller physical acceptance and 1.1 promotion remain separate from the H29-H32 stable-1.0 completion contract.
+#657 remains the signed authority until H34 receives a canonical exact-source CI pass.
 
 ## Remaining RC3 physical blocker
 The remaining release-critical target-only item is **recording latency/synchronization acceptance** on the intended real USB route. The recording timing architecture is already implemented and digitally covered; the unresolved boundary is physical driver/hardware behavior.
