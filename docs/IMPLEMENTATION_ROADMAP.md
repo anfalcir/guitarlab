@@ -106,7 +106,7 @@ A separate successor program is now approved to absorb GBW Android into GuitarLa
 
 Authoritative plan: `UNIFIED_GUITARLAB_GBW_IMPLEMENTATION_ROADMAP.md`.
 
-Current successor status: U0 PASS; U1 DIGITAL PASS on CI #669; U2 unified shell/Home/navigation is DIGITAL PASS on automatic CI #675 / run `35596671163` at exact source `665c292931c0f2ed9fa1e7145818101c5d017222`. U3 source acquisition is the first incomplete milestone.
+Current successor status: U0 PASS; U1 DIGITAL PASS on CI #669; U2 unified shell/Home/navigation is DIGITAL PASS on automatic CI #675 / run `35596671163` at exact source `665c292931c0f2ed9fa1e7145818101c5d017222`. U3 source acquisition is implemented as SOURCE PRE-GATE and is the first incomplete milestone pending its controlled canonical CI.
 
 This successor program uses U0-U12 milestone numbering and is intentionally separate from the H29-H37/1.1 closure numbering. It does not retroactively alter the signed #663 evidence, H37b pre-gate state or historical 1.0/1.1 acceptance rules. Known physical residuals may be carried into the final unified-candidate campaign rather than forcing duplicate manual homologation, provided digital prerequisites remain objectively green.
 
@@ -127,3 +127,7 @@ H28 is frozen in `materialize_ci_sources_through_h28.sh`; the existing H29-H36c 
 
 ## Gate discipline
 `.github/workflows/android-ci.yml` accepts manual dispatch and controlled `main` commit triggers. `[run ci]` executes software + API 36 gates; `[run ci signed]` also signs the exact tested candidate. Ordinary source/docs commits use `[skip ci]`. The unified-roadmap workstream has explicit authorization to trigger and monitor required gates.
+
+
+## Unified U3 source-acquisition checkpoint — 2026-09-21
+U3 ports the proven GBW acquisition behavior without copying the GBW project/UI model. Provider/network code is isolated from project mutation; validated media is published only through GuitarLab's unified project domain as `SOURCE_ORIGINAL`. Local import, remote search/ranking/download, persistent progress/cancel/retry and stale-operation/idempotency guards are included. Demucs/separation remains explicitly U4 scope. U3 remains SOURCE PRE-GATE until the Android CI exact-source gate passes.

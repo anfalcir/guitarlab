@@ -140,3 +140,18 @@ Automatic CI #675 / run `35596671163` closed U2 at exact source `665c292931c0f2e
 
 ## Final rule
 Any promoted release requires exact-source digital PASS, only the genuinely hardware-dependent residual applicable to that source, no repeatable P0/P1 and explicit approval of the exact signed APK SHA-256.
+
+
+## Unified U3 source-acquisition digital gate
+U3 requires the controlled canonical Android CI before promotion. The digital gate covers:
+- deterministic U2d→U3 materialization and terminal hashes;
+- source normalization/ranking, duplicate filtering, preview demotion/rejection and duration-consensus behavior;
+- malformed/empty provider outcomes and bounded retry classification;
+- authoritative SOURCE_ORIGINAL publication only after validation;
+- operation-id idempotency, project rename preservation and stale-source conflict rejection;
+- local Import and remote Search/selection UI entry points;
+- persistent acquisition activity/progress/cancel state across view-model recreation boundaries represented by the durable operation store;
+- API36 Compose regression for U3 entry points/activity state;
+- existing GuitarLab unit/Lint/build/API36 regression unchanged.
+
+No physical listening/hardware gate is required to close U3. Real provider/network credentials are an external dependency only if a provider demands them; deterministic product correctness must not depend on secret credentials. A real-source smoke may be deferred to the consolidated U12 campaign unless the canonical environment can perform it without introducing nondeterministic CI dependency.
