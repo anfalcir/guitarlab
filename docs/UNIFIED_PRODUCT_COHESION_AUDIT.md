@@ -192,6 +192,8 @@ The following passes are mandatory and serial. A later pass may prepare tests ea
 
 ### C1 — U6 export convergence
 
+**Status: CLOSED / DIGITAL PASS — Android CI #711 / run `35658467705`, exact source `6ff1988a8309b7174eeb328e0044d6b1d3167ff6` (2026-09-21).** The exact source snapshot uploaded by the gate satisfies the final C1 semantic contract: no independent `SaveAndExportDialog` or parallel format-selection copy remains in `app/src/main/java`; no obsolete Studio-local export state/entry point remains; Home and Studio route export actions through `ExportEntryPointPolicy` to the canonical Export workspace; primary WAV controls no longer expose “sem conversão” while the zero-transcode explanation remains secondary copy; software gate and the complete API 36 instrumented regression passed. The run was unsigned because signed homologation was not requested. C2 has not started.
+
 **Objective:** finish U6 as one export experience.
 
 Required work:

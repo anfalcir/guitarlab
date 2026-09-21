@@ -1896,10 +1896,10 @@ Studio master remains separate semantically: render the current timeline/mix onc
 - unavailable output has a user-facing reason/next action;
 - navigation/recreation preserves the owning project.
 
-### Current evidence / residual
-Android CI #694 / run `35630563575` PASS at exact source `364a8ddb1904003af150c9162fed6aa6a4106d8e` proves the technical U6 media/export implementation, unit/Lint/build and API 36 regression.
+### Status — DIGITAL PASS (2026-09-21)
+Android CI #694 / run `35630563575` at exact source `364a8ddb1904003af150c9162fed6aa6a4106d8e` remains the preserved technical U6 media/export baseline.
 
-**U6 is not yet finally sealed** because the product-cohesion audit found the duplicate legacy Home/Studio export chooser. C1 must be implemented and re-gated before U6 receives final DIGITAL PASS.
+C1 export convergence was then fully absorbed and re-gated by Android CI #711 / run `35658467705` at exact source `6ff1988a8309b7174eeb328e0044d6b1d3167ff6`. The software gate and complete API 36 instrumented regression passed. The exact source snapshot contains no independent `SaveAndExportDialog`/parallel format chooser and no obsolete Studio-local export state/entry point; Home and Studio export entry points resolve through `ExportEntryPointPolicy` to the canonical Export workspace. Primary WAV actions use concise user-facing labels while zero-transcode/provenance detail remains secondary explanatory copy. U6 is therefore finally sealed as DIGITAL PASS and C1 is CLOSED. The #711 run was unsigned because signed homologation was not requested.
 
 ### Exit
 No user needs standalone GBW behavior for backing/guitar exports, no unnecessary audio conversion exists in Prepare → Studio, and **exactly one external-delivery workflow** exists in the product.
@@ -2197,7 +2197,7 @@ When current implementation differs from target design, ARCHITECTURE describes w
 | U3 Source acquisition | DIGITAL PASS — CI #676 / run `35606018087` at `a7af51bf6622b4eecc32308c091fbb5020a1d54b` | none; real-provider smoke may remain in consolidated final campaign |
 | U4 Separation integration | DIGITAL PASS — Android CI #686 / run `35620101527` + U4 Cloud Integration Smoke #8 / run `35620101684` at `55ae7a14d99b710367ea7650cbf9f48298b90eba` | closed digitally; no physical dependency |
 | U5 Prepare → Studio | DIGITAL PASS — CI #690 / run `35625349001` at `4bada624e68f8a55ff22830e1dc276c8d51af223` | none |
-| U6 Unified exports | TECHNICAL CI PASS / COHESION RESIDUAL OPEN — CI #694 / run `35630563575` at `364a8ddb1904003af150c9162fed6aa6a4106d8e`; C1 pending | none |
+| U6 Unified exports | DIGITAL PASS — CI #711 / run `35658467705` at `6ff1988a8309b7174eeb328e0044d6b1d3167ff6`; C1 CLOSED | none |
 | U7 Cloud source consolidation | NOT STARTED | deploy authorization may require owner |
 | U8 Unified Drive backup | NOT STARTED | OAuth setup may require owner |
 | U9 Legacy migration | RETIRED — no implementation required by owner decision (2026-09-21) | none |

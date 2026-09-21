@@ -198,8 +198,8 @@ Historical tests already executed are retained as evidence but are not repeated 
 
 The detailed contract is `UNIFIED_PRODUCT_COHESION_AUDIT.md`. Product cohesion is release-blocking, not optional visual polish.
 
-### U6 boundary
-Android CI #694 / run `35630563575` passed at exact source `364a8ddb1904003af150c9162fed6aa6a4106d8e`, proving the technical U6 export implementation. U6 remains open until C1 removes the parallel Home/Studio format chooser and all external-output selection converges on the canonical Export workspace.
+### U6 boundary — CLOSED
+Android CI #694 / run `35630563575` at exact source `364a8ddb1904003af150c9162fed6aa6a4106d8e` remains the technical U6 export baseline. C1 convergence is closed by Android CI #711 / run `35658467705` at exact source `6ff1988a8309b7174eeb328e0044d6b1d3167ff6`: software gate and the complete API 36 instrumented regression passed, the exact materialized source contains no independent Home/Studio format chooser or obsolete Studio-local export state/entry point, and all project export entry points converge on the canonical Export workspace. Primary actions use concise labels while zero-transcode details remain secondary explanatory copy. U6 is DIGITAL PASS. #711 did not produce a signed homologation APK because signed homologation was not requested.
 
 ### Required navigation/project-shell tests
 - Home project tap resolves to last/relevant workspace deterministically;
