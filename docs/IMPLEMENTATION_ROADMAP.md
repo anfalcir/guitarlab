@@ -93,12 +93,20 @@ Requires H29-H32 complete, exact-source digital PASS, target recording/USB/10-mi
 
 ### H33 / 1.1 — External MIDI/footswitch control
 **Status: DIGITAL PASS at #663 and disabled by default; real-controller acceptance remains a separate 1.1 gate.** The source was staged early to share the digital integration gate, without changing the 1.0 H29-H32 acceptance contract.
-Only approved new feature family after stable hardening:
+Within the H29-H37/1.1 closure line, the approved added feature family is external control:
 - Android MIDI (USB/Bluetooth when exposed by the platform) plus opt-in HID/keyboard-style footswitch mapping;
 - Learn mode and persistent mappings;
 - Play/Stop, REC, Return to start, Loop, Undo and Redo through existing guarded commands;
 - debounce/Note On-Off normalization, reconnect safety and no coupling to audio-device selection;
 - real-controller physical acceptance.
+
+## Approved successor program — Unified GuitarLab + GBW
+
+A separate successor program is now approved to absorb GBW Android into GuitarLab as one product with a unified project/asset model, Prepare → Studio zero-copy workflow, shared cloud separation, unified Drive backup, legacy migration, exhaustive digital hardening and a consolidated final physical campaign.
+
+Authoritative plan: `UNIFIED_GUITARLAB_GBW_IMPLEMENTATION_ROADMAP.md`.
+
+This successor program uses U0-U12 milestone numbering and is intentionally separate from the H29-H37/1.1 closure numbering. It does not retroactively alter the signed #663 evidence, H37b pre-gate state or historical 1.0/1.1 acceptance rules. Known physical residuals may be carried into the final unified-candidate campaign rather than forcing duplicate manual homologation, provided digital prerequisites remain objectively green.
 
 ## Explicit roadmap exclusions
 Do not add to this line:
