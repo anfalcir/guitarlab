@@ -1,0 +1,13 @@
+--- a/core/project/src/test/kotlin/studio/guitarlab/core/project/UnifiedProjectDomainTest.kt
++++ b/core/project/src/test/kotlin/studio/guitarlab/core/project/UnifiedProjectDomainTest.kt
+@@ -42,7 +42,9 @@
+         assetId = id,
+         role = role,
+         relativePath = "media/assets/$id.wav",
+-        sha256 = id.padEnd(64, 'a').take(64),
++        sha256 = java.security.MessageDigest.getInstance("SHA-256")
++            .digest(id.toByteArray(Charsets.UTF_8))
++            .joinToString("") { "%02x".format(it) },
+         byteSize = 128,
+         format = "wav-f32",
+         sampleRateHz = 48_000,
