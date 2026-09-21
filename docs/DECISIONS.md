@@ -228,3 +228,18 @@ Comparison/Timeline controls are a single reusable component/state surface. On w
 
 ## D-075 — Long live waveform uses uniform temporal resolution
 Bounded live waveform storage must not leave historical data at a coarser visual density than newly captured data. When resolution changes, represented history and future points use one uniform temporal bucket size. Each bucket preserves its time interval and maximum transient; rendering spans that interval so older material cannot collapse into sparse midpoint strokes while recent material piles densely at the right edge.
+
+## D-076 — GuitarLab is the surviving unified Android product
+The approved successor program absorbs GBW Android into GuitarLab rather than maintaining two cooperating end-user Android apps. The final package/signing/upgradable product identity remains `studio.guitarlab.app`. GBW Android becomes the Prepare/source/separation capability; the frozen GBW Linux baseline remains historical/functional reference.
+
+## D-077 — Prepare and Studio share one project/asset domain
+The unified product uses one immutable projectId across source acquisition, Demucs separation, stems, prepared references, Studio recordings/takes, exports and cloud backup. Authoritative/derived media is represented by explicit immutable managed assets with content integrity and provenance. There is no final "export from GBW then import into GuitarLab" boundary.
+
+## D-078 — Firebase separation and Drive backup remain separate data/security planes
+Sharing one Google Cloud/Firebase project does not merge authentication or storage semantics. Firebase/Cloud Run/temporary Storage serve remote Demucs orchestration and transient transport. Durable project backup remains direct Drive API client-side with narrow authorization. Temporary separation objects are purged after validated local import/ACK and are never the durable project backup.
+
+## D-079 — Unified cloud backup evolves to asset-deduplicated transactional revisions
+Because prepared projects can contain a source, six large stems, recordings and exports, the successor backup architecture may not require monolithic full-media reupload for every metadata edit. The unified cloud schema uses immutable content-addressed assets plus transactional project revision manifests/current state, server-confirmed integrity, explicit conflict semantics and reachability-safe garbage collection. Portable `.guitarlab` remains a separate self-contained package contract.
+
+## D-080 — Physical homologation is consolidated after maximal digital closure
+The unified program should carry digitally unprovable hardware residuals forward and execute one consolidated final signed-candidate physical campaign whenever technically possible. Automated unit/integration/property/fuzz/emulator/cloud/Drive/migration/stress evidence must remove objectively provable checks from the manual campaign. A second physical pass is required only when source changes invalidate relevant physical evidence.
