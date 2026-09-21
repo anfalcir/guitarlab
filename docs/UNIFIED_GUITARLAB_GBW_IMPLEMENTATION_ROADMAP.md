@@ -37,7 +37,7 @@ The program changes the product direction from two cooperating Android applicati
 
 **GuitarLab = Prepare + Studio + Export + Cloud/Backup**
 
-GBW ceases to be a separate end-user Android product after successful migration and becomes the preparation/separation capability of GuitarLab. The frozen GBW Linux baseline remains historical/functional reference and is not merged into the Android runtime.
+GBW ceases to be a separate end-user Android product after successful unified cutover and becomes the preparation/separation capability of GuitarLab. The frozen GBW Linux baseline remains historical/functional reference and is not merged into the Android runtime.
 
 ### 0.1 Program naming
 
@@ -106,7 +106,7 @@ Preserve:
 - GuitarLab current Studio/audio/timeline/take model unless explicitly migrated by this roadmap;
 - GuitarLab repository as the canonical Android product repository.
 
-GBW Android is an implementation source and migration source, not the final package identity.
+GBW Android is an implementation/reference source for capabilities being absorbed into GuitarLab, not the final package identity or a supported project-migration source.
 
 ## 2.2 GBW becomes "Prepare"
 
@@ -421,12 +421,12 @@ Future drag/use actions may consume these assets, but first integration must avo
 
 Separate two concepts.
 
-**Study exports**
+**Arquivos para estudo**
 - prepared backing;
 - guitar reference;
 - any explicitly supported Prepare export variant.
 
-**Studio master**
+**Mix final do Studio**
 - GuitarLab offline render of the current session;
 - existing WAV/FLAC/MP3 support rules remain capability-gated.
 
@@ -571,7 +571,7 @@ For each imported GBW component:
 6. add integration tests;
 7. only then stop depending on the old location.
 
-The GBW repository remains a frozen historical/migration reference after cutover.
+The GBW repository remains a frozen historical/implementation reference after cutover.
 
 ---
 
@@ -1037,7 +1037,7 @@ Within supported unified projects, duplicate/copy must still create a new projec
 
 ---
 
-# 13. Search/source acquisition migration
+# 13. Search/source acquisition integration
 
 Port GBW source acquisition behind stable interfaces.
 
