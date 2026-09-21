@@ -243,9 +243,37 @@ run_group() {
 
 verify_test_coverage
 
+normalize_emulator_ui() {
+  echo "::notice title=API36::Normalizando estado gráfico do AVD antes da regressão"
+  adb shell wm size reset >/dev/null 2>&1 || true
+  adb shell wm density reset >/dev/null 2>&1 || true
+  adb shell settings put system accelerometer_rotation 1 >/dev/null 2>&1 || true
+  adb shell settings delete system user_rotation >/dev/null 2>&1 || true
+  adb shell settings put secure immersive_mode_confirmations confirmed >/dev/null 2>&1 || true
+  adb shell am force-stop studio.guitarlab.app >/dev/null 2>&1 || true
+
+  {
+    echo "== normalized display state =="
+    adb shell wm size || true
+    adb shell wm density || true
+    echo "immersive_mode_confirmations=$(adb shell settings get secure immersive_mode_confirmations 2>/dev/null | tr -d '\r' || true)"
+    echo "accelerometer_rotation=$(adb shell settings get system accelerometer_rotation 2>/dev/null | tr -d '\r' || true)"
+  } | tee "$DIAG_ROOT/normalized-avd-state.txt"
+}
+
+restore_emulator_ui() {
+  adb shell wm size reset >/dev/null 2>&1 || true
+  adb shell wm density reset >/dev/null 2>&1 || true
+  adb shell settings put system accelerometer_rotation 1 >/dev/null 2>&1 || true
+  adb shell settings delete system user_rotation >/dev/null 2>&1 || true
+  adb shell settings put secure immersive_mode_confirmations confirmed >/dev/null 2>&1 || true
+}
+
 echo "::notice title=API36::Validando conexão com o emulador"
 adb wait-for-device
-echo "::notice title=API36::Emulador conectado; iniciando ${TOTAL_GROUPS} grupos"
+normalize_emulator_ui
+trap restore_emulator_ui EXIT
+echo "::notice title=API36::Emulador conectado e normalizado; iniciando ${TOTAL_GROUPS} grupos"
 
 run_group \
   1 \
