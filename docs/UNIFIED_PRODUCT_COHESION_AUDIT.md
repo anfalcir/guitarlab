@@ -232,6 +232,8 @@ Exit:
 
 ### C3 — New project and project lifecycle coherence
 
+**Status: CLOSED / DIGITAL PASS — Android CI #720 / run `35669035762`, exact source `f730e08cc242ed590c333727cde4c96883f7df07` (2026-09-21).** New Project now has three explicit intents: Search song, Import audio and Start in Studio. Search/Import create the guitar-study model directly without exposing template choice; Studio-only creation retains Guitar/Blank. New-project name/intent/template state is saveable across Activity recreation. Source replacement is generation-safe: the validated replacement becomes active, prior stems/references stop being active while old media remains protected, and Studio tracks/clips/takes remain intact. Duplicate keeps durable project content but normalizes transient Prepare state and never inherits remote/background ownership; rename keeps the immutable project id; delete closes source acquisition, separation and WorkManager ownership before repository removal and communicates active-operation cancellation in user-facing language. Unit/JVM, performance evidence, Lint, APK build and all 5/5 API 36 regression groups passed. C4 is next; no C4 implementation is included in this closure.
+
 **Objective:** remove creation/lifecycle ambiguity.
 
 Required work:
