@@ -213,6 +213,8 @@ Exit:
 
 ### C2 — Unified project shell and navigation
 
+**Status: CLOSED / DIGITAL PASS — Android CI #713 / run `35660979142`, exact source `66cedad38875d6f7284180ef46d25d4e9049d287` (2026-09-21).** Prepare, Studio and Export use one adaptive `ProjectShellScaffold`; Studio no longer owns a second project-navigation top bar; its transport remains immediately below the shared shell. Workspace-local saveable state survives project-workspace switches, Home resolves each project to its remembered/relevant workspace, project-scoped Settings returns to the exact originating workspace across Activity recreation, and missing-project routes fail safely back to Home. Unit tests, Android Lint, APK build and the complete API 36 instrumented regression passed. C3 is next; U7 production cutover remains blocked on C2-C4.
+
 **Objective:** Prepare, Studio and Export look and behave like workspaces of the same project.
 
 Required work:

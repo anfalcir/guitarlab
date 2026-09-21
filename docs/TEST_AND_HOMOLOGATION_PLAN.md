@@ -140,6 +140,8 @@ Automatic CI #674 passed unit, Lint and APK build and ran all 36 API 36 tests. T
 
 Automatic CI #675 / run `35596671163` closed U2 at exact source `665c292931c0f2ed9fa1e7145818101c5d017222`: deterministic U2d materialization, unit tests, Lint, debug/release builds and all 36 API 36 tests passed. No signed candidate was requested for this intermediate milestone.
 
+C2 product-cohesion closure is proven by Android CI #713 / run `35660979142` at exact source `66cedad38875d6f7284180ef46d25d4e9049d287`: the shared project shell, remembered/relevant Home workspace, exact Settings-origin return, missing-project fallback and workspace state retention passed JVM/unit, Android Lint, APK build and the complete API 36 regression. No signed candidate was requested for this intermediate cohesion gate.
+
 ## Final rule
 Any promoted release requires exact-source digital PASS, only the genuinely hardware-dependent residual applicable to that source, no repeatable P0/P1 and explicit approval of the exact signed APK SHA-256.
 

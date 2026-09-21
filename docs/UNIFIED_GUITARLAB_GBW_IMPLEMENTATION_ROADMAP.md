@@ -1922,6 +1922,7 @@ Make the unified product reproducible from GuitarLab without destabilizing prove
 - consume the shared semantic operation model from the cohesion program;
 - keep Cloud Run/Firebase/job-state names out of primary UX;
 - implement C2-C4 shell/lifecycle/Prepare contracts before production cutover where they affect separation ownership;
+- **C2 is CLOSED** on CI #713 / run `35660979142` at `66cedad38875d6f7284180ef46d25d4e9049d287`; C3-C4 remain required before U7 production cutover.
 - move remote reconciliation cadence/backoff out of Compose and into durable job/repository infrastructure.
 
 ### Tests
