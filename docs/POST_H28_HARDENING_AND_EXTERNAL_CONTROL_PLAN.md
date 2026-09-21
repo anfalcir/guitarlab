@@ -4,6 +4,8 @@ Updated: 2026-09-20
 Status: **H29-H36c DIGITAL PASS (#663) / H37 BACKUP TRANSPORT SOURCE PRE-GATE / PHYSICAL RESIDUAL**
 Initial baseline: `0.5.0-rc3` / H28 CI #653 / source `d09fc003e2ae2d699238eb39ba699f75a746fea4`
 
+> **Successor-program scope note:** this file remains authoritative for the H29-H37/1.1 closure line. The later-approved `UNIFIED_GUITARLAB_GBW_IMPLEMENTATION_ROADMAP.md` defines a separate U0-U12 product-unification program and supersedes this file only for work after/beyond this closure line. It does not retroactively alter H29-H37 evidence, gates or release identities.
+
 ## 1. Purpose
 
 This document is the authoritative implementation plan for the GuitarLab development line after H28. It deliberately separates:
