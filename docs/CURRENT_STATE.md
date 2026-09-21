@@ -134,4 +134,6 @@ Before stable 1.0.0, the #663 baseline is digitally closed; only the remaining h
 - H28 backup/restore regression hardening;
 - final UX/accessibility polish.
 
-The only approved new feature after the stable hardening line is external MIDI/footswitch control. Marker/section enhancements, clip-gain UI, Reference × My Guitar comparison enhancements and a separate large-project performance program are explicitly excluded from this roadmap.
+Within the H29-H37/1.1 closure line, external MIDI/footswitch control remains the only added feature family; the exclusions in `POST_H28_HARDENING_AND_EXTERNAL_CONTROL_PLAN.md` continue to protect that line from scope creep.
+
+A later product decision now approves a **separate successor program** that unifies GBW Android into GuitarLab. Its authoritative plan is `UNIFIED_GUITARLAB_GBW_IMPLEMENTATION_ROADMAP.md`. The unified program does not retroactively change H29-H37 evidence or current release identity. It is designed to carry the still-unproven hardware residual into one consolidated final unified-candidate physical campaign whenever technically possible, while maximizing digital validation before that campaign.
