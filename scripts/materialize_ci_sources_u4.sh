@@ -4,8 +4,9 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 bash "$ROOT/scripts/materialize_ci_sources_through_h28.sh"
 bash "$ROOT/scripts/materialize_ci_sources_u3.sh"
 U4_PATCH="$ROOT/.source-parts/U4SeparationIntegration.patch.gz"
-echo "0753676239a38fbe22a21655eecc2416964fd2aa52c7c4e8f19058be063d978d  $U4_PATCH" | sha256sum -c -
-if gzip -dc "$U4_PATCH" | patch -p1 -R --dry-run -d "$ROOT" >/dev/null 2>&1; then
+echo "15a71836faa3ff20c91bd020bd4214d9265c4d733f67a7d161f5658ebad8e115  $U4_PATCH" | sha256sum -c -
+if grep -q 'RemoteSeparationClient' "$ROOT/app/src/main/java/studio/guitarlab/app/GuitarLabApplication.kt" &&
+   test -f "$ROOT/core/project/src/main/kotlin/studio/guitarlab/core/project/StemSetProjectPublisher.kt"; then
   : # already materialized
 else
   gzip -dc "$U4_PATCH" | patch -p1 --forward -d "$ROOT"

@@ -49,7 +49,17 @@ class RemoteSeparationCoordinator(private val store:RemoteJobStore,private val b
  }
  suspend fun reconcile(identity:RemoteJobIdentity):DurableRemoteJob {
   val local=requireNotNull(store.load(identity.jobId)){"local job missing"};require(local.identity==identity){"local job ownership mismatch"}
-  val remote=backend.status(identity)?:return local;val accepted=store.save(remote)
+  val remote=backend.status(identity)
+  if(remote==null){
+   if(local.state in setOf(RemoteJobState.UPLOADING,RemoteJobState.READY,RemoteJobState.QUEUED)){
+    val path=transport.uploadSource(identity)
+    store.save(local.copy(state=RemoteJobState.READY,updatedAtMs=nowMs()))
+    backend.enqueue(identity,path)
+    return store.save(local.copy(state=RemoteJobState.QUEUED,updatedAtMs=nowMs()))
+   }
+   return local
+  }
+  val accepted=store.save(remote)
   if(accepted.state!=RemoteJobState.COMPLETED&&accepted.state!=RemoteJobState.IMPORTING)return accepted
   store.save(accepted.copy(state=RemoteJobState.IMPORTING,updatedAtMs=nowMs()))
   val manifestBytes=transport.downloadManifest(identity);val manifestSha=sha256(manifestBytes);accepted.resultManifestSha256?.let{require(it==manifestSha){"manifest checksum mismatch"}}
