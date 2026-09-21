@@ -1,0 +1,45 @@
+diff --git a/app/src/main/java/studio/guitarlab/app/ui/UnifiedProjectWorkspaceScreen.kt b/app/src/main/java/studio/guitarlab/app/ui/UnifiedProjectWorkspaceScreen.kt
+index 56a690b..19a9f6b 100644
+--- a/app/src/main/java/studio/guitarlab/app/ui/UnifiedProjectWorkspaceScreen.kt
++++ b/app/src/main/java/studio/guitarlab/app/ui/UnifiedProjectWorkspaceScreen.kt
+@@ -105,16 +105,17 @@ fun UnifiedPrepareScreen(
+             OutlinedButton(onClick = onExport) { Text("Exportar") }
+         },
+     ) {
+-        val statusText = when (project?.preparation?.status) {
++        val preparation = project?.preparation
++        val statusText = when (preparation?.status) {
+             PreparationStatus.SOURCE_READY -> "Fonte validada e gerenciada. Inicie a separação Demucs em 6 stems."
+             PreparationStatus.SEPARATING -> "Há uma separação registrada em andamento."
+-            PreparationStatus.READY -> if (project.preparation?.activeBackingAssetId != null && project.preparation.activeGuitarAssetId != null) "Base e guitarra de referência prontas para o Studio." else "Os 6 stems estão prontos. Gere a base e a referência sem copiar ou reimportar arquivos."
++            PreparationStatus.READY -> if (preparation.activeBackingAssetId != null && preparation.activeGuitarAssetId != null) "Base e guitarra de referência prontas para o Studio." else "Os 6 stems estão prontos. Gere a base e a referência sem copiar ou reimportar arquivos."
+             PreparationStatus.ERROR -> "A preparação anterior requer atenção. Nenhum dado será descartado automaticamente."
+             PreparationStatus.NOT_STARTED, null -> "Adicione a fonte original por pesquisa ou importação local."
+         }
+         Text(statusText, modifier = Modifier.testTag("prepare-safe-state-$projectId"), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+ 
+-        project?.preparation?.sourceAssetId?.let { sourceId ->
++        preparation?.sourceAssetId?.let { sourceId ->
+             val asset = project.assets.firstOrNull { it.assetId == sourceId }
+             if (asset != null) {
+                 Surface(Modifier.fillMaxWidth().testTag("prepare-source-ready"), tonalElevation = 1.dp, shape = MaterialTheme.shapes.medium) {
+@@ -126,7 +127,7 @@ fun UnifiedPrepareScreen(
+             }
+         }
+ 
+-        if (project?.preparation?.status == PreparationStatus.SOURCE_READY && separationJob == null) {
++        if (preparation?.status == PreparationStatus.SOURCE_READY && separationJob == null) {
+             Button(onClick = onStartSeparation, modifier = Modifier.testTag("prepare-start-separation")) { Text("Separar em 6 stems") }
+         }
+         separationJob?.let { job ->
+@@ -142,8 +143,8 @@ fun UnifiedPrepareScreen(
+             }
+         }
+ 
+-        if (project?.preparation?.status == PreparationStatus.READY && project.preparation.activeStemAssetIds.size == 6) {
+-            if (project.preparation.activeBackingAssetId == null || project.preparation.activeGuitarAssetId == null) {
++        if (preparation?.status == PreparationStatus.READY && preparation.activeStemAssetIds.size == 6) {
++            if (preparation.activeBackingAssetId == null || preparation.activeGuitarAssetId == null) {
+                 Button(
+                     onClick = onPrepareReferences,
+                     enabled = !referenceBusy,
