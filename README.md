@@ -7,7 +7,7 @@ Updated: 2026-09-20
 ## Repository truth
 The repository is canonical for scope, architecture, implementation state and homologation evidence.
 
-Read first: `docs/CURRENT_STATE.md`, `docs/H37_DRIVE_V3_BACKUP.md`, `docs/H35_TAKE_SYNC_QUIET_CALIBRATION.md`, `docs/POST_H28_HARDENING_AND_EXTERNAL_CONTROL_PLAN.md`, `docs/H28_BACKUP_IDENTITY_CONSISTENCY.md`, `docs/IMPLEMENTATION_ROADMAP.md`, `docs/TEST_AND_HOMOLOGATION_PLAN.md`, `docs/RC3_FINAL_PHYSICAL_HOMOLOGATION.md`, `docs/CANDIDATE_IDENTITY_POLICY.md` and `docs/DOCUMENTATION_MAP.md`.
+Read first: `docs/CURRENT_STATE.md`, `docs/UNIFIED_GUITARLAB_GBW_IMPLEMENTATION_ROADMAP.md`, `docs/H37_DRIVE_V3_BACKUP.md`, `docs/H35_TAKE_SYNC_QUIET_CALIBRATION.md`, `docs/POST_H28_HARDENING_AND_EXTERNAL_CONTROL_PLAN.md`, `docs/H28_BACKUP_IDENTITY_CONSISTENCY.md`, `docs/IMPLEMENTATION_ROADMAP.md`, `docs/TEST_AND_HOMOLOGATION_PLAN.md`, `docs/RC3_FINAL_PHYSICAL_HOMOLOGATION.md`, `docs/CANDIDATE_IDENTITY_POLICY.md` and `docs/DOCUMENTATION_MAP.md`.
 
 ## Active source/release state
 Source candidate: **`0.5.0-rc4` / versionCode `24` / H37b — SOURCE PRE-GATE**.
@@ -40,7 +40,9 @@ H28 hardens the backup contract so that:
 - deduplication cannot collapse two different H28 states merely because they share a timestamp.
 
 ## Approved forward scope
-Before stable `1.0.0`, the project will harden existing recording/USB/recovery/takes/diagnostics/backup/UX behavior and establish a realistic quality boundary for song projects through 10 minutes. The only approved new feature after that stable line is external MIDI/footswitch control. See `docs/POST_H28_HARDENING_AND_EXTERNAL_CONTROL_PLAN.md`.
+The H29-H37/1.1 closure line continues to harden recording/USB/recovery/takes/diagnostics/backup/UX behavior and preserve the existing external-control work. See `docs/POST_H28_HARDENING_AND_EXTERNAL_CONTROL_PLAN.md`.
+
+A separate approved successor program will unify GBW Android into GuitarLab so one immutable project spans source preparation, Demucs stems, prepared backing/reference, Studio, exports and Drive backup. Its serial, idempotent U0-U12 execution plan is `docs/UNIFIED_GUITARLAB_GBW_IMPLEMENTATION_ROADMAP.md`. The program is designed for maximum digital validation and, where technically possible, one consolidated final physical homologation campaign.
 
 ## Branch/CI policy
 - `main` is canonical.
