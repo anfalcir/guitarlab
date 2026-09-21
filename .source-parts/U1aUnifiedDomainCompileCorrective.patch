@@ -1,0 +1,43 @@
+--- a/core/project/src/main/kotlin/studio/guitarlab/core/project/UnifiedProjectDomain.kt
++++ b/core/project/src/main/kotlin/studio/guitarlab/core/project/UnifiedProjectDomain.kt
+@@ -12,7 +12,7 @@
+     fun upgrade(project: GuitarProject): GuitarProject = when (project.schemaVersion) {
+         CURRENT_PROJECT_SCHEMA_VERSION -> project
+         1 -> project.copy(schemaVersion = CURRENT_PROJECT_SCHEMA_VERSION)
+-        else -> require(false) { "Schema de projeto não suportado: ${project.schemaVersion}" }
++        else -> error("Schema de projeto não suportado: ${project.schemaVersion}")
+     }
+ }
+
+@@ -27,18 +27,22 @@
+         val normalized = project.copy(
+             assets = project.assets.sortedBy { it.assetId }.map { asset ->
+                 asset.copy(
+-                    provenance = asset.provenance?.copy(
+-                        inputAssetIds = asset.provenance.inputAssetIds.sorted(),
+-                        inputSha256 = asset.provenance.inputSha256.sorted(),
+-                        parameters = asset.provenance.parameters.toSortedMap(),
+-                    )
++                    provenance = asset.provenance?.let { provenance ->
++                        provenance.copy(
++                            inputAssetIds = provenance.inputAssetIds.sorted(),
++                            inputSha256 = provenance.inputSha256.sorted(),
++                            parameters = provenance.parameters.toSortedMap(),
++                        )
++                    }
+                 )
+             },
+             referenceBindings = project.referenceBindings.sortedBy { it.bindingId },
+-            preparation = project.preparation?.copy(
+-                activeStemAssetIds = project.preparation.activeStemAssetIds.toSortedMap(compareBy<AssetRole> { it.name }),
+-                availableReferenceAssetIds = project.preparation.availableReferenceAssetIds.sorted(),
+-            ),
++            preparation = project.preparation?.let { preparation ->
++                preparation.copy(
++                    activeStemAssetIds = preparation.activeStemAssetIds.toSortedMap(compareBy<AssetRole> { it.name }),
++                    availableReferenceAssetIds = preparation.availableReferenceAssetIds.sorted(),
++                )
++            },
+         )
+         return canonicalJson.encodeToString(normalized)
+     }

@@ -7,7 +7,8 @@ Updated: 2026-09-21
 - Evidence: `U0_BASELINE_INVENTORY.md` plus the machine-readable `integration/u0/inventory.json` and hash-locked synthetic fixtures.
 - CI #665 established unit/Lint/build/API36 PASS for the H37b producer. Its final job failed before signing because of pre-materialization provenance comparison; H37c corrects that pipeline ordering. CI #663 therefore remains the latest signed DIGITAL PASS.
 - U1 unified project/asset domain is implemented as a deterministic source block and is **SOURCE PRE-GATE**: assets, roles, provenance, optional preparation, reference bindings, schema-1 migration, canonical revision and reachability are present with new unit/property/portable-package coverage.
-- U1 materialization first-run/idempotency/corruption rejection is locally PASS. Its JVM/build regression is not yet executed because this Work environment lacks Gradle 9.6.1/Android SDK 36; no DIGITAL PASS is claimed.
+- Canonical CI #667 reached Kotlin compilation and exposed three U1 source errors: a non-`Nothing` unsupported-schema branch and two cross-module nullable smart casts. U1a corrects those compile boundaries without changing the domain contract.
+- U1a materialization first-run/idempotency/corruption rejection is locally PASS. Its corrected JVM/build regression is pending a new manual canonical run; no DIGITAL PASS is claimed.
 - The first incomplete unified milestone remains U1 until its canonical software gate passes.
 
 ## Active line

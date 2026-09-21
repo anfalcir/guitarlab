@@ -106,7 +106,7 @@ A separate successor program is now approved to absorb GBW Android into GuitarLa
 
 Authoritative plan: `UNIFIED_GUITARLAB_GBW_IMPLEMENTATION_ROADMAP.md`.
 
-Current successor status: U0 PASS; U1 unified domain implemented as SOURCE PRE-GATE with the canonical software gate pending.
+Current successor status: U0 PASS; U1 unified domain plus U1a compile corrective implemented as SOURCE PRE-GATE, with the corrected canonical software gate pending after CI #667.
 
 This successor program uses U0-U12 milestone numbering and is intentionally separate from the H29-H37/1.1 closure numbering. It does not retroactively alter the signed #663 evidence, H37b pre-gate state or historical 1.0/1.1 acceptance rules. Known physical residuals may be carried into the final unified-candidate campaign rather than forcing duplicate manual homologation, provided digital prerequisites remain objectively green.
 
@@ -121,9 +121,9 @@ Do not add to this line:
 - per-track independent physical output routing.
 
 ## Canonical materialization tail
-Current source chain: `… → H25 → H26 → H26a → H26b → H26e → H27 → H28 → H29 → H30 → H31 → H32 → H33 → H33a → H33b → H34 → H35 → H35a → H36 → H36a → H36b → H36c → H37 → H37a → H37b → U1`.
+Current source chain: `… → H25 → H26 → H26a → H26b → H26e → H27 → H28 → H29 → H30 → H31 → H32 → H33 → H33a → H33b → H34 → H35 → H35a → H36 → H36a → H36b → H36c → H37 → H37a → H37b → U1 → U1a`.
 
-H28 is frozen in `materialize_ci_sources_through_h28.sh`; the existing H29-H36c tail remains independently verified by `materialize_ci_sources_h29_h33.sh`; H37 is layered by `materialize_ci_sources_h37.sh`; H37a is layered by `materialize_ci_sources_h37a.sh`; H37b is layered by `materialize_ci_sources_h37b.sh`; U1 is layered by `materialize_ci_sources_u1.sh`, which verifies its patch SHA-256 and terminal Git blobs. Future blocks must extend this chain deterministically and preserve the same fail-closed guarantees.
+H28 is frozen in `materialize_ci_sources_through_h28.sh`; the existing H29-H36c tail remains independently verified by `materialize_ci_sources_h29_h33.sh`; H37 is layered by `materialize_ci_sources_h37.sh`; H37a is layered by `materialize_ci_sources_h37a.sh`; H37b is layered by `materialize_ci_sources_h37b.sh`; U1 is layered by `materialize_ci_sources_u1.sh`; and U1a by `materialize_ci_sources_u1a.sh`. Each verifies its patch SHA-256 and terminal Git blobs. Future blocks must extend this chain deterministically and preserve the same fail-closed guarantees.
 
 ## Gate discipline
 `.github/workflows/android-ci.yml` remains manual-only (`workflow_dispatch`). Ordinary source/docs commits use `[skip ci]`; the assistant must not dispatch/rerun without explicit user instruction.

@@ -2103,7 +2103,7 @@ When current implementation differs from target design, ARCHITECTURE describes w
 | Milestone | Status at roadmap creation | Owner/manual dependency |
 |---|---|---|
 | U0 Baseline/inventory | PASS — `docs/U0_BASELINE_INVENTORY.md` | no physical |
-| U1 Unified domain | SOURCE PRE-GATE — implementation complete, software gate pending | manual CI authorization because local pinned toolchain is unavailable |
+| U1 Unified domain | SOURCE PRE-GATE — U1a compile corrective complete after CI #667, corrected software gate pending | manual CI authorization because local pinned toolchain is unavailable |
 | U2 Unified shell UX | NOT STARTED | none |
 | U3 Source acquisition | NOT STARTED | provider/network credentials only if required |
 | U4 Separation integration | NOT STARTED | cloud auth/config may require owner account action |
@@ -2137,7 +2137,9 @@ A Work session updates this table only after objective evidence.
 - portable package and duplicate-project media enumeration now includes unified asset paths;
 - unit coverage adds legacy migration, revision/rename identity, reachability, malformed assets, portable round trip and 100 deterministic randomized inventory-order seeds;
 - `.source-parts/U1UnifiedProjectDomain.patch` is SHA-256 locked; clean application, repeat materialization and deliberate corrupted-patch rejection PASS;
-- compilation/JVM regression remains pending because the Work environment has no Gradle 9.6.1/Android SDK 36. Under the manual-only policy, U1 remains SOURCE PRE-GATE and U2 must not start across this red/unexecuted gate.
+- canonical CI #667 reached compilation but failed on a branch return-type mismatch and two cross-module nullable smart casts in `UnifiedProjectDomain.kt`;
+- U1a replaces the impossible `require(false)` branch with `error(...)` and binds nullable provenance/preparation values inside `let`, preserving the U1 domain contract;
+- U1a patch integrity, clean application, repeat materialization and deliberate corrupted-patch rejection PASS locally. Under the manual-only policy, U1 remains SOURCE PRE-GATE and U2 must not start until the corrected canonical gate is green.
 
 ---
 
