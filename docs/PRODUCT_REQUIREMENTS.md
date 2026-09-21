@@ -24,6 +24,35 @@ Home project-library requirements:
 - Clearing filters does not silently reset the selected sort order.
 - Search/filter/sort is non-destructive and MUST NOT mutate project content or package schema.
 
+## Unified Prepare workflow
+The approved successor product direction is governed by `UNIFIED_GUITARLAB_GBW_IMPLEMENTATION_ROADMAP.md`.
+
+- One immutable projectId spans source acquisition, separation, prepared assets, Studio, exports and backup.
+- A project may remain Studio-only; Prepare is optional and must not block Blank projects.
+- Supported source acquisition publishes a project-managed immutable source only after validation.
+- Demucs separation publishes exactly the validated expected stem set with source/model/job provenance.
+- Remote separation uses Firebase/Cloud Run/temporary Storage as a transient processing plane; temporary cloud objects are not durable backup.
+- Durable project backup remains a separate direct Google Drive concern.
+- Prepared backing/reference media is project-managed and available to Studio without export/reimport.
+- A newer prepared reference never silently replaces a reference already used by Studio; rebind is explicit and non-destructive.
+- Study exports and Studio masters remain semantically distinct.
+- Long-running preparation, separation, import, backup, restore and migration operations are lifecycle-safe, idempotent and observable.
+- GBW legacy import is staging-first, integrity-validated and non-destructive.
+- No tuner, pitch/tuning conversion, BS-RoFormer or pitched-export scope is introduced by the unification.
+
+### Unified managed assets
+- Authoritative/derived media uses explicit asset identity, role, integrity metadata and provenance.
+- Filename/display name is never asset or project identity.
+- Cleanup uses reachability and may not delete media referenced by project state, retained history, pending migration or pending backup.
+- Re-separation/backing regeneration creates a new asset/version rather than mutating immutable bytes.
+
+### Unified cloud backup destination
+- The successor cloud backup must avoid requiring full large-media reupload for every metadata-only project edit.
+- Immutable content-addressed media plus transactional project revision metadata is the target architecture.
+- Upload/restore is resumable where applicable, server-confirmed, checksum-validated and conflict-aware.
+- Restore stages and validates all required project/media state before atomic publication.
+- Legacy H37 and GBW backups remain migration sources until verified successor backup/restore succeeds.
+
 ## Tracks, roles and mixing
 - Built-in guitar-oriented roles plus user-defined roles.
 - Grouping, ordering and clear track identity.
@@ -128,4 +157,5 @@ Offline export respects current timeline/mix and never modifies authoritative so
 - Signed homologation uses CI-only signing material and locked certificate verification.
 - Portable package extraction defends against traversal/out-of-root writes and bounded-resource abuse.
 - Keystores, credentials and local SDK configuration are never committed.
-- Physical homologation remains distinct from software CI; RC3 closes only after residual target-only checks receive explicit approval.
+- Physical homologation remains distinct from software CI; current RC3/H37 evidence keeps its historical acceptance rules.
+- For the approved unified successor program, digitally provable claims are removed from manual QA and the target is one consolidated final signed-candidate physical campaign, with repeat only when a source fix invalidates relevant evidence.
