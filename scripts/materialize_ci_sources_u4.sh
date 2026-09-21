@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-set -euxo pipefail
+set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-bash -x "$ROOT/scripts/materialize_ci_sources_u3.sh"
+bash "$ROOT/scripts/materialize_ci_sources_through_h28.sh"
+bash "$ROOT/scripts/materialize_ci_sources_u3.sh"
 grep -q 'include(":core:separation")' "$ROOT/settings.gradle.kts" || printf '\ninclude(":core:separation")\ninclude(":platform:separation")\n' >> "$ROOT/settings.gradle.kts"
 grep -q 'project(":platform:separation")' "$ROOT/app/build.gradle.kts" || python3 - "$ROOT/app/build.gradle.kts" <<'PY'
 from pathlib import Path
