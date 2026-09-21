@@ -5,7 +5,7 @@ Updated: 2026-09-20
 
 `0.5.0-rc4` / versionCode `24` is the H37b Google Drive backup transport source candidate. It does not supersede the signed `0.5.0-rc3` / CI #663 candidate until the manual canonical CI passes.
 
-Manual CI #664 / run `35544867278` exercised the merged H37 producer `abecc73e4eab181a7776d98cc731758b17c64b06` and failed at Kotlin compilation before Lint/build/signing. H37a corrects only those compile errors. H37b completes the pre-gate OAuth hardening by clearing a rejected 401 access token from the Google Identity Services cache before bounded reauthorization. Drive/H28 semantics remain unchanged.
+Manual CI #664 / run `35544867278` exposed H37 Kotlin compile errors; H37a corrected them. H37b completed the pre-gate OAuth token-cache hardening. Manual CI #665 / run `35546264450` then passed software/Lint/build and API36 regression, but the signed job stopped before keystore restore because its provenance check compared the tested RC4 artifact against unmaterialized RC3 build metadata. H37c corrects only that workflow provenance step by materializing the exact source identity before comparison. Drive/H28 runtime semantics remain unchanged.
 
 Primary change: automatic/manual project backup and restore now target Google Drive API v3 directly with OAuth `drive.file`, resumable upload, server-confirmed resume offsets, Drive size/SHA-256 verification, application metadata identities, bounded retry/backoff and crash reconciliation. Firebase/Cloud Run/Functions are not in the backup data path.
 
