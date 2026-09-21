@@ -1,0 +1,45 @@
+name: U4 Cloud Integration Smoke
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: guitarlab-u4-cloud-smoke
+  cancel-in-progress: false
+
+jobs:
+  smoke:
+    name: Real Cloud Run six-stem smoke
+    if: github.repository_id == '1361533070' && github.repository_owner_id == '216095257' && github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      GBW_GCP_PROJECT: gbwapp-ef048
+      GBW_BUCKET: gbwapp-ef048.firebasestorage.app
+      GBW_REGION: us-central1
+      MODEL_SHA256: 09704f4ceae204e56e77d5eefd6ac71d7275be81fd507e6913371d59abcee856
+
+    steps:
+      - name: Checkout exact GuitarLab source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Authenticate keylessly to Google Cloud
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
+        with:
+          workload_identity_provider: projects/119299736855/locations/global/workloadIdentityPools/github-gbw/providers/github-actions
+          service_account: gbw-github-deployer@gbwapp-ef048.iam.gserviceaccount.com
+          create_credentials_file: true
+
+      - name: Set up Google Cloud CLI
+        uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3
+        with:
+          version: '585.0.0'
+          install_components: 'beta'
+
+      - name: Run controlled real-cloud U4 contract
+        shell: bash
+        run: bash scripts/u4_cloud_integration_smoke.sh
