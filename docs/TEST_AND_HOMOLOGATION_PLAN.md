@@ -130,5 +130,7 @@ Automatic CI #670 validated the new commit trigger and deterministic U2 material
 
 Automatic CI #671 compiled the U2a production source and stopped while compiling the new Android-module unit test because it used the multiplatform `kotlin.test.Test` import. U2b switches to the module-standard `org.junit.Test`; test behavior and assertions are unchanged.
 
+Automatic CI #672 passed unit, Lint and APK build. Its API 36 suite failed after adding the new scrollable creation screen test; U2c removes viewport dependence by using `performScrollTo()` before selecting the blank template and submitting creation, preserving the assertions on safe acquisition states and template output.
+
 ## Final rule
 Any promoted release requires exact-source digital PASS, only the genuinely hardware-dependent residual applicable to that source, no repeatable P0/P1 and explicit approval of the exact signed APK SHA-256.
