@@ -1,0 +1,61 @@
+diff --git a/core/project/src/main/kotlin/studio/guitarlab/core/project/PreparedReferencePipeline.kt b/core/project/src/main/kotlin/studio/guitarlab/core/project/PreparedReferencePipeline.kt
+index fbd08dd..b09d04d 100644
+--- a/core/project/src/main/kotlin/studio/guitarlab/core/project/PreparedReferencePipeline.kt
++++ b/core/project/src/main/kotlin/studio/guitarlab/core/project/PreparedReferencePipeline.kt
+@@ -172,7 +172,8 @@ class PreparedReferenceService(
+         val fingerprint = recipeFingerprint(stemAssets)
+         val reusable = findPreparedSet(before, fingerprint)
+         if (reusable != null) {
+-            val updated = if (before.preparation?.activeBackingAssetId == reusable.backing.assetId && before.preparation.activeGuitarAssetId == reusable.guitar.assetId) before else {
++            val beforePreparation = requireNotNull(before.preparation)
++            val updated = if (beforePreparation.activeBackingAssetId == reusable.backing.assetId && beforePreparation.activeGuitarAssetId == reusable.guitar.assetId) before else {
+                 repository.save(before.copy(
+                     updatedAtEpochMs = nowMs(),
+                     preparation = preparation.copy(
+@@ -224,11 +225,13 @@ class PreparedReferenceService(
+             val prepared = latest.copy(
+                 updatedAtEpochMs = now,
+                 assets = latest.assets + references,
+-                preparation = requireNotNull(latest.preparation).copy(
+-                    activeBackingAssetId = backing.assetId,
+-                    activeGuitarAssetId = guitar.assetId,
+-                    availableReferenceAssetIds = (latest.preparation.availableReferenceAssetIds + references.map { it.assetId }).distinct(),
+-                ),
++                preparation = requireNotNull(latest.preparation).let { latestPreparation ->
++                    latestPreparation.copy(
++                        activeBackingAssetId = backing.assetId,
++                        activeGuitarAssetId = guitar.assetId,
++                        availableReferenceAssetIds = (latestPreparation.availableReferenceAssetIds + references.map { it.assetId }).distinct(),
++                    )
++                },
+             )
+             val bound = PreparedReferenceBindingPolicy.applyInitialBindings(prepared, now, idFactory)
+             return PreparedReferenceResult(repository.save(bound), reusedExisting = false, sharedGainDb = render.sharedGainDb)
+@@ -271,8 +274,12 @@ class PreparedReferenceService(
+         val matching = project.assets.filter { it.provenance?.parameters?.get("recipeFingerprint") == fingerprint }
+         val backing = matching.singleOrNull { it.role == AssetRole.REFERENCE_BACKING && it.provenance?.kind == "PREPARED_BACKING" } ?: return null
+         val guitar = matching.singleOrNull { it.role == AssetRole.REFERENCE_GUITAR && it.provenance?.kind == "PREPARED_GUITAR" } ?: return null
+-        val left = matching.singleOrNull { it.provenance?.kind == "GUITAR_CHANNEL_SPLIT" && it.provenance.parameters["channel"] == "LEFT" } ?: return null
+-        val right = matching.singleOrNull { it.provenance?.kind == "GUITAR_CHANNEL_SPLIT" && it.provenance.parameters["channel"] == "RIGHT" } ?: return null
++        val left = matching.singleOrNull { asset ->
++            asset.provenance?.let { provenance -> provenance.kind == "GUITAR_CHANNEL_SPLIT" && provenance.parameters["channel"] == "LEFT" } == true
++        } ?: return null
++        val right = matching.singleOrNull { asset ->
++            asset.provenance?.let { provenance -> provenance.kind == "GUITAR_CHANNEL_SPLIT" && provenance.parameters["channel"] == "RIGHT" } == true
++        } ?: return null
+         listOf(backing, guitar, left, right).forEach { validateManagedAsset(project.id, it) }
+         return PreparedSet(backing, guitar, left, right)
+     }
+@@ -320,7 +327,11 @@ object PreparedReferenceBindingPolicy {
+         val prep = project.preparation ?: return emptyMap()
+         val backing = prep.activeBackingAssetId?.let { id -> project.assets.singleOrNull { it.assetId == id && it.role == AssetRole.REFERENCE_BACKING } } ?: return emptyMap()
+         val guitar = prep.activeGuitarAssetId?.let { id -> project.assets.singleOrNull { it.assetId == id && it.role == AssetRole.REFERENCE_GUITAR } } ?: return emptyMap()
+-        val children = project.assets.filter { it.role == AssetRole.REFERENCE_GUITAR && it.provenance?.kind == "GUITAR_CHANNEL_SPLIT" && it.provenance.inputAssetIds == listOf(guitar.assetId) }
++        val children = project.assets.filter { asset ->
++            asset.role == AssetRole.REFERENCE_GUITAR && asset.provenance?.let { provenance ->
++                provenance.kind == "GUITAR_CHANNEL_SPLIT" && provenance.inputAssetIds == listOf(guitar.assetId)
++            } == true
++        }
+         val left = children.singleOrNull { it.provenance?.parameters?.get("channel") == "LEFT" }
+         val right = children.singleOrNull { it.provenance?.parameters?.get("channel") == "RIGHT" }
+         return buildMap {
