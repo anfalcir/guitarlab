@@ -2106,7 +2106,7 @@ When current implementation differs from target design, ARCHITECTURE describes w
 | U1 Unified domain | DIGITAL PASS — CI #669 at `14b69271f2ae04529fa14475e1a34f2fdd864553` | none |
 | U2 Unified shell UX | DIGITAL PASS — CI #675 / run `35596671163` at `665c292931c0f2ed9fa1e7145818101c5d017222` | none |
 | U3 Source acquisition | DIGITAL PASS — CI #676 / run `35606018087` at `a7af51bf6622b4eecc32308c091fbb5020a1d54b` | none; real-provider smoke may remain in consolidated final campaign |
-| U4 Separation integration | NOT STARTED | cloud auth/config may require owner account action |
+| U4 Separation integration | DIGITAL PASS — Android CI #686 / run `35620101527` + U4 Cloud Integration Smoke #8 / run `35620101684` at `55ae7a14d99b710367ea7650cbf9f48298b90eba` | closed digitally; no physical dependency |
 | U5 Prepare → Studio | NOT STARTED | none |
 | U6 Unified exports | NOT STARTED | none |
 | U7 Cloud source consolidation | NOT STARTED | deploy authorization may require owner |
@@ -2127,6 +2127,15 @@ A Work session updates this table only after objective evidence.
 - `scripts/verify_u0_inventory.py` PASS: 13 mapped capabilities and 3 hash-verified fixtures;
 - H37b materialization first run and repeat/idempotent run PASS at the frozen HEAD;
 - full local Gradle/Android reproduction was unavailable in the Work environment because Gradle 9.6.1 and Android SDK 36 were absent; no hosted CI was dispatched and no new DIGITAL PASS is claimed.
+
+### U4 digital closure — 2026-09-21
+
+- exact source: `55ae7a14d99b710367ea7650cbf9f48298b90eba`;
+- Android CI #686 / run `35620101527`: PASS;
+- U4 Cloud Integration Smoke #8 / run `35620101684`: PASS;
+- real-cloud production `gbw-demucs` path exercised under the GuitarLab WIF trust boundary;
+- six-stem manifest/checksum/model contract, staging/publication safety, cleanup/purge idempotency and recovery after lost response/process death are part of the closed U4 evidence;
+- no U5 implementation was started as part of this closure.
 
 ### U1 source checkpoint — 2026-09-21
 
@@ -2229,4 +2238,5 @@ Drive custom/app properties:
 
 These external references are implementation references only. Repository contracts remain the product source of truth, and external API behavior must be re-verified at implementation time because provider APIs can change.
 
-- Automatic CI #676 / run `35606018087` closed U3 at exact source `a7af51bf6622b4eecc32308c091fbb5020a1d54b`. U4 separation integration is now the first incomplete unified milestone.
+- Automatic CI #676 / run `35606018087` closed U3 at exact source `a7af51bf6622b4eecc32308c091fbb5020a1d54b`.
+- U4 is digitally closed at exact source `55ae7a14d99b710367ea7650cbf9f48298b90eba`: Android CI #686 / run `35620101527` PASS and U4 Cloud Integration Smoke #8 / run `35620101684` PASS. The final U4 hardening covers lost-response and process-death recovery without weakening the six-stem integrity/publication contract. U5 Prepare → Studio is now the first incomplete unified milestone and was not started during U4 closure.
