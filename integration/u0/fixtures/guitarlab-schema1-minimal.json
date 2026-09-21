@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "id": "11111111-1111-4111-8111-111111111111",
+  "name": "U0 GuitarLab Fixture",
+  "template": "BLANK",
+  "createdAtEpochMs": 1700000000000,
+  "updatedAtEpochMs": 1700000000000,
+  "sampleRate": { "mode": "FIXED", "fixedHz": 48000 },
+  "masterGainDb": 0.0,
+  "groups": [],
+  "tracks": [],
+  "clips": [],
+  "customRoles": [],
+  "markers": [],
+  "sections": [],
+  "takes": [],
+  "punchRegion": null
+}

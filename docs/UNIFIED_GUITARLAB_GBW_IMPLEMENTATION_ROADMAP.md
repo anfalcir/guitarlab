@@ -1,6 +1,6 @@
 # Unified GuitarLab + GBW — Master Integration Roadmap
 
-Updated: 2026-09-20  
+Updated: 2026-09-21
 Status: **APPROVED SUCCESSOR PROGRAM / PLANNING AUTHORITY**  
 Canonical repository: **anfalcir/guitarlab**  
 Target Android package: **studio.guitarlab.app**  
@@ -2102,7 +2102,7 @@ When current implementation differs from target design, ARCHITECTURE describes w
 
 | Milestone | Status at roadmap creation | Owner/manual dependency |
 |---|---|---|
-| U0 Baseline/inventory | NOT STARTED | no physical |
+| U0 Baseline/inventory | PASS — `docs/U0_BASELINE_INVENTORY.md` | no physical |
 | U1 Unified domain | NOT STARTED | none |
 | U2 Unified shell UX | NOT STARTED | none |
 | U3 Source acquisition | NOT STARTED | provider/network credentials only if required |
@@ -2117,6 +2117,16 @@ When current implementation differs from target design, ARCHITECTURE describes w
 | U12 Final physical homologation | NOT STARTED | owner/manual target hardware |
 
 A Work session updates this table only after objective evidence.
+
+### U0 closure evidence — 2026-09-21
+
+- live heads frozen at GuitarLab `dc3cb95093110270c494804aa03ef625dc3ceef2` and GBW `4724b030eabe289a5c2645e379181c0f9602d25d`;
+- H37b producer `01b2371310fb872eb1583231728941beb93c1a8e` has CI #665 unit/Lint/build/API36 PASS evidence; its signing-provenance failure occurred before signing and is corrected at HEAD by H37c without promoting a signed candidate;
+- human and machine inventories: `docs/U0_BASELINE_INVENTORY.md` and `integration/u0/inventory.json`;
+- synthetic schema fixtures and the existing deterministic WAV fixture are hash-locked by `integration/u0/fixtures/manifest.json`;
+- `scripts/verify_u0_inventory.py` PASS: 13 mapped capabilities and 3 hash-verified fixtures;
+- H37b materialization first run and repeat/idempotent run PASS at the frozen HEAD;
+- full local Gradle/Android reproduction was unavailable in the Work environment because Gradle 9.6.1 and Android SDK 36 were absent; no hosted CI was dispatched and no new DIGITAL PASS is claimed.
 
 ---
 

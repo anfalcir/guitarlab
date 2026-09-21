@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 2,
+  "projectId": "22222222-2222-4222-8222-222222222222",
+  "name": "U0 GBW Fixture",
+  "artist": "Fixture Artist",
+  "song": "Fixture Song",
+  "createdAtEpochMs": 1700000000000,
+  "updatedAtEpochMs": 1700000001000,
+  "workflowStage": "SEPARATION",
+  "source": {
+    "originalRelativePath": "source/original.wav",
+    "preparedRelativePath": null,
+    "provenanceUri": null,
+    "sourceUrl": null,
+    "title": "Fixture Song",
+    "formatId": "wav",
+    "durationSeconds": 1.0
+  },
+  "separation": {
+    "engine": "htdemucs_6s",
+    "jobId": "u0-job-0001",
+    "completedAtEpochMs": 1700000001000,
+    "frames": 44100,
+    "elapsedMillis": 1000,
+    "runtimeIdentity": "synthetic-u0",
+    "blasThreads": 2,
+    "stems": {
+      "bass": "stems/bass.wav",
+      "drums": "stems/drums.wav",
+      "guitar": "stems/guitar.wav",
+      "other": "stems/other.wav",
+      "piano": "stems/piano.wav",
+      "vocals": "stems/vocals.wav"
+    }
+  },
+  "export": null,
+  "inventory": [],
+  "lastSyncedRevisionId": null
+}

@@ -1,6 +1,6 @@
 # Documentation map
 
-Updated: 2026-09-20
+Updated: 2026-09-21
 
 ## Authority rule
 Repository documentation is split into **live authority**, **normative contracts**, and **historical evidence**.
@@ -17,6 +17,7 @@ Use these first for current status, release identity and remaining work:
 - `PRODUCT_VISION.md` and `PRODUCT_REQUIREMENTS.md` — destination and required behavior;
 - `IMPLEMENTATION_ROADMAP.md` — milestone/release sequence;
 - `UNIFIED_GUITARLAB_GBW_IMPLEMENTATION_ROADMAP.md` — approved U0→U12 successor program for the GBW/GuitarLab unification, including autonomous Work protocol and final physical-homologation boundary;
+- `U0_BASELINE_INVENTORY.md` — closed U0 baseline, schema/fixture freeze and GBW→GuitarLab ownership map; its machine-readable companion is `integration/u0/inventory.json`;
 - `POST_H28_HARDENING_AND_EXTERNAL_CONTROL_PLAN.md` — H29→1.1 implementation/closure plan;
 - `CANDIDATE_IDENTITY_POLICY.md` — candidate identity/provenance rules;
 - `CI_PIPELINE.md` — manual CI, source materialization and signing provenance;

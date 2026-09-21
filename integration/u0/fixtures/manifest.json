@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "fixtures": [
+    {"id":"guitarlab-schema1-minimal","path":"integration/u0/fixtures/guitarlab-schema1-minimal.json","kind":"project-json","owner":"guitarlab","sha256":"b97dbb34229b5e1d5f732eb10f1a24c4013272f7d0e15c07422cbfac531c55b4"},
+    {"id":"gbw-schema2-prepared","path":"integration/u0/fixtures/gbw-schema2-prepared.json","kind":"project-json","owner":"gbw","sha256":"8ccdff618b4ac59cb2da8c02a1eaab7f7f269a666bbc2d5ccfeeffbd5812eaa2"},
+    {"id":"guitarlab-tone-wav","path":"app/src/androidTest/assets/codec-fixtures/tone.wav","kind":"audio-wav","owner":"guitarlab","sha256":"06f15ba914c840cfe1a6e5b8c4e558d25efdac983e41478b1b50c27012b73aa7"}
+  ]
+}

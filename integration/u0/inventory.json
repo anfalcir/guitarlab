@@ -1,0 +1,65 @@
+{
+  "schemaVersion": 1,
+  "milestone": "U0",
+  "capturedAt": "2026-09-21",
+  "repositories": {
+    "guitarlab": {
+      "repository": "anfalcir/guitarlab",
+      "branch": "main",
+      "head": "dc3cb95093110270c494804aa03ef625dc3ceef2",
+      "package": "studio.guitarlab.app",
+      "signedDigitalAuthority": "51d4098fa7b1b44a9fa315e939541020f594654d",
+      "integrationBase": "01b2371310fb872eb1583231728941beb93c1a8e",
+      "integrationBaseGate": "CI 665: unit, lint, build and API36 pass; signing provenance job failed before signing",
+      "headCorrective": "H37c signing job materializes exact source before provenance comparison"
+    },
+    "gbw": {
+      "repository": "anfalcir/gbw",
+      "branch": "dev/android-6.0",
+      "head": "4724b030eabe289a5c2645e379181c0f9602d25d",
+      "package": "com.gbw.android",
+      "functionalBaseline": "48af553518c44b46b913aad73c22e3da04368ea5",
+      "workerImageDigest": "sha256:d8a7d77e1326ca4b6af4d548badf0dd870826622818701af0cb46c917c3e1958"
+    }
+  },
+  "schemaSnapshots": {
+    "guitarlabProject": 1,
+    "gbwProject": 2,
+    "gbwExport": 2,
+    "gbwRemoteManifest": 1,
+    "guitarlabPortablePackage": "versioned legacy reader retained",
+    "guitarlabDriveH37": "legacy adapter input; not unified vNext schema"
+  },
+  "capabilities": [
+    {"id":"source.local","sourceOwner":"gbw","sourcePaths":["android/app/src/main/java/com/gbw/android/audio/SafAudioStager.kt","android/app/src/main/java/com/gbw/android/source/PreparedSourceStore.kt"],"targetOwner":"platform:source-android","strategy":"port","targetMilestone":"U3"},
+    {"id":"source.online","sourceOwner":"gbw","sourcePaths":["android/app/src/main/java/com/gbw/android/source","android/app/src/main/java/com/gbw/android/domain/SourceSearch.kt"],"targetOwner":"feature:prepare + platform:source-android","strategy":"port contract and providers","targetMilestone":"U3"},
+    {"id":"project.identity","sourceOwner":"guitarlab","sourcePaths":["core/model","core/project"],"targetOwner":"core:model + core:project","strategy":"evolve backward-compatibly; GuitarLab wins","targetMilestone":"U1"},
+    {"id":"media.lifecycle","sourceOwner":"guitarlab","sourcePaths":["core/project/src/main/kotlin/studio/guitarlab/core/project"],"targetOwner":"core:media + core:project","strategy":"extend managed-media policy with assets/reachability","targetMilestone":"U1"},
+    {"id":"separation.remote.client","sourceOwner":"gbw","sourcePaths":["android/app/src/main/java/com/gbw/android/remote"],"targetOwner":"platform:firebase + platform:separation","strategy":"port semantics, adapt identity/package","targetMilestone":"U4"},
+    {"id":"separation.local","sourceOwner":"gbw","sourcePaths":["android/app/src/main/java/com/gbw/android/separation","android/app/src/main/cpp"],"targetOwner":"platform:separation","strategy":"port as explicit fallback only","targetMilestone":"U4"},
+    {"id":"separation.cloud","sourceOwner":"gbw","sourcePaths":["cloud/remote-separation"],"targetOwner":"cloud/separation","strategy":"phase A consume; phase B port; phase C cutover","targetMilestone":"U7"},
+    {"id":"prepared.render","sourceOwner":"gbw","sourcePaths":["android/app/src/main/java/com/gbw/android/export"],"targetOwner":"core:audio + feature:prepare","strategy":"port shared-gain contract, publish assets instead of standalone export","targetMilestone":"U5"},
+    {"id":"studio","sourceOwner":"guitarlab","sourcePaths":["feature implicit in app/ui","core/audio","platform/audio-android"],"targetOwner":"feature:studio","strategy":"preserve behavior; bind managed assets zero-copy","targetMilestone":"U5"},
+    {"id":"portable.project","sourceOwner":"guitarlab","sourcePaths":["core/project/src/main/kotlin/studio/guitarlab/core/project/ProjectBundleWriter.kt","core/project/src/main/kotlin/studio/guitarlab/core/project/ProjectBundleReader.kt"],"targetOwner":"core:project","strategy":"retain self-contained format distinct from cloud backup","targetMilestone":"U1"},
+    {"id":"backup.drive","sourceOwner":"guitarlab","sourcePaths":["app/src/main/java/studio/guitarlab/app/backup"],"targetOwner":"platform:drive + core:project","strategy":"H37 legacy adapter then unified content-addressed vNext","targetMilestone":"U8"},
+    {"id":"jobs","sourceOwner":"shared","sourcePaths":["gbw: android/app/src/main/java/com/gbw/android/background","guitarlab: app orchestration"],"targetOwner":"core:jobs + feature:activity","strategy":"unify operation identity/state; retain WorkManager adapters","targetMilestone":"U2-U4"},
+    {"id":"exports","sourceOwner":"shared","sourcePaths":["gbw: android/app/src/main/java/com/gbw/android/export","guitarlab: platform/audio-android offline renderer"],"targetOwner":"feature:export","strategy":"keep Study Export and Studio Master distinct","targetMilestone":"U6"}
+  ],
+  "duplicateDecisions": [
+    {"concept":"project identity","winner":"GuitarLab project domain","migration":"GBW projectId maps to unified projectId on import; collisions fail closed"},
+    {"concept":"managed media","winner":"GuitarLab immutable managed-media policy","migration":"GBW inventory becomes explicit assets with hashes/provenance"},
+    {"concept":"backup coordinator","winner":"GuitarLab H28/H37 domain evolved by U8","migration":"GBW backup is import-only legacy source"},
+    {"concept":"audio inspection and codecs","winner":"GuitarLab core:codec/platform:codec-android","migration":"port only missing validated behavior"},
+    {"concept":"export","winner":"two explicit workflows","migration":"GBW renderer supplies Study Export; GuitarLab renderer supplies Studio Master"},
+    {"concept":"UI shell","winner":"GuitarLab","migration":"GBW screens are behavior references, never copied wholesale"}
+  ],
+  "physicalResidualsCarried": [
+    "MK-300 effective input/output and no tablet-mic fallback",
+    "hardware loopback isolation",
+    "recording alignment and subjective latency",
+    "USB disconnect/reconnect behavior",
+    "continuous 10-minute real session",
+    "real-device Drive OAuth acceptance",
+    "App Check sideload verdict before enforcement"
+  ]
+}
