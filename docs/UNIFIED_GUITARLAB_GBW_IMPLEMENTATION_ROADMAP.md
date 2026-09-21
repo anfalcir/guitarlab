@@ -11,6 +11,22 @@ Physical homologation objective: **one consolidated final target-device campaign
 
 ## 0. Authority and purpose
 
+## Clean-cutover override — legacy compatibility retired (2026-09-21)
+
+The owner has only two legacy projects and explicitly accepts recreating them in the unified app. This supersedes future roadmap obligations for automatic migration/import compatibility with standalone GBW, H37/pre-unification GuitarLab backups or historical project corpora.
+
+Consequences:
+- U9 is retired, not implemented;
+- U8 is clean unified-schema backup/restore only;
+- U10/U11 do not require migration corpora;
+- no H37 adapter, .gbwbackup importer or GBW Share/Open bridge is required;
+- historical migration tests already executed remain evidence of prior work but are not ongoing product requirements;
+- robust save/reopen, backup/restore, malformed-data handling and compatible schema evolution **within the unified product line** remain mandatory.
+
+This decision removes legacy migration work only; it does not weaken current-project persistence, project identity, asset integrity, transactional restore, rollback safety or backup correctness.
+
+---
+
 This document is the authoritative implementation guide for integrating the GBW Android product into GuitarLab as one coherent application.
 
 It is intentionally self-contained. A future ChatGPT Work session must be able to continue the program by reading the repository and this file without relying on chat memory.
@@ -29,7 +45,9 @@ Integration milestones use the prefix **U** ("Unified") to avoid collision with 
 
 Sequence:
 
-U0 → U1 → U2 → U3 → U4 → U5 → U6 → U7 → U8 → U9 → U10 → U11 → U12
+U0 → U1 → U2 → U3 → U4 → U5 → U6 → U7 → U8 → U10 → U11 → U12
+
+`U9` is intentionally retired and retained only as a historical milestone identifier so later U-numbers remain stable.
 
 No U milestone may be marked complete unless its entry conditions, implementation obligations, automated evidence and exit gate are all satisfied.
 
@@ -172,8 +190,9 @@ Outside this roadmap unless separately approved:
 - cloud storage of temporary Demucs files as permanent backup;
 - broad Drive scope;
 - silent automatic conflict resolution;
-- destructive migration of legacy user data;
-- automatic deletion of old GBW/GuitarLab backups before verified migration.
+- automatic migration/import of legacy GBW/GuitarLab/H37 projects or backups;
+- legacy bridge builds/readers/importers solely for historical project compatibility;
+- automatic deletion of old GBW/GuitarLab backups.
 
 Existing GuitarLab behavior that is already implemented remains regression scope even when it is not expanded.
 
@@ -193,7 +212,7 @@ Every U milestone must preserve these invariants.
    A new backing or reference does not silently replace one already used by a Studio session.
 
 4. **No publication before validation.**
-   Network download, Demucs stem import, restore, migration and export all stage first, validate, then publish atomically.
+   Network download, Demucs stem import, restore and export all stage first, validate, then publish atomically.
 
 5. **Idempotency is a product requirement.**
    Retrying a completed operation after process death, network loss, WorkManager retry or reopen may not duplicate project state.
@@ -205,7 +224,7 @@ Every U milestone must preserve these invariants.
    Rename never forks cloud history or asset identity.
 
 8. **No silent fallback.**
-   Recording input, remote separation, Drive authorization and migration cannot silently use a different path when the requested one fails.
+   Recording input, remote separation and Drive authorization cannot silently use a different path when the requested one fails.
 
 9. **Security boundaries remain explicit.**
    Drive token != Firebase session != App Check token != Cloud Run authorization.
@@ -389,7 +408,6 @@ One global activity surface owns long-running work:
 - stem import;
 - backup;
 - restore;
-- project migration;
 - master export where useful.
 
 Each item carries:
@@ -516,7 +534,7 @@ A project must have stable persisted fields equivalent to:
 - preparation state references;
 - Studio state;
 - export metadata;
-- migration provenance.
+- creation/import provenance for the unified model.
 
 Avoid placing transient job/network status inside the creative project document unless it is semantically durable. Recoverable operation state belongs to a separate job store.
 
@@ -637,7 +655,7 @@ Never delete:
 - any asset reachable from current project state;
 - any asset reachable from retained Undo/history if current GuitarLab policy protects it;
 - any asset required by pending cloud backup;
-- any asset involved in in-progress migration.
+- any asset involved in an in-progress transactional restore/publication.
 
 Derived caches such as waveform/proxy may follow existing regenerable-media policy.
 
@@ -917,86 +935,47 @@ Existing local project must remain intact on restore failure.
 
 Keep narrow drive.file scope as the default architecture.
 
-Current Google guidance describes drive.file as per-file access for files created/opened/shared with the app. Therefore legacy cross-app GBW backup discovery must not be assumed merely because GBW and GuitarLab share a Cloud project. Migration must be designed around files the unified app can legitimately access, explicit user selection/share, or local GBW export.
+Current Google guidance describes drive.file as per-file access for files created/opened/shared with the app. The unified app therefore manages only its own authorized Drive files and must not broaden scope to discover historical GBW/GuitarLab backups.
 
-Never broaden to full Drive access merely to simplify migration.
+Never broaden to full Drive access merely to simplify historical compatibility.
 
-## 11.9 Legacy H37 compatibility
+## 11.9 Legacy cutover policy
 
-H37 .guitarlab backup remains a legacy reader/migration source.
+Legacy H37, pre-unification GuitarLab and standalone GBW project/backup formats are **not product requirements** for the unified line. No new reader, importer, bridge or automatic migration is to be implemented for them.
 
-Unified backup migration:
-- read committed H37 history;
-- restore/import to staging;
-- ingest into unified project/asset model;
-- commit new unified backup;
-- verify round trip;
-- keep old H37 remote files until migration has proven successful and a later explicit cleanup action is authorized.
-
-Do not mutate old H37 files into the new schema.
+The owner has only two legacy projects and explicitly accepts recreating them in the unified app. Historical files/backups may be retained externally for reference, but the unified product is not required to discover, ingest, convert or delete them.
 
 ---
 
-# 12. Local project migration
+# 12. Legacy cutover and supported project boundary
 
-## 12.1 Existing GuitarLab projects
+The unified product starts a clean project-data line.
 
-Migration must be backward compatible and lossless.
+## 12.1 Supported projects
 
-Existing project becomes:
+Release support applies to:
+- projects created by the unified GuitarLab model after the cutover point;
+- projects created during the U0-U8 implementation line that already use the unified schema and remain valid under the current reader;
+- ordinary save/reopen, duplicate, backup/restore and schema evolution inside the unified product line.
 
-Preparation = absent/not started  
-Studio = exact existing behavior/state preserved
+This is **current-product compatibility**, not historical migration.
 
-Preserve:
-- projectId;
-- tracks;
-- clips;
-- takes;
-- active takes;
-- markers/sections/loop;
-- mix state;
-- source media;
-- waveform/proxy semantics;
-- recording sync metadata;
-- Undo/history policy as applicable;
-- timestamps.
+## 12.2 Explicitly unsupported legacy migration
 
-A migrated project may not suddenly create GBW assets.
+No engineering time is allocated to automatic migration of:
+- standalone GBW Android project backups;
+- old `.gbwbackup` archives;
+- H37/pre-unification Drive histories;
+- pre-unification GuitarLab project corpora solely for upgrade compatibility;
+- Share/Open bridge builds between standalone GBW and GuitarLab.
 
-## 12.2 Existing GBW Android projects
+The owner accepts manually recreating the two existing legacy projects.
 
-Android sandbox isolation means GuitarLab must not assume it can read private GBW files directly.
+Existing migration-related code or tests already produced in earlier milestones may remain when harmless, but they are historical evidence and must not create new acceptance gates, maintenance obligations or future scope.
 
-Supported migration channels should include at least one robust user-controlled path:
-- import latest supported .gbwbackup archive;
-- "Open/Share with GuitarLab" handoff from GBW if a final bridge build is warranted;
-- explicit local project export/import where technically cleaner.
+## 12.3 Project identity inside the unified line
 
-Importer:
-- validates schema;
-- validates projectId;
-- validates source/stems/exports;
-- verifies hashes/manifest;
-- maps GBW metadata to UnifiedProject;
-- never trusts paths from archive;
-- blocks traversal/zip bombs/resource abuse;
-- stages before publish;
-- records migration provenance.
-
-Do not delete GBW local data after import.
-
-## 12.3 Project ID collision
-
-If importing a GBW project whose projectId already exists locally:
-- compare provenance/content/revision;
-- exact same imported state may be a no-op;
-- divergent state requires explicit merge/conflict/duplicate policy;
-- never overwrite merely because IDs match.
-
-## 12.4 Duplicate/Copy
-
-User duplication must create a new projectId and preserve or copy asset references according to managed-media policy without creating unsafe shared mutable state.
+Within supported unified projects, duplicate/copy must still create a new projectId, rename remains cosmetic, backup/restore preserves identity rules, and malformed/current-schema data must fail closed. These invariants remain mandatory.
 
 ---
 
@@ -1904,7 +1883,7 @@ Replace standalone app backup concepts with one scalable transactional project b
 - GC reachability;
 - diagnostic state;
 - automatic WorkManager scheduling;
-- migrate H37 reader into legacy adapter.
+- clean unified-schema backup/restore only; no H37/GBW legacy adapter.
 
 ### Tests
 - full section 11 and section 20 Drive/fault matrix;
@@ -1923,39 +1902,14 @@ One unified project backup/restore path is digitally green and does not require 
 
 ---
 
-## U9 — Legacy migration
+## U9 — RETIRED — Legacy migration
 
-### Objective
-Prove safe migration from both former products.
+### Status
+**REMOVED FROM PRODUCT SCOPE — 2026-09-21**
 
-### Work
-- GuitarLab local legacy migration;
-- H37 Drive legacy migration;
-- GBW .gbwbackup importer;
-- optional GBW Share/Open bridge;
-- conflict/collision handling;
-- migration report;
-- legacy data retention policy.
+The owner explicitly chose a clean cutover because only two legacy projects exist and can be recreated manually. No U9 implementation, migration corpus, legacy importer, H37 adapter or GBW bridge is required.
 
-### Corpus
-- pre-M5 GuitarLab;
-- M5/M6/M7/H28/H37-era fixtures as available;
-- partial metadata;
-- current project;
-- current GBW RC5 project backup fixtures;
-- corrupt archives.
-
-### Tests
-- byte/content integrity;
-- projectId rules;
-- repeat import idempotency;
-- duplicate/conflict;
-- process death;
-- no delete of legacy source;
-- migrated project full backup/restore round trip.
-
-### Exit
-The user can move existing work into unified GuitarLab without destructive assumptions.
+The identifier U9 is retained only to avoid renumbering U10-U12 and invalidating existing documentation/references.
 
 ---
 
@@ -1981,7 +1935,7 @@ Required suites:
 - security scans;
 - cloud contract;
 - Drive transactional suite;
-- migration corpus;
+- current unified-schema persistence/restore regressions;
 - long-song stress;
 - job concurrency;
 - leak/temp/orphan audit;
@@ -2008,7 +1962,7 @@ Produce the one exact signed candidate intended for the consolidated physical ca
 - APK SHA-256 recorded;
 - real-cloud digital separation smoke PASS;
 - Drive backup/restore integration PASS where it does not require physical judgment;
-- migration corpus PASS;
+- current unified-schema save/reopen/restore compatibility PASS;
 - no credential leakage;
 - docs consistency audit PASS;
 - exact remaining physical checklist generated from unproven claims only.
@@ -2032,9 +1986,9 @@ Target hardware:
 ### Manual campaign
 
 **Installation/upgrade**
-- install over supported prior GuitarLab build when applicable;
-- verify user projects/migration;
-- no forced uninstall/data loss.
+- install/upgrade over the supported unified-line candidate when applicable;
+- verify current unified projects remain readable;
+- legacy GBW/H37/pre-unification project migration is intentionally out of scope.
 
 **USB audio**
 - intended MK-300 input/output selected and effective;
@@ -2100,7 +2054,7 @@ If a source fix is required after this campaign, produce a new exact candidate a
 Standalone GBW Android is deprecated only after U12 PASS.
 
 After pass:
-- freeze GBW Android branch with final migration instructions;
+- freeze GBW Android branch with a clear deprecation/cutover notice;
 - keep Linux baseline untouched;
 - keep old cloud image/source evidence for defined rollback window;
 - remove duplicate active Android development instructions from GBW docs or clearly mark frozen;
@@ -2111,7 +2065,7 @@ Rollback window should preserve:
 - last standalone GBW APK/build identity;
 - last standalone GuitarLab pre-unification APK/build identity;
 - last-known-good Demucs image digest;
-- legacy importers/readers.
+- historical source/build evidence needed for rollback diagnosis.
 
 ---
 
@@ -2145,7 +2099,7 @@ When current implementation differs from target design, ARCHITECTURE describes w
 | U6 Unified exports | NOT STARTED | none |
 | U7 Cloud source consolidation | NOT STARTED | deploy authorization may require owner |
 | U8 Unified Drive backup | NOT STARTED | OAuth setup may require owner |
-| U9 Legacy migration | NOT STARTED | legacy fixtures/user export if not in repo |
+| U9 Legacy migration | RETIRED — no implementation required by owner decision (2026-09-21) | none |
 | U10 Global hardening | NOT STARTED | none beyond external service smoke |
 | U11 Final digital gate | NOT STARTED | canonical CI dispatch under current policy |
 | U12 Final physical homologation | NOT STARTED | owner/manual target hardware |
@@ -2209,8 +2163,8 @@ A Work session updates this table only after objective evidence.
 The integration is complete only when all are true:
 
 1. GuitarLab is the single Android product.
-2. Existing GuitarLab projects remain usable.
-3. Supported GBW projects can be migrated safely.
+2. Projects created/supported by the unified line remain usable across save/reopen and supported schema evolution.
+3. Legacy GBW/H37/pre-unification project migration is intentionally not a release requirement; the owner accepts recreating the two legacy projects.
 4. One projectId spans Prepare, Studio, Export and backup.
 5. Source acquisition works from the unified app.
 6. Remote Demucs produces six validated managed stems.
@@ -2221,7 +2175,7 @@ The integration is complete only when all are true:
 11. Firebase/Cloud Run temporary processing is isolated from Drive durable backup.
 12. Unified Drive backup is transactional, resumable, incremental/deduplicated and conflict-aware.
 13. Restore is staging-first, hash-validated and rollback-safe.
-14. Legacy backup/project data is never deleted before verified migration.
+14. The unified app never automatically deletes historical GBW/GuitarLab backups; they are simply outside the supported migration path.
 15. No broad Drive scope or embedded backend credential is introduced.
 16. Process death/network loss/cancellation converge safely.
 17. Fuzz/malformed data cannot crash or partially publish a project.
@@ -2243,7 +2197,7 @@ Any change to:
 - backup transaction model;
 - Drive scope;
 - cloud data retention;
-- destructive migration policy;
+- supported project/schema compatibility boundary;
 - package/signing identity;
 - physical homologation boundary
 
@@ -2251,7 +2205,7 @@ requires:
 1. explicit decision entry in DECISIONS.md;
 2. roadmap update;
 3. affected test-plan update;
-4. migration/backward-compatibility analysis.
+4. current unified-schema compatibility and data-safety analysis.
 
 No implementation shortcut may silently weaken those contracts.
 
