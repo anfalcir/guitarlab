@@ -1,0 +1,11 @@
+--- a/app/src/test/java/studio/guitarlab/app/ui/UnifiedProjectShellPolicyTest.kt
++++ b/app/src/test/java/studio/guitarlab/app/ui/UnifiedProjectShellPolicyTest.kt
+@@ -1,7 +1,7 @@
+ package studio.guitarlab.app.ui
+
+-import kotlin.test.Test
+ import kotlin.test.assertEquals
++import org.junit.Test
+ import studio.guitarlab.core.model.GuitarProject
+ import studio.guitarlab.core.model.PreparationState
+ import studio.guitarlab.core.model.PreparationStatus

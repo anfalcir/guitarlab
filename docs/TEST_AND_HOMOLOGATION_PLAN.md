@@ -128,5 +128,7 @@ CI #669 closed U1 with unit, Lint, debug/release build, API 36 instrumentation a
 
 Automatic CI #670 validated the new commit trigger and deterministic U2 materialization, then stopped at Kotlin compilation because of one trailing comma after the final `when` branch expression. U2a removes that token without changing behavior; all U2 tests remain pending the corrected automatic run.
 
+Automatic CI #671 compiled the U2a production source and stopped while compiling the new Android-module unit test because it used the multiplatform `kotlin.test.Test` import. U2b switches to the module-standard `org.junit.Test`; test behavior and assertions are unchanged.
+
 ## Final rule
 Any promoted release requires exact-source digital PASS, only the genuinely hardware-dependent residual applicable to that source, no repeatable P0/P1 and explicit approval of the exact signed APK SHA-256.
