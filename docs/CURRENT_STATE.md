@@ -19,11 +19,11 @@ Updated: 2026-09-21
 - Automatic CI #675 closed U2: deterministic U2d materialization, unit, Lint, debug/release build and all 36 API 36 tests passed.
 - U3 implementation ports GBW ranking/provider semantics behind `core:source` / `platform:source-android`; local SAF import and remote YouTube/SoundCloud/Bandcamp acquisition stage and validate media before the sole project-mutation boundary publishes an immutable managed `SOURCE_ORIGINAL`. WorkManager + persistent operation state provide progress/cancel/retry/process-recreation semantics; no separation is invoked in U3.
 - U3 source acquisition is **DIGITAL PASS** on automatic CI #676 / run `35606018087` at exact source `a7af51bf6622b4eecc32308c091fbb5020a1d54b`.
-- U4 separation integration is now the first incomplete unified milestone.
+- U4 separation client/local publication is **DIGITAL INTEGRATION PRE-GATE** on automatic CI #681 / run `35608137723` at exact source `c9bfefe6b41bfd5d188f2be1ae276727db886b1f`: Unit Tests + Lint + APK Build PASS and API 36 emulator regression PASS. The roadmap's controlled real-cloud Demucs gate has not executed in this repository environment, so U4 is not yet promoted to DIGITAL PASS.
 
 ## Active line
 - Repository/branch: `anfalcir/guitarlab` / `main`.
-- Source candidate: `0.5.0-rc4`, versionCode `24`, U3 source acquisition — **DIGITAL PASS** on CI #676 / run `35606018087`; U4 is next.
+- Source candidate: `0.5.0-rc4`, versionCode `24`, U4 separation integration — **DIGITAL INTEGRATION PRE-GATE** on CI #681 / run `35608137723`; controlled real-cloud Demucs smoke remains the U4 promotion gate.
 - Latest signed version is `0.5.0-rc4`, versionCode `24`, package `studio.guitarlab.app`.
 - Latest signed DIGITAL PASS: **CI #669** / run `35591631207` / producer `14b69271f2ae04529fa14475e1a34f2fdd864553`.
 - #663 scope: H28 → H29 → H30 → H31 → H32 → H33 → H33a → H33b → H34 → H35 → H35a → H36 → H36a → H36b → H36c.
