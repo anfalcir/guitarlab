@@ -172,6 +172,29 @@ The desired manual strategy is:
 
 A second physical campaign is allowed only if the first exposes a defect requiring source changes that invalidate physical evidence.
 
+## 2.7 Product cohesion is a release invariant
+
+The unified application must not expose historical subsystem boundaries as parallel user experiences.
+
+Mandatory product rules:
+- one visible product identity: GuitarLab;
+- one project-level shell for Prepare / Studio / Export;
+- one canonical export workflow;
+- one semantic operation/activity model for long-running work;
+- one cloud/settings hierarchy;
+- one visual/copy language;
+- no user-facing GBW product branding;
+- no raw backend/domain enum names in primary UX;
+- no duplicate action path may survive merely because it existed in one of the former products.
+
+The detailed binding audit is `docs/UNIFIED_PRODUCT_COHESION_AUDIT.md`.
+
+## 2.8 Deterministic preparation completes automatically
+
+Once the six authoritative stems are validated and published, the default backing/reference recipe has no remaining user choice. Therefore the unified product must automatically generate the canonical backing/reference and make them available to Studio.
+
+A manual action is reserved for retry/rebuild after failure or for an explicit future alternate recipe. The normal happy path may not require a redundant “Criar base e referência” confirmation.
+
 ---
 
 # 3. Explicit non-goals for the integration program
@@ -237,6 +260,15 @@ Every U milestone must preserve these invariants.
 
 12. **Documentation changes with behavior.**
     A milestone is incomplete if code and live documentation disagree.
+
+13. **One UX owner per capability.**
+    Export, project navigation, activity/progress, backup and settings may not have competing independent user flows.
+
+14. **Presentation is semantic, not implementation-driven.**
+    Primary UI consumes user-facing presentation state; raw asset roles, remote-job enums, hashes and provider internals are diagnostics only.
+
+15. **Background work is screen-independent.**
+    Compose screens observe durable operation state. They do not own fast polling loops or the lifetime of cloud/background work.
 
 ---
 
@@ -451,6 +483,21 @@ Recommended groups:
 
 Drive and Firebase sessions must be presented as separate capabilities even if the same Google account is used.
 
+## 5.11 Product-cohesion execution contract
+
+The current materialized U6 source was audited specifically for “two apps stitched together” risk. The release-blocking findings and serial C1-C8 remediation program are defined in `docs/UNIFIED_PRODUCT_COHESION_AUDIT.md`.
+
+The roadmap adopts these mandatory outcomes:
+- Home opens the last/relevant project workspace rather than always forcing Studio;
+- Prepare / Studio / Export share one adaptive project shell;
+- Home/Studio export buttons route to the canonical Export workspace instead of opening an independent format chooser;
+- New Project presents clear intents without hidden template state;
+- Prepare is progressive, automatically finalizes deterministic references after six stems, and hides technical details by default;
+- one Activity surface aggregates source, separation, preparation, export, backup and restore operations;
+- Home help is product-wide; Studio help remains contextual;
+- a shared design/copy/status component language covers all major screens;
+- U10/U11 include a screenshot/geometry/accessibility/terminology cohesion gate.
+
 ---
 
 # 6. Target modular architecture
@@ -497,6 +544,17 @@ Prepare must not depend on Studio implementation.
 Both consume the shared project/media domain.
 
 The app module wires navigation, dependency composition and Android lifecycle only.
+
+### Product-shell and presentation ownership
+
+The final architecture must additionally converge on:
+- a reusable project-shell contract shared by Prepare / Studio / Export;
+- a shared operation domain (`core:jobs` or equivalent) for source, separation, preparation, export, backup and restore;
+- project-scoped coordinators/use cases so `HomeViewModel` can return to library responsibilities instead of permanently orchestrating every subsystem;
+- presentation mappers for preparation stage, operation state, asset/media role, source ranking, backup/sync state and codec availability;
+- lifecycle-aware observation of durable operation state; UI composition may not be the owner of rapid polling/reconciliation.
+
+The exact module names may adapt to the live tree. The ownership boundaries are mandatory.
 
 ### Repository strategy
 
@@ -1785,7 +1843,7 @@ No U6 implementation is part of the U5 closure.
 ## U6 — Unified exports
 
 ### Objective
-Separate Prepare study exports from Studio masters cleanly **without turning the internal Prepare → Studio handoff into an export/transcode pipeline**.
+Separate Prepare study exports from Studio masters cleanly **without turning the internal Prepare → Studio handoff into an export/transcode pipeline**, and finish with **one canonical external-delivery UX**.
 
 ### Locked media-flow rule
 U5 prepared media is already the canonical Studio input and remains project-managed. The internal path is:
@@ -1806,17 +1864,20 @@ For explicit user exports:
 - never chain delivery conversions (for example WAV → FLAC → MP3);
 - never replace the canonical project asset with an exported delivery file.
 
-Studio Master remains separate: render the current timeline/mix once into the canonical float-WAV render domain, then either publish that WAV directly or encode FLAC/MP3 only for the selected external delivery format.
+Studio master remains separate semantically: render the current timeline/mix once into the canonical float-WAV render domain, then either publish that WAV directly or encode FLAC/MP3 only for the selected external delivery format.
 
 ### Work
-- Study Exports section for explicit external backing/guitar delivery;
-- Studio Master section;
+- external “Arquivos para estudo” section for backing/guitar delivery;
+- “Mix final do Studio” section;
 - direct-copy fast path for canonical WAV study exports;
 - preserve codec capability gates;
 - provenance/identity in export result metadata where retained;
 - staging/publication/cancellation;
-- avoid duplicate old GBW export UI;
-- keep project-managed Prepare references as the sole Studio source of truth.
+- keep project-managed Prepare references as the sole Studio source of truth;
+- **C1 cohesion closure:** make the Export workspace the sole format/output-selection UX;
+- Home/Studio export/share actions deep-link to Export rather than own a second format chooser;
+- retire the parallel “Salvar e exportar” dialog as an independent master/export workflow;
+- normalize Portuguese copy and user-safe unavailable-format reasons.
 
 ### Tests
 - backing/guitar WAV study export is byte-for-byte direct publication of the managed canonical asset (no re-render/transcode);
@@ -1829,17 +1890,26 @@ Studio Master remains separate: render the current timeline/mix once into the ca
 - filename/path sanitization;
 - export after project rename;
 - no project mutation from export failure;
-- exported delivery files never become the Studio reference automatically.
+- exported delivery files never become the Studio reference automatically;
+- Home/Studio export entry points resolve to the canonical Export workspace;
+- no independent format-selection dialog remains outside Export;
+- unavailable output has a user-facing reason/next action;
+- navigation/recreation preserves the owning project.
+
+### Current evidence / residual
+Android CI #694 / run `35630563575` PASS at exact source `364a8ddb1904003af150c9162fed6aa6a4106d8e` proves the technical U6 media/export implementation, unit/Lint/build and API 36 regression.
+
+**U6 is not yet finally sealed** because the product-cohesion audit found the duplicate legacy Home/Studio export chooser. C1 must be implemented and re-gated before U6 receives final DIGITAL PASS.
 
 ### Exit
-No user needs the standalone GBW app for backing/guitar exports, and no unnecessary audio conversion exists in the unified Prepare → Studio path.
+No user needs standalone GBW behavior for backing/guitar exports, no unnecessary audio conversion exists in Prepare → Studio, and **exactly one external-delivery workflow** exists in the product.
 
 ---
 
 ## U7 — Cloud backend source consolidation
 
 ### Objective
-Make the unified product reproducible from GuitarLab without destabilizing proven production separation.
+Make the unified product reproducible from GuitarLab without destabilizing proven production separation, while consuming the unified product-shell/operation contracts instead of exposing backend identity.
 
 ### Work
 - port cloud source/tests into GuitarLab;
@@ -1848,7 +1918,11 @@ Make the unified product reproducible from GuitarLab without destabilizing prove
 - stage/shadow deploy;
 - compare behavior;
 - update WIF/OIDC/repo conditions only at cutover;
-- preserve last-known-good image digest and rollback.
+- preserve last-known-good image digest and rollback;
+- consume the shared semantic operation model from the cohesion program;
+- keep Cloud Run/Firebase/job-state names out of primary UX;
+- implement C2-C4 shell/lifecycle/Prepare contracts before production cutover where they affect separation ownership;
+- move remote reconciliation cadence/backoff out of Compose and into durable job/repository infrastructure.
 
 ### Tests
 - backend unit/integration/security;
@@ -1858,10 +1932,14 @@ Make the unified product reproducible from GuitarLab without destabilizing prove
 - quota;
 - isolation;
 - temporary Storage purge;
-- shadow integration.
+- shadow integration;
+- project-shell recreation while separation runs;
+- background/reopen/notification deep-link;
+- user-safe state mapping contains no raw backend enum names;
+- source replacement/cancellation ownership.
 
 ### Exit
-Production separation can be maintained/deployed from GuitarLab repository with proven rollback.
+Production separation can be maintained/deployed from GuitarLab repository with proven rollback and without reintroducing a separate GBW-style interaction model.
 
 Do not delete old GBW cloud evidence yet.
 
@@ -1870,7 +1948,7 @@ Do not delete old GBW cloud evidence yet.
 ## U8 — Unified Drive backup vNext
 
 ### Objective
-Replace standalone app backup concepts with one scalable transactional project backup.
+Replace standalone app backup concepts with one scalable transactional project backup **integrated into the same project shell, Activity model and Settings language**.
 
 ### Work
 - content-addressed asset store;
@@ -1883,7 +1961,12 @@ Replace standalone app backup concepts with one scalable transactional project b
 - GC reachability;
 - diagnostic state;
 - automatic WorkManager scheduling;
-- clean unified-schema backup/restore only; no H37/GBW legacy adapter.
+- clean unified-schema backup/restore only; no H37/GBW legacy adapter;
+- integrate backup/restore operations into the shared Activity model;
+- expose compact project sync state in Home/project shell;
+- consolidate “Conta e nuvem” settings so Drive backup and cloud processing are distinct capabilities in one hierarchy;
+- replace historical backup presentation rather than stacking a new U8 UX beside old backup screens;
+- just-in-time authorization; local Studio remains usable without Drive connection.
 
 ### Tests
 - full section 11 and section 20 Drive/fault matrix;
@@ -1895,10 +1978,15 @@ Replace standalone app backup concepts with one scalable transactional project b
 - storage full;
 - corrupted remote asset;
 - GC safety;
-- multi-project reachability if cross-project dedupe enabled.
+- multi-project reachability if cross-project dedupe enabled;
+- Home/project sync-state correctness;
+- Activity aggregation and notification deep-link;
+- Drive disconnected/auth-required/reconnect UX;
+- restore success/failure returns to a coherent project/library state;
+- no duplicate backup workflow in Settings/Home/project shell.
 
 ### Exit
-One unified project backup/restore path is digitally green and does not require monolithic GB-scale reupload for ordinary metadata edits.
+One unified project backup/restore path is digitally green, does not require monolithic GB-scale reupload for ordinary metadata edits, and visually/operationally behaves as a GuitarLab service rather than a separate backup mini-app.
 
 ---
 
@@ -1913,13 +2001,13 @@ The identifier U9 is retained only to avoid renumbering U10-U12 and invalidating
 
 ---
 
-## U10 — Cross-product regression, stress, security and performance hardening
+## U10 — Cross-product regression, stress, security, performance and product-cohesion hardening
 
 ### Objective
-Attack the complete integrated system digitally before release-candidate work.
+Attack the complete integrated system digitally before release-candidate work and close C2-C8 from `docs/UNIFIED_PRODUCT_COHESION_AUDIT.md`.
 
 ### Work
-Run the largest regression campaign of the project.
+Run the largest regression and product-cohesion campaign of the project.
 
 Required suites:
 - all GuitarLab existing unit/instrumented/audio/persistence tests;
@@ -1939,10 +2027,18 @@ Required suites:
 - long-song stress;
 - job concurrency;
 - leak/temp/orphan audit;
-- performance comparison.
+- performance comparison;
+- project-shell navigation/recreation matrix;
+- New Project / source replacement / re-preparation lifecycle matrix;
+- delete/duplicate/rename with active-operation matrix;
+- unified Activity aggregation/cancel/retry/deep-link matrix;
+- terminology scan for raw enum/internal-role/orphan GBW user-facing text;
+- duplicate-workflow audit for export/backup/navigation;
+- screenshot artifact matrix covering major states on tablet/phone, dark/light and representative enlarged font scale;
+- deterministic visual-review checklist plus semantic geometry checks.
 
 ### Exit
-No repeatable P0/P1 digital defect; all accepted P2/P3 documented with rationale.
+No repeatable P0/P1 digital defect; all accepted P2/P3 documented with rationale; C2-C8 product-cohesion gate PASS; no remaining repeatable evidence that the UI behaves like two stitched applications.
 
 ---
 
@@ -1965,6 +2061,10 @@ Produce the one exact signed candidate intended for the consolidated physical ca
 - current unified-schema save/reopen/restore compatibility PASS;
 - no credential leakage;
 - docs consistency audit PASS;
+- unified product-cohesion gate PASS per `docs/UNIFIED_PRODUCT_COHESION_AUDIT.md`;
+- screenshot/geometry/accessibility artifact matrix reviewed and retained;
+- no duplicate export/project-shell/activity UX;
+- no user-facing orphan GBW branding or raw internal-state vocabulary;
 - exact remaining physical checklist generated from unproven claims only.
 
 ### Exit
@@ -2030,12 +2130,13 @@ Target hardware:
 - validate playable project and recordings;
 - disconnect/reconnect behavior.
 
-**UX**
-- tablet ergonomics;
-- major navigation;
-- readable states;
-- no system-bar obstruction;
-- no obvious touch/focus issue.
+**UX — residual physical judgment only**
+- tablet ergonomics/tactile comfort;
+- readability at real viewing distance;
+- no system-bar obstruction on target hardware;
+- no obvious real-device touch/focus anomaly.
+
+Information architecture, duplicate-flow removal, copy consistency, responsive geometry and accessibility semantics must already be digitally closed before U12.
 
 ### Pass criteria
 - no repeatable P0/P1;
@@ -2095,8 +2196,8 @@ When current implementation differs from target design, ARCHITECTURE describes w
 | U2 Unified shell UX | DIGITAL PASS — CI #675 / run `35596671163` at `665c292931c0f2ed9fa1e7145818101c5d017222` | none |
 | U3 Source acquisition | DIGITAL PASS — CI #676 / run `35606018087` at `a7af51bf6622b4eecc32308c091fbb5020a1d54b` | none; real-provider smoke may remain in consolidated final campaign |
 | U4 Separation integration | DIGITAL PASS — Android CI #686 / run `35620101527` + U4 Cloud Integration Smoke #8 / run `35620101684` at `55ae7a14d99b710367ea7650cbf9f48298b90eba` | closed digitally; no physical dependency |
-| U5 Prepare → Studio | NOT STARTED | none |
-| U6 Unified exports | NOT STARTED | none |
+| U5 Prepare → Studio | DIGITAL PASS — CI #690 / run `35625349001` at `4bada624e68f8a55ff22830e1dc276c8d51af223` | none |
+| U6 Unified exports | TECHNICAL CI PASS / COHESION RESIDUAL OPEN — CI #694 / run `35630563575` at `364a8ddb1904003af150c9162fed6aa6a4106d8e`; C1 pending | none |
 | U7 Cloud source consolidation | NOT STARTED | deploy authorization may require owner |
 | U8 Unified Drive backup | NOT STARTED | OAuth setup may require owner |
 | U9 Legacy migration | RETIRED — no implementation required by owner decision (2026-09-21) | none |
@@ -2184,6 +2285,12 @@ The integration is complete only when all are true:
 20. Final signed candidate passes the residual physical campaign.
 21. GBW Android is frozen/deprecated only after successful cutover.
 22. Repository documentation is internally consistent and sufficient to resume the project without chat history.
+23. Prepare / Studio / Export share one project-level navigation language.
+24. Exactly one canonical export workflow exists.
+25. Long-running work is represented by one semantic Activity/operation model.
+26. Deterministic post-stem backing/reference generation completes automatically on the normal happy path.
+27. Primary UX contains no orphan GBW branding, raw backend enums or raw asset-role identifiers.
+28. Screenshot/geometry/accessibility evidence shows Home, Prepare, Studio, Export, Settings, Backup and Activity as one coherent application.
 
 ---
 
