@@ -10,6 +10,10 @@ COND="assertion.repository_owner_id=='216095257' && ((assertion.repository_id=='
 gcloud iam workload-identity-pools providers update-oidc "$PROVIDER_NAME"   --project "$PROJECT"   --issuer-uri="https://token.actions.githubusercontent.com"   --attribute-mapping="google.subject=assertion.sub,attribute.repository_id=assertion.repository_id,attribute.repository_owner_id=assertion.repository_owner_id,attribute.ref=assertion.ref,attribute.workflow_ref=assertion.workflow_ref"   --attribute-condition="$COND"
 PRINCIPAL="principalSet://iam.googleapis.com/projects/${PROJECT_NUMBER}/locations/global/workloadIdentityPools/${POOL}/attribute.repository_id/1361533070"
 gcloud iam service-accounts add-iam-policy-binding "$SA" --project "$PROJECT"   --role=roles/iam.workloadIdentityUser --member="$PRINCIPAL"
+# Firestore test-document access is required to mirror the callable-created durable job
+# precondition in the isolated cloud smoke. No project-wide admin role is granted.
+gcloud projects add-iam-policy-binding "$PROJECT" \
+  --member="serviceAccount:${SA}" --role="roles/datastore.user" >/dev/null
 # Narrow object access required only for the isolated U4 real-cloud smoke namespace.
 gcloud storage buckets add-iam-policy-binding "gs://${PROJECT}.firebasestorage.app" \
   --member="serviceAccount:${SA}" --role="roles/storage.objectUser" >/dev/null
