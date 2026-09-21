@@ -3,6 +3,7 @@
 Updated: 2026-09-21
 
 ## Unified program progress
+- Product-scope override (2026-09-21): legacy project/backup migration is retired. The owner has only two legacy projects and accepts recreating them manually. U9 is retired; U8/U10/U11 no longer carry H37/GBW/pre-unification migration obligations. Current unified-line save/reopen, schema evolution, backup/restore and integrity guarantees remain mandatory.
 - U0 baseline/inventory is **PASS** at repository HEAD `dc3cb95093110270c494804aa03ef625dc3ceef2` with GBW reference HEAD `4724b030eabe289a5c2645e379181c0f9602d25d`.
 - Evidence: `U0_BASELINE_INVENTORY.md` plus the machine-readable `integration/u0/inventory.json` and hash-locked synthetic fixtures.
 - CI #669 supersedes the earlier H37 corrective sequence and is the latest signed DIGITAL PASS for the exact U1 source.
