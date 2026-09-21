@@ -1,0 +1,143 @@
+diff --git a/core/project/src/test/kotlin/studio/guitarlab/core/project/PreparedReferencePipelineTest.kt b/core/project/src/test/kotlin/studio/guitarlab/core/project/PreparedReferencePipelineTest.kt
+index f37a842..8e33632 100644
+--- a/core/project/src/test/kotlin/studio/guitarlab/core/project/PreparedReferencePipelineTest.kt
++++ b/core/project/src/test/kotlin/studio/guitarlab/core/project/PreparedReferencePipelineTest.kt
+@@ -81,6 +81,31 @@ class PreparedReferencePipelineTest {
+         assertEquals(recording, updated.clips.single { it.id == "recording" })
+     }
+ 
++    @Test fun preparedReferenceRebindSurvivesSaveReopenAndUndoRedo() {
++        val fixture = fixture()
++        val first = fixture.service.prepare(fixture.projectId).project
++        fixture.replaceStemSet(scale = 0.04f)
++        val pending = fixture.service.prepare(fixture.projectId).project
++        val updated = PreparedReferenceBindingPolicy.applyUpdate(pending, 999) { "bind-${fixture.ids.incrementAndGet()}" }
++
++        val history = ProjectHistory()
++        history.record(pending, updated)
++        fixture.repo.save(updated)
++        val reopened = fixture.repo.load(fixture.projectId)!!
++
++        assertEquals(updated.referenceBindings, reopened.referenceBindings)
++        assertEquals(updated.clips, reopened.clips)
++        assertEquals(updated.preparation, reopened.preparation)
++
++        val undone = history.undo(reopened)!!
++        assertEquals(first.referenceBindings.map { it.assetId }, undone.referenceBindings.map { it.assetId })
++        assertTrue(PreparedReferenceBindingPolicy.updateAvailable(undone))
++
++        val redone = history.redo(undone)!!
++        assertEquals(updated.referenceBindings, redone.referenceBindings)
++        assertFalse(PreparedReferenceBindingPolicy.updateAvailable(redone))
++    }
++
+     @Test fun corruptStemFailsClosedBeforeProjectMutation() {
+         val fixture = fixture()
+         val before = fixture.repo.load(fixture.projectId)!!
+diff --git a/platform/audio-android/src/test/kotlin/studio/guitarlab/platform/audio/android/StudioMasterRenderRequestFactoryTest.kt b/platform/audio-android/src/test/kotlin/studio/guitarlab/platform/audio/android/StudioMasterRenderRequestFactoryTest.kt
+index c57d955..bcbefc7 100644
+--- a/platform/audio-android/src/test/kotlin/studio/guitarlab/platform/audio/android/StudioMasterRenderRequestFactoryTest.kt
++++ b/platform/audio-android/src/test/kotlin/studio/guitarlab/platform/audio/android/StudioMasterRenderRequestFactoryTest.kt
+@@ -38,6 +38,29 @@ class StudioMasterRenderRequestFactoryTest {
+         assertEquals(110L, request.projectEndFrame)
+     }
+ 
++    @Test fun masterRequestAfterPreparedReferenceRebindUsesNewReferenceAndKeepsRecording() {
++        val project = project(
++            tracks = listOf(
++                AudioTrack("backing", "Backing", order = 0),
++                AudioTrack("recorded", "My Guitar", order = 1),
++            ),
++            clips = listOf(
++                clip("prepared-new", "backing", source = "media/references/backing-new.wav"),
++                clip("take-1", "recorded", source = "media/recordings/take-1.wav"),
++            ),
++        )
++        val resolved = mutableListOf<String>()
++
++        val request = StudioMasterRenderRequestFactory.create(project, 48_000) { path ->
++            resolved += path
++            File(path)
++        }
++
++        assertEquals(listOf("media/references/backing-new.wav", "media/recordings/take-1.wav"), resolved)
++        assertEquals(setOf("backing-new.wav", "take-1.wav"), request.clips.map { it.file.name }.toSet())
++        assertEquals(setOf("backing", "recorded"), request.trackMixes.map { it.trackId }.toSet())
++    }
++
+     @Test fun rejectsUnconvertedClipIdenticallyForEveryCaller() {
+         val project = project(
+             tracks = listOf(AudioTrack("t", "Track", order = 0)),
+diff --git a/app/src/androidTest/java/studio/guitarlab/app/UnifiedProjectShellInstrumentedTest.kt b/app/src/androidTest/java/studio/guitarlab/app/UnifiedProjectShellInstrumentedTest.kt
+index 4ae1ac6..df54e5c 100644
+--- a/app/src/androidTest/java/studio/guitarlab/app/UnifiedProjectShellInstrumentedTest.kt
++++ b/app/src/androidTest/java/studio/guitarlab/app/UnifiedProjectShellInstrumentedTest.kt
+@@ -17,6 +17,12 @@ import studio.guitarlab.app.ui.NewProjectScreen
+ import studio.guitarlab.app.ui.NewProjectSourceIntent
+ import studio.guitarlab.app.ui.UnifiedPrepareScreen
+ import studio.guitarlab.app.ui.theme.GuitarLabTheme
++import studio.guitarlab.core.model.AssetClassification
++import studio.guitarlab.core.model.AssetLifecycle
++import studio.guitarlab.core.model.AssetRole
++import studio.guitarlab.core.model.ManagedAsset
++import studio.guitarlab.core.model.PreparationState
++import studio.guitarlab.core.model.PreparationStatus
+ import studio.guitarlab.core.model.GuitarProject
+ import studio.guitarlab.core.model.ProjectTemplate
+ import studio.guitarlab.core.source.RankedSourceCandidate
+@@ -62,6 +68,42 @@ class UnifiedProjectShellInstrumentedTest {
+         composeRule.onNodeWithTag("prepare-search-action").performScrollTo().assertIsDisplayed().assertIsNotEnabled()
+     }
+ 
++    @Test fun preparedReferencesAreVisibleAndStudioHandoffRemainsAvailable() {
++        val stemRoles = listOf(
++            AssetRole.STEM_DRUMS, AssetRole.STEM_BASS, AssetRole.STEM_OTHER,
++            AssetRole.STEM_VOCALS, AssetRole.STEM_GUITAR, AssetRole.STEM_PIANO,
++        )
++        val stemIds = stemRoles.associateWith { "asset-${it.name}" }
++        val assets = stemRoles.map { role -> asset(stemIds.getValue(role), role) } + listOf(
++            asset("backing", AssetRole.REFERENCE_BACKING),
++            asset("guitar", AssetRole.REFERENCE_GUITAR),
++        )
++        val project = GuitarProject(
++            id = "prepared", name = "Song", template = ProjectTemplate.GUITAR,
++            createdAtEpochMs = 1, updatedAtEpochMs = 2, assets = assets,
++            preparation = PreparationState(
++                status = PreparationStatus.READY,
++                activeStemAssetIds = stemIds,
++                activeBackingAssetId = "backing",
++                activeGuitarAssetId = "guitar",
++                availableReferenceAssetIds = listOf("backing", "guitar"),
++            ),
++        )
++        var openedStudio = false
++        composeRule.setContent {
++            GuitarLabTheme(darkTheme = true) {
++                UnifiedPrepareScreen(
++                    project = project, projectId = project.id, onBack = {},
++                    onStudio = { openedStudio = true }, onExport = {},
++                )
++            }
++        }
++
++        composeRule.onNodeWithTag("prepare-references-ready").performScrollTo().assertIsDisplayed()
++        composeRule.onNodeWithText("Studio").performClick()
++        composeRule.runOnIdle { check(openedStudio) }
++    }
++
+     @Test fun prepareWorkspaceShowsRankedCandidateAndPersistentActivity() {
+         val project = GuitarProject(id = "p", name = "Song", template = ProjectTemplate.BLANK, createdAtEpochMs = 1, updatedAtEpochMs = 1)
+         val candidate = RankedSourceCandidate(
+@@ -99,4 +141,12 @@ class UnifiedProjectShellInstrumentedTest {
+         composeRule.onNodeWithTag("prepare-activity").performScrollTo().assertIsDisplayed()
+         composeRule.onNodeWithTag("prepare-cancel-source").assertIsDisplayed().assertIsEnabled()
+     }
++    private fun asset(id: String, role: AssetRole) = ManagedAsset(
++        assetId = id, role = role, relativePath = "media/$id.wav",
++        sha256 = "a".repeat(64), byteSize = 128, format = "wav",
++        sampleRateHz = 48_000, channelCount = 2, frameCount = 4_800,
++        createdAtEpochMs = 1, classification = if (role.name.startsWith("STEM_")) AssetClassification.AUTHORITATIVE else AssetClassification.DERIVED,
++        lifecycle = AssetLifecycle.MANAGED,
++    )
++
+ }
