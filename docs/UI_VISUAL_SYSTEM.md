@@ -1,10 +1,10 @@
-# GuitarLab Studio Visual System
+# GuitarLab Visual System
 
 Updated: 2026-09-15
 Status: H21 source contract — PRE-GATE until the next exact-source full CI passes.
 
 ## Product intent
-GuitarLab should visually read like compact studio hardware: clear modules, restrained graphite surfaces, precise controls and small-radius rectangular geometry. The interface must prioritize immediate operational comprehension over decorative softness.
+GuitarLab should visually read as one coherent music-production/study instrument: clear modules, restrained graphite surfaces, precise controls and small-radius rectangular geometry. Studio may be the densest workspace, but Prepare, Export, Activity, Backup and Settings must use the same visual grammar. The interface must prioritize immediate operational comprehension over decorative softness.
 
 ## Geometry contract
 Ordinary UI uses a deliberately small shape vocabulary:
@@ -128,3 +128,73 @@ Settings is a configuration surface, not a wall of primary CTAs.
 - Filled primary buttons are reserved for genuinely primary/committing actions, not routine diagnostics or toggles.
 - Maintain at least 48 dp action height and preserve clear labels/semantics.
 - Dense control sets such as latency increments must remain fully visible without hidden horizontal carousels when a compact grid can represent the same choices.
+
+
+## Unified project-shell contract
+Prepare, Studio and Export are workspaces of one project and must share project-level chrome.
+
+Shared shell responsibilities:
+- project identity/name;
+- return to project library;
+- adaptive Prepare / Studio / Export navigation;
+- project-level status/activity indicator;
+- project overflow/actions;
+- consistent missing/loading/error presentation.
+
+Studio transport/mixer controls remain specialized inner chrome. They may not replace the shared project navigation language.
+
+Wide/tablet:
+- stable compact workspace navigation;
+- preserve Studio timeline width and transport ergonomics;
+- avoid duplicate full-width navigation rows.
+
+Narrow/phone:
+- same destinations in a compact adaptive treatment;
+- no capability disappears solely because width is reduced.
+
+## Shared product primitives
+The cohesion line should converge on reusable visual components for:
+- project page scaffold;
+- section/card;
+- status chip;
+- operation/progress panel;
+- empty state;
+- recoverable error/blocked state;
+- destructive confirmation;
+- source/result card;
+- project-media row;
+- cloud/sync status.
+
+Per-screen reimplementation of these primitives is a regression risk.
+
+## Prepare
+Prepare is a progressive journey, not a dashboard of unrelated technical panels.
+
+Visual hierarchy:
+- one active step is primary;
+- completed steps collapse to compact summaries;
+- the next safe action is visually dominant;
+- technical detail is secondary/expandable;
+- accepted source controls collapse behind an explicit “Trocar fonte” action;
+- automatic post-stem reference generation appears as progress, not a redundant confirmation button.
+
+## Export
+Export is the only external-delivery workspace.
+
+Its hierarchy is:
+- Projeto portátil;
+- Arquivos para estudo;
+- Mix final do Studio.
+
+Home/Studio may link to Export but must not reproduce a competing format-selection dialog.
+
+## Activity
+Activity uses the same status/progress components as Prepare/Export/Backup.
+
+The user sees semantic operation states, not raw backend enums. Provider/job IDs belong in diagnostics/details.
+
+## Backup and cloud
+Backup/restore must use the same page/section/status language as the rest of GuitarLab. It must not read visually as a separate utility app.
+
+## Cohesion screenshot matrix
+U10/U11 retain screenshot artifacts for Home, New Project, Prepare states, Studio, Export, Activity, Settings, Backup and destructive/error states across representative tablet/phone, dark/light and font-scale conditions. Semantic geometry remains the automated gate; screenshot review checks visual coherence and accidental subsystem-specific styling.
