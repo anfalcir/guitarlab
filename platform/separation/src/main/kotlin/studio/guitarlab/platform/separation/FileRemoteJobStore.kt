@@ -14,6 +14,7 @@ class FileRemoteJobStore(context:Context):RemoteJobStore {
   runCatching{Files.move(tmp.toPath(),target.toPath(),StandardCopyOption.REPLACE_EXISTING,StandardCopyOption.ATOMIC_MOVE)}.getOrElse{Files.move(tmp.toPath(),target.toPath(),StandardCopyOption.REPLACE_EXISTING)}
   job
  }
+ override fun active():List<DurableRemoteJob>=synchronized(this){dir.listFiles{f->f.isFile&&f.extension=="json"}.orEmpty().mapNotNull{runCatching{decode(it.readText())}.getOrNull()}}
  private fun encode(j:DurableRemoteJob)=JSONObject().put("jobId",j.identity.jobId).put("projectId",j.identity.projectId).put("sourceAssetId",j.identity.sourceAssetId).put("inputSha256",j.identity.inputSha256).put("state",j.state.name).put("updatedAtMs",j.updatedAtMs).apply{j.resultManifestSha256?.let{put("resultManifestSha256",it)};j.errorCode?.let{put("errorCode",it)}}.toString()
  private fun decode(s:String):DurableRemoteJob{val o=JSONObject(s);val i=RemoteJobIdentity(o.getString("jobId"),o.getString("projectId"),o.getString("sourceAssetId"),o.getString("inputSha256"));return DurableRemoteJob(i,RemoteJobState.valueOf(o.getString("state")),o.getLong("updatedAtMs"),o.optString("resultManifestSha256").takeIf{it.isNotBlank()},o.optString("errorCode").takeIf{it.isNotBlank()})}
 }

@@ -11,5 +11,10 @@ dependencies {
  implementation("com.google.firebase:firebase-auth")
  implementation("com.google.firebase:firebase-firestore")
  implementation("com.google.firebase:firebase-functions")
+ implementation("com.google.firebase:firebase-storage")
+ implementation(libs.androidx.work.runtime.ktx)
+ implementation(libs.kotlinx.serialization.json)
+ implementation(project(":core:project"))
+ implementation(project(":core:model"))
  testImplementation(libs.junit4)
 }

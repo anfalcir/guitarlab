@@ -1,21 +1,47 @@
 package studio.guitarlab.platform.separation
-import studio.guitarlab.core.separation.*
-import java.io.File
-import java.nio.file.Files
-import java.nio.file.StandardCopyOption
+
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 import java.security.MessageDigest
-data class PublishedStem(val role:String,val relativePath:String,val bytes:Long,val sha256:String)
-class ManagedStemSetPublisher(private val projectDir:File) {
- fun publish(i:RemoteJobIdentity,manifestBytes:ByteArray,staging:File):List<PublishedStem>{
-  val m=RemoteManifestCodec.decode(manifestBytes);m.validateFor(i);val dest=File(projectDir,"media/stems/"+i.jobId);val marker=File(dest,".complete")
-  if(marker.isFile)return verified(dest,m)
-  val tmp=File(projectDir,"media/stems/."+i.jobId+".publishing");tmp.deleteRecursively();tmp.mkdirs()
-  try{m.stems.forEach{e->val src=File(staging,e.name+".wav");require(valid(src,e)){"invalid stem "+e.name};Files.copy(src.toPath(),File(tmp,e.name+".wav").toPath(),StandardCopyOption.REPLACE_EXISTING)}
-   require(!dest.exists());dest.parentFile?.mkdirs();runCatching{Files.move(tmp.toPath(),dest.toPath(),StandardCopyOption.ATOMIC_MOVE)}.getOrElse{Files.move(tmp.toPath(),dest.toPath())};marker.writeText(hash(manifestBytes));return verified(dest,m)
-  }catch(t:Throwable){tmp.deleteRecursively();throw t}
- }
- private fun verified(dir:File,m:RemoteResultManifest)=m.stems.map{e->val f=File(dir,e.name+".wav");require(valid(f,e));PublishedStem("STEM_"+e.name.uppercase(),"media/stems/"+m.jobId+"/"+e.name+".wav",e.bytes,e.sha256)}
- private fun valid(f:File,e:RemoteStem)=f.isFile&&f.length()==e.bytes&&fileHash(f)==e.sha256
- private fun fileHash(f:File):String{val d=MessageDigest.getInstance("SHA-256");f.inputStream().use{ins->val b=ByteArray(65536);while(true){val n=ins.read(b);if(n<0)break;d.update(b,0,n)}};return d.digest().joinToString(""){"%02x".format(it)}}
- private fun hash(b:ByteArray)=MessageDigest.getInstance("SHA-256").digest(b).joinToString(""){"%02x".format(it)}
+import kotlin.math.abs
+import studio.guitarlab.core.project.StemSetProjectPublisher
+import studio.guitarlab.core.project.StemSetPublicationRequest
+import studio.guitarlab.core.project.ValidatedStem
+import studio.guitarlab.core.separation.*
+
+class ManagedStemSetPublisher(private val delegate: StemSetProjectPublisher) : RemoteStemPublisher {
+    override fun publish(identity: RemoteJobIdentity, manifest: RemoteResultManifest, manifestSha256: String, stems: Map<String, ByteArray>): Boolean {
+        val validated = manifest.stems.map { entry ->
+            val bytes = requireNotNull(stems[entry.name])
+            require(bytes.size.toLong() == entry.bytes && sha(bytes) == entry.sha256) { "stem integrity mismatch: ${entry.name}" }
+            val wav = WavStructure.read(bytes)
+            require(wav.sampleRate == manifest.sampleRate && wav.channels == manifest.channels) { "stem audio contract mismatch: ${entry.name}" }
+            require(abs(wav.frames - manifest.frames) <= 2L) { "stem duration mismatch: ${entry.name}" }
+            ValidatedStem(entry.name, bytes, entry.sha256, wav.sampleRate, wav.channels, wav.frames)
+        }
+        return delegate.publish(StemSetPublicationRequest(identity.projectId, identity.jobId, identity.sourceAssetId, identity.inputSha256, manifestSha256, manifest.engine, manifest.model, manifest.modelSha256, validated))
+    }
+    private fun sha(bytes: ByteArray) = MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
+}
+
+internal data class WavStructure(val sampleRate: Int, val channels: Int, val frames: Long) {
+    companion object {
+        fun read(bytes: ByteArray): WavStructure {
+            require(bytes.size >= 44 && bytes.copyOfRange(0, 4).toString(Charsets.US_ASCII) == "RIFF" && bytes.copyOfRange(8, 12).toString(Charsets.US_ASCII) == "WAVE") { "invalid WAV" }
+            var offset = 12; var rate = 0; var channels = 0; var alignment = 0; var dataBytes = -1
+            while (offset + 8 <= bytes.size) {
+                val id = bytes.copyOfRange(offset, offset + 4).toString(Charsets.US_ASCII)
+                val size = ByteBuffer.wrap(bytes, offset + 4, 4).order(ByteOrder.LITTLE_ENDIAN).int
+                require(size >= 0 && offset + 8L + size <= bytes.size) { "truncated WAV" }
+                if (id == "fmt ") {
+                    require(size >= 16); val chunk = ByteBuffer.wrap(bytes, offset + 8, size).order(ByteOrder.LITTLE_ENDIAN)
+                    val format = chunk.short.toInt() and 0xffff; require(format == 1 || format == 3)
+                    channels = chunk.short.toInt() and 0xffff; rate = chunk.int; chunk.int; alignment = chunk.short.toInt() and 0xffff
+                } else if (id == "data") dataBytes = size
+                offset += 8 + size + (size and 1)
+            }
+            require(rate > 0 && channels > 0 && alignment > 0 && dataBytes >= 0 && dataBytes % alignment == 0)
+            return WavStructure(rate, channels, dataBytes.toLong() / alignment)
+        }
+    }
 }

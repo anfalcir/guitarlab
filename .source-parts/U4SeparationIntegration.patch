@@ -1,0 +1,236 @@
+diff --git a/app/src/main/java/studio/guitarlab/app/GuitarLabApplication.kt b/app/src/main/java/studio/guitarlab/app/GuitarLabApplication.kt
+index 98a43d9..af9f72c 100644
+--- a/app/src/main/java/studio/guitarlab/app/GuitarLabApplication.kt
++++ b/app/src/main/java/studio/guitarlab/app/GuitarLabApplication.kt
+@@ -3,11 +3,13 @@ package studio.guitarlab.app
+ import android.app.Application
+ import studio.guitarlab.app.io.AppCacheTemporaryCleaner
+ import studio.guitarlab.app.backup.BackupScheduler
++import studio.guitarlab.platform.separation.RemoteSeparationClient
+ 
+ class GuitarLabApplication : Application() {
+     override fun onCreate() {
+         super.onCreate()
+         AppCacheTemporaryCleaner.clean(cacheDir)
+         BackupScheduler.sync(this)
++        RemoteSeparationClient(this).resumePending()
+     }
+ }
+
+diff --git a/app/src/main/java/studio/guitarlab/app/ui/GuitarLabApp.kt b/app/src/main/java/studio/guitarlab/app/ui/GuitarLabApp.kt
+index 74d75b8..37e29dc 100644
+--- a/app/src/main/java/studio/guitarlab/app/ui/GuitarLabApp.kt
++++ b/app/src/main/java/studio/guitarlab/app/ui/GuitarLabApp.kt
+@@ -52,11 +52,15 @@ fun GuitarLabApp(
+             warnings = homeState.sourceWarningsByProject[current.projectId].orEmpty(),
+             searchBusy = current.projectId in homeState.sourceSearchBusyProjects,
+             operation = homeState.sourceOperationsByProject[current.projectId],
++            separationJob = homeState.separationJobsByProject[current.projectId],
+             onSearch = { artist, song -> homeViewModel.searchSources(current.projectId, artist, song) },
+             onImport = { uri -> homeViewModel.importSource(current.projectId, uri) },
+             onAcquire = { candidate -> homeViewModel.acquireSource(current.projectId, candidate) },
+             onCancel = { homeViewModel.cancelSourceAcquisition(current.projectId) },
+             onRefreshOperation = { homeViewModel.refreshSourceOperation(current.projectId) },
++            onStartSeparation = { homeViewModel.startSeparation(current.projectId) },
++            onCancelSeparation = { homeViewModel.cancelSeparation(current.projectId) },
++            onRefreshSeparation = { homeViewModel.refreshSeparation(current.projectId) },
+         )
+         is AppScreen.Studio -> StudioShellScreen(
+             projectId = current.projectId,
+
+diff --git a/app/src/main/java/studio/guitarlab/app/ui/HomeViewModel.kt b/app/src/main/java/studio/guitarlab/app/ui/HomeViewModel.kt
+index 50a509a..e906291 100644
+--- a/app/src/main/java/studio/guitarlab/app/ui/HomeViewModel.kt
++++ b/app/src/main/java/studio/guitarlab/app/ui/HomeViewModel.kt
+@@ -33,6 +33,9 @@ import studio.guitarlab.core.source.SourceSearchRequest
+ import studio.guitarlab.platform.source.android.SourceAcquisitionClient
+ import studio.guitarlab.platform.source.android.SourceOperationSnapshot
+ import studio.guitarlab.platform.source.android.SourceOperationState
++import studio.guitarlab.core.separation.DurableRemoteJob
++import studio.guitarlab.core.separation.RemoteJobState
++import studio.guitarlab.platform.separation.RemoteSeparationClient
+ 
+ data class HomeUiState(
+     val loading: Boolean = true,
+@@ -47,6 +50,7 @@ data class HomeUiState(
+     val sourceWarningsByProject: Map<String, List<String>> = emptyMap(),
+     val sourceSearchBusyProjects: Set<String> = emptySet(),
+     val sourceOperationsByProject: Map<String, SourceOperationSnapshot> = emptyMap(),
++    val separationJobsByProject: Map<String, DurableRemoteJob> = emptyMap(),
+ )
+ 
+ class HomeViewModel(application: Application) : AndroidViewModel(application) {
+@@ -56,8 +60,10 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
+     private val factory = ProjectFactory()
+     private val exportService = ProjectExportService(application)
+     private val sourceAcquisition = SourceAcquisitionClient(application)
++    private val separation = RemoteSeparationClient(application)
+     private val sourceSearchJobs = mutableMapOf<String, Job>()
+     private val handledSourceSuccessOperations = mutableSetOf<String>()
++    private val handledSeparationCompletions = mutableSetOf<String>()
+     private var refreshJob: Job? = null
+     private var projectLibraryIndex: ProjectLibraryIndex = ProjectLibraryPolicy.index(emptyList())
+ 
+@@ -275,6 +281,19 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
+         }
+     }
+ 
++    fun startSeparation(projectId: String) = runCatching { separation.enqueue(projectId) }
++        .onSuccess { _state.update { it.copy(message = "Separação Demucs iniciada em segundo plano.", error = null) }; refreshSeparation(projectId); refresh() }
++        .onFailure { error -> _state.update { it.copy(error = error.message ?: "Não foi possível iniciar a separação.") } }
++
++    fun refreshSeparation(projectId: String) {
++        val job = separation.snapshotProject(projectId)
++        _state.update { current -> current.copy(separationJobsByProject = if(job==null) current.separationJobsByProject-projectId else current.separationJobsByProject+(projectId to job)) }
++        val terminal = job?.state in setOf(RemoteJobState.IMPORTED, RemoteJobState.CANCELLED, RemoteJobState.FAILED, RemoteJobState.EXPIRED)
++        if(terminal && job != null && handledSeparationCompletions.add(job.identity.jobId)) refresh()
++    }
++
++    fun cancelSeparation(projectId:String){separation.snapshotProject(projectId)?.let{separation.cancel(projectId,it.identity.jobId)};refreshSeparation(projectId)}
++
+     fun saveProjectPackage(projectId: String, uri: Uri) = launchExport("Projeto GuitarLab salvo com sucesso") {
+         exportService.saveProject(projectId, uri)
+     }
+
+diff --git a/app/src/main/java/studio/guitarlab/app/ui/UnifiedProjectWorkspaceScreen.kt b/app/src/main/java/studio/guitarlab/app/ui/UnifiedProjectWorkspaceScreen.kt
+index 87314f5..34eb8f4 100644
+--- a/app/src/main/java/studio/guitarlab/app/ui/UnifiedProjectWorkspaceScreen.kt
++++ b/app/src/main/java/studio/guitarlab/app/ui/UnifiedProjectWorkspaceScreen.kt
+@@ -36,6 +36,8 @@ import studio.guitarlab.core.source.SourceSearchRules
+ import studio.guitarlab.platform.codec.android.MasterExportFormat
+ import studio.guitarlab.platform.source.android.SourceOperationSnapshot
+ import studio.guitarlab.platform.source.android.SourceOperationState
++import studio.guitarlab.core.separation.DurableRemoteJob
++import studio.guitarlab.core.separation.RemoteJobState
+ 
+ enum class UnifiedProjectCardStatus(val label: String) {
+     STUDIO_READY("Studio pronto"),
+@@ -68,11 +70,15 @@ fun UnifiedPrepareScreen(
+     warnings: List<String> = emptyList(),
+     searchBusy: Boolean = false,
+     operation: SourceOperationSnapshot? = null,
++    separationJob: DurableRemoteJob? = null,
+     onSearch: (artist: String, song: String) -> Unit = { _, _ -> },
+     onImport: (android.net.Uri) -> Unit = {},
+     onAcquire: (RankedSourceCandidate) -> Unit = {},
+     onCancel: () -> Unit = {},
+     onRefreshOperation: () -> Unit = {},
++    onStartSeparation: () -> Unit = {},
++    onCancelSeparation: () -> Unit = {},
++    onRefreshSeparation: () -> Unit = {},
+ ) {
+     var artist by remember(projectId) { mutableStateOf("") }
+     var song by remember(projectId) { mutableStateOf("") }
+@@ -82,6 +88,7 @@ fun UnifiedPrepareScreen(
+     LaunchedEffect(projectId) {
+         while (true) {
+             onRefreshOperation()
++            onRefreshSeparation()
+             delay(600)
+         }
+     }
+@@ -116,6 +123,22 @@ fun UnifiedPrepareScreen(
+             }
+         }
+ 
++        if (project?.preparation?.status == PreparationStatus.SOURCE_READY && separationJob == null) {
++            Button(onClick = onStartSeparation, modifier = Modifier.testTag("prepare-start-separation")) { Text("Separar em 6 stems") }
++        }
++        separationJob?.let { job ->
++            Surface(Modifier.fillMaxWidth().testTag("prepare-separation-activity"), tonalElevation = 2.dp, shape = MaterialTheme.shapes.medium) {
++                Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
++                    Text("Separação Demucs", style = MaterialTheme.typography.titleMedium)
++                    Text(job.state.name.replace('_', ' '), style = MaterialTheme.typography.bodyMedium)
++                    if (job.state !in setOf(RemoteJobState.IMPORTED, RemoteJobState.CANCELLED, RemoteJobState.FAILED, RemoteJobState.EXPIRED)) {
++                        LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
++                        OutlinedButton(onClick = onCancelSeparation, modifier = Modifier.testTag("prepare-cancel-separation")) { Text("Cancelar separação") }
++                    }
++                }
++            }
++        }
++
+         Text("Importação local", style = MaterialTheme.typography.titleMedium)
+         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+             Button(
+
+diff --git a/core/project/src/main/kotlin/studio/guitarlab/core/project/ProjectManagedMediaStore.kt b/core/project/src/main/kotlin/studio/guitarlab/core/project/ProjectManagedMediaStore.kt
+index ea7c691..1db1840 100644
+--- a/core/project/src/main/kotlin/studio/guitarlab/core/project/ProjectManagedMediaStore.kt
++++ b/core/project/src/main/kotlin/studio/guitarlab/core/project/ProjectManagedMediaStore.kt
+@@ -28,6 +28,9 @@ class ProjectManagedMediaStore(
+     fun ingestEditProxy(projectId: String, suggestedName: String, input: InputStream): ManagedMediaAsset =
+         ingestInto(projectId, PROXY_DIRECTORY, suggestedName, input)
+ 
++    fun ingestStem(projectId: String, suggestedName: String, input: InputStream): ManagedMediaAsset =
++        ingestInto(projectId, STEM_DIRECTORY, suggestedName, input)
++
+     fun resolve(projectId: String, relativePath: String): File = resolveManaged(projectId, relativePath, SOURCE_DIRECTORY)
+ 
+     fun resolveEditable(projectId: String, relativePath: String): File =
+@@ -102,5 +105,6 @@ class ProjectManagedMediaStore(
+     private companion object {
+         const val SOURCE_DIRECTORY = "media/source"
+         const val PROXY_DIRECTORY = "media/proxy"
++        const val STEM_DIRECTORY = "media/stems"
+     }
+ }
+
+diff --git a/core/project/src/main/kotlin/studio/guitarlab/core/project/StemSetProjectPublisher.kt b/core/project/src/main/kotlin/studio/guitarlab/core/project/StemSetProjectPublisher.kt
+new file mode 100644
+index 0000000..3f65277
+--- /dev/null
++++ b/core/project/src/main/kotlin/studio/guitarlab/core/project/StemSetProjectPublisher.kt
+@@ -0,0 +1,28 @@
++package studio.guitarlab.core.project
++
++import java.io.ByteArrayInputStream
++import java.security.MessageDigest
++import java.util.UUID
++import studio.guitarlab.core.model.*
++
++data class ValidatedStem(val name:String,val bytes:ByteArray,val sha256:String,val sampleRate:Int,val channels:Int,val frames:Long)
++data class StemSetPublicationRequest(val projectId:String,val jobId:String,val sourceAssetId:String,val sourceSha256:String,val manifestSha256:String,val engine:String,val model:String,val modelSha256:String,val stems:List<ValidatedStem>)
++
++class StemSetProjectPublisher(private val repository:ProjectRepository,private val mediaStore:ProjectManagedMediaStore,private val nowMs:()->Long=System::currentTimeMillis,private val idFactory:()->String={UUID.randomUUID().toString()}) {
++ fun publish(r:StemSetPublicationRequest):Boolean {
++  require(r.jobId.isNotBlank()&&r.manifestSha256.matches(Regex("[a-f0-9]{64}")));require(r.stems.map{it.name}.toSet()==ROLES.keys&&r.stems.size==ROLES.size)
++  r.stems.forEach{require(it.bytes.size>44&&sha256(it.bytes)==it.sha256&&it.sampleRate==44100&&it.channels==2&&it.frames>0)}
++  val before=requireNotNull(repository.load(r.projectId));val source=before.assets.singleOrNull{it.assetId==r.sourceAssetId}?:error("source asset missing");require(source.sha256==r.sourceSha256&&before.preparation?.sourceAssetId==r.sourceAssetId){"source ownership mismatch"}
++  val prior=before.assets.count{it.provenance?.parameters?.get("jobId")==r.jobId};if(prior==ROLES.size)return true;require(prior==0){"partial prior publication"}
++  val ingested=mutableListOf<Pair<ValidatedStem,ManagedMediaAsset>>()
++  try {
++   r.stems.sortedBy{it.name}.forEach{stem->ingested+=stem to mediaStore.ingestStem(r.projectId,"${r.jobId}-${stem.name}.wav",ByteArrayInputStream(stem.bytes))}
++   val current=requireNotNull(repository.load(r.projectId));require(current.preparation?.sourceAssetId==r.sourceAssetId&&current.assets.any{it.assetId==r.sourceAssetId&&it.sha256==r.sourceSha256}){"source changed before commit"}
++   val assets=ingested.map{(s,m)->ManagedAsset(idFactory(),requireNotNull(ROLES[s.name]),m.relativePath,s.sha256,m.byteCount,"wav",s.sampleRate,s.channels,s.frames,nowMs(),AssetClassification.AUTHORITATIVE,AssetLifecycle.MANAGED,AssetProvenance("REMOTE_SEPARATION",listOf(r.sourceAssetId),listOf(r.sourceSha256),r.engine,r.model,mapOf("jobId" to r.jobId,"manifestSha256" to r.manifestSha256,"modelSha256" to r.modelSha256),1,"REMOTE"))}
++   repository.save(current.copy(updatedAtEpochMs=nowMs(),assets=current.assets+assets,preparation=requireNotNull(current.preparation).copy(status=PreparationStatus.READY,activeStemAssetIds=assets.associate{it.role to it.assetId})))
++   return false
++  } catch(t:Throwable){ingested.forEach{(_,m)->runCatching{mediaStore.discardUncommitted(r.projectId,m.relativePath)}};throw t}
++ }
++ private fun sha256(b:ByteArray)=MessageDigest.getInstance("SHA-256").digest(b).joinToString(""){"%02x".format(it)}
++ companion object { val ROLES=mapOf("drums" to AssetRole.STEM_DRUMS,"bass" to AssetRole.STEM_BASS,"other" to AssetRole.STEM_OTHER,"vocals" to AssetRole.STEM_VOCALS,"guitar" to AssetRole.STEM_GUITAR,"piano" to AssetRole.STEM_PIANO) }
++}
+
+diff --git a/core/project/src/test/kotlin/studio/guitarlab/core/project/StemSetProjectPublisherTest.kt b/core/project/src/test/kotlin/studio/guitarlab/core/project/StemSetProjectPublisherTest.kt
+new file mode 100644
+index 0000000..d196217
+--- /dev/null
++++ b/core/project/src/test/kotlin/studio/guitarlab/core/project/StemSetProjectPublisherTest.kt
+@@ -0,0 +1,16 @@
++package studio.guitarlab.core.project
++
++import java.io.ByteArrayInputStream
++import java.security.MessageDigest
++import org.junit.Assert.*
++import org.junit.Rule
++import org.junit.Test
++import org.junit.rules.TemporaryFolder
++import studio.guitarlab.core.model.*
++
++class StemSetProjectPublisherTest {
++ @get:Rule val temp=TemporaryFolder()
++ @Test fun sixStemsPublishAtomicallyAndRetryIsIdempotent(){val root=temp.newFolder();val repo=FileProjectRepository(root);val media=ProjectManagedMediaStore(root){"media-id"+System.nanoTime()};val sourceBytes=ByteArray(64){1};val managed=media.ingest("p","source.wav",ByteArrayInputStream(sourceBytes));val source=ManagedAsset("source",AssetRole.SOURCE_ORIGINAL,managed.relativePath,sha(sourceBytes),sourceBytes.size.toLong(),"wav",44100,2,1,1,AssetClassification.AUTHORITATIVE);repo.save(ProjectFactory().create("P",ProjectTemplate.BLANK,projectId="p").copy(assets=listOf(source),preparation=PreparationState(PreparationStatus.SOURCE_READY,"source")));val stems=StemSetProjectPublisher.ROLES.keys.map{ValidatedStem(it,ByteArray(48){2},sha(ByteArray(48){2}),44100,2,1)};val request=StemSetPublicationRequest("p","job","source",source.sha256,"a".repeat(64),"demucs.cpp","htdemucs_6s","b".repeat(64),stems);val publisher=StemSetProjectPublisher(repo,media,{2});assertFalse(publisher.publish(request));assertTrue(publisher.publish(request));val saved=repo.load("p")!!;assertEquals(6,saved.preparation!!.activeStemAssetIds.size);assertEquals(7,saved.assets.size);assertEquals(PreparationStatus.READY,saved.preparation!!.status)}
++ @Test fun wrongHashLeavesProjectAndManagedSetUntouched(){val root=temp.newFolder();val repo=FileProjectRepository(root);val media=ProjectManagedMediaStore(root);val sourceBytes=ByteArray(64){1};val managed=media.ingest("p","source.wav",ByteArrayInputStream(sourceBytes));val source=ManagedAsset("source",AssetRole.SOURCE_ORIGINAL,managed.relativePath,sha(sourceBytes),64,"wav",44100,2,1,1,AssetClassification.AUTHORITATIVE);repo.save(ProjectFactory().create("P",ProjectTemplate.BLANK,projectId="p").copy(assets=listOf(source),preparation=PreparationState(PreparationStatus.SOURCE_READY,"source")));val stems=StemSetProjectPublisher.ROLES.keys.map{ValidatedStem(it,ByteArray(48),"0".repeat(64),44100,2,1)};assertThrows(IllegalArgumentException::class.java){StemSetProjectPublisher(repo,media).publish(StemSetPublicationRequest("p","job","source",source.sha256,"a".repeat(64),"demucs.cpp","htdemucs_6s","b".repeat(64),stems))};assertEquals(1,repo.load("p")!!.assets.size)}
++ private fun sha(b:ByteArray)=MessageDigest.getInstance("SHA-256").digest(b).joinToString(""){"%02x".format(it)}
++}
+
+

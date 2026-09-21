@@ -11,8 +11,10 @@ data class RemoteResultManifest(val jobId:String,val projectId:String,val inputS
   require(jobId==i.jobId && projectId==i.projectId && inputSha256==i.inputSha256){"remote result ownership mismatch"}
   require(engine=="demucs.cpp" && model=="htdemucs_6s" && modelSha256==MODEL_SHA256)
   require(sampleRate==44100 && channels==2 && frames>0 && durationSeconds>0)
-  require(stems.map{it.name}==STEMS && stems.map{it.name}.distinct().size==6)
+  require(stems.map{it.name}.toSet()==STEMS.toSet() && stems.size==STEMS.size) { "invalid stem set" }
+  require(stems.map{it.name}.distinct().size==STEMS.size) { "duplicate stem" }
   require(stems.all{it.bytes>44 && it.sha256.matches(RemoteJobIdentity.SHA)})
+  require(stems.all{it.path.startsWith("remote/v1/") && !it.path.contains("..")}) { "unsafe stem path" }
  }
  companion object { const val MODEL_SHA256="09704f4ceae204e56e77d5eefd6ac71d7275be81fd507e6913371d59abcee856"; val STEMS=listOf("drums","bass","other","vocals","guitar","piano") }
 }
@@ -33,8 +35,32 @@ object RemoteStateMachine {
  }
 }
 data class DurableRemoteJob(val identity:RemoteJobIdentity,val state:RemoteJobState,val updatedAtMs:Long,val resultManifestSha256:String?=null,val errorCode:String?=null)
-interface RemoteJobStore { fun load(jobId:String):DurableRemoteJob?; fun save(job:DurableRemoteJob):DurableRemoteJob }
+interface RemoteJobStore { fun load(jobId:String):DurableRemoteJob?; fun save(job:DurableRemoteJob):DurableRemoteJob; fun active():List<DurableRemoteJob> = emptyList() }
 interface RemoteSeparationBackend { suspend fun enqueue(identity:RemoteJobIdentity,inputPath:String); suspend fun status(identity:RemoteJobIdentity):DurableRemoteJob?; suspend fun cancel(identity:RemoteJobIdentity); suspend fun acknowledge(identity:RemoteJobIdentity,resultManifestSha256:String) }
+interface RemoteResultTransport { suspend fun uploadSource(identity:RemoteJobIdentity):String; suspend fun downloadManifest(identity:RemoteJobIdentity):ByteArray; suspend fun downloadStem(identity:RemoteJobIdentity,stem:RemoteStem):ByteArray; suspend fun cleanup(identity:RemoteJobIdentity) }
+interface RemoteStemPublisher { fun publish(identity:RemoteJobIdentity,manifest:RemoteResultManifest,manifestSha256:String,stems:Map<String,ByteArray>):Boolean }
+
+class RemoteSeparationCoordinator(private val store:RemoteJobStore,private val backend:RemoteSeparationBackend,private val transport:RemoteResultTransport,private val decodeManifest:(ByteArray)->RemoteResultManifest,private val publisher:RemoteStemPublisher,private val nowMs:()->Long=System::currentTimeMillis) {
+ suspend fun start(identity:RemoteJobIdentity):DurableRemoteJob {
+  store.load(identity.jobId)?.let{require(it.identity==identity);return it}
+  val initial=store.save(DurableRemoteJob(identity,RemoteJobState.UPLOADING,nowMs()))
+  val path=transport.uploadSource(identity);store.save(initial.copy(state=RemoteJobState.READY,updatedAtMs=nowMs()));backend.enqueue(identity,path)
+  return store.save(initial.copy(state=RemoteJobState.QUEUED,updatedAtMs=nowMs()))
+ }
+ suspend fun reconcile(identity:RemoteJobIdentity):DurableRemoteJob {
+  val local=requireNotNull(store.load(identity.jobId)){"local job missing"};require(local.identity==identity){"local job ownership mismatch"}
+  val remote=backend.status(identity)?:return local;val accepted=store.save(remote)
+  if(accepted.state!=RemoteJobState.COMPLETED&&accepted.state!=RemoteJobState.IMPORTING)return accepted
+  store.save(accepted.copy(state=RemoteJobState.IMPORTING,updatedAtMs=nowMs()))
+  val manifestBytes=transport.downloadManifest(identity);val manifestSha=sha256(manifestBytes);accepted.resultManifestSha256?.let{require(it==manifestSha){"manifest checksum mismatch"}}
+  val manifest=decodeManifest(manifestBytes);manifest.validateFor(identity);val stems=manifest.stems.associate{it.name to transport.downloadStem(identity,it)};require(stems.size==RemoteResultManifest.STEMS.size)
+  publisher.publish(identity,manifest,manifestSha,stems)
+  backend.acknowledge(identity,manifestSha);transport.cleanup(identity)
+  return store.save(accepted.copy(state=RemoteJobState.IMPORTED,updatedAtMs=nowMs(),resultManifestSha256=manifestSha,errorCode=null))
+ }
+ suspend fun cancel(identity:RemoteJobIdentity):DurableRemoteJob { val current=requireNotNull(store.load(identity.jobId));require(current.identity==identity);if(current.state in setOf(RemoteJobState.IMPORTED,RemoteJobState.CANCELLED,RemoteJobState.FAILED,RemoteJobState.EXPIRED))return current;val requesting=store.save(current.copy(state=RemoteJobState.CANCEL_REQUESTED,updatedAtMs=nowMs()));backend.cancel(identity);return requesting }
+ private fun sha256(bytes:ByteArray)=java.security.MessageDigest.getInstance("SHA-256").digest(bytes).joinToString(""){"%02x".format(it)}
+}
 object RemoteFailurePolicy {
  private val terminal=setOf("AUTH_REQUIRED","APP_CHECK_REJECTED","QUOTA_EXCEEDED","REMOTE_JOB_NOT_FOUND","CONFIG_INVALID","INPUT_MISSING","INPUT_HASH_MISMATCH","RESULT_INVALID")
  fun shouldRetry(code:String,attempt:Int,maxAttempts:Int=5)=attempt<maxAttempts && code !in terminal
