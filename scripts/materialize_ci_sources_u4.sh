@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -euxo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 bash "$ROOT/scripts/materialize_ci_sources_u3.sh"
 grep -q 'include(":core:separation")' "$ROOT/settings.gradle.kts" || cat >> "$ROOT/settings.gradle.kts" <<'EOF'
