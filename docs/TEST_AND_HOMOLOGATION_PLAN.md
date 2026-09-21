@@ -132,5 +132,7 @@ Automatic CI #671 compiled the U2a production source and stopped while compiling
 
 Automatic CI #672 passed unit, Lint and APK build. Its API 36 suite failed after adding the new scrollable creation screen test; U2c removes viewport dependence by using `performScrollTo()` before selecting the blank template and submitting creation, preserving the assertions on safe acquisition states and template output.
 
+Automatic CI #673 stopped in diff sanity before materialization because the generated U2c patch ended with a blank context line. The normalized patch has the same source delta, a refreshed SHA-256 lock and no blank-at-EOF condition; the full gate remains pending.
+
 ## Final rule
 Any promoted release requires exact-source digital PASS, only the genuinely hardware-dependent residual applicable to that source, no repeatable P0/P1 and explicit approval of the exact signed APK SHA-256.

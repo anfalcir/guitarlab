@@ -3,7 +3,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PREVIOUS="$ROOT/scripts/materialize_ci_sources_u2b.sh"
 PATCH_FILE="$ROOT/.source-parts/U2cUnifiedShellScrollTestCorrective.patch"
-PATCH_SHA256="44d2150be8ecf3e42313b7fca7c4364d4d8634ead2de1f39aa9059032d94b940"
+PATCH_SHA256="4c5761271d067686ff92d7c775f1030bf297c08ac3287d7609069762f071b2eb"
 TARGET="app/src/androidTest/java/studio/guitarlab/app/UnifiedProjectShellInstrumentedTest.kt"
 TARGET_BLOB="649be7c5027e277ef7ff216fd2014b37a4764d61"
 hash_file() { git -C "$ROOT" hash-object "$1"; }

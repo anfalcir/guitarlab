@@ -14,6 +14,7 @@ Updated: 2026-09-21
 - Automatic CI #670 proved the controlled push trigger and U2 materialization, then found one trailing comma in a Kotlin `when` branch before tests. U2a removes only that syntax defect; the corrected automatic gate is pending.
 - Automatic CI #671 confirmed production compilation after U2a and found the new Android-module unit test using `kotlin.test.Test` instead of the module's JUnit 4 annotation. U2b corrects only that test import.
 - Automatic CI #672 passed unit, Lint and build, then exposed viewport-dependent interaction in the new scrollable-project-creation instrumentation. U2c scrolls to each target through Compose semantics before interaction.
+- Automatic CI #673 stopped at the diff-sanity preflight because the first U2c patch artifact ended with a blank context line. The normalized U2c package preserves the exact source delta and removes that packaging-only defect.
 - The first incomplete unified milestone is U2 until its controlled canonical gate passes.
 
 ## Active line
