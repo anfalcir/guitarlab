@@ -1,0 +1,11 @@
+--- a/app/src/main/java/studio/guitarlab/app/ui/UnifiedProjectWorkspaceScreen.kt
++++ b/app/src/main/java/studio/guitarlab/app/ui/UnifiedProjectWorkspaceScreen.kt
+@@ -65,7 +65,7 @@
+                 PreparationStatus.SEPARATING -> "Há uma separação registrada em andamento. O U4 restaurará e reconciliará o job."
+                 PreparationStatus.READY -> "Este projeto já contém preparação pronta. Os assets permanecem preservados."
+                 PreparationStatus.ERROR -> "A preparação anterior requer atenção. Nenhum dado será descartado automaticamente."
+-                PreparationStatus.NOT_STARTED, null -> "Este projeto ainda não possui uma fonte preparada. Pesquisa e importação chegam no U3.",
++                PreparationStatus.NOT_STARTED, null -> "Este projeto ainda não possui uma fonte preparada. Pesquisa e importação chegam no U3."
+             },
+             modifier = Modifier.testTag("prepare-safe-state-$projectId"),
+             style = MaterialTheme.typography.bodyLarge,
