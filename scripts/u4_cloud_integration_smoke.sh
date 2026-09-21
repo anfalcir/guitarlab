@@ -22,6 +22,7 @@ INPUT_PATH="${PREFIX}/input/source.wav"
 TMP="$(mktemp -d)"
 cleanup() {
   gcloud storage rm "gs://${GBW_BUCKET}/${PREFIX}/**" --recursive >/dev/null 2>&1 || true
+  gcloud firestore documents delete "users/${TEST_UID}/jobs/${JOB_ID}" --project "$GBW_GCP_PROJECT" --quiet >/dev/null 2>&1 || true
   rm -rf "$TMP"
 }
 trap cleanup EXIT
@@ -42,7 +43,15 @@ with wave.open(p,"wb") as w:
 PY
 INPUT_SHA="$(sha256sum "$TMP/source.wav" | awk '{print $1}')"
 
-gcloud storage cp "$TMP/source.wav" "gs://${GBW_BUCKET}/${INPUT_PATH}" >/dev/null
+gcloud storage cp "$TMP/source.wav" "gs://${GBW_BUCKET}/${INPUT_PATH}" --content-type="audio/wav" --custom-metadata="sha256=${INPUT_SHA},projectId=${PROJECT_ID},jobId=${JOB_ID}" >/dev/null
+
+# The production worker updates an existing Firestore job document. The real callable
+# creates this before dispatch; this isolated smoke mirrors that durable precondition.
+gcloud firestore documents create "users/${TEST_UID}/jobs/${JOB_ID}" \
+  --project "$GBW_GCP_PROJECT" \
+  --field="schemaVersion=1" --field="uid=${TEST_UID}" --field="projectId=${PROJECT_ID}" \
+  --field="inputPath=${INPUT_PATH}" --field="inputSha256=${INPUT_SHA}" \
+  --field="state=QUEUED" --field="phase=STARTING" --field="progress=0" >/dev/null
 
 echo "Executing production gbw-demucs for GuitarLab U4 smoke..."
 EXECUTION="$(gcloud beta run jobs execute gbw-demucs   --project "$GBW_GCP_PROJECT" --region "$GBW_REGION"   --update-env-vars "GBW_BUCKET=${GBW_BUCKET},GBW_UID=${TEST_UID},GBW_JOB_ID=${JOB_ID},GBW_PROJECT_ID=${PROJECT_ID},GBW_INPUT_PATH=${INPUT_PATH},GBW_INPUT_SHA256=${INPUT_SHA}"   --task-timeout 30m --wait --format='value(metadata.name)')"
