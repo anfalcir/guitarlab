@@ -10,8 +10,8 @@ The repository is canonical for scope, architecture, implementation state and ho
 Read first: `docs/CURRENT_STATE.md`, `docs/H37_DRIVE_V3_BACKUP.md`, `docs/H35_TAKE_SYNC_QUIET_CALIBRATION.md`, `docs/POST_H28_HARDENING_AND_EXTERNAL_CONTROL_PLAN.md`, `docs/H28_BACKUP_IDENTITY_CONSISTENCY.md`, `docs/IMPLEMENTATION_ROADMAP.md`, `docs/TEST_AND_HOMOLOGATION_PLAN.md`, `docs/RC3_FINAL_PHYSICAL_HOMOLOGATION.md`, `docs/CANDIDATE_IDENTITY_POLICY.md` and `docs/DOCUMENTATION_MAP.md`.
 
 ## Active source/release state
-Source candidate: **`0.5.0-rc4` / versionCode `24` / H37b — SOURCE PRE-GATE**.
-Current signed candidate remains **`0.5.0-rc3` / versionCode `23`**, package `studio.guitarlab.app`, until the manual H37b canonical gate passes.
+Source candidate: **`0.5.0-rc4` / versionCode `24` / H37b runtime + H37c signing-provenance corrective — SOURCE PRE-GATE**.
+Current signed candidate remains **`0.5.0-rc3` / versionCode `23`**, package `studio.guitarlab.app`, until the manual H37c canonical gate passes.
 
 The current signed digital authority is **CI #663** / run `35523442620` / exact producer `51d4098fa7b1b44a9fa315e939541020f594654d`, with the complete H29-H36c line DIGITAL PASS. Signed APK SHA-256: `8e6e0f555bc5e834c4bccbdb011134c42d124806ce0316dd28787a6c98fe7bf3`.
 
@@ -26,7 +26,7 @@ H37 replaces SAF as the primary backup transport with direct Google Drive API v3
 
 The transport adds resumable uploads, server-confirmed resume offsets, Drive size/SHA-256 verification, private `appProperties` catalog identity, crash reconciliation and bounded backoff. Existing H26-H28 SAF history remains supported as a one-time migration source and is not released locally until migration completes with zero failures.
 
-H37 producer `abecc73e4eab181a7776d98cc731758b17c64b06` reached manual CI #664, which failed deterministically at Kotlin compilation before Lint/build/signing. H37a fixes the CI #664 compile blockers. H37b adds the final OAuth token-cache hardening before the next gate and remains **SOURCE PRE-GATE**. CI #663 / RC3 is still the signed authority until a fresh manual H37b workflow passes. See `docs/H37_DRIVE_V3_BACKUP.md`.
+H37 producer `abecc73e4eab181a7776d98cc731758b17c64b06` reached manual CI #664, which exposed Kotlin compilation issues. H37a fixed them and H37b added the final OAuth token-cache hardening. CI #665 passed the H37b software/Lint/build and API36 gates; its signed job stopped before keystore restore because the provenance check compared the tested RC4 artifact against unmaterialized RC3 build metadata. H37c fixes only that workflow provenance step. CI #663 / RC3 remains the signed authority until a fresh manual H37c workflow passes. See `docs/H37_DRIVE_V3_BACKUP.md` and `docs/H37C_SIGNING_PROVENANCE_CORRECTIVE.md`.
 
 ## H28 — stable project/revision identity + provider consistency
 H28 hardens the backup contract so that:
