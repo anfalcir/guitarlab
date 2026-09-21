@@ -68,7 +68,7 @@ First target OAuth/Drive acceptance must cover:
 - interrupt a representative larger resumable upload, then confirm resume from the server-confirmed offset rather than restart/blind replay;
 - restore validates package integrity and creates an independent local project copy;
 - disconnect/reconnect revokes/reobtains authorization without deleting remote backups;
-- if legacy SAF history exists, migrate it and confirm SAF access is retained until every selected revision succeeds.
+- historical SAF/H37 migration is not a unified-product acceptance requirement after the clean-cutover decision; retain this item only as historical H37 evidence.
 
 A failed/partial upload must never appear in the restore catalog, and a completed upload whose final commit response was lost must be reconciled without duplicating package content.
 
@@ -108,10 +108,12 @@ For the 10-minute quality line, stress must model realistic song projects rather
 
 ## Unified successor program — homologation strategy
 
-The approved U0-U12 integration program is governed by `UNIFIED_GUITARLAB_GBW_IMPLEMENTATION_ROADMAP.md`.
+The approved unified integration program is governed by `UNIFIED_GUITARLAB_GBW_IMPLEMENTATION_ROADMAP.md`.
+
+**Clean-cutover override (2026-09-21):** automatic migration/import compatibility for standalone GBW, H37/pre-unification GuitarLab and historical project corpora is no longer a release requirement. U9 is retired. Historical H37/migration evidence below remains historical evidence only and must not create new future gates.
 
 Its evidence strategy is intentionally stricter digitally and smaller manually:
-- unit, property/randomized, fuzz/malformed, fake-network, process-death, migration, Android instrumentation, accessibility, geometry, audio golden, Drive transaction and cloud contract suites close all objectively testable behavior;
+- unit, property/randomized, fuzz/malformed, fake-network, process-death, Android instrumentation, accessibility, geometry, audio golden, Drive transaction and cloud contract suites close all objectively testable behavior for the unified line;
 - a controlled real-cloud Demucs smoke is a digital integration gate before final candidate freeze;
 - known current GuitarLab hardware residuals may be carried forward instead of forcing an intermediate manual campaign, provided later source changes preserve/strengthen their digital contracts;
 - U11 freezes one exact signed candidate after complete digital closure;
@@ -168,3 +170,25 @@ Exact source: `a7af51bf6622b4eecc32308c091fbb5020a1d54b`; run: `35606018087`.
 - signed homologation: intentionally not requested for intermediate U3.
 
 U3 therefore requires no separate physical homologation. Provider/media realism remains part of the final consolidated Prepare smoke together with U4+ integration; it does not reopen the digitally proven U3 publication/ownership contracts.
+
+
+## Unified clean-cutover compatibility boundary — 2026-09-21
+
+Future unified release gates must test compatibility and resilience only for the supported unified product line. Required persistence coverage remains:
+- current unified project save/reopen;
+- duplicate/new projectId semantics;
+- supported schema evolution inside the unified line;
+- backup/restore round trip for the new unified Drive model;
+- malformed/current-schema fail-closed behavior;
+- project identity, asset integrity and transactional publication;
+- process-death/cancellation/network-failure recovery.
+
+Not required:
+- pre-unification GuitarLab corpus migration;
+- H37 backup migration;
+- standalone GBW `.gbwbackup` import;
+- GBW Share/Open bridge;
+- legacy migration corpus in U10/U11;
+- physical verification of legacy-project upgrade.
+
+Historical tests already executed are retained as evidence but are not repeated solely to preserve obsolete compatibility.
