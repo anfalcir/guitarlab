@@ -1806,27 +1806,54 @@ No U6 implementation is part of the U5 closure.
 ## U6 — Unified exports
 
 ### Objective
-Separate Prepare study exports from Studio masters cleanly.
+Separate Prepare study exports from Studio masters cleanly **without turning the internal Prepare → Studio handoff into an export/transcode pipeline**.
+
+### Locked media-flow rule
+U5 prepared media is already the canonical Studio input and remains project-managed. The internal path is:
+
+six validated Demucs stems
+→ one deterministic prepared backing + prepared guitar render in Studio-native lossless PCM WAV
+→ optional managed guitar L/R derivation required by the Studio template
+→ direct Studio reference binding
+
+There is no user-visible export, copy/reimport or delivery-codec conversion between Prepare and Studio.
+
+U6 therefore treats **Study Export as an external-delivery action only**. It must not regenerate or transcode the project-managed backing/guitar merely so Studio can use them.
+
+For explicit user exports:
+- WAV delivery of prepared backing/guitar publishes the already managed canonical WAV bytes directly whenever the requested WAV contract matches the internal asset;
+- FLAC is encoded losslessly from the canonical managed reference only on explicit request and only when the device capability gate is satisfied;
+- MP3 is encoded once from the canonical managed reference only on explicit request, at the approved quality profile, and only when the device capability gate is satisfied;
+- never chain delivery conversions (for example WAV → FLAC → MP3);
+- never replace the canonical project asset with an exported delivery file.
+
+Studio Master remains separate: render the current timeline/mix once into the canonical float-WAV render domain, then either publish that WAV directly or encode FLAC/MP3 only for the selected external delivery format.
 
 ### Work
-- Study Exports section;
+- Study Exports section for explicit external backing/guitar delivery;
 - Studio Master section;
+- direct-copy fast path for canonical WAV study exports;
 - preserve codec capability gates;
-- provenance in outputs;
+- provenance/identity in export result metadata where retained;
 - staging/publication/cancellation;
-- avoid duplicate old GBW export UI.
+- avoid duplicate old GBW export UI;
+- keep project-managed Prepare references as the sole Studio source of truth.
 
 ### Tests
-- WAV/FLAC and MP3 only where device capability claims permit;
+- backing/guitar WAV study export is byte-for-byte direct publication of the managed canonical asset (no re-render/transcode);
+- FLAC and MP3 perform exactly one encode from the canonical managed reference, only where device capability claims permit;
+- Studio handoff performs no export/transcode;
+- Studio master WAV/FLAC/MP3 preserves the existing offline-render contract;
 - duration/channel/rate;
 - cancellation/rollback;
 - low storage;
 - filename/path sanitization;
 - export after project rename;
-- no project mutation from export failure.
+- no project mutation from export failure;
+- exported delivery files never become the Studio reference automatically.
 
 ### Exit
-No user needs the standalone GBW app for backing/guitar exports.
+No user needs the standalone GBW app for backing/guitar exports, and no unnecessary audio conversion exists in the unified Prepare → Studio path.
 
 ---
 
