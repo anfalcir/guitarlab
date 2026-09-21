@@ -318,22 +318,8 @@ jobs:
           disable-animations: true
           emulator-boot-timeout: 600
           script: |
-            gradle --console=plain --stacktrace connectedDebugAndroidTest
-            mkdir -p ci-diagnostics/android-default
-            cp -R app/build/outputs/androidTest-results/connected ci-diagnostics/android-default/results
-            cp -R app/build/reports/androidTests/connected ci-diagnostics/android-default/reports
-
-            adb shell wm size 1920x1200
-            adb shell wm density 240
-            adb shell settings put system accelerometer_rotation 0
-            adb shell settings put system user_rotation 0
-            adb shell am force-stop studio.guitarlab.app || true
-
-            gradle --console=plain --stacktrace :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=studio.guitarlab.app.TargetTabletGeometryInstrumentedTest -Pandroid.testInstrumentationRunnerArguments.targetGeometry=true
-
-            mkdir -p ci-diagnostics/tablet-geometry
-            cp -R app/build/outputs/androidTest-results/connected ci-diagnostics/tablet-geometry/results
-            cp -R app/build/reports/androidTests/connected ci-diagnostics/tablet-geometry/reports
+            chmod +x scripts/ci_run_api36_regression_groups.sh
+            scripts/ci_run_api36_regression_groups.sh
 
       - name: Upload Android integration reports
         if: always()
@@ -346,8 +332,7 @@ jobs:
             app/build/reports/androidTests/**
             app/build/outputs/androidTest-results/**
             app/build/outputs/connected_android_test_additional_output/**
-            ci-diagnostics/android-default/**
-            ci-diagnostics/tablet-geometry/**
+            ci-diagnostics/api36-groups/**
 
   homologation-apk:
     name: Signed homologation APK
