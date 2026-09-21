@@ -6,7 +6,7 @@ GBW_REGION="${GBW_REGION:-us-central1}"
 MODEL_SHA256="${MODEL_SHA256:?}"
 STEMS=(drums bass other vocals guitar piano)
 RUN_TOKEN="${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
-UID="guitarlab-u4-ci"
+TEST_UID="guitarlab-u4-ci"
 JOB_ID="$(python3 - <<'PY'
 import uuid
 print(uuid.uuid4())
@@ -17,7 +17,7 @@ import uuid
 print(uuid.uuid4())
 PY
 )"
-PREFIX="remote/v1/users/${UID}/jobs/${JOB_ID}"
+PREFIX="remote/v1/users/${TEST_UID}/jobs/${JOB_ID}"
 INPUT_PATH="${PREFIX}/input/source.wav"
 TMP="$(mktemp -d)"
 cleanup() {
@@ -45,7 +45,7 @@ INPUT_SHA="$(sha256sum "$TMP/source.wav" | awk '{print $1}')"
 gcloud storage cp "$TMP/source.wav" "gs://${GBW_BUCKET}/${INPUT_PATH}" >/dev/null
 
 echo "Executing production gbw-demucs for GuitarLab U4 smoke..."
-EXECUTION="$(gcloud beta run jobs execute gbw-demucs   --project "$GBW_GCP_PROJECT" --region "$GBW_REGION"   --update-env-vars "GBW_BUCKET=${GBW_BUCKET},GBW_UID=${UID},GBW_JOB_ID=${JOB_ID},GBW_PROJECT_ID=${PROJECT_ID},GBW_INPUT_PATH=${INPUT_PATH},GBW_INPUT_SHA256=${INPUT_SHA}"   --task-timeout 30m --wait --format='value(metadata.name)')"
+EXECUTION="$(gcloud beta run jobs execute gbw-demucs   --project "$GBW_GCP_PROJECT" --region "$GBW_REGION"   --update-env-vars "GBW_BUCKET=${GBW_BUCKET},GBW_UID=${TEST_UID},GBW_JOB_ID=${JOB_ID},GBW_PROJECT_ID=${PROJECT_ID},GBW_INPUT_PATH=${INPUT_PATH},GBW_INPUT_SHA256=${INPUT_SHA}"   --task-timeout 30m --wait --format='value(metadata.name)')"
 test -n "$EXECUTION"
 
 MANIFEST_URI="gs://${GBW_BUCKET}/${PREFIX}/output/result-manifest.json"
