@@ -5,7 +5,7 @@ Updated: 2026-09-21
 ## Repository and release boundary
 - `main` is canonical.
 - Product behavior is promoted only after exact-source automated gates and, where required, residual physical validation.
-- `.github/workflows/android-ci.yml` is manual-only (`workflow_dispatch`).
+- `.github/workflows/android-ci.yml` supports manual dispatch plus explicit `[run ci]` / `[run ci signed]` commit-message gates on `main`; ordinary `[skip ci]` commits remain inert.
 - CI #663 / run `35523442620` / producer `51d4098fa7b1b44a9fa315e939541020f594654d` is the current signed DIGITAL PASS through H36c.
 
 ## Module boundaries
@@ -82,7 +82,7 @@ Durable creative state belongs in project persistence, not transient Composable 
 ## Build/release architecture
 `scripts/build_local.sh` is the local software gate when its environment is available. The GitHub workflow is the canonical full software/API36/geometry/signing executor.
 
-Large deltas are materialized from `.source-parts` serially. The current source-candidate tail ends at U1b: accepted H28 → existing H29-H36c tail → H37/H37a/H37b Drive transport → U1 unified domain → U1a compile corrective → U1b test-fixture corrective. Each block verifies its patch/archive and exact terminal Git blobs. Unexplained drift blocks the build.
+Large deltas are materialized from `.source-parts` serially. The current source-candidate tail ends at U2: accepted H28 → existing H29-H36c tail → H37/H37a/H37b Drive transport → U1/U1a/U1b unified domain → U2 unified shell. Each block verifies its patch/archive and exact terminal Git blobs. Unexplained drift blocks the build.
 
 ## Backup transport boundary — H37 source candidate
 The protected H28 domain remains transport-agnostic: `ProjectBackupCoordinator` owns project/revision identity, deduplication, retention and restore semantics. H37 changes the Android remote-store edge from SAF to direct Drive API v3.

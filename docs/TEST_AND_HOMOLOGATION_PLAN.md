@@ -122,7 +122,9 @@ This successor strategy does not retroactively change the evidence status or rel
 
 ### U1 source pre-gate coverage
 
-The U1 source block adds tests for schema-1 migration, optional empty preparation, asset/provenance validation, canonical revision determinism, rename identity, reachability-safe cleanup, portable asset round trip and 100 reproducible randomized inventory orderings. Clean materialization, idempotent rerun and corrupted-patch fail-closed behavior pass locally. CI #667 exposed compile defects corrected by U1a. CI #668 then compiled production source and ran 191 tests, with one failure because the portable-package fixture generated a non-hexadecimal synthetic hash from `source`. U1b generates a deterministic real SHA-256 for fixture IDs. U1 remains SOURCE PRE-GATE until the corrected canonical software job is green.
+The U1 source block adds tests for schema-1 migration, optional empty preparation, asset/provenance validation, canonical revision determinism, rename identity, reachability-safe cleanup, portable asset round trip and 100 reproducible randomized inventory orderings. Clean materialization, idempotent rerun and corrupted-patch fail-closed behavior pass locally. CI #667 exposed compile defects corrected by U1a. CI #668 then compiled production source and ran 191 tests, with one fixture failure corrected by U1b. CI #669 closed the corrected canonical gate.
+
+CI #669 closed U1 with unit, Lint, debug/release build, API 36 instrumentation and signed identity PASS. U2 adds route-codec coverage for Prepare/Export, pure status/legacy-entry policy tests, and Compose instrumentation for safe acquisition placeholders, template preservation and empty Prepare behavior. Existing Home search/filter/sort tests remain mandatory regression coverage.
 
 ## Final rule
 Any promoted release requires exact-source digital PASS, only the genuinely hardware-dependent residual applicable to that source, no repeatable P0/P1 and explicit approval of the exact signed APK SHA-256.

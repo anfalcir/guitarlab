@@ -1,0 +1,518 @@
+--- a/app/src/main/java/studio/guitarlab/app/ui/AppScreen.kt
++++ b/app/src/main/java/studio/guitarlab/app/ui/AppScreen.kt
+@@ -3,7 +3,9 @@
+ sealed interface AppScreen {
+     data object Home : AppScreen
+     data object NewProject : AppScreen
++    data class Prepare(val projectId: String) : AppScreen
+     data class Studio(val projectId: String) : AppScreen
++    data class Export(val projectId: String) : AppScreen
+     data class Options(val projectId: String? = null) : AppScreen
+     data class AudioProbe(val projectId: String? = null) : AppScreen
+     data class CodecProbe(val projectId: String? = null) : AppScreen
+@@ -15,7 +17,9 @@
+     fun encode(screen: AppScreen): String = when (screen) {
+         AppScreen.Home -> "home"
+         AppScreen.NewProject -> "new"
++        is AppScreen.Prepare -> "prepare:${screen.projectId}"
+         is AppScreen.Studio -> "studio:${screen.projectId}"
++        is AppScreen.Export -> "export:${screen.projectId}"
+         is AppScreen.Options -> "options:${screen.projectId.orEmpty()}"
+         is AppScreen.AudioProbe -> "audio-probe:${screen.projectId.orEmpty()}"
+         is AppScreen.CodecProbe -> "codec-probe:${screen.projectId.orEmpty()}"
+@@ -25,7 +29,9 @@
+     fun decode(route: String): AppScreen = when {
+         route == "home" -> AppScreen.Home
+         route == "new" -> AppScreen.NewProject
++        route.startsWith("prepare:") -> route.substringAfter(':').takeIf { it.isNotBlank() }?.let(AppScreen::Prepare) ?: AppScreen.Home
+         route.startsWith("studio:") -> route.substringAfter(':').takeIf { it.isNotBlank() }?.let(AppScreen::Studio) ?: AppScreen.Home
++        route.startsWith("export:") -> route.substringAfter(':').takeIf { it.isNotBlank() }?.let(AppScreen::Export) ?: AppScreen.Home
+         route.startsWith("options:") -> AppScreen.Options(route.substringAfter(':').takeIf { it.isNotBlank() })
+         route.startsWith("audio-probe:") -> AppScreen.AudioProbe(route.substringAfter(':').takeIf { it.isNotBlank() })
+         route.startsWith("codec-probe:") -> AppScreen.CodecProbe(route.substringAfter(':').takeIf { it.isNotBlank() })
+--- a/app/src/main/java/studio/guitarlab/app/ui/GuitarLabApp.kt
++++ b/app/src/main/java/studio/guitarlab/app/ui/GuitarLabApp.kt
+@@ -12,6 +12,7 @@
+     navigationViewModel: AppNavigationViewModel = viewModel(),
+ ) {
+     val persistedRoute by navigationViewModel.persistedRoute.collectAsState()
++    val homeState by homeViewModel.state.collectAsState()
+     val screen = AppRouteCodec.decode(persistedRoute)
+
+     fun navigate(destination: AppScreen) {
+@@ -27,6 +28,8 @@
+             viewModel = homeViewModel,
+             onNewProject = { navigate(AppScreen.NewProject) },
+             onOpenProject = { navigate(AppScreen.Studio(it)) },
++            onPrepareProject = { navigate(AppScreen.Prepare(it)) },
++            onExportWorkspace = { navigate(AppScreen.Export(it)) },
+             onSettings = { navigate(AppScreen.Options()) },
+             onBackupProject = { navigate(AppScreen.Backup(it, returnToHome = true)) },
+         )
+@@ -38,6 +41,13 @@
+                 }
+             },
+         )
++        is AppScreen.Prepare -> UnifiedPrepareScreen(
++            project = homeState.projectsById[current.projectId],
++            projectId = current.projectId,
++            onBack = { navigate(AppScreen.Home) },
++            onStudio = { navigate(AppScreen.Studio(current.projectId)) },
++            onExport = { navigate(AppScreen.Export(current.projectId)) },
++        )
+         is AppScreen.Studio -> StudioShellScreen(
+             projectId = current.projectId,
+             onBack = {
+@@ -46,6 +56,14 @@
+             },
+             onOptions = { navigate(AppScreen.Options(current.projectId)) },
+         )
++        is AppScreen.Export -> UnifiedExportScreen(
++            project = homeState.projectsById[current.projectId],
++            projectId = current.projectId,
++            viewModel = homeViewModel,
++            onBack = { navigate(AppScreen.Home) },
++            onPrepare = { navigate(AppScreen.Prepare(current.projectId)) },
++            onStudio = { navigate(AppScreen.Studio(current.projectId)) },
++        )
+         is AppScreen.Options -> SettingsScreen(
+             projectId = current.projectId,
+             onBack = { returnTo(current.projectId) },
+--- a/app/src/main/java/studio/guitarlab/app/ui/HomeScreen.kt
++++ b/app/src/main/java/studio/guitarlab/app/ui/HomeScreen.kt
+@@ -70,7 +70,15 @@
+ import studio.guitarlab.platform.codec.android.MasterExportFormat
+
+ @Composable
+-fun HomeScreen(viewModel: HomeViewModel, onNewProject: () -> Unit, onOpenProject: (String) -> Unit, onSettings: () -> Unit, onBackupProject: (String) -> Unit = {}) {
++fun HomeScreen(
++    viewModel: HomeViewModel,
++    onNewProject: () -> Unit,
++    onOpenProject: (String) -> Unit,
++    onSettings: () -> Unit,
++    onBackupProject: (String) -> Unit = {},
++    onPrepareProject: (String) -> Unit = {},
++    onExportWorkspace: (String) -> Unit = {},
++) {
+     val state by viewModel.state.collectAsStateWithLifecycle()
+     var renameProject by remember { mutableStateOf<GuitarProject?>(null) }
+     var exportProject by remember { mutableStateOf<GuitarProject?>(null) }
+@@ -157,7 +165,18 @@
+                 )
+                 else -> LazyColumn(Modifier.weight(1f).testTag("home-projects"), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                     items(state.projects, key = { it.id }) { project ->
+-                        ProjectRow(project, { onOpenProject(project.id) }, { renameProject = project }, { exportProject = project }, { onBackupProject(project.id) }, { viewModel.duplicateProject(project) }, { deleteProject = project })
++                        ProjectRow(
++                            project = project,
++                            onOpen = { onOpenProject(project.id) },
++                            onPrepare = { onPrepareProject(project.id) },
++                            onStudio = { onOpenProject(project.id) },
++                            onExportWorkspace = { onExportWorkspace(project.id) },
++                            onRename = { renameProject = project },
++                            onExport = { exportProject = project },
++                            onBackup = { onBackupProject(project.id) },
++                            onDuplicate = { viewModel.duplicateProject(project) },
++                            onDelete = { deleteProject = project },
++                        )
+                     }
+                 }
+             }
+@@ -437,7 +456,18 @@
+ }
+
+ @Composable
+-private fun ProjectRow(project: GuitarProject, onOpen: () -> Unit, onRename: () -> Unit, onExport: () -> Unit, onBackup: () -> Unit, onDuplicate: () -> Unit, onDelete: () -> Unit) {
++private fun ProjectRow(
++    project: GuitarProject,
++    onOpen: () -> Unit,
++    onPrepare: () -> Unit,
++    onStudio: () -> Unit,
++    onExportWorkspace: () -> Unit,
++    onRename: () -> Unit,
++    onExport: () -> Unit,
++    onBackup: () -> Unit,
++    onDuplicate: () -> Unit,
++    onDelete: () -> Unit,
++) {
+     var menuOpen by remember { mutableStateOf(false) }
+     val shape = RoundedCornerShape(10.dp)
+     Surface(Modifier.fillMaxWidth(), shape = shape, color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.34f), border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.55f))) {
+@@ -451,11 +481,21 @@
+                     Text(project.name, style = MaterialTheme.typography.titleMedium)
+                     val modified = DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT).format(Date(project.updatedAtEpochMs))
+                     Text("$modified  ·  ${project.tracks.size} ${if (project.tracks.size == 1) "pista" else "pistas"}  ·  ${project.clips.size} ${if (project.clips.size == 1) "clipe" else "clipes"}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
++                    Text(
++                        UnifiedProjectShellPolicy.cardStatus(project).label,
++                        style = MaterialTheme.typography.labelMedium,
++                        color = MaterialTheme.colorScheme.primary,
++                        modifier = Modifier.testTag("project-status-${project.id}"),
++                    )
+                 }
+             }
+             Box(Modifier.padding(horizontal = 8.dp)) {
+                 AppIconButton(icon = Icons.Default.MoreVert, contentDescription = "Mais ações de ${project.name}", onClick = { menuOpen = true })
+                 DropdownMenu(menuOpen, { menuOpen = false }) {
++                    DropdownMenuItem({ Text("Preparar") }, { menuOpen = false; onPrepare() })
++                    DropdownMenuItem({ Text("Abrir Studio") }, { menuOpen = false; onStudio() })
++                    DropdownMenuItem({ Text("Área de exportação") }, { menuOpen = false; onExportWorkspace() })
++                    HorizontalDivider()
+                     DropdownMenuItem({ Text("Renomear") }, { menuOpen = false; onRename() }, leadingIcon = { Icon(Icons.Default.Edit, null) })
+                     DropdownMenuItem({ Text("Salvar e exportar") }, { menuOpen = false; onExport() }, leadingIcon = { Icon(Icons.Default.Share, null) })
+                     DropdownMenuItem({ Text("Backup deste projeto") }, { menuOpen = false; onBackup() }, leadingIcon = { Icon(Icons.Default.CloudUpload, null) })
+--- a/app/src/main/java/studio/guitarlab/app/ui/HomeViewModel.kt
++++ b/app/src/main/java/studio/guitarlab/app/ui/HomeViewModel.kt
+@@ -32,6 +32,7 @@
+ data class HomeUiState(
+     val loading: Boolean = true,
+     val projects: List<GuitarProject> = emptyList(),
++    val projectsById: Map<String, GuitarProject> = emptyMap(),
+     val totalProjects: Int = 0,
+     val libraryQuery: ProjectLibraryQuery = ProjectLibraryQuery(),
+     val error: String? = null,
+@@ -75,6 +76,7 @@
+                         current.copy(
+                             loading = false,
+                             projects = projectLibraryIndex.select(current.libraryQuery),
++                            projectsById = projects.associateBy { it.id },
+                             totalProjects = projectLibraryIndex.size,
+                             error = null,
+                         )
+--- a/app/src/main/java/studio/guitarlab/app/ui/NewProjectScreen.kt
++++ b/app/src/main/java/studio/guitarlab/app/ui/NewProjectScreen.kt
+@@ -1,6 +1,8 @@
+ package studio.guitarlab.app.ui
+
+ import androidx.compose.foundation.clickable
++import androidx.compose.foundation.rememberScrollState
++import androidx.compose.foundation.verticalScroll
+ import androidx.compose.foundation.layout.Arrangement
+ import androidx.compose.foundation.layout.Column
+ import androidx.compose.foundation.layout.Row
+@@ -23,6 +25,7 @@
+ import androidx.compose.ui.Alignment
+ import androidx.compose.ui.Modifier
+ import androidx.compose.ui.draw.clip
++import androidx.compose.ui.platform.testTag
+ import androidx.compose.ui.unit.dp
+ import studio.guitarlab.core.model.ProjectTemplate
+
+@@ -35,11 +38,11 @@
+     var selected by remember { mutableStateOf(ProjectTemplate.GUITAR) }
+
+     Column(
+-        modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 18.dp),
++        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp, vertical = 18.dp),
+         verticalArrangement = Arrangement.spacedBy(20.dp),
+     ) {
+         Row(
+-            modifier = Modifier.fillMaxWidth(),
++            modifier = Modifier.fillMaxWidth().testTag("new-project-name"),
+             verticalAlignment = Alignment.CenterVertically,
+             horizontalArrangement = Arrangement.SpaceBetween,
+         ) {
+@@ -60,7 +63,20 @@
+         )
+
+         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+-            Text("Começar com", style = MaterialTheme.typography.titleMedium)
++            Text("Como você quer começar?", style = MaterialTheme.typography.titleMedium)
++            SafeCreationPath(
++                title = "Pesquisar música",
++                description = "Pesquisa e download serão habilitados no próximo estágio da integração.",
++                enabled = false,
++                modifier = Modifier.testTag("new-project-search-disabled"),
++            )
++            SafeCreationPath(
++                title = "Importar áudio",
++                description = "A importação de fonte será habilitada no U3 sem alterar projetos existentes.",
++                enabled = false,
++                modifier = Modifier.testTag("new-project-import-disabled"),
++            )
++            Text("Criar agora", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 4.dp))
+             TemplateOption(
+                 title = "Template de guitarra",
+                 description = "Cria uma base, guitarras de referência e suas guitarras já organizadas.",
+@@ -78,10 +94,29 @@
+         Button(
+             enabled = name.isNotBlank(),
+             onClick = { onCreate(name.trim(), selected) },
++            modifier = Modifier.testTag("new-project-create"),
+         ) { Text("Criar projeto") }
+     }
+ }
+
++@Composable
++private fun SafeCreationPath(title: String, description: String, enabled: Boolean, modifier: Modifier = Modifier) {
++    Surface(
++        modifier = modifier.fillMaxWidth(),
++        shape = RoundedCornerShape(8.dp),
++        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.28f),
++        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.32f)),
++    ) {
++        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 13.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
++            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
++                Text(title, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface.copy(alpha = if (enabled) 1f else 0.62f))
++                Text(description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
++            }
++            Text(if (enabled) "Disponível" else "Em breve", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
++        }
++    }
++}
++
+ @Composable
+ private fun TemplateOption(
+     title: String,
+--- a/app/src/test/java/studio/guitarlab/app/ui/AppRouteCodecTest.kt
++++ b/app/src/test/java/studio/guitarlab/app/ui/AppRouteCodecTest.kt
+@@ -9,7 +9,9 @@
+         val screens = listOf(
+             AppScreen.Home,
+             AppScreen.NewProject,
++            AppScreen.Prepare("project:a/b?c"),
+             AppScreen.Studio("project:a/b?c"),
++            AppScreen.Export("project:a/b?c"),
+             AppScreen.Options(),
+             AppScreen.Options("project:a/b?c"),
+             AppScreen.AudioProbe(),
+@@ -29,5 +31,7 @@
+         assertEquals(AppScreen.Home, AppRouteCodec.decode(""))
+         assertEquals(AppScreen.Home, AppRouteCodec.decode("unknown"))
+         assertEquals(AppScreen.Home, AppRouteCodec.decode("studio:"))
++        assertEquals(AppScreen.Home, AppRouteCodec.decode("prepare:"))
++        assertEquals(AppScreen.Home, AppRouteCodec.decode("export:"))
+     }
+ }
+--- /dev/null
++++ b/app/src/main/java/studio/guitarlab/app/ui/UnifiedProjectWorkspaceScreen.kt
+@@ -0,0 +1,133 @@
++package studio.guitarlab.app.ui
++
++import androidx.activity.compose.rememberLauncherForActivityResult
++import androidx.activity.result.contract.ActivityResultContracts
++import androidx.compose.foundation.layout.Arrangement
++import androidx.compose.foundation.layout.Column
++import androidx.compose.foundation.layout.Row
++import androidx.compose.foundation.layout.fillMaxSize
++import androidx.compose.foundation.layout.fillMaxWidth
++import androidx.compose.foundation.layout.padding
++import androidx.compose.material3.Button
++import androidx.compose.material3.MaterialTheme
++import androidx.compose.material3.OutlinedButton
++import androidx.compose.material3.Surface
++import androidx.compose.material3.Text
++import androidx.compose.runtime.Composable
++import androidx.compose.ui.Alignment
++import androidx.compose.ui.Modifier
++import androidx.compose.ui.platform.testTag
++import androidx.compose.ui.unit.dp
++import studio.guitarlab.core.model.GuitarProject
++import studio.guitarlab.core.model.PreparationStatus
++import studio.guitarlab.platform.codec.android.MasterExportFormat
++
++enum class UnifiedProjectCardStatus(val label: String) {
++    STUDIO_READY("Studio pronto"),
++    SOURCE_READY("Fonte pronta"),
++    SEPARATING("Separação em andamento"),
++    PREPARED("Preparado"),
++    PREPARATION_ERROR("Preparação requer atenção"),
++}
++
++object UnifiedProjectShellPolicy {
++    fun initialScreen(project: GuitarProject): AppScreen = AppScreen.Studio(project.id)
++
++    fun cardStatus(project: GuitarProject): UnifiedProjectCardStatus = when (project.preparation?.status) {
++        PreparationStatus.SOURCE_READY -> UnifiedProjectCardStatus.SOURCE_READY
++        PreparationStatus.SEPARATING -> UnifiedProjectCardStatus.SEPARATING
++        PreparationStatus.READY -> UnifiedProjectCardStatus.PREPARED
++        PreparationStatus.ERROR -> UnifiedProjectCardStatus.PREPARATION_ERROR
++        PreparationStatus.NOT_STARTED, null -> UnifiedProjectCardStatus.STUDIO_READY
++    }
++}
++
++@Composable
++fun UnifiedPrepareScreen(
++    project: GuitarProject?,
++    projectId: String,
++    onBack: () -> Unit,
++    onStudio: () -> Unit,
++    onExport: () -> Unit,
++) {
++    UnifiedWorkspaceScaffold(
++        title = "Preparar",
++        projectName = project?.name ?: "Carregando projeto…",
++        onBack = onBack,
++        actions = {
++            OutlinedButton(onClick = onStudio) { Text("Studio") }
++            OutlinedButton(onClick = onExport) { Text("Exportar") }
++        },
++    ) {
++        Text(
++            text = when (project?.preparation?.status) {
++                PreparationStatus.SOURCE_READY -> "A fonte está pronta. A separação será integrada no U4."
++                PreparationStatus.SEPARATING -> "Há uma separação registrada em andamento. O U4 restaurará e reconciliará o job."
++                PreparationStatus.READY -> "Este projeto já contém preparação pronta. Os assets permanecem preservados."
++                PreparationStatus.ERROR -> "A preparação anterior requer atenção. Nenhum dado será descartado automaticamente."
++                PreparationStatus.NOT_STARTED, null -> "Este projeto ainda não possui uma fonte preparada. Pesquisa e importação chegam no U3.",
++            },
++            modifier = Modifier.testTag("prepare-safe-state-$projectId"),
++            style = MaterialTheme.typography.bodyLarge,
++            color = MaterialTheme.colorScheme.onSurfaceVariant,
++        )
++        Button(onClick = {}, enabled = false, modifier = Modifier.testTag("prepare-action-disabled")) { Text("Adicionar fonte") }
++    }
++}
++
++@Composable
++fun UnifiedExportScreen(
++    project: GuitarProject?,
++    projectId: String,
++    viewModel: HomeViewModel,
++    onBack: () -> Unit,
++    onPrepare: () -> Unit,
++    onStudio: () -> Unit,
++) {
++    val safeName = project?.name.orEmpty().replace(Regex("[^A-Za-z0-9._ -]"), "_").trim().ifBlank { "GuitarLab" }
++    val projectLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri -> if (uri != null) viewModel.saveProjectPackage(projectId, uri) }
++    val wavLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("audio/wav")) { uri -> if (uri != null) viewModel.exportMaster(projectId, uri, MasterExportFormat.WAV_FLOAT32) }
++    val flacLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("audio/flac")) { uri -> if (uri != null) viewModel.exportMaster(projectId, uri, MasterExportFormat.FLAC) }
++    val mp3Launcher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("audio/mpeg")) { uri -> if (uri != null) viewModel.exportMaster(projectId, uri, MasterExportFormat.MP3) }
++
++    UnifiedWorkspaceScaffold(
++        title = "Exportar",
++        projectName = project?.name ?: "Carregando projeto…",
++        onBack = onBack,
++        actions = {
++            OutlinedButton(onClick = onPrepare) { Text("Preparar") }
++            OutlinedButton(onClick = onStudio) { Text("Studio") }
++        },
++    ) {
++        Text("Salve o projeto portátil ou gere um master com o pipeline já homologado.", color = MaterialTheme.colorScheme.onSurfaceVariant)
++        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
++            Button(onClick = { projectLauncher.launch("$safeName.guitarlab") }, modifier = Modifier.testTag("export-project")) { Text("Projeto") }
++            OutlinedButton(onClick = { wavLauncher.launch("$safeName-master.wav") }, modifier = Modifier.testTag("export-wav")) { Text("WAV") }
++            OutlinedButton(onClick = { flacLauncher.launch("$safeName-master.flac") }) { Text("FLAC") }
++            OutlinedButton(onClick = { mp3Launcher.launch("$safeName-master.mp3") }) { Text("MP3") }
++        }
++    }
++}
++
++@Composable
++private fun UnifiedWorkspaceScaffold(
++    title: String,
++    projectName: String,
++    onBack: () -> Unit,
++    actions: @Composable () -> Unit,
++    content: @Composable () -> Unit,
++) {
++    Column(Modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 18.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
++        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
++            Column {
++                Text(title, style = MaterialTheme.typography.headlineMedium)
++                Text(projectName, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
++            }
++            OutlinedButton(onClick = onBack) { Text("Projetos") }
++        }
++        Surface(Modifier.fillMaxWidth(), tonalElevation = 1.dp, shape = MaterialTheme.shapes.medium) {
++            Row(Modifier.fillMaxWidth().padding(12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) { actions() }
++        }
++        content()
++    }
++}
+--- /dev/null
++++ b/app/src/test/java/studio/guitarlab/app/ui/UnifiedProjectShellPolicyTest.kt
+@@ -0,0 +1,38 @@
++package studio.guitarlab.app.ui
++
++import kotlin.test.Test
++import kotlin.test.assertEquals
++import studio.guitarlab.core.model.GuitarProject
++import studio.guitarlab.core.model.PreparationState
++import studio.guitarlab.core.model.PreparationStatus
++import studio.guitarlab.core.model.ProjectTemplate
++
++class UnifiedProjectShellPolicyTest {
++    private fun project(status: PreparationStatus? = null) = GuitarProject(
++        id = "legacy-project",
++        name = "Legacy",
++        template = ProjectTemplate.GUITAR,
++        createdAtEpochMs = 1,
++        updatedAtEpochMs = 2,
++        preparation = status?.let { PreparationState(status = it) },
++    )
++
++    @Test fun existingProjectAlwaysOpensInStudioWithoutPrepareDependency() {
++        assertEquals(AppScreen.Studio("legacy-project"), UnifiedProjectShellPolicy.initialScreen(project()))
++        PreparationStatus.entries.forEach { status ->
++            assertEquals(AppScreen.Studio("legacy-project"), UnifiedProjectShellPolicy.initialScreen(project(status)))
++        }
++    }
++
++    @Test fun cardStatusReflectsPreparationWithoutMutatingProject() {
++        val expected = mapOf(
++            null to UnifiedProjectCardStatus.STUDIO_READY,
++            PreparationStatus.NOT_STARTED to UnifiedProjectCardStatus.STUDIO_READY,
++            PreparationStatus.SOURCE_READY to UnifiedProjectCardStatus.SOURCE_READY,
++            PreparationStatus.SEPARATING to UnifiedProjectCardStatus.SEPARATING,
++            PreparationStatus.READY to UnifiedProjectCardStatus.PREPARED,
++            PreparationStatus.ERROR to UnifiedProjectCardStatus.PREPARATION_ERROR,
++        )
++        expected.forEach { (status, badge) -> assertEquals(badge, UnifiedProjectShellPolicy.cardStatus(project(status))) }
++    }
++}
+--- /dev/null
++++ b/app/src/androidTest/java/studio/guitarlab/app/UnifiedProjectShellInstrumentedTest.kt
+@@ -0,0 +1,54 @@
++package studio.guitarlab.app
++
++import androidx.compose.ui.test.assertIsDisplayed
++import androidx.compose.ui.test.assertIsNotEnabled
++import androidx.compose.ui.test.junit4.createComposeRule
++import androidx.compose.ui.test.onNodeWithTag
++import androidx.compose.ui.test.onNodeWithText
++import androidx.compose.ui.test.performClick
++import androidx.compose.ui.test.performTextInput
++import androidx.test.ext.junit.runners.AndroidJUnit4
++import org.junit.Rule
++import org.junit.Test
++import org.junit.runner.RunWith
++import studio.guitarlab.app.ui.NewProjectScreen
++import studio.guitarlab.app.ui.UnifiedPrepareScreen
++import studio.guitarlab.app.ui.theme.GuitarLabTheme
++import studio.guitarlab.core.model.ProjectTemplate
++
++@RunWith(AndroidJUnit4::class)
++class UnifiedProjectShellInstrumentedTest {
++    @get:Rule
++    val composeRule = createComposeRule()
++
++    @Test
++    fun newProjectShowsSafeAcquisitionStatesAndPreservesTemplateCreation() {
++        var created: Pair<String, ProjectTemplate>? = null
++        composeRule.setContent {
++            GuitarLabTheme(darkTheme = true) {
++                NewProjectScreen(onBack = {}, onCreate = { name, template -> created = name to template })
++            }
++        }
++
++        composeRule.onNodeWithTag("new-project-search-disabled").assertIsDisplayed()
++        composeRule.onNodeWithTag("new-project-import-disabled").assertIsDisplayed()
++        composeRule.onNodeWithTag("new-project-name").performTextInput("Projeto U2")
++        composeRule.onNodeWithText("Projeto vazio").performClick()
++        composeRule.onNodeWithTag("new-project-create").performClick()
++        composeRule.runOnIdle { check(created == ("Projeto U2" to ProjectTemplate.BLANK)) }
++    }
++
++    @Test
++    fun emptyPrepareWorkspaceIsExplicitAndCannotStartUnavailableWork() {
++        composeRule.setContent {
++            GuitarLabTheme(darkTheme = true) {
++                UnifiedPrepareScreen(project = null, projectId = "legacy", onBack = {}, onStudio = {}, onExport = {})
++            }
++        }
++
++        composeRule.onNodeWithTag("prepare-safe-state-legacy").assertIsDisplayed()
++        composeRule.onNodeWithTag("prepare-action-disabled").assertIsDisplayed().assertIsNotEnabled()
++        composeRule.onNodeWithText("Studio").assertIsDisplayed()
++        composeRule.onNodeWithText("Exportar").assertIsDisplayed()
++    }
++}

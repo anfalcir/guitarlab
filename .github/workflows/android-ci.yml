@@ -1,6 +1,8 @@
 name: GuitarLab Android CI
 
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
     inputs:
       signed_homologation:
@@ -21,9 +23,11 @@ env:
   ANDROID_BUILD_TOOLS: "36.0.0"
   EXPECTED_PACKAGE_NAME: "studio.guitarlab.app"
   EXPECTED_CERT_SHA256: "4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89"
+  SIGNED_HOMOLOGATION: ${{ (github.event_name == 'workflow_dispatch' && inputs.signed_homologation == true) || contains(github.event.head_commit.message, '[run ci signed]') }}
 
 jobs:
   software-gate:
+    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[run ci]') || contains(github.event.head_commit.message, '[run ci signed]') }}
     name: Unit tests + Lint + APK build
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -143,7 +147,7 @@ jobs:
       - name: Assemble debug and release candidate
         shell: bash
         env:
-          BUILD_SIGNED_HOMOLOGATION: ${{ inputs.signed_homologation }}
+          BUILD_SIGNED_HOMOLOGATION: ${{ env.SIGNED_HOMOLOGATION }}
         run: |
           set +e
           mkdir -p ci-diagnostics
@@ -157,7 +161,7 @@ jobs:
           exit $STATUS
 
       - name: Validate and stage unsigned release candidate
-        if: ${{ inputs.signed_homologation == true }}
+        if: ${{ env.SIGNED_HOMOLOGATION == 'true' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -196,7 +200,7 @@ jobs:
           } > release-candidate/RELEASE_BUILD_IDENTITY.txt
 
       - name: Upload unsigned release candidate
-        if: ${{ inputs.signed_homologation == true }}
+        if: ${{ env.SIGNED_HOMOLOGATION == 'true' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: guitarlab-release-unsigned-${{ github.sha }}
@@ -220,6 +224,7 @@ jobs:
             **/build/reports/lint-results*.xml
 
   android-integration-gate:
+    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[run ci]') || contains(github.event.head_commit.message, '[run ci signed]') }}
     name: API 36 emulator regression
     runs-on: ubuntu-latest
     timeout-minutes: 50
@@ -347,7 +352,7 @@ jobs:
   homologation-apk:
     name: Signed homologation APK
     needs: [software-gate, android-integration-gate]
-    if: ${{ inputs.signed_homologation == true }}
+    if: ${{ (github.event_name == 'workflow_dispatch' && inputs.signed_homologation == true) || contains(github.event.head_commit.message, '[run ci signed]') }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:

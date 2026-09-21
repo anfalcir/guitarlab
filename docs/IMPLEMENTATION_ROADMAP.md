@@ -106,7 +106,7 @@ A separate successor program is now approved to absorb GBW Android into GuitarLa
 
 Authoritative plan: `UNIFIED_GUITARLAB_GBW_IMPLEMENTATION_ROADMAP.md`.
 
-Current successor status: U0 PASS; U1 unified domain with U1a production compile and U1b test-fixture correctives implemented as SOURCE PRE-GATE after CI #667/#668.
+Current successor status: U0 PASS; U1 DIGITAL PASS on CI #669; U2 unified shell/Home/navigation implemented as SOURCE PRE-GATE.
 
 This successor program uses U0-U12 milestone numbering and is intentionally separate from the H29-H37/1.1 closure numbering. It does not retroactively alter the signed #663 evidence, H37b pre-gate state or historical 1.0/1.1 acceptance rules. Known physical residuals may be carried into the final unified-candidate campaign rather than forcing duplicate manual homologation, provided digital prerequisites remain objectively green.
 
@@ -121,9 +121,9 @@ Do not add to this line:
 - per-track independent physical output routing.
 
 ## Canonical materialization tail
-Current source chain: `… → H25 → H26 → H26a → H26b → H26e → H27 → H28 → H29 → H30 → H31 → H32 → H33 → H33a → H33b → H34 → H35 → H35a → H36 → H36a → H36b → H36c → H37 → H37a → H37b → U1 → U1a → U1b`.
+Current source chain: `… → H25 → H26 → H26a → H26b → H26e → H27 → H28 → H29 → H30 → H31 → H32 → H33 → H33a → H33b → H34 → H35 → H35a → H36 → H36a → H36b → H36c → H37 → H37a → H37b → U1 → U1a → U1b → U2`.
 
 H28 is frozen in `materialize_ci_sources_through_h28.sh`; the existing H29-H36c tail remains independently verified by `materialize_ci_sources_h29_h33.sh`; H37/H37a/H37b and U1/U1a/U1b are layered by their correspondingly named materializers. Each verifies its patch SHA-256 and terminal Git blobs. Future blocks must extend this chain deterministically and preserve the same fail-closed guarantees.
 
 ## Gate discipline
-`.github/workflows/android-ci.yml` remains manual-only (`workflow_dispatch`). Ordinary source/docs commits use `[skip ci]`; the assistant must not dispatch/rerun without explicit user instruction.
+`.github/workflows/android-ci.yml` accepts manual dispatch and controlled `main` commit triggers. `[run ci]` executes software + API 36 gates; `[run ci signed]` also signs the exact tested candidate. Ordinary source/docs commits use `[skip ci]`. The unified-roadmap workstream has explicit authorization to trigger and monitor required gates.

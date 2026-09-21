@@ -41,7 +41,7 @@ GuitarLab:
 - package: studio.guitarlab.app;
 - current signed digital authority before integration: CI #663 / H36c;
 - H37b Drive v3 source candidate is SOURCE PRE-GATE at the authoring snapshot;
-- main CI policy is manual-only workflow_dispatch.
+- main CI policy supports manual dispatch and controlled `[run ci]` / `[run ci signed]` commit-message triggers; ordinary `[skip ci]` commits remain inert.
 
 GBW Android:
 - repository/branch: anfalcir/gbw / dev/android-6.0;
@@ -213,8 +213,8 @@ Every U milestone must preserve these invariants.
 10. **Evidence is exact-source.**
     Candidate claims bind to an exact Git producer, build identity, tests and hashes.
 
-11. **No automatic hosted CI consumption without policy authorization.**
-    The current GuitarLab CI policy remains manual-only until explicitly changed. Local/emulator tests should be run autonomously where possible; canonical hosted gates are never assumed.
+11. **No uncontrolled hosted CI consumption.**
+    Hosted execution requires manual dispatch or the explicit `[run ci]` / `[run ci signed]` commit phrase on `main`. Ordinary commits use `[skip ci]`; canonical results are never assumed.
 
 12. **Documentation changes with behavior.**
     A milestone is incomplete if code and live documentation disagree.
@@ -1484,7 +1484,7 @@ Before every write:
 
 ## 22.2 CI
 
-Current GuitarLab canonical CI remains manual-only.
+Current GuitarLab canonical CI supports manual dispatch and the authorized controlled commit phrases `[run ci]` and `[run ci signed]` on `main`.
 
 Work may autonomously:
 - run available local JVM tests;
@@ -2103,8 +2103,8 @@ When current implementation differs from target design, ARCHITECTURE describes w
 | Milestone | Status at roadmap creation | Owner/manual dependency |
 |---|---|---|
 | U0 Baseline/inventory | PASS — `docs/U0_BASELINE_INVENTORY.md` | no physical |
-| U1 Unified domain | SOURCE PRE-GATE — U1a compile and U1b test-fixture correctives complete after CI #667/#668 | canonical CI dispatch and monitoring authorized for this workstream |
-| U2 Unified shell UX | NOT STARTED | none |
+| U1 Unified domain | DIGITAL PASS — CI #669 at `14b69271f2ae04529fa14475e1a34f2fdd864553` | none |
+| U2 Unified shell UX | SOURCE PRE-GATE — implementation and local materialization evidence complete | controlled canonical CI trigger |
 | U3 Source acquisition | NOT STARTED | provider/network credentials only if required |
 | U4 Separation integration | NOT STARTED | cloud auth/config may require owner account action |
 | U5 Prepare → Studio | NOT STARTED | none |
@@ -2139,8 +2139,18 @@ A Work session updates this table only after objective evidence.
 - `.source-parts/U1UnifiedProjectDomain.patch` is SHA-256 locked; clean application, repeat materialization and deliberate corrupted-patch rejection PASS;
 - canonical CI #667 reached compilation but failed on a branch return-type mismatch and two cross-module nullable smart casts in `UnifiedProjectDomain.kt`;
 - U1a replaces the impossible `require(false)` branch with `error(...)` and binds nullable provenance/preparation values inside `let`, preserving the U1 domain contract;
-- U1a patch integrity, clean application, repeat materialization and deliberate corrupted-patch rejection PASS locally. Under the manual-only policy, U1 remains SOURCE PRE-GATE and U2 must not start until the corrected canonical gate is green.
+- U1a patch integrity, clean application, repeat materialization and deliberate corrupted-patch rejection PASS locally; its corrected compile boundary was proven by CI #668 and the complete U1 line closed by CI #669.
 - CI #668 compiled the U1a production source and executed 191 tests; its sole unit failure was an invalid non-hexadecimal SHA-256 created by the portable-package fixture. U1b replaces that value with the deterministic SHA-256 of the fixture ID, without weakening package validation.
+
+### U1 digital closure / U2 source checkpoint — 2026-09-21
+
+- canonical CI #669 PASS on `14b69271f2ae04529fa14475e1a34f2fdd864553`: unit, Lint, build, API 36 emulator regression and signed homologation identity;
+- U2 adds persistent Prepare and Export routes while retaining Studio as the fail-safe initial destination for every existing project;
+- Home cards expose preparation status derived only from the persisted domain and explicit Prepare/Studio/Export actions;
+- New Project exposes Search / Import / Blank information architecture; Search and audio Import remain visibly disabled safe states until U3, while Guitar/Blank creation remains operational;
+- Export uses the already-homologated portable-project and master pipelines; Prepare does not mutate data before U3/U4;
+- route, policy and Compose geometry/accessibility regressions are included in the canonical gate;
+- `.source-parts/U2UnifiedProjectShell.patch` is SHA-256 locked and the U2 materializer verifies every terminal Git blob.
 
 ---
 
