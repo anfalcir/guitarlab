@@ -251,3 +251,21 @@ The unified GBW + GuitarLab pipeline treats the prepared backing and guitar refe
 U6 Study Export is therefore an **external delivery** concern only. Explicit backing/guitar WAV delivery uses a direct byte publication fast path whenever the requested WAV contract matches the canonical managed asset. FLAC and MP3 are encoded once from that canonical asset only when the user explicitly requests the format and the Android codec capability gate permits it. Delivery files never replace the canonical managed reference and conversions may not be chained through another delivery format.
 
 Studio Master remains a separate semantic output: the current timeline/mix is rendered once to the canonical float-WAV render domain, after which WAV is published directly or FLAC/MP3 is encoded exactly once for external delivery.
+
+
+## D-081 — Clean cutover; no legacy project migration obligation
+
+The unified GuitarLab product line does **not** invest further engineering time in automatic migration/import compatibility for standalone GBW Android projects, H37/pre-unification GuitarLab backups, old `.gbwbackup` archives or historical Drive project corpora.
+
+Reason: the owner has only two legacy projects and explicitly accepts recreating them manually in the unified application. The expected implementation/test/maintenance cost and risk of preserving historical migration paths is therefore disproportionate to the practical value.
+
+Consequences:
+- U9 is retired and will not be implemented;
+- U8 must implement only the new unified transactional Drive backup/restore model;
+- no H37 legacy adapter, GBW Share/Open bridge or historical importer is a release requirement;
+- U10/U11 omit legacy migration corpus gates;
+- historical migration code/tests already produced may remain if harmless, but they do not establish a future support obligation;
+- no automatic deletion of old GBW/GuitarLab backup files is introduced; historical files are simply outside the supported migration path;
+- current-product compatibility remains mandatory for projects created by the unified line, including save/reopen, duplicate, backup/restore, schema evolution, identity/integrity checks and fail-closed malformed-data handling.
+
+This is a scope reduction, not a weakening of persistence, backup correctness, transactional restore, project identity or asset integrity.
