@@ -245,7 +245,7 @@ Because prepared projects can contain a source, six large stems, recordings and 
 The unified program should carry digitally unprovable hardware residuals forward and execute one consolidated final signed-candidate physical campaign whenever technically possible. Automated unit/integration/property/fuzz/emulator/cloud/Drive/migration/stress evidence must remove objectively provable checks from the manual campaign. A second physical pass is required only when source changes invalidate relevant physical evidence.
 
 
-## D-080 — Internal Prepare → Studio media never uses delivery-codec export
+## D-081 — Internal Prepare → Studio media never uses delivery-codec export
 The unified GBW + GuitarLab pipeline treats the prepared backing and guitar reference as canonical project-managed Studio inputs, not as files that must be exported and re-imported. U5 produces Studio-native lossless PCM WAV references once, preserving project/stem sample rate and the shared-gain/alignment contract; optional Guitar L/R references are derived only for the Studio template. Studio binds those managed assets directly.
 
 U6 Study Export is therefore an **external delivery** concern only. Explicit backing/guitar WAV delivery uses a direct byte publication fast path whenever the requested WAV contract matches the canonical managed asset. FLAC and MP3 are encoded once from that canonical asset only when the user explicitly requests the format and the Android codec capability gate permits it. Delivery files never replace the canonical managed reference and conversions may not be chained through another delivery format.
@@ -253,7 +253,7 @@ U6 Study Export is therefore an **external delivery** concern only. Explicit bac
 Studio Master remains a separate semantic output: the current timeline/mix is rendered once to the canonical float-WAV render domain, after which WAV is published directly or FLAC/MP3 is encoded exactly once for external delivery.
 
 
-## D-081 — Clean cutover; no legacy project migration obligation
+## D-082 — Clean cutover; no legacy project migration obligation
 
 The unified GuitarLab product line does **not** invest further engineering time in automatic migration/import compatibility for standalone GBW Android projects, H37/pre-unification GuitarLab backups, old `.gbwbackup` archives or historical Drive project corpora.
 
@@ -269,3 +269,28 @@ Consequences:
 - current-product compatibility remains mandatory for projects created by the unified line, including save/reopen, duplicate, backup/restore, schema evolution, identity/integrity checks and fail-closed malformed-data handling.
 
 This is a scope reduction, not a weakening of persistence, backup correctness, transactional restore, project identity or asset integrity.
+
+
+## D-083 — One product shell; duplicate subsystem UX is release-blocking
+
+The final application must present Prepare, Studio, Export, cloud processing, backup and long-running work as capabilities of one GuitarLab product.
+
+Consequences:
+- Prepare / Studio / Export share one adaptive project-level shell and navigation language;
+- Home opens the last/relevant project workspace instead of hard-coding Studio for every project;
+- exactly one canonical export workflow owns external format/output selection;
+- Home/Studio export actions navigate to that workflow rather than maintaining independent chooser logic;
+- long-running source/separation/preparation/export/backup/restore work converges on one semantic Activity/operation model;
+- user-facing state is mapped to product language rather than rendering raw backend/domain enum names;
+- common visual/status/error/empty/destructive components become shared product primitives;
+- the global U10/U11 gate includes screenshot/geometry/accessibility/terminology evidence.
+
+A technically functional feature is not release-complete if it leaves a second interaction language that makes the product look like two applications stitched together.
+
+## D-084 — Default post-stem reference generation is automatic
+
+After all six authoritative stems are validated and published, the default backing/reference recipe is deterministic and requires no additional user choice. The unified application therefore generates the canonical backing and guitar reference automatically as the normal continuation of Prepare.
+
+The normal user path must not stop at a redundant “Criar base e referência” confirmation.
+
+A manual rebuild/retry action remains valid after failure or for an explicitly requested future alternate recipe. Automatic generation does not change the non-destructive Studio binding rule: a newly prepared reference never silently replaces an older version already bound to an edited Studio session.
