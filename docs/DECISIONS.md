@@ -243,3 +243,11 @@ Because prepared projects can contain a source, six large stems, recordings and 
 
 ## D-080 — Physical homologation is consolidated after maximal digital closure
 The unified program should carry digitally unprovable hardware residuals forward and execute one consolidated final signed-candidate physical campaign whenever technically possible. Automated unit/integration/property/fuzz/emulator/cloud/Drive/migration/stress evidence must remove objectively provable checks from the manual campaign. A second physical pass is required only when source changes invalidate relevant physical evidence.
+
+
+## D-080 — Internal Prepare → Studio media never uses delivery-codec export
+The unified GBW + GuitarLab pipeline treats the prepared backing and guitar reference as canonical project-managed Studio inputs, not as files that must be exported and re-imported. U5 produces Studio-native lossless PCM WAV references once, preserving project/stem sample rate and the shared-gain/alignment contract; optional Guitar L/R references are derived only for the Studio template. Studio binds those managed assets directly.
+
+U6 Study Export is therefore an **external delivery** concern only. Explicit backing/guitar WAV delivery uses a direct byte publication fast path whenever the requested WAV contract matches the canonical managed asset. FLAC and MP3 are encoded once from that canonical asset only when the user explicitly requests the format and the Android codec capability gate permits it. Delivery files never replace the canonical managed reference and conversions may not be chained through another delivery format.
+
+Studio Master remains a separate semantic output: the current timeline/mix is rendered once to the canonical float-WAV render domain, after which WAV is published directly or FLAC/MP3 is encoded exactly once for external delivery.
