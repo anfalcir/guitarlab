@@ -18,11 +18,12 @@ Updated: 2026-09-21
 - Automatic CI #674 passed unit, Lint and APK build and executed 36 API 36 tests; its only failure identified `new-project-name` on the heading row rather than the editable field. U2d moves the semantic tag to the `OutlinedTextField` without changing product behavior.
 - Automatic CI #675 closed U2: deterministic U2d materialization, unit, Lint, debug/release build and all 36 API 36 tests passed.
 - U3 source acquisition is implemented as **SOURCE PRE-GATE**: GBW ranking/provider semantics are ported behind `core:source` / `platform:source-android`; local SAF import and remote YouTube/SoundCloud/Bandcamp acquisition stage and validate media before the sole project-mutation boundary publishes an immutable managed `SOURCE_ORIGINAL`. WorkManager + persistent operation state provide progress/cancel/retry/process-recreation semantics; no separation is invoked in U3.
-- U3 is the first incomplete unified milestone until its controlled canonical Android CI gate passes.
+- U3 source acquisition is **DIGITAL PASS** on automatic CI #676 / run `35606018087` at exact source `a7af51bf6622b4eecc32308c091fbb5020a1d54b`.
+- U4 separation integration is now the first incomplete unified milestone.
 
 ## Active line
 - Repository/branch: `anfalcir/guitarlab` / `main`.
-- Source candidate: `0.5.0-rc4`, versionCode `24`, U3 source acquisition — **SOURCE PRE-GATE**; U2 remains DIGITAL PASS on CI #675 / run `35596671163`.
+- Source candidate: `0.5.0-rc4`, versionCode `24`, U3 source acquisition — **DIGITAL PASS** on CI #676 / run `35606018087`; U4 is next.
 - Latest signed version is `0.5.0-rc4`, versionCode `24`, package `studio.guitarlab.app`.
 - Latest signed DIGITAL PASS: **CI #669** / run `35591631207` / producer `14b69271f2ae04529fa14475e1a34f2fdd864553`.
 - #663 scope: H28 → H29 → H30 → H31 → H32 → H33 → H33a → H33b → H34 → H35 → H35a → H36 → H36a → H36b → H36c.
@@ -156,7 +157,7 @@ Within the H29-H37/1.1 closure line, external MIDI/footswitch control remains th
 A later product decision now approves a **separate successor program** that unifies GBW Android into GuitarLab. Its authoritative plan is `UNIFIED_GUITARLAB_GBW_IMPLEMENTATION_ROADMAP.md`. The unified program does not retroactively change H29-H37 evidence or current release identity. It is designed to carry the still-unproven hardware residual into one consolidated final unified-candidate physical campaign whenever technically possible, while maximizing digital validation before that campaign.
 
 
-## U3 source acquisition — SOURCE PRE-GATE
+## U3 source acquisition — DIGITAL PASS
 Implementation candidate prepared on top of the exact U2d materialized source. The U3 source block is SHA-256 locked and reconstructs:
 - pure provider-neutral ranking/normalization in `core:source`;
 - Android source acquisition in `platform:source-android` with explicit INTERNET permission;
@@ -168,4 +169,4 @@ Implementation candidate prepared on top of the exact U2d materialized source. T
 - persistent WorkManager progress/cancel/retry state surfaced in Prepare as the U3 activity surface;
 - active New Project Search/Import entry points and API36 Compose regression coverage.
 
-Pre-gate evidence: clean U2d→U3 materialization PASS, terminal Git-blob verification PASS, repeat/idempotent materialization PASS, reverse dry-run PASS and `git diff --check` PASS. Full Gradle/Android verification is intentionally delegated to the controlled canonical CI because this Work container does not provide the project Android SDK/Gradle toolchain. No U3 DIGITAL PASS is claimed before that workflow succeeds.
+Pre-gate evidence: clean U2d→U3 materialization PASS, terminal Git-blob verification PASS, repeat/idempotent materialization PASS, reverse dry-run PASS and `git diff --check` PASS. Canonical automatic CI #676 then closed U3 at exact source `a7af51bf6622b4eecc32308c091fbb5020a1d54b`: 358/358 JVM/unit tests PASS; Android Lint PASS with 0 errors (58 warnings + 4 hints in app, plus 1/1/2 warnings in source/codec/audio platform modules); debug APK assembly PASS; 37/37 standard API36 instrumented tests PASS; 1/1 isolated target-tablet geometry PASS. The signed homologation job was intentionally skipped for this intermediate milestone.

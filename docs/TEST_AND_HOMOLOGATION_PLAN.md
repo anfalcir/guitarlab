@@ -155,3 +155,16 @@ U3 requires the controlled canonical Android CI before promotion. The digital ga
 - existing GuitarLab unit/Lint/build/API36 regression unchanged.
 
 No physical listening/hardware gate is required to close U3. Real provider/network credentials are an external dependency only if a provider demands them; deterministic product correctness must not depend on secret credentials. A real-source smoke may be deferred to the consolidated U12 campaign unless the canonical environment can perform it without introducing nondeterministic CI dependency.
+
+
+### U3 canonical closure — CI #676
+Exact source: `a7af51bf6622b4eecc32308c091fbb5020a1d54b`; run: `35606018087`.
+- deterministic U3 materialization: PASS in both canonical jobs;
+- JVM/unit: 358/358 PASS, 0 failures/errors/skips;
+- Android Lint: PASS, 0 errors;
+- debug APK assembly: PASS;
+- standard API36 instrumentation: 37/37 PASS;
+- isolated target-tablet geometry: 1/1 PASS;
+- signed homologation: intentionally not requested for intermediate U3.
+
+U3 therefore requires no separate physical homologation. Provider/media realism remains part of the final consolidated Prepare smoke together with U4+ integration; it does not reopen the digitally proven U3 publication/ownership contracts.
