@@ -14,8 +14,6 @@ CHECKS=(
   "app/src/main/java/studio/guitarlab/app/ui/UnifiedProjectWorkspaceScreen.kt|67749191944adcfd411df28941dd638dd41d575a"
   "platform/audio-android/src/main/kotlin/studio/guitarlab/platform/audio/android/StudioMasterRenderer.kt|8d529a5b88daa8172e3d35f2a633250a39fb0625"
   "platform/codec-android/src/main/kotlin/studio/guitarlab/platform/codec/android/AndroidMasterAudioEncoder.kt|991df19043b8f0e93fbdc964714ef78603982ac7"
-  "app/src/test/java/studio/guitarlab/app/ui/ExportStoragePolicyTest.kt|fcfbe13185693c7116be20c23bf006b947f05839"
-  "app/src/androidTest/java/studio/guitarlab/app/StudyExportInstrumentedTest.kt|4599b854fdbdd0915c1ccff3770bfabfcb6fa332"
   "app/src/androidTest/java/studio/guitarlab/app/UnifiedProjectShellInstrumentedTest.kt|af6e59bbb5ab96fdce12336cb4e12a869abd47e6"
 )
 
