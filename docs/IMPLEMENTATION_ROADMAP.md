@@ -106,7 +106,7 @@ A separate successor program is now approved to absorb GBW Android into GuitarLa
 
 Authoritative plan: `UNIFIED_GUITARLAB_GBW_IMPLEMENTATION_ROADMAP.md`.
 
-Current successor status: U0 PASS; U1 DIGITAL PASS on CI #669; U2 unified shell/Home/navigation plus U2a-U2d correctives implemented as SOURCE PRE-GATE after automatic CI #670-#674. CI #674 passed unit/Lint/build and narrowed the API 36 gate to one misplaced test tag; U2d moves it to the editable field.
+Current successor status: U0 PASS; U1 DIGITAL PASS on CI #669; U2 unified shell/Home/navigation is DIGITAL PASS on automatic CI #675 / run `35596671163` at exact source `665c292931c0f2ed9fa1e7145818101c5d017222`. U3 source acquisition is the first incomplete milestone.
 
 This successor program uses U0-U12 milestone numbering and is intentionally separate from the H29-H37/1.1 closure numbering. It does not retroactively alter the signed #663 evidence, H37b pre-gate state or historical 1.0/1.1 acceptance rules. Known physical residuals may be carried into the final unified-candidate campaign rather than forcing duplicate manual homologation, provided digital prerequisites remain objectively green.
 

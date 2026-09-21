@@ -136,5 +136,7 @@ Automatic CI #673 stopped in diff sanity before materialization because the gene
 
 Automatic CI #674 passed unit, Lint and APK build and ran all 36 API 36 tests. The sole failure showed that `new-project-name` resolved to the non-focusable heading row, so text input could not request focus. U2d moves that test tag to the existing `OutlinedTextField`; behavior and assertions remain unchanged.
 
+Automatic CI #675 / run `35596671163` closed U2 at exact source `665c292931c0f2ed9fa1e7145818101c5d017222`: deterministic U2d materialization, unit tests, Lint, debug/release builds and all 36 API 36 tests passed. No signed candidate was requested for this intermediate milestone.
+
 ## Final rule
 Any promoted release requires exact-source digital PASS, only the genuinely hardware-dependent residual applicable to that source, no repeatable P0/P1 and explicit approval of the exact signed APK SHA-256.
