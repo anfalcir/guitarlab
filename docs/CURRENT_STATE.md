@@ -17,7 +17,7 @@ Updated: 2026-09-21
 - Automatic CI #673 stopped at the diff-sanity preflight because the first U2c patch artifact ended with a blank context line. The normalized U2c package preserves the exact source delta and removes that packaging-only defect.
 - Automatic CI #674 passed unit, Lint and APK build and executed 36 API 36 tests; its only failure identified `new-project-name` on the heading row rather than the editable field. U2d moves the semantic tag to the `OutlinedTextField` without changing product behavior.
 - Automatic CI #675 closed U2: deterministic U2d materialization, unit, Lint, debug/release build and all 36 API 36 tests passed.
-- U3 source acquisition is implemented as **SOURCE PRE-GATE**: GBW ranking/provider semantics are ported behind `core:source` / `platform:source-android`; local SAF import and remote YouTube/SoundCloud/Bandcamp acquisition stage and validate media before the sole project-mutation boundary publishes an immutable managed `SOURCE_ORIGINAL`. WorkManager + persistent operation state provide progress/cancel/retry/process-recreation semantics; no separation is invoked in U3.
+- U3 implementation ports GBW ranking/provider semantics behind `core:source` / `platform:source-android`; local SAF import and remote YouTube/SoundCloud/Bandcamp acquisition stage and validate media before the sole project-mutation boundary publishes an immutable managed `SOURCE_ORIGINAL`. WorkManager + persistent operation state provide progress/cancel/retry/process-recreation semantics; no separation is invoked in U3.
 - U3 source acquisition is **DIGITAL PASS** on automatic CI #676 / run `35606018087` at exact source `a7af51bf6622b4eecc32308c091fbb5020a1d54b`.
 - U4 separation integration is now the first incomplete unified milestone.
 
