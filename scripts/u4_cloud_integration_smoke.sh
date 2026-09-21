@@ -52,8 +52,9 @@ gcloud storage cp "$TMP/source.wav" "gs://${GBW_BUCKET}/${INPUT_PATH}" --content
 # creates this before dispatch; this isolated smoke mirrors that durable precondition.
 ACCESS_TOKEN="$(gcloud auth print-access-token)"
 DOC_URL="https://firestore.googleapis.com/v1/projects/${GBW_GCP_PROJECT}/databases/(default)/documents/users/${TEST_UID}/jobs?documentId=${JOB_ID}"
-curl --fail-with-body --silent --show-error -X POST "$DOC_URL" \
+curl --fail-with-body --show-error -X POST "$DOC_URL" \
   -H "Authorization: Bearer ${ACCESS_TOKEN}" -H "Content-Type: application/json" \
+  -H "X-Goog-User-Project: ${GBW_GCP_PROJECT}" \
   --data "{\"fields\":{\"schemaVersion\":{\"integerValue\":\"1\"},\"uid\":{\"stringValue\":\"${TEST_UID}\"},\"projectId\":{\"stringValue\":\"${PROJECT_ID}\"},\"inputPath\":{\"stringValue\":\"${INPUT_PATH}\"},\"inputSha256\":{\"stringValue\":\"${INPUT_SHA}\"},\"state\":{\"stringValue\":\"QUEUED\"},\"phase\":{\"stringValue\":\"STARTING\"},\"progress\":{\"integerValue\":\"0\"}}}" >/dev/null
 
 echo "Executing production gbw-demucs for GuitarLab U4 smoke..."
