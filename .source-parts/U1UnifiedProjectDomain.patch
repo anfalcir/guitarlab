@@ -1,0 +1,475 @@
+--- a/core/model/src/main/kotlin/studio/guitarlab/core/model/ProjectModels.kt
++++ b/core/model/src/main/kotlin/studio/guitarlab/core/model/ProjectModels.kt
+@@ -2,13 +2,83 @@
+
+ import kotlinx.serialization.Serializable
+
+-const val CURRENT_PROJECT_SCHEMA_VERSION: Int = 1
++const val CURRENT_PROJECT_SCHEMA_VERSION: Int = 2
+
+ @Serializable enum class ProjectTemplate { BLANK, GUITAR }
+ @Serializable enum class RoleSource { NONE, AUTO, USER }
+ @Serializable enum class ChannelLayout { MONO, STEREO }
+ @Serializable enum class SampleRateMode { AUTO, FIXED }
+ @Serializable enum class SectionOrigin { MANUAL, AUTOMATIC }
++@Serializable enum class AssetRole {
++    SOURCE_ORIGINAL,
++    STEM_DRUMS,
++    STEM_BASS,
++    STEM_OTHER,
++    STEM_VOCALS,
++    STEM_GUITAR,
++    STEM_PIANO,
++    REFERENCE_BACKING,
++    REFERENCE_GUITAR,
++    RECORDING_TAKE,
++    STUDIO_MASTER,
++    PRACTICE_EXPORT,
++}
++@Serializable enum class AssetClassification { AUTHORITATIVE, DERIVED }
++@Serializable enum class AssetLifecycle { STAGING, VALIDATED, MANAGED }
++@Serializable enum class PreparationStatus { NOT_STARTED, SOURCE_READY, SEPARATING, READY, ERROR }
++@Serializable enum class ReferenceBindingKind { BACKING, GUITAR_REFERENCE, GUITAR_LEFT, GUITAR_RIGHT }
++
++@Serializable data class AssetProvenance(
++    val kind: String,
++    val inputAssetIds: List<String> = emptyList(),
++    val inputSha256: List<String> = emptyList(),
++    val engine: String? = null,
++    val model: String? = null,
++    val parameters: Map<String, String> = emptyMap(),
++    val contractVersion: Int = 1,
++    val executionMode: String? = null,
++)
++
++@Serializable data class ManagedAsset(
++    val assetId: String,
++    val role: AssetRole,
++    val relativePath: String,
++    val sha256: String,
++    val byteSize: Long,
++    val format: String,
++    val sampleRateHz: Int? = null,
++    val channelCount: Int? = null,
++    val frameCount: Long? = null,
++    val createdAtEpochMs: Long,
++    val classification: AssetClassification,
++    val lifecycle: AssetLifecycle = AssetLifecycle.MANAGED,
++    val provenance: AssetProvenance? = null,
++)
++
++@Serializable data class PreparationState(
++    val status: PreparationStatus = PreparationStatus.NOT_STARTED,
++    val sourceAssetId: String? = null,
++    val activeStemAssetIds: Map<AssetRole, String> = emptyMap(),
++    val activeBackingAssetId: String? = null,
++    val activeGuitarAssetId: String? = null,
++    val availableReferenceAssetIds: List<String> = emptyList(),
++)
++
++@Serializable data class ReferenceBinding(
++    val bindingId: String,
++    val trackId: String,
++    val assetId: String,
++    val kind: ReferenceBindingKind,
++    val createdAtEpochMs: Long,
++)
++
++@Serializable data class ProjectMigrationProvenance(
++    val sourceProduct: String,
++    val sourceSchemaVersion: Int,
++    val sourceProjectId: String,
++    val importedAtEpochMs: Long,
++    val sourceRevisionSha256: String? = null,
++)
+
+ @Serializable data class SampleRateConfig(val mode: SampleRateMode = SampleRateMode.AUTO, val fixedHz: Int? = null)
+ @Serializable data class TrackRoleDefinition(val id: String, val name: String, val builtIn: Boolean, val defaultChannelLayout: ChannelLayout, val defaultPan: Float = 0f)
+@@ -162,4 +232,8 @@
+     val sections: List<TimelineSection> = emptyList(),
+     val takes: List<RecordingTake> = emptyList(),
+     val punchRegion: PunchRegion? = null,
++    val assets: List<ManagedAsset> = emptyList(),
++    val preparation: PreparationState? = null,
++    val referenceBindings: List<ReferenceBinding> = emptyList(),
++    val migrationProvenance: ProjectMigrationProvenance? = null,
+ )
+--- a/core/model/src/main/kotlin/studio/guitarlab/core/model/ProjectValidator.kt
++++ b/core/model/src/main/kotlin/studio/guitarlab/core/model/ProjectValidator.kt
+@@ -5,7 +5,7 @@
+ object ProjectValidator {
+     fun validate(project: GuitarProject): List<ValidationIssue> {
+         val issues = mutableListOf<ValidationIssue>()
+-        if (project.schemaVersion <= 0) issues += ValidationIssue("schema.invalid", "A versão do projeto deve ser positiva.")
++        if (project.schemaVersion !in 1..CURRENT_PROJECT_SCHEMA_VERSION) issues += ValidationIssue("schema.invalid", "A versão do projeto não é suportada.")
+         if (project.id.isBlank()) issues += ValidationIssue("project.id.blank", "O ID do projeto não pode ficar vazio.")
+         if (project.name.isBlank()) issues += ValidationIssue("project.name.blank", "O nome do projeto não pode ficar vazio.")
+         if (project.masterGainDb !in -60f..12f) issues += ValidationIssue("project.master-gain.range", "O ganho Master deve ficar entre -60 dB e +12 dB.")
+@@ -15,10 +15,13 @@
+         if (project.markers.map { it.id }.distinct().size != project.markers.size) issues += ValidationIssue("marker.id.duplicate", "Os IDs dos marcadores devem ser únicos.")
+         if (project.sections.map { it.id }.distinct().size != project.sections.size) issues += ValidationIssue("section.id.duplicate", "Os IDs das seções devem ser únicos.")
+         if (project.takes.map { it.id }.distinct().size != project.takes.size) issues += ValidationIssue("take.id.duplicate", "Os IDs dos takes devem ser únicos.")
++        if (project.assets.map { it.assetId }.distinct().size != project.assets.size) issues += ValidationIssue("asset.id.duplicate", "Os IDs dos assets devem ser únicos.")
++        if (project.referenceBindings.map { it.bindingId }.distinct().size != project.referenceBindings.size) issues += ValidationIssue("binding.id.duplicate", "Os IDs dos vínculos devem ser únicos.")
+
+         val groupIds = project.groups.map { it.id }.toSet()
+         val trackIds = project.tracks.map { it.id }.toSet()
+         val validRoles = (BuiltInRoles.definitions + project.customRoles).map { it.id }.toSet()
++        val assetIds = project.assets.map { it.assetId }.toSet()
+
+         project.tracks.forEach { track ->
+             if (track.groupId != null && track.groupId !in groupIds) issues += ValidationIssue("track.group.missing", "A pista '${track.name}' referencia um grupo inexistente.")
+@@ -91,9 +94,53 @@
+             }
+         }
+
++        val sha256Pattern = Regex("[0-9a-f]{64}")
++        project.assets.forEach { asset ->
++            if (asset.assetId.isBlank()) issues += ValidationIssue("asset.id.blank", "O ID do asset não pode ficar vazio.")
++            if (asset.relativePath.isBlank() || asset.relativePath.startsWith('/') || asset.relativePath.contains('\\') || asset.relativePath.split('/').any { it == "." || it == ".." || it.isBlank() }) {
++                issues += ValidationIssue("asset.path.invalid", "O caminho do asset '${asset.assetId}' é inválido.")
++            }
++            if (!sha256Pattern.matches(asset.sha256)) issues += ValidationIssue("asset.sha256.invalid", "O SHA-256 do asset '${asset.assetId}' é inválido.")
++            if (asset.byteSize <= 0L) issues += ValidationIssue("asset.size.invalid", "O tamanho do asset '${asset.assetId}' deve ser positivo.")
++            if (asset.format.isBlank()) issues += ValidationIssue("asset.format.blank", "O formato do asset '${asset.assetId}' deve ser informado.")
++            if (asset.sampleRateHz != null && asset.sampleRateHz <= 0) issues += ValidationIssue("asset.sample-rate.invalid", "A taxa do asset '${asset.assetId}' é inválida.")
++            if (asset.channelCount != null && asset.channelCount !in 1..32) issues += ValidationIssue("asset.channels.invalid", "Os canais do asset '${asset.assetId}' são inválidos.")
++            if (asset.frameCount != null && asset.frameCount <= 0L) issues += ValidationIssue("asset.frames.invalid", "Os frames do asset '${asset.assetId}' são inválidos.")
++            if (asset.lifecycle == AssetLifecycle.STAGING) issues += ValidationIssue("asset.lifecycle.staging", "Um projeto publicado não pode referenciar asset em staging.")
++            asset.provenance?.let { provenance ->
++                if (provenance.kind.isBlank() || provenance.contractVersion <= 0) issues += ValidationIssue("asset.provenance.invalid", "A provenance do asset '${asset.assetId}' é inválida.")
++                if (asset.assetId in provenance.inputAssetIds || provenance.inputAssetIds.any { it !in assetIds }) issues += ValidationIssue("asset.provenance.reference", "A provenance do asset '${asset.assetId}' contém referência inválida.")
++                if (provenance.inputSha256.any { !sha256Pattern.matches(it) }) issues += ValidationIssue("asset.provenance.sha256", "A provenance do asset '${asset.assetId}' contém hash inválido.")
++            }
++        }
++
++        project.preparation?.let { preparation ->
++            val references = buildList {
++                preparation.sourceAssetId?.let(::add)
++                addAll(preparation.activeStemAssetIds.values)
++                preparation.activeBackingAssetId?.let(::add)
++                preparation.activeGuitarAssetId?.let(::add)
++                addAll(preparation.availableReferenceAssetIds)
++            }
++            if (references.any { it !in assetIds }) issues += ValidationIssue("preparation.asset.missing", "A preparação referencia asset inexistente.")
++            if (preparation.activeStemAssetIds.keys.any { it !in EXPECTED_STEM_ROLES }) issues += ValidationIssue("preparation.stem.role", "A preparação contém função de stem inválida.")
++        }
++        project.referenceBindings.forEach { binding ->
++            if (binding.bindingId.isBlank() || binding.trackId !in trackIds || binding.assetId !in assetIds) issues += ValidationIssue("binding.reference.invalid", "O vínculo '${binding.bindingId}' possui referência inválida.")
++        }
++
+         val customRoleIds = project.customRoles.map { it.id }
+         if (customRoleIds.distinct().size != customRoleIds.size) issues += ValidationIssue("role.id.duplicate", "As funções personalizadas precisam ter IDs únicos.")
+         if (customRoleIds.any { custom -> BuiltInRoles.definitions.any { it.id == custom } }) issues += ValidationIssue("role.id.builtin-collision", "Funções personalizadas não podem reutilizar IDs internos.")
+         return issues
+     }
++
++    private val EXPECTED_STEM_ROLES = setOf(
++        AssetRole.STEM_DRUMS,
++        AssetRole.STEM_BASS,
++        AssetRole.STEM_OTHER,
++        AssetRole.STEM_VOCALS,
++        AssetRole.STEM_GUITAR,
++        AssetRole.STEM_PIANO,
++    )
+ }
+--- a/core/project/src/main/kotlin/studio/guitarlab/core/project/ProjectCodec.kt
++++ b/core/project/src/main/kotlin/studio/guitarlab/core/project/ProjectCodec.kt
+@@ -14,5 +14,7 @@
+     }
+ ) {
+     fun encode(project: GuitarProject): String = json.encodeToString(project)
+-    fun decode(serialized: String): GuitarProject = TakeManagementPolicy.normalizeAll(json.decodeFromString(serialized))
++    fun decode(serialized: String): GuitarProject = UnifiedProjectMigrator.upgrade(
++        TakeManagementPolicy.normalizeAll(json.decodeFromString(serialized))
++    )
+ }
+--- a/core/project/src/main/kotlin/studio/guitarlab/core/project/ProjectBundleReader.kt
++++ b/core/project/src/main/kotlin/studio/guitarlab/core/project/ProjectBundleReader.kt
+@@ -8,6 +8,7 @@
+ import java.util.UUID
+ import java.util.zip.ZipInputStream
+ import studio.guitarlab.core.model.GuitarProject
++import studio.guitarlab.core.model.CURRENT_PROJECT_SCHEMA_VERSION
+ import studio.guitarlab.core.model.ProjectValidator
+
+ /**
+@@ -45,7 +46,7 @@
+                 "Pacote GuitarLab inconsistente: o manifesto não corresponde ao projeto."
+             }
+             manifest.getProperty("projectSchema")?.toIntOrNull()?.let { schema ->
+-                require(schema == sourceProject.schemaVersion) {
++                require(schema == sourceProject.schemaVersion || schema in 1 until CURRENT_PROJECT_SCHEMA_VERSION && sourceProject.schemaVersion == CURRENT_PROJECT_SCHEMA_VERSION) {
+                     "Pacote GuitarLab inconsistente: schema do manifesto e project.json divergem."
+                 }
+             }
+@@ -142,8 +143,7 @@
+
+     private fun verifyReferencedMedia(project: GuitarProject, projectDirectory: File) {
+         val root = projectDirectory.canonicalFile
+-        project.clips
+-            .flatMap { listOfNotNull(it.managedSourcePath, it.managedEditProxyPath) }
++        (project.clips.flatMap { listOfNotNull(it.managedSourcePath, it.managedEditProxyPath) } + project.assets.map { it.relativePath })
+             .distinct()
+             .forEach { relativePath ->
+                 val media = File(root, relativePath).canonicalFile
+--- a/core/project/src/main/kotlin/studio/guitarlab/core/project/ProjectBundleWriter.kt
++++ b/core/project/src/main/kotlin/studio/guitarlab/core/project/ProjectBundleWriter.kt
+@@ -35,8 +35,10 @@
+         }
+     }
+
+-    private fun referencedMedia(project: GuitarProject): List<String> = project.clips
+-        .flatMap { listOfNotNull(it.managedSourcePath, it.managedEditProxyPath) }
++    private fun referencedMedia(project: GuitarProject): List<String> = (
++        project.clips.flatMap { listOfNotNull(it.managedSourcePath, it.managedEditProxyPath) } +
++            project.assets.map { it.relativePath }
++        )
+         .distinct()
+         .sorted()
+
+--- a/core/project/src/main/kotlin/studio/guitarlab/core/project/FileProjectRepository.kt
++++ b/core/project/src/main/kotlin/studio/guitarlab/core/project/FileProjectRepository.kt
+@@ -83,8 +83,7 @@
+     private fun copyReferencedMedia(project: GuitarProject, sourceDirectory: File, destinationDirectory: File) {
+         val sourceRoot = sourceDirectory.canonicalFile
+         val destinationRoot = destinationDirectory.canonicalFile
+-        project.clips
+-            .flatMap { listOfNotNull(it.managedSourcePath, it.managedEditProxyPath) }
++        (project.clips.flatMap { listOfNotNull(it.managedSourcePath, it.managedEditProxyPath) } + project.assets.map { it.relativePath })
+             .distinct()
+             .forEach { relativePath ->
+                 val source = File(sourceRoot, relativePath).canonicalFile
+--- a/core/project/src/main/kotlin/studio/guitarlab/core/project/UnifiedProjectDomain.kt
++++ b/core/project/src/main/kotlin/studio/guitarlab/core/project/UnifiedProjectDomain.kt
+@@ -0,0 +1,78 @@
++package studio.guitarlab.core.project
++
++import java.security.MessageDigest
++import kotlinx.serialization.encodeToString
++import kotlinx.serialization.json.Json
++import studio.guitarlab.core.model.AssetClassification
++import studio.guitarlab.core.model.AssetRole
++import studio.guitarlab.core.model.CURRENT_PROJECT_SCHEMA_VERSION
++import studio.guitarlab.core.model.GuitarProject
++
++object UnifiedProjectMigrator {
++    fun upgrade(project: GuitarProject): GuitarProject = when (project.schemaVersion) {
++        CURRENT_PROJECT_SCHEMA_VERSION -> project
++        1 -> project.copy(schemaVersion = CURRENT_PROJECT_SCHEMA_VERSION)
++        else -> require(false) { "Schema de projeto não suportado: ${project.schemaVersion}" }
++    }
++}
++
++object UnifiedProjectRevision {
++    private val canonicalJson = Json {
++        encodeDefaults = true
++        explicitNulls = false
++        prettyPrint = false
++    }
++
++    fun canonicalState(project: GuitarProject): String {
++        val normalized = project.copy(
++            assets = project.assets.sortedBy { it.assetId }.map { asset ->
++                asset.copy(
++                    provenance = asset.provenance?.copy(
++                        inputAssetIds = asset.provenance.inputAssetIds.sorted(),
++                        inputSha256 = asset.provenance.inputSha256.sorted(),
++                        parameters = asset.provenance.parameters.toSortedMap(),
++                    )
++                )
++            },
++            referenceBindings = project.referenceBindings.sortedBy { it.bindingId },
++            preparation = project.preparation?.copy(
++                activeStemAssetIds = project.preparation.activeStemAssetIds.toSortedMap(compareBy<AssetRole> { it.name }),
++                availableReferenceAssetIds = project.preparation.availableReferenceAssetIds.sorted(),
++            ),
++        )
++        return canonicalJson.encodeToString(normalized)
++    }
++
++    fun sha256(project: GuitarProject): String = MessageDigest.getInstance("SHA-256")
++        .digest(canonicalState(project).toByteArray(Charsets.UTF_8))
++        .joinToString("") { "%02x".format(it) }
++}
++
++object ProjectAssetReachability {
++    fun reachableAssetIds(project: GuitarProject): Set<String> {
++        val byId = project.assets.associateBy { it.assetId }
++        val roots = buildSet {
++            project.assets.filter { it.classification == AssetClassification.AUTHORITATIVE }.forEach { add(it.assetId) }
++            project.preparation?.let { state ->
++                state.sourceAssetId?.let(::add)
++                addAll(state.activeStemAssetIds.values)
++                state.activeBackingAssetId?.let(::add)
++                state.activeGuitarAssetId?.let(::add)
++                addAll(state.availableReferenceAssetIds)
++            }
++            project.referenceBindings.forEach { add(it.assetId) }
++        }
++        val reachable = roots.toMutableSet()
++        val queue = ArrayDeque(roots)
++        while (queue.isNotEmpty()) {
++            val id = queue.removeFirst()
++            byId[id]?.provenance?.inputAssetIds.orEmpty().forEach { parent ->
++                if (reachable.add(parent)) queue.addLast(parent)
++            }
++        }
++        return reachable
++    }
++
++    fun cleanupCandidates(project: GuitarProject): Set<String> =
++        project.assets.mapTo(mutableSetOf()) { it.assetId } - reachableAssetIds(project)
++}
+--- a/core/project/src/test/kotlin/studio/guitarlab/core/project/UnifiedProjectDomainTest.kt
++++ b/core/project/src/test/kotlin/studio/guitarlab/core/project/UnifiedProjectDomainTest.kt
+@@ -0,0 +1,123 @@
++package studio.guitarlab.core.project
++
++import kotlin.random.Random
++import kotlin.test.Test
++import kotlin.test.assertEquals
++import kotlin.test.assertFalse
++import kotlin.test.assertNotEquals
++import kotlin.test.assertTrue
++import studio.guitarlab.core.model.AssetClassification
++import studio.guitarlab.core.model.AssetLifecycle
++import studio.guitarlab.core.model.AssetProvenance
++import studio.guitarlab.core.model.AssetRole
++import studio.guitarlab.core.model.CURRENT_PROJECT_SCHEMA_VERSION
++import studio.guitarlab.core.model.GuitarProject
++import studio.guitarlab.core.model.ManagedAsset
++import studio.guitarlab.core.model.PreparationState
++import studio.guitarlab.core.model.PreparationStatus
++import studio.guitarlab.core.model.ProjectTemplate
++import studio.guitarlab.core.model.ProjectValidator
++import java.io.ByteArrayInputStream
++import java.io.ByteArrayOutputStream
++import java.io.File
++import java.nio.file.Files
++
++class UnifiedProjectDomainTest {
++    private fun project(assets: List<ManagedAsset> = emptyList(), preparation: PreparationState? = null) = GuitarProject(
++        id = "project-id",
++        name = "Unified",
++        template = ProjectTemplate.BLANK,
++        createdAtEpochMs = 1,
++        updatedAtEpochMs = 2,
++        assets = assets,
++        preparation = preparation,
++    )
++
++    private fun asset(
++        id: String,
++        role: AssetRole,
++        classification: AssetClassification,
++        parents: List<String> = emptyList(),
++    ) = ManagedAsset(
++        assetId = id,
++        role = role,
++        relativePath = "media/assets/$id.wav",
++        sha256 = id.padEnd(64, 'a').take(64),
++        byteSize = 128,
++        format = "wav-f32",
++        sampleRateHz = 48_000,
++        channelCount = 2,
++        frameCount = 48_000,
++        createdAtEpochMs = 1,
++        classification = classification,
++        lifecycle = AssetLifecycle.MANAGED,
++        provenance = parents.takeIf { it.isNotEmpty() }?.let { AssetProvenance("derived", inputAssetIds = it) },
++    )
++
++    @Test fun legacySchemaUpgradesWithoutPreparation() {
++        val decoded = ProjectCodec().decode("""{"schemaVersion":1,"id":"legacy","name":"Legacy","template":"BLANK","createdAtEpochMs":1,"updatedAtEpochMs":1}""")
++        assertEquals(CURRENT_PROJECT_SCHEMA_VERSION, decoded.schemaVersion)
++        assertEquals(null, decoded.preparation)
++        assertTrue(decoded.assets.isEmpty())
++    }
++
++    @Test fun canonicalRevisionIgnoresAssetInventoryOrdering() {
++        val source = asset("source", AssetRole.SOURCE_ORIGINAL, AssetClassification.AUTHORITATIVE)
++        val stem = asset("stem", AssetRole.STEM_GUITAR, AssetClassification.DERIVED, listOf(source.assetId))
++        assertEquals(UnifiedProjectRevision.sha256(project(listOf(source, stem))), UnifiedProjectRevision.sha256(project(listOf(stem, source))))
++        assertNotEquals(UnifiedProjectRevision.sha256(project(listOf(source))), UnifiedProjectRevision.sha256(project(listOf(source, stem))))
++    }
++
++    @Test fun renameChangesRevisionButNeverIdentity() {
++        val original = project()
++        val renamed = original.copy(name = "Renamed", updatedAtEpochMs = 3)
++        assertEquals(original.id, renamed.id)
++        assertNotEquals(UnifiedProjectRevision.sha256(original), UnifiedProjectRevision.sha256(renamed))
++    }
++
++    @Test fun reachabilityKeepsAuthoritativeAndDerivedParents() {
++        val source = asset("source", AssetRole.SOURCE_ORIGINAL, AssetClassification.AUTHORITATIVE)
++        val backing = asset("backing", AssetRole.REFERENCE_BACKING, AssetClassification.DERIVED, listOf(source.assetId))
++        val orphan = asset("orphan", AssetRole.PRACTICE_EXPORT, AssetClassification.DERIVED)
++        val state = PreparationState(PreparationStatus.READY, source.assetId, activeBackingAssetId = backing.assetId)
++        val candidate = project(listOf(source, backing, orphan), state)
++        assertEquals(setOf("source", "backing"), ProjectAssetReachability.reachableAssetIds(candidate))
++        assertEquals(setOf("orphan"), ProjectAssetReachability.cleanupCandidates(candidate))
++    }
++
++    @Test fun validatorRejectsDanglingAndStagingAssets() {
++        val staging = asset("staging", AssetRole.SOURCE_ORIGINAL, AssetClassification.AUTHORITATIVE).copy(lifecycle = AssetLifecycle.STAGING)
++        val candidate = project(listOf(staging), PreparationState(sourceAssetId = "missing"))
++        val codes = ProjectValidator.validate(candidate).map { it.code }.toSet()
++        assertTrue("asset.lifecycle.staging" in codes)
++        assertTrue("preparation.asset.missing" in codes)
++    }
++
++    @Test fun randomizedInventoryOrderHasStableRevision() {
++        val base = (0 until 32).map { index ->
++            asset("asset-$index", if (index == 0) AssetRole.SOURCE_ORIGINAL else AssetRole.STEM_OTHER, if (index == 0) AssetClassification.AUTHORITATIVE else AssetClassification.DERIVED)
++        }
++        val expected = UnifiedProjectRevision.sha256(project(base))
++        repeat(100) { seed ->
++            assertEquals(expected, UnifiedProjectRevision.sha256(project(base.shuffled(Random(seed)))), "seed=$seed")
++        }
++        assertFalse(expected.isBlank())
++    }
++
++    @Test fun portablePackageRoundTripsUnifiedAssetsWithoutMutatingOriginalIdentity() {
++        val root = Files.createTempDirectory("u1-portable").toFile()
++        try {
++            val source = asset("source", AssetRole.SOURCE_ORIGINAL, AssetClassification.AUTHORITATIVE)
++            val original = project(listOf(source), PreparationState(PreparationStatus.SOURCE_READY, source.assetId))
++            val projectDirectory = File(root, "source-project").also { it.mkdirs() }
++            File(projectDirectory, source.relativePath).apply { parentFile.mkdirs(); writeBytes(byteArrayOf(1, 2, 3)) }
++            val bytes = ByteArrayOutputStream().also { ProjectBundleWriter().write(original, projectDirectory, it) }.toByteArray()
++            val restored = ProjectBundleReader(root).read(ByteArrayInputStream(bytes), nowEpochMs = 10)
++            assertNotEquals(original.id, restored.id)
++            assertEquals(original.assets, restored.assets)
++            assertEquals(original.preparation, restored.preparation)
++        } finally {
++            root.deleteRecursively()
++        }
++    }
++}
+--- a/core/model/src/test/kotlin/studio/guitarlab/core/model/UnifiedAssetValidationTest.kt
++++ b/core/model/src/test/kotlin/studio/guitarlab/core/model/UnifiedAssetValidationTest.kt
+@@ -0,0 +1,23 @@
++package studio.guitarlab.core.model
++
++import kotlin.test.Test
++import kotlin.test.assertTrue
++
++class UnifiedAssetValidationTest {
++    @Test fun rejectsUnsafeAssetPathAndInvalidHash() {
++        val asset = ManagedAsset(
++            assetId = "asset",
++            role = AssetRole.SOURCE_ORIGINAL,
++            relativePath = "../escape.wav",
++            sha256 = "not-a-hash",
++            byteSize = 1,
++            format = "wav",
++            createdAtEpochMs = 1,
++            classification = AssetClassification.AUTHORITATIVE,
++        )
++        val project = GuitarProject(2, "p", "P", ProjectTemplate.BLANK, 1, 1, assets = listOf(asset))
++        val codes = ProjectValidator.validate(project).map { it.code }.toSet()
++        assertTrue("asset.path.invalid" in codes)
++        assertTrue("asset.sha256.invalid" in codes)
++    }
++}

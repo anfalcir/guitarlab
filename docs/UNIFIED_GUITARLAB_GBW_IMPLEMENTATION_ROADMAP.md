@@ -2103,7 +2103,7 @@ When current implementation differs from target design, ARCHITECTURE describes w
 | Milestone | Status at roadmap creation | Owner/manual dependency |
 |---|---|---|
 | U0 Baseline/inventory | PASS — `docs/U0_BASELINE_INVENTORY.md` | no physical |
-| U1 Unified domain | NOT STARTED | none |
+| U1 Unified domain | SOURCE PRE-GATE — implementation complete, software gate pending | manual CI authorization because local pinned toolchain is unavailable |
 | U2 Unified shell UX | NOT STARTED | none |
 | U3 Source acquisition | NOT STARTED | provider/network credentials only if required |
 | U4 Separation integration | NOT STARTED | cloud auth/config may require owner account action |
@@ -2127,6 +2127,17 @@ A Work session updates this table only after objective evidence.
 - `scripts/verify_u0_inventory.py` PASS: 13 mapped capabilities and 3 hash-verified fixtures;
 - H37b materialization first run and repeat/idempotent run PASS at the frozen HEAD;
 - full local Gradle/Android reproduction was unavailable in the Work environment because Gradle 9.6.1 and Android SDK 36 were absent; no hosted CI was dispatched and no new DIGITAL PASS is claimed.
+
+### U1 source checkpoint — 2026-09-21
+
+- schema 2 adds explicit immutable managed assets, asset roles/classification/lifecycle, deterministic provenance, optional preparation state, reference bindings and migration provenance while schema-1 projects upgrade with empty preparation/assets;
+- canonical project serialization and SHA-256 revision identity normalize asset/map ordering while retaining durable creative state;
+- one reachability service protects authoritative assets, active preparation/reference roots and their provenance parents;
+- project validation rejects duplicate/dangling/unsafe/staging asset state;
+- portable package and duplicate-project media enumeration now includes unified asset paths;
+- unit coverage adds legacy migration, revision/rename identity, reachability, malformed assets, portable round trip and 100 deterministic randomized inventory-order seeds;
+- `.source-parts/U1UnifiedProjectDomain.patch` is SHA-256 locked; clean application, repeat materialization and deliberate corrupted-patch rejection PASS;
+- compilation/JVM regression remains pending because the Work environment has no Gradle 9.6.1/Android SDK 36. Under the manual-only policy, U1 remains SOURCE PRE-GATE and U2 must not start across this red/unexecuted gate.
 
 ---
 

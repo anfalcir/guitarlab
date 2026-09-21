@@ -120,5 +120,9 @@ Its evidence strategy is intentionally stricter digitally and smaller manually:
 
 This successor strategy does not retroactively change the evidence status or release identity of CI #663, H37b or older candidates.
 
+### U1 source pre-gate coverage
+
+The U1 source block adds tests for schema-1 migration, optional empty preparation, asset/provenance validation, canonical revision determinism, rename identity, reachability-safe cleanup, portable asset round trip and 100 reproducible randomized inventory orderings. Clean materialization, idempotent rerun and corrupted-patch fail-closed behavior pass locally. These tests have not yet executed under Gradle because the pinned local Android toolchain is unavailable; U1 therefore remains SOURCE PRE-GATE until the manual canonical software job is authorized and green.
+
 ## Final rule
 Any promoted release requires exact-source digital PASS, only the genuinely hardware-dependent residual applicable to that source, no repeatable P0/P1 and explicit approval of the exact signed APK SHA-256.

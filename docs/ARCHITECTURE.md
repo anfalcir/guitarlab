@@ -1,6 +1,6 @@
 # GuitarLab Architecture
 
-Updated: 2026-09-20
+Updated: 2026-09-21
 
 ## Repository and release boundary
 - `main` is canonical.
@@ -19,6 +19,8 @@ Updated: 2026-09-20
 
 ## Managed media and portable projects
 Imported external media is copied into project-controlled immutable source storage before becoming authoritative. Optional edit proxies, waveforms and renders are derivatives and may be regenerated. Non-destructive edits remain metadata operations.
+
+The U1 source candidate evolves the project schema to version 2 with explicit `ManagedAsset`, role, content hash, media facts, authoritative/derived classification, lifecycle and provenance. Preparation and Studio reference bindings are optional, so migrated Studio-only projects remain valid. `UnifiedProjectRevision` provides deterministic canonical state/revision hashing and `ProjectAssetReachability` is the single cleanup authority for the new graph. This architecture remains SOURCE PRE-GATE until the software gate executes.
 
 `.guitarlab` is a versioned portable package containing project metadata and referenced managed media. Import validates staging, traversal/resource bounds, manifest/media consistency and only publishes after successful validation. Duplication follows equivalent transactional invariants.
 
@@ -80,7 +82,7 @@ Durable creative state belongs in project persistence, not transient Composable 
 ## Build/release architecture
 `scripts/build_local.sh` is the local software gate when its environment is available. The GitHub workflow is the canonical full software/API36/geometry/signing executor.
 
-Large deltas are materialized from `.source-parts` serially. The current source-candidate tail ends at H37: accepted H28 → existing H29-H36c tail → H37 Drive transport. H37 reconstructs a five-part archive, verifies gzip + decoded patch hashes and exact terminal Git blobs. Unexplained drift blocks the build.
+Large deltas are materialized from `.source-parts` serially. The current source-candidate tail ends at U1: accepted H28 → existing H29-H36c tail → H37/H37a/H37b Drive transport → U1 unified domain. Each block verifies its patch/archive and exact terminal Git blobs. Unexplained drift blocks the build.
 
 ## Backup transport boundary — H37 source candidate
 The protected H28 domain remains transport-agnostic: `ProjectBackupCoordinator` owns project/revision identity, deduplication, retention and restore semantics. H37 changes the Android remote-store edge from SAF to direct Drive API v3.

@@ -6,7 +6,9 @@ Updated: 2026-09-21
 - U0 baseline/inventory is **PASS** at repository HEAD `dc3cb95093110270c494804aa03ef625dc3ceef2` with GBW reference HEAD `4724b030eabe289a5c2645e379181c0f9602d25d`.
 - Evidence: `U0_BASELINE_INVENTORY.md` plus the machine-readable `integration/u0/inventory.json` and hash-locked synthetic fixtures.
 - CI #665 established unit/Lint/build/API36 PASS for the H37b producer. Its final job failed before signing because of pre-materialization provenance comparison; H37c corrects that pipeline ordering. CI #663 therefore remains the latest signed DIGITAL PASS.
-- The first incomplete unified milestone is U1 (unified project and asset domain). No unified runtime behavior is claimed yet.
+- U1 unified project/asset domain is implemented as a deterministic source block and is **SOURCE PRE-GATE**: assets, roles, provenance, optional preparation, reference bindings, schema-1 migration, canonical revision and reachability are present with new unit/property/portable-package coverage.
+- U1 materialization first-run/idempotency/corruption rejection is locally PASS. Its JVM/build regression is not yet executed because this Work environment lacks Gradle 9.6.1/Android SDK 36; no DIGITAL PASS is claimed.
+- The first incomplete unified milestone remains U1 until its canonical software gate passes.
 
 ## Active line
 - Repository/branch: `anfalcir/guitarlab` / `main`.
