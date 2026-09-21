@@ -20,10 +20,11 @@ Updated: 2026-09-21
 - U3 implementation ports GBW ranking/provider semantics behind `core:source` / `platform:source-android`; local SAF import and remote YouTube/SoundCloud/Bandcamp acquisition stage and validate media before the sole project-mutation boundary publishes an immutable managed `SOURCE_ORIGINAL`. WorkManager + persistent operation state provide progress/cancel/retry/process-recreation semantics; no separation is invoked in U3.
 - U3 source acquisition is **DIGITAL PASS** on automatic CI #676 / run `35606018087` at exact source `a7af51bf6622b4eecc32308c091fbb5020a1d54b`.
 - U4 separation integration is **DIGITAL PASS** at exact source `55ae7a14d99b710367ea7650cbf9f48298b90eba`: Android CI #686 / run `35620101527` PASS and U4 Cloud Integration Smoke #8 / run `35620101684` PASS. The real-cloud gate exercised the production `gbw-demucs` path and closed the previously pending cloud-auth/config + lost-response/process-death recovery boundary.
+- U5 prepared backing/reference + zero-copy Studio integration is **DIGITAL PASS** at exact source `4bada624e68f8a55ff22830e1dc276c8d51af223`: Android CI #690 / run `35625349001` PASS. The gate covers deterministic five-stem backing render, shared-gain/alignment invariants, managed guitar + L/R references, explicit keep/update binding, idempotent reopen/retry, fail-closed corrupt stems, rebind Undo/Redo, recording preservation, save/reopen, master render after rebind, and API 36 Prepare → Studio handoff.
 
 ## Active line
 - Repository/branch: `anfalcir/guitarlab` / `main`.
-- Source candidate: `0.5.0-rc4`, versionCode `24`, U4 separation integration — **DIGITAL PASS** at `55ae7a14d99b710367ea7650cbf9f48298b90eba` with Android CI #686 / run `35620101527` PASS and U4 Cloud Integration Smoke #8 / run `35620101684` PASS. U5 is the next milestone and has not been started.
+- Source candidate: `0.5.0-rc4`, versionCode `24`, U5 prepared-reference / zero-copy Studio integration — **DIGITAL PASS** at `4bada624e68f8a55ff22830e1dc276c8d51af223` with Android CI #690 / run `35625349001` PASS. U6 Unified exports is the next milestone and has not been started.
 - Latest signed version is `0.5.0-rc4`, versionCode `24`, package `studio.guitarlab.app`.
 - Latest signed DIGITAL PASS: **CI #669** / run `35591631207` / producer `14b69271f2ae04529fa14475e1a34f2fdd864553`.
 - #663 scope: H28 → H29 → H30 → H31 → H32 → H33 → H33a → H33b → H34 → H35 → H35a → H36 → H36a → H36b → H36c.
@@ -31,6 +32,20 @@ Updated: 2026-09-21
 - Signed APK size: `13,835,802` bytes.
 - Locked signer SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
 - CI supports manual dispatch and controlled `[run ci]` / `[run ci signed]` triggers on `main`; ordinary commits remain `[skip ci]`.
+
+## U5 digital evidence
+Canonical U5 source: `4bada624e68f8a55ff22830e1dc276c8d51af223`.
+
+- deterministic materialization through U5c PASS;
+- **378/378 JVM/unit tests PASS**, 0 failures/errors/skips;
+- Android Lint PASS with **0 errors**;
+- debug APK assembly PASS;
+- **38/38 standard API 36 instrumented tests PASS**;
+- **1/1 isolated 1920×1200 geometry PASS**;
+- prepared references are project-managed and Studio consumes them without user-visible copy/reimport;
+- new preparations do not silently replace existing Studio bindings;
+- save/reopen, Undo/Redo, recording preservation and master-render-after-rebind are regression-covered;
+- detailed gate evidence: `docs/U5_PREPARED_REFERENCE_GATE.md`.
 
 ## #663 digital evidence
 All three canonical jobs passed on the exact producer SHA:
