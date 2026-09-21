@@ -2105,7 +2105,7 @@ When current implementation differs from target design, ARCHITECTURE describes w
 | U0 Baseline/inventory | PASS — `docs/U0_BASELINE_INVENTORY.md` | no physical |
 | U1 Unified domain | DIGITAL PASS — CI #669 at `14b69271f2ae04529fa14475e1a34f2fdd864553` | none |
 | U2 Unified shell UX | DIGITAL PASS — CI #675 / run `35596671163` at `665c292931c0f2ed9fa1e7145818101c5d017222` | none |
-| U3 Source acquisition | SOURCE PRE-GATE — implementation complete; controlled canonical CI pending | provider/network credentials only if required |
+| U3 Source acquisition | DIGITAL PASS — CI #676 / run `35606018087` at `a7af51bf6622b4eecc32308c091fbb5020a1d54b` | none; real-provider smoke may remain in consolidated final campaign |
 | U4 Separation integration | NOT STARTED | cloud auth/config may require owner account action |
 | U5 Prepare → Studio | NOT STARTED | none |
 | U6 Unified exports | NOT STARTED | none |
@@ -2157,7 +2157,7 @@ A Work session updates this table only after objective evidence.
 - automatic push CI #673 stopped at diff sanity on a blank context line at EOF in the U2c patch artifact; the normalized package preserves the source delta and refreshes its integrity lock.
 - automatic push CI #674 passed unit/Lint/build and ran 36 API 36 tests; its sole failure proved the `new-project-name` tag was attached to the heading row. U2d moves the tag to the editable field without changing the product flow.
 - automatic push CI #675 closed U2 at exact source `665c292931c0f2ed9fa1e7145818101c5d017222`: materialization, unit/Lint/build and all 36 API 36 tests PASS.
-- U3 source checkpoint: local import + remote search/ranking/download + validation + managed `SOURCE_ORIGINAL` publication are implemented behind stable `core:source` / `platform:source-android` boundaries. Provider/network code cannot directly mutate Studio/project state; `SourceAssetPublisher` revalidates project/source ownership at commit time. WorkManager and the durable operation store provide retry/cancel/process-recreation state. U3 does not invoke separation. The source block has clean/repeat materialization and terminal-hash evidence; canonical CI is pending.
+- U3 source checkpoint: local import + remote search/ranking/download + validation + managed `SOURCE_ORIGINAL` publication are implemented behind stable `core:source` / `platform:source-android` boundaries. Provider/network code cannot directly mutate Studio/project state; `SourceAssetPublisher` revalidates project/source ownership at commit time. WorkManager and the durable operation store provide retry/cancel/process-recreation state. U3 does not invoke separation. The source block has clean/repeat materialization and terminal-hash evidence. Automatic CI #676 / run `35606018087` closed U3 at exact source `a7af51bf6622b4eecc32308c091fbb5020a1d54b`: materialization, unit tests, Android Lint, debug APK build and API 36 emulator regression all PASS.
 
 ---
 
@@ -2228,3 +2228,5 @@ Drive custom/app properties:
 - https://developers.google.com/workspace/drive/api/guides/properties
 
 These external references are implementation references only. Repository contracts remain the product source of truth, and external API behavior must be re-verified at implementation time because provider APIs can change.
+
+- Automatic CI #676 / run `35606018087` closed U3 at exact source `a7af51bf6622b4eecc32308c091fbb5020a1d54b`. U4 separation integration is now the first incomplete unified milestone.
