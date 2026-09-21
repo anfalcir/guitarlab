@@ -134,5 +134,7 @@ Automatic CI #672 passed unit, Lint and APK build. Its API 36 suite failed after
 
 Automatic CI #673 stopped in diff sanity before materialization because the generated U2c patch ended with a blank context line. The normalized patch has the same source delta, a refreshed SHA-256 lock and no blank-at-EOF condition; the full gate remains pending.
 
+Automatic CI #674 passed unit, Lint and APK build and ran all 36 API 36 tests. The sole failure showed that `new-project-name` resolved to the non-focusable heading row, so text input could not request focus. U2d moves that test tag to the existing `OutlinedTextField`; behavior and assertions remain unchanged.
+
 ## Final rule
 Any promoted release requires exact-source digital PASS, only the genuinely hardware-dependent residual applicable to that source, no repeatable P0/P1 and explicit approval of the exact signed APK SHA-256.

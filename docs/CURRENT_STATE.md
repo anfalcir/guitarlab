@@ -15,11 +15,12 @@ Updated: 2026-09-21
 - Automatic CI #671 confirmed production compilation after U2a and found the new Android-module unit test using `kotlin.test.Test` instead of the module's JUnit 4 annotation. U2b corrects only that test import.
 - Automatic CI #672 passed unit, Lint and build, then exposed viewport-dependent interaction in the new scrollable-project-creation instrumentation. U2c scrolls to each target through Compose semantics before interaction.
 - Automatic CI #673 stopped at the diff-sanity preflight because the first U2c patch artifact ended with a blank context line. The normalized U2c package preserves the exact source delta and removes that packaging-only defect.
+- Automatic CI #674 passed unit, Lint and APK build and executed 36 API 36 tests; its only failure identified `new-project-name` on the heading row rather than the editable field. U2d moves the semantic tag to the `OutlinedTextField` without changing product behavior.
 - The first incomplete unified milestone is U2 until its controlled canonical gate passes.
 
 ## Active line
 - Repository/branch: `anfalcir/guitarlab` / `main`.
-- Source candidate: `0.5.0-rc4`, versionCode `24`, U2 — **SOURCE PRE-GATE**.
+- Source candidate: `0.5.0-rc4`, versionCode `24`, U2/U2d — **SOURCE PRE-GATE**.
 - Latest signed version is `0.5.0-rc4`, versionCode `24`, package `studio.guitarlab.app`.
 - Latest signed DIGITAL PASS: **CI #669** / run `35591631207` / producer `14b69271f2ae04529fa14475e1a34f2fdd864553`.
 - #663 scope: H28 → H29 → H30 → H31 → H32 → H33 → H33a → H33b → H34 → H35 → H35a → H36 → H36a → H36b → H36c.

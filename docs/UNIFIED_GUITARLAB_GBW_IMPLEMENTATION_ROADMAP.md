@@ -2104,7 +2104,7 @@ When current implementation differs from target design, ARCHITECTURE describes w
 |---|---|---|
 | U0 Baseline/inventory | PASS — `docs/U0_BASELINE_INVENTORY.md` | no physical |
 | U1 Unified domain | DIGITAL PASS — CI #669 at `14b69271f2ae04529fa14475e1a34f2fdd864553` | none |
-| U2 Unified shell UX | SOURCE PRE-GATE — U2a/U2b/U2c correctives complete after automatic CI #670-#673 | corrected controlled canonical CI trigger |
+| U2 Unified shell UX | SOURCE PRE-GATE — U2a-U2d correctives complete after automatic CI #670-#674 | corrected controlled canonical CI trigger |
 | U3 Source acquisition | NOT STARTED | provider/network credentials only if required |
 | U4 Separation integration | NOT STARTED | cloud auth/config may require owner account action |
 | U5 Prepare → Studio | NOT STARTED | none |
@@ -2155,6 +2155,7 @@ A Work session updates this table only after objective evidence.
 - automatic push CI #671 confirmed production compilation and exposed only the wrong test-annotation import in the Android app module; U2b aligns it with JUnit 4.
 - automatic push CI #672 passed unit/Lint/build and exposed viewport dependence in the new scrollable-screen instrumentation; U2c uses semantic scrolling before interaction.
 - automatic push CI #673 stopped at diff sanity on a blank context line at EOF in the U2c patch artifact; the normalized package preserves the source delta and refreshes its integrity lock.
+- automatic push CI #674 passed unit/Lint/build and ran 36 API 36 tests; its sole failure proved the `new-project-name` tag was attached to the heading row. U2d moves the tag to the editable field without changing the product flow.
 
 ---
 

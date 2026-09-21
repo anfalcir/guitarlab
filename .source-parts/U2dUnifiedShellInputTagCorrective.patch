@@ -1,0 +1,8 @@
+--- a/app/src/main/java/studio/guitarlab/app/ui/NewProjectScreen.kt
++++ b/app/src/main/java/studio/guitarlab/app/ui/NewProjectScreen.kt
+@@ -45 +45 @@
+-            modifier = Modifier.fillMaxWidth().testTag("new-project-name"),
++            modifier = Modifier.fillMaxWidth(),
+@@ -62 +62 @@
+-            modifier = Modifier.fillMaxWidth(),
++            modifier = Modifier.fillMaxWidth().testTag("new-project-name"),
