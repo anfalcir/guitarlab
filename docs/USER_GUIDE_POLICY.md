@@ -1,39 +1,65 @@
 # In-app User Guide Synchronization Policy
 
-Updated: 2026-09-16
+Updated: 2026-09-21
 
 ## Contract
-GuitarLab exposes one shared `StudioUserGuideDialog` reachable from Home and Studio. It is a product surface, not optional documentation.
+GuitarLab exposes **one product-wide help source of truth** covering the complete application: Home, New Project, Prepare, Studio, Export, Activity, Backup/Restore and Settings.
 
-Whenever a development block changes a user-visible workflow, the same block must update the shared guide when the behavior is not self-evident. Source implementation, accessibility semantics, tests and guide wording must describe the same behavior before the block is considered complete.
+The historical implementation may still contain a class named `StudioUserGuideDialog` during the cohesion transition. That class name does not define product scope. C7 in `UNIFIED_PRODUCT_COHESION_AUDIT.md` must converge the user-facing help experience to GuitarLab-wide help.
 
-## Current mandatory guide coverage
-The shared guide must remain synchronized with:
-- Home project creation/open/import/export actions;
-- **H24 Home project-library search, filters and sorting**;
-- the fact that project search ignores case and accents;
-- the fact that Home filters are combinable and non-destructive;
-- the fact that sorting changes presentation only and does not mutate project content;
-- project rename/duplicate/delete where exposed;
+Contextual Studio help is allowed for dense editing/recording controls, but it must consume the same canonical guide content/contracts rather than becoming a second independent help system.
+
+Whenever a development block changes a user-visible workflow, the same block must update the relevant help content when the behavior is not self-evident. Source implementation, accessibility semantics, tests and guide wording must describe the same behavior before the block is considered complete.
+
+## Current mandatory unified-guide coverage
+The guide must remain synchronized with:
+- Home project library, search/filter/sort and status indicators;
+- New Project intents: Search song / Import audio / Start in Studio;
+- Prepare source acquisition, separation, automatic reference preparation, retry/cancel and source replacement;
+- Prepare → Studio zero-copy handoff;
+- new-reference availability and non-destructive Update / Keep-current semantics;
 - Studio navigation/transport/loop behavior;
 - track controls and Mixer basics;
 - Trim/CUT interaction and clip deletion scope;
 - recording countdown, route selection, waveform/meters and stop behavior;
 - practice/sections workflow;
-- Save/Export distinctions where user decisions matter.
+- Export distinctions: project package, files for study and final Studio mix;
+- Activity/background operation behavior;
+- Drive backup/restore and cloud-auth boundaries when U8 is active;
+- project rename/duplicate/delete and their effect on background work;
+- Settings sections and diagnostics at a user-goal level.
 
-## H24 synchronization rule
-H24 is not complete if Home gains search/filter/sort controls but `StudioUserGuideDialog` omits them. The H24 source patch therefore updates the shared guide in the same materialized block.
+## Product-cohesion rule
+Home help must not open a Studio-only explanation as though Studio were the whole application.
 
-The guide does not need to expose internal implementation terms such as `ProjectLibraryIndex`, normalized cache keys, Git blob hashes or CI mechanics. Those belong in engineering documentation, not creative-flow help.
+The help hierarchy is:
+1. GuitarLab overview and project lifecycle;
+2. Prepare;
+3. Studio;
+4. Export;
+5. Cloud/backup/activity;
+6. Settings/diagnostics.
+
+A user should understand the complete workflow without learning that capabilities originated in different historical applications.
 
 ## Copy principles
-- Use concise Brazilian Portuguese user-facing language.
-- Describe what the user can do and what state changes, not internal class names.
-- Avoid low-level Android route identifiers and diagnostic terminology in normal help.
-- Do not advertise unimplemented features.
-- Keep destructive actions and their scope explicit.
-- Prefer one source of truth over separate Home/Studio help implementations.
+- use concise Brazilian Portuguese;
+- describe user goals, current state, consequence and next action;
+- avoid GBW branding in normal help;
+- avoid raw Android/backend/domain identifiers;
+- do not expose Git/CI/materializer/milestone terminology;
+- keep destructive actions and their scope explicit;
+- prefer one canonical help content model over separate Home/Studio/Prepare/Export documents;
+- technical terms such as Demucs, sample rate or codec may appear only when they materially help the user.
 
 ## Verification
-Any user-visible feature block that changes the guide should retain source-level review plus Android semantic/UI coverage where practical. Final target-device review checks readability/touch ergonomics only when those qualities cannot be established reliably in automation.
+Any user-visible feature block that changes the guide must retain source-level review plus Android semantic/UI coverage where practical.
+
+The U10/U11 cohesion gate additionally verifies:
+- Home help is product-wide;
+- contextual Studio help is not contradictory;
+- no obsolete “export from one app/import into another” language remains;
+- no unsupported legacy migration is advertised;
+- all major workflows in the current unified product have discoverable help.
+
+Final target-device review checks readability/touch ergonomics only when those qualities cannot be established reliably in automation.
