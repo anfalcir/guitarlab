@@ -1794,6 +1794,13 @@ Make Prepare output directly useful in Studio.
 ### Exit
 End-to-end local flow Source → Stems → Backing → Studio is digitally proven.
 
+### Status — DIGITAL PASS (2026-09-21)
+Closed on exact source `4bada624e68f8a55ff22830e1dc276c8d51af223` by GuitarLab Android CI #690 / run `35625349001`.
+
+Closure evidence is canonicalized in `docs/U5_PREPARED_REFERENCE_GATE.md`. The final gate includes deterministic materialization, 378/378 JVM tests, Lint/build PASS, 38/38 standard API 36 tests and 1/1 isolated tablet-geometry test. U5c explicitly closes the roadmap residuals for save/reopen, rebind Undo/Redo, export/master render after rebind and Prepare → Studio handoff while preserving existing recordings/takes.
+
+No U6 implementation is part of the U5 closure.
+
 ---
 
 ## U6 — Unified exports
