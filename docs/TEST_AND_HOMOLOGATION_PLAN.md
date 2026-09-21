@@ -106,5 +106,19 @@ Key additions:
 
 For the 10-minute quality line, stress must model realistic song projects rather than create a separate artificial mega-project product requirement.
 
+## Unified successor program — homologation strategy
+
+The approved U0-U12 integration program is governed by `UNIFIED_GUITARLAB_GBW_IMPLEMENTATION_ROADMAP.md`.
+
+Its evidence strategy is intentionally stricter digitally and smaller manually:
+- unit, property/randomized, fuzz/malformed, fake-network, process-death, migration, Android instrumentation, accessibility, geometry, audio golden, Drive transaction and cloud contract suites close all objectively testable behavior;
+- a controlled real-cloud Demucs smoke is a digital integration gate before final candidate freeze;
+- known current GuitarLab hardware residuals may be carried forward instead of forcing an intermediate manual campaign, provided later source changes preserve/strengthen their digital contracts;
+- U11 freezes one exact signed candidate after complete digital closure;
+- U12 performs one consolidated target-device campaign for real MK-300 routing/capture/isolation, timing/listening, 10-minute stability, real Prepare flow, Drive account/backup/restore and tablet ergonomics;
+- if U12 exposes a source defect, only physical evidence invalidated by the corrective change plus adjacent risk smoke must be repeated.
+
+This successor strategy does not retroactively change the evidence status or release identity of CI #663, H37b or older candidates.
+
 ## Final rule
 Any promoted release requires exact-source digital PASS, only the genuinely hardware-dependent residual applicable to that source, no repeatable P0/P1 and explicit approval of the exact signed APK SHA-256.
