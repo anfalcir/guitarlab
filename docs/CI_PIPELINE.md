@@ -77,6 +77,20 @@ Pre-publication evidence:
 
 A fresh manual canonical workflow is still required; no digital-pass status is inferred from these local probes.
 
+## CI #665 provenance mismatch and H37c corrective
+Manual CI #665 / run `35546264450` on producer `01b2371310fb872eb1583231728941beb93c1a8e` passed the software/Lint/build gate and the API36 regression gate.
+
+The signed job downloaded the exact tested unsigned artifact and successfully verified `UNSIGNED_SHA256SUMS.txt`. Artifact identity:
+- sourceSha `01b2371310fb872eb1583231728941beb93c1a8e`;
+- package `studio.guitarlab.app`;
+- versionName `0.5.0-rc4`;
+- versionCode `24`;
+- unsigned APK SHA-256 `343bd7423275481039fc0475527bcb6a22c259a69136a5e052b6adbe5b0421f2`.
+
+The failure happened before restoring the signing bundle: the provenance step parsed the raw checkout's pre-materialization `app/build.gradle.kts` (RC3/23). H37c adds `Materialize exact source identity` to the signed job, running the canonical materializer and `git diff --check` before comparing source/package/version metadata.
+
+The exact tested unsigned APK remains unchanged and is still the only APK eligible for signing.
+
 ## H37 source pre-gate evidence
 H37a is not yet a DIGITAL PASS. H37's source-integrity proofs remain valid, while H37a adds the compile-corrective evidence above. The candidate still requires the canonical Android gate:
 - clean H36c → H37 materialization PASS;
