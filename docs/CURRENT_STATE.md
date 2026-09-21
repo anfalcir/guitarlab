@@ -4,8 +4,8 @@ Updated: 2026-09-20
 
 ## Active line
 - Repository/branch: `anfalcir/guitarlab` / `main`.
-- Source candidate: `0.5.0-rc4`, versionCode `24`, H37b — **SOURCE PRE-GATE**.
-- Current signed version remains `0.5.0-rc3`, versionCode `23`, package `studio.guitarlab.app`, until H37b passes the manual canonical gate.
+- Source candidate: `0.5.0-rc4`, versionCode `24`, H37b + H37c provenance corrective — **SOURCE PRE-GATE**.
+- Current signed version remains `0.5.0-rc3`, versionCode `23`, package `studio.guitarlab.app`, until H37c passes the manual canonical gate.
 - Current signed source line: CI #663 producer `51d4098fa7b1b44a9fa315e939541020f594654d`.
 - Latest signed DIGITAL PASS: **CI #663** / run `35523442620` / producer `51d4098fa7b1b44a9fa315e939541020f594654d`.
 - #663 scope: H28 → H29 → H30 → H31 → H32 → H33 → H33a → H33b → H34 → H35 → H35a → H36 → H36a → H36b → H36c.
@@ -77,6 +77,22 @@ Pre-publication H37a evidence:
 - corrupted H37a archive rejected fail-closed before source mutation PASS.
 
 CI #664 is retained as failed compile evidence only. CI #663 remains the signed DIGITAL PASS authority until H37b completes the full manual canonical gate.
+
+## CI #665 — H37b software/API36 PASS, signing provenance corrective H37c
+Manual CI #665 / run `35546264450` executed producer `01b2371310fb872eb1583231728941beb93c1a8e`.
+
+Digital result:
+- Unit tests + Lint + APK build: **PASS**;
+- API 36 emulator regression: **PASS**;
+- unsigned artifact checksum: **PASS**;
+- unsigned APK SHA-256: `343bd7423275481039fc0475527bcb6a22c259a69136a5e052b6adbe5b0421f2`;
+- artifact identity: package `studio.guitarlab.app`, versionName `0.5.0-rc4`, versionCode `24`, source SHA `01b2371310fb872eb1583231728941beb93c1a8e`.
+
+The signed job failed before the private signing bundle was restored. Root cause: the provenance step compared the tested RC4 artifact against the raw, unmaterialized repository base `app/build.gradle.kts`, which still carries RC3/23. The upstream build jobs had correctly materialized H37b before building.
+
+H37c is a workflow-only corrective: the signed job now runs the canonical source materializer plus `git diff --check` before comparing package/version/source identity. It does not rebuild or modify the tested unsigned APK.
+
+CI #665 therefore provides positive H37b software/API36 evidence but is not a signed DIGITAL PASS. CI #663 remains the signed authority until a fresh manual H37c run completes signing/provenance.
 
 ## H37b — OAuth token-cache hardening — SOURCE PRE-GATE
 H37b is the final pre-CI hardening on top of H37a. Google documents `AuthorizationClient.clearToken(ClearTokenRequest)` as the API that removes a rejected access token from the local Google Identity Services cache. H37b uses it whenever Drive returns HTTP 401, then reacquires authorization through the existing `drive.file` flow instead of risking reuse of the same rejected token.
