@@ -3,12 +3,12 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 bash "$ROOT/scripts/materialize_ci_sources_through_h28.sh"
 bash "$ROOT/scripts/materialize_ci_sources_u3.sh"
-U4_PATCH="$ROOT/.source-parts/U4SeparationIntegration.patch"
-echo "e68d23b13ecfff297a93c6667d0ad96ae01bc2e8df400ecbb810717ab189334b  $U4_PATCH" | sha256sum -c -
-if patch -p1 -R --dry-run -d "$ROOT" < "$U4_PATCH" >/dev/null 2>&1; then
+U4_PATCH="$ROOT/.source-parts/U4SeparationIntegration.patch.gz"
+echo "d6af8e0e2e9ad440654e50729a949a40e3ad58d8a0c454fda2a3dae5279dfc66  $U4_PATCH" | sha256sum -c -
+if gzip -dc "$U4_PATCH" | patch -p1 -R --dry-run -d "$ROOT" >/dev/null 2>&1; then
   : # already materialized
 else
-  patch -p1 --forward -d "$ROOT" < "$U4_PATCH"
+  gzip -dc "$U4_PATCH" | patch -p1 --forward -d "$ROOT"
 fi
 grep -q 'include(":core:separation")' "$ROOT/settings.gradle.kts" || printf '\ninclude(":core:separation")\ninclude(":platform:separation")\n' >> "$ROOT/settings.gradle.kts"
 grep -q 'project(":platform:separation")' "$ROOT/app/build.gradle.kts" || python3 - "$ROOT/app/build.gradle.kts" <<'PY'
