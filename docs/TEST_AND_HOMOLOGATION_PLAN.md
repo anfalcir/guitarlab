@@ -192,3 +192,97 @@ Not required:
 - physical verification of legacy-project upgrade.
 
 Historical tests already executed are retained as evidence but are not repeated solely to preserve obsolete compatibility.
+
+
+## Unified product-cohesion digital gate — 2026-09-21
+
+The detailed contract is `UNIFIED_PRODUCT_COHESION_AUDIT.md`. Product cohesion is release-blocking, not optional visual polish.
+
+### U6 boundary
+Android CI #694 / run `35630563575` passed at exact source `364a8ddb1904003af150c9162fed6aa6a4106d8e`, proving the technical U6 export implementation. U6 remains open until C1 removes the parallel Home/Studio format chooser and all external-output selection converges on the canonical Export workspace.
+
+### Required navigation/project-shell tests
+- Home project tap resolves to last/relevant workspace deterministically;
+- Prepare ↔ Studio ↔ Export preserves project identity and durable creative state;
+- process recreation restores the same valid project/workspace;
+- deleted/missing project route fails to a user-safe library recovery state;
+- Settings returns to its exact originating project/workspace;
+- phone/tablet adaptive navigation exposes the same capabilities.
+
+### Required Prepare journey tests
+- Search and local Import converge to the same downstream preparation state;
+- source replacement is explicit and does not mutate Studio recordings/edits silently;
+- six validated stems trigger deterministic reference generation automatically;
+- reference-generation failure exposes retry without losing accepted stems;
+- normal Prepare completion requires no redundant “create references” confirmation;
+- raw remote-job/asset-role identifiers never appear in primary semantics;
+- background/reopen/notification preserves operation ownership.
+
+### Required operation/Activity tests
+For source acquisition, separation, reference generation, study export, master export, backup and restore:
+- operationId/projectId ownership;
+- running/retry/cancel/terminal state mapping;
+- process recreation;
+- leaving the owning screen does not cancel valid work;
+- explicit project deletion cancels/reconciles owned work safely;
+- notification/deep-link routes to the owning project or Activity item;
+- stale result cannot publish into a newer project revision.
+
+### Required export-cohesion tests
+- all Home/Studio export/share entry points navigate to the canonical Export workspace;
+- no independent encoder/format chooser remains outside Export;
+- study WAV remains direct publication of the canonical reference when compatible;
+- FLAC/MP3 remain single-encode paths;
+- unavailable codecs show an accessible reason/next action;
+- cancel/failure leaves project state untouched.
+
+### Required lifecycle/destructive matrix
+Exercise rename, duplicate and delete while each relevant background operation is:
+- idle;
+- running;
+- retrying;
+- terminal but not yet acknowledged.
+
+Duplicate must never copy transient operation identity. Delete must not orphan WorkManager/cloud/temp ownership.
+
+### Visual/copy evidence
+CI/U10 must retain a screenshot artifact set for:
+- Home empty + populated/active-job states;
+- New Project;
+- Prepare search/results/separating/ready/error;
+- Studio normal + prepared-reference update;
+- Export ready/running/error;
+- Activity;
+- Settings;
+- Backup/restore;
+- destructive confirmation.
+
+Matrix:
+- target-tablet class 1920×1200;
+- representative phone portrait;
+- compact-width/landscape stress where supported;
+- dark/light;
+- normal and enlarged representative font scale.
+
+Pixel-perfect golden gating is optional if too brittle. Screenshot generation, semantic geometry checks and a deterministic review checklist are mandatory.
+
+### Terminology/static UX audit
+Before U11 freeze, scan user-facing resources/source for:
+- orphan “GBW” product branding;
+- “Study Exports” / untranslated section headings;
+- raw `AssetRole` names;
+- raw remote-job enums;
+- internal IDs/SHA text outside Details/Diagnostics;
+- duplicate “Salvar e exportar” format chooser;
+- user-facing “export from GBW/import into Studio” language.
+
+### Accessibility
+- minimum touch targets;
+- meaningful TalkBack order;
+- progress/state announcements;
+- no state conveyed by color alone;
+- enlarged-font layout remains operable;
+- focus traversal does not expose hidden/duplicate controls.
+
+### Physical boundary
+U12 must not be used to discover basic information-architecture, duplicate-flow or copy-consistency problems. Those are digital U10/U11 gates. U12 UX work is limited to real-device ergonomics, tactile behavior, viewing-distance readability and hardware-specific focus/system-bar anomalies.
