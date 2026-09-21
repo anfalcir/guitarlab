@@ -1,0 +1,20 @@
+diff --git a/app/src/androidTest/java/studio/guitarlab/app/UnifiedProjectShellInstrumentedTest.kt b/app/src/androidTest/java/studio/guitarlab/app/UnifiedProjectShellInstrumentedTest.kt
+--- a/app/src/androidTest/java/studio/guitarlab/app/UnifiedProjectShellInstrumentedTest.kt
++++ b/app/src/androidTest/java/studio/guitarlab/app/UnifiedProjectShellInstrumentedTest.kt
+@@ -1,6 +1,6 @@
+ package studio.guitarlab.app
+ 
+-import androidx.compose.ui.test.assertExists
++import androidx.compose.ui.test.assertCountEquals
+ import androidx.compose.ui.test.assertIsDisplayed
+ import androidx.compose.ui.test.assertIsEnabled
+ import androidx.compose.ui.test.assertIsNotEnabled
+@@ -164,7 +164,7 @@
+         composeRule.onNodeWithText("Study Exports").performScrollTo().assertIsDisplayed()
+         composeRule.onNodeWithTag("export-backing-wav").assertIsDisplayed().assertIsEnabled()
+         composeRule.onNodeWithTag("export-guitar-wav").assertIsDisplayed().assertIsEnabled()
+-        composeRule.onNodeWithText("WAV • sem conversão").assertExists()
++        composeRule.onAllNodesWithText("WAV • sem conversão").assertCountEquals(2)
+         composeRule.onNodeWithText("Studio Master").performScrollTo().assertIsDisplayed()
+     }
+ 
