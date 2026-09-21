@@ -4,7 +4,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 bash "$ROOT/scripts/materialize_ci_sources_through_h28.sh"
 bash "$ROOT/scripts/materialize_ci_sources_u3.sh"
 U4_PATCH="$ROOT/.source-parts/U4SeparationIntegration.patch.gz"
-echo "d6af8e0e2e9ad440654e50729a949a40e3ad58d8a0c454fda2a3dae5279dfc66  $U4_PATCH" | sha256sum -c -
+echo "0753676239a38fbe22a21655eecc2416964fd2aa52c7c4e8f19058be063d978d  $U4_PATCH" | sha256sum -c -
 if gzip -dc "$U4_PATCH" | patch -p1 -R --dry-run -d "$ROOT" >/dev/null 2>&1; then
   : # already materialized
 else
