@@ -137,6 +137,37 @@ count_testcases() {
   echo "$count"
 }
 
+collect_visual_evidence() {
+  local slug="$1"
+  local dest="$DIAG_ROOT/$slug/screenshots"
+  local remote name count=0
+  local remotes=""
+
+  mkdir -p "$dest"
+  remotes="$(
+    adb shell run-as studio.guitarlab.app sh -c \
+      'find files/ci-screenshots -maxdepth 1 -type f -name "*.png" -print' \
+      2>/dev/null | tr -d '\r' || true
+  )"
+
+  while IFS= read -r remote; do
+    [[ -n "$remote" ]] || continue
+    name="$(basename "$remote")"
+    if adb exec-out run-as studio.guitarlab.app cat "$remote" > "$dest/$name" 2>/dev/null &&
+       [[ -s "$dest/$name" ]]; then
+      count="$((count + 1))"
+    else
+      rm -f "$dest/$name"
+    fi
+  done <<< "$remotes"
+
+  adb shell run-as studio.guitarlab.app rm -rf files/ci-screenshots >/dev/null 2>&1 || true
+
+  if [[ "$count" -gt 0 ]]; then
+    echo "::notice title=C8 screenshots::${count} screenshot(s) coletado(s) em ci-diagnostics/api36-groups/$slug/screenshots"
+  fi
+}
+
 collect_runtime_diagnostics() {
   local slug="$1"
   local title="$2"
@@ -219,6 +250,7 @@ run_group() {
   duration="$(format_duration "$elapsed")"
 
   copy_group_evidence "$slug"
+  collect_visual_evidence "$slug"
   tests="$(count_testcases "$dest/results")"
 
   if [[ "$status" -eq 0 ]]; then
