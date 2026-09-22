@@ -4,8 +4,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PREVIOUS="$ROOT/scripts/materialize_ci_sources_u8i.sh"
 PAYLOAD="$ROOT/.source-parts/U8jPathAwareProjectSnapshots.patch.b64"
-PAYLOAD_SHA256="d94fa6e07f009681fd0479e0d5a5c513b86f1960e98ba14fae35019411286fc0"
-PATCH_SHA256="9cc1549a299bd9cb63b105c0a9e8e6583558c24df94303edae003dbd2e396079"
+PAYLOAD_SHA256="ef6abfca3cd26c381352d8c6fbca9d528757096c100bd706b5c62bad11dac210"
+PATCH_SHA256="5823349c252dccf7379b4fe7a05b811dcde5f413ca573610dbf22553f6de95ea"
 
 declare -a FILES=(
   "app/src/main/java/studio/guitarlab/app/backup/UnifiedDriveV3RemoteStore.kt"
@@ -23,7 +23,7 @@ declare -a HASHES=(
   "2200336f5fab562e4beb77a2783f447c03897654"
   "df6edb8137303304b680a01c6443c23c389bf9f0"
   "c8987b270c5e2e9ece3287c8c32ce5e6d491b885"
-  "e728d060b6091a5f9067723b03c70a66366a7a86"
+  "2e8435530a7d1c136cb61f1b17546ddf3b52c6b6"
   "38db0846a29bf759012b772263eb59726e728718"
 )
 
