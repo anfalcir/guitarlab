@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# U10h corrective seal: classify the C7 matrix in fail-closed API36 coverage.
+# U10h corrective seal: classify the C7 matrix in fail-closed API36 coverage; canonical checkpoint.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
