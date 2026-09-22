@@ -138,3 +138,23 @@ The provider-neutral restore boundary now:
 
 Reachability-based retention/GC is the next U8 checkpoint after the U8e CI
 gate.
+
+## U8f reachability-safe garbage collection
+
+U8f status: SOURCE COMPLETE / PRE-GATE.
+
+U8f turns the U8a deletion predicate into an executable global collection
+boundary:
+
+- retention is evaluated independently per immutable project identity;
+- each project's newest committed manifest is retained even when it exceeds
+  the normal age window;
+- content is deleted only when unreachable from every retained manifest
+  across every project;
+- assets referenced by a pending transaction and assets inside the safety
+  grace period remain protected;
+- object deletion is best-effort and reports individual failures without
+  invalidating an already successful backup commit.
+
+The next U8 checkpoint integrates scheduling, Activity/Home sync state and the
+unified Conta e nuvem presentation.
