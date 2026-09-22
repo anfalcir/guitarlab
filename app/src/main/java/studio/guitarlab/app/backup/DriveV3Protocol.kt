@@ -213,10 +213,13 @@ internal class DriveV3HttpClient(
                 val connection = open(url, "GET", token)
                 try {
                     val code = connection.responseCode
-                    if (code == 401 && !refreshed401) {
-                        tokenProvider.invalidateRejectedToken()
-                        refreshed401 = true
-                        continue
+                    if (code == 401) {
+                        if (!refreshed401) {
+                            tokenProvider.invalidateRejectedToken()
+                            refreshed401 = true
+                            continue
+                        }
+                        throw DriveAuthorizationRequiredException()
                     }
                     if (code in 200..299) {
                         connection.inputStream.buffered().use { input ->
@@ -294,9 +297,13 @@ internal class DriveV3HttpClient(
                     connection.outputStream.use { it.write(body) }
                 }
                 val result = response(connection)
-                if (result.code == 401 && retry401 && !refreshed) {
-                    tokenProvider.invalidateRejectedToken()
-                    refreshed = true
+                if (result.code == 401 && retry401) {
+                    if (!refreshed) {
+                        tokenProvider.invalidateRejectedToken()
+                        refreshed = true
+                    } else {
+                        throw DriveAuthorizationRequiredException()
+                    }
                 } else {
                     completed = result
                 }
