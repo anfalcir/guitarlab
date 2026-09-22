@@ -213,6 +213,33 @@ class DriveV3ProtocolTest {
         assertTrue(!destination.exists() || destination.length() == 0L)
     }
 
+    @Test fun transientDriveFailureClassificationMatchesWorkManagerRetryContract() {
+        assertTrue(isTransientDriveFailure(IOException("offline")))
+        assertTrue(isTransientDriveFailure(SocketTimeoutException("timeout")))
+        assertTrue(isTransientDriveFailure(DriveApiException(429, "")))
+        assertTrue(isTransientDriveFailure(DriveApiException(503, "")))
+        assertTrue(
+            isTransientDriveFailure(
+                DriveApiException(
+                    403,
+                    """{"error":{"errors":[{"reason":"userRateLimitExceeded"}]}}""",
+                ),
+            ),
+        )
+
+        assertFalse(
+            isTransientDriveFailure(
+                DriveApiException(
+                    403,
+                    """{"error":{"errors":[{"reason":"insufficientPermissions"}]}}""",
+                ),
+            ),
+        )
+        assertFalse(isTransientDriveFailure(DriveApiException(404, "")))
+        assertFalse(isTransientDriveFailure(DriveAuthorizationRequiredException()))
+        assertFalse(isTransientDriveFailure(IllegalStateException("conflict")))
+    }
+
     @Test fun malformedDriveJsonFailsClosed() {
         assertFailsWith<Throwable> {
             DriveV3Json.parseFile("""{"name":"missing-id"}""")
