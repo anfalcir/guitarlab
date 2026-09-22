@@ -1,6 +1,9 @@
 # U8 unified Drive backup
 
 Updated: 2026-09-22
+U8l status: CLOSED / DIGITAL PASS — Android CI #756 / run `35746523924`, exact
+source `2cacbfe4c95bfbee694e717468075b8eedc7f9c6`.
+
 U8k status: CLOSED / DIGITAL PASS — Android CI #750 / run `35742420939`, exact
 source `b5bf8d39008aa267d7411244ea0ae526142863f7`.
 
@@ -59,14 +62,25 @@ the next checkpoint.
 
 ## Remaining U8 sequence
 
-U8a–U8k have closed the provider-neutral domain, Drive v3 adapter, durable transaction journal,
-transactional restore, reachability-safe GC, C6 presentation/Activity contracts, path-aware project
-snapshot/manifest format and the production cutover to the vNext stack. The remaining U8 work is now
-strictly failure injection and real-provider end-to-end proof:
+U8a–U8l have closed the provider-neutral domain, Drive v3 adapter, durable
+transaction journal, transactional restore, reachability-safe GC, C6
+presentation/Activity contracts, path-aware project snapshot/manifest format,
+the production cutover to the vNext stack and the complete network/HTTP fault
+matrix.
 
-1. execute the full network/HTTP fault matrix through the active vNext Drive path, including retry, cancellation, lost-response and resumable-upload recovery semantics;
-2. execute the real Google Drive campaign with exact backup → verify → restore → conflict/recovery → GC evidence;
-3. close U8 only after both fault-injection and real-provider gates are green.
+The **only remaining U8 gate** is controlled real-provider end-to-end proof:
+
+1. execute the real Google Drive campaign against the production vNext path;
+2. prove initial backup, metadata-only incremental backup and one-new-take
+   incremental upload;
+3. verify objects/manifests/append-only heads and confirmed-revision behavior;
+4. restore and validate project state plus managed media;
+5. exercise a real conflict and the explicit resolution actions;
+6. validate safe GC/cleanup without deleting reachable or pending assets;
+7. close U8 only after this real-provider gate is green.
+
+Adopt `U8m` for this block unless newer normative documentation defines
+another identifier.
 
 ## U8k production cutover — CLOSED / DIGITAL PASS
 
