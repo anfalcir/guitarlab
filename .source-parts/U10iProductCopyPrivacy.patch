@@ -1,0 +1,55 @@
+diff --git a/app/src/main/java/studio/guitarlab/app/ui/ProjectExportService.kt b/app/src/main/java/studio/guitarlab/app/ui/ProjectExportService.kt
+--- a/app/src/main/java/studio/guitarlab/app/ui/ProjectExportService.kt
++++ b/app/src/main/java/studio/guitarlab/app/ui/ProjectExportService.kt
+@@ -25,8 +25,8 @@ import studio.guitarlab.platform.codec.android.AndroidMasterAudioEncoder
+ import studio.guitarlab.platform.codec.android.MasterExportFormat
+ 
+ enum class StudyExportKind(val label: String, val fileToken: String, val expectedRole: AssetRole) {
+-    BACKING("Backing track", "backing", AssetRole.REFERENCE_BACKING),
+-    GUITAR("Guitarra", "guitar", AssetRole.REFERENCE_GUITAR),
++    BACKING("Base sem guitarra", "backing", AssetRole.REFERENCE_BACKING),
++    GUITAR("Guitarra de referência", "guitar", AssetRole.REFERENCE_GUITAR),
+ }
+ 
+ enum class StudyExportStrategy { DIRECT_CANONICAL_WAV, SINGLE_ENCODE }
+diff --git a/app/src/main/java/studio/guitarlab/app/ui/ProjectMediaDialog.kt b/app/src/main/java/studio/guitarlab/app/ui/ProjectMediaDialog.kt
+--- a/app/src/main/java/studio/guitarlab/app/ui/ProjectMediaDialog.kt
++++ b/app/src/main/java/studio/guitarlab/app/ui/ProjectMediaDialog.kt
+@@ -70,7 +70,7 @@ fun ProjectMediaDialog(
+                     HorizontalDivider()
+                 }
+                 MediaGroup("Fonte", project.assets.filter { it.role == AssetRole.SOURCE_ORIGINAL }, activePreparationIds, boundIds)
+-                MediaGroup("Stems preparados", project.assets.filter { it.role.name.startsWith("STEM_") }, activePreparationIds, boundIds)
++                MediaGroup("Faixas separadas", project.assets.filter { it.role.name.startsWith("STEM_") }, activePreparationIds, boundIds)
+                 MediaGroup("Referências", project.assets.filter { it.role in setOf(AssetRole.REFERENCE_BACKING, AssetRole.REFERENCE_GUITAR) }, activePreparationIds, boundIds)
+                 MediaGroup("Gravações", project.assets.filter { it.role == AssetRole.RECORDING_TAKE }, activePreparationIds, boundIds)
+             }
+diff --git a/app/src/main/java/studio/guitarlab/app/activity/ActivityScreen.kt b/app/src/main/java/studio/guitarlab/app/activity/ActivityScreen.kt
+--- a/app/src/main/java/studio/guitarlab/app/activity/ActivityScreen.kt
++++ b/app/src/main/java/studio/guitarlab/app/activity/ActivityScreen.kt
+@@ -124,7 +124,6 @@ private fun ActivityRecordCard(record: UnifiedOperationRecord) {
+                     )
+                 }
+                 Text(record.summary, style = MaterialTheme.typography.bodyMedium)
+-                record.projectId?.let { Text("Projeto $it", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                 record.progressPercent?.let { progress ->
+                     if (active) {
+                         androidx.compose.material3.LinearProgressIndicator(
+diff --git a/app/src/androidTest/java/studio/guitarlab/app/ActivityNotificationDeepLinkInstrumentedTest.kt b/app/src/androidTest/java/studio/guitarlab/app/ActivityNotificationDeepLinkInstrumentedTest.kt
+--- a/app/src/androidTest/java/studio/guitarlab/app/ActivityNotificationDeepLinkInstrumentedTest.kt
++++ b/app/src/androidTest/java/studio/guitarlab/app/ActivityNotificationDeepLinkInstrumentedTest.kt
+@@ -1,5 +1,6 @@
+ package studio.guitarlab.app
+ 
++import androidx.compose.ui.test.assertDoesNotExist
+ import androidx.compose.ui.test.assertIsDisplayed
+ import androidx.compose.ui.test.junit4.createEmptyComposeRule
+ import androidx.compose.ui.test.onNodeWithTag
+@@ -42,6 +43,7 @@ class ActivityNotificationDeepLinkInstrumentedTest {
+             ActivityScenario.launch<MainActivity>(intent).use {
+                 composeRule.onNodeWithTag("activity-record-$operationId").assertIsDisplayed()
+                 composeRule.onNodeWithText("Concluída").assertIsDisplayed()
++                composeRule.onNodeWithText("project-notification", substring = true).assertDoesNotExist()
+             }
+         } finally {
+             store.remove(operationId)
