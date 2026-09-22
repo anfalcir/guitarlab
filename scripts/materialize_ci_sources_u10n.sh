@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# U10n/C8a corrective seal: fail closed unless the required screenshot artifact matrix is collected.
+# U10n/C8a corrective seal: fail closed unless the required screenshot artifact matrix is collected; canonical checkpoint.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
