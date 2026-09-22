@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# U10e corrective seal: restore Backup controls accidentally removed by U10b section extraction.
+# U10e corrective seal: restore Backup controls; canonical C7a-C7d checkpoint.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
