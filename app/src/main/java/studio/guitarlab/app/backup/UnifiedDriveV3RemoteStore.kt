@@ -112,6 +112,78 @@ internal class UnifiedDriveV3RemoteStore(
         return true
     }
 
+
+    /**
+     * U8m-only cleanup. It can only target the random acceptance namespace and protects any
+     * content object still reachable from another project head.
+     */
+    internal suspend fun cleanupAcceptanceProject(
+        projectId: String,
+        extraOwnedAssetHashes: Set<String>,
+    ): U8mRemoteCleanupResult {
+        require(U8mRealDriveAcceptanceContract.isCampaignProjectId(projectId)) {
+            "Refusing Drive cleanup outside a U8m campaign namespace."
+        }
+        require(extraOwnedAssetHashes.all(SHA256::matches)) {
+            "U8m cleanup received an invalid owned asset hash."
+        }
+
+        val headFiles = listFiles(query(KIND_HEAD, PROP_PROJECT_ID to projectId))
+        val heads = headFiles.map(::publishedHead)
+        require(heads.all { it.descriptor.projectId == projectId }) {
+            "U8m cleanup encountered a foreign Drive head."
+        }
+
+        val manifestFiles = listFiles(query(KIND_MANIFEST, PROP_PROJECT_ID to projectId))
+        val manifests = manifestFiles.map { loadManifestResource(it, projectId) }
+        val ownedHashes = manifests
+            .flatMapTo(mutableSetOf()) { manifest -> manifest.assets.map { it.sha256 } }
+            .apply { addAll(extraOwnedAssetHashes) }
+
+        val protectedOutsideCampaign = listAllHeads()
+            .filter { it.descriptor.projectId != projectId }
+            .distinctBy { it.descriptor.manifestSha256 }
+            .flatMapTo(mutableSetOf()) { head ->
+                loadManifest(head.descriptor).assets.map { it.sha256 }
+            }
+        val deletableHashes = ownedHashes - protectedOutsideCampaign
+
+        var deletedHeads = 0
+        var deletedManifests = 0
+        var deletedAssets = 0
+        for (file in headFiles) {
+            deleteFile(file.id)
+            deletedHeads++
+        }
+        for (file in manifestFiles) {
+            deleteFile(file.id)
+            deletedManifests++
+        }
+        for (hash in deletableHashes) {
+            val matches = listFiles(query(KIND_ASSET, PROP_SHA256 to hash))
+            matches.forEach { file ->
+                require(file.verifiedReceipt()?.sha256 == hash) {
+                    "U8m cleanup found ambiguous asset metadata."
+                }
+                deleteFile(file.id)
+                deletedAssets++
+            }
+        }
+
+        require(listFiles(query(KIND_HEAD, PROP_PROJECT_ID to projectId)).isEmpty()) {
+            "U8m cleanup left campaign heads behind."
+        }
+        require(listFiles(query(KIND_MANIFEST, PROP_PROJECT_ID to projectId)).isEmpty()) {
+            "U8m cleanup left campaign manifests behind."
+        }
+        return U8mRemoteCleanupResult(
+            deletedHeads = deletedHeads,
+            deletedManifests = deletedManifests,
+            deletedAssets = deletedAssets,
+            protectedSharedAssets = ownedHashes.size - deletableHashes.size,
+        )
+    }
+
     override suspend fun loadManifest(descriptor: DriveCurrentDescriptor): DriveProjectRevisionManifest {
         val resource = findOne(KIND_MANIFEST, PROP_SHA256 to descriptor.manifestSha256)
             ?: error("Drive manifest is missing.")
@@ -401,6 +473,41 @@ internal class UnifiedDriveV3RemoteStore(
     private suspend fun getFile(id: String): DriveFileResource = DriveV3Json.parseFile(
         requireSuccess(http.get("$FILES/$id?fields=$FIELDS_ENCODED"), "Drive object verification failed.").body,
     )
+
+
+    private suspend fun loadManifestResource(
+        resource: DriveFileResource,
+        expectedProjectId: String,
+    ): DriveProjectRevisionManifest {
+        val hash = resource.appProperties[PROP_SHA256]
+            ?.lowercase()
+            ?.takeIf(SHA256::matches)
+            ?: error("U8m manifest is missing its content hash.")
+        val temporary = kotlin.io.path.createTempFile("guitarlab-u8m-cleanup-", ".manifest").toFile()
+        return try {
+            http.download("$FILES/${resource.id}?alt=media", temporary)
+            require(BackupHashing.sha256(temporary) == hash) {
+                "U8m manifest failed SHA-256 verification before cleanup."
+            }
+            DriveProjectRevisionManifest.parseCanonical(temporary.readBytes()).also { manifest ->
+                require(manifest.projectId == expectedProjectId) {
+                    "U8m cleanup encountered a manifest owned by another project."
+                }
+                require(manifest.manifestSha256 == hash) {
+                    "U8m cleanup manifest identity mismatch."
+                }
+            }
+        } finally {
+            temporary.delete()
+        }
+    }
+
+    private suspend fun deleteFile(fileId: String) {
+        val response = http.delete("$FILES/$fileId")
+        if (response.code != 204 && response.code != 404) {
+            requireSuccess(response, "U8m Drive cleanup failed.")
+        }
+    }
 
     private suspend fun listFiles(query: String): List<DriveFileResource> {
         val output = mutableListOf<DriveFileResource>()

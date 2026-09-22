@@ -14,7 +14,9 @@ import studio.guitarlab.core.project.DriveConflictException
 import studio.guitarlab.core.project.DriveConflictResolver
 import studio.guitarlab.core.project.DriveCurrentDescriptor
 import studio.guitarlab.core.project.DriveManifestRetentionPlanner
+import studio.guitarlab.core.project.DriveProjectRevisionManifest
 import studio.guitarlab.core.project.DriveReconciliation
+import studio.guitarlab.core.project.UnifiedDriveBackupResult
 import studio.guitarlab.core.project.DriveRestorePublisher
 import studio.guitarlab.core.project.DurableUnifiedDriveBackupCoordinator
 import studio.guitarlab.core.project.FileDriveTransactionJournal
@@ -47,7 +49,8 @@ internal class UnifiedDriveProductionService(
     private val snapshotStore =
         FileUnifiedDriveSnapshotStore(File(rootDirectory, SNAPSHOT_DIRECTORY))
     private val uploadState = SharedPreferencesUnifiedDriveUploadState(applicationContext)
-    private val http = DriveV3HttpClient(tokenProvider)
+    private val transportMetrics = U8mDriveTransportMetrics()
+    private val http = DriveV3HttpClient(tokenProvider, observer = transportMetrics)
     private val rootAccess = UnifiedDriveRootAccess(applicationContext, http)
     private val remote = UnifiedDriveV3RemoteStore(
         http = http,
@@ -64,6 +67,16 @@ internal class UnifiedDriveProductionService(
         UnifiedDriveLocalProjectPublisher(rootDirectory, codec, nowEpochMs = nowEpochMs)
 
     suspend fun probeReadWriteDelete(): String = rootAccess.probeReadWriteDelete()
+
+    internal suspend fun runU8mRealDriveAcceptance(): U8mRealDriveAcceptanceReport =
+        U8mRealDriveAcceptanceCampaign(
+            rootDirectory = rootDirectory,
+            repository = repository,
+            confirmedRevisions = confirmedRevisions,
+            remote = remote,
+            service = this,
+            nowEpochMs = nowEpochMs,
+        ).run()
 
     suspend fun listCommittedVersions(
         retentionPolicy: BackupRetentionPolicy,
@@ -299,9 +312,73 @@ internal class UnifiedDriveProductionService(
         File(rootDirectory, RESTORE_DIRECTORY).deleteRecursively()
     }
 
+
+    internal suspend fun u8mCommitProject(
+        projectId: String,
+        explicitBaseRevisionId: String? = null,
+    ): U8mBackupEvidence {
+        snapshotStore.cleanupTemporaryDirectories()
+        val project = requireNotNull(repository.load(projectId)) { "Projeto local não encontrado." }
+        val metricsBefore = transportMetrics.snapshot()
+        val started = System.nanoTime()
+        val mediaBefore = project.assets
+            .distinctBy { it.sha256 }
+            .associate { asset -> asset.sha256 to (remote.findAsset(asset.sha256) != null) }
+        var committed: Pair<DriveProjectRevisionManifest, UnifiedDriveBackupResult>? = null
+        val attempt = backupProjectInternal(projectId, explicitBaseRevisionId) { manifest, result ->
+            committed = manifest to result
+        }
+        val elapsedMs = (System.nanoTime() - started) / 1_000_000L
+        val (manifest, result) = requireNotNull(committed) {
+            "U8m expected a committed Drive revision but the production path skipped it."
+        }
+        val newMedia = project.assets
+            .distinctBy { it.sha256 }
+            .filter { mediaBefore[it.sha256] == false }
+        val metricsAfter = transportMetrics.snapshot()
+        return U8mBackupEvidence(
+            attempt = attempt,
+            manifest = manifest,
+            result = result,
+            mediaUploadedObjects = newMedia.size,
+            mediaUploadedBytes = newMedia.sumOf { it.byteSize },
+            durationMs = elapsedMs,
+            retryCount = metricsAfter.retryCount - metricsBefore.retryCount,
+            authorizationRefreshCount =
+                metricsAfter.authorizationRefreshCount - metricsBefore.authorizationRefreshCount,
+            observedHeadRevisions =
+                remote.listHeads(projectId).map { it.descriptor.revisionId }.distinct(),
+            confirmedRevision = confirmedRevisions.confirmedRevision(projectId),
+        )
+    }
+
+    internal suspend fun u8mKeepLocal(
+        projectId: String,
+        remoteVersion: BackupVersionDescriptor,
+    ): U8mBackupEvidence {
+        val remoteDescriptor = descriptor(remoteVersion)
+        val tips = currentTips(remote.listHeads(projectId))
+        require(tips.size == 1 && tips.single().descriptor == remoteDescriptor) {
+            "U8m keep-local requires one exact remote tip."
+        }
+        clearPendingTransaction(projectId)
+        return u8mCommitProject(projectId, remoteDescriptor.revisionId)
+    }
+
+    internal suspend fun u8mAdvanceRemote(
+        project: GuitarProject,
+        baseRevisionId: String,
+    ): DriveCurrentDescriptor =
+        snapshotBuilder.freeze(project, baseRevisionId).use { frozen ->
+            UnifiedDriveBackupCoordinator(remote)
+                .commit(frozen.manifest, frozen.localAssets, baseRevisionId)
+                .descriptor
+        }
+
     private suspend fun backupProjectInternal(
         projectId: String,
         explicitBaseRevisionId: String?,
+        onCommitted: ((DriveProjectRevisionManifest, UnifiedDriveBackupResult) -> Unit)? = null,
     ): ProjectBackupAttempt {
         var confirmed = explicitBaseRevisionId ?: confirmedRevisions.confirmedRevision(projectId)
         var record = journal.load(projectId)
@@ -426,6 +503,7 @@ internal class UnifiedDriveProductionService(
         require(result.descriptor.revisionId == desired) {
             "Drive confirmed a revision different from the frozen local project."
         }
+        onCommitted?.invoke(persisted.manifest, result)
         confirmedRevisions.record(result.descriptor)
         snapshotStore.remove(project.id)
 

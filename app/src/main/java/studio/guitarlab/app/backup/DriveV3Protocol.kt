@@ -129,12 +129,20 @@ internal interface DriveV3Api {
     suspend fun download(url: String, destination: File)
 }
 
+internal interface DriveTransportObserver {
+    fun onRetry(operation: String) = Unit
+    fun onAuthorizationRefresh() = Unit
+}
+
+internal object NoopDriveTransportObserver : DriveTransportObserver
+
 internal class DriveV3HttpClient(
     private val tokenProvider: DriveAccessTokenProvider,
     private val retryDelay: suspend (Long) -> Unit = { delay(it) },
     private val connectionFactory: (String) -> HttpURLConnection = {
         URL(it).openConnection() as HttpURLConnection
     },
+    private val observer: DriveTransportObserver = NoopDriveTransportObserver,
 ) : DriveV3Api {
     override suspend fun get(url: String): DriveHttpResponse = ordinaryRequest("GET", url)
 
@@ -196,7 +204,10 @@ internal class DriveV3HttpClient(
                 }
             }
             response(connection).also { response ->
-                if (response.code == 401) tokenProvider.invalidateRejectedToken()
+                if (response.code == 401) {
+                    tokenProvider.invalidateRejectedToken()
+                    observer.onAuthorizationRefresh()
+                }
             }
         } finally {
             connection.disconnect()
@@ -216,6 +227,7 @@ internal class DriveV3HttpClient(
                     if (code == 401) {
                         if (!refreshed401) {
                             tokenProvider.invalidateRejectedToken()
+                            observer.onAuthorizationRefresh()
                             refreshed401 = true
                             continue
                         }
@@ -234,6 +246,7 @@ internal class DriveV3HttpClient(
                         DriveRetryPolicy.retryableStatus(code, body) &&
                             attempt < DriveRetryPolicy.MAX_ATTEMPTS - 1
                     ) {
+                        observer.onRetry("download-http-$code")
                         retryDelay(backoff(attempt++))
                         continue
                     }
@@ -246,6 +259,7 @@ internal class DriveV3HttpClient(
                 if (error is DriveApiException || attempt >= DriveRetryPolicy.MAX_ATTEMPTS - 1) {
                     throw error
                 }
+                observer.onRetry("download-io")
                 retryDelay(backoff(attempt++))
             }
         }
@@ -264,12 +278,14 @@ internal class DriveV3HttpClient(
                 val response = rawAuthorizedRequest(method, url, body, contentType, extraHeaders, retry401 = true)
                 if (response.successful) return response
                 if (DriveRetryPolicy.retryableStatus(response.code, response.body) && attempt < DriveRetryPolicy.MAX_ATTEMPTS - 1) {
+                    observer.onRetry("request-http-${response.code}")
                     retryDelay(backoff(attempt++))
                     continue
                 }
                 return response
             } catch (error: IOException) {
                 if (attempt >= DriveRetryPolicy.MAX_ATTEMPTS - 1) throw error
+                observer.onRetry("request-io")
                 retryDelay(backoff(attempt++))
             }
         }
@@ -300,6 +316,7 @@ internal class DriveV3HttpClient(
                 if (result.code == 401 && retry401) {
                     if (!refreshed) {
                         tokenProvider.invalidateRejectedToken()
+                        observer.onAuthorizationRefresh()
                         refreshed = true
                     } else {
                         throw DriveAuthorizationRequiredException()
