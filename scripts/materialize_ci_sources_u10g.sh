@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# U10g/C7 responsive-accessibility matrix seal.
+# U10g/C7 responsive-accessibility matrix seal; canonical checkpoint.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
