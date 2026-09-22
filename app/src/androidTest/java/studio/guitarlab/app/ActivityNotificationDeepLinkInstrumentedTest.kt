@@ -43,6 +43,7 @@ class ActivityNotificationDeepLinkInstrumentedTest {
                 composeRule.onNodeWithTag("activity-record-$operationId").assertIsDisplayed()
                 composeRule.onNodeWithText("Concluída").assertIsDisplayed()
                 composeRule.onNodeWithText("project-notification", substring = true).assertDoesNotExist()
+                composeRule.captureCohesionScreenshot("activity-completed")
             }
         } finally {
             store.remove(operationId)
