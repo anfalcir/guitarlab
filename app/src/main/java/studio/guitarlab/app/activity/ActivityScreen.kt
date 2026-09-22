@@ -1,7 +1,6 @@
 package studio.guitarlab.app.activity
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -33,6 +32,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import java.text.DateFormat
 import java.util.Date
 import studio.guitarlab.app.ui.AppIconButton
+import studio.guitarlab.app.ui.ProductEmptyState
 import studio.guitarlab.app.ui.ProductStatusChip
 import studio.guitarlab.app.ui.ProductStatusTone
 import studio.guitarlab.core.project.UnifiedOperationKind
@@ -83,13 +83,12 @@ fun ActivityScreen(
 
 @Composable
 private fun ActivityEmptyState(modifier: Modifier) {
-    Box(modifier, contentAlignment = Alignment.Center) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Icon(Icons.Default.Sync, contentDescription = null)
-            Text("Nenhuma atividade recente", style = MaterialTheme.typography.titleMedium)
-            Text("Quando uma operação começar, ela aparecerá aqui.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-    }
+    ProductEmptyState(
+        title = "Nenhuma atividade recente",
+        body = "Quando uma operação começar, ela aparecerá aqui.",
+        modifier = modifier.testTag("activity-empty"),
+        icon = { Icon(Icons.Default.Sync, contentDescription = null) },
+    )
 }
 
 @Composable
