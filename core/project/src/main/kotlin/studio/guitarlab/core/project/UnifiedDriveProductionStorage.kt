@@ -290,6 +290,7 @@ class UnifiedDriveLocalProjectPublisher(
             ".restore-previous-${UUID.randomUUID()}",
         )
         require(publishDirectory.mkdirs()) { "Could not create restore publication staging." }
+        var publicationSucceeded = false
         try {
             copyTree(stagingDirectory, publishDirectory)
             if (target != source) {
@@ -307,18 +308,24 @@ class UnifiedDriveLocalProjectPublisher(
                     previousMoved = true
                 }
                 moveDirectory(publishDirectory, destination)
-            } catch (error: Throwable) {
+            } catch (publicationError: Throwable) {
                 if (destination.exists()) destination.deleteRecursively()
                 if (previousMoved && previousDirectory.exists()) {
-                    moveDirectory(previousDirectory, destination)
+                    try {
+                        moveDirectory(previousDirectory, destination)
+                    } catch (rollbackError: Throwable) {
+                        publicationError.addSuppressed(rollbackError)
+                        throw publicationError
+                    }
                 }
-                throw error
+                throw publicationError
             }
+            publicationSucceeded = true
             previousDirectory.deleteRecursively()
             return UnifiedDriveLocalPublication(target, action)
         } finally {
             publishDirectory.deleteRecursively()
-            previousDirectory.deleteRecursively()
+            if (publicationSucceeded) previousDirectory.deleteRecursively()
         }
     }
 
