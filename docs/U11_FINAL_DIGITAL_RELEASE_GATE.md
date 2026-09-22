@@ -1,9 +1,9 @@
 # U11 — Final Digital Release Gate — GuitarLab
 
-Updated: 2026-09-22  
-Status: **FROZEN CANDIDATE — FINAL GATES REQUESTED BY THIS COMMIT**  
-Candidate: `0.5.0-rc5` / versionCode `25`  
-Package: `studio.guitarlab.app`  
+Updated: 2026-09-22
+Status: **FROZEN CANDIDATE — FINAL GATES REQUESTED BY THIS COMMIT**
+Candidate: `0.5.0-rc5` / versionCode `25`
+Package: `studio.guitarlab.app`
 Canonical branch: `main`
 
 ## Objective
