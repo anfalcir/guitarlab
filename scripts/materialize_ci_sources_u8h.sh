@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PREVIOUS="$ROOT/scripts/materialize_ci_sources_c5.sh"
 PATCH="$ROOT/.source-parts/U8hAndroidActivityCohesion.patch"
-PATCH_SHA256="8867396dacdfb868bfef323c98bae0af8da6dbc096288657d94887ac3ed015ec"
+PATCH_SHA256="4fd661a0ad3971e2d7b176ed4da734f0f80c13d49f8a895891aebc148cba73f6"
 
 declare -a FILES=(
   "app/src/main/java/studio/guitarlab/app/activity/ActivityScreen.kt"

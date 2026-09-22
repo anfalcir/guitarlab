@@ -315,7 +315,7 @@ index 7df2dea..2608894 100644
  import studio.guitarlab.core.project.ProjectBackupCoordinator
 +import studio.guitarlab.core.project.UnifiedOperationKind
 +import studio.guitarlab.core.project.UnifiedOperationState
- 
+
  class AutomaticBackupWorker(
      appContext: Context,
 @@ -21,6 +24,9 @@ class AutomaticBackupWorker(
@@ -325,7 +325,7 @@ index 7df2dea..2608894 100644
 +        val operationId = "automatic-backup"
 +        val activity = UnifiedActivityStore(applicationContext)
 +        activity.record(operationId, null, UnifiedOperationKind.BACKUP, UnifiedOperationState.RUNNING, null, "Backup automático em andamento")
- 
+
          setForeground(createForegroundInfo())
          return BackupOperationLock.withLock {
 @@ -34,6 +40,7 @@ class AutomaticBackupWorker(
@@ -367,7 +367,7 @@ index e19efc1..d537f5c 100644
  import studio.guitarlab.core.project.ProjectBackupCoordinator
 +import studio.guitarlab.core.project.UnifiedOperationKind
 +import studio.guitarlab.core.project.UnifiedOperationState
- 
+
  data class BackupUiState(
      val loading: Boolean = true,
 @@ -38,6 +42,7 @@ class BackupViewModel(application: Application) : AndroidViewModel(application)
@@ -377,23 +377,23 @@ index e19efc1..d537f5c 100644
 +    private val activityStore = UnifiedActivityStore(application)
      private val _state = MutableStateFlow(BackupUiState())
      val state: StateFlow<BackupUiState> = _state.asStateFlow()
- 
+
 @@ -167,39 +172,58 @@ class BackupViewModel(application: Application) : AndroidViewModel(application)
      fun setRetentionDays(value: Int?) = updateSettings { settingsStore.setRetentionDays(value) }
      fun setMaximumVersions(value: Int) = updateSettings { settingsStore.setMaximumVersions(value) }
- 
+
 -    fun backupAllNow() = runBackup("Backup total") { coordinator ->
 +    fun backupAllNow() = runBackup(null, "Backup total") { coordinator ->
          val settings = settingsStore.snapshot()
          coordinator.backupAll(force = false, retentionPolicy = retention(settings))
      }
- 
+
 -    fun backupProjectNow(projectId: String) = runBackup("Backup do projeto") { coordinator ->
 +    fun backupProjectNow(projectId: String) = runBackup(projectId, "Backup do projeto") { coordinator ->
          val settings = settingsStore.snapshot()
          coordinator.backupProject(projectId, force = false, retentionPolicy = retention(settings))
      }
- 
+
      fun restoreVersion(version: BackupVersionDescriptor, onProjectsChanged: () -> Unit) = runBusy(null) {
 +        val operationId = UUID.randomUUID().toString()
 +        activityStore.record(operationId, version.projectId, UnifiedOperationKind.RESTORE, UnifiedOperationState.RUNNING, null, "Restaurando uma versão do projeto")
@@ -416,7 +416,7 @@ index e19efc1..d537f5c 100644
 +            throw error
 +        }
      }
- 
+
      fun restoreLatestAll(onProjectsChanged: () -> Unit) = runBusy(null) {
 +        val operationId = UUID.randomUUID().toString()
 +        activityStore.record(operationId, null, UnifiedOperationKind.RESTORE, UnifiedOperationState.RUNNING, null, "Restaurando os projetos mais recentes")
@@ -455,11 +455,11 @@ index e19efc1..d537f5c 100644
 +            throw error
          }
      }
- 
+
 @@ -220,17 +244,29 @@ class BackupViewModel(application: Application) : AndroidViewModel(application)
          refresh()
      }
- 
+
 -    private fun runBackup(label: String, action: suspend (ProjectBackupCoordinator) -> BackupRunReport) = runBusy(null) {
 -        val coordinator = coordinatorOrError()
 -        val report = BackupOperationLock.withLock { action(coordinator) }
@@ -496,13 +496,13 @@ index e19efc1..d537f5c 100644
 +            }
          }
      }
- 
+
 diff --git a/app/src/main/java/studio/guitarlab/app/ui/AppScreen.kt b/app/src/main/java/studio/guitarlab/app/ui/AppScreen.kt
 index 870854e..5096aef 100644
 --- a/app/src/main/java/studio/guitarlab/app/ui/AppScreen.kt
 +++ b/app/src/main/java/studio/guitarlab/app/ui/AppScreen.kt
 @@ -2,6 +2,7 @@ package studio.guitarlab.app.ui
- 
+
  sealed interface AppScreen {
      data object Home : AppScreen
 +    data object Activity : AppScreen
@@ -518,7 +518,7 @@ index 870854e..5096aef 100644
          is AppScreen.Prepare -> "prepare:${screen.projectId}"
          is AppScreen.Studio -> "studio:${screen.projectId}"
 @@ -28,6 +30,7 @@ object AppRouteCodec {
- 
+
      fun decode(route: String): AppScreen = when {
          route == "home" -> AppScreen.Home
 +        route == "activity" -> AppScreen.Activity
@@ -537,7 +537,7 @@ index 345672c..cbf08d3 100644
 +import studio.guitarlab.app.activity.UnifiedActivityViewModel
  import studio.guitarlab.core.model.GuitarProject
  import studio.guitarlab.core.model.ProjectTemplate
- 
+
 @@ -49,8 +51,13 @@ fun GuitarLabApp(
              onPrepareProject = { navigate(AppScreen.Prepare(it)) },
              onExportWorkspace = { navigate(ExportEntryPointPolicy.destination(it)) },
@@ -637,7 +637,7 @@ index b38c919..8cfe36e 100644
 @@ -226,6 +246,30 @@ fun HomeScreen(
      }
  }
- 
+
 +@Composable
 +private fun CompactActivityPanel(
 +    record: studio.guitarlab.core.project.UnifiedOperationRecord,
@@ -727,7 +727,7 @@ index 2dacee2..d35cf2b 100644
  import studio.guitarlab.platform.separation.RemoteSeparationClient
 +import studio.guitarlab.core.project.UnifiedOperationKind
 +import studio.guitarlab.core.project.UnifiedOperationState
- 
+
  data class HomeUiState(
      val loading: Boolean = true,
 @@ -69,6 +72,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
@@ -792,7 +792,7 @@ index 2dacee2..d35cf2b 100644
              val completionKey = "${job.identity.jobId}:${job.updatedAtMs}:${job.errorCode.orEmpty()}"
              if (handledSeparationCompletions.add(completionKey)) refresh()
 @@ -433,6 +476,15 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
- 
+
      fun prepareReferences(projectId: String) {
          if (preparedReferenceJobs[projectId]?.isActive == true) return
 +        val activityId = referenceActivityId(projectId)
@@ -846,13 +846,13 @@ index 2dacee2..d35cf2b 100644
 @@ -454,13 +531,13 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
          preparedReferenceJobs[projectId] = job
      }
- 
+
 -    fun saveProjectPackage(projectId: String, uri: Uri) = launchExport("Projeto GuitarLab") {
 +    fun saveProjectPackage(projectId: String, uri: Uri) = launchExport(projectId, "Projeto GuitarLab") {
          exportService.saveProject(projectId, uri)
          "Projeto GuitarLab salvo com sucesso."
      }
- 
+
      fun exportStudyReference(projectId: String, kind: StudyExportKind, uri: Uri, format: MasterExportFormat) =
 -        launchExport("${kind.label} ${format.name}") {
 +        launchExport(projectId, "${kind.label} ${format.name}") {
@@ -861,7 +861,7 @@ index 2dacee2..d35cf2b 100644
                  StudyExportStrategy.DIRECT_CANONICAL_WAV -> "WAV publicado diretamente, sem conversão."
 @@ -470,7 +547,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
          }
- 
+
      fun exportMaster(projectId: String, uri: Uri, format: MasterExportFormat) =
 -        launchExport("Master ${format.name}") {
 +        launchExport(projectId, "Master ${format.name}") {
@@ -869,9 +869,9 @@ index 2dacee2..d35cf2b 100644
              "Master ${format.name} exportado com sucesso."
          }
 @@ -479,16 +556,28 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
- 
+
      fun clearMessage() { _state.update { it.copy(message = null, error = null) } }
- 
+
 -    private fun launchExport(label: String, action: suspend () -> String) {
 +    private fun launchExport(projectId: String, label: String, action: suspend () -> String) {
          if (_state.value.exportBusy) return
@@ -900,7 +900,7 @@ index 2dacee2..d35cf2b 100644
                  exportJob = null
 @@ -516,6 +605,24 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
      }
- 
+
      private companion object {
 +        fun referenceActivityId(projectId: String) = "reference-preparation:$projectId"
 +
@@ -936,7 +936,7 @@ index 4b89c81..01b34e0 100644
      val context = LocalContext.current
      ExternalControlHub.initialize(context)
 @@ -343,25 +344,35 @@ fun SettingsScreen(
- 
+
              item {
                  OptionSection(
 -                    title = "Backup e restauração",
@@ -980,4 +980,4 @@ index 4b89c81..01b34e0 100644
 +                    )
                  }
              }
- 
+
