@@ -2061,6 +2061,8 @@ No repeatable P0/P1 digital defect; all accepted P2/P3 documented with rationale
 
 ## U11 — Final digital release gate
 
+**Status:** ACTIVE — freeze preparation for `0.5.0-rc5` / versionCode `25` after U10/C8 closure on CI #781.
+
 ### Objective
 Produce the one exact signed candidate intended for the consolidated physical campaign.
 
