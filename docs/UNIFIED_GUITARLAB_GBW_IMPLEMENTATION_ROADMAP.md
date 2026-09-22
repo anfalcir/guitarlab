@@ -2202,7 +2202,7 @@ When current implementation differs from target design, ARCHITECTURE describes w
 | U5 Prepare → Studio | DIGITAL PASS — CI #690 / run `35625349001` at `4bada624e68f8a55ff22830e1dc276c8d51af223` | none |
 | U6 Unified exports | DIGITAL PASS — CI #711 / run `35658467705` at `6ff1988a8309b7174eeb328e0044d6b1d3167ff6`; C1 CLOSED | none |
 | U7 Cloud source consolidation | DIGITAL PASS — verify `35675871322`, shadow `35676232948`, production `35677341933` at cloud source `e459e5e413ab2dea00b61a9f2f60375d9823e048` | none; rollback path retained |
-| U8 Unified Drive backup | ACTIVE — U8a–U8g DIGITAL PASS; shared Activity/sync domain passed CI #734 / run `35712643271` at `be05ae66a0d1d1f54ca493a18e38b3eae447d306`; C5 then C6/U8 Android integration next | OAuth/real Drive gate may require owner |
+| U8 Unified Drive backup | ACTIVE — U8a–U8g DIGITAL PASS; shared Activity/sync domain passed CI #734 / run `35712643271`; C5 DIGITAL PASS on Android CI run `35717888405` at `03735dabd3f4cbfc5a7180633884c85ce5540adb`; C6/U8 Android integration next | OAuth/real Drive gate may require owner |
 | U9 Legacy migration | RETIRED — no implementation required by owner decision (2026-09-21) | none |
 | U10 Global hardening | NOT STARTED | none beyond external service smoke |
 | U11 Final digital gate | NOT STARTED | canonical CI dispatch under current policy |

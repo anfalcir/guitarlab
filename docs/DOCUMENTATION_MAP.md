@@ -1,13 +1,13 @@
 # Documentation map
 
-Updated: 2026-09-21
+Updated: 2026-09-22
 
 ## Authority rule
 Repository documentation is split into **live authority**, **normative contracts**, and **historical evidence**.
 
 A historical document may intentionally contain an old statement such as “current”, “latest”, “pending”, an old branch name or an old hardware target because it preserves contemporaneous evidence. Such statements apply only to that document's dated context and **never override the live authority set below**.
 
-## Live authority — signed #663 / H37b source-candidate line
+## Live authority — unified line through C5 / signed #663 historical release authority
 Use these first for current status, release identity and remaining work:
 - `README.md` — repository entry point;
 - `CURRENT_STATE.md` — current signed authority, H37b source-candidate state and remaining physical residual;
@@ -28,6 +28,10 @@ Use these first for current status, release identity and remaining work:
 - `RELEASE_NOTES_0.5.0-rc4.md` — H37/H37a/H37b RC4 source-candidate delta; SOURCE PRE-GATE until a later signed CI supersedes #663;
 - `H35_TAKE_SYNC_QUIET_CALIBRATION.md` — global-vs-take synchronization and quiet/silent calibration contract;
 - `H36_SETTINGS_UX_POLISH.md` — Settings/calibration presentation refinement plus H36a/H36b/H36c corrective history and #663 DIGITAL PASS evidence.
+
+C5 is digitally closed by Android CI run `35717888405` at exact materialized source
+`03735dabd3f4cbfc5a7180633884c85ce5540adb`. The latest signed release authority
+remains the separate #663/H36c candidate until a later signed unified candidate exists.
 
 ## Normative subsystem contracts
 These define behavior and remain valid unless explicitly superseded:

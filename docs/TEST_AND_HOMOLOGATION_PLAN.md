@@ -208,6 +208,10 @@ Android CI #694 / run `35630563575` at exact source `364a8ddb1904003af150c9162fe
 ### C4 boundary — CLOSED
 Android CI #723 / run `35673758282` at exact source `0d7b05d0192cc415d328e415c517b3cad40dc209` passed deterministic source materialization, JVM/unit and performance gates, Android Lint, debug/release assembly and all five API 36 regression groups. The covered Prepare contract includes progressive active/completed/future presentation, accepted-source collapse and replacement, accessible score semantics, user-safe primary status, diagnostics isolation, automatic deterministic reference generation after six validated stems, retry-only manual recovery, lifecycle-aware durable observation without Compose polling, and coherent reopen/background ownership. C4 is DIGITAL PASS; U7 is unblocked.
 
+### C5 boundary — CLOSED
+
+C5 is closed by Android CI run `35717888405` at exact materialized source `03735dabd3f4cbfc5a7180633884c85ce5540adb`. The gate passed exact C5 source materialization/blob verification, JVM/unit tests, reproducible performance evidence, Android Lint, debug/release assembly and all five API 36 regression groups, including the isolated tablet geometry check. C5 covers durable prepared-reference acknowledgement by revision, non-destructive reference rebinding, project-owned media inspection from Studio, no automatic stem timeline insertion, creative-state preservation and the direct Prepare → Studio handoff. Signed homologation was not requested for this intermediate cohesion milestone.
+
 ### Required navigation/project-shell tests
 - Home project tap resolves to last/relevant workspace deterministically;
 - Prepare ↔ Studio ↔ Export preserves project identity and durable creative state;

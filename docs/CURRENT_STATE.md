@@ -30,7 +30,7 @@ Updated: 2026-09-21
 
 ## Active line
 - Repository/branch: `anfalcir/guitarlab` / `main`.
-- Source candidate: `0.5.0-rc4`, versionCode `24`. U7 cloud source consolidation is digitally closed. U8 is active through U8g: reachability GC passed CI #733 / run `35711364276`, and the shared Activity/project-sync domain passed CI #734 / run `35712643271` at `be05ae66a0d1d1f54ca493a18e38b3eae447d306`. C5 is the next serial cohesion checkpoint before completing C6/U8 Android integration.
+- Source candidate: `0.5.0-rc4`, versionCode `24`. U7 cloud source consolidation is digitally closed. U8 is active through U8g: reachability GC passed CI #733 / run `35711364276`, and the shared Activity/project-sync domain passed CI #734 / run `35712643271` at `be05ae66a0d1d1f54ca493a18e38b3eae447d306`. C5 is digitally closed; C6/U8 Android integration is next.
 - Latest signed version is `0.5.0-rc4`, versionCode `24`, package `studio.guitarlab.app`.
 - Latest signed DIGITAL PASS: **CI #669** / run `35591631207` / producer `14b69271f2ae04529fa14475e1a34f2fdd864553`.
 - #663 scope: H28 → H29 → H30 → H31 → H32 → H33 → H33a → H33b → H34 → H35 → H35a → H36 → H36a → H36b → H36c.
