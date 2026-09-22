@@ -4,7 +4,7 @@ Updated: 2026-09-22
 
 This policy defines the identity contract for the active GuitarLab homologation candidate. Historical alpha/RC identity notes are evidence only and do not override this file.
 
-## Active U11 candidate
+## Frozen U11 signed candidate
 - `versionName`: `0.5.0-rc5`
 - `versionCode`: `25`
 - canonical branch: `main`
@@ -12,9 +12,16 @@ This policy defines the identity contract for the active GuitarLab homologation 
 - signed artifact name: `GuitarLabStudio-0.5.0-rc5-homologacao.apk`
 - expected homologation certificate SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`
 
-U10/C8 is CLOSED / DIGITAL PASS on Android CI #781 / run `35791192802`, exact technical source `2aa97aa8b2c3af91d35e7d48a0eeb89c2c330e63`. U11 is the only owner of the next candidate freeze and signing event.
+U10/C8 is CLOSED / DIGITAL PASS on Android CI #781 / run `35791192802`, exact technical source `2aa97aa8b2c3af91d35e7d48a0eeb89c2c330e63`.
 
-Until the U11 signed gate passes, the latest signed release authority remains Android CI #669 / run `35591631207`, producer `14b69271f2ae04529fa14475e1a34f2fdd864553`, `0.5.0-rc4` / versionCode `24`.
+U11 is CLOSED / DIGITAL PASS on exact producer `4218e4343746932a4de61c5abaa29ba5769a30ed`, Android CI #783 / run `35793456972`. This rc5/25 build is the current signed authority and the only candidate eligible for U12 physical homologation.
+
+Signed identity:
+- producer: `4218e4343746932a4de61c5abaa29ba5769a30ed`;
+- unsigned APK SHA-256: `6af047a1f40b0e08382a5cca74890bc186aad68a3207a14e20a87cde5df9bc2c`;
+- signed APK SHA-256: `795839766f2b7546af53b2c56a0638b11c25b79622fe73cce5860b5602f050e0`;
+- signed APK size: `82,894,480` bytes;
+- signer SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
 
 ## Exact-source rule
 
