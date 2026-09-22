@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# U8m source seal: software gate first; real-provider acceptance remains explicit.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
