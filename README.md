@@ -1,57 +1,109 @@
-# GuitarLab Studio
+# GuitarLab
 
-Android-first guitar practice, recording, comparison and mixing workspace.
+Android-first guitar practice, recording, preparation, comparison, mixing, export and backup workspace.
 
-Updated: 2026-09-20
+Updated: 2026-09-22
 
 ## Repository truth
+
 The repository is canonical for scope, architecture, implementation state and homologation evidence.
 
-Read first: `docs/CURRENT_STATE.md`, `docs/UNIFIED_GUITARLAB_GBW_IMPLEMENTATION_ROADMAP.md`, `docs/H37_DRIVE_V3_BACKUP.md`, `docs/H35_TAKE_SYNC_QUIET_CALIBRATION.md`, `docs/POST_H28_HARDENING_AND_EXTERNAL_CONTROL_PLAN.md`, `docs/H28_BACKUP_IDENTITY_CONSISTENCY.md`, `docs/IMPLEMENTATION_ROADMAP.md`, `docs/TEST_AND_HOMOLOGATION_PLAN.md`, `docs/RC3_FINAL_PHYSICAL_HOMOLOGATION.md`, `docs/CANDIDATE_IDENTITY_POLICY.md` and `docs/DOCUMENTATION_MAP.md`.
+Read first:
+- `docs/CURRENT_STATE.md`
+- `docs/UNIFIED_GUITARLAB_GBW_IMPLEMENTATION_ROADMAP.md`
+- `docs/U10_FINAL_DIGITAL_COHESION_GATE.md`
+- `docs/UNIFIED_PRODUCT_COHESION_AUDIT.md`
+- `docs/CANDIDATE_IDENTITY_POLICY.md`
+- `docs/CI_PIPELINE.md`
+- `docs/TEST_AND_HOMOLOGATION_PLAN.md`
+- `docs/DOCUMENTATION_MAP.md`
+- `docs/H37_DRIVE_V3_BACKUP.md`
+- `docs/H35_TAKE_SYNC_QUIET_CALIBRATION.md`
 
 ## Active source/release state
-Source candidate: **`0.5.0-rc4` / versionCode `24` / H37b — SOURCE PRE-GATE**.
-Current signed candidate remains **`0.5.0-rc3` / versionCode `23`**, package `studio.guitarlab.app`, until the manual H37b canonical gate passes.
 
-The current signed digital authority is **CI #663** / run `35523442620` / exact producer `51d4098fa7b1b44a9fa315e939541020f594654d`, with the complete H29-H36c line DIGITAL PASS. Signed APK SHA-256: `8e6e0f555bc5e834c4bccbdb011134c42d124806ce0316dd28787a6c98fe7bf3`.
+**U10/C8 is CLOSED / DIGITAL PASS. U11 final digital release gate is active.**
 
-CI #663 closed the exact H36c source: 330/330 JVM/unit tests PASS, Android Lint 0 errors (50 warnings + 4 hints), **34/34 standard API36 instrumented tests PASS**, **1/1 isolated 1920×1200 geometry PASS**, debug/release build + unsigned provenance PASS, and exact tested-artifact signing/package/certificate verification PASS.
+U10 technical authority:
+- Android CI #781 / run `35791192802`;
+- exact technical source: `2aa97aa8b2c3af91d35e7d48a0eeb89c2c330e63`;
+- software/Lint/build: PASS;
+- API 36: 23/23 classified instrumented classes, 76 observed tests, 5/5 groups PASS;
+- visual cohesion: 24/24 retained screenshots, deterministic visual review PASS.
 
-H36 Settings UX Polish is therefore digitally closed. The main Settings hierarchy and calibration modal presentation changes are now part of the signed candidate; H36a/H36b/H36c remain traceable test correctives that do not change runtime UI.
+Active U11 candidate identity:
+- `0.5.0-rc5`
+- versionCode `25`
+- package `studio.guitarlab.app`
+- branch `main`
 
-Target-device validation after #653 had already accepted the H28 backup corrective. The remaining stable-release physical boundary continues to be H29 timing/alignment, H30 real USB hot-unplug/reconnect/capture preservation and H32 continuous 10-minute quality. H33 real-controller acceptance remains a separate 1.1 boundary.
+The latest signed release authority remains historical Android CI #669 / run `35591631207`, producer `14b69271f2ae04529fa14475e1a34f2fdd864553`, `0.5.0-rc4` / code `24`, until the exact U11 freeze run passes signing.
 
-## H37 — Native Google Drive API v3 backup
-H37 replaces SAF as the primary backup transport with direct Google Drive API v3 using the narrow `drive.file` OAuth scope. The H28 `projectId` / `revisionId` / package-SHA identity model, retention, deduplication and restore-as-copy semantics are preserved.
+Locked homologation certificate SHA-256:
+`4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
 
-The transport adds resumable uploads, server-confirmed resume offsets, Drive size/SHA-256 verification, private `appProperties` catalog identity, crash reconciliation and bounded backoff. Existing H26-H28 SAF history remains supported as a one-time migration source and is not released locally until migration completes with zero failures.
+## Product model
 
-H37 producer `abecc73e4eab181a7776d98cc731758b17c64b06` reached manual CI #664, which failed deterministically at Kotlin compilation before Lint/build/signing. H37a fixes the CI #664 compile blockers. H37b adds the final OAuth token-cache hardening before the next gate and remains **SOURCE PRE-GATE**. CI #663 / RC3 is still the signed authority until a fresh manual H37b workflow passes. See `docs/H37_DRIVE_V3_BACKUP.md`.
+GuitarLab is one application and one project model:
 
-## H28 — stable project/revision identity + provider consistency
-H28 hardens the backup contract so that:
-- `GuitarProject.id` is the immutable backup identity; renaming never creates a new project history;
-- each new revision has deterministic identity from edit timestamp + canonical-state digest;
-- package SHA-256 remains independent byte-integrity evidence;
-- version paths are deterministic per revision;
-- commit success is verified through the exact remote URIs written rather than an immediately refreshed directory listing;
-- targeted revision lookup absorbs normal provider listing delay before retry upload;
-- legacy H26/H27 backups remain readable;
-- deduplication cannot collapse two different H28 states merely because they share a timestamp.
+**Home → Prepare → Studio → Export → Backup / Activity / Settings**
 
-## Approved forward scope
-The H29-H37/1.1 closure line continues to harden recording/USB/recovery/takes/diagnostics/backup/UX behavior and preserve the existing external-control work. See `docs/POST_H28_HARDENING_AND_EXTERNAL_CONTROL_PLAN.md`.
+The product includes:
+- source search/import and managed source publication;
+- cloud six-stem separation;
+- automatic managed backing/reference preparation;
+- Studio recording/editing/mixer/timing workflows;
+- canonical export workspace;
+- unified Activity/background-operation model;
+- direct Google Drive API v3 backup/restore;
+- phone/tablet responsive UI and accessibility contracts.
 
-A separate approved successor program will unify GBW Android into GuitarLab so one immutable project spans source preparation, Demucs stems, prepared backing/reference, Studio, exports and Drive backup. Its serial, idempotent U0-U12 execution plan is `docs/UNIFIED_GUITARLAB_GBW_IMPLEMENTATION_ROADMAP.md`. The program is designed for maximum digital validation and, where technically possible, one consolidated final physical homologation campaign.
+GBW is historical implementation provenance only; it is not a second end-user product surface.
 
-## Branch/CI policy
+Legacy standalone GBW/H37/pre-unification migration is intentionally out of release scope. U9 is retired.
+
+## Current cloud/backup authority
+
+Remote separation uses the production cloud integration governed by the unified roadmap. U11 repeats the controlled real-cloud six-stem smoke on the exact freeze SHA.
+
+Drive backup uses direct client-side Google Identity Services + Drive API v3 with OAuth `drive.file`. U8m closed provider-real acceptance with:
+
+`U8m PASS · r_1790095960 · cleanup 8/8/14`
+
+Sanitized report SHA-256:
+`84efb70615be8ef5939da538eee5f714f7311aa6d44dd5bb2cdd0b5e9e66b702`.
+
+No Firebase/Cloud Run/Functions hop, service account, client secret or refresh-token custody is part of the Drive backup data path.
+
+## Branch and CI policy
+
 - `main` is canonical.
-- `.github/workflows/android-ci.yml` is manual-only (`workflow_dispatch`).
-- ordinary source/docs commits use `[skip ci]`.
-- the assistant must not dispatch or rerun Actions without explicit user instruction.
+- Ordinary commits use `[skip ci]`.
+- `[run ci]` runs software + API 36 gates.
+- `[run ci signed]` additionally signs the exact tested unsigned release candidate.
+- `[run u4 cloud]` runs the controlled real-cloud six-stem smoke.
+- `[run u7 cloud]` runs backend source/container/security verification; push-triggered execution does not deploy.
+- U11 freezes one exact SHA and binds all final digital evidence to that source.
 
 ## Source materialization
-Large deltas are versioned in `.source-parts` and materialized serially by `scripts/materialize_ci_sources.sh`. Canonical source tail: **`… → H25 → H26 → H26a → H26b → H26e → H27 → H28 → H29 → H30 → H31 → H32 → H33 → H33a → H33b → H34 → H35 → H35a → H36 → H36a → H36b → H36c → H37 → H37a → H37b`**. The accepted H28 materializer remains frozen in `scripts/materialize_ci_sources_through_h28.sh`; `scripts/materialize_ci_sources_h37b.sh` composes H37/H37a and then applies the hash-verified H37b OAuth token-cache corrective. Unexpected source/archive/patch/final-blob drift fails closed.
+
+Large protected deltas are versioned under `.source-parts/` and materialized serially by `scripts/materialize_ci_sources.sh`.
+
+The current canonical tail ends at **U10zb**. Each stage preserves fail-closed patch/blob verification, `git diff --check` and reverse-apply/idempotence guarantees. Unexpected drift blocks the build.
 
 ## Security
-Never commit keystores, credentials, local SDK configuration or secret artifacts. H37 Drive access is limited to OAuth `drive.file`; no client secret, refresh token, service-account key or Firebase/backend credential belongs in the APK or repository. GBW and GuitarLab may share one Google Cloud/Firebase project, but each Android package must keep its own Android app/OAuth client identity. The Drive backup remains direct client-side and does not depend on Firebase SDK. SAF persists only as a legacy migration source for existing H26-H28 histories.
+
+Never commit keystores, credentials, local SDK configuration, client secrets, refresh tokens or service-account keys.
+
+Drive authorization is limited to `drive.file`. Remote-separation deployment uses keyless GitHub/OpenID federation where cloud mutation is explicitly authorized. The Android package and signing identity remain `studio.guitarlab.app` plus the locked homologation certificate.
+
+## Physical boundary
+
+U11 must finish the exact signed digital candidate first. U12 then performs one consolidated physical campaign on:
+- Samsung SM-X230 / Android 16 / API 36;
+- M-VAVE MK-300 over USB;
+- actual intended hub/power topology when part of normal use.
+
+The final manual campaign is limited to claims digital systems cannot establish: real USB routing/isolation, monitoring, capture behavior, timing/listening, reconnect behavior, continuous 10-minute quality and target-device ergonomics.
+
+No tuner functionality is part of GuitarLab.
