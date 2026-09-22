@@ -17,6 +17,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import studio.guitarlab.app.activity.UnifiedActivityStore
 import studio.guitarlab.app.backup.BackupScheduler
+import studio.guitarlab.app.backup.ConfirmedRevisionStore
 import studio.guitarlab.core.model.GuitarProject
 import studio.guitarlab.core.model.ProjectFactory
 import studio.guitarlab.core.model.ProjectTemplate
@@ -73,6 +74,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private val separation = RemoteSeparationClient(application)
     private val preparedReferences = PreparedReferenceService(repository, ProjectManagedMediaStore(application.filesDir), application.cacheDir)
     private val activityStore = UnifiedActivityStore(application)
+    private val confirmedRevisions = ConfirmedRevisionStore(application)
     private val sourceSearchJobs = mutableMapOf<String, Job>()
     private val preparedReferenceJobs = mutableMapOf<String, Job>()
     private val prepareObservationJobs = mutableMapOf<String, Job>()
@@ -306,6 +308,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                             message = if (hadActiveOperations) "Projeto excluído. As operações em andamento foram canceladas e desvinculadas." else "Projeto excluído.",
                         )
                     }
+                    confirmedRevisions.clearProject(projectId)
                     BackupScheduler.enqueueCoalesced(getApplication())
                     refresh()
                 }

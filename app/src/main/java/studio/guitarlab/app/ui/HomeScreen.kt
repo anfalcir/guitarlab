@@ -66,14 +66,20 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import studio.guitarlab.app.activity.UnifiedActivityViewModel
 import studio.guitarlab.app.backup.BackupSettingsStore
+import studio.guitarlab.app.backup.ConfirmedRevisionStore
 import java.text.DateFormat
 import java.util.Date
 import studio.guitarlab.core.model.GuitarProject
+import studio.guitarlab.core.project.BackupRevisionIdentity
 import studio.guitarlab.core.project.ProjectContentFilter
 import studio.guitarlab.core.project.ProjectLibraryQuery
 import studio.guitarlab.core.project.ProjectSampleRateFilter
 import studio.guitarlab.core.project.ProjectSortOrder
 import studio.guitarlab.core.project.ProjectTemplateFilter
+import studio.guitarlab.core.project.ProjectSyncState
+import studio.guitarlab.core.project.ProjectSyncStatePolicy
+import studio.guitarlab.core.project.UnifiedOperationKind
+import studio.guitarlab.core.project.UnifiedOperationRecord
 
 @Composable
 fun HomeScreen(
@@ -90,7 +96,8 @@ fun HomeScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val activityState by activityViewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
-    val backupConnected = remember(context) { BackupSettingsStore(context).snapshot().driveConnected }
+    val backupConnected = BackupSettingsStore(context).snapshot().driveConnected
+    val confirmedRevisions = remember(context) { ConfirmedRevisionStore(context) }
     var renameProject by remember { mutableStateOf<GuitarProject?>(null) }
     var deleteProject by remember { mutableStateOf<GuitarProject?>(null) }
     var deleteHasActiveOperations by remember { mutableStateOf(false) }
@@ -218,7 +225,12 @@ fun HomeScreen(
                                 deleteHasActiveOperations = viewModel.hasActiveProjectOperations(project.id)
                                 deleteProject = project
                             },
-                            syncLabel = projectSyncLabel(project.id, backupConnected, activityState.records),
+                            syncLabel = projectSyncLabel(
+                                project,
+                                backupConnected,
+                                confirmedRevisions.confirmedRevision(project.id),
+                                activityState.records,
+                            ),
                         )
                     }
                 }
@@ -579,21 +591,32 @@ private fun ProjectRow(
     }
 }
 
-private fun projectSyncLabel(
-    projectId: String,
+internal fun projectSyncLabel(
+    project: GuitarProject,
     driveConnected: Boolean,
-    records: List<studio.guitarlab.core.project.UnifiedOperationRecord>,
+    confirmedRevisionId: String?,
+    records: List<UnifiedOperationRecord>,
 ): String {
-    if (!driveConnected) return "Nuvem desconectada · somente local"
-    val latest = records
-        .filter { it.projectId == projectId && it.kind == studio.guitarlab.core.project.UnifiedOperationKind.BACKUP }
+    val projectOperation = records
+        .filter { it.projectId == project.id && it.kind == UnifiedOperationKind.BACKUP }
         .maxByOrNull { it.updatedAtEpochMs }
-    return when (latest?.state) {
-        studio.guitarlab.core.project.UnifiedOperationState.QUEUED -> "Backup pendente"
-        studio.guitarlab.core.project.UnifiedOperationState.RUNNING,
-        studio.guitarlab.core.project.UnifiedOperationState.RETRYING -> "Sincronizando…"
-        studio.guitarlab.core.project.UnifiedOperationState.SUCCEEDED -> "Sincronizado"
-        studio.guitarlab.core.project.UnifiedOperationState.FAILED -> "Backup com erro"
-        studio.guitarlab.core.project.UnifiedOperationState.CANCELLED, null -> "Somente local"
+    val globalActiveOperation = records
+        .filter { it.projectId == null && it.kind == UnifiedOperationKind.BACKUP && it.state.isActive }
+        .maxByOrNull { it.updatedAtEpochMs }
+    val operation = listOfNotNull(projectOperation, globalActiveOperation).maxByOrNull { it.updatedAtEpochMs }
+    val syncState = ProjectSyncStatePolicy.derive(
+        driveConnected = driveConnected,
+        localRevisionId = BackupRevisionIdentity.forProject(project),
+        confirmedRevisionId = confirmedRevisionId,
+        backupOperation = operation,
+    )
+    return when (syncState) {
+        ProjectSyncState.NOT_CONNECTED -> "Nuvem desconectada · somente local"
+        ProjectSyncState.LOCAL_ONLY -> "Somente local"
+        ProjectSyncState.PENDING -> "Backup pendente"
+        ProjectSyncState.SYNCING -> "Sincronizando…"
+        ProjectSyncState.SYNCED -> "Sincronizado"
+        ProjectSyncState.ERROR -> "Backup com erro"
+        ProjectSyncState.CONFLICT -> "Conflito de backup"
     }
 }
