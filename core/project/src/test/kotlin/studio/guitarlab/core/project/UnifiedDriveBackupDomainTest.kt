@@ -23,6 +23,36 @@ class UnifiedDriveBackupDomainTest {
         assertFailsWith<IllegalArgumentException> { manifest(listOf(source, source)) }
     }
 
+    @Test fun completeSnapshotMapsStateAndPathsDeterministically() {
+        val state = asset('e', 25)
+        val first = DriveProjectRevisionManifest(
+            projectId = "project-1",
+            revisionId = "r1",
+            baseRevisionId = null,
+            createdAtEpochMs = 10,
+            canonicalProjectStateSha256 = "f".repeat(64),
+            assets = listOf(state, source, take),
+            projectStateAsset = state,
+            fileEntries = listOf(
+                DriveProjectFileEntry("media/take.wav", take),
+                DriveProjectFileEntry("media/source.wav", source),
+            ),
+        )
+        val second = first.copy(
+            assets = listOf(take, state, source),
+            fileEntries = first.fileEntries.reversed(),
+        )
+        assertTrue(first.isCompleteProjectSnapshot)
+        assertEquals(first.canonicalBytes().decodeToString(), second.canonicalBytes().decodeToString())
+        assertEquals(first.manifestSha256, second.manifestSha256)
+        assertFailsWith<IllegalArgumentException> {
+            first.copy(fileEntries = listOf(DriveProjectFileEntry("../escape", source)))
+        }
+        assertFailsWith<IllegalArgumentException> {
+            first.copy(assets = listOf(state, source))
+        }
+    }
+
     @Test fun metadataOnlyRevisionUploadsNoMedia() {
         val changedMetadata = manifest(listOf(source, take), revision = "r2", state = 'd')
         assertTrue(DriveUploadPlanner.missingAssets(changedMetadata, setOf(source.sha256, take.sha256)).isEmpty())
