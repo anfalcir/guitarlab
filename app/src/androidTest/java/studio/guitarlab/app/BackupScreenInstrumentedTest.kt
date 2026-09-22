@@ -68,6 +68,49 @@ class BackupScreenInstrumentedTest {
         compose.onNodeWithText("Máximo de versões por projeto").assertIsDisplayed()
     }
 
+    @Test fun disconnectedCatalogUsesUnifiedBlockedState() {
+        compose.setContent {
+            GuitarLabTheme {
+                BackupScreenContent(
+                    state = BackupUiState(
+                        loading = false,
+                        settings = BackupSettingsSnapshot(driveConnected = false),
+                    ),
+                    projectId = null,
+                    onBack = {}, onConnectDrive = {}, onDisconnectDrive = {}, onRefresh = {},
+                    onAutomaticEnabled = {}, onCadence = {}, onUnmeteredOnly = {}, onChargingOnly = {},
+                    onRetentionDays = {}, onMaximumVersions = {}, onBackupAll = {}, onBackupProject = {},
+                    onKeepLocal = { _, _ -> }, onUseCloud = {}, onRestoreVersion = {}, onRestoreAll = {},
+                )
+            }
+        }
+
+        compose.onNode(hasScrollAction()).performScrollToNode(hasTestTag("backup-catalog-disconnected"))
+        compose.onNodeWithTag("backup-catalog-disconnected").assertIsDisplayed()
+        compose.onNodeWithText("Backup indisponível").assertIsDisplayed()
+    }
+
+    @Test fun emptyConnectedCatalogUsesUnifiedEmptyState() {
+        compose.setContent {
+            GuitarLabTheme {
+                BackupScreenContent(
+                    state = configuredState(),
+                    projectId = null,
+                    onBack = {}, onConnectDrive = {}, onDisconnectDrive = {}, onRefresh = {},
+                    onAutomaticEnabled = {}, onCadence = {}, onUnmeteredOnly = {}, onChargingOnly = {},
+                    onRetentionDays = {}, onMaximumVersions = {}, onBackupAll = {}, onBackupProject = {},
+                    onKeepLocal = { _, _ -> }, onUseCloud = {}, onRestoreVersion = {}, onRestoreAll = {},
+                )
+            }
+        }
+
+        compose.onNode(hasScrollAction()).performScrollToNode(hasTestTag("backup-catalog-empty"))
+        compose.onNodeWithTag("backup-catalog-empty").assertIsDisplayed()
+        compose.onNodeWithText("Nenhum backup disponível").assertIsDisplayed()
+        compose.onNodeWithText("Quando um backup for concluído, a versão aparecerá aqui.").assertIsDisplayed()
+    }
+
+
     @Test fun singleVersionRestoreRequiresExplicitConfirmation() {
         val version = version("remote-1")
         var restored: BackupVersionDescriptor? = null
