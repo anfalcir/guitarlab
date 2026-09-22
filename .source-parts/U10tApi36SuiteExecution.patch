@@ -1,0 +1,138 @@
+diff --git a/app/src/androidTest/java/studio/guitarlab/app/Api36RegressionSuites.kt b/app/src/androidTest/java/studio/guitarlab/app/Api36RegressionSuites.kt
+new file mode 100644
+index 0000000..c53c227
+--- /dev/null
++++ b/app/src/androidTest/java/studio/guitarlab/app/Api36RegressionSuites.kt
+@@ -0,0 +1,52 @@
++package studio.guitarlab.app
++
++import org.junit.runner.RunWith
++import org.junit.runners.Suite
++
++@RunWith(Suite::class)
++@Suite.SuiteClasses(
++    CohesionResponsiveAccessibilityInstrumentedTest::class,
++    GuitarLabLifecycleInstrumentedTest::class,
++    HomeProjectLibraryInstrumentedTest::class,
++    ProjectDeleteConfirmationInstrumentedTest::class,
++    UnifiedProjectShellInstrumentedTest::class,
++)
++class Api36ProjectNavigationSuite
++
++@RunWith(Suite::class)
++@Suite.SuiteClasses(
++    AllTracksLevelDialogInstrumentedTest::class,
++    AutoSectionsSlotInstrumentedTest::class,
++    MixerDockInstrumentedTest::class,
++    PhysicalEditingHardeningInstrumentedTest::class,
++    PracticeWorkflowInstrumentedTest::class,
++    RecordingCountdownOverlayInstrumentedTest::class,
++    TransportBarInstrumentedTest::class,
++)
++class Api36StudioPracticeSuite
++
++@RunWith(Suite::class)
++@Suite.SuiteClasses(
++    AudioImportCodecMatrixInstrumentedTest::class,
++    ExternalControlSettingsInstrumentedTest::class,
++    SettingsCalibrationModalInstrumentedTest::class,
++    SettingsVisualHierarchyInstrumentedTest::class,
++    StudioUiPreferencesStoreInstrumentedTest::class,
++)
++class Api36ImportControlsSettingsSuite
++
++@RunWith(Suite::class)
++@Suite.SuiteClasses(
++    ActivityNotificationDeepLinkInstrumentedTest::class,
++    AndroidMasterAudioEncoderInstrumentedTest::class,
++    BackupScreenInstrumentedTest::class,
++    ProjectExportMediaStoreInstrumentedTest::class,
++    StudyExportInstrumentedTest::class,
++)
++class Api36ExportBackupMasterSuite
++
++@RunWith(Suite::class)
++@Suite.SuiteClasses(
++    TargetTabletGeometryInstrumentedTest::class,
++)
++class Api36TabletGeometrySuite
+diff --git a/scripts/ci_run_api36_regression_groups.sh b/scripts/ci_run_api36_regression_groups.sh
+index 4204e62..cf6fab1 100755
+--- a/scripts/ci_run_api36_regression_groups.sh
++++ b/scripts/ci_run_api36_regression_groups.sh
+@@ -44,6 +44,12 @@ GROUP5_CLASSES=(
+   TargetTabletGeometryInstrumentedTest
+ )
+ 
++GROUP1_SUITE="Api36ProjectNavigationSuite"
++GROUP2_SUITE="Api36StudioPracticeSuite"
++GROUP3_SUITE="Api36ImportControlsSettingsSuite"
++GROUP4_SUITE="Api36ExportBackupMasterSuite"
++GROUP5_SUITE="Api36TabletGeometrySuite"
++
+ if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
+   SUMMARY_FILE="$GITHUB_STEP_SUMMARY"
+ else
+@@ -65,14 +71,9 @@ format_duration() {
+   printf '%dm%02ds' "$((seconds / 60))" "$((seconds % 60))"
+ }
+ 
+-class_filter() {
+-  local out=""
+-  local cls
+-  for cls in "$@"; do
+-    [[ -n "$out" ]] && out+=","
+-    out+="studio.guitarlab.app.$cls"
+-  done
+-  printf '%s' "$out"
++suite_filter() {
++  local suite="$1"
++  printf 'studio.guitarlab.app.%s' "$suite"
+ }
+ 
+ verify_test_coverage() {
+@@ -389,7 +390,7 @@ run_group \
+   "01-project-navigation" \
+   "${GROUP1_CLASSES[@]}" \
+   -- \
+-  "-Pandroid.testInstrumentationRunnerArguments.class=$(class_filter "${GROUP1_CLASSES[@]}")"
++  "-Pandroid.testInstrumentationRunnerArguments.class=$(suite_filter "$GROUP1_SUITE")"
+ 
+ run_group \
+   2 \
+@@ -397,7 +398,7 @@ run_group \
+   "02-studio-practice" \
+   "${GROUP2_CLASSES[@]}" \
+   -- \
+-  "-Pandroid.testInstrumentationRunnerArguments.class=$(class_filter "${GROUP2_CLASSES[@]}")"
++  "-Pandroid.testInstrumentationRunnerArguments.class=$(suite_filter "$GROUP2_SUITE")"
+ 
+ run_group \
+   3 \
+@@ -405,7 +406,7 @@ run_group \
+   "03-import-controls-settings" \
+   "${GROUP3_CLASSES[@]}" \
+   -- \
+-  "-Pandroid.testInstrumentationRunnerArguments.class=$(class_filter "${GROUP3_CLASSES[@]}")"
++  "-Pandroid.testInstrumentationRunnerArguments.class=$(suite_filter "$GROUP3_SUITE")"
+ 
+ run_group \
+   4 \
+@@ -413,7 +414,7 @@ run_group \
+   "04-export-backup-master" \
+   "${GROUP4_CLASSES[@]}" \
+   -- \
+-  "-Pandroid.testInstrumentationRunnerArguments.class=$(class_filter "${GROUP4_CLASSES[@]}")"
++  "-Pandroid.testInstrumentationRunnerArguments.class=$(suite_filter "$GROUP4_SUITE")"
+ 
+ echo "::notice title=API36 5/${TOTAL_GROUPS}::Configurando viewport tablet 1920×1200"
+ adb shell wm size 1920x1200
+@@ -428,7 +429,7 @@ run_group \
+   "05-tablet-geometry" \
+   "${GROUP5_CLASSES[@]}" \
+   -- \
+-  "-Pandroid.testInstrumentationRunnerArguments.class=$(class_filter "${GROUP5_CLASSES[@]}")" \
++  "-Pandroid.testInstrumentationRunnerArguments.class=$(suite_filter "$GROUP5_SUITE")" \
+   "-Pandroid.testInstrumentationRunnerArguments.targetGeometry=true"
+ 
+ verify_visual_matrix
