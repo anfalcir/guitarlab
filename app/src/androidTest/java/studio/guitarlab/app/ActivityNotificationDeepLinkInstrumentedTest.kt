@@ -1,5 +1,6 @@
 package studio.guitarlab.app
 
+import androidx.compose.ui.test.assertDoesNotExist
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -42,6 +43,7 @@ class ActivityNotificationDeepLinkInstrumentedTest {
             ActivityScenario.launch<MainActivity>(intent).use {
                 composeRule.onNodeWithTag("activity-record-$operationId").assertIsDisplayed()
                 composeRule.onNodeWithText("Concluída").assertIsDisplayed()
+                composeRule.onNodeWithText("project-notification", substring = true).assertDoesNotExist()
             }
         } finally {
             store.remove(operationId)
