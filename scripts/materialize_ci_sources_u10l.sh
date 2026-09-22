@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# U10l corrective seal: prove compact Settings reachability through its scroll container.
+# U10l corrective seal: prove compact Settings reachability through its scroll container; canonical checkpoint.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
