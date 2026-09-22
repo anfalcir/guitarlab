@@ -4,8 +4,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PREVIOUS="$ROOT/scripts/materialize_ci_sources_u8k.sh"
 PAYLOAD="$ROOT/.source-parts/U8lNetworkFaultGate.patch.b64"
-PAYLOAD_SHA256="daac2fa9e2c81ad451fcc6bbf3db208e61d26292e74905c7c1b3d2aa8d964afb"
-PATCH_SHA256="dfbe639c886383449320ca24584cc4bd9fe34564adaabc2436e36970cacb03e3"
+PAYLOAD_SHA256="39a05daed75faebec584fb3f0002ce042892cafe9e03e277bfda2b6c2ed5d12c"
+PATCH_SHA256="32d8873e8bd4e068a20f74aa559d8b3939500f7ff49357069242b97607e59e25"
 
 declare -a FILES=(
   "app/src/main/java/studio/guitarlab/app/backup/AutomaticBackupWorker.kt"
@@ -26,7 +26,7 @@ declare -a HASHES=(
   "252421a2a090711724a1c7180640b59220a902fd"
   "5a985554d71819d68f55a51bde7bdc28a4903ddc"
   "3e75b4a2c0d883dd849668f6b91addff68b68b0f"
-  "6935a349b7c5e47dc9e1256fcb777586a3a85995"
+  "116544a4ae0eb9a03f8aa877b3a0731ead1303d2"
 )
 
 ready() {
