@@ -1,14 +1,21 @@
 # U12 — Final Physical Homologation — GuitarLab
 
 Updated: 2026-09-22  
-Status: **PENDING U11 SIGNED FREEZE**  
+Status: **ACTIVE — EXACT SIGNED CANDIDATE BOUND**  
 Target candidate: `0.5.0-rc5` / versionCode `25`  
 Package: `studio.guitarlab.app`  
 Target device: Samsung SM-X230 / Android 16 / API 36  
 Audio hardware: M-VAVE MK-300 over USB  
 Hardware loopback baseline: **OFF**
 
-The exact producer SHA, signed APK SHA-256 and certificate are filled only after U11 closes. A later docs-only commit never changes the APK producer identity.
+Exact U11 candidate binding:
+- producer SHA: `4218e4343746932a4de61c5abaa29ba5769a30ed`;
+- Android CI: #783 / run `35793456972`;
+- signed APK SHA-256: `795839766f2b7546af53b2c56a0638b11c25b79622fe73cce5860b5602f050e0`;
+- signed APK size: `82,894,480` bytes;
+- signer SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
+
+A later docs-only commit never changes the APK producer identity.
 
 ## Purpose
 
