@@ -1,0 +1,252 @@
+diff --git a/app/src/androidTest/java/studio/guitarlab/app/BackupScreenInstrumentedTest.kt b/app/src/androidTest/java/studio/guitarlab/app/BackupScreenInstrumentedTest.kt
+index 59efcbb..e0c262d 100644
+--- a/app/src/androidTest/java/studio/guitarlab/app/BackupScreenInstrumentedTest.kt
++++ b/app/src/androidTest/java/studio/guitarlab/app/BackupScreenInstrumentedTest.kt
+@@ -128,7 +128,10 @@ class BackupScreenInstrumentedTest {
+                 )
+             }
+         }
+-        scrollToAndClick("restore-version-remote-1")
++        compose.onNode(hasScrollAction()).performScrollToNode(hasTestTag("restore-version-remote-1"))
++        compose.onNodeWithTag("restore-version-remote-1").assertIsDisplayed()
++        compose.captureCohesionScreenshot("backup-restore-version")
++        compose.onNodeWithTag("restore-version-remote-1").performClick()
+         compose.onNodeWithTag("confirm-restore-version").assertIsDisplayed().performClick()
+         assertEquals(version, restored)
+     }
+@@ -195,7 +198,10 @@ class BackupScreenInstrumentedTest {
+             }
+         }
+ 
+-        scrollToAndClick("conflict-keep-local")
++        compose.onNode(hasScrollAction()).performScrollToNode(hasTestTag("conflict-keep-local"))
++        compose.onNodeWithTag("conflict-keep-local").assertIsDisplayed()
++        compose.captureCohesionScreenshot("backup-conflict")
++        compose.onNodeWithTag("conflict-keep-local").performClick()
+         compose.onNodeWithTag("confirm-keep-local").assertIsDisplayed().performClick()
+         assertEquals(remote, keptLocal)
+ 
+diff --git a/app/src/androidTest/java/studio/guitarlab/app/CohesionScreenshotArtifacts.kt b/app/src/androidTest/java/studio/guitarlab/app/CohesionScreenshotArtifacts.kt
+index ff3a6de..9e1c361 100644
+--- a/app/src/androidTest/java/studio/guitarlab/app/CohesionScreenshotArtifacts.kt
++++ b/app/src/androidTest/java/studio/guitarlab/app/CohesionScreenshotArtifacts.kt
+@@ -18,9 +18,10 @@ private const val COHESION_SCREENSHOT_RELATIVE_PATH = "Pictures/guitarlab-ci-scr
+  * Deterministic screenshot artifact helper for the U10/C8 cohesion gate.
+  *
+  * Compose owns the application-surface capture while MediaStore owns publication.
+- * Capturing the semantic roots excludes unrelated Android system overlays (for
+- * example emulator error/ANR dialogs) while still combining Compose popups and
+- * dialogs. The shared artifact survives test-package teardown long enough for
++ * Capturing a Compose semantic surface excludes unrelated Android system overlays
++ * (for example emulator error/ANR dialogs). The default captures the sole root;
++ * tests with additional popup/dialog roots target a stable semantic tag explicitly.
++ * The shared artifact survives test-package teardown long enough for
+  * scripts/ci_run_api36_regression_groups.sh to collect it with adb.
+  */
+ @TargetApi(Build.VERSION_CODES.Q)
+diff --git a/app/src/androidTest/java/studio/guitarlab/app/GuitarLabLifecycleInstrumentedTest.kt b/app/src/androidTest/java/studio/guitarlab/app/GuitarLabLifecycleInstrumentedTest.kt
+index 73b3b2c..6b7e65c 100644
+--- a/app/src/androidTest/java/studio/guitarlab/app/GuitarLabLifecycleInstrumentedTest.kt
++++ b/app/src/androidTest/java/studio/guitarlab/app/GuitarLabLifecycleInstrumentedTest.kt
+@@ -1,5 +1,6 @@
+ package studio.guitarlab.app
+ 
++import androidx.compose.ui.test.assertDoesNotExist
+ import androidx.compose.ui.test.assertIsDisplayed
+ import androidx.compose.ui.test.assertIsEnabled
+ import androidx.compose.ui.test.assertTextContains
+@@ -20,8 +21,17 @@ import org.junit.Assert.assertTrue
+ import org.junit.Rule
+ import org.junit.Test
+ import org.junit.runner.RunWith
++import studio.guitarlab.core.model.AssetClassification
++import studio.guitarlab.core.model.AssetLifecycle
++import studio.guitarlab.core.model.AssetRole
+ import studio.guitarlab.core.model.GuitarProject
++import studio.guitarlab.core.model.ManagedAsset
++import studio.guitarlab.core.model.PreparationState
++import studio.guitarlab.core.model.PreparationStatus
+ import studio.guitarlab.core.project.FileProjectRepository
++import studio.guitarlab.core.project.UnifiedOperationKind
++import studio.guitarlab.core.project.UnifiedOperationState
++import studio.guitarlab.app.activity.UnifiedActivityStore
+ import studio.guitarlab.app.ui.AppNavigationViewModel
+ import studio.guitarlab.app.ui.AppRouteCodec
+ import studio.guitarlab.app.ui.AppScreen
+@@ -126,6 +136,9 @@ class GuitarLabLifecycleInstrumentedTest {
+             waitForRoute(AppScreen.Studio(projectId))
+             assertEquals(projectName, repository.load(projectId)?.name)
+             composeRule.onNodeWithTag("studio-loaded").assertIsDisplayed()
++            composeRule.onNodeWithTag("project-shell-content").assertIsDisplayed()
++            composeRule.onNodeWithTag("timeline-ruler-label-0").assertIsDisplayed()
++            composeRule.onNodeWithTag("timeline-ruler-label-1").assertDoesNotExist()
+             composeRule.captureCohesionScreenshot("studio-normal-phone")
+ 
+             // Project-scoped Options embeds the project id in the saveable route. Recreate there,
+@@ -152,6 +165,73 @@ class GuitarLabLifecycleInstrumentedTest {
+         }
+     }
+ 
++    @Test
++    fun homeActiveOperationIsRetainedForCohesionReview() {
++        val context = instrumentation.targetContext
++        val repository = FileProjectRepository(context.filesDir)
++        val project = ProjectFactory(idGenerator = { "home-active-${System.nanoTime()}" }, clock = { 705L })
++            .create("Home ativo", ProjectTemplate.BLANK)
++        val operationId = "home-active-operation-${System.nanoTime()}"
++        val activityStore = UnifiedActivityStore(context)
++        repository.save(project)
++        activityStore.record(
++            operationId = operationId,
++            projectId = project.id,
++            kind = UnifiedOperationKind.BACKUP,
++            state = UnifiedOperationState.RUNNING,
++            progressPercent = 42,
++            summary = "Backup em andamento",
++        )
++
++        try {
++            navigation().navigate(AppScreen.Home)
++            waitForRoute(AppScreen.Home)
++            home().clearProjectSearchAndFilters()
++            home().refresh()
++            composeRule.waitUntil(timeoutMillis = UI_TIMEOUT_MS) {
++                home().state.value.projects.any { it.id == project.id }
++            }
++            composeRule.onNodeWithTag("home-active-operation").assertIsDisplayed()
++            composeRule.onNodeWithText("Backup em andamento").assertIsDisplayed()
++            composeRule.captureCohesionScreenshot("home-active-operation-phone")
++        } finally {
++            activityStore.remove(operationId)
++            runCatching { repository.delete(project.id) }
++        }
++    }
++
++    @Test
++    fun studioPreparedReferenceUpdateIsRetainedForCohesionReview() {
++        val repository = FileProjectRepository(instrumentation.targetContext.filesDir)
++        val backing = referenceAsset("prepared-backing", AssetRole.REFERENCE_BACKING)
++        val guitar = referenceAsset("prepared-guitar", AssetRole.REFERENCE_GUITAR)
++        val project = ProjectFactory(idGenerator = { "studio-reference-${System.nanoTime()}" }, clock = { 706L })
++            .create("Referência nova", ProjectTemplate.GUITAR)
++            .copy(
++                assets = listOf(backing, guitar),
++                preparation = PreparationState(
++                    status = PreparationStatus.READY,
++                    activeBackingAssetId = backing.assetId,
++                    activeGuitarAssetId = guitar.assetId,
++                    availableReferenceAssetIds = listOf(backing.assetId, guitar.assetId),
++                ),
++            )
++        repository.save(project)
++
++        try {
++            navigation().navigate(AppScreen.Studio(project.id))
++            waitForRoute(AppScreen.Studio(project.id))
++            composeRule.waitUntil(timeoutMillis = UI_TIMEOUT_MS) {
++                studio().state.value.project?.id == project.id && studio().state.value.preparedReferenceUpdateAvailable
++            }
++            composeRule.onNodeWithTag("studio-prepared-reference-update").assertIsDisplayed()
++            composeRule.onNodeWithText("Nova base/referência preparada disponível").assertIsDisplayed()
++            composeRule.captureCohesionScreenshot("studio-reference-update-phone")
++        } finally {
++            runCatching { repository.delete(project.id) }
++        }
++    }
++
+     @Test
+     fun studioExportActionNavigatesToCanonicalExportWorkspace() {
+         val repository = FileProjectRepository(instrumentation.targetContext.filesDir)
+@@ -308,6 +388,21 @@ class GuitarLabLifecycleInstrumentedTest {
+         return result
+     }
+ 
++    private fun referenceAsset(id: String, role: AssetRole) = ManagedAsset(
++        assetId = id,
++        role = role,
++        relativePath = "media/references/$id.wav",
++        sha256 = "a".repeat(64),
++        byteSize = 128,
++        format = "wav",
++        sampleRateHz = 48_000,
++        channelCount = 2,
++        frameCount = 48_000,
++        createdAtEpochMs = 1,
++        classification = AssetClassification.DERIVED,
++        lifecycle = AssetLifecycle.MANAGED,
++    )
++
+     private fun studio(): StudioViewModel {
+         lateinit var result: StudioViewModel
+         composeRule.activityRule.scenario.onActivity { activity ->
+diff --git a/app/src/main/java/studio/guitarlab/app/ui/ProjectShellScaffold.kt b/app/src/main/java/studio/guitarlab/app/ui/ProjectShellScaffold.kt
+index 9cdbfe7..e6a0227 100644
+--- a/app/src/main/java/studio/guitarlab/app/ui/ProjectShellScaffold.kt
++++ b/app/src/main/java/studio/guitarlab/app/ui/ProjectShellScaffold.kt
+@@ -1,5 +1,6 @@
+ package studio.guitarlab.app.ui
+ 
++import androidx.compose.foundation.background
+ import androidx.compose.foundation.layout.Arrangement
+ import androidx.compose.foundation.layout.Box
+ import androidx.compose.foundation.layout.BoxWithConstraints
+@@ -170,7 +171,13 @@ fun ProjectShellScaffold(
+             }
+         }
+         secondaryBar?.invoke()
+-        Box(Modifier.fillMaxWidth().weight(1f)) { content() }
++        Box(
++            Modifier
++                .fillMaxWidth()
++                .weight(1f)
++                .background(MaterialTheme.colorScheme.background)
++                .testTag("project-shell-content"),
++        ) { content() }
+     }
+ }
+ 
+diff --git a/app/src/main/java/studio/guitarlab/app/ui/StudioPlaceholderScreen.kt b/app/src/main/java/studio/guitarlab/app/ui/StudioPlaceholderScreen.kt
+index d660156..af9eccd 100644
+--- a/app/src/main/java/studio/guitarlab/app/ui/StudioPlaceholderScreen.kt
++++ b/app/src/main/java/studio/guitarlab/app/ui/StudioPlaceholderScreen.kt
+@@ -1472,15 +1472,23 @@ private fun TimelineRuler(
+             .padding(start = TrackSidebarWidth + TrackLaneGap)
+             .testTag("timeline-time-ruler"),
+     ) {
++        val labelCount = when {
++            projectEndFrame <= 0L -> 1
++            maxWidth < 260.dp -> 2
++            maxWidth < 420.dp -> 3
++            maxWidth < 620.dp -> 4
++            else -> 5
++        }
+         Row(
+             modifier = Modifier.fillMaxSize(),
+             horizontalArrangement = Arrangement.SpaceBetween,
+             verticalAlignment = Alignment.Bottom,
+         ) {
+-            for (step in 0..4) {
+-                val frame = projectEndFrame * step / 4
++            repeat(labelCount) { step ->
++                val frame = if (labelCount == 1) 0L else projectEndFrame * step / (labelCount - 1)
+                 Text(
+                     formatTimelineTime(frame, sampleRate),
++                    modifier = Modifier.testTag("timeline-ruler-label-$step"),
+                     style = MaterialTheme.typography.labelSmall,
+                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                 )
+diff --git a/scripts/ci_run_api36_regression_groups.sh b/scripts/ci_run_api36_regression_groups.sh
+index 47ddc3d..ea9242f 100755
+--- a/scripts/ci_run_api36_regression_groups.sh
++++ b/scripts/ci_run_api36_regression_groups.sh
+@@ -226,6 +226,10 @@ verify_visual_matrix() {
+     "new-project-compact-large-font-dark.png"
+     "settings-compact-large-font-light.png"
+     "home-target-tablet-landscape.png"
++    "home-active-operation-phone.png"
++    "studio-reference-update-phone.png"
++    "backup-restore-version.png"
++    "backup-conflict.png"
+   )
+ 
+   for name in "${expected[@]}"; do
