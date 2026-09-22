@@ -1,6 +1,9 @@
 # U8 unified Drive backup
 
 Updated: 2026-09-22
+U8k status: CLOSED / DIGITAL PASS — Android CI #750 / run `35742420939`, exact
+source `b5bf8d39008aa267d7411244ea0ae526142863f7`.
+
 U8j status: CLOSED / DIGITAL PASS — Android CI #746 / run `35732391636`, exact
 source `ca44bd8efada617bbc30c8c3f3cf9f3d6b18a3c1`.
 
@@ -56,15 +59,51 @@ the next checkpoint.
 
 ## Remaining U8 sequence
 
-U8a–U8j have closed the provider-neutral domain, Drive v3 adapter, durable transaction journal,
-transactional restore, reachability-safe GC, C6 presentation/Activity contracts and the complete
-path-aware project snapshot/manifest format. The remaining U8 work is now strictly production
-integration and end-to-end proof:
+U8a–U8k have closed the provider-neutral domain, Drive v3 adapter, durable transaction journal,
+transactional restore, reachability-safe GC, C6 presentation/Activity contracts, path-aware project
+snapshot/manifest format and the production cutover to the vNext stack. The remaining U8 work is now
+strictly failure injection and real-provider end-to-end proof:
 
-1. cut the active app backup/restore path over to the vNext snapshot + durable coordinator + Drive v3 adapter + transactional restore/GC stack;
-2. prove retry, cancellation, lost-response, process-death and network-fault behavior through the active Android path;
-3. execute the real Google Drive campaign with exact backup → verify → restore → conflict/recovery evidence;
-4. close U8 only after the active product path, not merely adapters/domain tests, is green.
+1. execute the full network/HTTP fault matrix through the active vNext Drive path, including retry, cancellation, lost-response and resumable-upload recovery semantics;
+2. execute the real Google Drive campaign with exact backup → verify → restore → conflict/recovery → GC evidence;
+3. close U8 only after both fault-injection and real-provider gates are green.
+
+## U8k production cutover — CLOSED / DIGITAL PASS
+
+U8k makes the vNext architecture the single production backup/restore path.
+
+Closed contracts:
+- manual all-project and single-project backup route through `UnifiedDriveProductionService`, `UnifiedDriveProjectSnapshotBuilder`, durable journal/snapshot staging and `UnifiedDriveV3RemoteStore`;
+- `AutomaticBackupWorker` uses the same production service, WorkManager retry/cancellation semantics and shared Activity/notification model;
+- frozen snapshot bytes survive process death independently of the transaction journal;
+- corrupt journal/snapshot state fails closed instead of being mistaken for “no transaction”;
+- resumable sessions persist across process restart, recover server range with HTTP 308 and restart only after bounded session expiry;
+- confirmed revision is written only from the exact descriptor after `HEAD_VERIFIED`;
+- every “already synchronized” decision reconciles the live append-only remote head before skipping upload;
+- restore downloads canonical manifest/objects, validates project state plus referenced media and publishes locally only after complete validation;
+- replace-local restore is rollback-protected; import-as-copy allocates a fresh local identity while retaining media bytes unchanged;
+- ambiguous concurrent remote heads fail closed and cannot silently replace local state;
+- conflict actions remain GuitarLab-first: keep local, use cloud when the head is unique, or import cloud as copy;
+- reachability-safe GC runs only after confirmed backup and protects retained manifests, pending assets and grace-period objects;
+- the historical H37 coordinator/store and SAF migration remain retained code/evidence only; no normal ViewModel/Worker/UI path invokes them.
+
+Canonical evidence:
+- Android CI #750 / run `35742420939`;
+- exact source `b5bf8d39008aa267d7411244ea0ae526142863f7`;
+- deterministic U8k source materialization PASS;
+- JVM/unit tests PASS;
+- Android Lint PASS;
+- debug/release candidate assembly PASS;
+- complete API 36 emulator regression PASS;
+- signed homologation APK SKIPPED intentionally because candidate freeze has not started.
+
+Corrective history retained as evidence:
+- #747 failed before compilation because the first U8k payload digest was sealed incorrectly;
+- #748 exposed nullable resumable-session Kotlin wiring after the materializer was fixed;
+- #749 exposed only test-constructor trailing-lambda ambiguity after production compilation succeeded;
+- #750 closed all three issues on the exact source above.
+
+Next block: U8l network/HTTP fault injection. U8 itself remains OPEN until the fault matrix and real Google Drive gate both pass.
 
 ## U8b transactional coordinator
 
