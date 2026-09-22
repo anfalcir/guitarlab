@@ -1,6 +1,8 @@
 # Implementation Roadmap
 
-Updated: 2026-09-20
+Updated: 2026-09-22
+
+> **Current unified-line authority (2026-09-22):** the historical H29-H37 sections below remain architecture/evidence context. The active release path is the unified U0-U12 roadmap. U10/C8 is CLOSED / DIGITAL PASS on Android CI #781 / run `35791192802`, exact technical source `2aa97aa8b2c3af91d35e7d48a0eeb89c2c330e63`. U11 is active with candidate identity `0.5.0-rc5` / versionCode `25`. The latest signed authority remains CI #669 (`0.5.0-rc4` / 24) until the U11 freeze gate passes. U12 is the only remaining stable-release physical campaign.
 
 ## Milestones
 - **M1 — Foundation:** CLOSED.
@@ -9,17 +11,17 @@ Updated: 2026-09-20
 - **M5 — Reliable recording + Studio + Media I/O:** PASS/CLOSED.
 - **M6 — Measured latency/synchronization:** PASS/CLOSED.
 - **M7 — Production audio polish:** digital scope PASS; final physical latency closure still active.
-- **M8 — Release hardening:** H29-H36c signed DIGITAL PASS at CI #663; H37b native Drive v3 backup transport is SOURCE PRE-GATE; the H28 SAF corrective remains physically accepted as the signed fallback baseline; hardware residual remains.
+- **M8 — Release hardening / unified successor:** historical H29-H37 evidence is absorbed; unified U10/C8 is digitally closed and U11/U12 own final release freeze + physical residual.
 
 ## Current signed authority
-**CI #663** / run `35523442620` / producer `51d4098fa7b1b44a9fa315e939541020f594654d` is the current signed DIGITAL PASS through H36c.
+**CI #669** / run `35591631207` / producer `14b69271f2ae04529fa14475e1a34f2fdd864553` is the latest signed DIGITAL PASS (`0.5.0-rc4` / versionCode `24`) until U11 signs the new rc5 candidate.
 
 Signed APK SHA-256: `8e6e0f555bc5e834c4bccbdb011134c42d124806ce0316dd28787a6c98fe7bf3`.
 
 H28 backup/provider-consistency behavior has subsequently passed the user's target-device functional check and is now a protected regression contract.
 
 ## Current release closure
-The signed RC3 baseline still has a physical recording latency/synchronization residual on the intended real USB route. H37b carries the separate source-candidate gate for the new backup transport: it must pass exact-source software/API36/signing CI and first real Google OAuth/Drive backup/restore acceptance before RC4 can supersede the signed RC3 candidate. All further hardening must preserve the H28 project/revision identity and the digitally approved recording/editing baseline.
+U10/C8 is digitally closed. Direct Drive v3 production acceptance is closed by U8m, and the final unified candidate no longer carries an H37 pre-gate. U11 must freeze/sign exactly one rc5 candidate and prove the final exact-source cloud/security/documentation gates; U12 then validates only real-device MK-300 routing/capture/isolation, timing/listening, reconnect, 10-minute quality and target-device ergonomics.
 
 ## Approved post-H28 implementation path
 Detailed authority: `POST_H28_HARDENING_AND_EXTERNAL_CONTROL_PLAN.md`.
@@ -75,7 +77,7 @@ H29-H36c are DIGITAL PASS at CI #663. H34-H36c are part of the signed exact-sour
 - #660/#661/#662 are retained as corrective evidence; #663 passes the complete exact-source software/API36/geometry/signing gate with 34/34 standard instrumentation.
 
 ### H37/H37a/H37b — Native Google Drive API v3 backup transport
-**Status: H37b SOURCE PRE-GATE (`0.5.0-rc4` / versionCode `24`); H37 CI #664 failed at compile, H37a corrected compile, H37b hardens 401 token-cache recovery.**
+**Status: HISTORICAL FOUNDATION / CLOSED IN UNIFIED LINE.** H37 introduced the transport; CI #669 signed rc4, and U8/U8m later completed production cutover plus provider-real Drive acceptance. Historical #664/H37a/H37b corrective chronology is retained below.
 - replace SAF as the primary backup transport with direct client-side Drive API v3 and OAuth `drive.file`;
 - preserve H28 immutable `projectId`, deterministic `revisionId`, package SHA-256, deduplication, bounded history and restore-as-copy semantics;
 - use resumable uploads with persisted session recovery, server-confirmed offsets, bounded retry/backoff and no blind byte replay;
@@ -106,7 +108,7 @@ A separate successor program is now approved to absorb GBW Android into GuitarLa
 
 Authoritative plan: `UNIFIED_GUITARLAB_GBW_IMPLEMENTATION_ROADMAP.md`.
 
-Current successor status: U0 PASS; U1 DIGITAL PASS on CI #669; U2 unified shell/Home/navigation is DIGITAL PASS on automatic CI #675 / run `35596671163` at exact source `665c292931c0f2ed9fa1e7145818101c5d017222`. U3 source acquisition is DIGITAL PASS on automatic CI #676 / run `35606018087` at exact source `a7af51bf6622b4eecc32308c091fbb5020a1d54b`; U4 separation integration is the first incomplete milestone.
+Current successor status: U0-U8 are closed (U9 retired); U10/C8 is **CLOSED / DIGITAL PASS** on Android CI #781 / run `35791192802` at exact technical source `2aa97aa8b2c3af91d35e7d48a0eeb89c2c330e63`; **U11 is active** with rc5/25 freeze candidate; U12 is the consolidated final physical campaign.
 
 This successor program uses U0-U12 milestone numbering and is intentionally separate from the H29-H37/1.1 closure numbering. It does not retroactively alter the signed #663 evidence, H37b pre-gate state or historical 1.0/1.1 acceptance rules. Known physical residuals may be carried into the final unified-candidate campaign rather than forcing duplicate manual homologation, provided digital prerequisites remain objectively green.
 
@@ -121,7 +123,7 @@ Do not add to this line:
 - per-track independent physical output routing.
 
 ## Canonical materialization tail
-Current source chain: `… → H25 → H26 → H26a → H26b → H26e → H27 → H28 → H29 → H30 → H31 → H32 → H33 → H33a → H33b → H34 → H35 → H35a → H36 → H36a → H36b → H36c → H37 → H37a → H37b → U1 → U1a → U1b → U2 → U2a → U2b → U2c → U2d`.
+Current source chain is the fail-closed U-series tail ending at **U10zb**, reached through `scripts/materialize_ci_sources.sh`. Historical intermediate H/U blocks remain traceable; the entrypoint, not an old enumerated list, defines the active chain.
 
 H28 is frozen in `materialize_ci_sources_through_h28.sh`; the existing H29-H36c tail remains independently verified by `materialize_ci_sources_h29_h33.sh`; H37/H37a/H37b and U1/U1a/U1b are layered by their correspondingly named materializers. Each verifies its patch SHA-256 and terminal Git blobs. Future blocks must extend this chain deterministically and preserve the same fail-closed guarantees.
 
