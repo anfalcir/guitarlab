@@ -513,25 +513,40 @@ private fun sortOrderLabel(order: ProjectSortOrder): String = when (order) {
 
 @Composable
 private fun EmptyProjectsState(onNewProject: () -> Unit, modifier: Modifier = Modifier) {
-    Surface(modifier.fillMaxWidth(), shape = RoundedCornerShape(10.dp), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.26f)) {
-        Column(Modifier.fillMaxWidth().padding(24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) { Text("Nenhum projeto ainda", style = MaterialTheme.typography.titleLarge); Text("Crie um projeto vazio ou abra um arquivo .guitarlab salvo anteriormente.", color = MaterialTheme.colorScheme.onSurfaceVariant); Button(onClick = onNewProject) { Text("Criar primeiro projeto") } }
-    }
+    ProductEmptyState(
+        title = "Nenhum projeto ainda",
+        body = "Crie seu primeiro projeto para preparar uma música ou começar diretamente no Studio.",
+        modifier = modifier.testTag("home-empty"),
+        action = {
+            Button(onClick = onNewProject) { Text("Criar primeiro projeto") }
+        },
+    )
 }
 
 @Composable
-private fun FilteredProjectsEmptyState(query: ProjectLibraryQuery, onClear: () -> Unit, modifier: Modifier = Modifier) {
-    Surface(modifier.fillMaxWidth().testTag("home-filtered-empty"), shape = RoundedCornerShape(10.dp), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.26f)) {
-        Column(Modifier.fillMaxWidth().padding(24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("Nenhum projeto encontrado", style = MaterialTheme.typography.titleLarge)
-            val detail = if (query.searchText.isNotBlank()) {
-                "A pesquisa ou os filtros atuais não encontraram projetos."
-            } else {
-                "Os filtros atuais não encontraram projetos."
-            }
-            Text(detail, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Button(onClick = onClear, modifier = Modifier.testTag("home-clear-search-filters")) { Text("Limpar pesquisa e filtros") }
-        }
+private fun FilteredProjectsEmptyState(
+    query: ProjectLibraryQuery,
+    onClear: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val detail = if (query.searchText.isNotBlank()) {
+        "A pesquisa ou os filtros atuais não encontraram projetos."
+    } else {
+        "Os filtros atuais não encontraram projetos."
     }
+    ProductEmptyState(
+        title = "Nenhum projeto encontrado",
+        body = detail,
+        modifier = modifier.testTag("home-filtered-empty"),
+        action = {
+            Button(
+                onClick = onClear,
+                modifier = Modifier.testTag("home-clear-search-filters"),
+            ) {
+                Text("Limpar pesquisa e filtros")
+            }
+        },
+    )
 }
 
 @Composable
