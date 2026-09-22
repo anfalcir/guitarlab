@@ -25,7 +25,7 @@ Use these first for current status, release identity and remaining work:
 - `TEST_AND_HOMOLOGATION_PLAN.md` — current automated/physical evidence boundary;
 - `RC3_FINAL_PHYSICAL_HOMOLOGATION.md` — current target-device checklist bound to CI #663;
 - `RELEASE_NOTES_0.5.0-rc3.md` — current signed RC3 behavior delta;
-- `RELEASE_NOTES_0.5.0-rc4.md` — H37/H37a/H37b RC4 source-candidate delta; SOURCE PRE-GATE until a later signed CI supersedes #663;
+- `RELEASE_NOTES_0.5.0-rc4.md` — H37/H37a/H37b RC4 delta and historical source-pre-gate narrative; its signed gate was later closed by CI #669;
 - `H35_TAKE_SYNC_QUIET_CALIBRATION.md` — global-vs-take synchronization and quiet/silent calibration contract;
 - `H36_SETTINGS_UX_POLISH.md` — Settings/calibration presentation refinement plus H36a/H36b/H36c corrective history and #663 DIGITAL PASS evidence.
 

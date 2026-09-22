@@ -85,10 +85,10 @@ Pre-publication evidence:
 - second H37b materializer execution idempotent PASS;
 - deliberately corrupted H37b source archive rejected before H37b mutation PASS.
 
-A fresh manual canonical workflow is still required; no digital-pass status is inferred from these local probes.
+Historical note: at this checkpoint a fresh manual canonical workflow was still required; no digital-pass status was inferred from the local probes alone. That requirement was subsequently satisfied by signed CI #669.
 
-## H37 source pre-gate evidence
-H37a is not yet a DIGITAL PASS. H37's source-integrity proofs remain valid, while H37a adds the compile-corrective evidence above. The candidate still requires the canonical Android gate:
+## H37 historical source pre-gate evidence
+At this historical checkpoint H37a was not yet a DIGITAL PASS. H37's source-integrity proofs remained valid, while H37a added the compile-corrective evidence above. The candidate still required the canonical Android gate:
 - clean H36c → H37 materialization PASS;
 - second full materialization PASS/idempotent;
 - all 20 H37 terminal source Git blobs match the materializer contract;
@@ -96,7 +96,7 @@ H37a is not yet a DIGITAL PASS. H37's source-integrity proofs remain valid, whil
 - shell syntax and `git diff --check` PASS;
 - static audit finds only OAuth `drive.file` and no Firebase/backend credential/service-account/client-secret/refresh-token path.
 
-The canonical manual workflow must still prove JVM/unit, Android Lint, build/provenance, API36 instrumentation/geometry and signing before H37 can become signed authority.
+That canonical proof was later satisfied by CI #669 / run `35591631207`, which superseded this pre-gate state as signed authority.
 
 ## H36 closure evidence
 H36 is digitally closed by CI #663. The source-materialization/idempotence/fail-closed proofs remain valid, while that canonical Android gate proved compilation, Lint, **34/34 standard instrumentation**, isolated geometry and signing. H36a/H36b/H36c are test-only correctives and introduce no runtime source change after H36. CI #669 later superseded #663 as the latest signed DIGITAL PASS; U8j/#746 is newer but intentionally unsigned.
