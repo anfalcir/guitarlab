@@ -20,13 +20,13 @@ U10 evidence:
 
 The latest signed authority remains Android CI #669 / run `35591631207`, producer `14b69271f2ae04529fa14475e1a34f2fdd864553`, package `studio.guitarlab.app`, `0.5.0-rc4` / versionCode `24`, signed APK SHA-256 `8e6e0f555bc5e834c4bccbdb011134c42d124806ce0316dd28787a6c98fe7bf3`.
 
-The active U11 candidate identity is `0.5.0-rc5` / versionCode `25`. It becomes the physical-homologation candidate only after one exact freeze SHA passes the complete U11 signed gate.
+U11 is CLOSED / DIGITAL PASS. The exact physical-homologation candidate is `0.5.0-rc5` / versionCode `25`, producer `4218e4343746932a4de61c5abaa29ba5769a30ed`, signed APK SHA-256 `795839766f2b7546af53b2c56a0638b11c25b79622fe73cce5860b5602f050e0`.
 
 Drive provider-real acceptance remains closed by U8m:
 `U8m PASS · r_1790095960 · cleanup 8/8/14`;
 sanitized report SHA-256 `84efb70615be8ef5939da538eee5f714f7311aa6d44dd5bb2cdd0b5e9e66b702`.
 
-U11 must repeat exact-source real-cloud separation smoke and backend/security verification on the freeze SHA. U12 then performs only the physical claims that software/emulators cannot prove.
+U11 exact-source real-cloud separation smoke and backend/security verification passed on the freeze SHA. U12 is now active and performs only the physical claims that software/emulators cannot prove.
 
 ## H29-H36c digital closure
 CI #663 digitally closes H29-H36c on exact source. The H34/H35 take-synchronization, silent-verification and quieter calibration code is therefore covered by the canonical unit/Lint/build/API36/signing pipeline.
