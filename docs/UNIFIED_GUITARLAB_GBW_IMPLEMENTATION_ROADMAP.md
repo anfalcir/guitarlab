@@ -2202,7 +2202,7 @@ When current implementation differs from target design, ARCHITECTURE describes w
 | U5 Prepare → Studio | DIGITAL PASS — CI #690 / run `35625349001` at `4bada624e68f8a55ff22830e1dc276c8d51af223` | none |
 | U6 Unified exports | DIGITAL PASS — CI #711 / run `35658467705` at `6ff1988a8309b7174eeb328e0044d6b1d3167ff6`; C1 CLOSED | none |
 | U7 Cloud source consolidation | DIGITAL PASS — verify `35675871322`, shadow `35676232948`, production `35677341933` at cloud source `e459e5e413ab2dea00b61a9f2f60375d9823e048` | none; rollback path retained |
-| U8 Unified Drive backup | ACTIVE — U8a–U8d DIGITAL PASS; durable transaction recovery passed CI #731 / run `35708902719` at `51b2fb69a49e8bf1b96991432c7685db9db51784`; U8e transactional restore/conflict actions next | OAuth/real Drive gate may require owner |
+| U8 Unified Drive backup | ACTIVE — U8a–U8e DIGITAL PASS; transactional restore/conflict actions passed CI #732 / run `35710130595` at `4aa852db9e13717b85b438bcd9f4054383cdbc0b`; U8f reachability GC next | OAuth/real Drive gate may require owner |
 | U9 Legacy migration | RETIRED — no implementation required by owner decision (2026-09-21) | none |
 | U10 Global hardening | NOT STARTED | none beyond external service smoke |
 | U11 Final digital gate | NOT STARTED | canonical CI dispatch under current policy |

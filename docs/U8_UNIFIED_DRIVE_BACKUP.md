@@ -118,7 +118,8 @@ checkpoint after the U8d CI gate.
 
 ## U8e transactional restore and conflict actions
 
-U8e status: SOURCE COMPLETE / PRE-GATE.
+U8e status: CLOSED / DIGITAL PASS — Android CI #732 / run `35710130595`,
+exact source `4aa852db9e13717b85b438bcd9f4054383cdbc0b`
 
 The provider-neutral restore boundary now:
 
