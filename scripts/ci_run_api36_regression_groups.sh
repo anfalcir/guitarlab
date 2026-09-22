@@ -168,6 +168,32 @@ collect_visual_evidence() {
   fi
 }
 
+verify_visual_matrix() {
+  local name path
+  local count=0
+  local -a expected=(
+    "new-project-phone-dark.png"
+    "prepare-ready-dark.png"
+    "prepare-search-running-dark.png"
+    "settings-dark.png"
+    "backup-disconnected.png"
+    "backup-empty-connected.png"
+    "activity-completed.png"
+    "destructive-delete-confirmation.png"
+  )
+
+  for name in "${expected[@]}"; do
+    path="$(find "$DIAG_ROOT" -type f -name "$name" -print -quit)"
+    if [[ -z "$path" || ! -s "$path" ]]; then
+      echo "::error title=C8 screenshot matrix::Screenshot obrigatório ausente ou vazio: $name"
+      return 1
+    fi
+    count="$((count + 1))"
+  done
+
+  echo "::notice title=C8 screenshot matrix::${count}/${#expected[@]} screenshots obrigatórios coletados com sucesso"
+}
+
 collect_runtime_diagnostics() {
   local slug="$1"
   local title="$2"
@@ -346,6 +372,8 @@ run_group \
   "05-tablet-geometry" \
   "-Pandroid.testInstrumentationRunnerArguments.class=$(class_filter "${GROUP5_CLASSES[@]}")" \
   "-Pandroid.testInstrumentationRunnerArguments.targetGeometry=true"
+
+verify_visual_matrix
 
 {
   echo
