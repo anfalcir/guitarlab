@@ -30,6 +30,8 @@ import studio.guitarlab.core.model.ProjectTemplate
 fun GuitarLabApp(
     homeViewModel: HomeViewModel = viewModel(),
     navigationViewModel: AppNavigationViewModel = viewModel(),
+    deepLinkRoute: String? = null,
+    onDeepLinkConsumed: () -> Unit = {},
 ) {
     val persistedRoute by navigationViewModel.persistedRoute.collectAsState()
     val homeState by homeViewModel.state.collectAsState()
@@ -38,6 +40,13 @@ fun GuitarLabApp(
 
     fun navigate(destination: AppScreen) {
         navigationViewModel.navigate(destination)
+    }
+
+    LaunchedEffect(deepLinkRoute) {
+        deepLinkRoute?.takeIf { it.isNotBlank() }?.let { route ->
+            navigate(AppRouteCodec.decode(route))
+            onDeepLinkConsumed()
+        }
     }
 
     when (val current = screen) {
@@ -51,12 +60,13 @@ fun GuitarLabApp(
             onPrepareProject = { navigate(AppScreen.Prepare(it)) },
             onExportWorkspace = { navigate(ExportEntryPointPolicy.destination(it)) },
             onSettings = { navigate(AppScreen.Options()) },
-            onActivity = { navigate(AppScreen.Activity) },
+            onActivity = { navigate(AppScreen.Activity()) },
             onBackupProject = { navigate(AppScreen.Backup(it, returnToHome = true)) },
         )
-        AppScreen.Activity -> ActivityScreen(
+        is AppScreen.Activity -> ActivityScreen(
             onBack = { navigate(AppScreen.Home) },
             viewModel = viewModel<UnifiedActivityViewModel>(),
+            focusOperationId = current.operationId,
         )
         AppScreen.NewProject -> NewProjectScreen(
             onBack = { navigate(AppScreen.Home) },
@@ -135,7 +145,7 @@ fun GuitarLabApp(
             onAudioDiagnostics = { navigate(AppScreen.AudioProbe(current.projectId)) },
             onCodecDiagnostics = { navigate(AppScreen.CodecProbe(current.projectId)) },
             onBackupSettings = { navigate(AppScreen.Backup(current.projectId)) },
-            onActivity = { navigate(AppScreen.Activity) },
+            onActivity = { navigate(AppScreen.Activity()) },
         )
         is AppScreen.AudioProbe -> AudioProbeScreen(onBack = { navigate(AppScreen.Options(current.projectId)) })
         is AppScreen.CodecProbe -> CodecProbeScreen(onBack = { navigate(AppScreen.Options(current.projectId)) })

@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
@@ -22,6 +23,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -39,8 +41,16 @@ import studio.guitarlab.core.project.UnifiedOperationState
 fun ActivityScreen(
     onBack: () -> Unit,
     viewModel: UnifiedActivityViewModel,
+    focusOperationId: String? = null,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val listState = rememberLazyListState()
+    LaunchedEffect(focusOperationId, state.records) {
+        val targetIndex = focusOperationId?.let { operationId ->
+            state.records.indexOfFirst { it.operationId == operationId }
+        } ?: -1
+        if (targetIndex >= 0) listState.scrollToItem(targetIndex)
+    }
     Column(
         Modifier.fillMaxSize().padding(horizontal = 22.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -60,6 +70,7 @@ fun ActivityScreen(
         } else {
             LazyColumn(
                 Modifier.fillMaxWidth().weight(1f).testTag("activity-screen"),
+                state = listState,
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 items(state.records, key = { it.operationId }) { record -> ActivityRecordCard(record) }

@@ -2,7 +2,7 @@ package studio.guitarlab.app.ui
 
 sealed interface AppScreen {
     data object Home : AppScreen
-    data object Activity : AppScreen
+    data class Activity(val operationId: String? = null) : AppScreen
     data object NewProject : AppScreen
     data class Prepare(val projectId: String) : AppScreen
     data class Studio(val projectId: String) : AppScreen
@@ -17,7 +17,7 @@ sealed interface AppScreen {
 object AppRouteCodec {
     fun encode(screen: AppScreen): String = when (screen) {
         AppScreen.Home -> "home"
-        AppScreen.Activity -> "activity"
+        is AppScreen.Activity -> screen.operationId?.let { "activity:$it" } ?: "activity"
         AppScreen.NewProject -> "new"
         is AppScreen.Prepare -> "prepare:${screen.projectId}"
         is AppScreen.Studio -> "studio:${screen.projectId}"
@@ -30,7 +30,8 @@ object AppRouteCodec {
 
     fun decode(route: String): AppScreen = when {
         route == "home" -> AppScreen.Home
-        route == "activity" -> AppScreen.Activity
+        route == "activity" -> AppScreen.Activity()
+        route.startsWith("activity:") -> route.substringAfter(':').takeIf { it.isNotBlank() }?.let(AppScreen::Activity) ?: AppScreen.Home
         route == "new" -> AppScreen.NewProject
         route.startsWith("prepare:") -> route.substringAfter(':').takeIf { it.isNotBlank() }?.let(AppScreen::Prepare) ?: AppScreen.Home
         route.startsWith("studio:") -> route.substringAfter(':').takeIf { it.isNotBlank() }?.let(AppScreen::Studio) ?: AppScreen.Home

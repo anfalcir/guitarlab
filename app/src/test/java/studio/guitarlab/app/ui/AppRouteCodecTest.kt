@@ -8,6 +8,8 @@ class AppRouteCodecTest {
     fun everyNavigationStateRoundTripsIncludingOpaqueProjectIdentifiers() {
         val screens = listOf(
             AppScreen.Home,
+            AppScreen.Activity(),
+            AppScreen.Activity("operation:automatic-backup"),
             AppScreen.NewProject,
             AppScreen.Prepare("project:a/b?c"),
             AppScreen.Studio("project:a/b?c"),
