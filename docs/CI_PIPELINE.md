@@ -5,6 +5,8 @@ Updated: 2026-09-22
 ## Contract
 `.github/workflows/android-ci.yml` supports manual `workflow_dispatch` and controlled `main` commit triggers. A commit containing `[run ci]` runs the software and API 36 gates; `[run ci signed]` additionally produces the signed homologation APK. Ordinary commits retain `[skip ci]` and do not consume hosted CI. This workstream is authorized to use and monitor the controlled triggers while executing the unified roadmap.
 
+Current release phase: **U11 active**, candidate `0.5.0-rc5` / versionCode `25`. U10/C8 technical authority is #781; CI #669 remains the signed authority until the U11 signed freeze succeeds.
+
 Authority layers:
 1. **software gate** — deterministic source materialization, JVM/unit/audio/DSP/persistence/migration tests, performance evidence, Lint, debug/release assembly and unsigned provenance;
 2. **API36 gate** — standard connected instrumentation plus isolated target-tablet geometry;
