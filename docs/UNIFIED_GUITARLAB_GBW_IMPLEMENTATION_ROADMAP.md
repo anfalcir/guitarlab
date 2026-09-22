@@ -1922,7 +1922,7 @@ Make the unified product reproducible from GuitarLab without destabilizing prove
 - consume the shared semantic operation model from the cohesion program;
 - keep Cloud Run/Firebase/job-state names out of primary UX;
 - implement C2-C4 shell/lifecycle/Prepare contracts before production cutover where they affect separation ownership;
-- **C2-C3 are CLOSED**: C2 on CI #713 / run `35660979142` at `66cedad38875d6f7284180ef46d25d4e9049d287`; C3 on CI #720 / run `35669035762` at `f730e08cc242ed590c333727cde4c96883f7df07`. C4 remains required before U7 production cutover.
+- **C2-C4 are CLOSED**: C2 on CI #713 / run `35660979142` at `66cedad38875d6f7284180ef46d25d4e9049d287`; C3 on CI #720 / run `35669035762` at `f730e08cc242ed590c333727cde4c96883f7df07`; C4 on CI #723 / run `35673758282` at `0d7b05d0192cc415d328e415c517b3cad40dc209`. U7 production cutover is unblocked and must preserve those contracts.
 - move remote reconciliation cadence/backoff out of Compose and into durable job/repository infrastructure.
 
 ### Tests
@@ -2199,7 +2199,7 @@ When current implementation differs from target design, ARCHITECTURE describes w
 | U4 Separation integration | DIGITAL PASS — Android CI #686 / run `35620101527` + U4 Cloud Integration Smoke #8 / run `35620101684` at `55ae7a14d99b710367ea7650cbf9f48298b90eba` | closed digitally; no physical dependency |
 | U5 Prepare → Studio | DIGITAL PASS — CI #690 / run `35625349001` at `4bada624e68f8a55ff22830e1dc276c8d51af223` | none |
 | U6 Unified exports | DIGITAL PASS — CI #711 / run `35658467705` at `6ff1988a8309b7174eeb328e0044d6b1d3167ff6`; C1 CLOSED | none |
-| U7 Cloud source consolidation | NOT STARTED | deploy authorization may require owner |
+| U7 Cloud source consolidation | ACTIVE — C2-C4 prerequisites closed by CI #723 | deploy authorization may require owner |
 | U8 Unified Drive backup | NOT STARTED | OAuth setup may require owner |
 | U9 Legacy migration | RETIRED — no implementation required by owner decision (2026-09-21) | none |
 | U10 Global hardening | NOT STARTED | none beyond external service smoke |
