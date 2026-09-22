@@ -30,6 +30,8 @@ build-infra/cache-bundles/
 
 .toolchain/
 
+.venv/
+
 *.parts/
 
 # Cloud/backend local dependency and test outputs
