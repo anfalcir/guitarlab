@@ -7,7 +7,8 @@ Status: U8a CLOSED / DIGITAL PASS — Android CI run `35678941252`, exact source
 U8b status: CLOSED / DIGITAL PASS — Android CI #729 / run `35679878744`,
 exact source `b3ecd5f5269728e9e481156a187922c16b93c05b`
 
-U8c status: SOURCE / PRE-GATE
+U8c status: CLOSED / DIGITAL PASS — Android CI #730 / run `35707441794`,
+exact source `58aad5cd230c9bb3700529dbf4b97498e08b429a`
 
 ## Scope boundary
 
@@ -86,3 +87,7 @@ U8c implements the concrete Drive API adapter without switching the user path:
 - listing is paginated and malformed/incomplete records fail closed;
 - the adapter reuses the hardened OAuth/HTTP client while the H37 production
   coordinator remains unchanged until the later cutover gate.
+
+The complete unit/Lint/build and API 36 regression passed on the exact U8c
+source. U8d durable desired/confirmed state and process-death recovery are
+next.

@@ -30,7 +30,7 @@ Updated: 2026-09-21
 
 ## Active line
 - Repository/branch: `anfalcir/guitarlab` / `main`.
-- Source candidate: `0.5.0-rc4`, versionCode `24`. U7 cloud source consolidation is digitally closed at cloud source `e459e5e413ab2dea00b61a9f2f60375d9823e048`. U8 is active: U8a passed in run `35678941252`; the U8b transactional coordinator passed Android CI #729 / run `35679878744` at `b3ecd5f5269728e9e481156a187922c16b93c05b`. The concrete Drive v3 object/manifest/head adapter is next; C5/C6 remain required at their normative integration boundaries.
+- Source candidate: `0.5.0-rc4`, versionCode `24`. U7 cloud source consolidation is digitally closed. U8 is active: U8a passed in run `35678941252`, U8b in CI #729 / run `35679878744`, and the concrete U8c Drive v3 object/manifest/head adapter in CI #730 / run `35707441794` at `58aad5cd230c9bb3700529dbf4b97498e08b429a`. U8d durable transaction recovery is next; C5/C6 remain required at their normative integration boundaries.
 - Latest signed version is `0.5.0-rc4`, versionCode `24`, package `studio.guitarlab.app`.
 - Latest signed DIGITAL PASS: **CI #669** / run `35591631207` / producer `14b69271f2ae04529fa14475e1a34f2fdd864553`.
 - #663 scope: H28 → H29 → H30 → H31 → H32 → H33 → H33a → H33b → H34 → H35 → H35a → H36 → H36a → H36b → H36c.
