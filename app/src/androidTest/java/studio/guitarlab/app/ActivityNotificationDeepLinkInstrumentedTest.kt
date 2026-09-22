@@ -1,9 +1,11 @@
 package studio.guitarlab.app
 
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -20,11 +22,12 @@ import studio.guitarlab.core.project.UnifiedOperationState
 
 @RunWith(AndroidJUnit4::class)
 class ActivityNotificationDeepLinkInstrumentedTest {
-    @get:Rule val composeRule = createAndroidComposeRule<MainActivity>()
+    @get:Rule val composeRule = createEmptyComposeRule()
 
     @Test fun notificationPendingIntentOpensOwningActivityItem() {
         val operationId = "notification-deep-link-test"
-        val store = UnifiedActivityStore(composeRule.activity)
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val store = UnifiedActivityStore(context)
         store.record(
             operationId = operationId,
             projectId = "project-notification",
@@ -34,18 +37,18 @@ class ActivityNotificationDeepLinkInstrumentedTest {
             summary = "Backup concluído",
         )
         try {
-            AppNotificationDeepLink.pendingIntent(
-                composeRule.activity,
-                AppScreen.Activity(operationId),
-            ).send()
-            composeRule.onNodeWithTag("activity-record-$operationId").assertIsDisplayed()
+            val intent = AppNotificationDeepLink.intent(context, AppScreen.Activity(operationId))
+            ActivityScenario.launch<MainActivity>(intent).use {
+                composeRule.onNodeWithTag("activity-record-$operationId").assertIsDisplayed()
+            }
         } finally {
             store.remove(operationId)
         }
     }
 
     @Test fun confirmedRevisionStoreIgnoresUnconfirmedFailure() {
-        val store = ConfirmedRevisionStore(composeRule.activity)
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val store = ConfirmedRevisionStore(context)
         val projectId = "confirmed-store-test"
         store.clearProject(projectId)
         val confirmed = descriptor(projectId, "r_1_" + "a".repeat(24))
