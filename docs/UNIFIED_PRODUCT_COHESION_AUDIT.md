@@ -338,6 +338,8 @@ U8 transport/cutover/fault work must preserve these product-cohesion contracts.
 
 ### C7 — Visual, copy, responsive and accessibility consolidation
 
+**Status: CLOSED / DIGITAL PASS — consumed by Android CI #781 / run `35791192802` at exact technical source `2aa97aa8b2c3af91d35e7d48a0eeb89c2c330e63`.** The final responsive/accessibility and visual artifact campaign is recorded in `docs/U10_FINAL_DIGITAL_COHESION_GATE.md`.
+
 **Objective:** make the entire APK visually coherent before global hardening.
 
 Required work:
@@ -363,6 +365,8 @@ Exit:
 - every major screen passes the cohesion checklist and responsive/accessibility matrix.
 
 ### C8 — Global digital cohesion gate
+
+**Status: CLOSED / DIGITAL PASS — Android CI #781 / run `35791192802`, exact technical source `2aa97aa8b2c3af91d35e7d48a0eeb89c2c330e63`.** The fail-closed gate proved 23/23 instrumented classes, 76 observed API 36 tests and 24/24 retained screenshots; deterministic visual review found no system-overlay contamination and confirmed the required Home → Prepare → Studio → Export → Backup/Activity/Settings cohesion path. Full evidence is in `docs/U10_FINAL_DIGITAL_COHESION_GATE.md`.
 
 **Objective:** prove the final application behaves as one product before U11 candidate freeze.
 
