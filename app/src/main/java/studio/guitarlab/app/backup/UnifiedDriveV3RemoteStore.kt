@@ -357,7 +357,16 @@ internal class UnifiedDriveV3RemoteStore(
     private suspend fun findOne(
         kind: String,
         property: Pair<String, String>,
-    ): DriveFileResource? = listFiles(query(kind, property)).singleOrNull()
+    ): DriveFileResource? {
+        val matches = listFiles(query(kind, property))
+        if (matches.isEmpty()) return null
+        if (matches.size == 1) return matches.single()
+        val receipts = matches.map { it.verifiedReceipt() }
+        require(receipts.all { it != null } && receipts.distinct().size == 1) {
+            "Drive contains ambiguous objects for the same content identity."
+        }
+        return matches.first()
+    }
 
     private fun publishedHeadOrNull(file: DriveFileResource): DrivePublishedHead? {
         val projectId =
