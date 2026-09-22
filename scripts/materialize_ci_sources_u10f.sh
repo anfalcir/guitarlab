@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# U10f corrective seal: align lifecycle regression with the unified GuitarLab guide.
+# U10f corrective seal: align lifecycle regression with the unified GuitarLab guide; canonical checkpoint.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
