@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# U10c/C7c source seal: visible semantic Activity states backed by a shared status chip.
+# U10c/C7c source seal: visible semantic Activity states; canonical U10 C7a-C7c checkpoint.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
