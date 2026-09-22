@@ -4,8 +4,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PREVIOUS="$ROOT/scripts/materialize_ci_sources_u8j.sh"
 PAYLOAD="$ROOT/.source-parts/U8kProductionDriveCutover.patch.b64"
-PAYLOAD_SHA256="f94e23546e04cd854792b271fa7fee8d216410eca05e55f94aaa3579eb7115d4"
-PATCH_SHA256="dd68c00cb51bf79cbacdabf979c8c4111e3ac1b1b35708118ec75eadd10c4fdd"
+PAYLOAD_SHA256="aebd8c7f58cbc524375f15641bdaa3c55f367f78fa891cba8606ca83331dea4c"
+PATCH_SHA256="cc395240210817e74209427a27a85b2901e53dbf86ee32651d65e8df57367fe5"
 
 declare -a FILES=(
   "app/src/androidTest/java/studio/guitarlab/app/BackupScreenInstrumentedTest.kt"
