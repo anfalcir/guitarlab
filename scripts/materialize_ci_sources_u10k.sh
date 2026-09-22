@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# U10k corrective seal: remove invalid Compose assertion import from Activity deep-link regression.
+# U10k corrective seal: remove invalid Compose assertion import from Activity deep-link regression; canonical checkpoint.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
