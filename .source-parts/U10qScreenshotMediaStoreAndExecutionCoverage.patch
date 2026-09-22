@@ -1,0 +1,217 @@
+diff --git a/app/src/androidTest/java/studio/guitarlab/app/CohesionScreenshotArtifacts.kt b/app/src/androidTest/java/studio/guitarlab/app/CohesionScreenshotArtifacts.kt
+index 7730e70..9e4b4db 100644
+--- a/app/src/androidTest/java/studio/guitarlab/app/CohesionScreenshotArtifacts.kt
++++ b/app/src/androidTest/java/studio/guitarlab/app/CohesionScreenshotArtifacts.kt
+@@ -1,19 +1,24 @@
+ package studio.guitarlab.app
+ 
+-import android.os.ParcelFileDescriptor
++import android.annotation.TargetApi
++import android.content.ContentValues
++import android.graphics.Bitmap
++import android.os.Build
++import android.provider.MediaStore
+ import androidx.compose.ui.test.junit4.ComposeTestRule
+ import androidx.test.platform.app.InstrumentationRegistry
+ 
+-private const val COHESION_SCREENSHOT_ROOT = "/sdcard/guitarlab-ci-screenshots"
++private const val COHESION_SCREENSHOT_RELATIVE_PATH = "Pictures/guitarlab-ci-screenshots"
+ 
+ /**
+  * Deterministic screenshot artifact helper for the U10/C8 cohesion gate.
+  *
+- * The screenshot is produced by the instrumentation shell directly into
+- * shared emulator storage. This survives the Android Gradle test runner
+- * teardown long enough for scripts/ci_run_api36_regression_groups.sh to
+- * collect the PNG after each connectedDebugAndroidTest invocation.
++ * UiAutomation owns the full-display capture while MediaStore owns publication.
++ * This avoids compound shell-command parsing and scoped-storage permissions,
++ * and leaves a shared artifact that survives test-package teardown long enough
++ * for scripts/ci_run_api36_regression_groups.sh to collect it with adb.
+  */
++@TargetApi(Build.VERSION_CODES.Q)
+ fun ComposeTestRule.captureCohesionScreenshot(name: String) {
+     waitForIdle()
+ 
+@@ -23,22 +28,45 @@ fun ComposeTestRule.captureCohesionScreenshot(name: String) {
+         .replace(Regex("[^a-z0-9._-]+"), "-")
+         .trim('-')
+         .ifBlank { "screenshot" }
+-    val remotePath = "$COHESION_SCREENSHOT_ROOT/$safeName.png"
+-    val command = """
+-        mkdir -p $COHESION_SCREENSHOT_ROOT
+-        rm -f $remotePath
+-        screencap -p $remotePath
+-        if [ -s $remotePath ]; then
+-          echo SCREENSHOT_OK
+-        else
+-          echo SCREENSHOT_FAILED
+-          exit 1
+-        fi
+-    """.trimIndent().replace("\n", "; ")
++    val displayName = "$safeName.png"
++    val resolver = instrumentation.targetContext.contentResolver
++    val collection = MediaStore.Images.Media.EXTERNAL_CONTENT_URI
++    val relativePath = "$COHESION_SCREENSHOT_RELATIVE_PATH/"
+ 
+-    val descriptor = instrumentation.uiAutomation.executeShellCommand(command)
+-    val output = ParcelFileDescriptor.AutoCloseInputStream(descriptor).bufferedReader().use { it.readText() }
+-    check("SCREENSHOT_OK" in output) {
+-        "Cohesion screenshot was not written: $remotePath · shell=$output"
++    resolver.delete(
++        collection,
++        "${MediaStore.Images.Media.DISPLAY_NAME} = ? AND ${MediaStore.Images.Media.RELATIVE_PATH} = ?",
++        arrayOf(displayName, relativePath),
++    )
++
++    val screenshot = checkNotNull(instrumentation.uiAutomation.takeScreenshot()) {
++        "UiAutomation returned no screenshot for $displayName"
++    }
++    val values = ContentValues().apply {
++        put(MediaStore.Images.Media.DISPLAY_NAME, displayName)
++        put(MediaStore.Images.Media.MIME_TYPE, "image/png")
++        put(MediaStore.Images.Media.RELATIVE_PATH, relativePath)
++        put(MediaStore.Images.Media.IS_PENDING, 1)
++    }
++    val uri = checkNotNull(resolver.insert(collection, values)) {
++        "MediaStore refused screenshot publication for $displayName"
++    }
++
++    try {
++        val compressed = resolver.openOutputStream(uri, "w").use { stream ->
++            checkNotNull(stream) { "MediaStore returned no stream for $displayName" }
++            screenshot.compress(Bitmap.CompressFormat.PNG, 100, stream)
++        }
++        check(compressed) { "PNG compression failed for $displayName" }
++        values.clear()
++        values.put(MediaStore.Images.Media.IS_PENDING, 0)
++        check(resolver.update(uri, values, null, null) == 1) {
++            "MediaStore did not publish $displayName"
++        }
++    } catch (failure: Throwable) {
++        resolver.delete(uri, null, null)
++        throw failure
++    } finally {
++        screenshot.recycle()
+     }
+ }
+diff --git a/scripts/ci_run_api36_regression_groups.sh b/scripts/ci_run_api36_regression_groups.sh
+index 5517979..4204e62 100755
+--- a/scripts/ci_run_api36_regression_groups.sh
++++ b/scripts/ci_run_api36_regression_groups.sh
+@@ -137,10 +137,43 @@ count_testcases() {
+   echo "$count"
+ }
+ 
++observed_test_classes() {
++  local dir="$1"
++  [[ -d "$dir" ]] || return 0
++
++  grep -rho 'classname="[^"]*"' "$dir" --include='*.xml' 2>/dev/null \
++    | sed 's/^classname="//; s/"$//; s/^studio\.guitarlab\.app\.//' \
++    | sort -u
++}
++
++verify_executed_classes() {
++  local slug="$1"
++  shift
++  local results="$DIAG_ROOT/$slug/results"
++  local expected actual missing unexpected
++
++  expected="$(printf '%s\n' "$@" | sort -u)"
++  actual="$(observed_test_classes "$results")"
++  missing="$(comm -23 <(printf '%s\n' "$expected") <(printf '%s\n' "$actual") || true)"
++  unexpected="$(comm -13 <(printf '%s\n' "$expected") <(printf '%s\n' "$actual") || true)"
++
++  if [[ -n "$missing" || -n "$unexpected" ]]; then
++    echo "::error title=API36 executed-class coverage::Grupo $slug não executou exatamente o contrato de classes."
++    [[ -z "$missing" ]] || printf 'Missing executed classes:\n%s\n' "$missing"
++    [[ -z "$unexpected" ]] || printf 'Unexpected executed classes:\n%s\n' "$unexpected"
++    return 1
++  fi
++
++  local expected_count actual_count
++  expected_count="$(printf '%s\n' "$expected" | sed '/^$/d' | wc -l | tr -d ' ')"
++  actual_count="$(printf '%s\n' "$actual" | sed '/^$/d' | wc -l | tr -d ' ')"
++  echo "::notice title=API36 executed-class coverage::Grupo $slug: ${actual_count}/${expected_count} classes comprovadas nos XMLs"
++}
++
+ collect_visual_evidence() {
+   local slug="$1"
+   local dest="$DIAG_ROOT/$slug/screenshots"
+-  local remote_root="/sdcard/guitarlab-ci-screenshots"
++  local remote_root="/sdcard/Pictures/guitarlab-ci-screenshots"
+   local remote name count=0
+   local remotes=""
+ 
+@@ -248,6 +281,17 @@ run_group() {
+   local slug="$3"
+   shift 3
+ 
++  local -a expected_classes=()
++  while [[ "$#" -gt 0 && "$1" != "--" ]]; do
++    expected_classes+=("$1")
++    shift
++  done
++  [[ "$#" -gt 0 ]] || {
++    echo "::error title=API36 group contract::Missing -- separator for $slug"
++    return 2
++  }
++  shift
++
+   local dest="$DIAG_ROOT/$slug"
+   local log="$dest/gradle.log"
+   local started_epoch finished_epoch elapsed duration heartbeat_pid status tests state
+@@ -279,6 +323,10 @@ run_group() {
+   collect_visual_evidence "$slug"
+   tests="$(count_testcases "$dest/results")"
+ 
++  if ! verify_executed_classes "$slug" "${expected_classes[@]}"; then
++    status=1
++  fi
++
+   if [[ "$status" -eq 0 ]]; then
+     echo "| ${index}/${TOTAL_GROUPS} — ${title} | ✅ PASS | ${tests} | ${duration} |" >> "$SUMMARY_FILE"
+     echo "::notice title=API36 ${index}/${TOTAL_GROUPS}::PASS: ${title} · ${tests} testes observados · ${duration}"
+@@ -339,24 +387,32 @@ run_group \
+   1 \
+   "Projeto e navegação" \
+   "01-project-navigation" \
++  "${GROUP1_CLASSES[@]}" \
++  -- \
+   "-Pandroid.testInstrumentationRunnerArguments.class=$(class_filter "${GROUP1_CLASSES[@]}")"
+ 
+ run_group \
+   2 \
+   "Studio e prática" \
+   "02-studio-practice" \
++  "${GROUP2_CLASSES[@]}" \
++  -- \
+   "-Pandroid.testInstrumentationRunnerArguments.class=$(class_filter "${GROUP2_CLASSES[@]}")"
+ 
+ run_group \
+   3 \
+   "Importação, controles e ajustes" \
+   "03-import-controls-settings" \
++  "${GROUP3_CLASSES[@]}" \
++  -- \
+   "-Pandroid.testInstrumentationRunnerArguments.class=$(class_filter "${GROUP3_CLASSES[@]}")"
+ 
+ run_group \
+   4 \
+   "Exportação, backup e master" \
+   "04-export-backup-master" \
++  "${GROUP4_CLASSES[@]}" \
++  -- \
+   "-Pandroid.testInstrumentationRunnerArguments.class=$(class_filter "${GROUP4_CLASSES[@]}")"
+ 
+ echo "::notice title=API36 5/${TOTAL_GROUPS}::Configurando viewport tablet 1920×1200"
+@@ -370,6 +426,8 @@ run_group \
+   5 \
+   "Geometria tablet 1920×1200" \
+   "05-tablet-geometry" \
++  "${GROUP5_CLASSES[@]}" \
++  -- \
+   "-Pandroid.testInstrumentationRunnerArguments.class=$(class_filter "${GROUP5_CLASSES[@]}")" \
+   "-Pandroid.testInstrumentationRunnerArguments.targetGeometry=true"
+ 

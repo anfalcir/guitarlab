@@ -137,10 +137,43 @@ count_testcases() {
   echo "$count"
 }
 
+observed_test_classes() {
+  local dir="$1"
+  [[ -d "$dir" ]] || return 0
+
+  grep -rho 'classname="[^"]*"' "$dir" --include='*.xml' 2>/dev/null \
+    | sed 's/^classname="//; s/"$//; s/^studio\.guitarlab\.app\.//' \
+    | sort -u
+}
+
+verify_executed_classes() {
+  local slug="$1"
+  shift
+  local results="$DIAG_ROOT/$slug/results"
+  local expected actual missing unexpected
+
+  expected="$(printf '%s\n' "$@" | sort -u)"
+  actual="$(observed_test_classes "$results")"
+  missing="$(comm -23 <(printf '%s\n' "$expected") <(printf '%s\n' "$actual") || true)"
+  unexpected="$(comm -13 <(printf '%s\n' "$expected") <(printf '%s\n' "$actual") || true)"
+
+  if [[ -n "$missing" || -n "$unexpected" ]]; then
+    echo "::error title=API36 executed-class coverage::Grupo $slug não executou exatamente o contrato de classes."
+    [[ -z "$missing" ]] || printf 'Missing executed classes:\n%s\n' "$missing"
+    [[ -z "$unexpected" ]] || printf 'Unexpected executed classes:\n%s\n' "$unexpected"
+    return 1
+  fi
+
+  local expected_count actual_count
+  expected_count="$(printf '%s\n' "$expected" | sed '/^$/d' | wc -l | tr -d ' ')"
+  actual_count="$(printf '%s\n' "$actual" | sed '/^$/d' | wc -l | tr -d ' ')"
+  echo "::notice title=API36 executed-class coverage::Grupo $slug: ${actual_count}/${expected_count} classes comprovadas nos XMLs"
+}
+
 collect_visual_evidence() {
   local slug="$1"
   local dest="$DIAG_ROOT/$slug/screenshots"
-  local remote_root="/sdcard/guitarlab-ci-screenshots"
+  local remote_root="/sdcard/Pictures/guitarlab-ci-screenshots"
   local remote name count=0
   local remotes=""
 
@@ -248,6 +281,17 @@ run_group() {
   local slug="$3"
   shift 3
 
+  local -a expected_classes=()
+  while [[ "$#" -gt 0 && "$1" != "--" ]]; do
+    expected_classes+=("$1")
+    shift
+  done
+  [[ "$#" -gt 0 ]] || {
+    echo "::error title=API36 group contract::Missing -- separator for $slug"
+    return 2
+  }
+  shift
+
   local dest="$DIAG_ROOT/$slug"
   local log="$dest/gradle.log"
   local started_epoch finished_epoch elapsed duration heartbeat_pid status tests state
@@ -278,6 +322,10 @@ run_group() {
   copy_group_evidence "$slug"
   collect_visual_evidence "$slug"
   tests="$(count_testcases "$dest/results")"
+
+  if ! verify_executed_classes "$slug" "${expected_classes[@]}"; then
+    status=1
+  fi
 
   if [[ "$status" -eq 0 ]]; then
     echo "| ${index}/${TOTAL_GROUPS} — ${title} | ✅ PASS | ${tests} | ${duration} |" >> "$SUMMARY_FILE"
@@ -339,24 +387,32 @@ run_group \
   1 \
   "Projeto e navegação" \
   "01-project-navigation" \
+  "${GROUP1_CLASSES[@]}" \
+  -- \
   "-Pandroid.testInstrumentationRunnerArguments.class=$(class_filter "${GROUP1_CLASSES[@]}")"
 
 run_group \
   2 \
   "Studio e prática" \
   "02-studio-practice" \
+  "${GROUP2_CLASSES[@]}" \
+  -- \
   "-Pandroid.testInstrumentationRunnerArguments.class=$(class_filter "${GROUP2_CLASSES[@]}")"
 
 run_group \
   3 \
   "Importação, controles e ajustes" \
   "03-import-controls-settings" \
+  "${GROUP3_CLASSES[@]}" \
+  -- \
   "-Pandroid.testInstrumentationRunnerArguments.class=$(class_filter "${GROUP3_CLASSES[@]}")"
 
 run_group \
   4 \
   "Exportação, backup e master" \
   "04-export-backup-master" \
+  "${GROUP4_CLASSES[@]}" \
+  -- \
   "-Pandroid.testInstrumentationRunnerArguments.class=$(class_filter "${GROUP4_CLASSES[@]}")"
 
 echo "::notice title=API36 5/${TOTAL_GROUPS}::Configurando viewport tablet 1920×1200"
@@ -370,6 +426,8 @@ run_group \
   5 \
   "Geometria tablet 1920×1200" \
   "05-tablet-geometry" \
+  "${GROUP5_CLASSES[@]}" \
+  -- \
   "-Pandroid.testInstrumentationRunnerArguments.class=$(class_filter "${GROUP5_CLASSES[@]}")" \
   "-Pandroid.testInstrumentationRunnerArguments.targetGeometry=true"
 
