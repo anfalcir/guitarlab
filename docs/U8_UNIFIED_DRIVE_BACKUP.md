@@ -1,7 +1,8 @@
 # U8 unified Drive backup
 
 Updated: 2026-09-22
-Status: U8a SOURCE / PRE-GATE
+Status: U8a CLOSED / DIGITAL PASS — Android CI run `35678941252`, exact source
+`a5d851ce8becd40ef08e95fd302424ac7ea4c082`
 
 ## Scope boundary
 
@@ -32,8 +33,9 @@ remote store or UI:
   object inside the safety grace period.
 
 U8a does not yet change production Drive bytes or claim end-to-end backup. Its
-next gate is the complete `core:project` test suite followed by Android CI on
-the exact materialized source.
+provider-neutral domain, complete `core:project` suite, Android unit suite,
+Lint/build and complete API 36 regression passed in run `35678941252`. U8b is
+the next checkpoint.
 
 ## Remaining U8 sequence
 
