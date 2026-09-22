@@ -3,6 +3,7 @@ package studio.guitarlab.app
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -40,6 +41,7 @@ class ActivityNotificationDeepLinkInstrumentedTest {
             val intent = AppNotificationDeepLink.intent(context, AppScreen.Activity(operationId))
             ActivityScenario.launch<MainActivity>(intent).use {
                 composeRule.onNodeWithTag("activity-record-$operationId").assertIsDisplayed()
+                composeRule.onNodeWithText("Concluída").assertIsDisplayed()
             }
         } finally {
             store.remove(operationId)
