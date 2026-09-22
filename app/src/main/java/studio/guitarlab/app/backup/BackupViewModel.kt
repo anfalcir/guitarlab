@@ -21,9 +21,9 @@ import studio.guitarlab.core.model.GuitarProject
 import studio.guitarlab.core.project.BackupRetentionPolicy
 import studio.guitarlab.core.project.BackupRunReport
 import studio.guitarlab.core.project.BackupVersionDescriptor
+import studio.guitarlab.core.project.DriveConflictAction
 import studio.guitarlab.core.project.FileProjectRepository
 import studio.guitarlab.core.project.ProjectBackupAttempt
-import studio.guitarlab.core.project.ProjectBackupCoordinator
 import studio.guitarlab.core.project.UnifiedOperationKind
 import studio.guitarlab.core.project.UnifiedOperationState
 
@@ -44,6 +44,7 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
     private val authorization = GoogleDriveAuthorization(application)
     private val activityStore = UnifiedActivityStore(application)
     private val confirmedRevisions = ConfirmedRevisionStore(application)
+    private val unifiedDrive = UnifiedDriveProductionService(application)
     private val _state = MutableStateFlow(BackupUiState())
     val state: StateFlow<BackupUiState> = _state.asStateFlow()
 
@@ -57,7 +58,7 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
             var authRequired = false
             val versions = if (settings.driveConnected) {
                 try {
-                    DriveV3BackupRemoteStore(getApplication()).listCommittedVersions()
+                    unifiedDrive.listCommittedVersions()
                 } catch (_: DriveAuthorizationRequiredException) {
                     authRequired = true
                     emptyList()
@@ -122,7 +123,7 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
             _state.update { it.copy(busy = true, error = null, message = null) }
             try {
                 authorization.revoke()
-                DriveBackupStateStore(getApplication()).clearAll()
+                unifiedDrive.clearAllLocalState()
                 confirmedRevisions.clearAll()
                 settingsStore.clearDriveConnection()
                 BackupScheduler.sync(getApplication())
@@ -142,31 +143,6 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-    fun migrateLegacySaf() = runBusy(null) {
-        val settings = settingsStore.snapshot()
-        val uri = settings.treeUri ?: error("Não há destino SAF antigo para migrar.")
-        val saf = SafBackupRemoteStore(getApplication(), uri)
-        require(saf.hasPersistedReadWritePermission()) {
-            "A permissão da pasta antiga foi revogada. Os backups antigos continuam intactos, mas não podem ser migrados automaticamente."
-        }
-        val drive = driveRemoteOrError()
-        val report = BackupOperationLock.withLock {
-            LegacySafBackupMigrator(getApplication()).migrate(saf, drive)
-        }
-        if (report.failed == 0) {
-            SafBackupRemoteStore.releasePersistedPermission(getApplication(), uri)
-            settingsStore.clearLegacyFolder()
-            val summary = "Migração concluída: ${countLabel(report.migrated, "versão copiada", "versões copiadas")}, ${countLabel(report.skippedExisting, "já existente", "já existentes")}."
-            settingsStore.recordSuccess(summary)
-            _state.update { it.copy(message = summary) }
-        } else {
-            val detail = report.errors.joinToString("\n").take(3000)
-            val summary = "Migração SAF parcial: ${report.migrated} copiadas, ${report.skippedExisting} já existentes, ${report.failed} falhas. A pasta antiga foi preservada."
-            settingsStore.recordPartial(summary, detail)
-            _state.update { it.copy(message = summary, error = detail) }
-        }
-    }
-
     fun setAutomaticEnabled(value: Boolean) = updateSettings { settingsStore.setAutomaticEnabled(value) }
     fun setCadence(value: BackupCadence) = updateSettings { settingsStore.setCadence(value) }
     fun setUnmeteredOnly(value: Boolean) = updateSettings { settingsStore.setUnmeteredOnly(value) }
@@ -174,24 +150,25 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
     fun setRetentionDays(value: Int?) = updateSettings { settingsStore.setRetentionDays(value) }
     fun setMaximumVersions(value: Int) = updateSettings { settingsStore.setMaximumVersions(value) }
 
-    fun backupAllNow() = runBackup(null, "Backup total") { coordinator ->
+    fun backupAllNow() = runBackup(null, "Backup total") { service ->
         val settings = settingsStore.snapshot()
-        coordinator.backupAll(force = false, retentionPolicy = retention(settings))
+        service.backupAll(retentionPolicy = retention(settings))
     }
 
-    fun backupProjectNow(projectId: String) = runBackup(projectId, "Backup do projeto") { coordinator ->
+    fun backupProjectNow(projectId: String) = runBackup(projectId, "Backup do projeto") { service ->
         val settings = settingsStore.snapshot()
-        coordinator.backupProject(projectId, force = false, retentionPolicy = retention(settings))
+        service.backupProject(projectId, retentionPolicy = retention(settings))
     }
 
     fun restoreVersion(version: BackupVersionDescriptor, onProjectsChanged: () -> Unit) = runBusy(null) {
         val operationId = UUID.randomUUID().toString()
         activityStore.record(operationId, version.projectId, UnifiedOperationKind.RESTORE, UnifiedOperationState.RUNNING, null, "Restaurando uma versão do projeto")
-        val coordinator = coordinatorOrError()
+        requireDriveConnected()
         try {
-            val result = BackupOperationLock.withLock { coordinator.restoreVersion(version) }
-            if (!result.succeeded) error(result.error ?: "Não foi possível restaurar o backup.")
-            settingsStore.recordSuccess("Projeto restaurado: ${result.restoredProject?.name.orEmpty()}")
+            val restored = BackupOperationLock.withLock {
+                unifiedDrive.restoreVersion(version, DriveConflictAction.IMPORT_AS_COPY)
+            }
+            settingsStore.recordSuccess("Projeto restaurado: ${restored.name}")
             activityStore.record(operationId, version.projectId, UnifiedOperationKind.RESTORE, UnifiedOperationState.SUCCEEDED, 100, "Projeto restaurado como uma nova cópia local")
             withContext(Dispatchers.Main) { onProjectsChanged() }
             _state.update { it.copy(message = "Projeto restaurado como uma nova cópia local.") }
@@ -205,9 +182,9 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
     fun restoreLatestAll(onProjectsChanged: () -> Unit) = runBusy(null) {
         val operationId = UUID.randomUUID().toString()
         activityStore.record(operationId, null, UnifiedOperationKind.RESTORE, UnifiedOperationState.RUNNING, null, "Restaurando os projetos mais recentes")
-        val coordinator = coordinatorOrError()
+        requireDriveConnected()
         try {
-            val results = BackupOperationLock.withLock { coordinator.restoreLatestAll() }
+            val results = BackupOperationLock.withLock { unifiedDrive.restoreLatestAll() }
             val ok = results.count { it.succeeded }
             val failed = results.size - ok
             if (ok > 0) withContext(Dispatchers.Main) { onProjectsChanged() }
@@ -232,7 +209,7 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
     fun clearMessage() = _state.update { it.copy(message = null, error = null) }
 
     private suspend fun finishDriveConnection() {
-        val label = DriveV3BackupRemoteStore(getApplication()).probeReadWriteDelete()
+        val label = unifiedDrive.probeReadWriteDelete()
         settingsStore.setDriveConnected(label)
         BackupScheduler.sync(getApplication())
         _state.update {
@@ -246,14 +223,17 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
         refresh()
     }
 
-    private fun runBackup(projectId: String?, label: String, action: suspend (ProjectBackupCoordinator) -> BackupRunReport): Unit {
+    private fun runBackup(
+        projectId: String?,
+        label: String,
+        action: suspend (UnifiedDriveProductionService) -> BackupRunReport,
+    ) {
         val operationId = UUID.randomUUID().toString()
         activityStore.record(operationId, projectId, UnifiedOperationKind.BACKUP, UnifiedOperationState.RUNNING, null, label)
         runBusy(null) {
             try {
-                val coordinator = coordinatorOrError()
-                val report = BackupOperationLock.withLock { action(coordinator) }
-                confirmedRevisions.record(report)
+                requireDriveConnected()
+                val report = BackupOperationLock.withLock { action(unifiedDrive) }
                 val summary = report.userSummary(label)
                 val failureDetail = report.userFailureDetail()
                 if (failureDetail == null) {
@@ -273,15 +253,9 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-    private fun driveRemoteOrError(): DriveV3BackupRemoteStore {
+    private fun requireDriveConnected() {
         require(settingsStore.snapshot().driveConnected) { "Conecte primeiro o Google Drive." }
-        return DriveV3BackupRemoteStore(getApplication())
     }
-
-    private fun coordinatorOrError(): ProjectBackupCoordinator = ProjectBackupCoordinator(
-        getApplication<Application>().filesDir,
-        driveRemoteOrError(),
-    )
 
     private fun retention(settings: BackupSettingsSnapshot) = BackupRetentionPolicy(settings.retentionDays, settings.maximumVersions)
 
