@@ -1,0 +1,9 @@
+--- a/app/src/androidTest/java/studio/guitarlab/app/GuitarLabLifecycleInstrumentedTest.kt
++++ b/app/src/androidTest/java/studio/guitarlab/app/GuitarLabLifecycleInstrumentedTest.kt
+@@ -1,6 +1,5 @@
+ package studio.guitarlab.app
+ 
+-import androidx.compose.ui.test.assertDoesNotExist
+ import androidx.compose.ui.test.assertIsDisplayed
+ import androidx.compose.ui.test.assertIsEnabled
+ import androidx.compose.ui.test.assertTextContains
