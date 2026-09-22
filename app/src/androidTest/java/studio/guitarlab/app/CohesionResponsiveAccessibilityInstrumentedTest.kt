@@ -71,8 +71,10 @@ class CohesionResponsiveAccessibilityInstrumentedTest {
         compose.onNode(hasScrollAction())
             .performScrollToNode(hasTestTag("settings-external-control-toggle"))
         compose.onNodeWithTag("settings-external-control-toggle").assertIsDisplayed()
-        compose.onNode(hasScrollAction()).performScrollToNode(hasTestTag("settings-codec-diagnostics"))
-        compose.onNodeWithTag("settings-codec-diagnostics").assertIsDisplayed()
+        compose.onNode(hasScrollAction()).performScrollToNode(
+            androidx.compose.ui.test.hasText("Codecs e arquivos"),
+        )
+        compose.onNodeWithText("Codecs e arquivos").assertIsDisplayed()
     }
 
     @Test
