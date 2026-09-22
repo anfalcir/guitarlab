@@ -4,7 +4,6 @@ import java.io.File
 import java.nio.file.Files
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
-import kotlin.test.assertNull
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.runBlocking
 import org.junit.Test
@@ -17,10 +16,29 @@ class UnifiedDriveTransactionJournalTest {
         assertEquals(record, journal.load("project"))
     }
 
-    @Test fun malformedJournalFailsClosedAsAbsent() {
+    @Test fun malformedJournalFailsClosedInsteadOfLookingAbsent() {
         val directory = Files.createTempDirectory("u8d-corrupt").toFile()
         File(directory, "project.properties").apply { parentFile.mkdirs(); writeText("not valid") }
-        assertNull(FileDriveTransactionJournal(directory).load("project"))
+        assertFailsWith<IllegalStateException> {
+            FileDriveTransactionJournal(directory).load("project")
+        }
+    }
+
+    @Test fun fileJournalCanClearProjectOwnership() {
+        val directory = Files.createTempDirectory("u8d-clear").toFile()
+        val journal = FileDriveTransactionJournal(directory)
+        journal.save(
+            DriveTransactionRecord(
+                "project",
+                "r2",
+                "r1",
+                "a".repeat(64),
+                DriveCommitStage.HEAD_VERIFIED,
+                "r2",
+            ),
+        )
+        journal.clear("project")
+        assertEquals(null, journal.load("project"))
     }
 
     @Test fun processDeathAfterRemotePublishConvergesWithoutDuplicateHead() = runBlocking {
