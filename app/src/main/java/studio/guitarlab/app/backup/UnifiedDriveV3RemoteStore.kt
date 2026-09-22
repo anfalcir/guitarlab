@@ -69,10 +69,10 @@ internal class UnifiedDriveV3RemoteStore(
 
     override suspend fun listHeads(projectId: String): List<DrivePublishedHead> =
         listFiles(query(KIND_HEAD, PROP_PROJECT_ID to projectId))
-            .mapNotNull(::publishedHeadOrNull)
+            .map(::publishedHead)
 
     suspend fun listAllHeads(): List<DrivePublishedHead> =
-        listFiles(queryKind(KIND_HEAD)).mapNotNull(::publishedHeadOrNull)
+        listFiles(queryKind(KIND_HEAD)).map(::publishedHead)
 
     override suspend fun listCommittedManifests(): List<DriveProjectRevisionManifest> =
         listAllHeads()
@@ -382,13 +382,16 @@ internal class UnifiedDriveV3RemoteStore(
         return matches.first()
     }
 
-    private fun publishedHeadOrNull(file: DriveFileResource): DrivePublishedHead? {
-        val projectId =
-            file.appProperties[PROP_PROJECT_ID]?.takeIf(String::isNotBlank) ?: return null
-        val revision =
-            file.appProperties[PROP_REVISION_ID]?.takeIf(String::isNotBlank) ?: return null
-        val manifestHash = file.appProperties[PROP_MANIFEST_SHA256]
-            ?.takeIf { SHA256.matches(it) } ?: return null
+    private fun publishedHead(file: DriveFileResource): DrivePublishedHead {
+        val projectId = requireNotNull(
+            file.appProperties[PROP_PROJECT_ID]?.takeIf(String::isNotBlank),
+        ) { "Drive head is missing project identity." }
+        val revision = requireNotNull(
+            file.appProperties[PROP_REVISION_ID]?.takeIf(String::isNotBlank),
+        ) { "Drive head is missing revision identity." }
+        val manifestHash = requireNotNull(
+            file.appProperties[PROP_MANIFEST_SHA256]?.takeIf { SHA256.matches(it) },
+        ) { "Drive head is missing a valid manifest SHA-256." }
         return DrivePublishedHead(
             descriptor = DriveCurrentDescriptor(projectId, revision, manifestHash),
             baseRevisionId = file.appProperties[PROP_BASE_REVISION]?.takeIf(String::isNotBlank),
