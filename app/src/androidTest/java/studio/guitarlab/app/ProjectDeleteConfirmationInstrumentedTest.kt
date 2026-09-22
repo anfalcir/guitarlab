@@ -31,6 +31,7 @@ class ProjectDeleteConfirmationInstrumentedTest {
         composeRule.onNodeWithTag("home-delete-confirmation").assertIsDisplayed()
         composeRule.onNodeWithText("Excluir projeto?").assertIsDisplayed()
         composeRule.onNodeWithText("Projeto Teste", substring = true).assertIsDisplayed()
+        composeRule.captureCohesionScreenshot("destructive-delete-confirmation")
         composeRule.onNodeWithTag("home-cancel-delete").performClick()
         assertEquals(0, confirmed.get())
         assertEquals(1, dismissed.get())
