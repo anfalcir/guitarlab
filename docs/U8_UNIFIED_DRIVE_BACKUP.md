@@ -1,6 +1,14 @@
 # U8 unified Drive backup
 
 Updated: 2026-09-22
+U8 status: CLOSED / DIGITAL PASS — final gate U8m accepted on exact technical source
+`2375dcb72983376cb486eccf41faf1734633cc94`.
+
+U8m status: CLOSED / DIGITAL PASS — Android CI #757 / run `35753982993` passed the
+software/API36 gate on exact source `2375dcb72983376cb486eccf41faf1734633cc94`; controlled real Google Drive
+acceptance then finished `U8m PASS · r_1790095960 · cleanup 8/8/14` with sanitized report SHA-256
+`84efb70615be8ef5939da538eee5f714f7311aa6d44dd5bb2cdd0b5e9e66b702`.
+
 U8l status: CLOSED / DIGITAL PASS — Android CI #756 / run `35746523924`, exact
 source `2cacbfe4c95bfbee694e717468075b8eedc7f9c6`.
 
@@ -60,27 +68,39 @@ provider-neutral domain, complete `core:project` suite, Android unit suite,
 Lint/build and complete API 36 regression passed in run `35678941252`. U8b is
 the next checkpoint.
 
-## Remaining U8 sequence
+## U8m real Google Drive acceptance — CLOSED / DIGITAL PASS
 
-U8a–U8l have closed the provider-neutral domain, Drive v3 adapter, durable
-transaction journal, transactional restore, reachability-safe GC, C6
-presentation/Activity contracts, path-aware project snapshot/manifest format,
-the production cutover to the vNext stack and the complete network/HTTP fault
-matrix.
+U8a–U8l closed the provider-neutral domain, Drive v3 adapter, durable transaction
+journal, transactional restore, reachability-safe GC, C6 presentation/Activity
+contracts, path-aware project snapshot/manifest format, production cutover and
+network/HTTP fault matrix. U8m supplied the required provider-real acceptance.
 
-The **only remaining U8 gate** is controlled real-provider end-to-end proof:
+Objective evidence:
+- exact technical source: `2375dcb72983376cb486eccf41faf1734633cc94`;
+- Android CI #757 / run `35753982993`: deterministic U8m source materialization,
+  483 JVM/unit tests with zero failures/errors/skips, Android Lint with zero
+  errors, debug/release assembly and all five API 36 regression groups PASS;
+- signed homologation job intentionally skipped; latest signed release authority
+  therefore remains CI #669 until the later U11 candidate freeze;
+- controlled real Google Drive result: `U8m PASS · r_1790095960 · cleanup 8/8/14`;
+- sanitized report SHA-256: `84efb70615be8ef5939da538eee5f714f7311aa6d44dd5bb2cdd0b5e9e66b702`;
+- first sync, metadata-only incremental backup and one-new-take incremental
+  upload passed through the production vNext path;
+- exact restore and a deliberately broken mid-restore object proved that failed
+  restore does not partially publish local state;
+- import-as-copy, real conflict, keep-local and use-Drive actions passed;
+- two intentionally created sibling heads were observed and rejected as an
+  ambiguous conflict (fail closed);
+- reachability/grace/pending/failure GC behavior passed, followed by isolated
+  campaign cleanup of 8 heads, 8 manifests and 14 assets;
+- the persisted U8m report is sanitized and its tests prohibit OAuth credential
+  fields/tokens from report output.
 
-1. execute the real Google Drive campaign against the production vNext path;
-2. prove initial backup, metadata-only incremental backup and one-new-take
-   incremental upload;
-3. verify objects/manifests/append-only heads and confirmed-revision behavior;
-4. restore and validate project state plus managed media;
-5. exercise a real conflict and the explicit resolution actions;
-6. validate safe GC/cleanup without deleting reachable or pending assets;
-7. close U8 only after this real-provider gate is green.
+The debug OAuth client used for this controlled provider campaign exists only to
+authorize the debug signing identity. It does not alter the official signer or
+signed APK authority.
 
-Adopt `U8m` for this block unless newer normative documentation defines
-another identifier.
+**U8 is therefore CLOSED / DIGITAL PASS. The next unified milestone is U10.**
 
 ## U8k production cutover — CLOSED / DIGITAL PASS
 
