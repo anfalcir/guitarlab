@@ -30,7 +30,7 @@ Updated: 2026-09-21
 
 ## Active line
 - Repository/branch: `anfalcir/guitarlab` / `main`.
-- Source candidate: `0.5.0-rc4`, versionCode `24`. U7 cloud source consolidation is digitally closed. U8 is active through U8e: durable transactions passed CI #731 / run `35708902719`, and transactional staged restore/conflict actions passed CI #732 / run `35710130595` at `4aa852db9e13717b85b438bcd9f4054383cdbc0b`. U8f reachability GC is next; C5/C6 remain required at their normative integration boundaries.
+- Source candidate: `0.5.0-rc4`, versionCode `24`. U7 cloud source consolidation is digitally closed. U8 is active through U8f: transactional restore passed CI #732 / run `35710130595`, and global reachability-safe retention/GC passed CI #733 / run `35711364276` at `b76433c516102279d40f9f57a66e9dd425655482`. Scheduling plus C6 Activity/Home/Conta e nuvem integration is next.
 - Latest signed version is `0.5.0-rc4`, versionCode `24`, package `studio.guitarlab.app`.
 - Latest signed DIGITAL PASS: **CI #669** / run `35591631207` / producer `14b69271f2ae04529fa14475e1a34f2fdd864553`.
 - #663 scope: H28 → H29 → H30 → H31 → H32 → H33 → H33a → H33b → H34 → H35 → H35a → H36 → H36a → H36b → H36c.

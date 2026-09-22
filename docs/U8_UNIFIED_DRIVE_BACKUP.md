@@ -141,7 +141,8 @@ gate.
 
 ## U8f reachability-safe garbage collection
 
-U8f status: SOURCE COMPLETE / PRE-GATE.
+U8f status: CLOSED / DIGITAL PASS — Android CI #733 / run `35711364276`,
+exact source `b76433c516102279d40f9f57a66e9dd425655482`
 
 U8f turns the U8a deletion predicate into an executable global collection
 boundary:
