@@ -2,6 +2,7 @@ package studio.guitarlab.app.backup
 
 import android.content.Context
 import studio.guitarlab.core.project.BackupRunReport
+import studio.guitarlab.core.project.DriveCurrentDescriptor
 import studio.guitarlab.core.project.ProjectBackupAttempt
 
 /**
@@ -15,6 +16,12 @@ class ConfirmedRevisionStore(context: Context) {
 
     fun confirmedRevision(projectId: String): String? =
         preferences.getString(key(projectId), null)?.takeIf { it.isNotBlank() }
+
+    fun record(descriptor: DriveCurrentDescriptor) {
+        preferences.edit()
+            .putString(key(descriptor.projectId), descriptor.revisionId)
+            .apply()
+    }
 
     fun record(report: BackupRunReport) {
         val editor = preferences.edit()
