@@ -13,6 +13,7 @@ import studio.guitarlab.core.project.DriveConflictAction
 import studio.guitarlab.core.project.DriveConflictException
 import studio.guitarlab.core.project.DriveConflictResolver
 import studio.guitarlab.core.project.DriveCurrentDescriptor
+import studio.guitarlab.core.project.DriveManifestRetentionPlanner
 import studio.guitarlab.core.project.DriveReconciliation
 import studio.guitarlab.core.project.DriveRestorePublisher
 import studio.guitarlab.core.project.DurableUnifiedDriveBackupCoordinator
@@ -64,10 +65,19 @@ internal class UnifiedDriveProductionService(
 
     suspend fun probeReadWriteDelete(): String = rootAccess.probeReadWriteDelete()
 
-    suspend fun listCommittedVersions(): List<BackupVersionDescriptor> =
-        remote.listAllHeads()
-            .map { head ->
-                val manifest = remote.loadManifest(head.descriptor)
+    suspend fun listCommittedVersions(
+        retentionPolicy: BackupRetentionPolicy,
+    ): List<BackupVersionDescriptor> {
+        val manifests = remote.listAllHeads()
+            .map { remote.loadManifest(it.descriptor) }
+            .distinctBy { it.manifestSha256 }
+        val retained = DriveManifestRetentionPlanner.retained(
+            manifests = manifests,
+            policy = retentionPolicy,
+            nowEpochMs = nowEpochMs(),
+        )
+        return retained
+            .map { manifest ->
                 val project = loadRemoteProject(manifest.projectStateAsset, manifest)
                 versionDescriptor(manifest, project)
             }
@@ -76,6 +86,7 @@ internal class UnifiedDriveProductionService(
                 compareByDescending<BackupVersionDescriptor> { it.backupCreatedAtEpochMs }
                     .thenByDescending { it.revisionId },
             )
+    }
 
     suspend fun backupAll(
         retentionPolicy: BackupRetentionPolicy,
@@ -218,7 +229,7 @@ internal class UnifiedDriveProductionService(
     }
 
     suspend fun restoreLatestAll(): List<RestoreAttempt> {
-        val versions = listCommittedVersions()
+        val versions = listCommittedVersions(BackupRetentionPolicy(maxAgeDays = null, maximumVersionsPerProject = Int.MAX_VALUE))
         val heads = remote.listAllHeads().groupBy { it.descriptor.projectId }
         val selected = mutableListOf<BackupVersionDescriptor>()
         heads.forEach { (projectId, projectHeads) ->
