@@ -1,0 +1,233 @@
+--- a/app/src/androidTest/java/studio/guitarlab/app/UnifiedProjectShellInstrumentedTest.kt
++++ b/app/src/androidTest/java/studio/guitarlab/app/UnifiedProjectShellInstrumentedTest.kt
+@@ -17,10 +17,12 @@
+ import androidx.compose.ui.test.performTextInput
+ import androidx.test.ext.junit.runners.AndroidJUnit4
+ import androidx.test.platform.app.InstrumentationRegistry
++import kotlinx.coroutines.flow.MutableStateFlow
+ import org.junit.Rule
+ import org.junit.Test
+ import org.junit.runner.RunWith
+ import studio.guitarlab.app.ui.GuitarLabUserGuideDialog
++import studio.guitarlab.app.ui.HomeUiState
+ import studio.guitarlab.app.ui.HomeViewModel
+ import studio.guitarlab.app.ui.StudioUserGuideDialog
+ import studio.guitarlab.app.ui.NewProjectScreen
+@@ -343,6 +345,32 @@
+         composeRule.onNodeWithTag("prepare-asset-source_original").performScrollTo().assertIsDisplayed()
+     }
+ 
++    @Test fun separationRunningUsesUnifiedProgressLanguageAndRetainsScreenshotEvidence() {
++        val source = asset("source-running", AssetRole.SOURCE_ORIGINAL)
++        val project = GuitarProject(
++            id = "separation-running", name = "Song", template = ProjectTemplate.GUITAR,
++            createdAtEpochMs = 1, updatedAtEpochMs = 2, assets = listOf(source),
++            preparation = PreparationState(status = PreparationStatus.SOURCE_READY, sourceAssetId = source.assetId),
++        )
++        val job = DurableRemoteJob(
++            identity = RemoteJobIdentity(
++                "00000000-0000-4000-8000-000000000002", project.id, source.assetId, source.sha256,
++            ),
++            state = RemoteJobState.RUNNING,
++            updatedAtMs = 2,
++        )
++        composeRule.setContent {
++            GuitarLabTheme(darkTheme = true) {
++                UnifiedPrepareScreen(
++                    project = project, projectId = project.id, onBack = {}, onStudio = {}, onExport = {}, separationJob = job,
++                )
++            }
++        }
++
++        composeRule.onNodeWithText("Separando a música em seis faixas…").performScrollTo().assertIsDisplayed()
++        composeRule.captureCohesionScreenshot("prepare-separating-dark")
++    }
++
+     @Test fun separationFailureUsesUserSafeCopyInsteadOfRawJobStateOrBackendCode() {
+         val source = asset("source", AssetRole.SOURCE_ORIGINAL)
+         val project = GuitarProject(
+@@ -372,6 +400,7 @@
+             .assertIsDisplayed()
+         composeRule.onAllNodesWithText("FAILED").assertCountEquals(0)
+         composeRule.onAllNodesWithText("REMOTE_JOB_NOT_FOUND").assertCountEquals(0)
++        composeRule.captureCohesionScreenshot("prepare-failed-dark")
+     }
+ 
+     @Test fun exportWorkspaceUsesCanonicalPortugueseSectionsAndKeepsConversionDetailSecondary() {
+@@ -400,6 +429,38 @@
+         composeRule.onNodeWithText("A base sem guitarra e a guitarra de referência já existem em WAV sem perdas dentro do projeto. WAV é publicado sem conversão; FLAC/MP3 só são gerados quando você pedir.").assertIsDisplayed()
+         composeRule.onNodeWithText("Base sem guitarra").assertIsDisplayed()
+         composeRule.onNodeWithText("Mix final do Studio").performScrollTo().assertIsDisplayed()
++        composeRule.captureCohesionScreenshot("export-ready-dark")
++    }
++
++    @Test fun exportRunningStateIsVisibleInLightThemeAndRetainedAsEvidence() {
++        val project = GuitarProject(
++            id = "export-running", name = "Song", template = ProjectTemplate.GUITAR, createdAtEpochMs = 1, updatedAtEpochMs = 2,
++            assets = listOf(asset("backing-running", AssetRole.REFERENCE_BACKING), asset("guitar-running", AssetRole.REFERENCE_GUITAR)),
++            preparation = PreparationState(
++                status = PreparationStatus.READY, activeBackingAssetId = "backing-running", activeGuitarAssetId = "guitar-running",
++                availableReferenceAssetIds = listOf("backing-running", "guitar-running"),
++            ),
++        )
++        val context = InstrumentationRegistry.getInstrumentation().targetContext
++        val viewModel = HomeViewModel(context.applicationContext as android.app.Application)
++        composeRule.setContent {
++            GuitarLabTheme(darkTheme = false) {
++                UnifiedExportScreen(project, project.id, viewModel, onBack = {}, onPrepare = {}, onStudio = {})
++            }
++        }
++        composeRule.runOnIdle {
++            setHomeState(
++                viewModel,
++                viewModel.state.value.copy(
++                    loading = false,
++                    exportBusy = true,
++                    exportOperationLabel = "Exportando mix final…",
++                ),
++            )
++        }
++        composeRule.onNodeWithTag("export-progress").assertIsDisplayed()
++        composeRule.onNodeWithTag("export-cancel").assertIsDisplayed().assertIsEnabled()
++        composeRule.captureCohesionScreenshot("export-running-light")
+     }
+ 
+ 
+@@ -470,6 +531,12 @@
+         composeRule.onAllNodesWithText("Atividade, nuvem e backup").assertCountEquals(0)
+     }
+ 
++    @Suppress("UNCHECKED_CAST")
++    private fun setHomeState(viewModel: HomeViewModel, state: HomeUiState) {
++        val field = HomeViewModel::class.java.getDeclaredField("_state").apply { isAccessible = true }
++        (field.get(viewModel) as MutableStateFlow<HomeUiState>).value = state
++    }
++
+     private fun asset(id: String, role: AssetRole) = ManagedAsset(
+         assetId = id, role = role, relativePath = "media/$id.wav",
+         sha256 = "a".repeat(64), byteSize = 128, format = "wav",
+--- a/app/src/androidTest/java/studio/guitarlab/app/CohesionResponsiveAccessibilityInstrumentedTest.kt
++++ b/app/src/androidTest/java/studio/guitarlab/app/CohesionResponsiveAccessibilityInstrumentedTest.kt
+@@ -52,6 +52,7 @@
+         compose.onNodeWithTag("new-project-import").performScrollTo().assertIsDisplayed()
+         compose.onNodeWithTag("new-project-studio").performScrollTo().assertIsDisplayed()
+         compose.onNodeWithTag("new-project-create").performScrollTo().assertIsDisplayed()
++        compose.captureCohesionScreenshot("new-project-compact-large-font-dark")
+     }
+ 
+     @Test
+@@ -76,6 +77,7 @@
+             androidx.compose.ui.test.hasText("Codecs e arquivos"),
+         )
+         compose.onNodeWithText("Codecs e arquivos").assertIsDisplayed()
++        compose.captureCohesionScreenshot("settings-compact-large-font-light")
+     }
+ 
+     @Test
+--- a/app/src/androidTest/java/studio/guitarlab/app/GuitarLabLifecycleInstrumentedTest.kt
++++ b/app/src/androidTest/java/studio/guitarlab/app/GuitarLabLifecycleInstrumentedTest.kt
+@@ -39,6 +39,21 @@
+     private val instrumentation by lazy { InstrumentationRegistry.getInstrumentation() }
+ 
+     @Test
++    fun homeEmptyStateIsRetainedForCohesionReview() {
++        val repository = FileProjectRepository(instrumentation.targetContext.filesDir)
++        repository.list().forEach { runCatching { repository.delete(it.id) } }
++        navigation().navigate(AppScreen.Home)
++        waitForRoute(AppScreen.Home)
++        home().clearProjectSearchAndFilters()
++        home().refresh()
++        composeRule.waitUntil(timeoutMillis = UI_TIMEOUT_MS) {
++            !home().state.value.loading && home().state.value.projects.isEmpty()
++        }
++        composeRule.onNodeWithText("Nenhum projeto ainda").assertIsDisplayed()
++        composeRule.captureCohesionScreenshot("home-empty-phone")
++    }
++
++    @Test
+     fun homeHelpUsesTheSharedGuitarLabGuide() {
+         waitUntilEnabled("Novo projeto")
+         composeRule.onNodeWithContentDescription("Ajuda").assertIsDisplayed().performClick()
+@@ -110,6 +125,8 @@
+             composeRule.activityRule.scenario.recreate()
+             waitForRoute(AppScreen.Studio(projectId))
+             assertEquals(projectName, repository.load(projectId)?.name)
++            composeRule.onNodeWithTag("studio-loaded").assertIsDisplayed()
++            composeRule.captureCohesionScreenshot("studio-normal-phone")
+ 
+             // Project-scoped Options embeds the project id in the saveable route. Recreate there,
+             // then return to Studio and prove the persisted project is rehydrated again.
+@@ -189,6 +206,7 @@
+             composeRule.waitUntil(timeoutMillis = UI_TIMEOUT_MS) {
+                 runCatching { composeRule.onNodeWithTag(exportTag).assertIsDisplayed() }.isSuccess
+             }
++            composeRule.captureCohesionScreenshot("home-with-project-phone")
+             composeRule.onNodeWithTag(exportTag).performClick()
+             waitForRoute(AppScreen.Export(project.id))
+             composeRule.onNodeWithText("Projeto portátil").assertIsDisplayed()
+@@ -235,6 +253,7 @@
+         composeRule.waitUntil(timeoutMillis = UI_TIMEOUT_MS) {
+             runCatching { composeRule.onNodeWithTag("project-route-missing").assertIsDisplayed() }.isSuccess
+         }
++        composeRule.captureCohesionScreenshot("export-error-missing-project-phone")
+         composeRule.onNodeWithText("Voltar aos projetos").assertIsDisplayed().performClick()
+         waitForRoute(AppScreen.Home)
+     }
+--- a/app/src/androidTest/java/studio/guitarlab/app/TargetTabletGeometryInstrumentedTest.kt
++++ b/app/src/androidTest/java/studio/guitarlab/app/TargetTabletGeometryInstrumentedTest.kt
+@@ -39,6 +39,7 @@
+             assertEquals(TARGET_HEIGHT_PX, bounds.height())
+             assertTrue(bounds.width() > bounds.height())
+         }
++        composeRule.captureCohesionScreenshot("home-target-tablet-landscape")
+     }
+ 
+     private companion object {
+--- a/app/src/androidTest/java/studio/guitarlab/app/ActivityNotificationDeepLinkInstrumentedTest.kt
++++ b/app/src/androidTest/java/studio/guitarlab/app/ActivityNotificationDeepLinkInstrumentedTest.kt
+@@ -50,6 +50,24 @@
+         }
+     }
+ 
++    @Test fun activitySurfaceRetainsMixedOperationStates() {
++        val context = InstrumentationRegistry.getInstrumentation().targetContext
++        val store = UnifiedActivityStore(context)
++        val ids = listOf("activity-mixed-running", "activity-mixed-failed", "activity-mixed-completed")
++        store.record(ids[0], "project-running", UnifiedOperationKind.SEPARATION, UnifiedOperationState.RUNNING, 55, "Separação em andamento")
++        store.record(ids[1], "project-failed", UnifiedOperationKind.EXPORT, UnifiedOperationState.FAILED, 80, "Exportação falhou")
++        store.record(ids[2], "project-completed", UnifiedOperationKind.BACKUP, UnifiedOperationState.SUCCEEDED, 100, "Backup concluído")
++        try {
++            val intent = AppNotificationDeepLink.intent(context, AppScreen.Activity())
++            ActivityScenario.launch<MainActivity>(intent).use {
++                ids.forEach { id -> composeRule.onNodeWithTag("activity-record-$id").assertIsDisplayed() }
++                composeRule.captureCohesionScreenshot("activity-mixed")
++            }
++        } finally {
++            ids.forEach(store::remove)
++        }
++    }
++
+     @Test fun confirmedRevisionStoreIgnoresUnconfirmedFailure() {
+         val context = InstrumentationRegistry.getInstrumentation().targetContext
+         val store = ConfirmedRevisionStore(context)
+--- a/scripts/ci_run_api36_regression_groups.sh
++++ b/scripts/ci_run_api36_regression_groups.sh
+@@ -214,6 +214,18 @@
+     "backup-empty-connected.png"
+     "activity-completed.png"
+     "destructive-delete-confirmation.png"
++    "home-empty-phone.png"
++    "home-with-project-phone.png"
++    "prepare-separating-dark.png"
++    "prepare-failed-dark.png"
++    "studio-normal-phone.png"
++    "export-ready-dark.png"
++    "export-running-light.png"
++    "export-error-missing-project-phone.png"
++    "activity-mixed.png"
++    "new-project-compact-large-font-dark.png"
++    "settings-compact-large-font-light.png"
++    "home-target-tablet-landscape.png"
+   )
+ 
+   for name in "${expected[@]}"; do
