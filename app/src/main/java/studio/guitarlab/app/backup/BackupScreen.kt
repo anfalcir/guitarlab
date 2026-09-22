@@ -51,6 +51,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import java.text.DateFormat
 import java.util.Date
 import studio.guitarlab.app.ui.AppIconButton
+import studio.guitarlab.app.ui.ProductSectionCard
 import studio.guitarlab.core.project.BackupVersionDescriptor
 import studio.guitarlab.core.project.DriveReconciliation
 
@@ -451,37 +452,13 @@ fun BackupScreenContent(
 }
 
 @Composable
-private fun BackupSection(title: String, subtitle: String?, content: @Composable () -> Unit) {
-    Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.28f)) {
-        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text(title, style = MaterialTheme.typography.titleMedium)
-            subtitle?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-            content()
-        }
-    }
-}
-
-@Composable
-private fun ToggleRow(label: String, checked: Boolean, enabled: Boolean, onCheckedChange: (Boolean) -> Unit) {
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-        Text(label, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-        Switch(checked = checked, onCheckedChange = onCheckedChange, enabled = enabled)
-    }
-}
-
-@Composable
-private fun <T> ChoiceRow(label: String, value: String, options: List<Pair<String, T>>, enabled: Boolean, onSelect: (T) -> Unit) {
-    var open by remember { mutableStateOf(false) }
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-        Text(label, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-        Box {
-            OutlinedButton(onClick = { open = true }, enabled = enabled) { Text(value) }
-            DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
-                options.forEach { (optionLabel, optionValue) ->
-                    DropdownMenuItem(text = { Text(optionLabel) }, onClick = { open = false; onSelect(optionValue) })
-                }
-            }
-        }
+private fun BackupSection(
+    title: String,
+    subtitle: String?,
+    content: @Composable () -> Unit,
+) {
+    ProductSectionCard(title = title, subtitle = subtitle) {
+        content()
     }
 }
 
