@@ -9,14 +9,16 @@ import studio.guitarlab.core.project.DriveCurrentDescriptor
 import studio.guitarlab.core.project.DriveLocalAsset
 import studio.guitarlab.core.project.DriveProjectRevisionManifest
 import studio.guitarlab.core.project.DrivePublishedHead
+import studio.guitarlab.core.project.BackupHashing
 import studio.guitarlab.core.project.DriveRemoteObjectReceipt
 import studio.guitarlab.core.project.UnifiedDriveRemoteStore
+import studio.guitarlab.core.project.UnifiedDriveRestoreSource
 
 /** Drive v3 adapter for U8 immutable objects, manifests and append-only heads. */
 internal class UnifiedDriveV3RemoteStore(
     private val http: DriveV3Api,
     private val rootFolderId: suspend () -> String,
-) : UnifiedDriveRemoteStore {
+) : UnifiedDriveRemoteStore, UnifiedDriveRestoreSource {
     override suspend fun findAsset(sha256: String): DriveRemoteObjectReceipt? =
         findOne(KIND_ASSET, PROP_SHA256 to sha256)?.verifiedReceipt()
 
@@ -69,6 +71,36 @@ internal class UnifiedDriveV3RemoteStore(
                 baseRevisionId = file.appProperties[PROP_BASE_REVISION]?.takeIf(String::isNotBlank),
             )
         }
+
+    override suspend fun loadManifest(descriptor: DriveCurrentDescriptor): DriveProjectRevisionManifest {
+        val resource = findOne(KIND_MANIFEST, PROP_SHA256 to descriptor.manifestSha256)
+            ?: error("Drive manifest is missing.")
+        val temporary = kotlin.io.path.createTempFile("guitarlab-u8-manifest-download-", ".txt").toFile()
+        return try {
+            http.download("$FILES/${resource.id}?alt=media", temporary)
+            require(BackupHashing.sha256(temporary) == descriptor.manifestSha256) {
+                "Downloaded Drive manifest failed SHA-256 validation."
+            }
+            DriveProjectRevisionManifest.parseCanonical(temporary.readBytes()).also { manifest ->
+                require(
+                    manifest.projectId == descriptor.projectId &&
+                        manifest.revisionId == descriptor.revisionId &&
+                        manifest.manifestSha256 == descriptor.manifestSha256
+                ) { "Downloaded Drive manifest does not match the requested revision." }
+            }
+        } finally {
+            temporary.delete()
+        }
+    }
+
+    override suspend fun downloadAsset(asset: DriveAssetObject, destination: File) {
+        val resource = findOne(KIND_ASSET, PROP_SHA256 to asset.sha256)
+            ?: error("Drive asset is missing.")
+        require(resource.verifiedReceipt()?.matches(asset) == true) { "Drive asset metadata is incompatible." }
+        http.download("$FILES/${resource.id}?alt=media", destination)
+        require(destination.isFile && destination.length() == asset.sizeBytes) { "Downloaded Drive asset size mismatch." }
+        require(BackupHashing.sha256(destination) == asset.sha256) { "Downloaded Drive asset failed SHA-256 validation." }
+    }
 
     override suspend fun publishHead(head: DrivePublishedHead) {
         val existing = listHeads(head.descriptor.projectId).filter {

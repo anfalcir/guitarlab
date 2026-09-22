@@ -90,7 +90,83 @@ data class DriveProjectRevisionManifest(
 
     val manifestSha256: String get() = canonicalBytes().sha256()
 
-    companion object { const val SCHEMA_VERSION = 3 }
+    companion object {
+        const val SCHEMA_VERSION = 3
+
+        fun parseCanonical(bytes: ByteArray): DriveProjectRevisionManifest {
+            require(bytes.isNotEmpty()) { "Drive manifest is empty." }
+            val text = bytes.toString(Charsets.UTF_8)
+            require(text.endsWith("\n")) { "Drive manifest must end with a newline." }
+            val lines = text.dropLast(1).split('\n')
+            require(lines.firstOrNull() == "guitarlab-drive-manifest-v3") { "Drive manifest header is invalid." }
+
+            val scalar = linkedMapOf<String, String>()
+            val genericAssets = mutableListOf<DriveAssetObject>()
+            var projectState: DriveAssetObject? = null
+            val entries = mutableListOf<DriveProjectFileEntry>()
+            lines.drop(1).forEach { line ->
+                when {
+                    line.startsWith("asset=") -> genericAssets += parseDriveAsset(line.substringAfter('='))
+                    line.startsWith("projectState=") -> {
+                        require(projectState == null) { "Drive manifest repeats project state." }
+                        projectState = parseDriveAsset(line.substringAfter('='))
+                    }
+                    line.startsWith("file=") -> {
+                        val parts = line.substringAfter('=').split(':')
+                        require(parts.size == 3) { "Drive manifest file entry is malformed." }
+                        entries += DriveProjectFileEntry(
+                            decodeDrivePath(parts[0]),
+                            DriveAssetObject(parts[1], parts[2].toLong()),
+                        )
+                    }
+                    else -> {
+                        val key = line.substringBefore('=', missingDelimiterValue = "")
+                        require(key in setOf("schema", "project", "revision", "base", "created", "state")) {
+                            "Drive manifest contains an unknown field."
+                        }
+                        require(key !in scalar) { "Drive manifest repeats field $key." }
+                        scalar[key] = line.substringAfter('=', missingDelimiterValue = "")
+                    }
+                }
+            }
+            require(scalar.getValue("schema").toInt() == SCHEMA_VERSION) { "Drive manifest schema is unsupported." }
+            require((projectState == null) == entries.isEmpty()) { "Drive manifest layout is incomplete." }
+            require(projectState == null || genericAssets.isEmpty()) { "Drive manifest mixes generic and path-aware layouts." }
+
+            val assets = if (projectState == null) {
+                genericAssets
+            } else {
+                buildList {
+                    add(checkNotNull(projectState))
+                    entries.forEach { entry ->
+                        val existing = firstOrNull { it.sha256 == entry.asset.sha256 }
+                        if (existing == null) add(entry.asset) else require(existing == entry.asset) {
+                            "Drive manifest reuses a hash with a different size."
+                        }
+                    }
+                }
+            }
+            val parsed = DriveProjectRevisionManifest(
+                projectId = scalar.getValue("project"),
+                revisionId = scalar.getValue("revision"),
+                baseRevisionId = scalar.getValue("base").ifBlank { null },
+                createdAtEpochMs = scalar.getValue("created").toLong(),
+                canonicalProjectStateSha256 = scalar.getValue("state"),
+                assets = assets,
+                projectStateAsset = projectState,
+                fileEntries = entries,
+                schemaVersion = SCHEMA_VERSION,
+            )
+            require(parsed.canonicalBytes().contentEquals(bytes)) { "Drive manifest is not canonical." }
+            return parsed
+        }
+
+        private fun parseDriveAsset(value: String): DriveAssetObject {
+            val parts = value.split(':')
+            require(parts.size == 2) { "Drive asset entry is malformed." }
+            return DriveAssetObject(parts[0], parts[1].toLong())
+        }
+    }
 }
 
 data class DriveCurrentDescriptor(
@@ -180,3 +256,7 @@ private fun requirePortableDrivePath(relativePath: String) {
 
 private fun encodeDrivePath(relativePath: String): String =
     Base64.getUrlEncoder().withoutPadding().encodeToString(relativePath.toByteArray(Charsets.UTF_8))
+
+private fun decodeDrivePath(encoded: String): String = runCatching {
+    Base64.getUrlDecoder().decode(encoded).toString(Charsets.UTF_8)
+}.getOrElse { throw IllegalArgumentException("Drive project path encoding is invalid.", it) }

@@ -44,6 +44,14 @@ fun interface DriveRestoreLayout {
     fun targets(manifest: DriveProjectRevisionManifest): List<DriveRestoreAssetTarget>
 }
 
+object UnifiedDriveProjectRestoreLayout : DriveRestoreLayout {
+    override fun targets(manifest: DriveProjectRevisionManifest): List<DriveRestoreAssetTarget> {
+        require(manifest.isCompleteProjectSnapshot) { "Drive manifest does not contain a restorable project layout." }
+        return listOf(DriveRestoreAssetTarget(checkNotNull(manifest.projectStateAsset), "project.json")) +
+            manifest.fileEntries.map { DriveRestoreAssetTarget(it.asset, it.relativePath) }
+    }
+}
+
 fun interface DriveRestoreValidator {
     fun validate(stagingDirectory: File, plan: DriveRestorePlan)
 }
