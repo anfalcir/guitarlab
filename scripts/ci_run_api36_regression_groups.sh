@@ -11,6 +11,7 @@ DIAG_ROOT="$ROOT/ci-diagnostics/api36-groups"
 mkdir -p "$DIAG_ROOT"
 
 GROUP1_CLASSES=(
+  CohesionResponsiveAccessibilityInstrumentedTest
   GuitarLabLifecycleInstrumentedTest
   HomeProjectLibraryInstrumentedTest
   ProjectDeleteConfirmationInstrumentedTest
