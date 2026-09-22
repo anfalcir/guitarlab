@@ -3,7 +3,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PREVIOUS="$ROOT/scripts/materialize_ci_sources_c4c.sh"
 PATCH="$ROOT/.source-parts/U8aUnifiedDriveDomain.patch"
-PATCH_SHA256="5cc998a90a373b72acd379db3a7009a6d565099f33c2f5b578149f7938276a3d"
+PATCH_SHA256="a1099c6647e96d667c67acd040919229ccd47c20f9f34a72c34528559a2335d4"
 DOMAIN="core/project/src/main/kotlin/studio/guitarlab/core/project/UnifiedDriveBackupDomain.kt"
 TEST="core/project/src/test/kotlin/studio/guitarlab/core/project/UnifiedDriveBackupDomainTest.kt"
 DOMAIN_HASH="097d12150a303c30cbb3fa71d7fc768de55c8260"

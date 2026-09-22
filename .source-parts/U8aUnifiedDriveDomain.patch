@@ -216,4 +216,3 @@ index 0000000..648bcde
 +        createdAtEpochMs = 10, canonicalProjectStateSha256 = state.toString().repeat(64), assets = assets,
 +    )
 +}
-
