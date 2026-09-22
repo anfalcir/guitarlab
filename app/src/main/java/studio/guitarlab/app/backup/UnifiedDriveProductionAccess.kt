@@ -224,6 +224,7 @@ internal class UnifiedDriveRootAccess(
 
     private suspend fun listFiles(query: String): List<DriveFileResource> {
         val output = mutableListOf<DriveFileResource>()
+        val seenPageTokens = mutableSetOf<String>()
         var pageToken: String? = null
         do {
             val url = buildString {
@@ -241,8 +242,13 @@ internal class UnifiedDriveRootAccess(
                 ).body,
             )
             output += page.files
+            page.nextPageToken?.let { token ->
+                require(seenPageTokens.add(token)) {
+                    "O Google Drive repetiu o mesmo token de paginação."
+                }
+            }
             pageToken = page.nextPageToken
-        } while (!pageToken.isNullOrBlank())
+        } while (pageToken != null)
         return output
     }
 
