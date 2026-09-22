@@ -1,6 +1,6 @@
 # Android CI / release pipeline
 
-Updated: 2026-09-20
+Updated: 2026-09-22
 
 ## Contract
 `.github/workflows/android-ci.yml` supports manual `workflow_dispatch` and controlled `main` commit triggers. A commit containing `[run ci]` runs the software and API 36 gates; `[run ci signed]` additionally produces the signed homologation APK. Ordinary commits retain `[skip ci]` and do not consume hosted CI. This workstream is authorized to use and monitor the controlled triggers while executing the unified roadmap.
@@ -14,10 +14,12 @@ Authority layers:
 `.source-parts/` + `scripts/materialize_ci_sources.sh` are source-of-truth build inputs. Unexpected drift fails closed by exact SHA-256/Git blob checks.
 
 Canonical source tail continues through the historical H-series and unified
-U-series to **U8i**. The canonical entrypoint is
+U-series to **U8j**. The canonical entrypoint is
 `scripts/materialize_ci_sources.sh`, which currently delegates to
-`scripts/materialize_ci_sources_u8i.sh`; U8i invokes U8h and the complete
-preceding fail-closed chain.
+`scripts/materialize_ci_sources_u8j.sh`; U8j invokes U8i and the complete
+preceding fail-closed chain. U8j's terminal seven source/test blobs are verified
+exactly after the payload SHA and decoded-patch SHA checks; ready-state execution
+also performs a reverse apply check so a mismatched payload cannot be accepted.
 
 The previously accepted historical materializers remain preserved as evidence.
 For current builds, never infer the active source from an older H-series tail
@@ -43,8 +45,9 @@ New tail inputs:
 - H37 `.source-parts/H37DriveV3Backup.patch.gz.b64.part00` … `.part04` — reconstructed gzip `253953752a421a5b2299a040024c7f897940cfaa7de17aec914bcc2793ce9000`, decoded patch `d4d7da1d1a097c9451644d78b92cc10dae6faf35b523b0339cce906ab01007a2`.
 - H37a `.source-parts/H37aDriveCompileCorrective.patch.gz.b64` — gzip `77f5d9ad6f5ebced2e9763dc13ed37a7ac7b4da3412f40c5f6498e813e5b4565`, decoded patch `5b623309e98c2b8f79434db437068ec80f197f855ec7efc8b5f8eb45b3163cae`.
 - H37b `.source-parts/H37bDriveTokenCacheHardening.patch.gz.b64` — gzip `e9e79f2c46e47f0e04ccf0f9aaead83908afa04cb3f99c81bbd3438d250cc824`, decoded patch `9ebfb1e69a6ad4e888e9782c07d54f9566630814ba40b8f6163e82727bc85c5d`.
+- U8j `.source-parts/U8jPathAwareProjectSnapshots.patch.b64` — payload SHA-256 `ef6abfca3cd26c381352d8c6fbca9d528757096c100bd706b5c62bad11dac210`, decoded patch SHA-256 `5823349c252dccf7379b4fe7a05b811dcde5f413ca573610dbf22553f6de95ea`; exact terminal blobs are declared by `scripts/materialize_ci_sources_u8j.sh`.
 
-Expected terminal message for the current source candidate: `Source patch chain materialized through H37b with verified final hashes`.
+Expected terminal message for the current source candidate: `Source patch chain already materialized through U8j with payload/reverse verification` on an already-materialized checkout, or `Source patch chain materialized through U8j with exact blob verification` when applying the chain.
 
 Pre-publication source proofs on the exact H28 baseline:
 - first H28→H33 materialization PASS;
@@ -96,9 +99,9 @@ H37a is not yet a DIGITAL PASS. H37's source-integrity proofs remain valid, whil
 The canonical manual workflow must still prove JVM/unit, Android Lint, build/provenance, API36 instrumentation/geometry and signing before H37 can become signed authority.
 
 ## H36 closure evidence
-H36 is digitally closed by CI #663. The source-materialization/idempotence/fail-closed proofs remain valid, while the canonical Android gate now additionally proves compilation, Lint, **34/34 standard instrumentation**, isolated geometry and signing. H36a/H36b/H36c are test-only correctives and introduce no runtime source change after H36.
+H36 is digitally closed by CI #663. The source-materialization/idempotence/fail-closed proofs remain valid, while that canonical Android gate proved compilation, Lint, **34/34 standard instrumentation**, isolated geometry and signing. H36a/H36b/H36c are test-only correctives and introduce no runtime source change after H36. CI #669 later superseded #663 as the latest signed DIGITAL PASS; U8j/#746 is newer but intentionally unsigned.
 
-## Current signed authority — CI #663
+## Historical signed authority sequence
 CI #663 / run `35523442620` / producer `51d4098fa7b1b44a9fa315e939541020f594654d` is the signed DIGITAL PASS through H36c.
 
 Audited evidence:

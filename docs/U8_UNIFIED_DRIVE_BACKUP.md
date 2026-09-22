@@ -1,6 +1,9 @@
 # U8 unified Drive backup
 
 Updated: 2026-09-22
+U8j status: CLOSED / DIGITAL PASS — Android CI #746 / run `35732391636`, exact
+source `ca44bd8efada617bbc30c8c3f3cf9f3d6b18a3c1`.
+
 U8i status: CLOSED / DIGITAL PASS — Android CI #744 / run `35729709715`, exact
 source `89a7cca5acd2d5a1c9aabbb5f72e028347dd00db`. C6 is CLOSED.
 
@@ -53,13 +56,15 @@ the next checkpoint.
 
 ## Remaining U8 sequence
 
-1. snapshot and authoritative-asset enumeration;
-2. Drive v3 object/manifest/head transport with resumable verified uploads;
-3. durable desired/confirmed revision state, retry and process-death recovery;
-4. staged transactional restore and conflict actions;
-5. reachability-based retention/GC;
-6. C6 Activity, Home sync state and unified “Conta e nuvem” presentation;
-7. network-fault, instrumentation and real Drive integration gates.
+U8a–U8j have closed the provider-neutral domain, Drive v3 adapter, durable transaction journal,
+transactional restore, reachability-safe GC, C6 presentation/Activity contracts and the complete
+path-aware project snapshot/manifest format. The remaining U8 work is now strictly production
+integration and end-to-end proof:
+
+1. cut the active app backup/restore path over to the vNext snapshot + durable coordinator + Drive v3 adapter + transactional restore/GC stack;
+2. prove retry, cancellation, lost-response, process-death and network-fault behavior through the active Android path;
+3. execute the real Google Drive campaign with exact backup → verify → restore → conflict/recovery evidence;
+4. close U8 only after the active product path, not merely adapters/domain tests, is green.
 
 ## U8b transactional coordinator
 
@@ -224,3 +229,36 @@ U8 remains open. Static production-usage audit confirms the vNext
 and reachability GC are still not the active product path. The next cut must
 complete that production backup/restore cutover before network-fault and real
 Drive integration can close U8.
+
+
+## U8j path-aware project snapshots — CLOSED / DIGITAL PASS
+
+U8j supplies the missing restorable project-layout contract required before the production vNext
+cutover:
+
+- `UnifiedDriveProjectSnapshotBuilder` freezes the persisted `GuitarProject` into immutable staging without audio conversion;
+- `project.json` is stored as a dedicated content-addressed object;
+- every referenced managed-media path is normalized, confined to the project root, copied byte-for-byte and verified against tracked size/SHA-256 when metadata exists;
+- identical bytes at different project paths deduplicate to one remote object while the manifest retains every path mapping;
+- complete schema-v3 manifests carry `projectStateAsset` plus canonical path-aware `fileEntries`, reject duplicate/unsafe layouts and reparse only if canonical bytes reproduce exactly;
+- `UnifiedDriveProjectRestoreLayout` deterministically reconstructs `project.json` plus managed media under their original relative paths;
+- `UnifiedDriveV3RemoteStore` now implements both backup transport and restore source, downloading manifests/assets by exact identity with size and SHA-256 validation;
+- state-only project revisions are covered, so a metadata-only project remains restorable without requiring media objects.
+
+The fail-closed source stage is `scripts/materialize_ci_sources_u8j.sh`, chained from U8i through
+`scripts/materialize_ci_sources.sh`. The locked payload is
+`.source-parts/U8jPathAwareProjectSnapshots.patch.b64` with payload SHA-256
+`ef6abfca3cd26c381352d8c6fbca9d528757096c100bd706b5c62bad11dac210` and decoded patch SHA-256
+`5823349c252dccf7379b4fe7a05b811dcde5f413ca573610dbf22553f6de95ea`.
+
+Android CI #746 / run `35732391636` passed the exact source
+`ca44bd8efada617bbc30c8c3f3cf9f3d6b18a3c1`: deterministic materialization, JVM/unit tests,
+performance evidence, Android Lint, debug/release assembly and complete API 36 regression all
+succeeded. Signed homologation was intentionally skipped because U8 is not yet at candidate freeze.
+
+**U8j is fully closed.** The next source block must perform the production cutover: current
+`BackupViewModel` and `AutomaticBackupWorker` still instantiate the historical
+`ProjectBackupCoordinator` + `DriveV3BackupRemoteStore`, while
+`UnifiedDriveProjectSnapshotBuilder`, `DurableUnifiedDriveBackupCoordinator`,
+`UnifiedDriveV3RemoteStore`, `UnifiedDriveRestoreCoordinator` and reachability GC are not yet
+the active user path.
