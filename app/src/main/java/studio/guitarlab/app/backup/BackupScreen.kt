@@ -84,7 +84,6 @@ fun BackupScreen(
                 }
             },
             onDisconnectDrive = viewModel::disconnectDrive,
-            onMigrateLegacySaf = viewModel::migrateLegacySaf,
             onRefresh = viewModel::refresh,
             onAutomaticEnabled = viewModel::setAutomaticEnabled,
             onCadence = viewModel::setCadence,
@@ -113,7 +112,6 @@ fun BackupScreenContent(
     onBack: () -> Unit,
     onConnectDrive: () -> Unit,
     onDisconnectDrive: () -> Unit,
-    onMigrateLegacySaf: () -> Unit,
     onRefresh: () -> Unit,
     onAutomaticEnabled: (Boolean) -> Unit,
     onCadence: (BackupCadence) -> Unit,
@@ -164,19 +162,6 @@ fun BackupScreenContent(
                     }
                     if (configured) {
                         TextButton(onClick = { confirmDisconnect = true }, enabled = !state.busy) { Text("Desconectar Google Drive") }
-                    }
-                    if (state.settings.treeUri != null) {
-                        HorizontalDivider()
-                        Text(
-                            "Foi encontrado um destino de backup antigo. Migre o histórico SAF para o Drive antes de abandonar esse acesso.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        OutlinedButton(
-                            onClick = onMigrateLegacySaf,
-                            enabled = configured && !state.authorizationRequired && !state.busy,
-                            modifier = Modifier.fillMaxWidth().testTag("backup-migrate-legacy-saf"),
-                        ) { Text("Migrar histórico antigo para o Drive") }
                     }
                 }
             }
