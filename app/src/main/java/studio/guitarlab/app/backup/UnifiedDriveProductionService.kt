@@ -154,6 +154,15 @@ internal class UnifiedDriveProductionService(
         )
     }
 
+    suspend fun currentRemoteTips(projectId: String): List<BackupVersionDescriptor> =
+        currentTips(remote.listHeads(projectId)).map { head ->
+            val manifest = remote.loadManifest(head.descriptor)
+            versionDescriptor(
+                manifest,
+                loadRemoteProject(manifest.projectStateAsset, manifest),
+            )
+        }
+
     suspend fun keepLocal(
         projectId: String,
         remoteDescriptor: DriveCurrentDescriptor,
@@ -349,21 +358,50 @@ internal class UnifiedDriveProductionService(
             "Projeto local não encontrado."
         }
         val desired = BackupRevisionIdentity.forProject(project)
-        if (desired == confirmed) {
-            return ProjectBackupAttempt(
-                projectId = project.id,
-                projectName = project.name,
-                status = ProjectBackupAttempt.Status.SKIPPED_UP_TO_DATE,
-            )
+        var commitBase = explicitBaseRevisionId ?: confirmed
+
+        if (explicitBaseRevisionId == null) {
+            val remoteTips = currentTips(remote.listHeads(project.id))
+            if (remoteTips.size > 1) {
+                throw DriveConflictException(
+                    "O Google Drive possui versões concorrentes deste projeto.",
+                )
+            }
+            val remoteRevision = remoteTips.singleOrNull()?.descriptor?.revisionId
+            when (
+                DriveConflictResolver.resolve(
+                    localRevisionId = desired,
+                    confirmedRevisionId = confirmed,
+                    remoteRevisionId = remoteRevision,
+                )
+            ) {
+                DriveReconciliation.NO_OP -> {
+                    return ProjectBackupAttempt(
+                        projectId = project.id,
+                        projectName = project.name,
+                        status = ProjectBackupAttempt.Status.SKIPPED_UP_TO_DATE,
+                    )
+                }
+                DriveReconciliation.UPLOAD_LOCAL -> {
+                    commitBase = if (remoteRevision == null) null else confirmed
+                }
+                DriveReconciliation.LOCAL_ONLY -> commitBase = null
+                DriveReconciliation.DOWNLOAD_REMOTE,
+                DriveReconciliation.REMOTE_ONLY,
+                DriveReconciliation.CONFLICT,
+                -> throw DriveConflictException(
+                    "O projeto mudou localmente ou no Google Drive e requer resolução explícita.",
+                )
+            }
         }
 
-        val persisted = snapshotBuilder.freeze(project, confirmed).use { frozen ->
+        val persisted = snapshotBuilder.freeze(project, commitBase).use { frozen ->
             snapshotStore.persist(frozen)
         }
         val result = durableCoordinator.commit(
             persisted.manifest,
             persisted.localAssets,
-            confirmed,
+            commitBase,
         )
         require(result.descriptor.revisionId == desired) {
             "Drive confirmed a revision different from the frozen local project."
