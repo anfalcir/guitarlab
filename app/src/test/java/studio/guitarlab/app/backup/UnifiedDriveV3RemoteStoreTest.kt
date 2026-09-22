@@ -1,8 +1,10 @@
 package studio.guitarlab.app.backup
 
 import java.io.File
+import java.io.IOException
 import java.nio.file.Files
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 import kotlinx.coroutines.runBlocking
 import org.junit.Test
@@ -193,6 +195,198 @@ class UnifiedDriveV3RemoteStoreTest {
         )
     }
 
+
+    @Test fun lostChunkResponseQueriesServerRangeBeforeRetryingBytes() = runBlocking {
+        val payload = kotlin.io.path.createTempFile("u8l-lost-chunk", ".bin").toFile().apply {
+            writeText("payload")
+        }
+        val hash = BackupHashing.sha256(payload)
+        val api = FakeApi().apply {
+            getResponses += response(200, page())
+            postResponse = DriveHttpResponse(
+                200,
+                "",
+                mapOf("Location" to listOf("session")),
+            )
+            uploadFailuresRemaining = 1
+            statusResponses += DriveHttpResponse(
+                308,
+                "",
+                mapOf("Range" to listOf("bytes=0-2")),
+            )
+            uploadResponse = response(
+                201,
+                file("asset", payload.length(), hash),
+            )
+        }
+
+        val receipt = UnifiedDriveV3RemoteStore(
+            api,
+            rootFolderId = { "root" },
+            retryDelay = {},
+        ).uploadAsset(
+            DriveLocalAsset(
+                DriveAssetObject(hash, payload.length()),
+                payload,
+            ),
+        )
+
+        assertEquals(hash, receipt.sha256)
+        assertEquals(listOf(0L, 3L), api.uploadStarts)
+        assertEquals(2, api.uploadCalls)
+    }
+
+    @Test fun lostFinalChunkResponseUsesCommittedStatusWithoutBlindReplay() = runBlocking {
+        val payload = kotlin.io.path.createTempFile("u8l-lost-final", ".bin").toFile().apply {
+            writeText("payload")
+        }
+        val hash = BackupHashing.sha256(payload)
+        val api = FakeApi().apply {
+            getResponses += response(200, page())
+            postResponse = DriveHttpResponse(
+                200,
+                "",
+                mapOf("Location" to listOf("session")),
+            )
+            uploadFailuresRemaining = 1
+            statusResponses += response(
+                201,
+                file("asset", payload.length(), hash),
+            )
+        }
+
+        val receipt = UnifiedDriveV3RemoteStore(
+            api,
+            rootFolderId = { "root" },
+            retryDelay = {},
+        ).uploadAsset(
+            DriveLocalAsset(
+                DriveAssetObject(hash, payload.length()),
+                payload,
+            ),
+        )
+
+        assertEquals(hash, receipt.sha256)
+        assertEquals(1, api.uploadCalls)
+        assertEquals(listOf(0L), api.uploadStarts)
+    }
+
+    @Test fun transientStatusProbeRetriesBeforeResumingUpload() = runBlocking {
+        val payload = kotlin.io.path.createTempFile("u8l-status-retry", ".bin").toFile().apply {
+            writeText("payload")
+        }
+        val hash = BackupHashing.sha256(payload)
+        val delays = mutableListOf<Long>()
+        val api = FakeApi().apply {
+            getResponses += response(200, page())
+            postResponse = DriveHttpResponse(
+                200,
+                "",
+                mapOf("Location" to listOf("session")),
+            )
+            uploadFailuresRemaining = 1
+            statusResponses += response(503, "backend unavailable")
+            statusResponses += DriveHttpResponse(
+                308,
+                "",
+                mapOf("Range" to listOf("bytes=0-2")),
+            )
+            uploadResponse = response(
+                201,
+                file("asset", payload.length(), hash),
+            )
+        }
+
+        UnifiedDriveV3RemoteStore(
+            api,
+            rootFolderId = { "root" },
+            retryDelay = { delays += it },
+        ).uploadAsset(
+            DriveLocalAsset(
+                DriveAssetObject(hash, payload.length()),
+                payload,
+            ),
+        )
+
+        assertEquals(1, delays.size)
+        assertEquals(listOf(0L, 3L), api.uploadStarts)
+    }
+
+    @Test fun malformedResumableRangeFailsClosed() = runBlocking {
+        val payload = kotlin.io.path.createTempFile("u8l-range", ".bin").toFile().apply {
+            writeText("payload")
+        }
+        val hash = BackupHashing.sha256(payload)
+        val api = FakeApi().apply {
+            getResponses += response(200, page())
+            postResponse = DriveHttpResponse(
+                200,
+                "",
+                mapOf("Location" to listOf("session")),
+            )
+            uploadResponse = DriveHttpResponse(
+                308,
+                "",
+                mapOf("Range" to listOf("bytes=garbage")),
+            )
+        }
+
+        assertFailsWith<IOException> {
+            UnifiedDriveV3RemoteStore(
+                api,
+                rootFolderId = { "root" },
+                retryDelay = {},
+            ).uploadAsset(
+                DriveLocalAsset(
+                    DriveAssetObject(hash, payload.length()),
+                    payload,
+                ),
+            )
+        }
+    }
+
+    @Test fun paginationConsumesUniqueTokensAndRejectsCycles() = runBlocking {
+        val first = headProps("p", "r1", "")
+        val second = headProps("p", "r2", "r1")
+        val goodApi = FakeApi().apply {
+            getResponses += response(
+                200,
+                pageWithToken("n2", file("head-1", props = first)),
+            )
+            getResponses += response(
+                200,
+                page(file("head-2", props = second)),
+            )
+        }
+
+        val heads = UnifiedDriveV3RemoteStore(
+            goodApi,
+            rootFolderId = { "root" },
+        ).listHeads("p")
+
+        assertEquals(listOf("r1", "r2"), heads.map { it.descriptor.revisionId })
+        assertEquals(2, goodApi.getUrls.size)
+        assertTrue(goodApi.getUrls.last().contains("pageToken=n2"))
+
+        val cyclicApi = FakeApi().apply {
+            getResponses += response(
+                200,
+                pageWithToken("same", file("head-1", props = first)),
+            )
+            getResponses += response(
+                200,
+                pageWithToken("same", file("head-2", props = second)),
+            )
+        }
+
+        assertFailsWith<IllegalArgumentException> {
+            UnifiedDriveV3RemoteStore(
+                cyclicApi,
+                rootFolderId = { "root" },
+            ).listHeads("p")
+        }
+    }
+
     private class MemoryUploadState : UnifiedDriveUploadState {
         private val sessions = mutableMapOf<String, UnifiedDriveUploadSession>()
 
@@ -244,20 +438,29 @@ class UnifiedDriveV3RemoteStoreTest {
             append('}')
         }
 
-    private fun page(vararg files: String) = "{\"files\":[${files.joinToString(",")}] }"
+    private fun page(vararg files: String) =
+        "{\"files\":[${files.joinToString(",")}] }"
+
+    private fun pageWithToken(token: String, vararg files: String) =
+        "{\"nextPageToken\":\"$token\",\"files\":[${files.joinToString(",")}] }"
     private fun response(code: Int, body: String) = DriveHttpResponse(code, body, emptyMap())
 
     private class FakeApi : DriveV3Api {
         val getResponses = ArrayDeque<DriveHttpResponse>()
+        val getUrls = mutableListOf<String>()
         var postResponse = DriveHttpResponse(500, "unset", emptyMap())
         var uploadResponse = DriveHttpResponse(500, "unset", emptyMap())
         val statusResponses = ArrayDeque<DriveHttpResponse>()
         var uploadCalls = 0
+        var uploadFailuresRemaining = 0
         var postCalls = 0
         val uploadStarts = mutableListOf<Long>()
         val downloadBytes = mutableMapOf<String, ByteArray>()
         var lastPostBody: String? = null
-        override suspend fun get(url: String) = getResponses.removeFirst()
+        override suspend fun get(url: String): DriveHttpResponse {
+            getUrls += url
+            return getResponses.removeFirst()
+        }
         override suspend fun postJson(url: String, body: String, extraHeaders: Map<String, String>): DriveHttpResponse {
             postCalls++
             lastPostBody = body
@@ -279,6 +482,10 @@ class UnifiedDriveV3RemoteStoreTest {
         ): DriveHttpResponse {
             uploadCalls++
             uploadStarts += start
+            if (uploadFailuresRemaining > 0) {
+                uploadFailuresRemaining--
+                throw IOException("lost upload response")
+            }
             return uploadResponse
         }
         override suspend fun download(url: String, destination: File) {
