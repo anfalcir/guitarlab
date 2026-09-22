@@ -27,21 +27,25 @@ interface DriveTransactionJournal {
 }
 
 class FileDriveTransactionJournal(private val directory: File) : DriveTransactionJournal {
-    override fun load(projectId: String): DriveTransactionRecord? = runCatching {
-        val file = file(projectId)
-        if (!file.isFile) return null
-        val properties = Properties().apply { file.inputStream().buffered().use(::load) }
-        require(properties.getProperty("format") == FORMAT)
-        require(properties.getProperty("projectId") == projectId)
-        DriveTransactionRecord(
-            projectId = projectId,
-            desiredRevisionId = properties.required("desiredRevisionId"),
-            baseRevisionId = properties.getProperty("baseRevisionId").orEmpty().ifBlank { null },
-            manifestSha256 = properties.required("manifestSha256"),
-            stage = DriveCommitStage.valueOf(properties.required("stage")),
-            confirmedRevisionId = properties.getProperty("confirmedRevisionId").orEmpty().ifBlank { null },
-        )
-    }.getOrNull()
+    override fun load(projectId: String): DriveTransactionRecord? {
+        val source = file(projectId)
+        if (!source.isFile) return null
+        return try {
+            val properties = Properties().apply { source.inputStream().buffered().use(::load) }
+            require(properties.getProperty("format") == FORMAT)
+            require(properties.getProperty("projectId") == projectId)
+            DriveTransactionRecord(
+                projectId = projectId,
+                desiredRevisionId = properties.required("desiredRevisionId"),
+                baseRevisionId = properties.getProperty("baseRevisionId").orEmpty().ifBlank { null },
+                manifestSha256 = properties.required("manifestSha256"),
+                stage = DriveCommitStage.valueOf(properties.required("stage")),
+                confirmedRevisionId = properties.getProperty("confirmedRevisionId").orEmpty().ifBlank { null },
+            )
+        } catch (error: Throwable) {
+            throw IllegalStateException("Drive transaction journal is corrupt for project '$projectId'.", error)
+        }
+    }
 
     override fun save(record: DriveTransactionRecord) {
         directory.mkdirs()
@@ -71,6 +75,14 @@ class FileDriveTransactionJournal(private val directory: File) : DriveTransactio
         } finally {
             temporary.delete()
         }
+    }
+
+    fun clear(projectId: String) {
+        file(projectId).delete()
+    }
+
+    fun clearAll() {
+        directory.deleteRecursively()
     }
 
     private fun file(projectId: String): File = directory.resolve("${ManagedStorageKey.from(projectId)}.properties")
