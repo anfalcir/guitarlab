@@ -244,7 +244,12 @@ internal class UnifiedDriveV3RemoteStore(
                 val response = try {
                     http.uploadChunk(activeSession, file, offset, length, totalBytes)
                 } catch (error: Throwable) {
-                    if (error is CancellationException) throw error
+                    if (
+                        error is CancellationException ||
+                            error is DriveAuthorizationRequiredException
+                    ) {
+                        throw error
+                    }
                     queryUploadStatus(activeSession, totalBytes) ?: throw error
                 }
 
@@ -298,7 +303,7 @@ internal class UnifiedDriveV3RemoteStore(
                         if (!DriveRetryPolicy.retryableStatus(response.code, response.body)) {
                             throw DriveApiException(response.code, response.body)
                         }
-                        val recovered = queryUploadStatus(session, totalBytes)
+                        val recovered = queryUploadStatus(activeSession, totalBytes)
                             ?: throw DriveApiException(response.code, response.body)
                         when (recovered.code) {
                             200, 201 -> {
@@ -337,7 +342,12 @@ internal class UnifiedDriveV3RemoteStore(
             val response = try {
                 http.uploadStatus(session, totalBytes)
             } catch (error: Throwable) {
-                if (error is CancellationException) throw error
+                if (
+                    error is CancellationException ||
+                        error is DriveAuthorizationRequiredException
+                ) {
+                    throw error
+                }
                 if (attempt >= DriveRetryPolicy.MAX_ATTEMPTS - 1) return null
                 retryDelay(DriveRetryPolicy.delayMs(attempt++))
                 continue
@@ -345,7 +355,7 @@ internal class UnifiedDriveV3RemoteStore(
             if (response.code in setOf(200, 201, 308, 404)) return response
             if (!DriveRetryPolicy.retryableStatus(response.code, response.body)) return response
             if (attempt >= DriveRetryPolicy.MAX_ATTEMPTS - 1) return response
-            delay(DriveRetryPolicy.delayMs(attempt++))
+            retryDelay(DriveRetryPolicy.delayMs(attempt++))
         }
         return null
     }
