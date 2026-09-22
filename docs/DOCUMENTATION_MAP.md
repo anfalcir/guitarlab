@@ -7,7 +7,7 @@ Repository documentation is split into **live authority**, **normative contracts
 
 A historical document may intentionally contain an old statement such as “current”, “latest”, “pending”, an old branch name or an old hardware target because it preserves contemporaneous evidence. Such statements apply only to that document's dated context and **never override the live authority set below**.
 
-## Live authority — unified line through U10/C8 closure / U11 active / signed #669 historical release authority
+## Live authority — unified line through U11 signed closure / U12 active
 Use these first for current status, release identity and remaining work:
 - `README.md` — repository entry point;
 - `CURRENT_STATE.md` — current unified source candidate, latest signed authority and remaining digital/physical residual;
@@ -44,9 +44,7 @@ Drive result `U8m PASS · r_1790095960 · cleanup 8/8/14`, report SHA-256
 **U10/C8 is CLOSED / DIGITAL PASS** on Android CI #781 / run `35791192802`,
 exact technical source `2aa97aa8b2c3af91d35e7d48a0eeb89c2c330e63`, with 23/23
 instrumented classes, 76 observed API36 tests and 24/24 retained visual artifacts.
-**U11 is active.** The latest signed release authority is Android CI #669 / run
-`35591631207`, producer `14b69271f2ae04529fa14475e1a34f2fdd864553`,
-until U11 freezes and signs the new unified candidate.
+**U11 is CLOSED / DIGITAL PASS and U12 is active.** The latest signed release authority is Android CI #783 / run `35793456972`, producer `4218e4343746932a4de61c5abaa29ba5769a30ed`, package `studio.guitarlab.app`, `0.5.0-rc5` / versionCode `25`.
 
 ## Normative subsystem contracts
 These define behavior and remain valid unless explicitly superseded:
@@ -72,9 +70,9 @@ These are preserved for traceability and must not be used as current-state autho
 - milestone-specific evidence such as `M2_HOMOLOGATION_EVIDENCE.md`, `H22_AUDIO_ROUTE_UX.md`, `H24_HOME_PROJECT_LIBRARY.md`, `H25_UI_SETTINGS_SAFETY.md`, `H26D_MATERIALIZER_RECOVERY.md`, `H26E_CI650_DIGITAL_PASS.md` and similar exact-source records.
 
 ## Current evidence boundary
-CI #669 / run `35591631207` / producer `14b69271f2ae04529fa14475e1a34f2fdd864553` is the latest signed DIGITAL PASS. The signed job passed on package `studio.guitarlab.app`, version `0.5.0-rc4` / code `24`, with certificate SHA-256 `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
+CI #783 / run `35793456972` / producer `4218e4343746932a4de61c5abaa29ba5769a30ed` is the latest signed DIGITAL PASS. The signed job passed on package `studio.guitarlab.app`, version `0.5.0-rc5` / code `25`, with certificate SHA-256 `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
 
-Signed APK SHA-256: `8e6e0f555bc5e834c4bccbdb011134c42d124806ce0316dd28787a6c98fe7bf3`.
+Signed APK SHA-256: `795839766f2b7546af53b2c56a0638b11c25b79622fe73cce5860b5602f050e0`.
 
 The newest unified technical DIGITAL PASS source is intentionally unsigned: U10/C8 closed on exact source `2aa97aa8b2c3af91d35e7d48a0eeb89c2c330e63` after Android CI #781 / run `35791192802`. The #781 gate passed software/Lint/build plus all five API36 groups, proved 23/23 classified instrumented classes and retained 24/24 required screenshots; deterministic visual review passed. U8m real-provider acceptance remains supporting authority: `U8m PASS · r_1790095960 · cleanup 8/8/14`, sanitized report SHA-256 `84efb70615be8ef5939da538eee5f714f7311aa6d44dd5bb2cdd0b5e9e66b702`. Historical #663/H36c and H37/H37a/H37b evidence remains preserved for traceability. CI #669 remains the latest signed release authority until U11 signing. Remaining hardware-only audio acceptance is deferred to the consolidated U12 physical campaign; H33 real-controller physical acceptance remains a separate 1.1 boundary unless later roadmap authority supersedes it.
 
