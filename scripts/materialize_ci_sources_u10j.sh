@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# U10j corrective seal: remove invalid Compose test import from the C7 matrix.
+# U10j corrective seal: remove invalid Compose test import from the C7 matrix; canonical checkpoint.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
