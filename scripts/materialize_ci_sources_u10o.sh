@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# U10o corrective seal: use the junit4 ComposeTestRule type for C8 screenshot capture.
+# U10o corrective seal: use the junit4 ComposeTestRule type for C8 screenshot capture; canonical checkpoint.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
