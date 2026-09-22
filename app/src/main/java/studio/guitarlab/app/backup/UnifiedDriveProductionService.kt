@@ -86,7 +86,9 @@ internal class UnifiedDriveProductionService(
             try {
                 attempts += backupProjectInternal(project.id, null)
             } catch (error: Throwable) {
-                if (error is CancellationException) throw error
+                if (error is CancellationException || error is DriveAuthorizationRequiredException) {
+                    throw error
+                }
                 attempts += ProjectBackupAttempt(
                     projectId = project.id,
                     projectName = project.name,
@@ -115,7 +117,9 @@ internal class UnifiedDriveProductionService(
         val attempt = try {
             backupProjectInternal(projectId, null)
         } catch (error: Throwable) {
-            if (error is CancellationException) throw error
+            if (error is CancellationException || error is DriveAuthorizationRequiredException) {
+                throw error
+            }
             val projectName = repository.load(projectId)?.name ?: "Projeto"
             ProjectBackupAttempt(
                 projectId = projectId,
