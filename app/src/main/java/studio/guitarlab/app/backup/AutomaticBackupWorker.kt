@@ -8,7 +8,6 @@ import android.content.pm.ServiceInfo
 import androidx.work.CoroutineWorker
 import androidx.work.ForegroundInfo
 import androidx.work.WorkerParameters
-import java.io.IOException
 import kotlinx.coroutines.CancellationException
 import studio.guitarlab.app.activity.AppNotificationDeepLink
 import studio.guitarlab.app.activity.UnifiedActivityStore
@@ -44,7 +43,9 @@ class AutomaticBackupWorker(
                     if (error is CancellationException) throw error
                     val message = error.message ?: "Falha inesperada no backup automático."
                     settingsStore.recordError(message)
-                    val retry = error is IOException && runAttemptCount < 4
+                    val retry =
+                        isTransientDriveFailure(error) &&
+                            runAttemptCount < 4
                     activity.record(
                         operationId,
                         null,
