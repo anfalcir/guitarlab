@@ -1,0 +1,57 @@
+--- a/app/src/androidTest/java/studio/guitarlab/app/CohesionScreenshotArtifacts.kt
++++ b/app/src/androidTest/java/studio/guitarlab/app/CohesionScreenshotArtifacts.kt
+@@ -8,6 +8,7 @@
+ import androidx.compose.ui.graphics.asAndroidBitmap
+ import androidx.compose.ui.test.captureToImage
+ import androidx.compose.ui.test.junit4.ComposeTestRule
++import androidx.compose.ui.test.onNodeWithTag
+ import androidx.compose.ui.test.onRoot
+ import androidx.test.platform.app.InstrumentationRegistry
+ 
+@@ -23,7 +24,7 @@
+  * scripts/ci_run_api36_regression_groups.sh to collect it with adb.
+  */
+ @TargetApi(Build.VERSION_CODES.Q)
+-fun ComposeTestRule.captureCohesionScreenshot(name: String) {
++fun ComposeTestRule.captureCohesionScreenshot(name: String, testTag: String? = null) {
+     waitForIdle()
+ 
+     val instrumentation = InstrumentationRegistry.getInstrumentation()
+@@ -43,7 +44,7 @@
+         arrayOf(displayName, relativePath),
+     )
+ 
+-    val screenshot = onRoot().captureToImage().asAndroidBitmap()
++    val screenshot = (testTag?.let(::onNodeWithTag) ?: onRoot()).captureToImage().asAndroidBitmap()
+     val values = ContentValues().apply {
+         put(MediaStore.Images.Media.DISPLAY_NAME, displayName)
+         put(MediaStore.Images.Media.MIME_TYPE, "image/png")
+--- a/app/src/androidTest/java/studio/guitarlab/app/GuitarLabLifecycleInstrumentedTest.kt
++++ b/app/src/androidTest/java/studio/guitarlab/app/GuitarLabLifecycleInstrumentedTest.kt
+@@ -198,6 +198,7 @@
+             composeRule.waitUntil(timeoutMillis = UI_TIMEOUT_MS) {
+                 runCatching { composeRule.onNodeWithContentDescription(menuDescription).assertIsDisplayed() }.isSuccess
+             }
++            composeRule.captureCohesionScreenshot("home-with-project-phone")
+             composeRule.onNodeWithContentDescription(menuDescription)
+                 .assertIsDisplayed()
+                 .performClick()
+@@ -206,7 +207,6 @@
+             composeRule.waitUntil(timeoutMillis = UI_TIMEOUT_MS) {
+                 runCatching { composeRule.onNodeWithTag(exportTag).assertIsDisplayed() }.isSuccess
+             }
+-            composeRule.captureCohesionScreenshot("home-with-project-phone")
+             composeRule.onNodeWithTag(exportTag).performClick()
+             waitForRoute(AppScreen.Export(project.id))
+             composeRule.onNodeWithText("Projeto portátil").assertIsDisplayed()
+--- a/app/src/androidTest/java/studio/guitarlab/app/ProjectDeleteConfirmationInstrumentedTest.kt
++++ b/app/src/androidTest/java/studio/guitarlab/app/ProjectDeleteConfirmationInstrumentedTest.kt
+@@ -31,7 +31,7 @@
+         composeRule.onNodeWithTag("home-delete-confirmation").assertIsDisplayed()
+         composeRule.onNodeWithText("Excluir projeto?").assertIsDisplayed()
+         composeRule.onNodeWithText("Projeto Teste", substring = true).assertIsDisplayed()
+-        composeRule.captureCohesionScreenshot("destructive-delete-confirmation")
++        composeRule.captureCohesionScreenshot("destructive-delete-confirmation", testTag = "home-delete-confirmation")
+         composeRule.onNodeWithTag("home-cancel-delete").performClick()
+         assertEquals(0, confirmed.get())
+         assertEquals(1, dismissed.get())
