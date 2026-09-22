@@ -52,6 +52,7 @@ import java.text.DateFormat
 import java.util.Date
 import studio.guitarlab.app.ui.AppIconButton
 import studio.guitarlab.core.project.BackupVersionDescriptor
+import studio.guitarlab.core.project.DriveReconciliation
 
 @Composable
 fun BackupScreen(
@@ -93,6 +94,8 @@ fun BackupScreen(
             onMaximumVersions = viewModel::setMaximumVersions,
             onBackupAll = viewModel::backupAllNow,
             onBackupProject = viewModel::backupProjectNow,
+            onKeepLocal = viewModel::keepLocalVersion,
+            onUseCloud = { viewModel.useCloudVersion(it, onProjectsChanged) },
             onRestoreVersion = { viewModel.restoreVersion(it, onProjectsChanged) },
             onRestoreAll = { viewModel.restoreLatestAll(onProjectsChanged) },
         )
@@ -121,14 +124,22 @@ fun BackupScreenContent(
     onMaximumVersions: (Int) -> Unit,
     onBackupAll: () -> Unit,
     onBackupProject: (String) -> Unit,
+    onKeepLocal: (String, BackupVersionDescriptor) -> Unit,
+    onUseCloud: (BackupVersionDescriptor) -> Unit,
     onRestoreVersion: (BackupVersionDescriptor) -> Unit,
     onRestoreAll: () -> Unit,
 ) {
     var restoreVersion by remember { mutableStateOf<BackupVersionDescriptor?>(null) }
+    var keepLocalVersion by remember { mutableStateOf<BackupVersionDescriptor?>(null) }
+    var useCloudVersion by remember { mutableStateOf<BackupVersionDescriptor?>(null) }
     var confirmRestoreAll by remember { mutableStateOf(false) }
     var confirmDisconnect by remember { mutableStateOf(false) }
     val configured = state.settings.driveConnected
-    val currentProject = projectId?.let { id -> state.localProjects.firstOrNull { it.id == id } }
+    val currentProject = projectId?.let { id ->
+        state.localProjects.firstOrNull { it.id == id }
+    }
+    val currentReconciliation = currentProject?.let { state.reconciliations[it.id] }
+    val currentRemoteTips = currentProject?.let { state.remoteTips[it.id].orEmpty() }.orEmpty()
 
     Column(Modifier.fillMaxSize().padding(horizontal = 20.dp, vertical = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -213,6 +224,78 @@ fun BackupScreenContent(
                 }
             }
 
+            if (
+                currentProject != null &&
+                    currentReconciliation in setOf(
+                        DriveReconciliation.CONFLICT,
+                        DriveReconciliation.DOWNLOAD_REMOTE,
+                    )
+            ) {
+                item {
+                    val trueConflict = currentReconciliation == DriveReconciliation.CONFLICT
+                    BackupSection(
+                        if (trueConflict) "Conflito de backup" else "Atualização disponível na nuvem",
+                        if (trueConflict) {
+                            "Há alterações locais e na nuvem. Escolha explicitamente qual estado preservar."
+                        } else {
+                            "A nuvem avançou desde a última revisão confirmada deste projeto."
+                        },
+                    ) {
+                        if (currentRemoteTips.isEmpty()) {
+                            Text(
+                                "Atualize o catálogo para carregar as versões disponíveis.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        } else {
+                            currentRemoteTips.forEach { remote ->
+                                val date = DateFormat.getDateTimeInstance(
+                                    DateFormat.MEDIUM,
+                                    DateFormat.SHORT,
+                                ).format(Date(remote.backupCreatedAtEpochMs))
+                                Text(
+                                    "Versão da nuvem · $date",
+                                    style = MaterialTheme.typography.titleSmall,
+                                )
+                                if (trueConflict && currentRemoteTips.size == 1) {
+                                    OutlinedButton(
+                                        onClick = { keepLocalVersion = remote },
+                                        enabled = !state.busy,
+                                        modifier = Modifier.fillMaxWidth()
+                                            .testTag("conflict-keep-local"),
+                                    ) {
+                                        Text("Manter versão local")
+                                    }
+                                }
+                                Button(
+                                    onClick = { useCloudVersion = remote },
+                                    enabled = !state.busy,
+                                    modifier = Modifier.fillMaxWidth()
+                                        .testTag("conflict-use-cloud-${remote.remoteId}"),
+                                ) {
+                                    Text("Usar versão da nuvem")
+                                }
+                                OutlinedButton(
+                                    onClick = { restoreVersion = remote },
+                                    enabled = !state.busy,
+                                    modifier = Modifier.fillMaxWidth()
+                                        .testTag("conflict-import-copy-${remote.remoteId}"),
+                                ) {
+                                    Text("Importar versão da nuvem como cópia")
+                                }
+                                if (trueConflict && currentRemoteTips.size > 1) {
+                                    Text(
+                                        "Existem versões remotas concorrentes. Para preservar tudo, importe a versão desejada como cópia antes de decidir substituir o projeto.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             item {
                 BackupSection("Estado", null) {
                     Text("Última execução: ${state.settings.lastRunLabel()}", style = MaterialTheme.typography.bodyMedium)
@@ -238,6 +321,61 @@ fun BackupScreenContent(
                 }
             }
         }
+    }
+
+    keepLocalVersion?.let { version ->
+        AlertDialog(
+            onDismissRequest = { keepLocalVersion = null },
+            title = { Text("Manter versão local?") },
+            text = {
+                Text(
+                    "A versão local será preservada e publicada como a próxima revisão na nuvem. A versão remota atual continuará no histórico."
+                )
+            },
+            dismissButton = {
+                TextButton(onClick = { keepLocalVersion = null }) {
+                    Text("Cancelar")
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        keepLocalVersion = null
+                        currentProject?.let { onKeepLocal(it.id, version) }
+                    },
+                    modifier = Modifier.testTag("confirm-keep-local"),
+                ) {
+                    Text("Manter local")
+                }
+            },
+        )
+    }
+    useCloudVersion?.let { version ->
+        AlertDialog(
+            onDismissRequest = { useCloudVersion = null },
+            title = { Text("Usar versão da nuvem?") },
+            text = {
+                Text(
+                    "O projeto local atual será substituído somente depois que a versão da nuvem for baixada e validada por completo. Para preservar as alterações locais, cancele e importe a nuvem como cópia."
+                )
+            },
+            dismissButton = {
+                TextButton(onClick = { useCloudVersion = null }) {
+                    Text("Cancelar")
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        useCloudVersion = null
+                        onUseCloud(version)
+                    },
+                    modifier = Modifier.testTag("confirm-use-cloud"),
+                ) {
+                    Text("Usar nuvem")
+                }
+            },
+        )
     }
 
     restoreVersion?.let { version ->
