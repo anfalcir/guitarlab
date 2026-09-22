@@ -12,6 +12,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 
 /**
@@ -62,3 +64,45 @@ fun ProductSectionCard(
         }
     }
 }
+
+enum class ProductStatusTone {
+    NEUTRAL,
+    ACTIVE,
+    SUCCESS,
+    ERROR,
+}
+
+@Composable
+fun ProductStatusChip(
+    label: String,
+    tone: ProductStatusTone,
+    modifier: Modifier = Modifier,
+) {
+    val containerColor = when (tone) {
+        ProductStatusTone.NEUTRAL -> MaterialTheme.colorScheme.surfaceVariant
+        ProductStatusTone.ACTIVE -> MaterialTheme.colorScheme.secondaryContainer
+        ProductStatusTone.SUCCESS -> MaterialTheme.colorScheme.primaryContainer
+        ProductStatusTone.ERROR -> MaterialTheme.colorScheme.errorContainer
+    }
+    val contentColor = when (tone) {
+        ProductStatusTone.NEUTRAL -> MaterialTheme.colorScheme.onSurfaceVariant
+        ProductStatusTone.ACTIVE -> MaterialTheme.colorScheme.onSecondaryContainer
+        ProductStatusTone.SUCCESS -> MaterialTheme.colorScheme.onPrimaryContainer
+        ProductStatusTone.ERROR -> MaterialTheme.colorScheme.onErrorContainer
+    }
+    Surface(
+        modifier = modifier.semantics { stateDescription = label },
+        shape = MaterialTheme.shapes.small,
+        color = containerColor,
+        border = BorderStroke(1.dp, contentColor.copy(alpha = 0.38f)),
+        tonalElevation = 0.dp,
+    ) {
+        Text(
+            text = label,
+            modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
+            style = MaterialTheme.typography.labelMedium,
+            color = contentColor,
+        )
+    }
+}
+
