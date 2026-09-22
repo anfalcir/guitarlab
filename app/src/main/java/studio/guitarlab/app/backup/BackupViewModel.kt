@@ -22,6 +22,7 @@ import studio.guitarlab.core.project.BackupRetentionPolicy
 import studio.guitarlab.core.project.BackupRunReport
 import studio.guitarlab.core.project.BackupVersionDescriptor
 import studio.guitarlab.core.project.DriveConflictAction
+import studio.guitarlab.core.project.DriveReconciliation
 import studio.guitarlab.core.project.FileProjectRepository
 import studio.guitarlab.core.project.ProjectBackupAttempt
 import studio.guitarlab.core.project.UnifiedOperationKind
@@ -33,6 +34,8 @@ data class BackupUiState(
     val settings: BackupSettingsSnapshot = BackupSettingsSnapshot(),
     val localProjects: List<GuitarProject> = emptyList(),
     val versions: List<BackupVersionDescriptor> = emptyList(),
+    val reconciliations: Map<String, DriveReconciliation> = emptyMap(),
+    val remoteTips: Map<String, List<BackupVersionDescriptor>> = emptyMap(),
     val authorizationRequired: Boolean = false,
     val message: String? = null,
     val error: String? = null,
@@ -64,16 +67,53 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
                     emptyList()
                 } catch (error: Throwable) {
                     if (error is CancellationException) throw error
-                    _state.update { it.copy(error = error.message ?: "Não foi possível ler os backups do Google Drive.") }
+                    _state.update {
+                        it.copy(
+                            error = error.message
+                                ?: "Não foi possível ler os backups do Google Drive.",
+                        )
+                    }
                     emptyList()
                 }
-            } else emptyList()
+            } else {
+                emptyList()
+            }
+
+            val reconciliations = linkedMapOf<String, DriveReconciliation>()
+            val remoteTips = linkedMapOf<String, List<BackupVersionDescriptor>>()
+            if (settings.driveConnected && !authRequired) {
+                for (project in projects) {
+                    try {
+                        val reconciliation = unifiedDrive.reconciliation(project.id)
+                        reconciliations[project.id] = reconciliation
+                        if (
+                            reconciliation == DriveReconciliation.CONFLICT ||
+                                reconciliation == DriveReconciliation.DOWNLOAD_REMOTE
+                        ) {
+                            remoteTips[project.id] = unifiedDrive.currentRemoteTips(project.id)
+                        }
+                    } catch (_: DriveAuthorizationRequiredException) {
+                        authRequired = true
+                        break
+                    } catch (error: Throwable) {
+                        if (error is CancellationException) throw error
+                        _state.update {
+                            it.copy(
+                                error = error.message
+                                    ?: "Não foi possível reconciliar o estado do backup.",
+                            )
+                        }
+                    }
+                }
+            }
             _state.update { current ->
                 current.copy(
                     loading = false,
                     settings = settingsStore.snapshot(),
                     localProjects = projects,
                     versions = versions,
+                    reconciliations = reconciliations,
+                    remoteTips = remoteTips,
                     authorizationRequired = authRequired,
                 )
             }
@@ -132,6 +172,8 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
                         busy = false,
                         settings = settingsStore.snapshot(),
                         versions = emptyList(),
+                        reconciliations = emptyMap(),
+                        remoteTips = emptyMap(),
                         authorizationRequired = false,
                         message = "Google Drive desconectado. Os backups existentes não foram apagados.",
                     )
@@ -158,6 +200,64 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
     fun backupProjectNow(projectId: String) = runBackup(projectId, "Backup do projeto") { service ->
         val settings = settingsStore.snapshot()
         service.backupProject(projectId, retentionPolicy = retention(settings))
+    }
+
+    fun keepLocalVersion(
+        projectId: String,
+        remoteVersion: BackupVersionDescriptor,
+    ) = runBackup(projectId, "Manter versão local") { service ->
+        val settings = settingsStore.snapshot()
+        service.keepLocal(
+            projectId = projectId,
+            remoteVersion = remoteVersion,
+            retentionPolicy = retention(settings),
+        )
+    }
+
+    fun useCloudVersion(
+        version: BackupVersionDescriptor,
+        onProjectsChanged: () -> Unit,
+    ) = runBusy(null) {
+        val operationId = UUID.randomUUID().toString()
+        activityStore.record(
+            operationId,
+            version.projectId,
+            UnifiedOperationKind.RESTORE,
+            UnifiedOperationState.RUNNING,
+            null,
+            "Aplicando versão da nuvem",
+        )
+        requireDriveConnected()
+        try {
+            val restored = BackupOperationLock.withLock {
+                unifiedDrive.restoreVersion(version, DriveConflictAction.USE_DRIVE)
+            }
+            settingsStore.recordSuccess("Versão da nuvem aplicada: ${restored.name}")
+            activityStore.record(
+                operationId,
+                version.projectId,
+                UnifiedOperationKind.RESTORE,
+                UnifiedOperationState.SUCCEEDED,
+                100,
+                "Versão da nuvem aplicada ao projeto",
+            )
+            withContext(Dispatchers.Main) { onProjectsChanged() }
+            _state.update {
+                it.copy(message = "Versão da nuvem aplicada com segurança.")
+            }
+        } catch (error: Throwable) {
+            if (error is CancellationException) throw error
+            activityStore.record(
+                operationId,
+                version.projectId,
+                UnifiedOperationKind.RESTORE,
+                UnifiedOperationState.FAILED,
+                null,
+                "Não foi possível aplicar a versão da nuvem",
+                error.message,
+            )
+            throw error
+        }
     }
 
     fun restoreVersion(version: BackupVersionDescriptor, onProjectsChanged: () -> Unit) = runBusy(null) {
