@@ -10,6 +10,9 @@ exact source `b3ecd5f5269728e9e481156a187922c16b93c05b`
 U8c status: CLOSED / DIGITAL PASS — Android CI #730 / run `35707441794`,
 exact source `58aad5cd230c9bb3700529dbf4b97498e08b429a`
 
+U8d status: SOURCE COMPLETE / PRE-GATE — durable transaction journal and
+process-death convergence implemented; exact CI evidence pending.
+
 ## Scope boundary
 
 U8 replaces the historical monolithic H37 backup protocol for projects created
@@ -91,3 +94,24 @@ U8c implements the concrete Drive API adapter without switching the user path:
 The complete unit/Lint/build and API 36 regression passed on the exact U8c
 source. U8d durable desired/confirmed state and process-death recovery are
 next.
+
+## U8d durable transaction recovery
+
+U8d makes the desired-versus-confirmed boundary durable before production
+cutover:
+
+- a per-project journal records the frozen revision, base revision, manifest
+  digest and every verified commit stage;
+- journal updates publish through a same-directory atomic rename, with a
+  portable replacement fallback when atomic moves are unavailable;
+- malformed journal data fails closed and cannot be mistaken for a confirmed
+  revision;
+- an incomplete transaction can resume only with the exact same revision,
+  manifest and base; a different revision cannot overwrite pending work;
+- cancellation immediately after remote head publication leaves recoverable
+  local intent, and retry converges idempotently without a duplicate head;
+- the journal becomes confirmed only after the coordinator reads back and
+  uniquely verifies the desired head.
+
+Transactional restore and explicit conflict actions are the next U8
+checkpoint after the U8d CI gate.
