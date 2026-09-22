@@ -159,3 +159,23 @@ boundary:
 
 The next U8 checkpoint integrates scheduling, Activity/Home sync state and the
 unified Conta e nuvem presentation.
+
+## U8g shared Activity and sync-state domain
+
+U8g status: SOURCE COMPLETE / PRE-GATE.
+
+The integration starts from one provider-neutral presentation contract:
+
+- source acquisition, separation, reference preparation, export, backup and
+  restore share the same operation kind/state/progress vocabulary;
+- Activity ordering deduplicates durable operation IDs, prefers their newest
+  snapshot and keeps active work ahead of history;
+- Home's compact progress derives from the same ordered records instead of a
+  second job model;
+- project sync state distinguishes disconnected, local-only, pending,
+  syncing, synchronized, failed and conflict states;
+- worker completion alone cannot produce a false synchronized state: the
+  server-confirmed revision must equal the current local revision.
+
+Android persistence and the Activity/Home/Conta e nuvem surfaces are the next
+U8g integration cut after this domain gate.
