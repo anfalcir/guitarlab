@@ -1950,13 +1950,17 @@ Do not delete old GBW cloud evidence yet.
 
 ## U8 — Unified Drive backup vNext
 
-**Current status:** ACTIVE through U8k. C6 cloud/backup/Activity cohesion is
+**Current status:** ACTIVE through U8l. C6 cloud/backup/Activity cohesion is
 CLOSED / DIGITAL PASS on Android CI #744 / run `35729709715`; the production
 vNext backup/restore cutover is CLOSED / DIGITAL PASS on Android CI #750 / run
-`35742420939`, exact source `b5bf8d39008aa267d7411244ea0ae526142863f7`.
-The active product path now uses the unified snapshot/durable transaction/Drive
-v3/transactional restore/GC stack. Remaining U8 work is the network/HTTP fault
-matrix followed by real-Drive acceptance.
+`35742420939`, exact source `b5bf8d39008aa267d7411244ea0ae526142863f7`;
+and the production network/HTTP fault gate is CLOSED / DIGITAL PASS on Android
+CI #756 / run `35746523924`, exact source
+`2cacbfe4c95bfbee694e717468075b8eedc7f9c6`. The active product path now uses
+the unified snapshot/durable transaction/Drive v3/transactional restore/GC
+stack with bounded retry/auth/cancellation/resumable/pagination failure
+handling. Remaining U8 work is only controlled real Google Drive end-to-end
+acceptance.
 
 ### Objective
 Replace standalone app backup concepts with one scalable transactional project backup **integrated into the same project shell, Activity model and Settings language**.
@@ -2210,7 +2214,7 @@ When current implementation differs from target design, ARCHITECTURE describes w
 | U5 Prepare → Studio | DIGITAL PASS — CI #690 / run `35625349001` at `4bada624e68f8a55ff22830e1dc276c8d51af223` | none |
 | U6 Unified exports | DIGITAL PASS — CI #711 / run `35658467705` at `6ff1988a8309b7174eeb328e0044d6b1d3167ff6`; C1 CLOSED | none |
 | U7 Cloud source consolidation | DIGITAL PASS — verify `35675871322`, shadow `35676232948`, production `35677341933` at cloud source `e459e5e413ab2dea00b61a9f2f60375d9823e048` | none; rollback path retained |
-| U8 Unified Drive backup | ACTIVE — U8a–U8g plus U8h Android integration DIGITAL PASS; CI #739 / run `35721268453` at `336f0a137e6d16cf5936344ec93b884a9db27a17`; residual confirmed-revision sync, notification deep-link, fault/instrumentation and real-Drive gates remain | OAuth/real Drive gate may require owner |
+| U8 Unified Drive backup | ACTIVE — U8a–U8l DIGITAL PASS; production cutover closed by #750 and network/HTTP fault gate closed by #756 at exact source `2cacbfe4c95bfbee694e717468075b8eedc7f9c6`; only controlled real Google Drive end-to-end acceptance remains | OAuth/real Drive consent may require owner |
 | U9 Legacy migration | RETIRED — no implementation required by owner decision (2026-09-21) | none |
 | U10 Global hardening | NOT STARTED | none beyond external service smoke |
 | U11 Final digital gate | NOT STARTED | canonical CI dispatch under current policy |
