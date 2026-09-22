@@ -165,6 +165,54 @@ class DriveV3ProtocolTest {
         assertTrue(connections.isEmpty())
     }
 
+    @Test fun downloadRetriesAfterMidStreamFailureWithoutKeepingPartialBytes() = runBlocking {
+        val delays = mutableListOf<Long>()
+        val connections = ArrayDeque<HttpURLConnection>().apply {
+            add(
+                FakeConnection(
+                    200,
+                    "partial-corrupt",
+                    inputFailureAfterBytes = 3,
+                ),
+            )
+            add(FakeConnection(200, "complete"))
+        }
+        val destination = java.nio.file.Files.createTempFile("drive-download", ".bin")
+            .toFile()
+            .apply { writeText("stale") }
+        val client = DriveV3HttpClient(
+            tokenProvider = FakeTokenProvider(),
+            retryDelay = { delays += it },
+            connectionFactory = { connections.removeFirst() },
+        )
+
+        client.download("https://drive.test/files/object?alt=media", destination)
+
+        assertEquals("complete", destination.readText())
+        assertEquals(1, delays.size)
+        assertTrue(connections.isEmpty())
+    }
+
+    @Test fun repeated401DuringDownloadAlsoRequiresUserAuthorization() = runBlocking {
+        val tokens = FakeTokenProvider()
+        val connections = ArrayDeque<HttpURLConnection>().apply {
+            add(FakeConnection(401, "expired"))
+            add(FakeConnection(401, "still expired"))
+        }
+        val destination = java.nio.file.Files.createTempFile("drive-download-auth", ".bin").toFile()
+        val client = DriveV3HttpClient(
+            tokenProvider = tokens,
+            retryDelay = { error("401 must not use network backoff") },
+            connectionFactory = { connections.removeFirst() },
+        )
+
+        assertFailsWith<DriveAuthorizationRequiredException> {
+            client.download("https://drive.test/files/object?alt=media", destination)
+        }
+        assertEquals(1, tokens.invalidations)
+        assertTrue(!destination.exists() || destination.length() == 0L)
+    }
+
     @Test fun malformedDriveJsonFailsClosed() {
         assertFailsWith<Throwable> {
             DriveV3Json.parseFile("""{"name":"missing-id"}""")
@@ -201,6 +249,7 @@ class DriveV3ProtocolTest {
         private val status: Int,
         private val responseBody: String = "",
         private val failure: IOException? = null,
+        private val inputFailureAfterBytes: Int? = null,
     ) : HttpURLConnection(URL("https://drive.test")) {
         override fun connect() = Unit
         override fun disconnect() = Unit
@@ -211,8 +260,20 @@ class DriveV3ProtocolTest {
             return status
         }
 
-        override fun getInputStream() =
-            ByteArrayInputStream(responseBody.toByteArray(Charsets.UTF_8))
+        override fun getInputStream(): java.io.InputStream {
+            val bytes = responseBody.toByteArray(Charsets.UTF_8)
+            val failAt = inputFailureAfterBytes
+                ?: return ByteArrayInputStream(bytes)
+            return object : java.io.InputStream() {
+                private var index = 0
+
+                override fun read(): Int {
+                    if (index >= failAt) throw IOException("stream interrupted")
+                    if (index >= bytes.size) return -1
+                    return bytes[index++].toInt() and 0xff
+                }
+            }
+        }
 
         override fun getErrorStream() =
             ByteArrayInputStream(responseBody.toByteArray(Charsets.UTF_8))
