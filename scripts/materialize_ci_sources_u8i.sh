@@ -3,7 +3,8 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PREVIOUS="$ROOT/scripts/materialize_ci_sources_u8h.sh"
-PATCH="$ROOT/.source-parts/U8iConfirmedSyncDeepLinks.patch"
+PAYLOAD="$ROOT/.source-parts/U8iConfirmedSyncDeepLinks.patch.b64"
+PAYLOAD_SHA256="96f6904d03d3ee3be4da7724d50830689a784132935917709b6d8e69bcec610c"
 PATCH_SHA256="dfd26a13c827e4a97be3ccc38e6f3f5021a4921d8ee83c0693d366994e7ea9a2"
 
 declare -a FILES=(
@@ -50,23 +51,27 @@ ready() {
   done
 }
 
-verify_patch() {
-  [[ -f "$PATCH" ]] || { echo "Missing U8i patch payload" >&2; exit 1; }
-  echo "$PATCH_SHA256  $PATCH" | sha256sum -c -
+decode_patch() {
+  [[ -f "$PAYLOAD" ]] || { echo "Missing U8i base64 payload" >&2; exit 1; }
+  echo "$PAYLOAD_SHA256  $PAYLOAD" | sha256sum -c -
+  PATCH_TMP="$(mktemp)"
+  trap 'rm -f "$PATCH_TMP"' EXIT
+  base64 --decode "$PAYLOAD" > "$PATCH_TMP"
+  echo "$PATCH_SHA256  $PATCH_TMP" | sha256sum -c -
 }
 
 if ready; then
-  verify_patch
-  git -C "$ROOT" apply --check --reverse "$PATCH"
+  decode_patch
+  git -C "$ROOT" apply --check --reverse "$PATCH_TMP"
   echo "Source patch chain already materialized through U8i with payload/reverse verification"
   exit 0
 fi
 
 [[ -f "$PREVIOUS" ]] || { echo "Missing U8h materializer" >&2; exit 1; }
-verify_patch
+decode_patch
 bash "$PREVIOUS"
-git -C "$ROOT" apply --check "$PATCH"
-git -C "$ROOT" apply "$PATCH"
+git -C "$ROOT" apply --check "$PATCH_TMP"
+git -C "$ROOT" apply "$PATCH_TMP"
 git -C "$ROOT" diff --check
 ready || { echo "U8i final blob mismatch" >&2; exit 1; }
 echo "Source patch chain materialized through U8i with exact blob verification"
