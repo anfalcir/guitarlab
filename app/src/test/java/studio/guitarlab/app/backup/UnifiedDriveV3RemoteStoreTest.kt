@@ -766,7 +766,7 @@ class UnifiedDriveV3RemoteStoreTest {
         assertEquals(listOf(0L, 3L), api.uploadStarts)
     }
 
-    @Test fun malformedResumableRangeFailsClosed() = runBlocking {
+    @Test fun malformedResumableGarbageRangeFailsClosed() = runBlocking {
         val payload = kotlin.io.path.createTempFile("u8l-range", ".bin").toFile().apply {
             writeText("payload")
         }
@@ -905,6 +905,9 @@ class UnifiedDriveV3RemoteStoreTest {
 
     private fun pageWithToken(token: String, vararg files: String) =
         "{\"nextPageToken\":\"$token\",\"files\":[${files.joinToString(",")}] }"
+
+    private fun paged(token: String, vararg files: String) =
+        pageWithToken(token, *files)
     private fun response(code: Int, body: String) = DriveHttpResponse(code, body, emptyMap())
 
     private class FakeApi : DriveV3Api {
@@ -912,7 +915,11 @@ class UnifiedDriveV3RemoteStoreTest {
         val getUrls = mutableListOf<String>()
         var postResponse = DriveHttpResponse(500, "unset", emptyMap())
         var uploadResponse = DriveHttpResponse(500, "unset", emptyMap())
+        val uploadResponses = ArrayDeque<DriveHttpResponse>()
+        val uploadFailures = ArrayDeque<Throwable>()
         val statusResponses = ArrayDeque<DriveHttpResponse>()
+        val statusFailures = ArrayDeque<Throwable>()
+        var statusCalls = 0
         var uploadCalls = 0
         var uploadFailuresRemaining = 0
         var postCalls = 0
@@ -948,10 +955,12 @@ class UnifiedDriveV3RemoteStoreTest {
         ): DriveHttpResponse {
             uploadCalls++
             uploadStarts += start
+            if (uploadFailures.isNotEmpty()) throw uploadFailures.removeFirst()
             if (uploadFailuresRemaining > 0) {
                 uploadFailuresRemaining--
                 throw IOException("lost upload response")
             }
+            if (uploadResponses.isNotEmpty()) return uploadResponses.removeFirst()
             return uploadResponse
         }
         override suspend fun download(url: String, destination: File) {
