@@ -3,14 +3,18 @@ package studio.guitarlab.app.backup
 import java.io.File
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
+import java.time.Instant
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.delay
 import studio.guitarlab.core.project.DriveAssetObject
 import studio.guitarlab.core.project.DriveCurrentDescriptor
+import studio.guitarlab.core.project.DriveGcCandidate
 import studio.guitarlab.core.project.DriveLocalAsset
 import studio.guitarlab.core.project.DriveProjectRevisionManifest
 import studio.guitarlab.core.project.DrivePublishedHead
 import studio.guitarlab.core.project.BackupHashing
 import studio.guitarlab.core.project.DriveRemoteObjectReceipt
+import studio.guitarlab.core.project.UnifiedDriveGarbageCollectionStore
 import studio.guitarlab.core.project.UnifiedDriveRemoteStore
 import studio.guitarlab.core.project.UnifiedDriveRestoreSource
 
@@ -18,7 +22,8 @@ import studio.guitarlab.core.project.UnifiedDriveRestoreSource
 internal class UnifiedDriveV3RemoteStore(
     private val http: DriveV3Api,
     private val rootFolderId: suspend () -> String,
-) : UnifiedDriveRemoteStore, UnifiedDriveRestoreSource {
+    private val uploadState: UnifiedDriveUploadState = NoopUnifiedDriveUploadState,
+) : UnifiedDriveRemoteStore, UnifiedDriveRestoreSource, UnifiedDriveGarbageCollectionStore {
     override suspend fun findAsset(sha256: String): DriveRemoteObjectReceipt? =
         findOne(KIND_ASSET, PROP_SHA256 to sha256)?.verifiedReceipt()
 
@@ -62,15 +67,49 @@ internal class UnifiedDriveV3RemoteStore(
     }
 
     override suspend fun listHeads(projectId: String): List<DrivePublishedHead> =
-        listFiles(query(KIND_HEAD, PROP_PROJECT_ID to projectId)).mapNotNull { file ->
-            val revision = file.appProperties[PROP_REVISION_ID]?.takeIf(String::isNotBlank) ?: return@mapNotNull null
-            val manifestHash = file.appProperties[PROP_MANIFEST_SHA256]
-                ?.takeIf { SHA256.matches(it) } ?: return@mapNotNull null
-            DrivePublishedHead(
-                descriptor = DriveCurrentDescriptor(projectId, revision, manifestHash),
-                baseRevisionId = file.appProperties[PROP_BASE_REVISION]?.takeIf(String::isNotBlank),
-            )
+        listFiles(query(KIND_HEAD, PROP_PROJECT_ID to projectId))
+            .mapNotNull(::publishedHeadOrNull)
+
+    suspend fun listAllHeads(): List<DrivePublishedHead> =
+        listFiles(queryKind(KIND_HEAD)).mapNotNull(::publishedHeadOrNull)
+
+    override suspend fun listCommittedManifests(): List<DriveProjectRevisionManifest> =
+        listAllHeads()
+            .distinctBy { it.descriptor.manifestSha256 }
+            .map { loadManifest(it.descriptor) }
+
+    override suspend fun listAssets(): List<DriveGcCandidate> =
+        listFiles(queryKind(KIND_ASSET))
+            .mapNotNull { file ->
+                val receipt = file.verifiedReceipt() ?: return@mapNotNull null
+                val createdAt = file.createdTime
+                    ?.let { runCatching { Instant.parse(it).toEpochMilli() }.getOrNull() }
+                    ?: return@mapNotNull null
+                DriveGcCandidate(
+                    DriveAssetObject(receipt.sha256, receipt.sizeBytes),
+                    createdAt,
+                )
+            }
+            .groupBy { it.asset.sha256 }
+            .values
+            .map { duplicates -> duplicates.maxBy { it.uploadedAtEpochMs } }
+
+    override suspend fun deleteAsset(asset: DriveAssetObject): Boolean {
+        val matches = listFiles(query(KIND_ASSET, PROP_SHA256 to asset.sha256))
+        if (matches.isEmpty()) return true
+        matches.forEach { file ->
+            require(file.verifiedReceipt()?.matches(asset) == true) {
+                "Drive object selected for garbage collection has incompatible metadata."
+            }
         }
+        matches.forEach { file ->
+            val response = http.delete("$FILES/${file.id}")
+            if (response.code != 204 && response.code != 404) {
+                requireSuccess(response, "Drive asset deletion failed.")
+            }
+        }
+        return true
+    }
 
     override suspend fun loadManifest(descriptor: DriveCurrentDescriptor): DriveProjectRevisionManifest {
         val resource = findOne(KIND_MANIFEST, PROP_SHA256 to descriptor.manifestSha256)
@@ -139,33 +178,172 @@ internal class UnifiedDriveV3RemoteStore(
         sha256: String,
         extra: Map<String, String>,
     ): DriveRemoteObjectReceipt {
-        val properties = mapOf(PROP_SCHEMA to SCHEMA, PROP_KIND to kind, PROP_SHA256 to sha256) + extra
-        val initiated = requireSuccess(
-            http.postJson(
-                "$UPLOAD_FILES?uploadType=resumable&fields=$FIELDS_ENCODED",
-                DriveV3Json.metadata(name, MIME_BINARY, listOf(rootFolderId()), properties),
-                mapOf("X-Upload-Content-Type" to MIME_BINARY, "X-Upload-Content-Length" to file.length().toString()),
-            ),
-            "Drive did not create a resumable upload session.",
-        )
-        val session = initiated.header("Location") ?: error("Drive response omitted the resumable session URL.")
+        require(file.isFile && file.length() > 0L)
+        val totalBytes = file.length()
+        val properties =
+            mapOf(PROP_SCHEMA to SCHEMA, PROP_KIND to kind, PROP_SHA256 to sha256) + extra
+        var session = uploadState.session(sha256, totalBytes)?.url
         var offset = 0L
-        while (offset < file.length()) {
-            val length = minOf(CHUNK_BYTES.toLong(), file.length() - offset).toInt()
-            val response = try {
-                http.uploadChunk(session, file, offset, length, file.length())
-            } catch (error: Throwable) {
-                if (error is CancellationException) throw error
-                http.uploadStatus(session, file.length())
+        var sessionRestarts = 0
+
+        while (true) {
+            if (session != null) {
+                when (val status = queryUploadStatus(session, totalBytes)) {
+                    null -> throw java.io.IOException(
+                        "Drive resumable upload state could not be verified.",
+                    )
+                    else -> when (status.code) {
+                        200, 201 -> {
+                            uploadState.clear(sha256)
+                            return verifyUploaded(
+                                DriveV3Json.parseFile(status.body),
+                                sha256,
+                                totalBytes,
+                            )
+                        }
+                        308 -> offset = nextOffset(status.header("Range"))
+                        404 -> {
+                            uploadState.clear(sha256)
+                            session = null
+                            offset = 0L
+                        }
+                        else -> throw DriveApiException(status.code, status.body)
+                    }
+                }
             }
-            when (response.code) {
-                200, 201 -> return verifyUploaded(DriveV3Json.parseFile(response.body), sha256, file.length())
-                308 -> offset = nextOffset(response.header("Range"))
-                404 -> error("Drive resumable session expired before object commit.")
-                else -> throw DriveApiException(response.code, response.body)
+
+            if (session == null) {
+                val initiated = requireSuccess(
+                    http.postJson(
+                        "$UPLOAD_FILES?uploadType=resumable&fields=$FIELDS_ENCODED",
+                        DriveV3Json.metadata(
+                            name,
+                            MIME_BINARY,
+                            listOf(rootFolderId()),
+                            properties,
+                        ),
+                        mapOf(
+                            "X-Upload-Content-Type" to MIME_BINARY,
+                            "X-Upload-Content-Length" to totalBytes.toString(),
+                        ),
+                    ),
+                    "Drive did not create a resumable upload session.",
+                )
+                session = initiated.header("Location")
+                    ?: error("Drive response omitted the resumable session URL.")
+                uploadState.save(sha256, totalBytes, session)
+                offset = 0L
+            }
+
+            while (offset < totalBytes) {
+                val length = minOf(CHUNK_BYTES.toLong(), totalBytes - offset).toInt()
+                val response = try {
+                    http.uploadChunk(session, file, offset, length, totalBytes)
+                } catch (error: Throwable) {
+                    if (error is CancellationException) throw error
+                    queryUploadStatus(session, totalBytes) ?: throw error
+                }
+
+                when (response.code) {
+                    200, 201 -> {
+                        uploadState.clear(sha256)
+                        return verifyUploaded(
+                            DriveV3Json.parseFile(response.body),
+                            sha256,
+                            totalBytes,
+                        )
+                    }
+                    308 -> offset = nextOffset(response.header("Range"))
+                    404 -> {
+                        uploadState.clear(sha256)
+                        session = null
+                        offset = 0L
+                        sessionRestarts++
+                        require(sessionRestarts <= MAX_SESSION_RESTARTS) {
+                            "Drive resumable session repeatedly expired."
+                        }
+                        break
+                    }
+                    401 -> {
+                        val recovered = queryUploadStatus(session, totalBytes)
+                            ?: throw DriveApiException(response.code, response.body)
+                        when (recovered.code) {
+                            200, 201 -> {
+                                uploadState.clear(sha256)
+                                return verifyUploaded(
+                                    DriveV3Json.parseFile(recovered.body),
+                                    sha256,
+                                    totalBytes,
+                                )
+                            }
+                            308 -> offset = nextOffset(recovered.header("Range"))
+                            404 -> {
+                                uploadState.clear(sha256)
+                                session = null
+                                offset = 0L
+                                sessionRestarts++
+                                require(sessionRestarts <= MAX_SESSION_RESTARTS) {
+                                    "Drive resumable session repeatedly expired."
+                                }
+                                break
+                            }
+                            else -> throw DriveApiException(recovered.code, recovered.body)
+                        }
+                    }
+                    else -> {
+                        if (!DriveRetryPolicy.retryableStatus(response.code, response.body)) {
+                            throw DriveApiException(response.code, response.body)
+                        }
+                        val recovered = queryUploadStatus(session, totalBytes)
+                            ?: throw DriveApiException(response.code, response.body)
+                        when (recovered.code) {
+                            200, 201 -> {
+                                uploadState.clear(sha256)
+                                return verifyUploaded(
+                                    DriveV3Json.parseFile(recovered.body),
+                                    sha256,
+                                    totalBytes,
+                                )
+                            }
+                            308 -> offset = nextOffset(recovered.header("Range"))
+                            404 -> {
+                                uploadState.clear(sha256)
+                                session = null
+                                offset = 0L
+                                sessionRestarts++
+                                require(sessionRestarts <= MAX_SESSION_RESTARTS) {
+                                    "Drive resumable session repeatedly expired."
+                                }
+                                break
+                            }
+                            else -> throw DriveApiException(recovered.code, recovered.body)
+                        }
+                    }
+                }
             }
         }
-        error("Drive did not confirm immutable object upload.")
+    }
+
+    private suspend fun queryUploadStatus(
+        session: String,
+        totalBytes: Long,
+    ): DriveHttpResponse? {
+        var attempt = 0
+        while (attempt < DriveRetryPolicy.MAX_ATTEMPTS) {
+            val response = try {
+                http.uploadStatus(session, totalBytes)
+            } catch (error: Throwable) {
+                if (error is CancellationException) throw error
+                if (attempt >= DriveRetryPolicy.MAX_ATTEMPTS - 1) return null
+                delay(DriveRetryPolicy.delayMs(attempt++))
+                continue
+            }
+            if (response.code in setOf(200, 201, 308, 404)) return response
+            if (!DriveRetryPolicy.retryableStatus(response.code, response.body)) return response
+            if (attempt >= DriveRetryPolicy.MAX_ATTEMPTS - 1) return response
+            delay(DriveRetryPolicy.delayMs(attempt++))
+        }
+        return null
     }
 
     private suspend fun verifyUploaded(file: DriveFileResource, sha256: String, size: Long): DriveRemoteObjectReceipt {
@@ -176,8 +354,23 @@ internal class UnifiedDriveV3RemoteStore(
         return DriveRemoteObjectReceipt(sha256, size)
     }
 
-    private suspend fun findOne(kind: String, property: Pair<String, String>): DriveFileResource? =
-        listFiles(query(kind, property)).singleOrNull()
+    private suspend fun findOne(
+        kind: String,
+        property: Pair<String, String>,
+    ): DriveFileResource? = listFiles(query(kind, property)).singleOrNull()
+
+    private fun publishedHeadOrNull(file: DriveFileResource): DrivePublishedHead? {
+        val projectId =
+            file.appProperties[PROP_PROJECT_ID]?.takeIf(String::isNotBlank) ?: return null
+        val revision =
+            file.appProperties[PROP_REVISION_ID]?.takeIf(String::isNotBlank) ?: return null
+        val manifestHash = file.appProperties[PROP_MANIFEST_SHA256]
+            ?.takeIf { SHA256.matches(it) } ?: return null
+        return DrivePublishedHead(
+            descriptor = DriveCurrentDescriptor(projectId, revision, manifestHash),
+            baseRevisionId = file.appProperties[PROP_BASE_REVISION]?.takeIf(String::isNotBlank),
+        )
+    }
 
     private suspend fun getFile(id: String): DriveFileResource = DriveV3Json.parseFile(
         requireSuccess(http.get("$FILES/$id?fields=$FIELDS_ENCODED"), "Drive object verification failed.").body,
@@ -199,10 +392,13 @@ internal class UnifiedDriveV3RemoteStore(
     }
 
     private suspend fun query(kind: String, property: Pair<String, String>): String =
+        queryKind(kind) +
+            " and appProperties has { key='${property.first}' and value='${property.second}' }"
+
+    private suspend fun queryKind(kind: String): String =
         "trashed = false and '${rootFolderId()}' in parents and " +
             "appProperties has { key='$PROP_SCHEMA' and value='$SCHEMA' } and " +
-            "appProperties has { key='$PROP_KIND' and value='$kind' } and " +
-            "appProperties has { key='${property.first}' and value='${property.second}' }"
+            "appProperties has { key='$PROP_KIND' and value='$kind' }"
 
     private fun DriveFileResource.verifiedReceipt(): DriveRemoteObjectReceipt? {
         val hash = sha256Checksum?.lowercase()?.takeIf { SHA256.matches(it) } ?: return null
@@ -215,7 +411,12 @@ internal class UnifiedDriveV3RemoteStore(
         return response.also { require(response.successful) { message } }
     }
 
-    private fun nextOffset(range: String?): Long = range?.substringAfterLast('-')?.toLongOrNull()?.plus(1L) ?: 0L
+    private fun nextOffset(range: String?): Long {
+        if (range.isNullOrBlank()) return 0L
+        val match = Regex("bytes=0-([0-9]+)").matchEntire(range.trim())
+            ?: throw java.io.IOException("Drive returned an invalid resumable upload range.")
+        return match.groupValues[1].toLong() + 1L
+    }
     private fun encode(value: String) = URLEncoder.encode(value, StandardCharsets.UTF_8.toString())
 
     private companion object {
@@ -235,9 +436,12 @@ internal class UnifiedDriveV3RemoteStore(
         const val PROP_BASE_REVISION = "glBaseRevisionId"
         const val PROP_MANIFEST_SHA256 = "glManifestSha256"
         const val CHUNK_BYTES = 8 * 1024 * 1024
+        const val MAX_SESSION_RESTARTS = 2
         val SHA256 = Regex("[0-9a-f]{64}")
-        val FIELDS_ENCODED = encodeStatic("id,name,size,sha256Checksum,appProperties,trashed")
-        val PAGE_FIELDS_ENCODED = encodeStatic("nextPageToken,files(id,name,size,sha256Checksum,appProperties,trashed)")
+        val FIELDS_ENCODED =
+            encodeStatic("id,name,size,sha256Checksum,createdTime,appProperties,trashed")
+        val PAGE_FIELDS_ENCODED =
+            encodeStatic("nextPageToken,files(id,name,size,sha256Checksum,createdTime,appProperties,trashed)")
         fun encodeStatic(value: String) = URLEncoder.encode(value, StandardCharsets.UTF_8.toString())
     }
 }
