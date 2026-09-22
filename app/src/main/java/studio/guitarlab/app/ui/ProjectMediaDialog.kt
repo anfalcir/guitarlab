@@ -70,7 +70,7 @@ fun ProjectMediaDialog(
                     HorizontalDivider()
                 }
                 MediaGroup("Fonte", project.assets.filter { it.role == AssetRole.SOURCE_ORIGINAL }, activePreparationIds, boundIds)
-                MediaGroup("Stems preparados", project.assets.filter { it.role.name.startsWith("STEM_") }, activePreparationIds, boundIds)
+                MediaGroup("Faixas separadas", project.assets.filter { it.role.name.startsWith("STEM_") }, activePreparationIds, boundIds)
                 MediaGroup("Referências", project.assets.filter { it.role in setOf(AssetRole.REFERENCE_BACKING, AssetRole.REFERENCE_GUITAR) }, activePreparationIds, boundIds)
                 MediaGroup("Gravações", project.assets.filter { it.role == AssetRole.RECORDING_TAKE }, activePreparationIds, boundIds)
             }
