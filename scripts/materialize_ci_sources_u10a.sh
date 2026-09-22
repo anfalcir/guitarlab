@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# U10a/C7a source seal: one canonical product-wide help model with contextual Studio subset.
+# U10a/C7a source seal: canonical product-wide help model; software checkpoint.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
