@@ -30,7 +30,7 @@ Updated: 2026-09-22
 
 ## Active line
 - Repository/branch: `anfalcir/guitarlab` / `main`.
-- Source candidate: `0.5.0-rc4`, versionCode `24`. U7 cloud source consolidation is digitally closed. U8 is active through **U8l CLOSED / DIGITAL PASS** on Android CI #756 / run `35746523924`, exact source `2cacbfe4c95bfbee694e717468075b8eedc7f9c6`. C6 remains CLOSED by U8i/#744, U8j remains CLOSED by #746, and the U8k production cutover remains CLOSED by #750. U8l closes the required network/HTTP fault gate on the production vNext Drive path: bounded retry covers offline/timeout, 429, retryable 403 quota classes and 500/502/503/504; repeated 401 transitions to auth-required rather than generic retry; permanent 403 remains non-retryable; download retries remove partial bytes; resumable upload recovery uses authoritative status/Range after lost responses, survives expired sessions, rejects malformed ranges, and preserves cancellation/auth boundaries; pagination consumes unique tokens and fails closed on malformed/looping tokens; automatic backup classifies transient network failure as retrying without turning incomplete work into synchronized state. The terminal U8l materializer protects all eight production/test blobs, validates payload + decoded-patch SHA-256, exact final Git blobs and reverse-apply ready-state. CI #756 passed deterministic U8l materialization, JVM/unit tests, Android Lint, debug/release assembly and the complete five-group API 36 regression. Signed homologation remained intentionally skipped. **U8 remains OPEN only for the controlled real Google Drive end-to-end acceptance gate; adopt U8m for that next source block unless newer normative documentation defines another identifier.**
+- Source candidate: `0.5.0-rc4`, versionCode `24`. **U8 is CLOSED / DIGITAL PASS through U8m.** The exact technical source is `2375dcb72983376cb486eccf41faf1734633cc94`. Android CI #757 / run `35753982993` passed deterministic U8m materialization, 483 JVM/unit tests with 0 failures/errors/skips, Android Lint with 0 errors, debug/release assembly, and the complete five-group API 36 regression; signed homologation was intentionally skipped. The controlled real Google Drive U8m campaign then executed the same production vNext transport/store and finished `U8m PASS · r_1790095960 · cleanup 8/8/14`. Report SHA-256: `84efb70615be8ef5939da538eee5f714f7311aa6d44dd5bb2cdd0b5e9e66b702`. The PASS predicate requires exact restore, failed-restore no-partial-publication protection, import-as-copy, real conflict plus safe actions, keep-local, use-Drive, ambiguous-head fail-closed behavior, GC/retention checks and successful isolated cleanup. U9 remains retired. **The active unified roadmap now advances to U10.** This U8 closure does not replace signed release authority.
 - Latest signed version is `0.5.0-rc4`, versionCode `24`, package `studio.guitarlab.app`.
 - Latest signed DIGITAL PASS: **CI #669** / run `35591631207` / producer `14b69271f2ae04529fa14475e1a34f2fdd864553`.
 - #663 scope: H28 → H29 → H30 → H31 → H32 → H33 → H33a → H33b → H34 → H35 → H35a → H36 → H36a → H36b → H36c.
@@ -38,6 +38,14 @@ Updated: 2026-09-22
 - Signed APK size: `13,835,802` bytes.
 - Locked signer SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
 - CI supports manual dispatch and controlled `[run ci]` / `[run ci signed]` triggers on `main`; ordinary commits remain `[skip ci]`.
+
+## U8m / U8 closure evidence
+- exact technical source: `2375dcb72983376cb486eccf41faf1734633cc94`;
+- software CI: Android CI #757 / run `35753982993` — PASS;
+- real-provider result: `U8m PASS · r_1790095960 · cleanup 8/8/14`;
+- sanitized report SHA-256: `84efb70615be8ef5939da538eee5f714f7311aa6d44dd5bb2cdd0b5e9e66b702`;
+- acceptance used a dedicated Android OAuth client for the debug signing identity solely to authorize the controlled real-Drive campaign; this does not supersede the official signed candidate identity;
+- latest signed authority remains CI #669 / run `35591631207` until U11 freezes a new signed candidate.
 
 ## U5 digital evidence
 Canonical U5 source: `4bada624e68f8a55ff22830e1dc276c8d51af223`.
