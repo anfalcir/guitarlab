@@ -23,6 +23,7 @@ internal class UnifiedDriveV3RemoteStore(
     private val http: DriveV3Api,
     private val rootFolderId: suspend () -> String,
     private val uploadState: UnifiedDriveUploadState = NoopUnifiedDriveUploadState,
+    private val retryDelay: suspend (Long) -> Unit = { delay(it) },
 ) : UnifiedDriveRemoteStore, UnifiedDriveRestoreSource, UnifiedDriveGarbageCollectionStore {
     override suspend fun findAsset(sha256: String): DriveRemoteObjectReceipt? =
         findOne(KIND_ASSET, PROP_SHA256 to sha256)?.verifiedReceipt()
@@ -338,7 +339,7 @@ internal class UnifiedDriveV3RemoteStore(
             } catch (error: Throwable) {
                 if (error is CancellationException) throw error
                 if (attempt >= DriveRetryPolicy.MAX_ATTEMPTS - 1) return null
-                delay(DriveRetryPolicy.delayMs(attempt++))
+                retryDelay(DriveRetryPolicy.delayMs(attempt++))
                 continue
             }
             if (response.code in setOf(200, 201, 308, 404)) return response
@@ -390,14 +391,26 @@ internal class UnifiedDriveV3RemoteStore(
 
     private suspend fun listFiles(query: String): List<DriveFileResource> {
         val output = mutableListOf<DriveFileResource>()
+        val seenPageTokens = mutableSetOf<String>()
         var page: String? = null
         do {
             val url = buildString {
-                append(FILES).append("?q=").append(encode(query)).append("&fields=").append(PAGE_FIELDS_ENCODED)
+                append(FILES)
+                    .append("?q=")
+                    .append(encode(query))
+                    .append("&fields=")
+                    .append(PAGE_FIELDS_ENCODED)
                 page?.let { append("&pageToken=").append(encode(it)) }
             }
-            val parsed = DriveV3Json.parsePage(requireSuccess(http.get(url), "Drive object listing failed.").body)
+            val parsed = DriveV3Json.parsePage(
+                requireSuccess(http.get(url), "Drive object listing failed.").body,
+            )
             output += parsed.files
+            parsed.nextPageToken?.let { token ->
+                require(seenPageTokens.add(token)) {
+                    "Drive pagination repeated the same page token."
+                }
+            }
             page = parsed.nextPageToken
         } while (page != null)
         return output
