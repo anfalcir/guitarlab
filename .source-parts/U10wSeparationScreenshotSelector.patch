@@ -1,0 +1,11 @@
+--- a/app/src/androidTest/java/studio/guitarlab/app/UnifiedProjectShellInstrumentedTest.kt
++++ b/app/src/androidTest/java/studio/guitarlab/app/UnifiedProjectShellInstrumentedTest.kt
+@@ -367,7 +367,7 @@
+             }
+         }
+ 
+-        composeRule.onNodeWithText("Separando a música em seis faixas…").performScrollTo().assertIsDisplayed()
++        composeRule.onNodeWithTag("prepare-safe-state-separation-running").assertIsDisplayed()
+         composeRule.captureCohesionScreenshot("prepare-separating-dark")
+     }
+ 
