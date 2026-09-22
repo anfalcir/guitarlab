@@ -42,8 +42,9 @@ class GuitarLabLifecycleInstrumentedTest {
     fun homeHelpUsesTheSharedGuitarLabGuide() {
         waitUntilEnabled("Novo projeto")
         composeRule.onNodeWithContentDescription("Ajuda").assertIsDisplayed().performClick()
-        composeRule.onNodeWithText("Guia rápido do GuitarLab").assertIsDisplayed()
-        composeRule.onNodeWithText("Pistas e funções").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Guia do GuitarLab").assertIsDisplayed()
+        composeRule.onNodeWithText("Preparar").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Atividade, nuvem e backup").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText("Fechar").performClick()
     }
 
