@@ -61,7 +61,7 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
             var authRequired = false
             val versions = if (settings.driveConnected) {
                 try {
-                    unifiedDrive.listCommittedVersions()
+                    unifiedDrive.listCommittedVersions(retention(settings))
                 } catch (_: DriveAuthorizationRequiredException) {
                     authRequired = true
                     emptyList()
