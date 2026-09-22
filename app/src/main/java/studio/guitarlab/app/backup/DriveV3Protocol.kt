@@ -49,9 +49,13 @@ internal object DriveV3Json {
 
     fun parsePage(raw: String): DriveFilePage {
         val obj = json.parseToJsonElement(raw).jsonObject
+        val nextPageToken = obj["nextPageToken"]?.jsonPrimitive?.contentOrNull
+        require(nextPageToken == null || nextPageToken.isNotBlank()) {
+            "Resposta paginada do Drive contém nextPageToken vazio."
+        }
         return DriveFilePage(
             files = obj["files"]?.jsonArray?.map { file(it.jsonObject) }.orEmpty(),
-            nextPageToken = obj["nextPageToken"]?.jsonPrimitive?.contentOrNull,
+            nextPageToken = nextPageToken,
         )
     }
 
@@ -127,6 +131,10 @@ internal interface DriveV3Api {
 
 internal class DriveV3HttpClient(
     private val tokenProvider: DriveAccessTokenProvider,
+    private val retryDelay: suspend (Long) -> Unit = { delay(it) },
+    private val connectionFactory: (String) -> HttpURLConnection = {
+        URL(it).openConnection() as HttpURLConnection
+    },
 ) : DriveV3Api {
     override suspend fun get(url: String): DriveHttpResponse = ordinaryRequest("GET", url)
 
@@ -199,29 +207,43 @@ internal class DriveV3HttpClient(
         var attempt = 0
         var refreshed401 = false
         while (true) {
-            val token = tokenProvider.accessToken()
-            val connection = open(url, "GET", token)
+            destination.delete()
             try {
-                val code = connection.responseCode
-                if (code == 401 && !refreshed401) {
-                    tokenProvider.invalidateRejectedToken()
-                    refreshed401 = true
-                    continue
-                }
-                if (code in 200..299) {
-                    connection.inputStream.buffered().use { input ->
-                        destination.outputStream().buffered().use { output -> input.copyTo(output) }
+                val token = tokenProvider.accessToken()
+                val connection = open(url, "GET", token)
+                try {
+                    val code = connection.responseCode
+                    if (code == 401 && !refreshed401) {
+                        tokenProvider.invalidateRejectedToken()
+                        refreshed401 = true
+                        continue
                     }
-                    return@withContext
+                    if (code in 200..299) {
+                        connection.inputStream.buffered().use { input ->
+                            destination.outputStream().buffered().use { output ->
+                                input.copyTo(output)
+                            }
+                        }
+                        return@withContext
+                    }
+                    val body = readBody(connection, code)
+                    if (
+                        DriveRetryPolicy.retryableStatus(code, body) &&
+                            attempt < DriveRetryPolicy.MAX_ATTEMPTS - 1
+                    ) {
+                        retryDelay(backoff(attempt++))
+                        continue
+                    }
+                    throw DriveApiException(code, body)
+                } finally {
+                    connection.disconnect()
                 }
-                val body = readBody(connection, code)
-                if (DriveRetryPolicy.retryableStatus(code, body) && attempt < DriveRetryPolicy.MAX_ATTEMPTS - 1) {
-                    delay(backoff(attempt++))
-                    continue
+            } catch (error: IOException) {
+                destination.delete()
+                if (error is DriveApiException || attempt >= DriveRetryPolicy.MAX_ATTEMPTS - 1) {
+                    throw error
                 }
-                throw DriveApiException(code, body)
-            } finally {
-                connection.disconnect()
+                retryDelay(backoff(attempt++))
             }
         }
     }
@@ -239,13 +261,13 @@ internal class DriveV3HttpClient(
                 val response = rawAuthorizedRequest(method, url, body, contentType, extraHeaders, retry401 = true)
                 if (response.successful) return response
                 if (DriveRetryPolicy.retryableStatus(response.code, response.body) && attempt < DriveRetryPolicy.MAX_ATTEMPTS - 1) {
-                    delay(backoff(attempt++))
+                    retryDelay(backoff(attempt++))
                     continue
                 }
                 return response
             } catch (error: IOException) {
                 if (attempt >= DriveRetryPolicy.MAX_ATTEMPTS - 1) throw error
-                delay(backoff(attempt++))
+                retryDelay(backoff(attempt++))
             }
         }
     }
@@ -286,7 +308,7 @@ internal class DriveV3HttpClient(
     }
 
     private fun open(url: String, method: String, token: String): HttpURLConnection =
-        (URL(url).openConnection() as HttpURLConnection).apply {
+        connectionFactory(url).apply {
             requestMethod = method
             connectTimeout = 20_000
             readTimeout = 60_000
