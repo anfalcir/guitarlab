@@ -25,8 +25,8 @@ import studio.guitarlab.platform.codec.android.AndroidMasterAudioEncoder
 import studio.guitarlab.platform.codec.android.MasterExportFormat
 
 enum class StudyExportKind(val label: String, val fileToken: String, val expectedRole: AssetRole) {
-    BACKING("Backing track", "backing", AssetRole.REFERENCE_BACKING),
-    GUITAR("Guitarra", "guitar", AssetRole.REFERENCE_GUITAR),
+    BACKING("Base sem guitarra", "backing", AssetRole.REFERENCE_BACKING),
+    GUITAR("Guitarra de referência", "guitar", AssetRole.REFERENCE_GUITAR),
 }
 
 enum class StudyExportStrategy { DIRECT_CANONICAL_WAV, SINGLE_ENCODE }
