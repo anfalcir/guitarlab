@@ -1,5 +1,13 @@
 package studio.guitarlab.app.backup
 
+import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
+import java.io.IOException
+import java.net.HttpURLConnection
+import java.net.SocketTimeoutException
+import java.net.URL
+import kotlin.test.assertFailsWith
+import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -37,6 +45,135 @@ class DriveV3ProtocolTest {
         assertEquals(16_000L, DriveRetryPolicy.delayMs(9))
     }
 
+    @Test fun ordinaryRequestsRetryEverySupportedTransientHttpClass() = runBlocking {
+        val cases = listOf(
+            429 to "",
+            500 to "",
+            502 to "",
+            503 to "",
+            504 to "",
+            403 to """{"error":{"errors":[{"reason":"rateLimitExceeded"}]}}""",
+            403 to """{"error":{"errors":[{"reason":"userRateLimitExceeded"}]}}""",
+        )
+        cases.forEach { (status, body) ->
+            val delays = mutableListOf<Long>()
+            val connections = ArrayDeque<HttpURLConnection>().apply {
+                add(FakeConnection(status, body))
+                add(FakeConnection(200, "{}"))
+            }
+            val client = DriveV3HttpClient(
+                tokenProvider = FakeTokenProvider(),
+                retryDelay = { delays += it },
+                connectionFactory = { connections.removeFirst() },
+            )
+
+            assertEquals(200, client.get("https://drive.test/files").code)
+            assertEquals(1, delays.size, "HTTP $status must retry exactly once before success")
+            assertTrue(connections.isEmpty())
+        }
+    }
+
+    @Test fun permanent403DoesNotRetry() = runBlocking {
+        val delays = mutableListOf<Long>()
+        val connections = ArrayDeque<HttpURLConnection>().apply {
+            add(FakeConnection(403, """{"error":{"errors":[{"reason":"insufficientPermissions"}]}}"""))
+            add(FakeConnection(200, "{}"))
+        }
+        val client = DriveV3HttpClient(
+            tokenProvider = FakeTokenProvider(),
+            retryDelay = { delays += it },
+            connectionFactory = { connections.removeFirst() },
+        )
+
+        assertEquals(403, client.get("https://drive.test/files").code)
+        assertTrue(delays.isEmpty())
+        assertEquals(1, connections.size)
+    }
+
+    @Test fun offlineAndTimeoutFailuresRetryWithoutBeingClassifiedAsCorruption() = runBlocking {
+        listOf(
+            IOException("offline"),
+            SocketTimeoutException("timeout"),
+        ).forEach { failure ->
+            val delays = mutableListOf<Long>()
+            val connections = ArrayDeque<HttpURLConnection>().apply {
+                add(FakeConnection(0, failure = failure))
+                add(FakeConnection(200, "{}"))
+            }
+            val client = DriveV3HttpClient(
+                tokenProvider = FakeTokenProvider(),
+                retryDelay = { delays += it },
+                connectionFactory = { connections.removeFirst() },
+            )
+
+            assertEquals(200, client.get("https://drive.test/files").code)
+            assertEquals(1, delays.size)
+        }
+    }
+
+    @Test fun transientRetryBudgetIsBounded() = runBlocking {
+        val delays = mutableListOf<Long>()
+        val connections = ArrayDeque<HttpURLConnection>().apply {
+            repeat(DriveRetryPolicy.MAX_ATTEMPTS) {
+                add(FakeConnection(503, "temporarily unavailable"))
+            }
+        }
+        val client = DriveV3HttpClient(
+            tokenProvider = FakeTokenProvider(),
+            retryDelay = { delays += it },
+            connectionFactory = { connections.removeFirst() },
+        )
+
+        assertEquals(503, client.get("https://drive.test/files").code)
+        assertEquals(DriveRetryPolicy.MAX_ATTEMPTS - 1, delays.size)
+        assertTrue(connections.isEmpty())
+    }
+
+    @Test fun single401InvalidatesRejectedTokenAndRetriesWithFreshAuthorization() = runBlocking {
+        val tokens = FakeTokenProvider()
+        val connections = ArrayDeque<HttpURLConnection>().apply {
+            add(FakeConnection(401, "expired"))
+            add(FakeConnection(200, "{}"))
+        }
+        val client = DriveV3HttpClient(
+            tokenProvider = tokens,
+            retryDelay = {},
+            connectionFactory = { connections.removeFirst() },
+        )
+
+        assertEquals(200, client.get("https://drive.test/files").code)
+        assertEquals(1, tokens.invalidations)
+        assertEquals(listOf("token-0", "token-1"), tokens.issuedTokens)
+    }
+
+    @Test fun repeated401FailsAsAuthorizationRequiredInsteadOfGenericNetworkRetry() = runBlocking {
+        val tokens = FakeTokenProvider()
+        val connections = ArrayDeque<HttpURLConnection>().apply {
+            add(FakeConnection(401, "expired"))
+            add(FakeConnection(401, "still expired"))
+        }
+        val client = DriveV3HttpClient(
+            tokenProvider = tokens,
+            retryDelay = { error("401 must not enter transient backoff") },
+            connectionFactory = { connections.removeFirst() },
+        )
+
+        assertFailsWith<DriveAuthorizationRequiredException> {
+            client.get("https://drive.test/files")
+        }
+        assertEquals(1, tokens.invalidations)
+        assertTrue(connections.isEmpty())
+    }
+
+    @Test fun malformedDriveJsonFailsClosed() {
+        assertFailsWith<Throwable> {
+            DriveV3Json.parseFile("""{"name":"missing-id"}""")
+        }
+        assertFailsWith<Throwable> {
+            DriveV3Json.parsePage("""{"files":[{"id":}]}""")
+        }
+    }
+
     @Test fun metadataJsonEscapesUserVisibleNames() {
         val encoded = DriveV3Json.metadata(
             name = "A \"quoted\" project",
@@ -47,4 +184,42 @@ class DriveV3ProtocolTest {
         val parsed = Json.parseToJsonElement(encoded).jsonObject
         assertEquals("A \"quoted\" project", parsed["name"]?.jsonPrimitive?.content)
     }
+
+    private class FakeTokenProvider : DriveAccessTokenProvider {
+        var invalidations = 0
+        val issuedTokens = mutableListOf<String>()
+
+        override suspend fun accessToken(): String =
+            "token-$invalidations".also(issuedTokens::add)
+
+        override suspend fun invalidateRejectedToken() {
+            invalidations++
+        }
+    }
+
+    private class FakeConnection(
+        private val status: Int,
+        private val responseBody: String = "",
+        private val failure: IOException? = null,
+    ) : HttpURLConnection(URL("https://drive.test")) {
+        override fun connect() = Unit
+        override fun disconnect() = Unit
+        override fun usingProxy(): Boolean = false
+
+        override fun getResponseCode(): Int {
+            failure?.let { throw it }
+            return status
+        }
+
+        override fun getInputStream() =
+            ByteArrayInputStream(responseBody.toByteArray(Charsets.UTF_8))
+
+        override fun getErrorStream() =
+            ByteArrayInputStream(responseBody.toByteArray(Charsets.UTF_8))
+
+        override fun getOutputStream() = ByteArrayOutputStream()
+
+        override fun getHeaderFields(): Map<String, List<String>> = emptyMap()
+    }
+
 }
