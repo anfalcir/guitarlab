@@ -106,6 +106,10 @@ jobs:
       - name: Checkout exact verified source
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
+      - name: Initialize deploy evidence
+        shell: bash
+        run: printf 'source_sha=%s\nmode=%s\n' "$GITHUB_SHA" "${{ inputs.mode }}" > u7-deploy-evidence.txt
+
       - name: Authenticate keylessly to Google Cloud
         uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
         with:
@@ -131,6 +135,17 @@ jobs:
         if: inputs.mode == 'production'
         run: npm install --global firebase-tools@15.30.2
 
+      - name: Validate deployment inputs before mutation
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${{ inputs.mode }}" == production ]]; then
+            test -n "$GBW_ALLOWED_UIDS" || {
+              echo "::error::Repository secret GBW_ALLOWED_UIDS is required for production." >&2
+              exit 1
+            }
+          fi
+
       - name: Capture last-known-good production identity
         shell: bash
         run: |
@@ -138,7 +153,7 @@ jobs:
           gcloud config set project "$GBW_GCP_PROJECT" >/dev/null
           previous="$(gcloud run jobs describe gbw-demucs --region "$GBW_REGION" --format='value(spec.template.spec.template.spec.containers[0].image)')"
           test -n "$previous"
-          printf 'source_sha=%s\nmode=%s\nprevious_production_image=%s\n' "$GITHUB_SHA" "${{ inputs.mode }}" "$previous" | tee u7-deploy-evidence.txt
+          printf 'previous_production_image=%s\n' "$previous" | tee -a u7-deploy-evidence.txt
           echo "PREVIOUS_PRODUCTION_IMAGE=$previous" >> "$GITHUB_ENV"
 
       - name: Deploy digest-pinned worker
@@ -169,6 +184,15 @@ jobs:
           job_json="$(gcloud run jobs describe "$GBW_JOB_NAME" --region "$GBW_REGION" --format=json)"
           python3 -c 'import json,sys; d=json.load(sys.stdin); t=d["spec"]["template"]["spec"]; i=t["template"]["spec"]; assert int(t["taskCount"])==1; assert int(t["parallelism"])==1; assert int(i["maxRetries"])==0; assert int(str(i["timeoutSeconds"]).removesuffix("s"))==1800' <<<"$job_json"
           echo "runtime_contract=PASS" >> u7-deploy-evidence.txt
+
+      - name: Exercise real six-stem job contract
+        shell: bash
+        env:
+          GBW_JOB_NAME: ${{ inputs.mode == 'shadow' && 'guitarlab-demucs-shadow' || 'gbw-demucs' }}
+          MODEL_SHA256: 09704f4ceae204e56e77d5eefd6ac71d7275be81fd507e6913371d59abcee856
+        run: |
+          set -euo pipefail
+          bash scripts/u4_cloud_integration_smoke.sh | tee -a u7-deploy-evidence.txt
 
       - name: Restore prior production image after failed cutover
         if: failure() && inputs.mode == 'production' && env.PREVIOUS_PRODUCTION_IMAGE != ''

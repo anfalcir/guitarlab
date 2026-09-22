@@ -3,6 +3,7 @@ set -euo pipefail
 : "${GBW_GCP_PROJECT:?}"
 : "${GBW_BUCKET:?}"
 GBW_REGION="${GBW_REGION:-us-central1}"
+GBW_JOB_NAME="${GBW_JOB_NAME:-gbw-demucs}"
 MODEL_SHA256="${MODEL_SHA256:?}"
 STEMS=(drums bass other vocals guitar piano)
 RUN_TOKEN="${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
@@ -57,8 +58,8 @@ curl --fail-with-body --show-error -X POST "$DOC_URL" \
   -H "X-Goog-User-Project: ${GBW_GCP_PROJECT}" \
   --data "{\"fields\":{\"schemaVersion\":{\"integerValue\":\"1\"},\"uid\":{\"stringValue\":\"${TEST_UID}\"},\"projectId\":{\"stringValue\":\"${PROJECT_ID}\"},\"inputPath\":{\"stringValue\":\"${INPUT_PATH}\"},\"inputSha256\":{\"stringValue\":\"${INPUT_SHA}\"},\"state\":{\"stringValue\":\"QUEUED\"},\"phase\":{\"stringValue\":\"STARTING\"},\"progress\":{\"integerValue\":\"0\"}}}" >/dev/null
 
-echo "Executing production gbw-demucs for GuitarLab U4 smoke..."
-EXECUTION="$(gcloud beta run jobs execute gbw-demucs   --project "$GBW_GCP_PROJECT" --region "$GBW_REGION"   --update-env-vars "GBW_BUCKET=${GBW_BUCKET},GBW_UID=${TEST_UID},GBW_JOB_ID=${JOB_ID},GBW_PROJECT_ID=${PROJECT_ID},GBW_INPUT_PATH=${INPUT_PATH},GBW_INPUT_SHA256=${INPUT_SHA}"   --task-timeout 30m --wait --format='value(metadata.name)')"
+echo "Executing ${GBW_JOB_NAME} for GuitarLab cloud smoke..."
+EXECUTION="$(gcloud beta run jobs execute "$GBW_JOB_NAME"   --project "$GBW_GCP_PROJECT" --region "$GBW_REGION"   --update-env-vars "GBW_BUCKET=${GBW_BUCKET},GBW_UID=${TEST_UID},GBW_JOB_ID=${JOB_ID},GBW_PROJECT_ID=${PROJECT_ID},GBW_INPUT_PATH=${INPUT_PATH},GBW_INPUT_SHA256=${INPUT_SHA}"   --task-timeout 30m --wait --format='value(metadata.name)')"
 test -n "$EXECUTION"
 
 MANIFEST_URI="gs://${GBW_BUCKET}/${PREFIX}/output/result-manifest.json"
