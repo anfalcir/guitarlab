@@ -1,7 +1,7 @@
 package studio.guitarlab.app
 
 import android.graphics.Bitmap
-import androidx.compose.ui.test.ComposeTestRule
+import androidx.compose.ui.test.junit4.ComposeTestRule
 import androidx.test.platform.app.InstrumentationRegistry
 import java.io.File
 import java.io.FileOutputStream
