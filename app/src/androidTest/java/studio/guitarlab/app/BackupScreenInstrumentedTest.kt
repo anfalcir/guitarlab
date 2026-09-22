@@ -88,6 +88,7 @@ class BackupScreenInstrumentedTest {
         compose.onNode(hasScrollAction()).performScrollToNode(hasTestTag("backup-catalog-disconnected"))
         compose.onNodeWithTag("backup-catalog-disconnected").assertIsDisplayed()
         compose.onNodeWithText("Backup indisponível").assertIsDisplayed()
+        compose.captureCohesionScreenshot("backup-disconnected")
     }
 
     @Test fun emptyConnectedCatalogUsesUnifiedEmptyState() {
