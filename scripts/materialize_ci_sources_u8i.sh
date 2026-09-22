@@ -4,8 +4,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PREVIOUS="$ROOT/scripts/materialize_ci_sources_u8h.sh"
 PAYLOAD="$ROOT/.source-parts/U8iConfirmedSyncDeepLinks.patch.b64"
-PAYLOAD_SHA256="5988bac9f3640113a36464f26e4f1cfb9c9d6329e60d074a1d82a7a980979456"
-PATCH_SHA256="0d0c41944b72ea00f90b462dca2d545679851cbbb9f02be04587beec76dff23a"
+PAYLOAD_SHA256="d0bd5b4af280b273adec005a0ec7202947baad1d56e8fe123bcf4438e8359773"
+PATCH_SHA256="93a5fd806a98a4ae1bc2af7b6ac1a655a80610dd96e0c0a463d2e66e152c9dc1"
 
 declare -a FILES=(
   "app/src/androidTest/java/studio/guitarlab/app/ActivityNotificationDeepLinkInstrumentedTest.kt"
@@ -27,7 +27,7 @@ declare -a FILES=(
 )
 
 declare -a HASHES=(
-  "935794d2527643914a49080d40a843d6c3ac82e2"
+  "9c75ada4f2f42c6c46c6a9ca057f21145318b167"
   "6ab4755178706bc801b4aba78b892bc9e9a5e1f0"
   "009cb2719a41400377c682453db07b87216a8ab7"
   "227c1d0cf00dcb6551c2a0dac8737e11b24490b6"
