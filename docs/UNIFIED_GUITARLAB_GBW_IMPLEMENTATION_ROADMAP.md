@@ -2061,7 +2061,7 @@ No repeatable P0/P1 digital defect; all accepted P2/P3 documented with rationale
 
 ## U11 — Final digital release gate
 
-**Status:** ACTIVE — freeze preparation for `0.5.0-rc5` / versionCode `25` after U10/C8 closure on CI #781.
+**Status:** **CLOSED / DIGITAL PASS — signed rc5 candidate frozen at `4218e4343746932a4de61c5abaa29ba5769a30ed`.** Android CI #783, U4 Cloud Integration Smoke #104 and U7 Cloud Backend #62 all passed on that exact SHA.
 
 ### Objective
 Produce the one exact signed candidate intended for the consolidated physical campaign.
@@ -2089,9 +2089,13 @@ Produce the one exact signed candidate intended for the consolidated physical ca
 ### Exit
 Signed candidate frozen. No source change after freeze except through a new candidate.
 
+**Closure evidence:** package `studio.guitarlab.app`, `0.5.0-rc5` / versionCode `25`, signed APK SHA-256 `795839766f2b7546af53b2c56a0638b11c25b79622fe73cce5860b5602f050e0`, signer SHA-256 `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`. Android CI #783 passed software, API36, 24/24 screenshot matrix and signing; U4 #104 passed the real six-stem Cloud Run contract; U7 #62 passed backend tests/security/container verification without deployment. Canonical evidence: `docs/U11_FINAL_DIGITAL_RELEASE_GATE.md`.
+
 ---
 
 ## U12 — Consolidated physical homologation and cutover
+
+**Status:** ACTIVE — bound to the exact signed U11 rc5 candidate above.
 
 ### Objective
 Validate only what digital systems cannot prove, ideally in one manual campaign.
