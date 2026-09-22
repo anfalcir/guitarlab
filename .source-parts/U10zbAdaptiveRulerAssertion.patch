@@ -1,0 +1,14 @@
+diff --git a/app/src/androidTest/java/studio/guitarlab/app/GuitarLabLifecycleInstrumentedTest.kt b/app/src/androidTest/java/studio/guitarlab/app/GuitarLabLifecycleInstrumentedTest.kt
+index be65660..970f932 100644
+--- a/app/src/androidTest/java/studio/guitarlab/app/GuitarLabLifecycleInstrumentedTest.kt
++++ b/app/src/androidTest/java/studio/guitarlab/app/GuitarLabLifecycleInstrumentedTest.kt
+@@ -137,7 +137,8 @@ class GuitarLabLifecycleInstrumentedTest {
+             composeRule.onNodeWithTag("studio-loaded").assertIsDisplayed()
+             composeRule.onNodeWithTag("project-shell-content").assertIsDisplayed()
+             composeRule.onNodeWithTag("timeline-ruler-label-0").assertIsDisplayed()
+-            composeRule.onNodeWithTag("timeline-ruler-label-1").assertDoesNotExist()
++            composeRule.onNodeWithTag("timeline-ruler-label-1").assertIsDisplayed()
++            composeRule.onNodeWithTag("timeline-ruler-label-2").assertDoesNotExist()
+             composeRule.captureCohesionScreenshot("studio-normal-phone")
+ 
+             // Project-scoped Options embeds the project id in the saveable route. Recreate there,
