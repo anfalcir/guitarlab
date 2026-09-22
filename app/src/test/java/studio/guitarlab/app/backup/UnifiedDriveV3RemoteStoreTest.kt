@@ -25,7 +25,7 @@ class UnifiedDriveV3RemoteStoreTest {
             fileEntries = listOf(DriveProjectFileEntry("media/source.wav", media)),
         )
         val api = FakeApi()
-        val store = UnifiedDriveV3RemoteStore(api) { "root" }
+        val store = UnifiedDriveV3RemoteStore(api, rootFolderId = { "root" })
         api.getResponses += response(
             200,
             page(file("manifest-id", manifest.canonicalBytes().size.toLong(), manifest.manifestSha256)),
@@ -41,7 +41,7 @@ class UnifiedDriveV3RemoteStoreTest {
             .digest(payload).joinToString("") { "%02x".format(it) }
         val asset = DriveAssetObject(hash, payload.size.toLong())
         val api = FakeApi()
-        val store = UnifiedDriveV3RemoteStore(api) { "root" }
+        val store = UnifiedDriveV3RemoteStore(api, rootFolderId = { "root" })
         api.getResponses += response(200, page(file("asset-id", payload.size.toLong(), hash)))
         api.downloadBytes["asset-id"] = payload
         val destination = Files.createTempFile("u8c-download", ".bin").toFile()
@@ -51,7 +51,7 @@ class UnifiedDriveV3RemoteStoreTest {
 
     @Test fun listsAndPublishesAppendOnlyHeads() = runBlocking {
         val api = FakeApi()
-        val store = UnifiedDriveV3RemoteStore(api) { "root" }
+        val store = UnifiedDriveV3RemoteStore(api, rootFolderId = { "root" })
         api.getResponses += response(200, page())
         api.postResponse = response(200, file("head-1", props = headProps("p", "r1", "")))
         store.publishHead(DrivePublishedHead(DriveCurrentDescriptor("p", "r1", "a".repeat(64)), null))
@@ -63,7 +63,7 @@ class UnifiedDriveV3RemoteStoreTest {
     @Test fun existingAssetIsReturnedWithoutUpload() = runBlocking {
         val hash = "b".repeat(64)
         val api = FakeApi().apply { getResponses += response(200, page(file("asset", 7, hash))) }
-        val receipt = UnifiedDriveV3RemoteStore(api) { "root" }.findAsset(hash)
+        val receipt = UnifiedDriveV3RemoteStore(api, rootFolderId = { "root" }).findAsset(hash)
         assertEquals(hash, receipt?.sha256)
         assertEquals(7, receipt?.sizeBytes)
     }
@@ -76,7 +76,7 @@ class UnifiedDriveV3RemoteStoreTest {
             postResponse = DriveHttpResponse(200, "", mapOf("Location" to listOf("session")))
             uploadResponse = response(201, file("asset", payload.length(), hash))
         }
-        val receipt = UnifiedDriveV3RemoteStore(api) { "root" }
+        val receipt = UnifiedDriveV3RemoteStore(api, rootFolderId = { "root" })
             .uploadAsset(DriveLocalAsset(DriveAssetObject(hash, payload.length()), payload))
         assertEquals(hash, receipt.sha256)
         assertEquals(payload.length(), receipt.sizeBytes)
@@ -105,7 +105,7 @@ class UnifiedDriveV3RemoteStoreTest {
             )
         }
 
-        val receipt = UnifiedDriveV3RemoteStore(api, { "root" }, state)
+        val receipt = UnifiedDriveV3RemoteStore(api, rootFolderId = { "root" }, uploadState = state)
             .uploadAsset(
                 DriveLocalAsset(
                     DriveAssetObject(hash, payload.length()),
@@ -141,7 +141,7 @@ class UnifiedDriveV3RemoteStoreTest {
             )
         }
 
-        UnifiedDriveV3RemoteStore(api, { "root" }, state)
+        UnifiedDriveV3RemoteStore(api, rootFolderId = { "root" }, uploadState = state)
             .uploadAsset(
                 DriveLocalAsset(
                     DriveAssetObject(hash, payload.length()),
@@ -183,7 +183,7 @@ class UnifiedDriveV3RemoteStoreTest {
             )
         }
 
-        val candidates = UnifiedDriveV3RemoteStore(api) { "root" }.listAssets()
+        val candidates = UnifiedDriveV3RemoteStore(api, rootFolderId = { "root" }).listAssets()
 
         assertEquals(1, candidates.size)
         assertEquals(hash, candidates.single().asset.sha256)
