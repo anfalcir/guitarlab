@@ -6,7 +6,7 @@ Updated: 2026-09-21
 - `main` is canonical.
 - Product behavior is promoted only after exact-source automated gates and, where required, residual physical validation.
 - `.github/workflows/android-ci.yml` supports manual dispatch plus explicit `[run ci]` / `[run ci signed]` commit-message gates on `main`; ordinary `[skip ci]` commits remain inert.
-- U10/C8 technical authority is Android CI #781 / run `35791192802` at exact source `2aa97aa8b2c3af91d35e7d48a0eeb89c2c330e63`. The latest signed authority remains CI #669 / run `35591631207` (`0.5.0-rc4` / 24) until U11 signs the `0.5.0-rc5` / 25 freeze candidate.
+- U11 signed authority is Android CI #783 / run `35793456972` at exact producer `4218e4343746932a4de61c5abaa29ba5769a30ed`, package `studio.guitarlab.app`, `0.5.0-rc5` / 25. U10/C8 technical authority remains preserved as #781 evidence.
 
 ## Module boundaries
 - `core:model`: immutable project/track/clip/take metadata contracts.
@@ -93,6 +93,6 @@ No Firebase/Cloud Run/Functions hop, service account, client secret or refresh-t
 
 ## Current milestone boundary
 
-U10/C8 is CLOSED / DIGITAL PASS on Android CI #781. U11 is active and promotes one exact `0.5.0-rc5` / versionCode `25` signed candidate after final software/API36/signing, real-cloud separation, backend/security and documentation-consistency gates pass on the same freeze SHA.
+U10/C8 and U11 are CLOSED / DIGITAL PASS. The exact signed candidate is `0.5.0-rc5` / versionCode `25`, producer `4218e4343746932a4de61c5abaa29ba5769a30ed`. U12 is active and owns only the consolidated physical acceptance.
 
 Drive provider-real acceptance is already closed by U8m and remains supporting evidence because U10 did not alter the production Drive transport/store contract. U12 is the remaining consolidated physical boundary for real MK-300 routing/capture/isolation, monitoring, timing/listening, USB reconnect, continuous 10-minute quality and target-device ergonomics. External-controller physical acceptance remains a separate 1.1 boundary unless explicitly promoted as a release claim.
