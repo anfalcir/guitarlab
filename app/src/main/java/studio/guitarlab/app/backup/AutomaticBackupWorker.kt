@@ -10,7 +10,9 @@ import androidx.work.ForegroundInfo
 import androidx.work.WorkerParameters
 import java.io.IOException
 import kotlinx.coroutines.CancellationException
+import studio.guitarlab.app.activity.AppNotificationDeepLink
 import studio.guitarlab.app.activity.UnifiedActivityStore
+import studio.guitarlab.app.ui.AppScreen
 import studio.guitarlab.core.project.BackupRetentionPolicy
 import studio.guitarlab.core.project.ProjectBackupCoordinator
 import studio.guitarlab.core.project.UnifiedOperationKind
@@ -29,7 +31,7 @@ class AutomaticBackupWorker(
         val confirmedRevisions = ConfirmedRevisionStore(applicationContext)
         activity.record(operationId, null, UnifiedOperationKind.BACKUP, UnifiedOperationState.RUNNING, null, "Backup automático em andamento")
 
-        setForeground(createForegroundInfo())
+        setForeground(createForegroundInfo(operationId))
         return BackupOperationLock.withLock {
             val remote = DriveV3BackupRemoteStore(applicationContext)
             val report = try {
@@ -70,7 +72,7 @@ class AutomaticBackupWorker(
         }
     }
 
-    private fun createForegroundInfo(): ForegroundInfo {
+    private fun createForegroundInfo(operationId: String): ForegroundInfo {
         val manager = applicationContext.getSystemService(NotificationManager::class.java)
         manager.createNotificationChannel(
             NotificationChannel(CHANNEL_ID, "Backup do GuitarLab", NotificationManager.IMPORTANCE_LOW).apply {
@@ -81,6 +83,7 @@ class AutomaticBackupWorker(
             .setSmallIcon(android.R.drawable.stat_sys_upload)
             .setContentTitle("GuitarLab")
             .setContentText("Protegendo projetos no Google Drive…")
+            .setContentIntent(AppNotificationDeepLink.pendingIntent(applicationContext, AppScreen.Activity(operationId)))
             .setOngoing(true)
             .setCategory(Notification.CATEGORY_SERVICE)
             .build()
