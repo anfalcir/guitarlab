@@ -4,7 +4,8 @@ Updated: 2026-09-22
 Status: U8a CLOSED / DIGITAL PASS — Android CI run `35678941252`, exact source
 `a5d851ce8becd40ef08e95fd302424ac7ea4c082`
 
-U8b status: SOURCE / PRE-GATE
+U8b status: CLOSED / DIGITAL PASS — Android CI #729 / run `35679878744`,
+exact source `b3ecd5f5269728e9e481156a187922c16b93c05b`
 
 ## Scope boundary
 
@@ -64,6 +65,7 @@ U8b adds the provider-neutral commit coordinator above the U8a domain:
 - marks completion only after the head is uniquely observed;
 - reports uploaded object count/bytes for deterministic efficiency evidence.
 
-The existing H37 transport is not switched by this checkpoint. A Drive v3
-adapter for this interface and durable transaction state remain subsequent U8
-work.
+The complete unit/Lint/build and API 36 gate passed on the exact materialized
+source. The existing H37 transport is not switched by this checkpoint. A Drive
+v3 adapter for this interface and durable transaction state remain subsequent
+U8 work.
