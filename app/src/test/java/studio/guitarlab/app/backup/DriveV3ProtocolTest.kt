@@ -68,7 +68,7 @@ class DriveV3ProtocolTest {
             )
 
             assertEquals(200, client.get("https://drive.test/files").code)
-            assertEquals(1, delays.size, "HTTP $status must retry exactly once before success")
+            assertEquals("HTTP $status must retry exactly once before success", 1, delays.size)
             assertTrue(connections.isEmpty())
         }
     }
