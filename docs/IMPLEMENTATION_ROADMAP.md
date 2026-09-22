@@ -2,7 +2,7 @@
 
 Updated: 2026-09-22
 
-> **Current unified-line authority (2026-09-22):** the historical H29-H37 sections below remain architecture/evidence context. The active release path is the unified U0-U12 roadmap. U10/C8 is CLOSED / DIGITAL PASS on Android CI #781 / run `35791192802`, exact technical source `2aa97aa8b2c3af91d35e7d48a0eeb89c2c330e63`. U11 is active with candidate identity `0.5.0-rc5` / versionCode `25`. The latest signed authority remains CI #669 (`0.5.0-rc4` / 24) until the U11 freeze gate passes. U12 is the only remaining stable-release physical campaign.
+> **Current unified-line authority (2026-09-22):** the historical H29-H37 sections below remain architecture/evidence context. The active release path is the unified U0-U12 roadmap. U10/C8 and U11 are CLOSED / DIGITAL PASS. The latest signed authority is Android CI #783 / run `35793456972`, producer `4218e4343746932a4de61c5abaa29ba5769a30ed`, `0.5.0-rc5` / versionCode `25`. U12 is the only remaining stable-release physical campaign.
 
 ## Milestones
 - **M1 — Foundation:** CLOSED.
@@ -14,9 +14,9 @@ Updated: 2026-09-22
 - **M8 — Release hardening / unified successor:** historical H29-H37 evidence is absorbed; unified U10/C8 is digitally closed and U11/U12 own final release freeze + physical residual.
 
 ## Current signed authority
-**CI #669** / run `35591631207` / producer `14b69271f2ae04529fa14475e1a34f2fdd864553` is the latest signed DIGITAL PASS (`0.5.0-rc4` / versionCode `24`) until U11 signs the new rc5 candidate.
+**Android CI #783** / run `35793456972` / producer `4218e4343746932a4de61c5abaa29ba5769a30ed` is the latest signed DIGITAL PASS (`0.5.0-rc5` / versionCode `25`).
 
-Signed APK SHA-256: `8e6e0f555bc5e834c4bccbdb011134c42d124806ce0316dd28787a6c98fe7bf3`.
+Signed APK SHA-256: `795839766f2b7546af53b2c56a0638b11c25b79622fe73cce5860b5602f050e0`.
 
 H28 backup/provider-consistency behavior has subsequently passed the user's target-device functional check and is now a protected regression contract.
 
@@ -108,7 +108,7 @@ A separate successor program is now approved to absorb GBW Android into GuitarLa
 
 Authoritative plan: `UNIFIED_GUITARLAB_GBW_IMPLEMENTATION_ROADMAP.md`.
 
-Current successor status: U0-U8 are closed (U9 retired); U10/C8 is **CLOSED / DIGITAL PASS** on Android CI #781 / run `35791192802` at exact technical source `2aa97aa8b2c3af91d35e7d48a0eeb89c2c330e63`; **U11 is active** with rc5/25 freeze candidate; U12 is the consolidated final physical campaign.
+Current successor status: U0-U8 are closed (U9 retired); U10/C8 is **CLOSED / DIGITAL PASS** on Android CI #781; U11 is **CLOSED / DIGITAL PASS** on signed Android CI #783 at exact producer `4218e4343746932a4de61c5abaa29ba5769a30ed`; **U12 is active** as the consolidated final physical campaign.
 
 This successor program uses U0-U12 milestone numbering and is intentionally separate from the H29-H37/1.1 closure numbering. It does not retroactively alter the signed #663 evidence, H37b pre-gate state or historical 1.0/1.1 acceptance rules. Known physical residuals may be carried into the final unified-candidate campaign rather than forcing duplicate manual homologation, provided digital prerequisites remain objectively green.
 
