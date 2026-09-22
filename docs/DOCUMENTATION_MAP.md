@@ -7,7 +7,7 @@ Repository documentation is split into **live authority**, **normative contracts
 
 A historical document may intentionally contain an old statement such as “current”, “latest”, “pending”, an old branch name or an old hardware target because it preserves contemporaneous evidence. Such statements apply only to that document's dated context and **never override the live authority set below**.
 
-## Live authority — unified line through U8l / signed #669 historical release authority
+## Live authority — unified line through U8m/U8 closure / signed #669 historical release authority
 Use these first for current status, release identity and remaining work:
 - `README.md` — repository entry point;
 - `CURRENT_STATE.md` — current unified source candidate, latest signed authority and remaining digital/physical residual;
@@ -70,7 +70,7 @@ CI #669 / run `35591631207` / producer `14b69271f2ae04529fa14475e1a34f2fdd864553
 
 Signed APK SHA-256: `8e6e0f555bc5e834c4bccbdb011134c42d124806ce0316dd28787a6c98fe7bf3`.
 
-The newest unified DIGITAL PASS source is intentionally unsigned: U8l closed digitally at CI #756 / run `35746523924` on `2cacbfe4c95bfbee694e717468075b8eedc7f9c6`. Historical #663/H36c and H37/H37a/H37b evidence remains preserved for traceability but no longer defines the latest signed authority. The unified line has completed both the U8 production cutover and the network/HTTP fault gate; only controlled real-Drive proof remains before U8 can close and later release-candidate work becomes justified. Remaining hardware-only audio acceptance is deferred to the consolidated final physical campaign; H33 real-controller physical acceptance remains a separate 1.1 boundary unless later roadmap authority supersedes it.
+The newest unified technical DIGITAL PASS source is intentionally unsigned: U8m/U8 closed on exact source `2375dcb72983376cb486eccf41faf1734633cc94` after Android CI #757 / run `35753982993` and the controlled real Google Drive acceptance `U8m PASS · r_1790095960 · cleanup 8/8/14`; sanitized report SHA-256 `84efb70615be8ef5939da538eee5f714f7311aa6d44dd5bb2cdd0b5e9e66b702`. Historical #663/H36c and H37/H37a/H37b evidence remains preserved for traceability. CI #669 remains the latest signed release authority and is not superseded by the U8m debug/provider gate. U8 is closed; the unified program advances to U10. Remaining hardware-only audio acceptance is deferred to the consolidated final physical campaign; H33 real-controller physical acceptance remains a separate 1.1 boundary unless later roadmap authority supersedes it.
 
 ## Repository audits
 - `REPOSITORY_SANITIZATION_2026-09-20.md` records the branch audit supporting a single-branch (`main`) repository cleanup.
