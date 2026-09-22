@@ -6,7 +6,7 @@ Updated: 2026-09-21
 - `main` is canonical.
 - Product behavior is promoted only after exact-source automated gates and, where required, residual physical validation.
 - `.github/workflows/android-ci.yml` supports manual dispatch plus explicit `[run ci]` / `[run ci signed]` commit-message gates on `main`; ordinary `[skip ci]` commits remain inert.
-- CI #663 / run `35523442620` / producer `51d4098fa7b1b44a9fa315e939541020f594654d` is the current signed DIGITAL PASS through H36c.
+- U10/C8 technical authority is Android CI #781 / run `35791192802` at exact source `2aa97aa8b2c3af91d35e7d48a0eeb89c2c330e63`. The latest signed authority remains CI #669 / run `35591631207` (`0.5.0-rc4` / 24) until U11 signs the `0.5.0-rc5` / 25 freeze candidate.
 
 ## Module boundaries
 - `core:model`: immutable project/track/clip/take metadata contracts.
@@ -20,7 +20,7 @@ Updated: 2026-09-21
 ## Managed media and portable projects
 Imported external media is copied into project-controlled immutable source storage before becoming authoritative. Optional edit proxies, waveforms and renders are derivatives and may be regenerated. Non-destructive edits remain metadata operations.
 
-The U1 source candidate evolves the project schema to version 2 with explicit `ManagedAsset`, role, content hash, media facts, authoritative/derived classification, lifecycle and provenance. Preparation and Studio reference bindings are optional, so migrated Studio-only projects remain valid. `UnifiedProjectRevision` provides deterministic canonical state/revision hashing and `ProjectAssetReachability` is the single cleanup authority for the new graph. U1a corrects Kotlin compile boundaries found by CI #667 without changing this architecture. The milestone remains SOURCE PRE-GATE until the corrected software gate executes.
+The unified project schema uses explicit `ManagedAsset`, role, content hash, media facts, authoritative/derived classification, lifecycle and provenance. Preparation and Studio reference bindings are optional, so Studio-only projects remain valid. `UnifiedProjectRevision` provides deterministic canonical state/revision hashing and `ProjectAssetReachability` is the single cleanup authority for the graph. This domain is digitally closed in the unified line; historical U1/U1a compile-corrective context remains evidence only.
 
 `.guitarlab` is a versioned portable package containing project metadata and referenced managed media. Import validates staging, traversal/resource bounds, manifest/media consistency and only publishes after successful validation. Duplication follows equivalent transactional invariants.
 
@@ -74,7 +74,7 @@ Sort dimensions:
 Home is the project-library/navigation surface. Studio remains the creative editing/recording workspace. Both share one `StudioUserGuideDialog`, so user-visible workflow changes must update the same Help implementation in the same development block.
 
 ## Output and mixing
-Studio Share owns `Salvar e exportar`; editable `.guitarlab` persistence is distinct from WAV/FLAC/MP3 master delivery. Mixer state is persisted where applicable and playback/export must respect gain/pan/mute/solo/master behavior.
+The canonical Export workspace owns external delivery; editable `.guitarlab` persistence is distinct from WAV/FLAC/MP3 master delivery. Home/Studio export entry points route to that single workspace. Mixer state is persisted where applicable and playback/export must respect gain/pan/mute/solo/master behavior.
 
 ## Lifecycle and persistence
 Durable creative state belongs in project persistence, not transient Composable state. Navigation/recreation and interrupted media operations are independently recoverable. Home library query state is presentation state and may be recreated without changing project data.
@@ -82,14 +82,17 @@ Durable creative state belongs in project persistence, not transient Composable 
 ## Build/release architecture
 `scripts/build_local.sh` is the local software gate when its environment is available. The GitHub workflow is the canonical full software/API36/geometry/signing executor.
 
-Large deltas are materialized from `.source-parts` serially. The current source-candidate tail ends at U2: accepted H28 → existing H29-H36c tail → H37/H37a/H37b Drive transport → U1/U1a/U1b unified domain → U2 unified shell. Each block verifies its patch/archive and exact terminal Git blobs. Unexplained drift blocks the build.
+Large deltas are materialized from `.source-parts` serially. The current canonical tail ends at U10zb and composes the accepted H-series, Drive v3, unified-domain/shell/cloud/backup and U10 cohesion-hardening blocks. Each protected block verifies patch/archive identity and exact terminal Git blobs; the current tail additionally preserves `git diff --check`, semantic guards and reverse-apply/idempotence checks. Unexplained drift blocks the build.
 
-## Backup transport boundary — H37 source candidate
-The protected H28 domain remains transport-agnostic: `ProjectBackupCoordinator` owns project/revision identity, deduplication, retention and restore semantics. H37 changes the Android remote-store edge from SAF to direct Drive API v3.
+## Backup transport boundary — direct Drive v3 production path
+The protected backup domain remains transport-agnostic: project/revision identity, deduplication, retention and restore semantics are separated from transport. H37 introduced the direct Drive API v3 edge; U8 production cutover and U8m provider-real acceptance made that path the current unified backup authority.
 
 Primary path: Android + Google Identity Services OAuth `drive.file` → Drive v3 resumable upload/download. The Drive store uses private `appProperties` plus Drive `fileId`, byte size and SHA-256 for remote commit identity. Incomplete uploads are not catalogued as committed revisions. Persisted resumable session state is app-private and excluded from Android cloud/device backup. SAF remains only as a bounded one-time legacy migration source until all retained H26-H28 history has copied successfully.
 
 No Firebase/Cloud Run/Functions hop, service account, client secret or refresh-token custody is part of this backup architecture.
 
 ## Current milestone boundary
-M5 and M6 are closed. M7/M8 behavior through H36c is digitally approved at CI #663, and the H28 SAF backup corrective is physically accepted there. H37 is a SOURCE PRE-GATE backup-transport migration and requires its own exact-source digital gate plus real OAuth/Drive acceptance before becoming a release authority. Existing recording alignment, real USB disconnect/reconnect/capture preservation, the continuous 10-minute quality smoke and H35 target-device synchronization/calibration behavior remain physical residuals. H33 controller hardware acceptance remains a separate 1.1 gate.
+
+U10/C8 is CLOSED / DIGITAL PASS on Android CI #781. U11 is active and promotes one exact `0.5.0-rc5` / versionCode `25` signed candidate after final software/API36/signing, real-cloud separation, backend/security and documentation-consistency gates pass on the same freeze SHA.
+
+Drive provider-real acceptance is already closed by U8m and remains supporting evidence because U10 did not alter the production Drive transport/store contract. U12 is the remaining consolidated physical boundary for real MK-300 routing/capture/isolation, monitoring, timing/listening, USB reconnect, continuous 10-minute quality and target-device ergonomics. External-controller physical acceptance remains a separate 1.1 boundary unless explicitly promoted as a release claim.
