@@ -236,12 +236,15 @@ internal class UnifiedDriveV3RemoteStore(
             }
 
             while (offset < totalBytes) {
+                val activeSession = requireNotNull(session) {
+                    "Drive resumable session disappeared during upload."
+                }
                 val length = minOf(CHUNK_BYTES.toLong(), totalBytes - offset).toInt()
                 val response = try {
-                    http.uploadChunk(session, file, offset, length, totalBytes)
+                    http.uploadChunk(activeSession, file, offset, length, totalBytes)
                 } catch (error: Throwable) {
                     if (error is CancellationException) throw error
-                    queryUploadStatus(session, totalBytes) ?: throw error
+                    queryUploadStatus(activeSession, totalBytes) ?: throw error
                 }
 
                 when (response.code) {
@@ -265,7 +268,7 @@ internal class UnifiedDriveV3RemoteStore(
                         break
                     }
                     401 -> {
-                        val recovered = queryUploadStatus(session, totalBytes)
+                        val recovered = queryUploadStatus(activeSession, totalBytes)
                             ?: throw DriveApiException(response.code, response.body)
                         when (recovered.code) {
                             200, 201 -> {
