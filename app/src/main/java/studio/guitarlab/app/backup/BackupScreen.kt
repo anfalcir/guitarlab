@@ -267,13 +267,15 @@ fun BackupScreenContent(
                                         Text("Manter versão local")
                                     }
                                 }
-                                Button(
-                                    onClick = { useCloudVersion = remote },
-                                    enabled = !state.busy,
-                                    modifier = Modifier.fillMaxWidth()
-                                        .testTag("conflict-use-cloud-${remote.remoteId}"),
-                                ) {
-                                    Text("Usar versão da nuvem")
+                                if (currentRemoteTips.size == 1) {
+                                    Button(
+                                        onClick = { useCloudVersion = remote },
+                                        enabled = !state.busy,
+                                        modifier = Modifier.fillMaxWidth()
+                                            .testTag("conflict-use-cloud-${remote.remoteId}"),
+                                    ) {
+                                        Text("Usar versão da nuvem")
+                                    }
                                 }
                                 OutlinedButton(
                                     onClick = { restoreVersion = remote },
