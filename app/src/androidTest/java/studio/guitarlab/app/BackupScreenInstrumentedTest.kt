@@ -163,6 +163,54 @@ class BackupScreenInstrumentedTest {
         assertEquals(remote, importedCopy)
     }
 
+    @Test fun ambiguousRemoteHeadsCannotSilentlyReplaceLocalProject() {
+        val project = ProjectFactory(
+            idGenerator = { "p" },
+            clock = { 10 },
+        ).create("Projeto", ProjectTemplate.BLANK)
+        val first = version("remote-a").copy(projectId = project.id)
+        val second = version("remote-b").copy(projectId = project.id)
+
+        compose.setContent {
+            GuitarLabTheme {
+                BackupScreenContent(
+                    state = configuredState(
+                        localProjects = listOf(project),
+                        versions = listOf(first, second),
+                        reconciliations = mapOf(project.id to DriveReconciliation.CONFLICT),
+                        remoteTips = mapOf(project.id to listOf(first, second)),
+                    ),
+                    projectId = project.id,
+                    onBack = {},
+                    onConnectDrive = {},
+                    onDisconnectDrive = {},
+                    onRefresh = {},
+                    onAutomaticEnabled = {},
+                    onCadence = {},
+                    onUnmeteredOnly = {},
+                    onChargingOnly = {},
+                    onRetentionDays = {},
+                    onMaximumVersions = {},
+                    onBackupAll = {},
+                    onBackupProject = {},
+                    onKeepLocal = { _, _ -> error("must stay unavailable") },
+                    onUseCloud = { error("must stay unavailable") },
+                    onRestoreVersion = {},
+                    onRestoreAll = {},
+                )
+            }
+        }
+
+        compose.onNode(hasScrollAction()).performScrollToNode(
+            hasTestTag("conflict-import-copy-remote-a"),
+        )
+        compose.onNodeWithTag("conflict-import-copy-remote-a").assertIsDisplayed()
+        compose.onNodeWithTag("conflict-import-copy-remote-b").assertIsDisplayed()
+        compose.onNodeWithTag("conflict-keep-local").assertDoesNotExist()
+        compose.onNodeWithTag("conflict-use-cloud-remote-a").assertDoesNotExist()
+        compose.onNodeWithTag("conflict-use-cloud-remote-b").assertDoesNotExist()
+    }
+
     private fun scrollToAndClick(tag: String) {
         compose.onNode(hasScrollAction()).performScrollToNode(hasTestTag(tag))
         compose.onNodeWithTag(tag).assertIsDisplayed().performClick()
