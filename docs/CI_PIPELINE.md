@@ -14,15 +14,22 @@ Authority layers:
 `.source-parts/` + `scripts/materialize_ci_sources.sh` are source-of-truth build inputs. Unexpected drift fails closed by exact SHA-256/Git blob checks.
 
 Canonical source tail continues through the historical H-series and unified
-U-series to **U8l**. The canonical entrypoint is
+U-series to **U8m**. The canonical entrypoint is
 `scripts/materialize_ci_sources.sh`, which currently delegates to
-`scripts/materialize_ci_sources_u8l.sh`; U8l invokes U8k and the complete
-preceding fail-closed chain. U8l's terminal eight production/test blobs are
-verified exactly after payload SHA-256 and decoded-patch SHA-256 checks;
-ready-state execution also performs a reverse apply check so a mismatched
-payload cannot be accepted. U8l is the exact source tail validated by Android
-CI #756 / run `35746523924` at source
-`2cacbfe4c95bfbee694e717468075b8eedc7f9c6`.
+`scripts/materialize_ci_sources_u8m.sh`; U8m invokes U8l and the complete
+preceding fail-closed chain. U8m verifies payload SHA-256
+`d1f18b0d4bfa3e994c87808293dbce101d54fd4aba3ab4ecd3a4e7f83c367a2d`, decoded
+patch SHA-256 `51a56dd12f73fe9686e9d41457bca366168a568c1ce7aa34ce8d845c5c9a52ab`,
+all seven terminal production/test Git blobs, apply/check/diff sanity and a
+reverse-apply ready-state check. Android CI #757 / run `35753982993` validated
+this exact tail at technical source `2375dcb72983376cb486eccf41faf1734633cc94` with the software and API36 gates
+fully green; signed homologation was intentionally skipped.
+
+U8m then completed the separate provider-real acceptance gate through the same
+production vNext Drive transport/store. Result: `U8m PASS · r_1790095960 · cleanup 8/8/14`; sanitized report
+SHA-256 `84efb70615be8ef5939da538eee5f714f7311aa6d44dd5bb2cdd0b5e9e66b702`. This provider gate authorizes closure of U8 but is not a
+signed release promotion. CI #669 remains the latest signed authority until the
+U11 candidate freeze.
 
 The previously accepted historical materializers remain preserved as evidence.
 For current builds, never infer the active source from an older H-series tail
