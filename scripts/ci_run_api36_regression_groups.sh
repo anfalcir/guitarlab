@@ -33,6 +33,7 @@ GROUP3_CLASSES=(
   StudioUiPreferencesStoreInstrumentedTest
 )
 GROUP4_CLASSES=(
+  ActivityNotificationDeepLinkInstrumentedTest
   AndroidMasterAudioEncoderInstrumentedTest
   BackupScreenInstrumentedTest
   ProjectExportMediaStoreInstrumentedTest
