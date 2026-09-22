@@ -7,6 +7,8 @@ Status: U8a CLOSED / DIGITAL PASS — Android CI run `35678941252`, exact source
 U8b status: CLOSED / DIGITAL PASS — Android CI #729 / run `35679878744`,
 exact source `b3ecd5f5269728e9e481156a187922c16b93c05b`
 
+U8c status: SOURCE / PRE-GATE
+
 ## Scope boundary
 
 U8 replaces the historical monolithic H37 backup protocol for projects created
@@ -69,3 +71,18 @@ The complete unit/Lint/build and API 36 gate passed on the exact materialized
 source. The existing H37 transport is not switched by this checkpoint. A Drive
 v3 adapter for this interface and durable transaction state remain subsequent
 U8 work.
+
+## U8c Drive v3 adapter
+
+U8c implements the concrete Drive API adapter without switching the user path:
+
+- app-owned v3 objects are isolated by `drive.file`, root folder and explicit
+  schema/kind properties;
+- content objects are discovered by SHA-256 rather than filename;
+- absent objects use resumable upload with 8 MiB chunks and server size/hash
+  verification;
+- manifests are immutable content objects with project/revision metadata;
+- heads are append-only metadata records and are idempotent by revision;
+- listing is paginated and malformed/incomplete records fail closed;
+- the adapter reuses the hardened OAuth/HTTP client while the H37 production
+  coordinator remains unchanged until the later cutover gate.
