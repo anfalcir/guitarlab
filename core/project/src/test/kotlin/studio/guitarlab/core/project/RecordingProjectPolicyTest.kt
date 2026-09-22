@@ -2,6 +2,7 @@ package studio.guitarlab.core.project
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
+import org.junit.Assert.assertNull
 import org.junit.Test
 import studio.guitarlab.core.model.AudioClip
 import studio.guitarlab.core.model.AudioTrack
@@ -135,4 +136,63 @@ class RecordingProjectPolicyTest {
         sourceFormat = "WAV",
         sourceTotalFrames = 1_000L,
     )
+}
+
+class RecordingSampleRatePolicyTest {
+    @Test fun `recording uses editing rate rather than original source provenance`() {
+        val base = GuitarProject(
+            id = "rate", name = "rate", template = ProjectTemplate.BLANK,
+            createdAtEpochMs = 1, updatedAtEpochMs = 1,
+            tracks = listOf(AudioTrack("t", "T", armed = true, order = 0)),
+            clips = listOf(
+                AudioClip("a", "t", "A", "a", 0, lengthFrames = 10, sourceSampleRateHz = 44_100, editingSampleRateHz = 48_000),
+                AudioClip("b", "t", "B", "b", 10, lengthFrames = 10, sourceSampleRateHz = 96_000, editingSampleRateHz = 48_000),
+            ),
+        )
+        assertEquals(48_000, RecordingSampleRatePolicy.resolve(base))
+        assertEquals(48_000, RecordingTargetPolicy.resolve(base).preferredSampleRateHz)
+    }
+
+    @Test fun `editing domain preserves 44_1 48 88_2 and 96 kHz exactly`() {
+        listOf(44_100, 48_000, 88_200, 96_000).forEach { rate ->
+            val project = GuitarProject(
+                id = "rate-$rate", name = "rate-$rate", template = ProjectTemplate.BLANK,
+                createdAtEpochMs = 1, updatedAtEpochMs = 1,
+                tracks = listOf(AudioTrack("t", "T", armed = true, order = 0)),
+                clips = listOf(
+                    AudioClip(
+                        id = "c-$rate", trackId = "t", name = "rate.wav", sourceUri = "rate",
+                        startFrame = 0, lengthFrames = 10, sourceSampleRateHz = rate,
+                        editingSampleRateHz = rate,
+                    ),
+                ),
+            )
+            assertEquals(rate, RecordingSampleRatePolicy.resolve(project))
+            assertEquals(rate, RecordingTargetPolicy.resolve(project).preferredSampleRateHz)
+        }
+    }
+
+    @Test fun `mixed editing rates fail closed instead of guessing a calibration rate`() {
+        val project = GuitarProject(
+            id = "mixed", name = "mixed", template = ProjectTemplate.BLANK,
+            createdAtEpochMs = 1, updatedAtEpochMs = 1,
+            tracks = listOf(AudioTrack("t", "T", armed = true, order = 0)),
+            clips = listOf(
+                AudioClip("a", "t", "A", "a", 0, lengthFrames = 10, sourceSampleRateHz = 44_100, editingSampleRateHz = 44_100),
+                AudioClip("b", "t", "B", "b", 10, lengthFrames = 10, sourceSampleRateHz = 48_000, editingSampleRateHz = 48_000),
+            ),
+        )
+        val failure = runCatching { RecordingSampleRatePolicy.resolve(project) }.exceptionOrNull()
+        assertTrue(failure?.message?.contains("taxas de edição diferentes") == true)
+    }
+
+    @Test fun `empty auto project may choose explicit calibration fallback without changing recording semantics`() {
+        val empty = GuitarProject(
+            id = "empty", name = "empty", template = ProjectTemplate.BLANK,
+            createdAtEpochMs = 1, updatedAtEpochMs = 1,
+            tracks = listOf(AudioTrack("t", "T", armed = true, order = 0)),
+        )
+        assertNull(RecordingSampleRatePolicy.resolve(empty))
+        assertEquals(48_000, RecordingSampleRatePolicy.resolve(empty, RecordingSampleRatePolicy.EMPTY_PROJECT_DEFAULT_HZ))
+    }
 }

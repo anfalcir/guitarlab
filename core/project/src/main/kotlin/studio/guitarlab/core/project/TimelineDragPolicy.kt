@@ -21,6 +21,38 @@ object TimelineDragPolicy {
 
     enum class EdgeDirection { NONE, UP, DOWN }
 
+    data class DropBounds(
+        val leftPx: Float,
+        val topPx: Float,
+        val rightPx: Float,
+        val bottomPx: Float,
+    ) {
+        init {
+            require(rightPx >= leftPx) { "drop right must be >= left" }
+            require(bottomPx >= topPx) { "drop bottom must be >= top" }
+        }
+
+        fun contains(xPx: Float, yPx: Float): Boolean = xPx in leftPx..rightPx && yPx in topPx..bottomPx
+    }
+
+    sealed interface ClipDropIntent {
+        data object NoOp : ClipDropIntent
+        data class Move(val targetTrackId: String) : ClipDropIntent
+        data object Delete : ClipDropIntent
+    }
+
+    fun clipDropIntent(
+        sourceTrackId: String,
+        targetTrackId: String?,
+        pointerXPx: Float,
+        pointerYPx: Float,
+        deleteBounds: DropBounds?,
+    ): ClipDropIntent {
+        if (deleteBounds?.contains(pointerXPx, pointerYPx) == true) return ClipDropIntent.Delete
+        if (targetTrackId == null || targetTrackId == sourceTrackId) return ClipDropIntent.NoOp
+        return ClipDropIntent.Move(targetTrackId)
+    }
+
     data class AutoScroll(
         val direction: EdgeDirection,
         /** Signed pixels per frame/tick. Negative = up, positive = down. */

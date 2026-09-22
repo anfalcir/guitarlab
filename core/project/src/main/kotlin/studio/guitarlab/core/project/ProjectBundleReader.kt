@@ -8,6 +8,7 @@ import java.util.Properties
 import java.util.UUID
 import java.util.zip.ZipInputStream
 import studio.guitarlab.core.model.GuitarProject
+import studio.guitarlab.core.model.CURRENT_PROJECT_SCHEMA_VERSION
 import studio.guitarlab.core.model.ProjectValidator
 
 /**
@@ -45,7 +46,7 @@ class ProjectBundleReader(
                 "Pacote GuitarLab inconsistente: o manifesto não corresponde ao projeto."
             }
             manifest.getProperty("projectSchema")?.toIntOrNull()?.let { schema ->
-                require(schema == sourceProject.schemaVersion) {
+                require(schema == sourceProject.schemaVersion || schema in 1 until CURRENT_PROJECT_SCHEMA_VERSION && sourceProject.schemaVersion == CURRENT_PROJECT_SCHEMA_VERSION) {
                     "Pacote GuitarLab inconsistente: schema do manifesto e project.json divergem."
                 }
             }
@@ -142,8 +143,7 @@ class ProjectBundleReader(
 
     private fun verifyReferencedMedia(project: GuitarProject, projectDirectory: File) {
         val root = projectDirectory.canonicalFile
-        project.clips
-            .flatMap { listOfNotNull(it.managedSourcePath, it.managedEditProxyPath) }
+        (project.clips.flatMap { listOfNotNull(it.managedSourcePath, it.managedEditProxyPath) } + project.assets.map { it.relativePath })
             .distinct()
             .forEach { relativePath ->
                 val media = File(root, relativePath).canonicalFile

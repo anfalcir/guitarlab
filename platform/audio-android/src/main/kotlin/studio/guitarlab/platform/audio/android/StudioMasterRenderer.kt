@@ -1,6 +1,7 @@
 package studio.guitarlab.platform.audio.android
 
 import java.io.File
+import java.util.concurrent.CancellationException
 import kotlin.math.min
 import studio.guitarlab.core.codec.FloatWavFileWriter
 
@@ -31,7 +32,7 @@ data class StudioMasterRenderRequest(
 
 /** Deterministic offline renderer. It shares the same gain/pan law as real-time playback. */
 object StudioMasterRenderer {
-    fun renderFloatWav(request: StudioMasterRenderRequest, output: File) {
+    fun renderFloatWav(request: StudioMasterRenderRequest, output: File, shouldCancel: () -> Boolean = { false }) {
         require(request.sampleRateHz > 0)
         require(request.projectEndFrame > 0)
         val trackMixById = request.trackMixes.associateBy { it.trackId }
@@ -45,6 +46,7 @@ object StudioMasterRenderer {
                 val mix = FloatArray(CHUNK_FRAMES * 2)
                 val trackBuffers = request.trackMixes.associate { it.trackId to FloatArray(CHUNK_FRAMES * 2) }
                 while (renderFrame < request.projectEndFrame) {
+                    if (shouldCancel()) throw CancellationException("Export cancelled")
                     val frames = min(CHUNK_FRAMES.toLong(), request.projectEndFrame - renderFrame).toInt()
                     val samples = frames * 2
                     java.util.Arrays.fill(mix, 0, samples, 0f)

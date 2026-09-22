@@ -6,12 +6,7 @@ object ProjectClipEditor {
     fun removeClip(project: GuitarProject, clipId: String, nowEpochMs: Long): GuitarProject {
         val removed = requireNotNull(project.clips.firstOrNull { it.id == clipId }) { "Clip '$clipId' not found." }
         val clips = project.clips.filterNot { it.id == clipId }
-        val takes = project.takes.filterNot { it.id == removed.takeId }.let { remaining ->
-            if (removed.takeId != null && project.takes.firstOrNull { it.id == removed.takeId }?.active == true) {
-                val fallback = remaining.filter { it.trackId == removed.trackId }.maxByOrNull { it.createdAtEpochMs }?.id
-                remaining.map { if (it.id == fallback) it.copy(active = true) else it }
-            } else remaining
-        }
+        val takes = reconcileTakeAfterClipDetachment(project, removed, clips)
         return project.copy(clips = clips, takes = takes, updatedAtEpochMs = nowEpochMs)
     }
 
@@ -37,9 +32,12 @@ object ProjectClipEditor {
         require(project.tracks.any { it.id == targetTrackId }) { "Target track '$targetTrackId' not found." }
         val target = project.clips.firstOrNull { it.id == clipId } ?: error("Clip '$clipId' not found.")
         if (target.trackId == targetTrackId) return project
+        val clips = project.clips.map { clip ->
+            if (clip.id == clipId) clip.copy(trackId = targetTrackId, takeId = null) else clip
+        }
         return project.copy(
-            clips = project.clips.map { clip -> if (clip.id == clipId) clip.copy(trackId = targetTrackId, takeId = null) else clip },
-            takes = project.takes.filterNot { it.id == target.takeId },
+            clips = clips,
+            takes = reconcileTakeAfterClipDetachment(project, target, clips),
             updatedAtEpochMs = nowEpochMs,
         )
     }
@@ -88,6 +86,43 @@ object ProjectClipEditor {
             clips = project.clips.flatMap { clip -> if (clip.id == clipId) listOf(left, right) else listOf(clip) },
             updatedAtEpochMs = nowEpochMs,
         )
+    }
+
+    /**
+     * Maintains RecordingTake lineage when one clip segment leaves a take, either by deletion or
+     * by being moved to another track. Split siblings keep the take alive and a deterministic
+     * surviving sibling becomes canonical when the previous canonical clip leaves.
+     */
+    private fun reconcileTakeAfterClipDetachment(
+        project: GuitarProject,
+        detached: studio.guitarlab.core.model.AudioClip,
+        remainingClips: List<studio.guitarlab.core.model.AudioClip>,
+    ): List<studio.guitarlab.core.model.RecordingTake> {
+        val takeId = detached.takeId ?: return project.takes
+        val take = project.takes.firstOrNull { it.id == takeId } ?: return project.takes
+        val siblings = remainingClips
+            .filter { it.takeId == takeId }
+            .sortedWith(compareBy({ it.startFrame }, { it.sourceStartFrame }, { it.id }))
+
+        if (siblings.isNotEmpty()) {
+            require(siblings.all { it.trackId == take.trackId }) {
+                "Split take lineage cannot span multiple tracks."
+            }
+            val canonical = siblings.firstOrNull { it.id == take.clipId } ?: siblings.first()
+            return project.takes.map { candidate ->
+                if (candidate.id == takeId) candidate.copy(clipId = canonical.id) else candidate
+            }
+        }
+
+        val withoutTake = project.takes.filterNot { it.id == takeId }
+        if (!take.active) return withoutTake
+        val fallbackId = withoutTake
+            .filter { it.trackId == take.trackId }
+            .maxWithOrNull(compareBy<studio.guitarlab.core.model.RecordingTake> { it.createdAtEpochMs }.thenBy { it.id })
+            ?.id
+        return withoutTake.map { candidate ->
+            if (candidate.trackId == take.trackId) candidate.copy(active = candidate.id == fallbackId) else candidate
+        }
     }
 
     fun setClipFades(

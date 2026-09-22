@@ -23,16 +23,10 @@ object RecordingTargetPolicy {
         require(armed.isNotEmpty()) { "Arme uma pista antes de gravar." }
         require(armed.size == 1) { "Arme somente uma pista por vez para a entrada global atual." }
 
-        val fixedRate = project.sampleRate.fixedHz
-        val sourceRates = project.clips.mapNotNull { it.sourceSampleRateHz }.distinct()
-        if (fixedRate == null) {
-            require(sourceRates.size <= 1) {
-                "O projeto contém taxas de amostragem diferentes; defina uma taxa única antes de gravar."
-            }
-        }
+        val preferredRate = RecordingSampleRatePolicy.resolve(project)
         return RecordingTarget(
             trackId = armed.single().id,
-            preferredSampleRateHz = fixedRate ?: sourceRates.singleOrNull(),
+            preferredSampleRateHz = preferredRate,
         )
     }
 }
@@ -46,6 +40,25 @@ data class RecordedTakeMetadata(
     val channelCount: Int,
     val framesCaptured: Long,
 )
+
+/** Single editing-domain sample-rate contract shared by recording and latency calibration. */
+object RecordingSampleRatePolicy {
+    const val EMPTY_PROJECT_DEFAULT_HZ = 48_000
+
+    fun resolve(project: GuitarProject, defaultWhenEmpty: Int? = null): Int? {
+        project.sampleRate.fixedHz?.let { fixed ->
+            require(fixed > 0) { "A taxa fixa do projeto é inválida." }
+            return fixed
+        }
+        val editingRates = project.clips
+            .mapNotNull { it.editingSampleRateHz ?: it.sourceSampleRateHz }
+            .distinct()
+        require(editingRates.size <= 1) {
+            "O projeto contém taxas de edição diferentes; defina uma taxa única antes de gravar ou calibrar."
+        }
+        return editingRates.singleOrNull() ?: defaultWhenEmpty
+    }
+}
 
 /**
  * Converts a finalized managed WAV take into project metadata without rewriting audio bytes.
@@ -74,10 +87,10 @@ object RecordedTakeProjectIntegrator {
                 "O take foi gravado em ${take.sampleRateHz} Hz, mas o projeto exige $fixed Hz."
             }
         }
-        val existingRates = project.clips.mapNotNull { it.sourceSampleRateHz }.distinct()
+        val existingRates = project.clips.mapNotNull { it.editingSampleRateHz ?: it.sourceSampleRateHz }.distinct()
         if (project.sampleRate.fixedHz == null && existingRates.isNotEmpty()) {
             require(existingRates.size == 1 && existingRates.single() == take.sampleRateHz) {
-                "O take não corresponde à taxa de amostragem usada pelos clipes do projeto."
+                "O take não corresponde à taxa de edição usada pelos clipes do projeto."
             }
         }
 

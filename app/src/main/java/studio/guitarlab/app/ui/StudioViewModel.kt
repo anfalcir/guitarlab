@@ -9,8 +9,10 @@ import java.io.File
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import java.util.UUID
+import kotlin.math.abs
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
@@ -21,10 +23,16 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import studio.guitarlab.app.backup.BackupScheduler
+import studio.guitarlab.core.audio.LatencyFineAdjustmentPolicy
 import studio.guitarlab.core.audio.MeterBallisticsPolicy
 import studio.guitarlab.core.audio.MeterBallisticsState
 import studio.guitarlab.core.audio.TrackMixPolicy
-import studio.guitarlab.core.audio.LatencyCompensationPolicy
+import studio.guitarlab.core.audio.RecordingTimingCompensationPolicy
+import studio.guitarlab.core.audio.RecordingSessionHealthRecord
+import studio.guitarlab.core.audio.RecordingTimingEvidenceBasis
+import studio.guitarlab.core.audio.AudioRouteSessionPolicy
+import studio.guitarlab.core.audio.AudioRouteSessionState
 import studio.guitarlab.core.codec.AudioImportFormat
 import studio.guitarlab.core.codec.AudioImportFormatPolicy
 import studio.guitarlab.core.codec.FileSeekableByteSource
@@ -45,10 +53,15 @@ import studio.guitarlab.core.project.ProjectClipEditor
 import studio.guitarlab.core.project.ProjectTrackEditor
 import studio.guitarlab.core.project.ProjectHistory
 import studio.guitarlab.core.project.ProjectManagedMediaStore
+import studio.guitarlab.core.project.PreparedReferenceBindingPolicy
 import studio.guitarlab.core.project.ProjectRecordingMediaStore
 import studio.guitarlab.core.project.RecordingMediaTransaction
+import studio.guitarlab.core.project.RecordingRecoveryCandidate
+import studio.guitarlab.core.project.RecordingRecoveryPolicy
+import studio.guitarlab.core.project.RecordingRecoveryPublicationDecision
 import studio.guitarlab.core.project.RecordedTakeMetadata
 import studio.guitarlab.core.project.RecordedTakeProjectIntegrator
+import studio.guitarlab.core.project.RecordingSampleRatePolicy
 import studio.guitarlab.core.project.RecordingSessionPhase
 import studio.guitarlab.core.project.RecordingSessionPolicy
 import studio.guitarlab.core.project.RecordingSessionState
@@ -64,6 +77,7 @@ import studio.guitarlab.core.project.WaveformCacheStore
 import studio.guitarlab.core.project.ActiveTakePolicy
 import studio.guitarlab.core.project.GuitarAuditionMode
 import studio.guitarlab.core.project.LiveWaveformAccumulator
+import studio.guitarlab.core.project.LiveWaveformPoint
 import studio.guitarlab.core.project.LevelAnalysis
 import studio.guitarlab.core.project.PracticeRecordingMode
 import studio.guitarlab.core.project.PracticeRecordingStartPlan
@@ -74,6 +88,9 @@ import studio.guitarlab.core.project.PunchRecordingPolicy
 import studio.guitarlab.core.project.SectionBoundaryAnalyzer
 import studio.guitarlab.core.project.SectionBoundarySuggestion
 import studio.guitarlab.core.project.TrackLevelAccumulator
+import studio.guitarlab.core.project.TrackLevelAdvisor
+import studio.guitarlab.core.project.TrackRoleAssignmentPolicy
+import studio.guitarlab.core.project.TakeManagementPolicy
 import studio.guitarlab.platform.audio.android.AndroidStudioPlaybackEngine
 import studio.guitarlab.platform.audio.android.AndroidStudioRecordingEngine
 import studio.guitarlab.platform.audio.android.StudioRecordingConfig
@@ -83,12 +100,23 @@ import studio.guitarlab.platform.audio.android.StudioRecordingResult
 import studio.guitarlab.platform.audio.android.StudioPlaybackClip
 import studio.guitarlab.platform.audio.android.StudioPlaybackListener
 import studio.guitarlab.platform.audio.android.StudioPlaybackMeter
+import studio.guitarlab.platform.audio.android.StudioPlaybackStartInfo
 import studio.guitarlab.platform.audio.android.StudioPlaybackRequest
 import studio.guitarlab.platform.audio.android.StudioPlaybackRoutingStatus
 import studio.guitarlab.platform.audio.android.StudioPlaybackTrackMeter
 import studio.guitarlab.platform.audio.android.StudioPlaybackTrackMix
 import studio.guitarlab.platform.codec.android.AndroidAudioImportTranscoder
-import studio.guitarlab.platform.codec.android.MasterExportFormat
+
+data class StudioRecoveryItem(
+    val transactionId: String,
+    val trackName: String?,
+    val approximateDurationSeconds: Double?,
+    val createdAtEpochMs: Long?,
+    val safePlayable: Boolean,
+    val recoverable: Boolean,
+    val finalizedUnpublished: Boolean,
+    val diagnosticReason: String? = null,
+)
 
 data class StereoImportPrompt(
     val clipId: String,
@@ -102,7 +130,6 @@ data class StereoImportPrompt(
 data class StudioUiState(
     val loading: Boolean = true,
     val importing: Boolean = false,
-    val exporting: Boolean = false,
     val editingClip: Boolean = false,
     val historyBusy: Boolean = false,
     val project: GuitarProject? = null,
@@ -113,13 +140,15 @@ data class StudioUiState(
     val transport: TransportState = TransportState(),
     val transportEngineReady: Boolean = false,
     val recordingSession: RecordingSessionState = RecordingSessionState(),
+    val loopRecordingChoiceVisible: Boolean = false,
     val recordingConfig: StudioRecordingConfig? = null,
     val recordingPeak: Float = 0f,
     val recordingRms: Float = 0f,
-    val liveRecordingPeaks: List<Float> = emptyList(),
+    val liveRecordingWaveform: List<LiveWaveformPoint> = emptyList(),
     val guitarAuditionMode: GuitarAuditionMode = GuitarAuditionMode.MIXER,
     val sectionSuggestions: List<SectionBoundarySuggestion> = emptyList(),
     val trackLevelAnalysis: Map<String, LevelAnalysis> = emptyMap(),
+    val trackLevelAnalysisBusy: Set<String> = emptySet(),
     val masterGainDb: Float = 0f,
     val masterMeter: MeterBallisticsState = MeterBallisticsState(),
     val trackMeters: Map<String, MeterBallisticsState> = emptyMap(),
@@ -127,11 +156,15 @@ data class StudioUiState(
     val trackClipLatched: Set<String> = emptySet(),
     val canUndo: Boolean = false,
     val canRedo: Boolean = false,
+    val recoveryBusy: Boolean = false,
+    val recoveryItems: List<StudioRecoveryItem> = emptyList(),
     val error: String? = null,
     val importStatus: String? = null,
     val stereoImportPrompt: StereoImportPrompt? = null,
-    val exportStatus: String? = null,
+    val newTrackRolePromptId: String? = null,
     val clipStatus: String? = null,
+    val transientNotice: String? = null,
+    val preparedReferenceUpdateAvailable: Boolean = false,
 )
 
 private data class ImportOutcome(
@@ -140,6 +173,20 @@ private data class ImportOutcome(
     val sampleRateHz: Int,
     val peaks: List<Float>,
     val channelPeaks: List<List<Float>>,
+)
+
+private data class StudioLoadOutcome(
+    val project: GuitarProject,
+    val waveforms: Map<String, List<Float>>,
+    val waveformChannels: Map<String, List<List<Float>>>,
+    val recoveryCandidates: List<RecordingRecoveryCandidate>,
+)
+
+private data class RecordingProgressUpdate(
+    val generation: Long,
+    val framesCaptured: Long,
+    val peak: Float,
+    val rms: Float,
 )
 
 private data class TrackMixDraft(val gainDb: Float, val pan: Float)
@@ -152,33 +199,105 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
     private val waveformCache = WaveformCacheStore(rootDirectory)
     private val audioRoutingStore = StudioAudioRoutingStore(application)
     private val latencyCalibrationStore = StudioLatencyCalibrationStore(application)
-    private val exportService = ProjectExportService(application)
-    private var activeRecordingCompensationFrames: Long = 0L
+    private val recordingSessionHealthStore = RecordingSessionHealthStore(application)
+    private var activeRecordingRouteLatencyFrames: Long = 0L
+    private var activeRecordingFineAdjustmentFrames: Long = 0L
+    @Volatile private var activeRecordingClockOffsetFrames: Long = 0L
+    private var activeRecordingCaptureStartNs: Long = 0L
+    private var activeRecordingCaptureTimestampBased: Boolean = false
+    private var activeRecordingCaptureAnchorJitterNs: Long? = null
+    private var activeRecordingCaptureAnchorObservations: Int? = null
+    private var activeRecordingBackingAnchorJitterNs: Long? = null
+    private var activeRecordingBackingAnchorObservations: Int? = null
+    private var activeRecordingTimingBasis: RecordingTimingEvidenceBasis = RecordingTimingEvidenceBasis.NO_BACKING_REFERENCE
+    private var activeRecordingSelectedInputIdentity: String? = null
+    private var activeRecordingEffectiveInputIdentity: String? = null
+    private var activeRecordingSelectedOutputIdentity: String? = null
+    private var activeRecordingEffectiveOutputIdentity: String? = null
+    private var activeRecordingOutputFallback: Boolean = false
+    private var activeRecordingRouteChanged: Boolean = false
+    private var activeRecordingOutputUnderruns: Int? = null
+    private var activePunchRegion: studio.guitarlab.core.model.PunchRegion? = null
     private var pendingRecordingPlan: PracticeRecordingStartPlan? = null
     private var activePunchPlan: PunchCapturePlan? = null
     private val liveWaveform = LiveWaveformAccumulator()
+    private val recordingProgressChannel = Channel<RecordingProgressUpdate>(Channel.CONFLATED)
+    @Volatile private var recordingProgressGeneration: Long = 0L
     private var playbackSessionId = 0L
     private val playbackEngine = AndroidStudioPlaybackEngine()
     private val recordingEngine = AndroidStudioRecordingEngine(application)
     private var recordingTransaction: RecordingMediaTransaction? = null
+    private val recoveryCandidatesById = linkedMapOf<String, RecordingRecoveryCandidate>()
+    private var activeRecordingRouteState: AudioRouteSessionState? = null
+    private var activePlaybackRouteState: AudioRouteSessionState? = null
     private var countdownJob: Job? = null
     private val projectSaveMutex = Mutex()
+    @Volatile private var projectSessionGeneration: Long = 0L
     private val projectHistory = ProjectHistory()
     private val trackMixDrafts = mutableMapOf<String, TrackMixDraft>()
     private val _state = MutableStateFlow(StudioUiState())
+    private var lastTransientWarning: String? = null
+    private var lastTransientWarningAtMs: Long = 0L
+
+    init {
+        viewModelScope.launch {
+            for (progress in recordingProgressChannel) {
+                if (progress.generation != recordingProgressGeneration) continue
+                val state = _state.value
+                if (state.recordingSession.phase != RecordingSessionPhase.CAPTURING) continue
+                val targetId = state.recordingSession.targetTrackId
+                val nowMs = System.currentTimeMillis()
+                val recordingTrackMeters = RecordingTrackMeterPolicy.update(
+                    previous = state.trackMeters,
+                    targetTrackId = targetId,
+                    rawPeak = progress.peak,
+                    rawRms = progress.rms,
+                    nowMs = nowMs,
+                )
+                _state.value = state.copy(
+                    recordingSession = RecordingSessionPolicy.updateCapturedFrames(state.recordingSession, progress.framesCaptured),
+                    recordingPeak = progress.peak,
+                    recordingRms = progress.rms,
+                    liveRecordingWaveform = liveWaveform.snapshot(),
+                    trackMeters = recordingTrackMeters,
+                    trackClipLatched = if (progress.peak > 1f && targetId != null) state.trackClipLatched + targetId else state.trackClipLatched,
+                )
+                activePunchPlan?.let { plan ->
+                    if (progress.framesCaptured >= plan.automaticStopAfterFrames &&
+                        _state.value.recordingSession.phase == RecordingSessionPhase.CAPTURING
+                    ) stopRecording()
+                }
+                delay(LIVE_WAVEFORM_UI_INTERVAL_MS)
+            }
+        }
+    }
     val state: StateFlow<StudioUiState> = _state.asStateFlow()
 
     fun load(projectId: String) {
         val before = _state.value
-        if (before.project?.id == projectId && !before.loading && before.recordingSession.phase == RecordingSessionPhase.IDLE) {
-            stopPlaybackSession()
-            _state.value = before.copy(transport = before.transport.copy(mode = TransportMode.STOPPED))
+        if (before.project?.id == projectId && !before.loading) {
+            when (before.recordingSession.phase) {
+                RecordingSessionPhase.CAPTURING -> stopRecording()
+                RecordingSessionPhase.COUNTDOWN -> cancelRecordingCountdown()
+                RecordingSessionPhase.FINALIZING -> stopPlaybackSession()
+                RecordingSessionPhase.IDLE -> {
+                    stopPlaybackSession()
+                    if (before.transport.mode != TransportMode.STOPPED) {
+                        _state.value = before.copy(transport = before.transport.copy(mode = TransportMode.STOPPED))
+                    }
+                }
+            }
+            // The Activity-scoped StudioViewModel already owns the exact same project. Returning
+            // from Home/Options must not clear history/waveforms and briefly publish loading=true;
+            // doing so caused the visible double-render flash reported during physical review.
+            return
         } else if (before.recordingSession.phase == RecordingSessionPhase.CAPTURING) {
             stopRecording()
             return
         } else if (before.recordingSession.phase == RecordingSessionPhase.COUNTDOWN) {
             cancelRecordingCountdown()
         }
+        val sessionGeneration = ++projectSessionGeneration
         stopPlaybackSession()
         projectHistory.clear()
         trackMixDrafts.clear()
@@ -186,11 +305,28 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
             _state.value = StudioUiState(loading = true)
             runCatching {
                 withContext(Dispatchers.IO) {
-                    val project = repository.load(projectId) ?: error("Projeto não encontrado: $projectId")
-                    Triple(project, loadWaveforms(project), loadWaveformChannels(project))
+                    var project = repository.load(projectId) ?: error("Projeto não encontrado: $projectId")
+                    recordingMediaStore.cleanupInterrupted(projectId)
+                    val candidates = recordingMediaStore.recoveryCandidates(projectId)
+                    candidates.forEach { candidate ->
+                        if (RecordingRecoveryPolicy.publicationDecision(project, candidate) == RecordingRecoveryPublicationDecision.ALREADY_PUBLISHED) {
+                            runCatching { recordingMediaStore.markPublished(projectId, candidate.transactionId) }
+                        }
+                    }
+                    val pending = candidates.filter {
+                        RecordingRecoveryPolicy.publicationDecision(project, it) != RecordingRecoveryPublicationDecision.ALREADY_PUBLISHED
+                    }
+                    StudioLoadOutcome(project, loadWaveforms(project), loadWaveformChannels(project), pending)
                 }
-            }.onSuccess { (project, waveforms, waveformChannels) ->
+            }.onSuccess { outcome ->
+                val project = outcome.project
+                val waveforms = outcome.waveforms
+                val waveformChannels = outcome.waveformChannels
+                if (sessionGeneration != projectSessionGeneration) return@onSuccess
                 project.tracks.forEach { trackMixDrafts[it.id] = TrackMixDraft(it.gainDb, it.pan) }
+                recoveryCandidatesById.clear()
+                outcome.recoveryCandidates.forEach { recoveryCandidatesById[it.transactionId] = it }
+                val recoveryItems = recoveryItems(project, outcome.recoveryCandidates)
                 val end = TimelineControlPolicy.projectEndFrame(project)
                 _state.value = StudioUiState(
                     loading = false,
@@ -200,9 +336,71 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                     timelineControls = TimelineControlPolicy.normalizedForProject(TimelineControlState(), end),
                     transportEngineReady = playbackReadiness(project).ready,
                     masterGainDb = project.masterGainDb,
+                    recoveryItems = recoveryItems,
+                    preparedReferenceUpdateAvailable = PreparedReferenceBindingPolicy.updateAvailable(project),
                 )
             }.onFailure { error ->
+                if (sessionGeneration != projectSessionGeneration) return@onFailure
                 _state.value = StudioUiState(loading = false, error = error.message ?: "Não foi possível abrir o projeto.")
+            }
+        }
+    }
+
+    fun applyPreparedReferenceUpdate() {
+        val currentState = _state.value
+        val project = currentState.project ?: return
+        if (!PreparedReferenceBindingPolicy.bindingDiffersFromDesired(project) || !structuralEditingAllowed(currentState)) return
+        viewModelScope.launch {
+            _state.value = _state.value.copy(historyBusy = true, error = null)
+            runCatching {
+                val saved = saveLatest(project.id) { latest ->
+                    PreparedReferenceBindingPolicy.applyUpdate(latest, System.currentTimeMillis())
+                }
+                withContext(Dispatchers.IO) { Triple(saved, loadWaveforms(saved), loadWaveformChannels(saved)) }
+            }.onSuccess { (saved, waveforms, channels) ->
+                val state = _state.value
+                if (state.project?.id != saved.id) return@onSuccess
+                val end = TimelineControlPolicy.projectEndFrame(saved)
+                _state.value = state.copy(
+                    historyBusy = false, project = saved, waveforms = waveforms, waveformChannels = channels,
+                    timelineControls = TimelineControlPolicy.normalizedForProject(state.timelineControls, end),
+                    transportEngineReady = playbackReadiness(saved).ready,
+                    preparedReferenceUpdateAvailable = PreparedReferenceBindingPolicy.updateAvailable(saved),
+                    canUndo = projectHistory.canUndo, canRedo = projectHistory.canRedo,
+                    clipStatus = "Referências do Studio atualizadas", error = null,
+                )
+            }.onFailure { error ->
+                _state.value = _state.value.copy(historyBusy = false, error = error.message ?: "Não foi possível atualizar as referências do Studio.")
+            }
+        }
+    }
+
+    fun keepCurrentPreparedReferences() {
+        val currentState = _state.value
+        val project = currentState.project ?: return
+        if (!currentState.preparedReferenceUpdateAvailable || !structuralEditingAllowed(currentState)) return
+        viewModelScope.launch {
+            _state.value = _state.value.copy(historyBusy = true, error = null)
+            runCatching {
+                saveLatest(project.id) { latest ->
+                    PreparedReferenceBindingPolicy.acknowledgeCurrent(latest, System.currentTimeMillis())
+                }
+            }.onSuccess { saved ->
+                val state = _state.value
+                if (state.project?.id != saved.id) return@onSuccess
+                _state.value = state.copy(
+                    historyBusy = false,
+                    project = saved,
+                    preparedReferenceUpdateAvailable = PreparedReferenceBindingPolicy.updateAvailable(saved),
+                    canUndo = projectHistory.canUndo,
+                    canRedo = projectHistory.canRedo,
+                    transientNotice = "A versão atual do Studio foi mantida.",
+                )
+            }.onFailure { error ->
+                _state.value = _state.value.copy(
+                    historyBusy = false,
+                    error = error.message ?: "Não foi possível manter a referência atual.",
+                )
             }
         }
     }
@@ -210,7 +408,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
     fun importAudio(trackId: String, uri: Uri) {
         val currentState = _state.value
         val current = currentState.project ?: return
-        if (!TransportPolicy.timelineEditingEnabled(currentState.transport) || currentState.trimControls != null || currentState.historyBusy || currentState.exporting) return
+        if (!TransportPolicy.timelineEditingEnabled(currentState.transport) || currentState.trimControls != null || currentState.historyBusy) return
         if (current.tracks.none { it.id == trackId }) {
             _state.value = currentState.copy(error = "A pista selecionada não existe mais.")
             return
@@ -324,6 +522,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                     timelineControls = TimelineControlPolicy.normalizedForProject(previous.timelineControls, endFrame),
                     transportEngineReady = playbackReadiness(saved).ready,
                     masterGainDb = saved.masterGainDb,
+                    trackLevelAnalysis = emptyMap(),
                     canUndo = projectHistory.canUndo,
                     canRedo = projectHistory.canRedo,
                     importStatus = if (imported.sourceSampleRateHz != imported.editingSampleRateHz) "${imported.sourceFormat} importado • ${outcome.channelCount} canal(is) • ${imported.sourceSampleRateHz} → ${imported.editingSampleRateHz} Hz" else "${imported.sourceFormat} importado • ${outcome.channelCount} canal(is) • ${outcome.sampleRateHz} Hz",
@@ -437,6 +636,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                     waveformChannels = waveformChannels,
                     timelineControls = TimelineControlPolicy.normalizedForProject(_state.value.timelineControls, end),
                     transportEngineReady = playbackReadiness(saved).ready,
+                    trackLevelAnalysis = emptyMap(),
                     canUndo = projectHistory.canUndo,
                     canRedo = projectHistory.canRedo,
                     importStatus = "Estéreo separado em L/R mono com sincronismo preservado",
@@ -482,9 +682,25 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
 
     fun beginTrim(clipId: String) {
         val current = _state.value
-        val project = current.project ?: return
-        if (current.importing || current.editingClip || current.historyBusy || !TransportPolicy.timelineEditingEnabled(current.transport)) return
-        val clip = project.clips.firstOrNull { it.id == clipId } ?: return
+        val project = current.project ?: run {
+            _state.value = current.copy(error = "O projeto ainda não está disponível para corte.")
+            return
+        }
+        val blockedReason = when {
+            current.importing -> "Aguarde a importação terminar antes de cortar."
+            current.editingClip -> "Aguarde a edição atual terminar antes de cortar."
+            current.historyBusy -> "Aguarde Desfazer/Refazer terminar antes de cortar."
+            !TransportPolicy.timelineEditingEnabled(current.transport) -> "Pare a reprodução antes de cortar."
+            else -> null
+        }
+        if (blockedReason != null) {
+            _state.value = current.copy(error = blockedReason)
+            return
+        }
+        val clip = project.clips.firstOrNull { it.id == clipId } ?: run {
+            _state.value = current.copy(error = "O clipe selecionado não existe mais.")
+            return
+        }
         _state.value = current.copy(trimControls = TrimControlPolicy.fromClip(clip), clipStatus = "Modo de corte ativo", error = null)
     }
 
@@ -535,6 +751,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                     trimControls = null,
                     timelineControls = TimelineControlPolicy.normalizedForProject(_state.value.timelineControls, end),
                     transportEngineReady = playbackReadiness(saved).ready,
+                    trackLevelAnalysis = emptyMap(),
                     canUndo = projectHistory.canUndo,
                     canRedo = projectHistory.canRedo,
                     clipStatus = "Corte aplicado",
@@ -573,12 +790,17 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
         val currentState = _state.value
         val currentProject = currentState.project ?: return
         if (!structuralEditingAllowed(currentState) || !projectHistory.canUndo) return
+        val sessionGeneration = projectSessionGeneration
         val target = projectHistory.undo(currentProject) ?: return
         _state.value = currentState.copy(historyBusy = true, error = null)
         viewModelScope.launch {
             runCatching { persistHistorySnapshot(target) }
-                .onSuccess { (saved, waveforms) -> applyHistorySnapshot(saved, waveforms, "Alteração desfeita") }
+                .onSuccess { (saved, waveforms) ->
+                    if (sessionGeneration != projectSessionGeneration || _state.value.project?.id != currentProject.id) return@onSuccess
+                    applyHistorySnapshot(saved, waveforms, "Alteração desfeita")
+                }
                 .onFailure { error ->
+                    if (sessionGeneration != projectSessionGeneration || _state.value.project?.id != currentProject.id) return@onFailure
                     projectHistory.redo(target)
                     _state.value = _state.value.copy(
                         historyBusy = false,
@@ -594,12 +816,17 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
         val currentState = _state.value
         val currentProject = currentState.project ?: return
         if (!structuralEditingAllowed(currentState) || !projectHistory.canRedo) return
+        val sessionGeneration = projectSessionGeneration
         val target = projectHistory.redo(currentProject) ?: return
         _state.value = currentState.copy(historyBusy = true, error = null)
         viewModelScope.launch {
             runCatching { persistHistorySnapshot(target) }
-                .onSuccess { (saved, waveforms) -> applyHistorySnapshot(saved, waveforms, "Alteração refeita") }
+                .onSuccess { (saved, waveforms) ->
+                    if (sessionGeneration != projectSessionGeneration || _state.value.project?.id != currentProject.id) return@onSuccess
+                    applyHistorySnapshot(saved, waveforms, "Alteração refeita")
+                }
                 .onFailure { error ->
+                    if (sessionGeneration != projectSessionGeneration || _state.value.project?.id != currentProject.id) return@onFailure
                     projectHistory.undo(target)
                     _state.value = _state.value.copy(
                         historyBusy = false,
@@ -613,6 +840,18 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
 
     fun togglePlayStop() {
         val current = _state.value
+        when (current.recordingSession.phase) {
+            RecordingSessionPhase.COUNTDOWN -> {
+                cancelRecordingCountdown()
+                return
+            }
+            RecordingSessionPhase.CAPTURING -> {
+                stopRecording()
+                return
+            }
+            RecordingSessionPhase.FINALIZING -> return
+            RecordingSessionPhase.IDLE -> Unit
+        }
         if (current.historyBusy) return
         when (current.transport.mode) {
             TransportMode.PLAYING -> {
@@ -630,8 +869,29 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-    fun startRecording(mode: PracticeRecordingMode = PracticeRecordingMode.CURRENT_PLAYHEAD) {
+    fun showLoopRecordingChoice() {
         val current = _state.value
+        if (current.project == null ||
+            current.recordingSession.phase != RecordingSessionPhase.IDLE ||
+            !current.transport.loopEnabled
+        ) return
+        if (!current.loopRecordingChoiceVisible) {
+            _state.value = current.copy(loopRecordingChoiceVisible = true)
+        }
+    }
+
+    fun dismissLoopRecordingChoice() {
+        val current = _state.value
+        if (current.loopRecordingChoiceVisible) {
+            _state.value = current.copy(loopRecordingChoiceVisible = false)
+        }
+    }
+
+    fun startRecording(mode: PracticeRecordingMode = PracticeRecordingMode.CURRENT_PLAYHEAD) {
+        val snapshot = _state.value
+        val current = if (snapshot.loopRecordingChoiceVisible) {
+            snapshot.copy(loopRecordingChoiceVisible = false).also { _state.value = it }
+        } else snapshot
         when (current.recordingSession.phase) {
             RecordingSessionPhase.COUNTDOWN -> cancelRecordingCountdown()
             RecordingSessionPhase.CAPTURING -> stopRecording()
@@ -695,7 +955,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
             trackClipLatched = emptySet(),
             recordingPeak = 0f,
             recordingRms = 0f,
-            liveRecordingPeaks = emptyList(),
+            liveRecordingWaveform = emptyList(),
             error = null,
             clipStatus = "Gravação inicia em ${session.countdownSecondsRemaining}",
         )
@@ -751,12 +1011,22 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
         }
         val transaction = runCatching {
             recordingMediaStore.cleanupInterrupted(project.id)
-            recordingMediaStore.begin(project.id, "take-${System.currentTimeMillis()}.wav")
+            recordingMediaStore.begin(
+                projectId = project.id,
+                suggestedName = "take-${System.currentTimeMillis()}.wav",
+                targetTrackId = session.targetTrackId,
+                requestedTimelineStartFrame = session.timelineStartFrame,
+            )
         }.getOrElse { error ->
             resetRecording(error.message ?: "Não foi possível abrir a transação da gravação.")
             return
         }
         recordingTransaction = transaction
+        activeRecordingRouteState = AudioRouteSessionPolicy.starting(
+            selectedInputIdentity = audioRoutingStore.selectedInputDiagnosticIdentity(),
+            selectedOutputIdentity = audioRoutingStore.selectedOutputDiagnosticIdentity(),
+        )
+        recordingProgressGeneration += 1L
         liveWaveform.clear()
         val request = StudioRecordingRequest(
             temporaryFile = transaction.temporaryFile,
@@ -783,6 +1053,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
             clipStatus = "Finalizando take…",
         )
         stopPlaybackSession()
+        activeRecordingRouteState = activeRecordingRouteState?.let(AudioRouteSessionPolicy::stopped)
         recordingEngine.stop()
     }
 
@@ -790,39 +1061,74 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
         override fun onStarted(config: StudioRecordingConfig) = viewModelScope.launch {
             val state = _state.value
             if (!state.recordingSession.readyToOpenCapture) return@launch
-            activeRecordingCompensationFrames = latencyCalibrationStore.find(
-                inputSignature = audioRoutingStore.selectedInputSignature(),
-                outputSignature = audioRoutingStore.selectedOutputSignature(),
+            val inputSignature = audioRoutingStore.selectedInputSignature()
+            val outputSignature = audioRoutingStore.selectedOutputSignature()
+            activeRecordingSelectedInputIdentity = audioRoutingStore.selectedInputDiagnosticIdentity()
+            activeRecordingSelectedOutputIdentity = audioRoutingStore.selectedOutputDiagnosticIdentity()
+            activeRecordingEffectiveInputIdentity = config.routedInputLabel
+            activeRecordingEffectiveOutputIdentity = null
+            activeRecordingRouteState = AudioRouteSessionPolicy.confirmed(
+                activeRecordingRouteState ?: AudioRouteSessionPolicy.starting(activeRecordingSelectedInputIdentity, activeRecordingSelectedOutputIdentity),
+                effectiveInputIdentity = config.routedInputLabel,
+                effectiveOutputIdentity = null,
+            )
+            activeRecordingCaptureAnchorJitterNs = config.captureAnchorJitterNs
+            activeRecordingCaptureAnchorObservations = config.captureAnchorObservations
+            activeRecordingBackingAnchorJitterNs = null
+            activeRecordingBackingAnchorObservations = null
+            activeRecordingTimingBasis = RecordingTimingEvidenceBasis.NO_BACKING_REFERENCE
+            activeRecordingOutputFallback = false
+            activeRecordingRouteChanged = false
+            activeRecordingOutputUnderruns = null
+            activeRecordingRouteLatencyFrames = latencyCalibrationStore.find(
+                inputSignature = inputSignature,
+                outputSignature = outputSignature,
                 sampleRateHz = config.sampleRateHz,
             )?.takeIf { it.accepted }?.latencyFrames ?: 0L
+            activeRecordingFineAdjustmentFrames = latencyCalibrationStore.fineAdjustmentFrames(
+                inputSignature = inputSignature,
+                outputSignature = outputSignature,
+                sampleRateHz = config.sampleRateHz,
+            )
+            activeRecordingCaptureStartNs = config.captureStartMonotonicNs
+            activeRecordingCaptureTimestampBased = config.captureTimestampBased
+            activeRecordingClockOffsetFrames = 0L
             val launchPlan = pendingRecordingPlan
-            activePunchPlan = launchPlan?.punchRegion?.let { PunchRecordingPolicy.plan(it, activeRecordingCompensationFrames) }
+            activePunchRegion = launchPlan?.punchRegion
+            val initialTailCompensation = (activeRecordingRouteLatencyFrames + activeRecordingFineAdjustmentFrames).coerceAtLeast(0L)
+            activePunchPlan = activePunchRegion?.let { PunchRecordingPolicy.plan(it, initialTailCompensation) }
             pendingRecordingPlan = null
+            val targetId = state.recordingSession.targetTrackId
             _state.value = state.copy(
                 recordingSession = RecordingSessionPolicy.markCaptureStarted(state.recordingSession),
                 recordingConfig = config,
                 transport = TransportPolicy.startRecording(state.transport),
-                liveRecordingPeaks = emptyList(),
-                clipStatus = "Gravando • ${config.routedInputLabel ?: "entrada automática"} • ${config.sampleRateHz} Hz • ${config.channelCount} canal(is)",
+                recordingPeak = 0f,
+                recordingRms = 0f,
+                liveRecordingWaveform = emptyList(),
+                trackMeters = if (targetId != null) mapOf(targetId to MeterBallisticsState()) else emptyMap(),
+                masterMeter = MeterBallisticsPolicy.reset(),
+                clipStatus = "Gravando • ${friendlySelectedInputLabel()} • ${config.sampleRateHz} Hz • ${config.channelCount} canal(is)",
             )
-            startBackingPlaybackForRecording(config.sampleRateHz)
-        }.let { Unit }
-
-        override fun onProgress(framesCaptured: Long, peak: Float, rms: Float) = viewModelScope.launch {
-            val state = _state.value
-            if (state.recordingSession.phase != RecordingSessionPhase.CAPTURING) return@launch
-            val targetId = state.recordingSession.targetTrackId
-            _state.value = state.copy(
-                recordingSession = RecordingSessionPolicy.updateCapturedFrames(state.recordingSession, framesCaptured),
-                recordingPeak = peak,
-                recordingRms = rms,
-                liveRecordingPeaks = liveWaveform.append(peak),
-                trackClipLatched = if (peak > 1f && targetId != null) state.trackClipLatched + targetId else state.trackClipLatched,
-            )
-            activePunchPlan?.let { plan ->
-                if (framesCaptured >= plan.automaticStopAfterFrames && _state.value.recordingSession.phase == RecordingSessionPhase.CAPTURING) stopRecording()
+            if (!startBackingPlaybackForRecording(config.sampleRateHz)) {
+                activeRecordingRouteLatencyFrames = 0L
+                activeRecordingFineAdjustmentFrames = 0L
+                activeRecordingClockOffsetFrames = 0L
+                activePunchPlan = activePunchRegion?.let { PunchRecordingPolicy.plan(it, 0L) }
             }
         }.let { Unit }
+
+        override fun onProgress(framesCaptured: Long, peak: Float, rms: Float) {
+            liveWaveform.append(framesCaptured, peak)
+            recordingProgressChannel.trySend(
+                RecordingProgressUpdate(
+                    generation = recordingProgressGeneration,
+                    framesCaptured = framesCaptured,
+                    peak = peak,
+                    rms = rms,
+                )
+            )
+        }
 
         override fun onStopped(result: StudioRecordingResult) {
             finalizeRecording(result)
@@ -835,33 +1141,81 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
         }.let { Unit }
 
         override fun onWarning(message: String) = viewModelScope.launch {
-            _state.value = _state.value.copy(clipStatus = message)
+            postTransientWarning(
+                message,
+                "O monitoramento por software ficou indisponível; a gravação continua sem retorno pelo app.",
+            )
         }.let { Unit }
     }
 
     private fun finalizeRecording(result: StudioRecordingResult) {
         val transaction = recordingTransaction ?: return resetRecording("A transação do take foi perdida.")
         recordingTransaction = null
-        val punchPlanForTake = activePunchPlan
+        val punchRegionForTake = activePunchRegion
+        val clockOffsetForTake = activeRecordingClockOffsetFrames
+        val routeLatencyForTake = activeRecordingRouteLatencyFrames
+        val fineAdjustmentForTake = activeRecordingFineAdjustmentFrames
+        val timingBasisForTake = activeRecordingTimingBasis
+        val selectedInputIdentityForTake = activeRecordingSelectedInputIdentity
+        val effectiveInputIdentityForTake = activeRecordingEffectiveInputIdentity
+        val selectedOutputIdentityForTake = activeRecordingSelectedOutputIdentity
+        val effectiveOutputIdentityForTake = activeRecordingEffectiveOutputIdentity
+        val captureAnchorJitterForTake = activeRecordingCaptureAnchorJitterNs
+        val backingAnchorJitterForTake = activeRecordingBackingAnchorJitterNs
+        val captureAnchorObservationsForTake = activeRecordingCaptureAnchorObservations
+        val backingAnchorObservationsForTake = activeRecordingBackingAnchorObservations
+        val outputFallbackForTake = activeRecordingOutputFallback
+        val routeChangedForTake = activeRecordingRouteChanged || result.stopReason == studio.guitarlab.platform.audio.android.StudioRecordingStopReason.ROUTE_LOST
+        val outputUnderrunsForTake = activeRecordingOutputUnderruns
+        if (result.stopReason == studio.guitarlab.platform.audio.android.StudioRecordingStopReason.ROUTE_LOST) {
+            activeRecordingRouteState = AudioRouteSessionPolicy.lost(activeRecordingRouteState ?: AudioRouteSessionPolicy.starting(selectedInputIdentityForTake, selectedOutputIdentityForTake), "selected input route lost")
+        }
         activePunchPlan = null
+        activePunchRegion = null
         pendingRecordingPlan = null
+        activeRecordingCaptureStartNs = 0L
+        activeRecordingCaptureTimestampBased = false
+        activeRecordingClockOffsetFrames = 0L
+        activeRecordingRouteLatencyFrames = 0L
+        activeRecordingFineAdjustmentFrames = 0L
+        activeRecordingRouteState = activeRecordingRouteState?.let(AudioRouteSessionPolicy::stopped)
+        resetActiveRecordingHealthEvidence()
         viewModelScope.launch(start = CoroutineStart.UNDISPATCHED) {
             var committed = false
             runCatching {
                 withContext(Dispatchers.IO) {
-                    recordingMediaStore.commit(transaction)
                     val before = repository.load(transaction.projectId) ?: error("Projeto não encontrado ao finalizar o take.")
                     val session = _state.value.recordingSession
                     val targetTrackId = requireNotNull(session.targetTrackId) { "A pista do take não está mais disponível." }
-                    val placement = LatencyCompensationPolicy.compensate(
+                    val placement = RecordingTimingCompensationPolicy.compensate(
                         requestedTimelineStartFrame = session.timelineStartFrame,
                         capturedFrames = result.framesCaptured,
-                        roundTripLatencyFrames = activeRecordingCompensationFrames,
+                        startupOffsetFrames = clockOffsetForTake,
+                        roundTripLatencyFrames = routeLatencyForTake,
+                        fineAdjustmentFrames = fineAdjustmentForTake,
                     )
-                    val punch = punchPlanForTake?.takeIf { !result.partial && result.framesCaptured >= it.keptSourceStartFrame + it.keptLengthFrames }
-                    val timelineStart = punch?.keptTimelineStartFrame ?: placement.timelineStartFrame
-                    val sourceStart = punch?.keptSourceStartFrame ?: placement.sourceStartFrame
-                    val length = punch?.keptLengthFrames ?: placement.lengthFrames
+                    val punch = punchRegionForTake?.takeIf { !result.partial }?.let { region ->
+                        PunchRecordingPolicy.keepWindow(
+                            region = region,
+                            takeTimelineStartFrame = placement.timelineStartFrame,
+                            takeSourceStartFrame = placement.sourceStartFrame,
+                            capturedFrames = result.framesCaptured,
+                        )
+                    }
+                    val timelineStart = punch?.timelineStartFrame ?: placement.timelineStartFrame
+                    val sourceStart = punch?.sourceStartFrame ?: placement.sourceStartFrame
+                    val length = punch?.lengthFrames ?: placement.lengthFrames
+                    recordingMediaStore.preparePublication(
+                        transaction = transaction,
+                        targetTrackId = targetTrackId,
+                        finalTimelineStartFrame = timelineStart,
+                        finalSourceStartFrame = sourceStart,
+                        finalLengthFrames = length,
+                        sampleRateHz = result.sampleRateHz,
+                        channelCount = result.channelCount,
+                        framesCaptured = result.framesCaptured,
+                    )
+                    recordingMediaStore.commit(transaction)
                     val integrated = RecordedTakeProjectIntegrator.integrate(
                         project = before,
                         targetTrackId = targetTrackId,
@@ -894,13 +1248,44 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                         repository.save(saved).also {
                             committed = true
                             projectHistory.record(before, it)
+                            // Publication is already durable. Marker cleanup may safely converge on next open.
+                            runCatching { recordingMediaStore.markPublished(transaction) }
                         }
                     }
                     Triple(persisted, clip, envelope.peaks)
                 }
             }.onSuccess { (saved, clip, peaks) ->
+                BackupScheduler.enqueueCoalesced(getApplication())
                 val state = _state.value
                 val end = TimelineControlPolicy.projectEndFrame(saved)
+                recordingSessionHealthStore.append(
+                    RecordingSessionHealthRecord(
+                        completedAtEpochMs = System.currentTimeMillis(),
+                        selectedInputIdentity = selectedInputIdentityForTake,
+                        effectiveInputIdentity = effectiveInputIdentityForTake,
+                        selectedOutputIdentity = selectedOutputIdentityForTake,
+                        effectiveOutputIdentity = effectiveOutputIdentityForTake,
+                        sampleRateHz = result.sampleRateHz,
+                        timingEvidenceBasis = timingBasisForTake,
+                        captureAnchorJitterNs = captureAnchorJitterForTake,
+                        backingAnchorJitterNs = backingAnchorJitterForTake,
+                        captureAnchorObservations = captureAnchorObservationsForTake,
+                        backingAnchorObservations = backingAnchorObservationsForTake,
+                        sessionDeltaFrames = clockOffsetForTake,
+                        acceptedRouteLatencyFrames = routeLatencyForTake,
+                        residualFineAdjustmentFrames = fineAdjustmentForTake,
+                        outputFallback = outputFallbackForTake,
+                        routeChanged = routeChangedForTake,
+                        capturedFrames = result.framesCaptured,
+                        finalTimelineStartFrame = clip.startFrame,
+                        finalSourceStartFrame = clip.sourceStartFrame,
+                        finalLengthFrames = clip.lengthFrames,
+                        inputZeroReadEvents = result.inputZeroReadEvents,
+                        outputUnderrunCount = outputUnderrunsForTake,
+                        completed = !result.partial,
+                        failureReason = result.message?.takeIf { result.partial },
+                    )
+                )
                 _state.value = state.copy(
                     project = saved,
                     waveforms = state.waveforms + (clip.id to peaks),
@@ -910,13 +1295,17 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                     recordingConfig = null,
                     recordingPeak = 0f,
                     recordingRms = 0f,
-                    liveRecordingPeaks = emptyList(),
+                    liveRecordingWaveform = emptyList(),
+                    masterMeter = MeterBallisticsPolicy.reset(),
+                    trackMeters = emptyMap(),
                     transportEngineReady = playbackReadiness(saved).ready,
+                    trackLevelAnalysis = emptyMap(),
                     canUndo = projectHistory.canUndo,
                     canRedo = projectHistory.canRedo,
                     clipStatus = when {
                         result.partial -> "Take parcial preservado com segurança"
-                        activeRecordingCompensationFrames > 0L -> "Take gravado e compensado em ${activeRecordingCompensationFrames} frames"
+                        clockOffsetForTake != 0L || routeLatencyForTake > 0L || fineAdjustmentForTake != 0L ->
+                            "Take sincronizado automaticamente"
                         else -> "Take gravado com sucesso"
                     },
                     error = result.message?.takeIf { result.partial },
@@ -927,6 +1316,34 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                     waveformCache.remove(transaction.projectId, transaction.id)
                     recordingMediaStore.discard(transaction)
                 }
+                recordingSessionHealthStore.append(
+                    RecordingSessionHealthRecord(
+                        completedAtEpochMs = System.currentTimeMillis(),
+                        selectedInputIdentity = selectedInputIdentityForTake,
+                        effectiveInputIdentity = effectiveInputIdentityForTake,
+                        selectedOutputIdentity = selectedOutputIdentityForTake,
+                        effectiveOutputIdentity = effectiveOutputIdentityForTake,
+                        sampleRateHz = result.sampleRateHz,
+                        timingEvidenceBasis = timingBasisForTake,
+                        captureAnchorJitterNs = captureAnchorJitterForTake,
+                        backingAnchorJitterNs = backingAnchorJitterForTake,
+                        captureAnchorObservations = captureAnchorObservationsForTake,
+                        backingAnchorObservations = backingAnchorObservationsForTake,
+                        sessionDeltaFrames = clockOffsetForTake,
+                        acceptedRouteLatencyFrames = routeLatencyForTake,
+                        residualFineAdjustmentFrames = fineAdjustmentForTake,
+                        outputFallback = outputFallbackForTake,
+                        routeChanged = routeChangedForTake,
+                        capturedFrames = result.framesCaptured,
+                        finalTimelineStartFrame = null,
+                        finalSourceStartFrame = null,
+                        finalLengthFrames = null,
+                        inputZeroReadEvents = result.inputZeroReadEvents,
+                        outputUnderrunCount = outputUnderrunsForTake,
+                        completed = false,
+                        failureReason = error.message ?: result.message,
+                    )
+                )
                 resetRecording(error.message ?: "Não foi possível integrar o take ao projeto.")
             }
         }
@@ -937,6 +1354,13 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
         countdownJob = null
         pendingRecordingPlan = null
         activePunchPlan = null
+        activePunchRegion = null
+        activeRecordingCaptureStartNs = 0L
+        activeRecordingCaptureTimestampBased = false
+        activeRecordingClockOffsetFrames = 0L
+        activeRecordingRouteLatencyFrames = 0L
+        activeRecordingFineAdjustmentFrames = 0L
+        resetActiveRecordingHealthEvidence()
         val state = _state.value
         _state.value = state.copy(
             transport = state.transport.copy(mode = TransportMode.STOPPED),
@@ -944,10 +1368,13 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
             recordingConfig = null,
             recordingPeak = 0f,
             recordingRms = 0f,
-            liveRecordingPeaks = emptyList(),
+            liveRecordingWaveform = emptyList(),
+            masterMeter = MeterBallisticsPolicy.reset(),
+            trackMeters = emptyMap(),
             clipStatus = null,
             error = message,
         )
+        recordingProgressGeneration += 1L
         liveWaveform.clear()
     }
 
@@ -1014,7 +1441,13 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
         val current = _state.value.project ?: return
         val clip = current.clips.firstOrNull { it.id == clipId } ?: return
         if (clip.trackId == targetTrackId) return
+        val expectedSourceTrackId = clip.trackId
         editClip("Clipe movido para outra pista") { latest ->
+            val latestClip = latest.clips.firstOrNull { it.id == clipId }
+                ?: error("O clipe não existe mais; o movimento foi cancelado com segurança.")
+            require(latestClip.trackId == expectedSourceTrackId) {
+                "O clipe mudou de pista durante o arraste; tente novamente."
+            }
             ProjectClipEditor.moveClipToTrack(latest, clipId, targetTrackId, System.currentTimeMillis())
         }
     }
@@ -1034,10 +1467,34 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
+    private fun postTransientFeedback(
+        kind: TransientFeedbackKind,
+        message: String,
+        fallback: String,
+        cooldownMs: Long = 0L,
+    ) {
+        if (!AppTransientFeedbackPolicy.shouldShowSnackbar(kind)) return
+        val safe = AppTransientFeedbackPolicy.userSafe(message, fallback)
+        val now = System.currentTimeMillis()
+        if (kind == TransientFeedbackKind.WARNING && safe == lastTransientWarning && now - lastTransientWarningAtMs < cooldownMs) return
+        if (kind == TransientFeedbackKind.WARNING) {
+            lastTransientWarning = safe
+            lastTransientWarningAtMs = now
+        }
+        _state.value = _state.value.copy(transientNotice = safe)
+    }
+
+    private fun postTransientWarning(message: String, fallback: String, cooldownMs: Long = 30_000L) =
+        postTransientFeedback(TransientFeedbackKind.WARNING, message, fallback, cooldownMs)
+
+    private fun postTransientCompletion(message: String) =
+        postTransientFeedback(TransientFeedbackKind.ASYNC_COMPLETION, message, "Operação concluída.")
+
     fun dismissTransientMessage(message: String) {
         val current = _state.value
-        if (message == current.error || message == current.clipStatus || message == current.importStatus) {
-            _state.value = current.copy(error = null, clipStatus = null, importStatus = null)
+        when (message) {
+            current.error -> _state.value = current.copy(error = null)
+            current.transientNotice -> _state.value = current.copy(transientNotice = null)
         }
     }
 
@@ -1076,12 +1533,45 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun updateTrackProperties(trackId: String, name: String, colorIndex: Int) {
+        val roleId = _state.value.project?.tracks?.firstOrNull { it.id == trackId }?.roleId
+        updateTrackConfiguration(trackId, name, colorIndex, roleId)
+    }
+
+    fun updateTrackConfiguration(trackId: String, name: String, colorIndex: Int, roleId: String?) {
+        val currentState = _state.value
+        val project = currentState.project ?: return
+        if (!structuralEditingAllowed(currentState)) return
         val normalizedName = runCatching { TrackNamePolicy.requireValid(name) }.getOrElse { error ->
-            _state.value = _state.value.copy(error = error.message ?: "Nome de pista inválido.")
+            _state.value = currentState.copy(error = error.message ?: "Nome de pista inválido.")
             return
         }
-        editTrackStructural("Pista atualizada", trackId) {
-            it.copy(name = normalizedName, colorIndex = colorIndex.coerceIn(0, TRACK_COLOR_COUNT - 1))
+        viewModelScope.launch {
+            runCatching {
+                saveLatest(project.id) { latest ->
+                    val renamed = latest.copy(
+                        tracks = latest.tracks.map { track ->
+                            if (track.id == trackId) track.copy(
+                                name = normalizedName,
+                                colorIndex = colorIndex.coerceIn(0, TRACK_COLOR_COUNT - 1),
+                            ) else track
+                        },
+                        updatedAtEpochMs = System.currentTimeMillis(),
+                    )
+                    TrackRoleAssignmentPolicy.assign(
+                        project = renamed,
+                        trackId = trackId,
+                        roleId = roleId,
+                        nowEpochMs = System.currentTimeMillis(),
+                    )
+                }
+            }.onSuccess { saved ->
+                saved.tracks.firstOrNull { it.id == trackId }?.let { track ->
+                    trackMixDrafts[track.id] = TrackMixDraft(track.gainDb, track.pan)
+                }
+                applySavedProject(saved, "Pista atualizada")
+            }.onFailure { error ->
+                _state.value = _state.value.copy(error = error.message ?: "Não foi possível atualizar a pista.")
+            }
         }
     }
 
@@ -1115,13 +1605,14 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
         val current = _state.value
         val project = current.project ?: return
         if (!structuralEditingAllowed(current)) return
+        val newTrackId = UUID.randomUUID().toString()
         viewModelScope.launch {
             runCatching {
                 saveLatest(project.id) { latest ->
                     val nextOrder = (latest.tracks.maxOfOrNull { it.order } ?: -1) + 1
                     val number = latest.tracks.size + 1
                     val newTrack = AudioTrack(
-                        id = UUID.randomUUID().toString(),
+                        id = newTrackId,
                         name = TrackNamePolicy.requireValid("Nova pista $number"),
                         roleId = BuiltInRoles.GENERIC,
                         roleSource = RoleSource.USER,
@@ -1136,8 +1627,43 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                 }
             }.onSuccess { saved ->
                 saved.tracks.forEach { track -> trackMixDrafts[track.id] = TrackMixDraft(track.gainDb, track.pan) }
+                val shouldPrompt = TrackRoleAssignmentPolicy.availableSuggestionsForNewTrack(saved, newTrackId).isNotEmpty()
                 applySavedProject(saved, "Nova pista adicionada")
+                if (shouldPrompt) {
+                    _state.value = _state.value.copy(newTrackRolePromptId = newTrackId)
+                }
             }.onFailure { error -> _state.value = _state.value.copy(error = error.message ?: "Não foi possível adicionar a pista.") }
+        }
+    }
+
+    fun dismissNewTrackRolePrompt() {
+        _state.value = _state.value.copy(newTrackRolePromptId = null)
+    }
+
+    fun assignNewTrackRole(trackId: String, roleId: String) {
+        val current = _state.value
+        val project = current.project ?: return
+        if (!structuralEditingAllowed(current) || current.newTrackRolePromptId != trackId) return
+        // Close first so rapid/double taps cannot queue multiple competing assignments.
+        _state.value = current.copy(newTrackRolePromptId = null)
+        viewModelScope.launch {
+            runCatching {
+                saveLatest(project.id) { latest ->
+                    TrackRoleAssignmentPolicy.assign(
+                        project = latest,
+                        trackId = trackId,
+                        roleId = roleId,
+                        nowEpochMs = System.currentTimeMillis(),
+                    )
+                }
+            }.onSuccess { saved ->
+                saved.tracks.firstOrNull { it.id == trackId }?.let { track ->
+                    trackMixDrafts[track.id] = TrackMixDraft(track.gainDb, track.pan)
+                }
+                applySavedProject(saved, "Função da pista definida")
+            }.onFailure { error ->
+                _state.value = _state.value.copy(error = error.message ?: "Não foi possível definir a função da pista.")
+            }
         }
     }
 
@@ -1162,6 +1688,9 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                 }
             }.onSuccess { saved ->
                 trackMixDrafts.remove(trackId)
+                if (_state.value.newTrackRolePromptId == trackId) {
+                    _state.value = _state.value.copy(newTrackRolePromptId = null)
+                }
                 applySavedProject(saved, "Pista excluída")
             }.onFailure { error -> _state.value = _state.value.copy(error = error.message ?: "Não foi possível excluir a pista.") }
         }
@@ -1183,16 +1712,9 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                     latest.copy(masterGainDb = normalized, updatedAtEpochMs = System.currentTimeMillis())
                 }
             }.onSuccess { saved ->
-                val state = _state.value
-                _state.value = state.copy(
-                    project = saved,
-                    masterGainDb = saved.masterGainDb,
-                    canUndo = projectHistory.canUndo,
-                    canRedo = projectHistory.canRedo,
-                    error = null,
-                )
+                applySavedProject(saved, "Ganho master atualizado")
             }.onFailure { error ->
-                _state.value = _state.value.copy(error = error.message ?: "Não foi possível atualizar o Master.")
+                _state.value = _state.value.copy(error = error.message ?: "Não foi possível atualizar o master.")
             }
         }
     }
@@ -1210,14 +1732,281 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
         _state.value = _state.value.copy(guitarAuditionMode = mode)
     }
 
-    fun activateTake(takeId: String) {
-        val project = _state.value.project ?: return
-        if (!structuralEditingAllowed(_state.value)) return
+    fun recoverInterruptedRecording(transactionId: String) {
+        val current = _state.value
+        val project = current.project ?: return
+        val candidate = recoveryCandidatesById[transactionId] ?: return
+        if (current.recoveryBusy || !structuralEditingAllowed(current)) return
         viewModelScope.launch {
-            runCatching { saveLatest(project.id) { ActiveTakePolicy.activate(it, takeId, System.currentTimeMillis()) } }
-                .onSuccess { saved -> _state.value = _state.value.copy(project = saved, transportEngineReady = playbackReadiness(saved).ready) }
-                .onFailure { error -> _state.value = _state.value.copy(error = error.message) }
+            _state.value = _state.value.copy(recoveryBusy = true, error = null, clipStatus = "Recuperando gravação interrompida…")
+            runCatching {
+                withContext(Dispatchers.IO) {
+                    val latest = repository.load(project.id) ?: error("Projeto não encontrado durante a recuperação.")
+                    when (RecordingRecoveryPolicy.publicationDecision(latest, candidate)) {
+                        RecordingRecoveryPublicationDecision.ALREADY_PUBLISHED -> {
+                            runCatching { recordingMediaStore.markPublished(project.id, transactionId) }
+                            val clip = latest.clips.firstOrNull { it.id == transactionId }
+                            Triple(latest, clip, clip?.let { loadWaveformForClip(latest, it) })
+                        }
+                        RecordingRecoveryPublicationDecision.RECOVERABLE -> {
+                            val marker = requireNotNull(candidate.marker) { "Marker de recuperação ausente." }
+                            val targetTrackId = requireNotNull(marker.targetTrackId)
+                            val media = recordingMediaStore.promoteRecovery(candidate)
+                            val timelineStart = RecordingRecoveryPolicy.timelineStart(candidate)
+                            val sourceStart = RecordingRecoveryPolicy.sourceStart(candidate)
+                            val length = RecordingRecoveryPolicy.lengthFrames(candidate)
+                            val sampleRate = requireNotNull(candidate.sampleRateHz)
+                            val channels = requireNotNull(candidate.channelCount)
+                            val frames = requireNotNull(candidate.frames)
+                            val saved = saveLatest(project.id) { before ->
+                                if (before.clips.any { it.id == transactionId }) before else {
+                                    val integrated = RecordedTakeProjectIntegrator.integrate(
+                                        project = before,
+                                        targetTrackId = targetTrackId,
+                                        take = RecordedTakeMetadata(
+                                            clipId = transactionId,
+                                            displayName = "Take recuperado ${before.takes.count { it.trackId == targetTrackId } + 1}",
+                                            managedRelativePath = candidate.relativePath ?: error("Destino gerenciado ausente."),
+                                            timelineStartFrame = timelineStart,
+                                            sampleRateHz = sampleRate,
+                                            channelCount = channels,
+                                            framesCaptured = frames,
+                                        ),
+                                        nowEpochMs = System.currentTimeMillis(),
+                                    )
+                                    integrated.copy(
+                                        clips = integrated.clips.map { clip ->
+                                            if (clip.id == transactionId) clip.copy(sourceStartFrame = sourceStart, lengthFrames = length) else clip
+                                        },
+                                        updatedAtEpochMs = System.currentTimeMillis(),
+                                    )
+                                }
+                            }
+                            val clip = saved.clips.first { it.id == transactionId }
+                            val envelope = FileSeekableByteSource(media).use { source ->
+                                WaveformEnvelopeBuilder.build(WavPcmDecoder(source), WAVEFORM_POINTS)
+                            }
+                            waveformCache.write(saved.id, clip.id, envelope)
+                            runCatching { recordingMediaStore.markPublished(saved.id, transactionId) }
+                            Triple(saved, clip, envelope.peaks)
+                        }
+                        RecordingRecoveryPublicationDecision.TARGET_TRACK_MISSING -> error("A pista original desta gravação não existe mais. O áudio foi preservado para suporte.")
+                        RecordingRecoveryPublicationDecision.UNSAFE_PAYLOAD -> error(candidate.diagnosticReason ?: "A gravação interrompida não pôde ser validada com segurança.")
+                    }
+                }
+            }.onSuccess { (saved, clip, peaks) ->
+                recoveryCandidatesById.remove(transactionId)
+                val nextItems = _state.value.recoveryItems.filterNot { it.transactionId == transactionId }
+                _state.value = _state.value.copy(
+                    recoveryBusy = false,
+                    recoveryItems = nextItems,
+                    project = saved,
+                    waveforms = if (clip != null && peaks != null) _state.value.waveforms + (clip.id to peaks) else _state.value.waveforms,
+                    transportEngineReady = playbackReadiness(saved).ready,
+                    canUndo = projectHistory.canUndo,
+                    canRedo = projectHistory.canRedo,
+                    clipStatus = "Gravação interrompida recuperada com segurança",
+                    error = null,
+                )
+            }.onFailure { error ->
+                _state.value = _state.value.copy(recoveryBusy = false, error = error.message ?: "Não foi possível recuperar a gravação.")
+            }
         }
+    }
+
+    fun previewInterruptedRecording(transactionId: String) {
+        val current = _state.value
+        val candidate = recoveryCandidatesById[transactionId] ?: return
+        val rate = candidate.sampleRateHz ?: return
+        val frames = candidate.frames ?: return
+        if (!candidate.safePlayable || frames <= 0L || current.recordingSession.active) return
+        stopPlaybackSession()
+        val outputSignature = audioRoutingStore.selectedOutputSignature()
+        val request = StudioPlaybackRequest(
+            sampleRateHz = rate,
+            startFrame = 0L,
+            projectEndFrame = frames,
+            loopEnabled = false,
+            loopStartFrame = 0L,
+            loopEndFrame = frames,
+            clips = listOf(StudioPlaybackClip(candidate.mediaFile, "recovery-preview", 0L, 0L, frames)),
+            preferredOutputDevice = audioRoutingStore.resolveSelectedOutputDevice(),
+            preferredOutputRequested = !outputSignature.isNullOrBlank(),
+        )
+        val sessionId = ++playbackSessionId
+        activePlaybackRouteState = AudioRouteSessionPolicy.starting(
+            selectedInputIdentity = null,
+            selectedOutputIdentity = audioRoutingStore.selectedOutputDiagnosticIdentity(),
+        )
+        runCatching {
+            playbackEngine.start(request, object : StudioPlaybackListener {
+                override fun onStarted(info: StudioPlaybackStartInfo) {
+                    activePlaybackRouteState = runCatching {
+                        AudioRouteSessionPolicy.confirmed(activePlaybackRouteState ?: return@runCatching null, null, info.routedOutputLabel)
+                    }.getOrNull()
+                }
+                override fun onPosition(frame: Long) = Unit
+                override fun onStopped(frame: Long) {
+                    viewModelScope.launch { if (sessionId == playbackSessionId) _state.value = _state.value.copy(clipStatus = "Prévia concluída") }
+                }
+                override fun onError(message: String) {
+                    viewModelScope.launch { if (sessionId == playbackSessionId) _state.value = _state.value.copy(error = message) }
+                }
+            })
+            _state.value = current.copy(clipStatus = "Ouvindo gravação interrompida…", error = null)
+        }.onFailure { error -> _state.value = current.copy(error = error.message ?: "Não foi possível reproduzir a prévia.") }
+    }
+
+    fun discardInterruptedRecording(transactionId: String) {
+        val candidate = recoveryCandidatesById[transactionId] ?: return
+        if (_state.value.recoveryBusy) return
+        viewModelScope.launch {
+            _state.value = _state.value.copy(recoveryBusy = true)
+            runCatching { withContext(Dispatchers.IO) { recordingMediaStore.discardRecovery(candidate) } }
+                .onSuccess {
+                    recoveryCandidatesById.remove(transactionId)
+                    _state.value = _state.value.copy(
+                        recoveryBusy = false,
+                        recoveryItems = _state.value.recoveryItems.filterNot { it.transactionId == transactionId },
+                        clipStatus = "Gravação interrompida descartada",
+                    )
+                }
+                .onFailure { error -> _state.value = _state.value.copy(recoveryBusy = false, error = error.message ?: "Não foi possível descartar a gravação.") }
+        }
+    }
+
+    fun postponeInterruptedRecording(transactionId: String) {
+        recoveryCandidatesById.remove(transactionId)
+        _state.value = _state.value.copy(
+            recoveryItems = _state.value.recoveryItems.filterNot { it.transactionId == transactionId },
+            clipStatus = "A gravação foi mantida para recuperar depois",
+        )
+    }
+
+    fun activateTake(takeId: String) = editTakeMetadata("Take ativo atualizado") { project ->
+        TakeManagementPolicy.activate(project, takeId, System.currentTimeMillis())
+    }
+
+    fun renameTake(takeId: String, name: String) = editTakeMetadata("Take renomeado") { project ->
+        TakeManagementPolicy.rename(project, takeId, name, System.currentTimeMillis())
+    }
+
+    fun setTakeNote(takeId: String, note: String) = editTakeMetadata("Nota do take atualizada") { project ->
+        TakeManagementPolicy.setNote(project, takeId, note, System.currentTimeMillis())
+    }
+
+    fun updateTakeMetadata(takeId: String, name: String, note: String, fineAdjustmentMilliseconds: Double) =
+        editTakeMetadata("Take atualizado") { project ->
+            val now = System.currentTimeMillis()
+            val sampleRateHz = RecordingSampleRatePolicy.resolve(project)
+                ?: error("Não foi possível determinar a taxa de amostragem desta take.")
+            val fineFrames = LatencyFineAdjustmentPolicy.millisecondsToFrames(fineAdjustmentMilliseconds, sampleRateHz)
+            val metadata = TakeManagementPolicy.setNote(
+                TakeManagementPolicy.rename(project, takeId, name, now),
+                takeId,
+                note,
+                now,
+            )
+            TakeManagementPolicy.setFineAdjustmentFrames(metadata, takeId, fineFrames, now)
+        }
+
+    fun toggleTakeFavorite(takeId: String) = editTakeMetadata("Favorito atualizado") { project ->
+        val take = project.takes.firstOrNull { it.id == takeId } ?: error("Take não encontrado: $takeId")
+        TakeManagementPolicy.setFavorite(project, takeId, !take.favorite, System.currentTimeMillis())
+    }
+
+    fun deleteTake(takeId: String) = editTakeMetadata("Take excluído") { project ->
+        TakeManagementPolicy.delete(project, takeId, System.currentTimeMillis())
+    }
+
+    private fun editTakeMetadata(status: String, transform: (GuitarProject) -> GuitarProject) {
+        val current = _state.value
+        val project = current.project ?: return
+        if (!structuralEditingAllowed(current)) return
+        viewModelScope.launch {
+            runCatching { saveLatest(project.id, transform) }
+                .onSuccess { saved ->
+                    val waveforms = withContext(Dispatchers.IO) { loadWaveforms(saved) }
+                    val end = TimelineControlPolicy.projectEndFrame(saved)
+                    _state.value = _state.value.copy(
+                        project = saved,
+                        waveforms = waveforms,
+                        timelineControls = TimelineControlPolicy.normalizedForProject(_state.value.timelineControls, end),
+                        transportEngineReady = playbackReadiness(saved).ready,
+                        canUndo = projectHistory.canUndo,
+                        canRedo = projectHistory.canRedo,
+                        clipStatus = status,
+                        error = null,
+                    )
+                }
+                .onFailure { error -> _state.value = _state.value.copy(error = error.message ?: "Não foi possível atualizar o take.") }
+        }
+    }
+
+    fun auditionTake(takeId: String) {
+        val current = _state.value
+        val project = current.project ?: return
+        if (current.recordingSession.active) return
+        val take = project.takes.firstOrNull { it.id == takeId } ?: return
+        val clips = project.clips.filter { it.takeId == take.id }.sortedBy { it.startFrame }
+        if (clips.isEmpty()) {
+            _state.value = current.copy(error = "Este take não possui clipes reproduzíveis.")
+            return
+        }
+        val sampleRate = project.sampleRate.fixedHz ?: clips.firstNotNullOfOrNull { it.editingSampleRateHz ?: it.sourceSampleRateHz } ?: 48_000
+        if (clips.any { (it.editingSampleRateHz ?: it.sourceSampleRateHz ?: sampleRate) != sampleRate }) {
+            _state.value = current.copy(error = "O take usa taxas de amostragem incompatíveis para audição rápida.")
+            return
+        }
+        val end = clips.maxOf { it.startFrame + it.lengthFrames }.coerceAtLeast(1L)
+        val tracks = project.tracks.associateBy { it.id }
+        val playbackClips = runCatching {
+            clips.map { clip ->
+                StudioPlaybackClip(
+                    file = mediaStore.resolveEditable(project.id, editingMediaPath(clip)),
+                    trackId = clip.trackId,
+                    timelineStartFrame = clip.startFrame,
+                    sourceStartFrame = clip.sourceStartFrame,
+                    lengthFrames = clip.lengthFrames,
+                    gainDb = clip.gainDb,
+                    fadeInFrames = clip.fadeInFrames,
+                    fadeOutFrames = clip.fadeOutFrames,
+                )
+            }
+        }.getOrElse { error ->
+            _state.value = current.copy(error = error.message ?: "A mídia deste take não está disponível.")
+            return
+        }
+        stopPlaybackSession()
+        val outputSignature = audioRoutingStore.selectedOutputSignature()
+        val request = StudioPlaybackRequest(
+            sampleRateHz = sampleRate,
+            startFrame = clips.minOf { it.startFrame },
+            projectEndFrame = end,
+            loopEnabled = false,
+            loopStartFrame = 0L,
+            loopEndFrame = end,
+            clips = playbackClips,
+            trackMixes = project.tracks.filter { track -> clips.any { it.trackId == track.id } }.map { track ->
+                StudioPlaybackTrackMix(track.id, track.roleId, track.gainDb, track.pan, false, false)
+            },
+            preferredOutputDevice = audioRoutingStore.resolveSelectedOutputDevice(),
+            preferredOutputRequested = !outputSignature.isNullOrBlank(),
+            masterGainDb = project.masterGainDb,
+        )
+        val sessionId = ++playbackSessionId
+        runCatching {
+            playbackEngine.start(request, object : StudioPlaybackListener {
+                override fun onPosition(frame: Long) = Unit
+                override fun onStopped(frame: Long) {
+                    viewModelScope.launch { if (sessionId == playbackSessionId) _state.value = _state.value.copy(clipStatus = "Audição de ${take.name} concluída") }
+                }
+                override fun onError(message: String) {
+                    viewModelScope.launch { if (sessionId == playbackSessionId) _state.value = _state.value.copy(error = message) }
+                }
+            })
+            _state.value = current.copy(clipStatus = "Ouvindo ${take.name}…", error = null)
+        }.onFailure { error -> _state.value = current.copy(error = error.message ?: "Não foi possível ouvir o take.") }
     }
 
     fun addMarkerAtPlayhead() = updatePracticeProject { project ->
@@ -1265,37 +2054,230 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun analyzeTrackLevel(trackId: String) {
-        val state = _state.value; val project = state.project ?: return
+        val state = _state.value
+        val project = state.project ?: return
+        if (trackId in state.trackLevelAnalysisBusy) return
+        val track = project.tracks.firstOrNull { it.id == trackId } ?: return
+        val analyzedClips = audibleLevelClips(project, trackId)
+        if (analyzedClips.isEmpty()) {
+            _state.value = state.copy(
+                trackLevelAnalysis = state.trackLevelAnalysis - trackId,
+                clipStatus = "A pista não possui clipes audíveis para analisar.",
+                error = null,
+            )
+            return
+        }
+        _state.value = state.copy(
+            trackLevelAnalysis = state.trackLevelAnalysis - trackId,
+            trackLevelAnalysisBusy = state.trackLevelAnalysisBusy + trackId,
+            error = null,
+        )
         viewModelScope.launch {
-            runCatching { withContext(Dispatchers.IO) {
-                val accumulator = TrackLevelAccumulator()
-                ActiveTakePolicy.audibleClips(project).filter { it.trackId == trackId && !it.muted }.forEach { clip ->
-                    FileSeekableByteSource(mediaStore.resolveEditable(project.id, editingMediaPath(clip))).use { source ->
-                        WavPcmDecoder(source).use { decoder ->
-                            decoder.seekToFrame(clip.sourceStartFrame)
-                            val buffer = FloatArray(2048 * decoder.metadata.channelCount)
-                            var remaining = clip.lengthFrames
-                            while (remaining > 0) {
-                                val requested = minOf(2048L, remaining).toInt(); val read = decoder.readInterleaved(buffer, frameCount = requested)
-                                if (read <= 0) break
-                                accumulator.append(buffer, read * decoder.metadata.channelCount); remaining -= read
-                            }
-                        }
+            runCatching { analyzeLevelSnapshot(project, track, analyzedClips) }
+                .onSuccess { analysis -> publishLevelAnalysis(project, track, analyzedClips, analysis) }
+                .onFailure { error ->
+                    val latest = _state.value
+                    if (latest.project?.id == project.id) {
+                        _state.value = latest.copy(error = error.message ?: "Não foi possível analisar o nível.")
                     }
                 }
-                accumulator.finish()
-            } }.onSuccess { analysis -> _state.value = _state.value.copy(trackLevelAnalysis = _state.value.trackLevelAnalysis + (trackId to analysis)) }
-                .onFailure { error -> _state.value = _state.value.copy(error = error.message ?: "Não foi possível analisar o nível.") }
+            val latest = _state.value
+            if (latest.project?.id == project.id) {
+                _state.value = latest.copy(trackLevelAnalysisBusy = latest.trackLevelAnalysisBusy - trackId)
+            }
+        }
+    }
+
+    fun analyzeAllTrackLevels() {
+        val state = _state.value
+        val project = state.project ?: return
+        if (state.trackLevelAnalysisBusy.isNotEmpty() || state.importing || state.editingClip || state.historyBusy || state.recordingSession.phase != RecordingSessionPhase.IDLE) return
+        val targets = project.tracks.sortedBy { it.order }.mapNotNull { track ->
+            val clips = audibleLevelClips(project, track.id)
+            if (clips.isEmpty()) null else Triple(track.id, track, clips)
+        }
+        if (targets.isEmpty()) {
+            _state.value = state.copy(clipStatus = "Não há pistas com áudio audível para analisar.", error = null)
+            return
+        }
+        val ids = targets.map { it.first }.toSet()
+        _state.value = state.copy(
+            trackLevelAnalysis = state.trackLevelAnalysis - ids,
+            trackLevelAnalysisBusy = ids,
+            clipStatus = "Analisando ${ids.size} ${if (ids.size == 1) "pista" else "pistas"}…",
+            error = null,
+        )
+        viewModelScope.launch {
+            var completed = 0
+            targets.forEach { (trackId, track, clips) ->
+                if (_state.value.project?.id != project.id) return@launch
+                runCatching { analyzeLevelSnapshot(project, track, clips) }
+                    .onSuccess { analysis ->
+                        if (publishLevelAnalysis(project, track, clips, analysis)) completed++
+                    }
+                    .onFailure { error ->
+                        val latest = _state.value
+                        if (latest.project?.id == project.id) {
+                            _state.value = latest.copy(error = error.message ?: "Não foi possível analisar a pista ${track.name}.")
+                        }
+                    }
+                val latest = _state.value
+                if (latest.project?.id == project.id) {
+                    _state.value = latest.copy(trackLevelAnalysisBusy = latest.trackLevelAnalysisBusy - trackId)
+                }
+            }
+            val latest = _state.value
+            if (latest.project?.id == project.id) {
+                _state.value = latest.copy(
+                    trackLevelAnalysisBusy = latest.trackLevelAnalysisBusy - ids,
+                    clipStatus = "Análise de níveis concluída em $completed ${if (completed == 1) "pista" else "pistas"}.",
+                    error = null,
+                )
+            }
         }
     }
 
     fun applyTrackLevelSuggestion(trackId: String) {
-        val project = _state.value.project ?: return; val analysis = _state.value.trackLevelAnalysis[trackId] ?: return
-        viewModelScope.launch {
-            runCatching { saveLatest(project.id) { current -> current.copy(tracks = current.tracks.map { if (it.id == trackId) it.copy(gainDb = (it.gainDb + analysis.recommendedGainDb).coerceIn(-60f, 12f)) else it }, updatedAtEpochMs = System.currentTimeMillis()) } }
-                .onSuccess { saved -> _state.value = _state.value.copy(project = saved, trackLevelAnalysis = _state.value.trackLevelAnalysis - trackId) }
-                .onFailure { error -> _state.value = _state.value.copy(error = error.message) }
+        val state = _state.value
+        val project = state.project ?: return
+        val analysis = state.trackLevelAnalysis[trackId] ?: return
+        val expectedTrack = project.tracks.firstOrNull { it.id == trackId } ?: return
+        val expectedClips = audibleLevelClips(project, trackId)
+        if (analysis.silent || abs(analysis.recommendedGainDb) < LEVEL_GAIN_EPSILON_DB) {
+            _state.value = state.copy(
+                trackLevelAnalysis = state.trackLevelAnalysis - trackId,
+                clipStatus = "Nível da pista já está dentro do alvo",
+                error = null,
+            )
+            return
         }
+        viewModelScope.launch {
+            runCatching {
+                saveLatest(project.id) { current ->
+                    val latestTrack = current.tracks.firstOrNull { it.id == trackId }
+                        ?: error("A pista analisada não existe mais.")
+                    val latestClips = audibleLevelClips(current, trackId)
+                    require(latestTrack == expectedTrack && latestClips == expectedClips) {
+                        "A pista mudou depois da análise. Analise novamente antes de aplicar o ganho."
+                    }
+                    current.copy(
+                        tracks = current.tracks.map { track ->
+                            if (track.id == trackId) track.copy(
+                                gainDb = (track.gainDb + analysis.recommendedGainDb).coerceIn(-60f, 12f),
+                            ) else track
+                        },
+                        updatedAtEpochMs = System.currentTimeMillis(),
+                    )
+                }
+            }.onSuccess { saved ->
+                applySavedProject(saved, "Ganho sugerido aplicado")
+            }.onFailure { error ->
+                _state.value = _state.value.copy(error = error.message ?: "Não foi possível aplicar a sugestão de nível.")
+            }
+        }
+    }
+
+    fun applyAllTrackLevelSuggestions() {
+        val state = _state.value
+        val project = state.project ?: return
+        if (state.trackLevelAnalysisBusy.isNotEmpty()) return
+        val candidates = state.trackLevelAnalysis.mapNotNull { (trackId, analysis) ->
+            val track = project.tracks.firstOrNull { it.id == trackId } ?: return@mapNotNull null
+            if (analysis.silent || abs(analysis.recommendedGainDb) < LEVEL_GAIN_EPSILON_DB) return@mapNotNull null
+            val clips = audibleLevelClips(project, trackId)
+            BatchLevelCandidate(track, clips, analysis)
+        }
+        if (candidates.isEmpty()) {
+            _state.value = state.copy(clipStatus = "Nenhuma pista analisada precisa de ajuste.", error = null)
+            return
+        }
+        viewModelScope.launch {
+            runCatching {
+                saveLatest(project.id) { current ->
+                    candidates.forEach { candidate ->
+                        val latestTrack = current.tracks.firstOrNull { it.id == candidate.track.id }
+                            ?: error("A pista ${candidate.track.name} não existe mais.")
+                        val latestClips = audibleLevelClips(current, candidate.track.id)
+                        require(latestTrack == candidate.track && latestClips == candidate.clips) {
+                            "A pista ${candidate.track.name} mudou depois da análise. Analise todas novamente antes de aplicar."
+                        }
+                    }
+                    val suggestions = candidates.associate { it.track.id to it.analysis.recommendedGainDb }
+                    current.copy(
+                        tracks = current.tracks.map { track ->
+                            val adjustment = suggestions[track.id]
+                            if (adjustment == null) track else track.copy(gainDb = (track.gainDb + adjustment).coerceIn(-60f, 12f))
+                        },
+                        updatedAtEpochMs = System.currentTimeMillis(),
+                    )
+                }
+            }.onSuccess { saved ->
+                applySavedProject(saved, "Sugestões de nível aplicadas a ${candidates.size} ${if (candidates.size == 1) "pista" else "pistas"}")
+            }.onFailure { error ->
+                _state.value = _state.value.copy(error = error.message ?: "Não foi possível aplicar as sugestões de nível.")
+            }
+        }
+    }
+
+    private data class BatchLevelCandidate(
+        val track: AudioTrack,
+        val clips: List<AudioClip>,
+        val analysis: LevelAnalysis,
+    )
+
+    private fun audibleLevelClips(project: GuitarProject, trackId: String): List<AudioClip> =
+        ActiveTakePolicy.audibleClips(project).filter { it.trackId == trackId && !it.muted }
+
+    private suspend fun analyzeLevelSnapshot(
+        project: GuitarProject,
+        track: AudioTrack,
+        analyzedClips: List<AudioClip>,
+    ): LevelAnalysis = withContext(Dispatchers.IO) {
+        val accumulator = TrackLevelAccumulator()
+        analyzedClips.forEach { clip ->
+            FileSeekableByteSource(mediaStore.resolveEditable(project.id, editingMediaPath(clip))).use { source ->
+                WavPcmDecoder(source).use { decoder ->
+                    decoder.seekToFrame(clip.sourceStartFrame)
+                    val buffer = FloatArray(2048 * decoder.metadata.channelCount)
+                    val effectiveGain = TrackLevelAdvisor.gainLinear(track.gainDb + clip.gainDb)
+                    var remaining = clip.lengthFrames
+                    while (remaining > 0) {
+                        val requested = minOf(2048L, remaining).toInt()
+                        val read = decoder.readInterleaved(buffer, frameCount = requested)
+                        if (read <= 0) break
+                        accumulator.append(buffer, read * decoder.metadata.channelCount, effectiveGain)
+                        remaining -= read
+                    }
+                }
+            }
+        }
+        accumulator.finish()
+    }
+
+    private fun publishLevelAnalysis(
+        project: GuitarProject,
+        track: AudioTrack,
+        analyzedClips: List<AudioClip>,
+        analysis: LevelAnalysis,
+    ): Boolean {
+        val latestState = _state.value
+        val latestProject = latestState.project ?: return false
+        if (latestProject.id != project.id) return false
+        val latestTrack = latestProject.tracks.firstOrNull { it.id == track.id }
+        val latestClips = audibleLevelClips(latestProject, track.id)
+        if (latestTrack != track || latestClips != analyzedClips) {
+            _state.value = latestState.copy(
+                trackLevelAnalysis = latestState.trackLevelAnalysis - track.id,
+                clipStatus = "A pista ${track.name} mudou durante a análise. Analise novamente.",
+                error = null,
+            )
+            return false
+        }
+        _state.value = latestState.copy(
+            trackLevelAnalysis = latestState.trackLevelAnalysis + (track.id to analysis),
+            error = null,
+        )
+        return true
     }
 
     private fun updatePracticeProject(transform: (GuitarProject) -> GuitarProject) {
@@ -1303,12 +2285,13 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
         if (!structuralEditingAllowed(state)) return
         viewModelScope.launch {
             runCatching { saveLatest(project.id, transform) }
-                .onSuccess { saved -> _state.value = _state.value.copy(project = saved, transportEngineReady = playbackReadiness(saved).ready) }
+                .onSuccess { saved -> applySavedProject(saved) }
                 .onFailure { error -> _state.value = _state.value.copy(error = error.message) }
         }
     }
 
     fun onStudioHidden() {
+        dismissLoopRecordingChoice()
         when (_state.value.recordingSession.phase) {
             RecordingSessionPhase.COUNTDOWN -> cancelRecordingCountdown()
             RecordingSessionPhase.CAPTURING -> stopRecording()
@@ -1318,13 +2301,16 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
 
     private fun stopPlaybackSession() {
         playbackSessionId++
+        activePlaybackRouteState = activePlaybackRouteState?.let(AudioRouteSessionPolicy::stopped)
         playbackEngine.stop()
     }
 
     override fun onCleared() {
+        recordingProgressChannel.close()
         countdownJob?.cancel()
         pendingRecordingPlan = null
         activePunchPlan = null
+        activePunchRegion = null
         recordingEngine.close()
         recordingTransaction?.let(recordingMediaStore::discard)
         playbackEngine.close()
@@ -1425,6 +2411,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                 }
 
                 override fun onStopped(frame: Long) {
+                    activePlaybackRouteState = activePlaybackRouteState?.let(AudioRouteSessionPolicy::stopped)
                     viewModelScope.launch {
                         val state = _state.value
                         if (sessionId != playbackSessionId || state.transport.mode != TransportMode.PLAYING) return@launch
@@ -1444,6 +2431,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                 }
 
                 override fun onError(message: String) {
+                    activePlaybackRouteState = activePlaybackRouteState?.let { AudioRouteSessionPolicy.lost(it, message) }
                     viewModelScope.launch {
                         val state = _state.value
                         if (sessionId != playbackSessionId) return@launch
@@ -1457,17 +2445,15 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                 }
 
                 override fun onRouting(status: StudioPlaybackRoutingStatus) {
+                    if (!status.fellBackToAuto) return
+                    activePlaybackRouteState = activePlaybackRouteState?.let { AudioRouteSessionPolicy.lost(it, "selected output route fell back") }
                     viewModelScope.launch {
                         val state = _state.value
-                        if (sessionId != playbackSessionId) return@launch
-                        val routeStatus = when {
-                            status.usingPreferredOutput -> "Saída • ${status.deviceLabel ?: "dispositivo preferido"}"
-                            status.fellBackToAuto -> "Saída preferida indisponível • usando rota automática"
-                            else -> null
-                        }
-                        if (routeStatus != null && state.transport.mode == TransportMode.PLAYING) {
-                            _state.value = state.copy(clipStatus = routeStatus)
-                        }
+                        if (sessionId != playbackSessionId || state.transport.mode != TransportMode.PLAYING) return@launch
+                        postTransientWarning(
+                            "A saída selecionada ficou indisponível; o GuitarLab usou a saída automática.",
+                            "A saída selecionada ficou indisponível; o GuitarLab usou a saída automática.",
+                        )
                     }
                 }
 
@@ -1528,11 +2514,46 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-    private fun startBackingPlaybackForRecording(sampleRateHz: Int) {
+    private fun recoveryItems(project: GuitarProject, candidates: List<RecordingRecoveryCandidate>): List<StudioRecoveryItem> =
+        candidates.map { candidate ->
+            val decision = RecordingRecoveryPolicy.publicationDecision(project, candidate)
+            val trackName = candidate.marker?.targetTrackId?.let { id -> project.tracks.firstOrNull { it.id == id }?.name }
+            StudioRecoveryItem(
+                transactionId = candidate.transactionId,
+                trackName = trackName,
+                approximateDurationSeconds = candidate.approximateDurationSeconds,
+                createdAtEpochMs = candidate.marker?.createdAtEpochMs,
+                safePlayable = candidate.safePlayable,
+                recoverable = decision == RecordingRecoveryPublicationDecision.RECOVERABLE,
+                finalizedUnpublished = candidate.state == studio.guitarlab.core.project.RecordingRecoveryMediaState.FINALIZED_UNPUBLISHED,
+                diagnosticReason = when (decision) {
+                    RecordingRecoveryPublicationDecision.TARGET_TRACK_MISSING -> "A pista original não existe mais; o áudio será preservado para suporte."
+                    RecordingRecoveryPublicationDecision.UNSAFE_PAYLOAD -> candidate.diagnosticReason ?: "A mídia não pôde ser validada com segurança."
+                    else -> candidate.diagnosticReason
+                },
+            )
+        }
+
+    private fun loadWaveformForClip(project: GuitarProject, clip: AudioClip): List<Float> =
+        waveformCache.read(project.id, clip.id)?.peaks ?: run {
+            val path = editingMediaPathOrNull(clip) ?: return emptyList()
+            val envelope = FileSeekableByteSource(mediaStore.resolveEditable(project.id, path)).use { source ->
+                WaveformEnvelopeBuilder.build(WavPcmDecoder(source), WAVEFORM_POINTS)
+            }
+            waveformCache.write(project.id, clip.id, envelope)
+            envelope.peaks
+        }
+
+    private fun friendlySelectedInputLabel(): String {
+        val signature = audioRoutingStore.selectedInputSignature() ?: return "entrada automática"
+        return audioRoutingStore.inputChoices().firstOrNull { it.signature == signature }?.label ?: "entrada selecionada"
+    }
+
+    private fun startBackingPlaybackForRecording(sampleRateHz: Int): Boolean {
         val state = _state.value
-        val project = state.project ?: return
+        val project = state.project ?: return false
         val end = TimelineControlPolicy.projectEndFrame(project)
-        if (end <= 0L || project.clips.isEmpty()) return
+        if (end <= 0L || project.clips.isEmpty()) return false
         val tracksById = project.tracks.associateBy { it.id }
         val clips = runCatching {
             ActiveTakePolicy.audibleClips(project).mapNotNull { clip ->
@@ -1551,10 +2572,13 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                 )
             }
         }.getOrElse {
-            _state.value = state.copy(clipStatus = "Gravando sem backing: não foi possível preparar a reprodução.")
-            return
+            postTransientWarning(
+                "A gravação continua, mas o backing não pôde ser reproduzido.",
+                "A gravação continua, mas o backing não pôde ser reproduzido.",
+            )
+            return false
         }
-        if (clips.isEmpty()) return
+        if (clips.isEmpty()) return false
         val outputSignature = audioRoutingStore.selectedOutputSignature()
         val request = StudioPlaybackRequest(
             sampleRateHz = sampleRateHz,
@@ -1571,8 +2595,52 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
             preferredOutputRequested = !outputSignature.isNullOrBlank(),
             masterGainDb = project.masterGainDb,
         )
-        runCatching {
+        return runCatching {
             playbackEngine.start(request, object : StudioPlaybackListener {
+                override fun onStarted(info: StudioPlaybackStartInfo) {
+                    val timingEvidence = RecordingTimingCompensationPolicy.startupOffsetEvidence(
+                        captureStartMonotonicNs = activeRecordingCaptureStartNs,
+                        captureTimestampBased = activeRecordingCaptureTimestampBased,
+                        backingPresentationStartMonotonicNs = info.presentationStartMonotonicNs,
+                        backingTimestampBased = info.timestampBased,
+                        sampleRateHz = sampleRateHz,
+                    )
+                    activeRecordingClockOffsetFrames = timingEvidence.offsetFrames
+                    activeRecordingTimingBasis = timingEvidence.basis
+                    activeRecordingBackingAnchorJitterNs = info.playbackAnchorJitterNs
+                    activeRecordingBackingAnchorObservations = info.playbackAnchorObservations
+                    activeRecordingEffectiveOutputIdentity = info.routedOutputLabel
+                    activeRecordingRouteState = activeRecordingRouteState?.let { route ->
+                        if (route.phase == studio.guitarlab.core.audio.AudioRouteSessionPhase.ACTIVE_CONFIRMED) {
+                            AudioRouteSessionPolicy.updateEffectiveOutput(route, info.routedOutputLabel)
+                        } else route
+                    }
+                    activeRecordingOutputUnderruns = info.outputUnderrunCount
+                    val captureBeforeBackingFrames = (-activeRecordingClockOffsetFrames).coerceAtLeast(0L)
+                    val compensatedTail = (activeRecordingRouteLatencyFrames + activeRecordingFineAdjustmentFrames).coerceAtLeast(0L)
+                    activePunchPlan = activePunchRegion?.let { region ->
+                        PunchRecordingPolicy.plan(region, captureBeforeBackingFrames + compensatedTail)
+                    }
+                }
+
+                override fun onRouting(status: StudioPlaybackRoutingStatus) {
+                    if (status.fellBackToAuto) {
+                        // Route-specific calibration/fine adjustment is invalid once Android falls back.
+                        activeRecordingOutputFallback = true
+                        activeRecordingRouteChanged = true
+                        activeRecordingRouteState = AudioRouteSessionPolicy.lost(
+                            activeRecordingRouteState ?: AudioRouteSessionPolicy.starting(activeRecordingSelectedInputIdentity, activeRecordingSelectedOutputIdentity),
+                            "selected output route fell back during recording",
+                        )
+                        activeRecordingRouteLatencyFrames = 0L
+                        activeRecordingFineAdjustmentFrames = 0L
+                        val captureBeforeBackingFrames = (-activeRecordingClockOffsetFrames).coerceAtLeast(0L)
+                        activePunchPlan = activePunchRegion?.let { region ->
+                            PunchRecordingPolicy.plan(region, captureBeforeBackingFrames)
+                        }
+                    }
+                }
+
                 override fun onPosition(frame: Long) {
                     viewModelScope.launch {
                         val current = _state.value
@@ -1588,7 +2656,8 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                     viewModelScope.launch {
                         val current = _state.value
                         if (current.recordingSession.phase == RecordingSessionPhase.CAPTURING) {
-                            _state.value = current.copy(clipStatus = "Gravação continua sem backing: $message")
+                            activeRecordingRouteChanged = true
+                            postTransientWarning(message, "A gravação continua sem backing porque a saída ficou indisponível.")
                         }
                     }
                 }
@@ -1609,9 +2678,34 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                     }
                 }
             })
-        }.onFailure {
-            _state.value = _state.value.copy(clipStatus = "Gravando sem backing: ${it.message ?: "saída indisponível"}")
+            true
+        }.getOrElse {
+            activeRecordingRouteLatencyFrames = 0L
+            activeRecordingFineAdjustmentFrames = 0L
+            activeRecordingOutputFallback = !audioRoutingStore.selectedOutputSignature().isNullOrBlank()
+            activeRecordingRouteChanged = activeRecordingOutputFallback
+            activeRecordingTimingBasis = RecordingTimingEvidenceBasis.NO_BACKING_REFERENCE
+            postTransientWarning(
+                "A gravação continua sem backing porque a saída ficou indisponível.",
+                "A gravação continua sem backing porque a saída ficou indisponível.",
+            )
+            false
         }
+    }
+
+    private fun resetActiveRecordingHealthEvidence() {
+        activeRecordingCaptureAnchorJitterNs = null
+        activeRecordingCaptureAnchorObservations = null
+        activeRecordingBackingAnchorJitterNs = null
+        activeRecordingBackingAnchorObservations = null
+        activeRecordingTimingBasis = RecordingTimingEvidenceBasis.NO_BACKING_REFERENCE
+        activeRecordingSelectedInputIdentity = null
+        activeRecordingEffectiveInputIdentity = null
+        activeRecordingSelectedOutputIdentity = null
+        activeRecordingEffectiveOutputIdentity = null
+        activeRecordingOutputFallback = false
+        activeRecordingRouteChanged = false
+        activeRecordingOutputUnderruns = null
     }
 
     private fun editTimelineMarker(transform: (TimelineControlState, Long) -> TimelineControlState) {
@@ -1645,6 +2739,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                         timelineControls = TimelineControlPolicy.normalizedForProject(_state.value.timelineControls, end),
                         transportEngineReady = playbackReadiness(saved).ready,
                         masterGainDb = saved.masterGainDb,
+                        trackLevelAnalysis = emptyMap(),
                         canUndo = projectHistory.canUndo,
                         canRedo = projectHistory.canRedo,
                         clipStatus = status,
@@ -1662,7 +2757,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
         }
         val current = _state.value
         val project = current.project ?: return
-        if (current.importing || current.editingClip || current.historyBusy || current.exporting) return
+        if (current.importing || current.editingClip || current.historyBusy) return
         viewModelScope.launch {
             runCatching {
                 saveLatest(project.id) { latest ->
@@ -1676,7 +2771,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
     private fun editTrackAudibility(trackId: String, toggleMute: Boolean) {
         val state = _state.value
         val project = state.project ?: return
-        if (state.importing || state.editingClip || state.historyBusy || state.exporting || state.trimControls != null) return
+        if (state.importing || state.editingClip || state.historyBusy || state.trimControls != null) return
         viewModelScope.launch {
             runCatching {
                 saveLatest(project.id) { latest ->
@@ -1688,17 +2783,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                     )
                 }
             }.onSuccess { saved ->
-                saved.tracks.forEach { track ->
-                    playbackEngine.setTrackAudibility(track.id, track.muted, track.solo)
-                }
-                val current = _state.value
-                _state.value = current.copy(
-                    project = saved,
-                    canUndo = projectHistory.canUndo,
-                    canRedo = projectHistory.canRedo,
-                    clipStatus = if (toggleMute) "Mute da pista atualizado" else "Solo da pista atualizado",
-                    error = null,
-                )
+                applySavedProject(saved, if (toggleMute) "Mute da pista atualizado" else "Solo da pista atualizado")
             }.onFailure { error -> _state.value = _state.value.copy(error = error.message ?: "Não foi possível atualizar a audição da pista.") }
         }
     }
@@ -1740,40 +2825,45 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                     )
                 }
             }.onSuccess { saved ->
-                val track = saved.tracks.firstOrNull { it.id == trackId }
-                if (track != null) {
-                    trackMixDrafts[track.id] = TrackMixDraft(track.gainDb, track.pan)
-                    playbackEngine.setTrackMix(track.id, track.gainDb, track.pan)
-                }
-                val state = _state.value
-                _state.value = state.copy(
-                    project = saved,
-                    transportEngineReady = playbackReadiness(saved).ready,
-                    masterGainDb = saved.masterGainDb,
-                    canUndo = projectHistory.canUndo,
-                    canRedo = projectHistory.canRedo,
-                    error = null,
-                )
+                applySavedProject(saved, "Mixagem da pista atualizada")
             }.onFailure { error -> _state.value = _state.value.copy(error = error.message ?: "Não foi possível salvar a mixagem da pista.") }
         }
     }
 
     private fun applySavedProject(saved: GuitarProject, status: String? = null) {
+        if (_state.value.project?.id != saved.id) return
+        val validTrackIds = saved.tracks.mapTo(mutableSetOf()) { it.id }
+        trackMixDrafts.keys.retainAll(validTrackIds)
+        saved.tracks.forEach { track ->
+            trackMixDrafts[track.id] = TrackMixDraft(track.gainDb, track.pan)
+            playbackEngine.setTrackMix(track.id, track.gainDb, track.pan)
+            playbackEngine.setTrackAudibility(track.id, track.muted, track.solo)
+        }
+        playbackEngine.setMasterGainDb(saved.masterGainDb)
         val state = _state.value
+        val end = TimelineControlPolicy.projectEndFrame(saved)
         _state.value = state.copy(
             project = saved,
+            timelineControls = TimelineControlPolicy.normalizedForProject(state.timelineControls, end),
             transportEngineReady = playbackReadiness(saved).ready,
             masterGainDb = saved.masterGainDb,
+            trackLevelAnalysis = emptyMap(),
             canUndo = projectHistory.canUndo,
             canRedo = projectHistory.canRedo,
             clipStatus = status,
+            preparedReferenceUpdateAvailable = PreparedReferenceBindingPolicy.updateAvailable(saved),
             error = null,
         )
     }
 
     private fun applyHistorySnapshot(saved: GuitarProject, waveforms: Map<String, List<Float>>, status: String) {
+        if (_state.value.project?.id != saved.id) return
         trackMixDrafts.clear()
-        saved.tracks.forEach { track -> trackMixDrafts[track.id] = TrackMixDraft(track.gainDb, track.pan) }
+        saved.tracks.forEach { track ->
+            trackMixDrafts[track.id] = TrackMixDraft(track.gainDb, track.pan)
+            playbackEngine.setTrackMix(track.id, track.gainDb, track.pan)
+            playbackEngine.setTrackAudibility(track.id, track.muted, track.solo)
+        }
         playbackEngine.setMasterGainDb(saved.masterGainDb)
         val state = _state.value
         val end = TimelineControlPolicy.projectEndFrame(saved)
@@ -1785,6 +2875,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
             timelineControls = TimelineControlPolicy.normalizedForProject(state.timelineControls, end),
             transportEngineReady = playbackReadiness(saved).ready,
             masterGainDb = saved.masterGainDb,
+            trackLevelAnalysis = emptyMap(),
             masterMeter = MeterBallisticsPolicy.reset(),
             trackMeters = emptyMap(),
             masterClipLatched = false,
@@ -1792,6 +2883,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
             canUndo = projectHistory.canUndo,
             canRedo = projectHistory.canRedo,
             clipStatus = status,
+            preparedReferenceUpdateAvailable = PreparedReferenceBindingPolicy.updateAvailable(saved),
             error = null,
         )
     }
@@ -1799,23 +2891,39 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
     private fun structuralEditingAllowed(state: StudioUiState): Boolean =
         !state.importing && !state.editingClip && !state.historyBusy && state.trimControls == null && TransportPolicy.timelineEditingEnabled(state.transport)
 
-    private suspend fun saveLatest(projectId: String, transform: (GuitarProject) -> GuitarProject): GuitarProject =
-        projectSaveMutex.withLock {
-            withContext(Dispatchers.IO) {
+    private suspend fun saveLatest(projectId: String, transform: (GuitarProject) -> GuitarProject): GuitarProject {
+        val sessionGeneration = projectSessionGeneration
+        return projectSaveMutex.withLock {
+            val (before, saved) = withContext(Dispatchers.IO) {
                 val latest = repository.load(projectId) ?: error("Projeto não encontrado: $projectId")
                 val updated = transform(latest)
-                val saved = repository.save(updated)
-                projectHistory.record(latest, saved)
-                saved
+                latest to repository.save(updated)
             }
+            BackupScheduler.enqueueCoalesced(getApplication())
+            val stillActive = sessionGeneration == projectSessionGeneration && _state.value.project?.id == projectId
+            if (stillActive) {
+                projectHistory.record(before, saved)
+                // History/readiness are derived truth. Update them at the persistence boundary so an
+                // individual feature cannot accidentally leave transport or Undo/Redo visually stale.
+                val state = _state.value
+                _state.value = state.copy(
+                    transportEngineReady = playbackReadiness(saved).ready,
+                    canUndo = projectHistory.canUndo,
+                    canRedo = projectHistory.canRedo,
+                )
+            }
+            saved
         }
+    }
 
     private suspend fun persistHistorySnapshot(snapshot: GuitarProject): Pair<GuitarProject, Map<String, List<Float>>> =
         projectSaveMutex.withLock {
-            withContext(Dispatchers.IO) {
+            val result = withContext(Dispatchers.IO) {
                 val saved = repository.save(snapshot.copy(updatedAtEpochMs = System.currentTimeMillis()))
                 saved to loadWaveforms(saved)
             }
+            BackupScheduler.enqueueCoalesced(getApplication())
+            result
         }
 
     private fun playbackReadiness(project: GuitarProject): PlaybackReadiness {
@@ -1836,7 +2944,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
         val firstRate = audible.first().let { it.editingSampleRateHz ?: it.sourceSampleRateHz } ?: return PlaybackReadiness(false, reason = "A taxa de amostragem do áudio é desconhecida.")
         val projectRate = project.sampleRate.fixedHz ?: firstRate
         if (audible.any { (it.editingSampleRateHz ?: it.sourceSampleRateHz) != projectRate }) {
-            return PlaybackReadiness(false, reason = "Há clipes sem proxy convertido para a taxa do projeto.")
+            return PlaybackReadiness(false, reason = "Há clipes que ainda precisam ser preparados para a taxa de áudio do projeto.")
         }
         return PlaybackReadiness(true, projectRate)
     }
@@ -1898,41 +3006,6 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-    fun exportProjectPackage(uri: Uri) {
-        val project = _state.value.project ?: return
-        if (_state.value.importing || _state.value.exporting || _state.value.historyBusy) return
-        viewModelScope.launch {
-            _state.value = _state.value.copy(exporting = true, exportStatus = "Salvando projeto…", error = null)
-            runCatching {
-                exportService.saveProject(project.id, uri)
-            }.onSuccess {
-                _state.value = _state.value.copy(exporting = false, exportStatus = "Projeto GuitarLab salvo com sucesso")
-            }.onFailure { error ->
-                _state.value = _state.value.copy(exporting = false, exportStatus = null, error = error.message ?: "Não foi possível salvar o projeto.")
-            }
-        }
-    }
-
-    fun exportMaster(uri: Uri, format: MasterExportFormat) {
-        val state = _state.value
-        val project = state.project ?: return
-        if (state.importing || state.exporting || state.historyBusy || state.trimControls != null || !TransportPolicy.timelineEditingEnabled(state.transport)) return
-        viewModelScope.launch {
-            _state.value = _state.value.copy(exporting = true, exportStatus = "Renderizando ${format.name}…", error = null)
-            runCatching {
-                withContext(Dispatchers.IO) {
-                    val readiness = playbackReadiness(project)
-                    require(readiness.ready) { readiness.reason ?: "Projeto sem áudio exportável." }
-                    exportService.exportMaster(project.id, uri, format)
-                }
-            }.onSuccess {
-                _state.value = _state.value.copy(exporting = false, exportStatus = "Master ${format.name} exportado com sucesso")
-            }.onFailure { error ->
-                _state.value = _state.value.copy(exporting = false, exportStatus = null, error = error.message ?: "Não foi possível exportar o master.")
-            }
-        }
-    }
-
     private fun editingMediaPath(clip: AudioClip): String = requireNotNull(editingMediaPathOrNull(clip)) {
         "O clipe '${clip.name}' não possui mídia de edição gerenciada."
     }
@@ -1959,6 +3032,8 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
     private data class PlaybackReadiness(val ready: Boolean, val sampleRateHz: Int? = null, val reason: String? = null)
 
     private companion object {
+        const val LIVE_WAVEFORM_UI_INTERVAL_MS = 33L
+        const val LEVEL_GAIN_EPSILON_DB = 0.1f
         const val WAVEFORM_POINTS = 320
         const val TRACK_COLOR_COUNT = 20
     }

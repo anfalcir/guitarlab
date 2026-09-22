@@ -5,6 +5,7 @@ import kotlin.math.abs
 import kotlin.math.log10
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.pow
 import kotlin.math.sqrt
 import studio.guitarlab.core.model.*
 
@@ -43,9 +44,14 @@ class TrackLevelAccumulator {
     private var peak = 0f
     private var squares = 0.0
     private var samples = 0L
-    fun append(interleaved: FloatArray, sampleCount: Int = interleaved.size) {
+    fun append(interleaved: FloatArray, sampleCount: Int = interleaved.size, gainLinear: Float = 1f) {
         require(sampleCount in 0..interleaved.size)
-        repeat(sampleCount) { i -> val value = interleaved[i]; peak = max(peak, abs(value)); squares += value.toDouble() * value }
+        require(gainLinear.isFinite() && gainLinear >= 0f) { "Gain must be finite and non-negative." }
+        repeat(sampleCount) { i ->
+            val value = interleaved[i] * gainLinear
+            peak = max(peak, abs(value))
+            squares += value.toDouble() * value
+        }
         samples += sampleCount
     }
     fun finish(): LevelAnalysis = TrackLevelAdvisor.analyze(peak, if (samples == 0L) 0f else sqrt(squares / samples).toFloat())
@@ -54,7 +60,15 @@ class TrackLevelAccumulator {
 object TrackLevelAdvisor {
     private const val TARGET_RMS_DBFS = -18f
     private const val MAX_PEAK_DBFS = -3f
-    fun analyze(samples: FloatArray): LevelAnalysis = TrackLevelAccumulator().also { it.append(samples) }.finish()
+    fun analyze(samples: FloatArray, gainDb: Float = 0f): LevelAnalysis = TrackLevelAccumulator().also {
+        it.append(samples, gainLinear = gainLinear(gainDb))
+    }.finish()
+
+    fun gainLinear(gainDb: Float): Float {
+        require(gainDb.isFinite()) { "Gain dB must be finite." }
+        return 10.0.pow(gainDb.toDouble() / 20.0).toFloat()
+    }
+
     internal fun analyze(peak: Float, rms: Float): LevelAnalysis {
         val peakDb = amplitudeDb(peak); val rmsDb = amplitudeDb(rms); val silent = rms < 0.00001f
         val gain = if (silent) 0f else min(TARGET_RMS_DBFS - rmsDb, MAX_PEAK_DBFS - peakDb).coerceIn(-12f, 12f)
@@ -90,11 +104,44 @@ object SectionBoundaryAnalyzer {
 
 data class PunchCapturePlan(val captureStartFrame: Long, val automaticStopAfterFrames: Long, val keptTimelineStartFrame: Long, val keptSourceStartFrame: Long, val keptLengthFrames: Long)
 
+data class PunchKeepWindow(
+    val timelineStartFrame: Long,
+    val sourceStartFrame: Long,
+    val lengthFrames: Long,
+)
+
 object PunchRecordingPolicy {
-    fun plan(region: PunchRegion, latencyFrames: Long = 0L): PunchCapturePlan {
-        require(region.startFrame >= 0L && region.endFrame > region.startFrame && region.preRollFrames >= 0L && region.postRollFrames >= 0L && latencyFrames >= 0L)
-        val captureStart = (region.startFrame - region.preRollFrames).coerceAtLeast(0L); val effectivePre = region.startFrame - captureStart
-        return PunchCapturePlan(captureStart, effectivePre + region.endFrame - region.startFrame + region.postRollFrames + latencyFrames, region.startFrame, effectivePre + latencyFrames, region.endFrame - region.startFrame)
+    /**
+     * tailCompensationFrames extends capture long enough for calibrated route latency and any
+     * capture-before-backing startup gap. Final punch cropping is derived from the measured take
+     * placement by [keepWindow], not from this estimate.
+     */
+    fun plan(region: PunchRegion, tailCompensationFrames: Long = 0L): PunchCapturePlan {
+        require(region.startFrame >= 0L && region.endFrame > region.startFrame && region.preRollFrames >= 0L && region.postRollFrames >= 0L && tailCompensationFrames >= 0L)
+        val captureStart = (region.startFrame - region.preRollFrames).coerceAtLeast(0L)
+        val effectivePre = region.startFrame - captureStart
+        return PunchCapturePlan(
+            captureStartFrame = captureStart,
+            automaticStopAfterFrames = effectivePre + region.endFrame - region.startFrame + region.postRollFrames + tailCompensationFrames,
+            keptTimelineStartFrame = region.startFrame,
+            keptSourceStartFrame = effectivePre,
+            keptLengthFrames = region.endFrame - region.startFrame,
+        )
+    }
+
+    /** Maps the requested punch region back into a fully compensated recorded take. */
+    fun keepWindow(
+        region: PunchRegion,
+        takeTimelineStartFrame: Long,
+        takeSourceStartFrame: Long,
+        capturedFrames: Long,
+    ): PunchKeepWindow? {
+        require(capturedFrames > 0L)
+        require(takeTimelineStartFrame >= 0L && takeSourceStartFrame >= 0L)
+        val sourceStart = takeSourceStartFrame + (region.startFrame - takeTimelineStartFrame)
+        val length = region.endFrame - region.startFrame
+        if (sourceStart < 0L || length <= 0L || sourceStart + length > capturedFrames) return null
+        return PunchKeepWindow(region.startFrame, sourceStart, length)
     }
 }
 
@@ -162,8 +209,9 @@ object PracticeWorkflowEditor {
     }
     fun previewSuggestedSections(suggestions: List<SectionBoundarySuggestion>, totalFrames: Long): List<SectionSuggestionPreview> {
         require(totalFrames > 0L)
+        val edgeGuardFrames = max(1L, totalFrames / 50L)
         val normalizedSuggestions = suggestions
-            .filter { it.frame in 1 until totalFrames }
+            .filter { it.frame >= edgeGuardFrames && it.frame <= totalFrames - edgeGuardFrames }
             .distinctBy { it.frame }
             .sortedBy { it.frame }
         val boundaries = (listOf(0L) + normalizedSuggestions.map { it.frame } + totalFrames).distinct().sorted()

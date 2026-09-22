@@ -4,8 +4,6 @@ import android.Manifest
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,14 +12,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Archive
 import androidx.compose.material.icons.filled.Equalizer
-import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Share
-import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
@@ -53,26 +47,31 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import studio.guitarlab.core.model.GuitarProject
 import studio.guitarlab.core.project.PracticeRecordingMode
+import studio.guitarlab.core.project.PreparedReferenceBindingPolicy
+import studio.guitarlab.core.project.ExternalControlCommandDispatcher
+import studio.guitarlab.core.project.ExternalControlCommandHandlers
 import studio.guitarlab.core.project.RecordingSessionPhase
 import studio.guitarlab.core.project.TransportPolicy
-import studio.guitarlab.platform.codec.android.MasterExportFormat
 
 @Composable
 fun StudioShellScreen(
     projectId: String,
+    shellProject: GuitarProject,
     onBack: () -> Unit,
+    onPrepare: () -> Unit,
     onOptions: () -> Unit,
+    onExport: () -> Unit,
     viewModel: StudioViewModel = viewModel(),
 ) {
     val state by viewModel.state.collectAsState()
     val context = LocalContext.current
+    ExternalControlHub.initialize(context)
     val uiPreferences = remember(context) { StudioUiPreferencesStore(context) }
-    var mixerPinned by rememberSaveable(projectId) { mutableStateOf(uiPreferences.mixerPinned()) }
-    var mixerVisible by rememberSaveable(projectId) { mutableStateOf(uiPreferences.mixerPinned()) }
+    var mixerVisible by rememberSaveable { mutableStateOf(uiPreferences.mixerVisible()) }
     var selectedTrackId by rememberSaveable(projectId) { mutableStateOf<String?>(null) }
-    var exportDialogVisible by rememberSaveable(projectId) { mutableStateOf(false) }
     var helpDialogVisible by rememberSaveable(projectId) { mutableStateOf(false) }
-    var recordChoiceVisible by rememberSaveable(projectId) { mutableStateOf(false) }
+    var allLevelsDialogVisible by rememberSaveable(projectId) { mutableStateOf(false) }
+    var projectMediaVisible by rememberSaveable(projectId) { mutableStateOf(false) }
     var pendingRecordMode by remember(projectId) { mutableStateOf(PracticeRecordingMode.CURRENT_PLAYHEAD) }
     val snackbarHostState = remember { SnackbarHostState() }
     val recordPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
@@ -88,50 +87,59 @@ fun StudioShellScreen(
         }
     }
 
-    val safeProjectName = state.project?.name
-        ?.replace(Regex("[^A-Za-z0-9._ -]"), "_")
-        ?.trim()
-        ?.ifBlank { "GuitarLab" }
-        ?: "GuitarLab"
-    val projectLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
-        if (uri != null) viewModel.exportProjectPackage(uri)
-    }
-    val wavLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("audio/wav")) { uri ->
-        if (uri != null) viewModel.exportMaster(uri, MasterExportFormat.WAV_FLOAT32)
-    }
-    val flacLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("audio/flac")) { uri ->
-        if (uri != null) viewModel.exportMaster(uri, MasterExportFormat.FLAC)
-    }
-    val mp3Launcher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("audio/mpeg")) { uri ->
-        if (uri != null) viewModel.exportMaster(uri, MasterExportFormat.MP3)
+    fun handleRecordIntent() {
+        // External control and the on-screen REC button share this exact path.
+        val liveState = viewModel.state.value
+        when (liveState.recordingSession.phase) {
+            RecordingSessionPhase.IDLE -> {
+                if (liveState.transport.loopEnabled) viewModel.showLoopRecordingChoice()
+                else requestRecording(PracticeRecordingMode.CURRENT_PLAYHEAD)
+            }
+            RecordingSessionPhase.COUNTDOWN,
+            RecordingSessionPhase.CAPTURING,
+            RecordingSessionPhase.FINALIZING -> viewModel.startRecording()
+        }
     }
 
     LaunchedEffect(projectId) { viewModel.load(projectId) }
+    LaunchedEffect(projectId) {
+        ExternalControlHub.actions.collect { action ->
+            ExternalControlCommandDispatcher.dispatch(
+                action = action,
+                handlers = ExternalControlCommandHandlers(
+                    playStop = viewModel::togglePlayStop,
+                    recordToggle = ::handleRecordIntent,
+                    returnToStart = viewModel::returnToStart,
+                    loopToggle = viewModel::toggleLoop,
+                    undo = viewModel::undo,
+                    redo = viewModel::redo,
+                ),
+            )
+        }
+    }
     DisposableEffect(projectId) { onDispose { viewModel.onStudioHidden() } }
     LaunchedEffect(state.project?.tracks) {
         val ids = state.project?.tracks?.map { it.id }.orEmpty()
         if (selectedTrackId !in ids) selectedTrackId = ids.firstOrNull()
     }
-    val transientMessage = if (state.project != null) {
-        state.error ?: if (!state.importing && state.recordingSession.phase == RecordingSessionPhase.IDLE) {
-            state.clipStatus ?: state.importStatus ?: state.exportStatus
-        } else null
+    val rawTransientMessage = if (state.project != null) {
+        state.error ?: state.transientNotice
     } else null
-    LaunchedEffect(transientMessage) {
-        transientMessage?.let { message ->
+    LaunchedEffect(rawTransientMessage) {
+        rawTransientMessage?.let { rawMessage ->
+            val userMessage = AppTransientFeedbackPolicy.userSafe(rawMessage, "Não foi possível concluir a operação de áudio.")
             snackbarHostState.currentSnackbarData?.dismiss()
-            snackbarHostState.showSnackbar(message = message, duration = SnackbarDuration.Short)
-            viewModel.dismissTransientMessage(message)
+            snackbarHostState.showSnackbar(message = userMessage, duration = SnackbarDuration.Short)
+            viewModel.dismissTransientMessage(rawMessage)
         }
     }
 
     val structuralControlsEnabled = !state.importing &&
         !state.editingClip &&
         !state.historyBusy &&
-        !state.exporting &&
         state.trimControls == null &&
         TransportPolicy.timelineEditingEnabled(state.transport)
-    val mixControlsEnabled = !state.importing && !state.editingClip && !state.historyBusy && !state.exporting && state.trimControls == null
+    val mixControlsEnabled = !state.importing && !state.editingClip && !state.historyBusy && state.trimControls == null
 
     Box(
         Modifier
@@ -139,48 +147,88 @@ fun StudioShellScreen(
             .semantics { testTagsAsResourceId = true }
             .testTag(if (state.project != null) "studio-loaded" else "studio-loading"),
     ) {
-        Column(Modifier.fillMaxSize()) {
-            val topBarProject = state.project
-            StudioTopBar(
-                project = topBarProject,
-                transport = {
-                    TransportBar(
-                        state = state.transport,
-                        engineReady = state.transportEngineReady && state.trimControls == null,
-                        recordEnabled = state.project != null && !state.importing && !state.editingClip && !state.historyBusy && !state.exporting && state.trimControls == null,
-                        recordingPhase = state.recordingSession.phase,
-                        canUndo = state.canUndo && !state.historyBusy,
-                        canRedo = state.canRedo && !state.historyBusy,
-                        onReturnToStart = viewModel::returnToStart,
-                        onPlayStop = viewModel::togglePlayStop,
-                        onRecord = {
-                            when (state.recordingSession.phase) {
-                                RecordingSessionPhase.IDLE -> {
-                                    if (state.transport.loopEnabled) recordChoiceVisible = true
-                                    else requestRecording(PracticeRecordingMode.CURRENT_PLAYHEAD)
-                                }
-                                RecordingSessionPhase.COUNTDOWN,
-                                RecordingSessionPhase.CAPTURING,
-                                RecordingSessionPhase.FINALIZING -> viewModel.startRecording()
-                            }
-                        },
-                        onToggleLoop = viewModel::toggleLoop,
-                        onUndo = viewModel::undo,
-                        onRedo = viewModel::redo,
-                    )
-                },
-                onMixer = { mixerVisible = true },
-                onHelp = { helpDialogVisible = true },
-                onOptions = onOptions,
-                onShare = { exportDialogVisible = true },
-                onHome = onBack,
-            )
+        ProjectShellScaffold(
+            project = state.project ?: shellProject,
+            currentWorkspace = ProjectWorkspace.STUDIO,
+            onProjects = onBack,
+            onPrepare = onPrepare,
+            onStudio = {},
+            onExport = onExport,
+            onSettings = onOptions,
+            trailingActions = {
+                AppIconButton(
+                    icon = Icons.Default.FolderOpen,
+                    contentDescription = "Mídia do projeto",
+                    onClick = { projectMediaVisible = true },
+                    modifier = Modifier.testTag("studio-project-media"),
+                )
+                AppIconButton(
+                    icon = Icons.Default.Equalizer,
+                    contentDescription = if (mixerVisible) "Ocultar Mixer" else "Mostrar Mixer",
+                    onClick = {
+                        val nextVisible = !mixerVisible
+                        mixerVisible = nextVisible
+                        uiPreferences.setMixerVisible(nextVisible)
+                    },
+                    tint = if (mixerVisible) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.testTag("studio-mixer-toggle"),
+                )
+                AppIconButton(
+                    icon = Icons.Default.Info,
+                    contentDescription = "Ajuda",
+                    onClick = { helpDialogVisible = true },
+                    modifier = Modifier.testTag("studio-help"),
+                )
+            },
+            secondaryBar = {
+                Surface(modifier = Modifier.fillMaxWidth(), tonalElevation = 0.dp) {
+                    Box(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp)) {
+                        Box(modifier = Modifier.align(Alignment.Center).testTag("studio-navigation")) {
+                            TransportBar(
+                                state = state.transport,
+                                engineReady = state.transportEngineReady && state.trimControls == null,
+                                recordEnabled = state.project != null && !state.importing && !state.editingClip && !state.historyBusy && state.trimControls == null,
+                                recordingPhase = state.recordingSession.phase,
+                                canUndo = state.canUndo && !state.historyBusy,
+                                canRedo = state.canRedo && !state.historyBusy,
+                                onReturnToStart = viewModel::returnToStart,
+                                onPlayStop = viewModel::togglePlayStop,
+                                onRecord = ::handleRecordIntent,
+                                onToggleLoop = viewModel::toggleLoop,
+                                onUndo = viewModel::undo,
+                                onRedo = viewModel::redo,
+                            )
+                        }
+                    }
+                }
+            },
+        ) {
+            Column(Modifier.fillMaxSize()) {
+            if (state.preparedReferenceUpdateAvailable) {
+                Surface(
+                    modifier = Modifier.fillMaxWidth().testTag("studio-prepared-reference-update"),
+                    tonalElevation = 3.dp,
+                    color = MaterialTheme.colorScheme.secondaryContainer,
+                ) {
+                    Row(
+                        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text("Nova base/referência preparada disponível", modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                        OutlinedButton(onClick = viewModel::keepCurrentPreparedReferences, modifier = Modifier.testTag("studio-keep-prepared-reference")) { Text("Manter atual") }
+                        Button(onClick = viewModel::applyPreparedReferenceUpdate, modifier = Modifier.testTag("studio-update-prepared-reference")) { Text("Atualizar Studio") }
+                    }
+                }
+            }
 
             Box(Modifier.fillMaxWidth().weight(1f)) {
                 StudioPlaceholderScreen(
                     viewModel = viewModel,
                     selectedTrackId = selectedTrackId,
                     onSelectTrack = { selectedTrackId = it },
+                    showPracticeControls = !mixerVisible,
+                    onOpenLevelAnalysis = { allLevelsDialogVisible = true },
                 )
             }
 
@@ -190,7 +238,6 @@ fun StudioShellScreen(
                     tracks = project.tracks,
                     auditionMode = state.guitarAuditionMode,
                     selectedTrackId = selectedTrackId,
-                    pinned = mixerPinned,
                     mixControlsEnabled = mixControlsEnabled,
                     structuralControlsEnabled = structuralControlsEnabled,
                     masterGainDb = state.masterGainDb,
@@ -199,18 +246,6 @@ fun StudioShellScreen(
                     masterClipLatched = state.masterClipLatched,
                     trackClipLatched = state.trackClipLatched,
                     onSelectTrack = { selectedTrackId = it },
-                    onPin = {
-                        mixerPinned = true
-                        mixerVisible = true
-                        uiPreferences.setMixerPinned(true)
-                    },
-                    onClose = {
-                        if (mixerPinned) {
-                            mixerPinned = false
-                            uiPreferences.setMixerPinned(false)
-                        }
-                        mixerVisible = false
-                    },
                     onGainPreview = viewModel::previewTrackGainDb,
                     onGainCommit = viewModel::commitTrackGainDb,
                     onPanPreview = viewModel::previewTrackPan,
@@ -222,8 +257,30 @@ fun StudioShellScreen(
                     onMasterGainCommit = viewModel::commitMasterGainDb,
                     onClearTrackClip = viewModel::clearTrackClipIndicator,
                     onClearMasterClip = viewModel::clearMasterClipIndicator,
+                    headerContent = {
+                        PracticeControls(
+                            project = project,
+                            auditionMode = state.guitarAuditionMode,
+                            suggestions = state.sectionSuggestions.size,
+                            enabled = structuralControlsEnabled,
+                            loopEnabled = state.transport.loopEnabled,
+                            onAuditionMode = viewModel::setGuitarAuditionMode,
+                            onAddMarker = viewModel::addMarkerAtPlayhead,
+                            onAddSection = viewModel::addSectionFromLoop,
+                            onSuggestSections = viewModel::suggestSections,
+                            onAcceptSections = viewModel::acceptSectionSuggestions,
+                            onDiscardSections = viewModel::discardSectionSuggestions,
+                            onClearSections = viewModel::clearSections,
+                            onLoopSection = viewModel::loopSection,
+                            onRemoveMarker = viewModel::removeMarker,
+                            onRemoveSection = viewModel::removeSection,
+                            onOpenLevelAnalysis = { allLevelsDialogVisible = true },
+                            docked = true,
+                        )
+                    },
                 )
             }
+        }
         }
         SnackbarHost(
             hostState = snackbarHostState,
@@ -231,9 +288,23 @@ fun StudioShellScreen(
         )
     }
 
-    if (recordChoiceVisible) {
+    val levelProject = state.project
+    if (allLevelsDialogVisible && levelProject != null) {
+        AllTracksLevelDialog(
+            project = levelProject,
+            analyses = state.trackLevelAnalysis,
+            busyTrackIds = state.trackLevelAnalysisBusy,
+            onAnalyzeTrack = viewModel::analyzeTrackLevel,
+            onAnalyzeAll = viewModel::analyzeAllTrackLevels,
+            onApplyTrack = viewModel::applyTrackLevelSuggestion,
+            onApplyAll = viewModel::applyAllTrackLevelSuggestions,
+            onDismiss = { allLevelsDialogVisible = false },
+        )
+    }
+
+    if (state.loopRecordingChoiceVisible) {
         AlertDialog(
-            onDismissRequest = { recordChoiceVisible = false },
+            onDismissRequest = viewModel::dismissLoopRecordingChoice,
             title = { Text("Gravar com o loop ativo") },
             text = {
                 Text(
@@ -243,17 +314,17 @@ fun StudioShellScreen(
             confirmButton = {
                 Button(
                     onClick = {
-                        recordChoiceVisible = false
+                        viewModel.dismissLoopRecordingChoice()
                         requestRecording(PracticeRecordingMode.LOOP_PUNCH)
                     },
                 ) { Text("Somente o loop") }
             },
             dismissButton = {
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                    TextButton(onClick = { recordChoiceVisible = false }) { Text("Cancelar") }
+                    TextButton(onClick = viewModel::dismissLoopRecordingChoice) { Text("Cancelar") }
                     OutlinedButton(
                         onClick = {
-                            recordChoiceVisible = false
+                            viewModel.dismissLoopRecordingChoice()
                             requestRecording(PracticeRecordingMode.FROM_PROJECT_START)
                         },
                     ) { Text("Desde o início") }
@@ -266,86 +337,25 @@ fun StudioShellScreen(
         StudioUserGuideDialog(onDismiss = { helpDialogVisible = false })
     }
 
-    if (exportDialogVisible && state.project != null) {
-        SaveAndExportDialog(
-            projectName = state.project!!.name,
-            busy = state.exporting,
-            onDismiss = { if (!state.exporting) exportDialogVisible = false },
-            onSaveProject = {
-                exportDialogVisible = false
-                projectLauncher.launch("$safeProjectName.guitarlab")
+    val mediaProject = state.project
+    if (projectMediaVisible && mediaProject != null) {
+        ProjectMediaDialog(
+            project = mediaProject,
+            referenceBindingDiffers = PreparedReferenceBindingPolicy.bindingDiffersFromDesired(mediaProject),
+            referenceDecisionPending = state.preparedReferenceUpdateAvailable,
+            onKeepCurrent = {
+                viewModel.keepCurrentPreparedReferences()
+                projectMediaVisible = false
             },
-            onWav = {
-                exportDialogVisible = false
-                wavLauncher.launch("$safeProjectName-master.wav")
+            onApplyUpdate = {
+                viewModel.applyPreparedReferenceUpdate()
+                projectMediaVisible = false
             },
-            onFlac = {
-                exportDialogVisible = false
-                flacLauncher.launch("$safeProjectName-master.flac")
-            },
-            onMp3 = {
-                exportDialogVisible = false
-                mp3Launcher.launch("$safeProjectName-master.mp3")
-            },
+            onDismiss = { projectMediaVisible = false },
         )
     }
-}
 
-@Composable
-private fun StudioTopBar(
-    project: GuitarProject?,
-    transport: @Composable () -> Unit,
-    onMixer: () -> Unit,
-    onHelp: () -> Unit,
-    onOptions: () -> Unit,
-    onShare: () -> Unit,
-    onHome: () -> Unit,
-) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.background,
-        tonalElevation = 0.dp,
-    ) {
-        Box(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 7.dp),
-        ) {
-            Column(
-                modifier = Modifier.align(Alignment.CenterStart).widthIn(min = 180.dp, max = 280.dp),
-                verticalArrangement = Arrangement.spacedBy(1.dp),
-            ) {
-                Text(
-                    project?.name ?: "GuitarLab",
-                    style = MaterialTheme.typography.titleLarge,
-                    maxLines = 1,
-                )
-            }
 
-            Box(modifier = Modifier.align(Alignment.Center).testTag("studio-navigation")) { transport() }
-
-            Row(
-                modifier = Modifier.align(Alignment.CenterEnd),
-                horizontalArrangement = Arrangement.spacedBy(2.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                AppIconButton(icon = Icons.Default.Equalizer, contentDescription = "Mixer", onClick = onMixer)
-                AppIconButton(icon = Icons.Default.Info, contentDescription = "Ajuda", onClick = onHelp, modifier = Modifier.testTag("studio-help"))
-                AppIconButton(icon = Icons.Default.Tune, contentDescription = "Opções", onClick = onOptions, modifier = Modifier.testTag("studio-options"))
-                AppIconButton(
-                    icon = Icons.Default.Share,
-                    contentDescription = "Salvar e exportar",
-                    enabled = project != null,
-                    onClick = onShare,
-                    modifier = Modifier.testTag(if (project != null) "studio-export-enabled" else "studio-export-loading"),
-                )
-                AppIconButton(
-                    icon = Icons.Default.Home,
-                    contentDescription = "Início",
-                    onClick = onHome,
-                    modifier = Modifier.testTag("studio-home"),
-                )
-            }
-        }
-    }
 }
 
 @Composable
@@ -377,114 +387,4 @@ fun RenameProjectDialog(
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } },
     )
-}
-
-@Composable
-fun SaveAndExportDialog(
-    projectName: String,
-    busy: Boolean,
-    onDismiss: () -> Unit,
-    onSaveProject: () -> Unit,
-    onWav: () -> Unit,
-    onFlac: () -> Unit,
-    onMp3: () -> Unit,
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                Text("Salvar e exportar")
-                Text(
-                    projectName,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                )
-            }
-        },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text(
-                    "Escolha entre preservar o projeto editável ou gerar um arquivo final de áudio.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-
-                Text("PROJETO EDITÁVEL", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.secondary)
-                ExportActionCard(
-                    title = "Projeto GuitarLab",
-                    badge = ".guitarlab",
-                    detail = "Pacote portátil com pistas, clips, edições, fontes originais e proxies necessários.",
-                    icon = { Icon(Icons.Default.Archive, contentDescription = null) },
-                    enabled = !busy,
-                    onClick = onSaveProject,
-                )
-
-                Text("MASTER FINAL", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.secondary)
-                ExportActionCard(
-                    title = "WAV",
-                    badge = "32-bit float",
-                    detail = "Máxima qualidade para arquivo, edição ou masterização posterior.",
-                    enabled = !busy,
-                    onClick = onWav,
-                )
-                ExportActionCard(
-                    title = "FLAC",
-                    badge = "Lossless",
-                    detail = "Compactação sem perdas com arquivo menor que WAV.",
-                    enabled = !busy,
-                    onClick = onFlac,
-                )
-                ExportActionCard(
-                    title = "MP3",
-                    badge = "320 kbps",
-                    detail = "Versão prática e compatível para compartilhamento.",
-                    enabled = !busy,
-                    onClick = onMp3,
-                )
-            }
-        },
-        confirmButton = {},
-        dismissButton = {
-            TextButton(onClick = onDismiss, enabled = !busy) { Text("Fechar") }
-        },
-    )
-}
-
-@Composable
-private fun ExportActionCard(
-    title: String,
-    badge: String,
-    detail: String,
-    enabled: Boolean,
-    icon: (@Composable () -> Unit)? = null,
-    onClick: () -> Unit,
-) {
-    Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(enabled = enabled, onClick = onClick),
-        shape = RoundedCornerShape(14.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = if (enabled) 0.42f else 0.20f),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.28f)),
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            icon?.invoke()
-            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(title, style = MaterialTheme.typography.titleSmall)
-                    Text(badge, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.secondary)
-                }
-                Text(detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        }
-    }
 }

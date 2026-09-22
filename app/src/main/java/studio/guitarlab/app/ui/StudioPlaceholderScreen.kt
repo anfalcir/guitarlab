@@ -7,11 +7,13 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.BoxWithConstraintsScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -25,6 +27,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -51,8 +54,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.RangeSlider
-import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -86,9 +87,12 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.delay
+import studio.guitarlab.app.ui.theme.StudioComparisonActive
+import studio.guitarlab.app.ui.theme.StudioComparisonHidden
 import studio.guitarlab.app.ui.theme.StudioLoop
 import studio.guitarlab.app.ui.theme.StudioPlayhead
 import studio.guitarlab.app.ui.theme.StudioRecord
@@ -97,8 +101,10 @@ import studio.guitarlab.core.model.AudioClip
 import studio.guitarlab.core.model.AudioTrack
 import studio.guitarlab.core.model.BuiltInRoles
 import studio.guitarlab.core.model.GuitarProject
+import studio.guitarlab.core.model.TrackRoleDefinition
 import studio.guitarlab.core.project.RecordingSessionPhase
 import studio.guitarlab.core.project.ActiveTakePolicy
+import studio.guitarlab.core.project.LiveWaveformPoint
 import studio.guitarlab.core.project.GuitarAuditionMode
 import studio.guitarlab.core.project.GuitarAuditionPolicy
 import studio.guitarlab.core.project.GuitarAuditionTrackState
@@ -109,10 +115,14 @@ import studio.guitarlab.core.project.TransportPolicy
 import studio.guitarlab.core.project.TransportState
 import studio.guitarlab.core.project.TrimControlPolicy
 import studio.guitarlab.core.project.TrimControlState
+import studio.guitarlab.core.project.TrackRoleAssignmentPolicy
 
 private val TrackSidebarWidth = 224.dp
 private val TrackLaneGap = 6.dp
 private val TrackLaneHeight = 96.dp
+private val ClipTrashWidth = 168.dp
+private val ClipTrashHeight = 68.dp
+private val ClipTrashMargin = 16.dp
 
 enum class WorkspaceDragKind { TRACK, CLIP }
 
@@ -130,6 +140,20 @@ private data class WorkspaceDragState(
     val peaks: List<Float>? = null,
     val targetIndex: Int? = null,
     val targetTrackId: String? = null,
+    val deleteTargetHovered: Boolean = false,
+    val visibleLanes: List<TimelineDragPolicy.LaneBounds> = emptyList(),
+)
+
+/**
+ * Ephemeral layout measurements used only by drag gestures.
+ *
+ * These values deliberately are not Compose snapshot state. Updating geometry from
+ * onGloballyPositioned must not invalidate composition, otherwise measurement can create
+ * a layout -> state write -> recomposition feedback loop and keep Compose permanently busy.
+ */
+private class DragLayoutGeometry(
+    var origin: Offset = Offset.Zero,
+    var size: IntSize = IntSize.Zero,
 )
 
 @Composable
@@ -137,11 +161,14 @@ fun StudioPlaceholderScreen(
     viewModel: StudioViewModel = viewModel(),
     selectedTrackId: String? = null,
     onSelectTrack: (String) -> Unit = {},
+    showPracticeControls: Boolean = true,
+    onOpenLevelAnalysis: () -> Unit = {},
 ) {
     val state by viewModel.state.collectAsState()
     var pendingTrackId by remember { mutableStateOf<String?>(null) }
     var settingsTrackId by remember { mutableStateOf<String?>(null) }
     var fadeClipId by remember { mutableStateOf<String?>(null) }
+    var pendingDiscardRecoveryId by remember { mutableStateOf<String?>(null) }
     val audioPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         val trackId = pendingTrackId
         pendingTrackId = null
@@ -167,12 +194,15 @@ fun StudioPlaceholderScreen(
                 editingClip = state.editingClip,
                 recordingPhase = state.recordingSession.phase,
                 countdownSeconds = state.recordingSession.countdownSecondsRemaining,
-                liveRecordingPeaks = state.liveRecordingPeaks,
+                liveRecordingWaveform = state.liveRecordingWaveform,
                 recordingTrackId = state.recordingSession.targetTrackId,
                 recordingStartFrame = state.recordingSession.timelineStartFrame,
                 recordingFrames = state.recordingSession.framesCaptured,
+                recordingPeak = state.recordingPeak,
+                recordingRms = state.recordingRms,
                 auditionMode = state.guitarAuditionMode,
                 sectionSuggestions = state.sectionSuggestions,
+                showPracticeControls = showPracticeControls,
                 selectedTrackId = selectedTrackId,
                 onSelectTrack = onSelectTrack,
                 onOpenTrackSettings = { settingsTrackId = it },
@@ -210,6 +240,7 @@ fun StudioPlaceholderScreen(
                 onLoopSection = viewModel::loopSection,
                 onRemoveMarker = viewModel::removeMarker,
                 onRemoveSection = viewModel::removeSection,
+                onOpenLevelAnalysis = onOpenLevelAnalysis,
                 modifier = Modifier.fillMaxSize(),
             )
         }
@@ -230,12 +261,18 @@ fun StudioPlaceholderScreen(
             sampleRate = project.sampleRate.fixedHz ?: clipSampleRate(project),
             takes = project.takes.filter { it.trackId == settingsTrack.id },
             levelAnalysis = state.trackLevelAnalysis[settingsTrack.id],
+            availableRoles = TrackRoleAssignmentPolicy.availableForTrack(project, settingsTrack.id),
             onActivateTake = viewModel::activateTake,
+            onAuditionTake = viewModel::auditionTake,
+            onUpdateTakeMetadata = viewModel::updateTakeMetadata,
+            onToggleTakeFavorite = viewModel::toggleTakeFavorite,
+            onDeleteTake = viewModel::deleteTake,
             onAnalyzeLevel = { viewModel.analyzeTrackLevel(settingsTrack.id) },
             onApplyLevel = { viewModel.applyTrackLevelSuggestion(settingsTrack.id) },
+            onClearTrack = { viewModel.clearTrackContents(settingsTrack.id) },
             onDismiss = { settingsTrackId = null },
-            onSave = { name, colorIndex ->
-                viewModel.updateTrackProperties(settingsTrack.id, name, colorIndex)
+            onSave = { name, colorIndex, roleId ->
+                viewModel.updateTrackConfiguration(settingsTrack.id, name, colorIndex, roleId)
                 settingsTrackId = null
             },
             onDelete = {
@@ -243,6 +280,24 @@ fun StudioPlaceholderScreen(
                 settingsTrackId = null
             },
         )
+    }
+
+    state.newTrackRolePromptId?.let { trackId ->
+        val promptProject = state.project
+        val promptTrack = promptProject?.tracks?.firstOrNull { it.id == trackId }
+        if (promptProject != null && promptTrack != null) {
+            val suggestions = TrackRoleAssignmentPolicy.availableSuggestionsForNewTrack(promptProject, trackId)
+            if (suggestions.isNotEmpty()) {
+                NewTrackRolePromptDialog(
+                    trackName = promptTrack.name,
+                    suggestions = suggestions,
+                    onChoose = { roleId -> viewModel.assignNewTrackRole(trackId, roleId) },
+                    onKeepGeneric = viewModel::dismissNewTrackRolePrompt,
+                )
+            } else {
+                LaunchedEffect(trackId) { viewModel.dismissNewTrackRolePrompt() }
+            }
+        }
     }
 
     fadeClipId?.let { id ->
@@ -254,6 +309,59 @@ fun StudioPlaceholderScreen(
                 onApply = { fadeIn, fadeOut -> viewModel.setClipFades(clip.id, fadeIn, fadeOut); fadeClipId = null },
             )
         }
+    }
+
+    state.recoveryItems.firstOrNull()?.let { recovery ->
+        val duration = recovery.approximateDurationSeconds?.let { seconds ->
+            val total = seconds.toLong().coerceAtLeast(0L)
+            "%d:%02d".format(total / 60L, total % 60L)
+        } ?: "duração desconhecida"
+        AlertDialog(
+            onDismissRequest = { if (!state.recoveryBusy) viewModel.postponeInterruptedRecording(recovery.transactionId) },
+            title = { Text("Gravação interrompida encontrada") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("O GuitarLab preservou áudio capturado antes da interrupção.")
+                    Text("${recovery.trackName ?: "Pista original não disponível"} • $duration")
+                    recovery.diagnosticReason?.let { Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                    if (!recovery.recoverable) {
+                        Text("O áudio será mantido sem alterações até você decidir o que fazer.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            },
+            confirmButton = {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (recovery.safePlayable) {
+                        TextButton(enabled = !state.recoveryBusy, onClick = { viewModel.previewInterruptedRecording(recovery.transactionId) }) { Text("Ouvir") }
+                    }
+                    Button(
+                        enabled = recovery.recoverable && !state.recoveryBusy,
+                        onClick = { viewModel.recoverInterruptedRecording(recovery.transactionId) },
+                    ) { Text(if (state.recoveryBusy) "Recuperando…" else "Recuperar") }
+                }
+            },
+            dismissButton = {
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    TextButton(enabled = !state.recoveryBusy, onClick = { pendingDiscardRecoveryId = recovery.transactionId }) { Text("Descartar") }
+                    TextButton(enabled = !state.recoveryBusy, onClick = { viewModel.postponeInterruptedRecording(recovery.transactionId) }) { Text("Depois") }
+                }
+            },
+        )
+    }
+
+    pendingDiscardRecoveryId?.let { transactionId ->
+        AlertDialog(
+            onDismissRequest = { pendingDiscardRecoveryId = null },
+            title = { Text("Descartar gravação preservada?") },
+            text = { Text("Esta ação apaga definitivamente o áudio interrompido que ainda não foi publicado no projeto.") },
+            confirmButton = {
+                Button(onClick = {
+                    viewModel.discardInterruptedRecording(transactionId)
+                    pendingDiscardRecoveryId = null
+                }) { Text("Descartar") }
+            },
+            dismissButton = { TextButton(onClick = { pendingDiscardRecoveryId = null }) { Text("Cancelar") } },
+        )
     }
 
     state.stereoImportPrompt?.let { prompt ->
@@ -272,7 +380,7 @@ fun StudioPlaceholderScreen(
             },
             confirmButton = {
                 Button(onClick = { viewModel.separateStereoClip(prompt.clipId) }) {
-                    Text(if (prompt.hasGuitarPair) "Distribuir L/R" else "Separar em 2 mono")
+                    Text(if (prompt.hasGuitarPair) "Distribuir L/R" else "Separar em 2 canais mono")
                 }
             },
             dismissButton = {
@@ -282,12 +390,22 @@ fun StudioPlaceholderScreen(
     }
 }
 
+private val AutoSectionsSlotWidth = 124.dp
+private val AutoSectionsDiscardWidth = 36.dp
+private val PracticeControlsWideBreakpoint = 920.dp
+private val DockedPracticeAdaptiveSingleRowBreakpoint = 720.dp
+private const val ComparisonPracticeWeight = 0.34f
+private const val AdjustmentsPracticeWeight = 0.16f
+private const val TimelinePracticeWeight = 0.50f
+private val TimelineRulerHeight = 20.dp
+
 @Composable
-private fun PracticeControls(
+internal fun PracticeControls(
     project: GuitarProject,
     auditionMode: GuitarAuditionMode,
     suggestions: Int,
     enabled: Boolean,
+    loopEnabled: Boolean,
     onAuditionMode: (GuitarAuditionMode) -> Unit,
     onAddMarker: () -> Unit,
     onAddSection: () -> Unit,
@@ -298,34 +416,145 @@ private fun PracticeControls(
     onLoopSection: (String) -> Unit,
     onRemoveMarker: (String) -> Unit,
     onRemoveSection: (String) -> Unit,
+    onOpenLevelAnalysis: () -> Unit = {},
+    compact: Boolean = false,
+    docked: Boolean = false,
+    modifier: Modifier = Modifier,
 ) {
     var confirmClearSections by remember { mutableStateOf(false) }
+    val buttonShape = RoundedCornerShape(if (docked) 4.dp else 6.dp)
 
-    Row(
-        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        PracticeControlGroup("Comparação") {
-            GuitarAuditionMode.entries.forEach { mode ->
-                val label = when(mode) { GuitarAuditionMode.MIXER -> "Mixer"; GuitarAuditionMode.REFERENCE -> "Referência"; GuitarAuditionMode.MY_GUITAR -> "Minha"; GuitarAuditionMode.BOTH -> "Ambas" }
-                if (mode == auditionMode) Button(onClick={onAuditionMode(mode)}, contentPadding=PaddingValues(horizontal=10.dp,vertical=2.dp), modifier=Modifier.semantics { selected = true }) { Text(label) }
-                else OutlinedButton(onClick={onAuditionMode(mode)}, contentPadding=PaddingValues(horizontal=10.dp,vertical=2.dp)) { Text(label) }
+    val comparisonContent: @Composable RowScope.() -> Unit = {
+        GuitarAuditionMode.entries.forEach { mode ->
+            val label = when(mode) { GuitarAuditionMode.MIXER -> "Desativado"; GuitarAuditionMode.REFERENCE -> "Referência"; GuitarAuditionMode.MY_GUITAR -> "Minha"; GuitarAuditionMode.BOTH -> "Ambas" }
+            if (mode == auditionMode) {
+                Button(
+                    onClick = { onAuditionMode(mode) },
+                    shape = buttonShape,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.secondary,
+                        contentColor = MaterialTheme.colorScheme.onSecondary,
+                    ),
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
+                    modifier = Modifier.semantics { selected = true },
+                ) { Text(label) }
+            } else {
+                OutlinedButton(
+                    onClick = { onAuditionMode(mode) },
+                    shape = buttonShape,
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        containerColor = MaterialTheme.colorScheme.secondary.copy(alpha = 0.14f),
+                        contentColor = MaterialTheme.colorScheme.secondary,
+                    ),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.55f)),
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
+                ) { Text(label) }
             }
         }
-        PracticeControlGroup("Timeline") {
-            OutlinedButton(onClick=onAddMarker, enabled=enabled, contentPadding=PaddingValues(horizontal=10.dp,vertical=2.dp)) { Text("+ Marcador") }
-            OutlinedButton(onClick=onAddSection, enabled=enabled, contentPadding=PaddingValues(horizontal=10.dp,vertical=2.dp)) { Text("Criar seção do loop") }
-            OutlinedButton(onClick=onSuggestSections, enabled=enabled, contentPadding=PaddingValues(horizontal=10.dp,vertical=2.dp)) { Text("Detectar seções") }
-            if (suggestions > 0) {
-                Button(onClick=onAcceptSections, enabled=enabled, contentPadding=PaddingValues(horizontal=10.dp,vertical=2.dp)) { Text("Aplicar prévia") }
-                TextButton(onClick=onDiscardSections, enabled=enabled) { Text("Cancelar prévia") }
+    }
+    val adjustmentsContent: @Composable RowScope.() -> Unit = {
+        OutlinedButton(
+            onClick = onOpenLevelAnalysis,
+            enabled = enabled,
+            shape = buttonShape,
+            colors = ButtonDefaults.outlinedButtonColors(
+                containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.14f),
+                contentColor = MaterialTheme.colorScheme.primary,
+            ),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.58f)),
+            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
+            modifier = Modifier.testTag("open-all-level-analysis"),
+        ) { Text("Níveis") }
+    }
+    val timelineContent: @Composable RowScope.() -> Unit = {
+        OutlinedButton(
+            onClick = onAddMarker,
+            enabled = enabled,
+            shape = buttonShape,
+            colors = ButtonDefaults.outlinedButtonColors(
+                containerColor = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.14f),
+                contentColor = MaterialTheme.colorScheme.tertiary,
+            ),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.tertiary.copy(alpha = 0.52f)),
+            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
+        ) { Text("+ Marcador") }
+        OutlinedButton(
+            onClick = onAddSection,
+            enabled = enabled && loopEnabled,
+            shape = buttonShape,
+            colors = ButtonDefaults.outlinedButtonColors(
+                containerColor = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.14f),
+                contentColor = MaterialTheme.colorScheme.tertiary,
+            ),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.tertiary.copy(alpha = 0.52f)),
+            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
+        ) { Text("Criar seção do loop") }
+        AutoSectionsSlot(
+            previewVisible = suggestions > 0,
+            enabled = enabled,
+            onDetect = onSuggestSections,
+            onApply = onAcceptSections,
+            onDiscard = onDiscardSections,
+            buttonShape = buttonShape,
+        )
+        OutlinedButton(
+            onClick = { confirmClearSections = true },
+            enabled = enabled && (project.sections.isNotEmpty() || suggestions > 0),
+            shape = buttonShape,
+            colors = ButtonDefaults.outlinedButtonColors(
+                containerColor = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.14f),
+                contentColor = MaterialTheme.colorScheme.tertiary,
+            ),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.tertiary.copy(alpha = 0.52f)),
+            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
+        ) { Text("Limpar seções") }
+    }
+
+    if (docked) {
+        SegmentedPracticeBar(
+            modifier = modifier.fillMaxWidth(),
+            comparisonContent = comparisonContent,
+            adjustmentsContent = adjustmentsContent,
+            timelineContent = timelineContent,
+        )
+    } else {
+        BoxWithConstraints(modifier.fillMaxWidth()) {
+            when {
+                compact -> {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(5.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text("Comparação", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        comparisonContent()
+                        Text("•", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.outline)
+                        Text("Ajustes", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        adjustmentsContent()
+                        Text("•", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.outline)
+                        Text("Timeline", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        timelineContent()
+                    }
+                }
+                maxWidth >= PracticeControlsWideBreakpoint -> {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        PracticeControlGroup("Comparação", Modifier.weight(ComparisonPracticeWeight), comparisonContent)
+                        PracticeControlGroup("Ajustes", Modifier.weight(AdjustmentsPracticeWeight), adjustmentsContent)
+                        PracticeControlGroup("Timeline", Modifier.weight(TimelinePracticeWeight), timelineContent)
+                    }
+                }
+                else -> {
+                    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        PracticeControlGroup("Comparação", Modifier.fillMaxWidth(), comparisonContent, horizontalScroll = true)
+                        PracticeControlGroup("Ajustes", Modifier.fillMaxWidth(), adjustmentsContent, horizontalScroll = true)
+                        PracticeControlGroup("Timeline", Modifier.fillMaxWidth(), timelineContent, horizontalScroll = true)
+                    }
+                }
             }
-            OutlinedButton(
-                onClick = { confirmClearSections = true },
-                enabled = enabled && (project.sections.isNotEmpty() || suggestions > 0),
-                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
-            ) { Text("Limpar seções") }
         }
     }
 
@@ -341,6 +570,7 @@ private fun PracticeControls(
                         onClearSections()
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                    shape = buttonShape,
                 ) { Text("Limpar seções") }
             },
             dismissButton = { TextButton(onClick = { confirmClearSections = false }) { Text("Cancelar") } },
@@ -349,14 +579,218 @@ private fun PracticeControls(
 }
 
 @Composable
-private fun PracticeControlGroup(title: String, content: @Composable RowScope.() -> Unit) {
+private fun SegmentedPracticeBar(
+    modifier: Modifier = Modifier,
+    comparisonContent: @Composable RowScope.() -> Unit,
+    adjustmentsContent: @Composable RowScope.() -> Unit,
+    timelineContent: @Composable RowScope.() -> Unit,
+) {
     Surface(
+        modifier = modifier.testTag("mixer-practice-segmented-bar"),
+        shape = RoundedCornerShape(8.dp),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.58f)),
+    ) {
+        BoxWithConstraints(Modifier.fillMaxWidth().padding(3.dp)) {
+            if (maxWidth >= DockedPracticeAdaptiveSingleRowBreakpoint) {
+                // Hardware-style groups stay visually independent. Comparison and Adjustments
+                // measure to their real content; Timeline owns the flexible remainder/overflow.
+                Row(
+                    Modifier.fillMaxWidth().height(48.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    SegmentedPracticeSection(
+                        title = "Comparação",
+                        accent = MaterialTheme.colorScheme.secondary,
+                        modifier = Modifier.wrapContentWidth().testTag("practice-comparison-segment"),
+                        content = comparisonContent,
+                    )
+                    SegmentedPracticeSection(
+                        title = "Ajustes",
+                        accent = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.wrapContentWidth().testTag("practice-adjustments-segment"),
+                        centerContent = true,
+                        content = adjustmentsContent,
+                    )
+                    SegmentedPracticeSection(
+                        title = "Timeline",
+                        accent = MaterialTheme.colorScheme.tertiary,
+                        modifier = Modifier.weight(1f).testTag("practice-timeline-segment"),
+                        horizontalScroll = true,
+                        content = timelineContent,
+                    )
+                }
+            } else {
+                // Narrow viewports keep every semantic group discoverable. Each long action strip
+                // scrolls internally while the title/header stays fixed and visually identifiable.
+                Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    SegmentedPracticeSection(
+                        title = "Comparação",
+                        accent = MaterialTheme.colorScheme.secondary,
+                        modifier = Modifier.fillMaxWidth().height(48.dp).testTag("practice-comparison-segment"),
+                        horizontalScroll = true,
+                        content = comparisonContent,
+                    )
+                    SegmentedPracticeSection(
+                        title = "Ajustes",
+                        accent = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.fillMaxWidth().height(48.dp).testTag("practice-adjustments-segment"),
+                        centerContent = true,
+                        content = adjustmentsContent,
+                    )
+                    SegmentedPracticeSection(
+                        title = "Timeline",
+                        accent = MaterialTheme.colorScheme.tertiary,
+                        modifier = Modifier.fillMaxWidth().height(48.dp).testTag("practice-timeline-segment"),
+                        horizontalScroll = true,
+                        content = timelineContent,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SegmentedPracticeSection(
+    title: String,
+    accent: Color,
+    modifier: Modifier = Modifier,
+    centerContent: Boolean = false,
+    horizontalScroll: Boolean = false,
+    content: @Composable RowScope.() -> Unit,
+) {
+    Surface(
+        modifier = modifier.fillMaxHeight(),
+        shape = RoundedCornerShape(6.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.34f),
+        border = BorderStroke(1.dp, accent.copy(alpha = 0.42f)),
+        tonalElevation = 0.dp,
+    ) {
+        Row(
+            modifier = Modifier.fillMaxHeight(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .padding(horizontal = 4.dp)
+                    .testTag("practice-${title.lowercase()}-title"),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                Box(
+                    Modifier
+                        .width(3.dp)
+                        .height(20.dp)
+                        .background(accent, RoundedCornerShape(2.dp)),
+                )
+                Text(
+                    title,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = accent,
+                )
+            }
+            Box(
+                Modifier
+                    .width(1.dp)
+                    .height(30.dp)
+                    .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.50f)),
+            )
+            val actionsModifier = Modifier
+                .fillMaxHeight()
+                .padding(horizontal = if (centerContent) 10.dp else 6.dp, vertical = 4.dp)
+            Row(
+                modifier = if (horizontalScroll) actionsModifier.horizontalScroll(rememberScrollState()) else actionsModifier,
+                horizontalArrangement = if (centerContent) {
+                    Arrangement.spacedBy(5.dp, Alignment.CenterHorizontally)
+                } else {
+                    Arrangement.spacedBy(5.dp)
+                },
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                content()
+            }
+        }
+    }
+}
+
+
+@Composable
+internal fun AutoSectionsSlot(
+    previewVisible: Boolean,
+    enabled: Boolean,
+    onDetect: () -> Unit,
+    onApply: () -> Unit,
+    onDiscard: () -> Unit,
+    buttonShape: RoundedCornerShape = RoundedCornerShape(6.dp),
+) {
+    Box(Modifier.width(AutoSectionsSlotWidth).testTag("auto-sections-slot")) {
+        if (previewVisible) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Button(
+                    onClick = onApply,
+                    enabled = enabled,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.tertiary,
+                        contentColor = MaterialTheme.colorScheme.onTertiary,
+                    ),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                    shape = buttonShape,
+                    modifier = Modifier.weight(1f).testTag("auto-sections-apply"),
+                ) { Text("Aplicar") }
+                TextButton(
+                    onClick = onDiscard,
+                    enabled = enabled,
+                    contentPadding = PaddingValues(0.dp),
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                    modifier = Modifier
+                        .width(AutoSectionsDiscardWidth)
+                        .semantics { contentDescription = "Descartar prévia de seções" }
+                        .testTag("auto-sections-discard"),
+                ) { Text("X", style = MaterialTheme.typography.titleMedium) }
+            }
+        } else {
+            OutlinedButton(
+                onClick = onDetect,
+                enabled = enabled,
+                colors = ButtonDefaults.outlinedButtonColors(
+                    containerColor = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.14f),
+                    contentColor = MaterialTheme.colorScheme.tertiary,
+                ),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.tertiary.copy(alpha = 0.62f)),
+                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                shape = buttonShape,
+                modifier = Modifier.fillMaxWidth().testTag("auto-sections-detect"),
+            ) { Text("Auto seções") }
+        }
+    }
+}
+
+@Composable
+private fun PracticeControlGroup(
+    title: String,
+    modifier: Modifier = Modifier,
+    content: @Composable RowScope.() -> Unit,
+    horizontalScroll: Boolean = false,
+) {
+    Surface(
+        modifier = modifier,
         shape = RoundedCornerShape(8.dp),
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.34f),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
     ) {
+        val rowModifier = if (horizontalScroll) {
+            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 8.dp, vertical = 4.dp)
+        } else {
+            Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp)
+        }
         Row(
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+            modifier = rowModifier,
             horizontalArrangement = Arrangement.spacedBy(5.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -378,12 +812,15 @@ private fun ProjectWorkspace(
     editingClip: Boolean,
     recordingPhase: RecordingSessionPhase,
     countdownSeconds: Int,
-    liveRecordingPeaks: List<Float>,
+    liveRecordingWaveform: List<LiveWaveformPoint>,
     recordingTrackId: String?,
     recordingStartFrame: Long,
     recordingFrames: Long,
+    recordingPeak: Float,
+    recordingRms: Float,
     auditionMode: GuitarAuditionMode,
     sectionSuggestions: List<studio.guitarlab.core.project.SectionBoundarySuggestion>,
+    showPracticeControls: Boolean,
     selectedTrackId: String?,
     onSelectTrack: (String) -> Unit,
     onOpenTrackSettings: (String) -> Unit,
@@ -416,6 +853,7 @@ private fun ProjectWorkspace(
     onLoopSection: (String) -> Unit,
     onRemoveMarker: (String) -> Unit,
     onRemoveSection: (String) -> Unit,
+    onOpenLevelAnalysis: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val baseProjectEndFrame = TimelineControlPolicy.projectEndFrame(project)
@@ -425,87 +863,79 @@ private fun ProjectWorkspace(
     val timelineEditingEnabled = TransportPolicy.timelineEditingEnabled(transport)
     val trimActive = trimControls != null
     val clipEditingEnabled = !importing && !editingClip && timelineEditingEnabled && !trimActive
+    var pendingDeleteClipId by remember(project.id) { mutableStateOf<String?>(null) }
+    val pendingDeleteClip = pendingDeleteClipId?.let { id -> project.clips.firstOrNull { it.id == id } }
 
-    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        PracticeControls(
-            project = project,
-            auditionMode = auditionMode,
-            suggestions = sectionSuggestions.size,
-            enabled = timelineEditingEnabled && !trimActive,
-            onAuditionMode = onAuditionMode,
-            onAddMarker = onAddMarker,
-            onAddSection = onAddSection,
-            onSuggestSections = onSuggestSections,
-            onAcceptSections = onAcceptSections,
-            onDiscardSections = onDiscardSections,
-            onClearSections = onClearSections,
-            onLoopSection = onLoopSection,
-            onRemoveMarker = onRemoveMarker,
-            onRemoveSection = onRemoveSection,
-        )
-        Surface(
+    Box(modifier = modifier) {
+        Column(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Surface(
             modifier = Modifier.fillMaxWidth().weight(1f),
-            shape = RoundedCornerShape(12.dp),
+            shape = RoundedCornerShape(8.dp),
             color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.20f),
             tonalElevation = 0.dp,
         ) {
             Column(modifier = Modifier.fillMaxSize().padding(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Row(
+                Column(
                     modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(TrackLaneGap),
+                    verticalArrangement = Arrangement.spacedBy(0.dp),
                 ) {
-                    Surface(
-                        modifier = Modifier.width(TrackSidebarWidth).height(62.dp),
-                        shape = RoundedCornerShape(8.dp),
-                        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.82f),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.38f)),
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(TrackLaneGap),
                     ) {
-                        Column(
-                            modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Center,
+                        Surface(
+                            modifier = Modifier.width(TrackSidebarWidth).height(TimelineMarkerRailHeight),
+                            shape = RoundedCornerShape(8.dp),
+                            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.82f),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.38f)),
                         ) {
-                            Text("Pistas", style = MaterialTheme.typography.labelLarge)
-                            Text(
-                                "${project.tracks.size} ${if (project.tracks.size == 1) "pista" else "pistas"} · " +
-                                    "${project.clips.size} ${if (project.clips.size == 1) "clipe" else "clipes"} · " +
-                                    formatFrameTime(baseProjectEndFrame, project.sampleRate.fixedHz ?: clipSampleRate(project)),
-                                modifier = Modifier.testTag("project-track-summary"),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
+                            Column(
+                                modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center,
+                            ) {
+                                Text("Pistas", style = MaterialTheme.typography.labelLarge)
+                                Text(
+                                    "${project.tracks.size} ${if (project.tracks.size == 1) "pista" else "pistas"} · " +
+                                        "${project.clips.size} ${if (project.clips.size == 1) "clipe" else "clipes"} · " +
+                                        formatFrameTime(baseProjectEndFrame, project.sampleRate.fixedHz ?: clipSampleRate(project)),
+                                    modifier = Modifier.testTag("project-track-summary"),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
                         }
+                        TimelineMarkerRail(
+                            projectEndFrame = projectEndFrame,
+                            sampleRateHz = project.sampleRate.fixedHz ?: clipSampleRate(project),
+                            playheadFrame = timelineControls.playheadFrame,
+                            loopStartFrame = timelineControls.loopStartFrame,
+                            loopEndFrame = timelineControls.loopEndFrame,
+                            showLoopMarkers = transport.loopEnabled,
+                            sections = project.sections,
+                            sectionSuggestions = sectionSuggestions,
+                            markers = project.markers,
+                            enabled = timelineEditingEnabled,
+                            playheadDragEnabled = recordingPhase == RecordingSessionPhase.IDLE,
+                            onPlayheadFrameChanged = onPlayheadFrameChanged,
+                            onLoopStartFrameChanged = onLoopStartFrameChanged,
+                            onLoopEndFrameChanged = onLoopEndFrameChanged,
+                            onSectionClick = onLoopSection,
+                            onSectionRemove = onRemoveSection,
+                            onMarkerRemove = onRemoveMarker,
+                            modifier = Modifier.weight(1f).testTag("timeline-marker-rail"),
+                        )
                     }
-                    TimelineMarkerRail(
-                        projectEndFrame = projectEndFrame,
-                        sampleRateHz = project.sampleRate.fixedHz ?: clipSampleRate(project),
-                        playheadFrame = timelineControls.playheadFrame,
-                        loopStartFrame = timelineControls.loopStartFrame,
-                        loopEndFrame = timelineControls.loopEndFrame,
-                        showLoopMarkers = transport.loopEnabled,
-                        sections = project.sections,
-                        sectionSuggestions = sectionSuggestions,
-                        markers = project.markers,
-                        enabled = timelineEditingEnabled,
-                        onPlayheadFrameChanged = onPlayheadFrameChanged,
-                        onLoopStartFrameChanged = onLoopStartFrameChanged,
-                        onLoopEndFrameChanged = onLoopEndFrameChanged,
-                        onSectionClick = onLoopSection,
-                        onSectionRemove = onRemoveSection,
-                        onMarkerRemove = onRemoveMarker,
-                        modifier = Modifier.weight(1f),
-                    )
-                }
 
-                TimelineRuler(project, projectEndFrame)
+                    TimelineRuler(project, projectEndFrame, trimControls)
+                }
 
                 val orderedTracks = project.tracks.sortedBy { it.order }
                 val orderedIds = orderedTracks.map { it.id }
                 val trackListState = rememberLazyListState()
                 var dragState by remember { mutableStateOf<WorkspaceDragState?>(null) }
-                var workspaceWindowOrigin by remember { mutableStateOf(Offset.Zero) }
-                var workspaceSize by remember { mutableStateOf(IntSize.Zero) }
+                val workspaceGeometry = remember { DragLayoutGeometry() }
                 val density = LocalDensity.current
                 val edgeZonePx = with(density) { 72.dp.toPx() }
                 val maxScrollStepPx = with(density) { 18.dp.toPx() }
@@ -521,6 +951,20 @@ private fun ProjectWorkspace(
                         )
                     }
 
+                fun clipDeleteBounds(): TimelineDragPolicy.DropBounds {
+                    val trashWidthPx = with(density) { ClipTrashWidth.toPx() }
+                    val trashHeightPx = with(density) { ClipTrashHeight.toPx() }
+                    val marginPx = with(density) { ClipTrashMargin.toPx() }
+                    val right = (workspaceGeometry.size.width.toFloat() - marginPx).coerceAtLeast(0f)
+                    val bottom = (workspaceGeometry.size.height.toFloat() - marginPx).coerceAtLeast(0f)
+                    return TimelineDragPolicy.DropBounds(
+                        leftPx = (right - trashWidthPx).coerceAtLeast(0f),
+                        topPx = (bottom - trashHeightPx).coerceAtLeast(0f),
+                        rightPx = right,
+                        bottomPx = bottom,
+                    )
+                }
+
                 fun retarget(state: WorkspaceDragState): WorkspaceDragState {
                     val lanes = visibleLanes()
                     return when (state.kind) {
@@ -532,17 +976,30 @@ private fun ProjectWorkspace(
                                 orderedTrackIds = orderedIds,
                             ),
                             targetTrackId = null,
+                            visibleLanes = lanes,
                         )
-                        WorkspaceDragKind.CLIP -> state.copy(
-                            targetTrackId = TimelineDragPolicy.clipTargetTrackId(state.pointer.y, lanes),
-                            targetIndex = null,
-                        )
+                        WorkspaceDragKind.CLIP -> {
+                            val targetTrackId = TimelineDragPolicy.clipTargetTrackId(state.pointer.y, lanes)
+                            val intent = TimelineDragPolicy.clipDropIntent(
+                                sourceTrackId = state.sourceTrackId,
+                                targetTrackId = targetTrackId,
+                                pointerXPx = state.pointer.x,
+                                pointerYPx = state.pointer.y,
+                                deleteBounds = clipDeleteBounds(),
+                            )
+                            state.copy(
+                                targetTrackId = targetTrackId,
+                                targetIndex = null,
+                                deleteTargetHovered = intent == TimelineDragPolicy.ClipDropIntent.Delete,
+                                visibleLanes = lanes,
+                            )
+                        }
                     }
                 }
 
                 fun beginTrackDrag(track: AudioTrack, trackIndex: Int, itemOriginWindow: Offset, touch: Offset, itemSize: IntSize) {
                     if (!clipEditingEnabled) return
-                    val origin = itemOriginWindow - workspaceWindowOrigin
+                    val origin = itemOriginWindow - workspaceGeometry.origin
                     val state = WorkspaceDragState(
                         kind = WorkspaceDragKind.TRACK,
                         itemId = track.id,
@@ -561,7 +1018,7 @@ private fun ProjectWorkspace(
 
                 fun beginClipDrag(clip: AudioClip, trackIndex: Int, color: Color, peaks: List<Float>?, itemOriginWindow: Offset, touch: Offset, itemSize: IntSize) {
                     if (!clipEditingEnabled) return
-                    val origin = itemOriginWindow - workspaceWindowOrigin
+                    val origin = itemOriginWindow - workspaceGeometry.origin
                     val state = WorkspaceDragState(
                         kind = WorkspaceDragKind.CLIP,
                         itemId = clip.id,
@@ -595,9 +1052,16 @@ private fun ProjectWorkspace(
                             if (target != current.sourceIndex) onReorderTrack(current.itemId, target)
                         }
                         WorkspaceDragKind.CLIP -> {
-                            val targetTrackId = current.targetTrackId
-                            if (targetTrackId != null && targetTrackId != current.sourceTrackId) {
-                                onMoveClipToTrack(current.itemId, targetTrackId)
+                            when (val intent = TimelineDragPolicy.clipDropIntent(
+                                sourceTrackId = current.sourceTrackId,
+                                targetTrackId = current.targetTrackId,
+                                pointerXPx = current.pointer.x,
+                                pointerYPx = current.pointer.y,
+                                deleteBounds = clipDeleteBounds(),
+                            )) {
+                                TimelineDragPolicy.ClipDropIntent.Delete -> pendingDeleteClipId = current.itemId
+                                is TimelineDragPolicy.ClipDropIntent.Move -> onMoveClipToTrack(current.itemId, intent.targetTrackId)
+                                TimelineDragPolicy.ClipDropIntent.NoOp -> Unit
                             }
                         }
                     }
@@ -606,15 +1070,19 @@ private fun ProjectWorkspace(
                 LaunchedEffect(dragState?.kind, dragState?.itemId) {
                     while (dragState != null) {
                         val current = dragState ?: break
-                        val auto = TimelineDragPolicy.autoScroll(
-                            pointerYPx = current.pointer.y,
-                            viewportTopPx = 0f,
-                            viewportBottomPx = workspaceSize.height.toFloat(),
-                            edgeZonePx = edgeZonePx,
-                            maxStepPx = maxScrollStepPx,
-                            canScrollBackward = trackListState.canScrollBackward,
-                            canScrollForward = trackListState.canScrollForward,
-                        )
+                        val auto = if (current.kind == WorkspaceDragKind.CLIP && current.deleteTargetHovered) {
+                            TimelineDragPolicy.AutoScroll(TimelineDragPolicy.EdgeDirection.NONE, 0f)
+                        } else {
+                            TimelineDragPolicy.autoScroll(
+                                pointerYPx = current.pointer.y,
+                                viewportTopPx = 0f,
+                                viewportBottomPx = workspaceGeometry.size.height.toFloat(),
+                                edgeZonePx = edgeZonePx,
+                                maxStepPx = maxScrollStepPx,
+                                canScrollBackward = trackListState.canScrollBackward,
+                                canScrollForward = trackListState.canScrollForward,
+                            )
+                        }
                         if (auto.deltaPx != 0f) {
                             trackListState.scrollBy(auto.deltaPx)
                             dragState?.let { dragState = retarget(it) }
@@ -628,8 +1096,8 @@ private fun ProjectWorkspace(
                         .fillMaxWidth()
                         .weight(1f)
                         .onGloballyPositioned { coordinates ->
-                            workspaceWindowOrigin = coordinates.positionInWindow()
-                            workspaceSize = coordinates.size
+                            workspaceGeometry.origin = coordinates.positionInWindow()
+                            workspaceGeometry.size = coordinates.size
                         },
                 ) {
                     LazyColumn(
@@ -645,9 +1113,11 @@ private fun ProjectWorkspace(
                                 track = track,
                                 auditionMode = auditionMode,
                                 clips = ActiveTakePolicy.audibleClips(project).filter { it.trackId == track.id },
-                                livePeaks = if (recordingTrackId == track.id && recordingPhase == RecordingSessionPhase.CAPTURING) liveRecordingPeaks else emptyList(),
+                                liveWaveform = if (recordingTrackId == track.id && recordingPhase == RecordingSessionPhase.CAPTURING) liveRecordingWaveform else emptyList(),
                                 liveStartFrame = recordingStartFrame,
                                 liveFrames = recordingFrames,
+                                livePeak = if (recordingTrackId == track.id && recordingPhase == RecordingSessionPhase.CAPTURING) recordingPeak else 0f,
+                                liveRms = if (recordingTrackId == track.id && recordingPhase == RecordingSessionPhase.CAPTURING) recordingRms else 0f,
                                 waveforms = waveforms,
                                 waveformChannels = waveformChannels,
                                 projectEndFrame = projectEndFrame,
@@ -656,14 +1126,13 @@ private fun ProjectWorkspace(
                                 canEditClip = clipEditingEnabled,
                                 activeTrimClipId = trimControls?.clipId,
                                 trimControls = trimControls,
-                                sampleRate = project.sampleRate.fixedHz ?: clipSampleRate(project),
                                 onTrimStartFrameChanged = onTrimStartFrameChanged,
                                 onTrimEndFrameChanged = onTrimEndFrameChanged,
                                 onSelect = { onSelectTrack(track.id) },
                                 onSettings = { onOpenTrackSettings(track.id) },
                                 onImportWav = { onImportWav(track.id) },
                                 onBeginTrim = onBeginTrim,
-                                onRemove = onRemoveClip,
+                                onRemove = { pendingDeleteClipId = it },
                                 onClearTrack = { onClearTrack(track.id) },
                                 onDuplicate = onDuplicateClip,
                                 onSplit = onSplitClip,
@@ -713,37 +1182,99 @@ private fun ProjectWorkspace(
                         modifier = Modifier.fillMaxSize(),
                     )
 
-                    DragOverlay(
-                        drag = dragState,
-                        visibleLanes = visibleLanes(),
-                        orderedTracks = orderedTracks,
-                        modifier = Modifier.fillMaxSize().zIndex(20f),
-                    )
+                    dragState?.let { activeDrag ->
+                        DragOverlay(
+                            drag = activeDrag,
+                            orderedTracks = orderedTracks,
+                            modifier = Modifier.fillMaxSize().zIndex(20f),
+                        )
+                    }
                 }
             }
         }
 
-        if (trimControls != null && trimClip != null) {
-            TrimActionBar(
-                clipName = trimClip.name,
-                enabled = !editingClip && timelineEditingEnabled,
-                onApply = onApplyTrim,
-                onCancel = onCancelTrim,
+        if (showPracticeControls) {
+            PracticeControls(
+                project = project,
+                auditionMode = auditionMode,
+                suggestions = sectionSuggestions.size,
+                enabled = timelineEditingEnabled && !trimActive,
+                loopEnabled = transport.loopEnabled,
+                onAuditionMode = onAuditionMode,
+                onAddMarker = onAddMarker,
+                onAddSection = onAddSection,
+                onSuggestSections = onSuggestSections,
+                onAcceptSections = onAcceptSections,
+                onDiscardSections = onDiscardSections,
+                onClearSections = onClearSections,
+                onLoopSection = onLoopSection,
+                onRemoveMarker = onRemoveMarker,
+                onRemoveSection = onRemoveSection,
+                onOpenLevelAnalysis = onOpenLevelAnalysis,
+            )
+        }
+
+
+            if (trimControls != null && trimClip != null) {
+                TrimActionBar(
+                    clipName = trimClip.name,
+                    enabled = !editingClip && timelineEditingEnabled,
+                    onApply = onApplyTrim,
+                    onCancel = onCancelTrim,
+                )
+            }
+        }
+
+        pendingDeleteClip?.let { clip ->
+            AlertDialog(
+                onDismissRequest = { pendingDeleteClipId = null },
+                title = { Text("Excluir clipe?") },
+                text = { Text("O trecho ‘${clip.name}’ será removido da timeline. O arquivo de origem compartilhado por outros trechos será preservado.") },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            val id = clip.id
+                            pendingDeleteClipId = null
+                            onRemoveClip(id)
+                        },
+                    ) { Text("Excluir", color = MaterialTheme.colorScheme.error) }
+                },
+                dismissButton = { TextButton(onClick = { pendingDeleteClipId = null }) { Text("Cancelar") } },
             )
         }
 
         if (recordingPhase == RecordingSessionPhase.COUNTDOWN) {
-            Surface(
-                modifier = Modifier.align(Alignment.CenterHorizontally),
-                shape = CircleShape,
-                color = MaterialTheme.colorScheme.errorContainer,
-                tonalElevation = 8.dp,
-            ) {
+            RecordingCountdownOverlay(
+                seconds = countdownSeconds,
+                modifier = Modifier.fillMaxSize().zIndex(50f),
+            )
+        }
+    }
+}
+
+@Composable
+internal fun RecordingCountdownOverlay(seconds: Int, modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier.testTag("recording-countdown-overlay"),
+        contentAlignment = Alignment.Center,
+    ) {
+        Surface(
+            modifier = Modifier
+                .size(216.dp)
+                .semantics { contentDescription = "Contagem para gravação: ${seconds.coerceAtLeast(1)}" }
+                .testTag("recording-countdown-disc"),
+            shape = CircleShape,
+            color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.78f),
+            tonalElevation = 10.dp,
+        ) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text(
-                    countdownSeconds.coerceAtLeast(1).toString(),
-                    modifier = Modifier.padding(horizontal = 28.dp, vertical = 14.dp),
-                    style = MaterialTheme.typography.displayMedium,
-                    color = MaterialTheme.colorScheme.onErrorContainer,
+                    text = seconds.coerceAtLeast(1).toString(),
+                    style = MaterialTheme.typography.displayLarge.copy(
+                        fontSize = 132.sp,
+                        lineHeight = 132.sp,
+                    ),
+                    color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.94f),
                 )
             }
         }
@@ -752,18 +1283,47 @@ private fun ProjectWorkspace(
 
 @Composable
 private fun DragOverlay(
-    drag: WorkspaceDragState?,
-    visibleLanes: List<TimelineDragPolicy.LaneBounds>,
+    drag: WorkspaceDragState,
     orderedTracks: List<AudioTrack>,
     modifier: Modifier = Modifier,
 ) {
-    if (drag == null) return
     val density = LocalDensity.current
+    val visibleLanes = drag.visibleLanes
     val ghostX = drag.pointer.x - drag.grabOffset.x
     val ghostY = drag.pointer.y - drag.grabOffset.y
     val orderedIds = orderedTracks.map { it.id }
 
     Box(modifier = modifier) {
+        if (drag.kind == WorkspaceDragKind.CLIP) {
+            Surface(
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(ClipTrashMargin)
+                    .size(width = ClipTrashWidth, height = ClipTrashHeight)
+                    .testTag("clip-trash-target"),
+                shape = RoundedCornerShape(8.dp),
+                color = if (drag.deleteTargetHovered) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
+                border = BorderStroke(
+                    2.dp,
+                    if (drag.deleteTargetHovered) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline.copy(alpha = 0.65f),
+                ),
+                tonalElevation = 12.dp,
+            ) {
+                Row(
+                    Modifier.fillMaxSize().padding(horizontal = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+                    Text(
+                        if (drag.deleteTargetHovered) "Solte para excluir" else "Arraste aqui para excluir",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = if (drag.deleteTargetHovered) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSurface,
+                    )
+                }
+            }
+        }
+
         if (drag.kind == WorkspaceDragKind.TRACK) {
             val indicatorY = drag.targetIndex?.let {
                 TimelineDragPolicy.insertionIndicatorYPx(it, visibleLanes, orderedIds)
@@ -779,7 +1339,7 @@ private fun DragOverlay(
                 Surface(
                     modifier = Modifier
                         .offset { IntOffset(with(density) { 8.dp.roundToPx() }, (indicatorY - with(density) { 28.dp.toPx() }).toInt()) },
-                    shape = RoundedCornerShape(5.dp),
+                    shape = RoundedCornerShape(4.dp),
                     color = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
                     border = BorderStroke(1.dp, drag.color),
                 ) {
@@ -791,7 +1351,7 @@ private fun DragOverlay(
                     )
                 }
             }
-        } else {
+        } else if (!drag.deleteTargetHovered) {
             val targetBounds = visibleLanes.firstOrNull { it.trackId == drag.targetTrackId }
             if (targetBounds != null) {
                 Box(
@@ -804,7 +1364,7 @@ private fun DragOverlay(
                 val targetName = orderedTracks.firstOrNull { it.id == drag.targetTrackId }?.name ?: "pista"
                 Surface(
                     modifier = Modifier.offset { IntOffset(with(density) { (TrackSidebarWidth + 10.dp).roundToPx() }, (targetBounds.topPx + 6f).toInt()) },
-                    shape = RoundedCornerShape(5.dp),
+                    shape = RoundedCornerShape(4.dp),
                     color = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
                     border = BorderStroke(1.dp, drag.color),
                 ) {
@@ -858,7 +1418,7 @@ private fun DragOverlay(
 private fun ImportProcessingOverlay(message: String, modifier: Modifier = Modifier) {
     Box(modifier.background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.48f)), contentAlignment = Alignment.Center) {
         Surface(
-            shape = RoundedCornerShape(14.dp),
+            shape = RoundedCornerShape(8.dp),
             color = MaterialTheme.colorScheme.surface,
             tonalElevation = 12.dp,
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)),
@@ -896,23 +1456,71 @@ private fun StereoWaveformMini(channelPeaks: List<List<Float>>, muted: Boolean, 
 }
 
 @Composable
-private fun TimelineRuler(project: GuitarProject, projectEndFrame: Long) {
+private fun TimelineRuler(
+    project: GuitarProject,
+    projectEndFrame: Long,
+    trimControls: TrimControlState?,
+) {
     val sampleRate = project.sampleRate.fixedHz
         ?: project.clips.firstOrNull { it.sourceSampleRateHz != null }?.sourceSampleRateHz
         ?: 48_000
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(start = TrackSidebarWidth + TrackLaneGap, end = 8.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
+    BoxWithConstraints(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(TimelineRulerHeight)
+            .zIndex(10f)
+            .padding(start = TrackSidebarWidth + TrackLaneGap)
+            .testTag("timeline-time-ruler"),
     ) {
-        for (step in 0..4) {
-            val frame = projectEndFrame * step / 4
-            Text(
-                formatTimelineTime(frame, sampleRate),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+        Row(
+            modifier = Modifier.fillMaxSize(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.Bottom,
+        ) {
+            for (step in 0..4) {
+                val frame = projectEndFrame * step / 4
+                Text(
+                    formatTimelineTime(frame, sampleRate),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+
+        if (trimControls != null) {
+            val startFraction = TimelineControlPolicy.frameToFraction(trimControls.startFrame, projectEndFrame)
+            val endFraction = TimelineControlPolicy.frameToFraction(trimControls.endFrame, projectEndFrame)
+            TrimRulerMarker(
+                fraction = startFraction,
+                contentDescription = "Marcador T1 do corte",
+                tag = "trim-ruler-start",
+            )
+            TrimRulerMarker(
+                fraction = endFraction,
+                contentDescription = "Marcador T2 do corte",
+                tag = "trim-ruler-end",
             )
         }
     }
+}
+
+@Composable
+private fun BoxWithConstraintsScope.TrimRulerMarker(
+    fraction: Float,
+    contentDescription: String,
+    tag: String,
+) {
+    val markerX = maxWidth * fraction.coerceIn(0f, 1f)
+    Box(
+        modifier = Modifier
+            .offset(x = (markerX - 1.dp).coerceIn(0.dp, (maxWidth - 2.dp).coerceAtLeast(0.dp)))
+            .width(2.dp)
+            .height(10.dp)
+            .background(StudioTrim)
+            .zIndex(8f)
+            .semantics { this.contentDescription = contentDescription }
+            .testTag(tag),
+    )
 }
 
 @Composable
@@ -961,9 +1569,11 @@ private fun StudioTrackLane(
     track: AudioTrack,
     auditionMode: GuitarAuditionMode,
     clips: List<AudioClip>,
-    livePeaks: List<Float>,
+    liveWaveform: List<LiveWaveformPoint>,
     liveStartFrame: Long,
     liveFrames: Long,
+    livePeak: Float,
+    liveRms: Float,
     waveforms: Map<String, List<Float>>,
     waveformChannels: Map<String, List<List<Float>>>,
     projectEndFrame: Long,
@@ -972,7 +1582,6 @@ private fun StudioTrackLane(
     canEditClip: Boolean,
     activeTrimClipId: String?,
     trimControls: TrimControlState?,
-    sampleRate: Int,
     onTrimStartFrameChanged: (Long) -> Unit,
     onTrimEndFrameChanged: (Long) -> Unit,
     onSelect: () -> Unit,
@@ -995,11 +1604,8 @@ private fun StudioTrackLane(
     onDragEnd: () -> Unit,
     onDragCancel: () -> Unit,
 ) {
-    var trackOrigin by remember(track.id) { mutableStateOf(Offset.Zero) }
-    var trackMeasuredSize by remember(track.id) { mutableStateOf(IntSize.Zero) }
+    val trackGeometry = remember(track.id) { DragLayoutGeometry() }
     var clipMenuExpanded by remember(track.id) { mutableStateOf(false) }
-    val currentTrackOrigin by rememberUpdatedState(trackOrigin)
-    val currentTrackSize by rememberUpdatedState(trackMeasuredSize)
     val primaryClip = clips.minByOrNull { it.startFrame }
     val trackColor = track.resolvedStudioColor()
     val auditionState = GuitarAuditionPolicy.trackState(track.roleId, auditionMode)
@@ -1018,12 +1624,12 @@ private fun StudioTrackLane(
                 .fillMaxHeight()
                 .alpha(if (draggingTrackId == track.id) 0.28f else 1f)
                 .onGloballyPositioned { coordinates ->
-                    trackOrigin = coordinates.positionInWindow()
-                    trackMeasuredSize = coordinates.size
+                    trackGeometry.origin = coordinates.positionInWindow()
+                    trackGeometry.size = coordinates.size
                 }
                 .pointerInput(track.id, canEditClip) {
                     if (canEditClip) detectDragGesturesAfterLongPress(
-                        onDragStart = { touch -> onStartTrackDrag(currentTrackOrigin, touch, currentTrackSize) },
+                        onDragStart = { touch -> onStartTrackDrag(trackGeometry.origin, touch, trackGeometry.size) },
                         onDragCancel = onDragCancel,
                         onDragEnd = onDragEnd,
                         onDrag = { change, amount ->
@@ -1034,11 +1640,22 @@ private fun StudioTrackLane(
                 }
                 .clickable(enabled = !dragInProgress, onClick = onSelect),
             shape = RoundedCornerShape(8.dp),
-            color = if (selected) trackColor.copy(alpha = 0.11f) else MaterialTheme.colorScheme.surface.copy(alpha = 0.86f),
-            border = BorderStroke(if (selected) 1.5.dp else 1.dp, if (selected) trackColor else MaterialTheme.colorScheme.outline.copy(alpha = 0.38f)),
+            color = when {
+                track.armed -> StudioRecord.copy(alpha = if (selected) 0.16f else 0.10f)
+                selected -> trackColor.copy(alpha = 0.11f)
+                else -> MaterialTheme.colorScheme.surface.copy(alpha = 0.86f)
+            },
+            border = BorderStroke(
+                if (track.armed || selected) 1.5.dp else 1.dp,
+                when {
+                    track.armed -> StudioRecord
+                    selected -> trackColor
+                    else -> MaterialTheme.colorScheme.outline.copy(alpha = 0.38f)
+                },
+            ),
         ) {
             Row(modifier = Modifier.fillMaxSize()) {
-                Box(Modifier.width(4.dp).fillMaxHeight().background(trackColor))
+                Box(Modifier.width(if (track.armed) 6.dp else 4.dp).fillMaxHeight().background(if (track.armed) StudioRecord else trackColor))
                 Column(
                     modifier = Modifier.weight(1f).fillMaxHeight().padding(start = 8.dp, end = 4.dp, top = 5.dp, bottom = 5.dp),
                     verticalArrangement = Arrangement.SpaceEvenly,
@@ -1057,16 +1674,18 @@ private fun StudioTrackLane(
                         )
                         if (auditionState != GuitarAuditionTrackState.UNAFFECTED) {
                             val included = auditionState == GuitarAuditionTrackState.INCLUDED
+                            val comparisonColor = if (included) StudioComparisonActive else StudioComparisonHidden
                             Surface(
-                                shape = RoundedCornerShape(5.dp),
-                                color = if (included) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
+                                shape = RoundedCornerShape(4.dp),
+                                color = comparisonColor.copy(alpha = 0.18f),
+                                border = BorderStroke(1.dp, comparisonColor.copy(alpha = 0.94f)),
                                 modifier = Modifier.semantics { stateDescription = if (included) "Incluída na comparação" else "Oculta pela comparação" },
                             ) {
                                 Text(
                                     if (included) "ATIVA" else "OCULTA",
                                     modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp),
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = if (included) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    color = comparisonColor,
                                 )
                             }
                         }
@@ -1095,9 +1714,12 @@ private fun StudioTrackLane(
                                         }
                                         ClipMenuItem(Icons.Default.Edit, "Fades…$suffix") { clipMenuExpanded = false; onOpenFades(clip.id) }
                                         ClipMenuItem(Icons.Default.CallSplit, "Crossfade com próximo$suffix") { clipMenuExpanded = false; onCrossfade(clip.id) }
-                                        ClipMenuItem(Icons.Default.ContentCut, "Cortar$suffix") { clipMenuExpanded = false; onBeginTrim(clip.id) }
+                                        ClipMenuItem(Icons.Default.ContentCut, "Cortar$suffix") {
+                                            clipMenuExpanded = false
+                                            onBeginTrim(clip.id)
+                                        }
+                                        ClipMenuItem(Icons.Default.Delete, "Excluir clipe$suffix", destructive = true) { clipMenuExpanded = false; onRemove(clip.id) }
                                     }
-                                    ClipMenuItem(Icons.Default.Delete, "Limpar pista", destructive = true) { clipMenuExpanded = false; onClearTrack() }
                                 }
                             }
                         }
@@ -1127,9 +1749,33 @@ private fun StudioTrackLane(
         }
 
         BoxWithConstraints(
-            modifier = Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.surface.copy(alpha = 0.70f)),
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxHeight()
+                .clip(RoundedCornerShape(8.dp))
+                .background(if (track.armed) StudioRecord.copy(alpha = 0.055f) else MaterialTheme.colorScheme.surface.copy(alpha = 0.70f))
+                .border(
+                    width = if (track.armed) 1.5.dp else 0.dp,
+                    color = if (track.armed) StudioRecord.copy(alpha = 0.82f) else Color.Transparent,
+                    shape = RoundedCornerShape(8.dp),
+                ),
         ) {
-            if (clips.isEmpty() && livePeaks.isEmpty()) {
+            // Keep the lane-level selection target as a sibling behind clip content. An ancestor
+            // clickable merges descendant semantics in Compose and would hide TrimHandle nodes
+            // from accessibility/testing while trim mode is active.
+            Box(
+                Modifier
+                    .matchParentSize()
+                    .testTag("track-waveform-area-${track.id}")
+                    .semantics {
+                        role = Role.Button
+                        this.selected = selected
+                        contentDescription = "Área de áudio da pista ${track.name}"
+                    }
+                    .clickable(enabled = !dragInProgress, role = Role.Button, onClick = onSelect),
+            )
+
+            if (clips.isEmpty() && liveWaveform.isEmpty()) {
                 Text(
                     "Sem áudio",
                     modifier = Modifier.align(Alignment.CenterStart).padding(start = 10.dp),
@@ -1152,11 +1798,11 @@ private fun StudioTrackLane(
                         trackColor = trackColor,
                         trimming = activeTrimClipId == clip.id,
                         trimControls = trimControls?.takeIf { it.clipId == clip.id },
-                        sampleRate = sampleRate,
                         onTrimStartFrameChanged = onTrimStartFrameChanged,
                         onTrimEndFrameChanged = onTrimEndFrameChanged,
                         canEdit = canEditClip,
                         dragging = draggingClipId == clip.id,
+                        onSelect = onSelect,
                         onStartDrag = { origin, touch, size -> onStartClipDrag(clip, trackColor, waveforms[clip.id], origin, touch, size) },
                         onDrag = onDrag,
                         onDragEnd = onDragEnd,
@@ -1165,18 +1811,94 @@ private fun StudioTrackLane(
                     )
                 }
             }
-            if (livePeaks.isNotEmpty()) {
+            if (liveWaveform.isNotEmpty()) {
                 val startFraction = (liveStartFrame.toDouble() / projectEndFrame).coerceIn(0.0, 1.0)
                 val endFraction = ((liveStartFrame + liveFrames).toDouble() / projectEndFrame).coerceIn(startFraction, 1.0)
                 val x = maxWidth * startFraction.toFloat()
                 val width = (maxWidth * (endFraction - startFraction).toFloat()).coerceAtLeast(24.dp).coerceAtMost((maxWidth - x).coerceAtLeast(1.dp))
                 Surface(
-                    modifier = Modifier.offset(x = x).width(width).fillMaxHeight().padding(vertical = 5.dp).align(Alignment.CenterStart).testTag("live-recording-waveform"),
-                    shape = RoundedCornerShape(7.dp),
+                    modifier = Modifier
+                        .offset(x = x)
+                        .width(width)
+                        .fillMaxHeight()
+                        .padding(vertical = 5.dp)
+                        .align(Alignment.CenterStart)
+                        .clickable(role = Role.Button, onClick = onSelect)
+                        .testTag("live-recording-waveform"),
+                    shape = RoundedCornerShape(6.dp),
                     color = trackColor.copy(alpha = 0.24f),
                     border = BorderStroke(1.dp, StudioRecord),
-                ) { WaveformMini(peaks = livePeaks, color = StudioRecord, modifier = Modifier.fillMaxSize().padding(4.dp)) }
+                 ) {
+                    LiveRecordingWaveformMini(
+                        points = liveWaveform,
+                        totalFrames = liveFrames,
+                        color = StudioRecord,
+                        modifier = Modifier.fillMaxSize().padding(4.dp),
+                    )
+                }
+                RecordingLevelOverlay(
+                    peak = livePeak,
+                    rms = liveRms,
+                    modifier = Modifier.align(Alignment.TopEnd).padding(top = 8.dp, end = 8.dp),
+                )
             }
+        }
+    }
+}
+
+@Composable
+private fun RecordingLevelOverlay(
+    peak: Float,
+    rms: Float,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        modifier = modifier.testTag("recording-level-overlay"),
+        shape = RoundedCornerShape(4.dp),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.88f),
+        border = BorderStroke(1.dp, StudioRecord.copy(alpha = 0.72f)),
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text("PK ${formatDbFs(peak)}", style = MaterialTheme.typography.labelSmall, color = StudioRecord)
+            Text("RMS ${formatDbFs(rms)}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurface)
+        }
+    }
+}
+
+private fun formatDbFs(value: Float): String {
+    val safe = value.coerceAtLeast(0f)
+    if (safe <= 0.000001f) return "−∞ dB"
+    val db = 20.0 * kotlin.math.log10(safe.toDouble())
+    return String.format(java.util.Locale.US, "%.1f dB", db)
+}
+
+@Composable
+private fun LiveRecordingWaveformMini(
+    points: List<LiveWaveformPoint>,
+    totalFrames: Long,
+    color: Color,
+    modifier: Modifier = Modifier,
+) {
+    Canvas(modifier) {
+        if (points.isEmpty() || totalFrames <= 0L) return@Canvas
+        val centerY = size.height / 2f
+        points.forEach { point ->
+            val startFraction = (point.startFrame.toDouble() / totalFrames.toDouble()).toFloat().coerceIn(0f, 1f)
+            val endFraction = (point.endFrameExclusive.toDouble() / totalFrames.toDouble()).toFloat().coerceIn(startFraction, 1f)
+            val startX = size.width * startFraction
+            val endX = size.width * endFraction
+            val amplitude = point.peak.coerceIn(0f, 1f) * centerY
+            val spanWidth = (endX - startX).coerceAtLeast(1f)
+            val spanHeight = (amplitude * 2f).coerceAtLeast(1f)
+            drawRect(
+                color = color,
+                topLeft = Offset(startX, centerY - spanHeight / 2f),
+                size = androidx.compose.ui.geometry.Size(spanWidth, spanHeight),
+            )
         }
     }
 }
@@ -1189,32 +1911,30 @@ private fun TimelineClipCard(
     trackColor: Color,
     trimming: Boolean,
     trimControls: TrimControlState?,
-    sampleRate: Int,
     onTrimStartFrameChanged: (Long) -> Unit,
     onTrimEndFrameChanged: (Long) -> Unit,
     canEdit: Boolean,
     dragging: Boolean,
+    onSelect: () -> Unit,
     onStartDrag: (Offset, Offset, IntSize) -> Unit,
     onDrag: (Offset) -> Unit,
     onDragEnd: () -> Unit,
     onDragCancel: () -> Unit,
     modifier: Modifier,
 ) {
-    var clipOrigin by remember(clip.id) { mutableStateOf(Offset.Zero) }
-    var clipMeasuredSize by remember(clip.id) { mutableStateOf(IntSize.Zero) }
-    val currentClipOrigin by rememberUpdatedState(clipOrigin)
-    val currentClipSize by rememberUpdatedState(clipMeasuredSize)
+    val clipGeometry = remember(clip.id) { DragLayoutGeometry() }
 
     Surface(
         modifier = modifier
+            .testTag("timeline-clip-${clip.id}")
             .alpha(if (dragging) 0.22f else 1f)
             .onGloballyPositioned { coordinates ->
-                clipOrigin = coordinates.positionInWindow()
-                clipMeasuredSize = coordinates.size
+                clipGeometry.origin = coordinates.positionInWindow()
+                clipGeometry.size = coordinates.size
             }
             .pointerInput(clip.id, canEdit, trimming) {
                 if (canEdit && !trimming) detectDragGesturesAfterLongPress(
-                    onDragStart = { touch -> onStartDrag(currentClipOrigin, touch, currentClipSize) },
+                    onDragStart = { touch -> onStartDrag(clipGeometry.origin, touch, clipGeometry.size) },
                     onDragCancel = onDragCancel,
                     onDragEnd = onDragEnd,
                     onDrag = { change, amount ->
@@ -1222,8 +1942,15 @@ private fun TimelineClipCard(
                         onDrag(amount)
                     },
                 )
-            },
-        shape = RoundedCornerShape(7.dp),
+            }
+            // Do not install clickable semantics at all while trimming. A disabled clickable still
+            // merges descendants and would make the two trim handles disappear from the merged
+            // semantics tree even though they remain visually rendered.
+            .then(
+                if (!dragging && !trimming) Modifier.clickable(role = Role.Button, onClick = onSelect)
+                else Modifier,
+            ),
+        shape = RoundedCornerShape(6.dp),
         color = trackColor.copy(alpha = if (clip.muted) 0.10f else 0.20f),
         border = BorderStroke(1.dp, if (trimming) StudioTrim else trackColor.copy(alpha = 0.72f)),
         tonalElevation = 0.dp,
@@ -1237,7 +1964,6 @@ private fun TimelineClipCard(
                         peaks = it,
                         channelPeaks = channelPeaks,
                         trackColor = trackColor,
-                        sampleRate = sampleRate,
                         onStartChanged = onTrimStartFrameChanged,
                         onEndChanged = onTrimEndFrameChanged,
                         modifier = Modifier.fillMaxSize(),
@@ -1258,19 +1984,13 @@ private fun TrimWaveformEditor(
     peaks: List<Float>,
     channelPeaks: List<List<Float>>?,
     trackColor: Color,
-    sampleRate: Int,
     onStartChanged: (Long) -> Unit,
     onEndChanged: (Long) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val clipEnd = clip.startFrame + clip.lengthFrames
     val startFraction = ((trim.startFrame - clip.startFrame).toFloat() / clip.lengthFrames.coerceAtLeast(1L)).coerceIn(0f, 1f)
     val endFraction = ((trim.endFrame - clip.startFrame).toFloat() / clip.lengthFrames.coerceAtLeast(1L)).coerceIn(startFraction, 1f)
     BoxWithConstraints(modifier) {
-        val bubbleWidth = 88.dp
-        val leftBubbleX = (maxWidth * startFraction - bubbleWidth / 2).coerceIn(0.dp, (maxWidth - bubbleWidth).coerceAtLeast(0.dp))
-        val rightBubbleX = (maxWidth * endFraction - bubbleWidth / 2).coerceIn(0.dp, (maxWidth - bubbleWidth).coerceAtLeast(0.dp))
-        val markersAreClose = endFraction - startFraction < 0.20f
         Canvas(Modifier.fillMaxSize()) {
             drawRect(
                 color = StudioTrim.copy(alpha = 0.24f),
@@ -1280,52 +2000,70 @@ private fun TrimWaveformEditor(
         }
         if (channelPeaks?.size == 2) StereoWaveformMini(channelPeaks, false, trackColor, Modifier.fillMaxSize())
         else WaveformMini(peaks = peaks, color = trackColor, modifier = Modifier.fillMaxSize())
-        RangeSlider(
-            value = startFraction..endFraction,
-            onValueChange = { range ->
-                val start = clip.startFrame + (clip.lengthFrames * range.start).toLong()
-                val end = clip.startFrame + (clip.lengthFrames * range.endInclusive).toLong()
-                onStartChanged(start.coerceAtMost(clipEnd - 1L))
-                onEndChanged(end.coerceAtLeast(start + 1L))
-            },
-            valueRange = 0f..1f,
-            colors = SliderDefaults.colors(
-                thumbColor = StudioTrim,
-                activeTrackColor = StudioTrim.copy(alpha = 0.58f),
-                inactiveTrackColor = Color.Transparent,
-            ),
-            modifier = Modifier.fillMaxSize(),
+        TrimHandle(
+            clip = clip,
+            frame = trim.startFrame,
+            tag = "trim-start-handle",
+            label = "Marcador de início do corte",
+            onFrameChanged = { onStartChanged(it.coerceAtMost(trim.endFrame - 1L)) },
+            modifier = Modifier.fillMaxHeight(),
         )
-        TrimTimeBubble(
-            label = "Início",
-            time = formatPreciseTime(trim.startFrame, sampleRate),
-            modifier = Modifier.offset(x = leftBubbleX, y = 2.dp).width(bubbleWidth),
-        )
-        TrimTimeBubble(
-            label = "Fim",
-            time = formatPreciseTime(trim.endFrame, sampleRate),
-            modifier = Modifier.offset(x = rightBubbleX, y = if (markersAreClose) 44.dp else 2.dp).width(bubbleWidth),
+        TrimHandle(
+            clip = clip,
+            frame = trim.endFrame,
+            tag = "trim-end-handle",
+            label = "Marcador de fim do corte",
+            onFrameChanged = { onEndChanged(it.coerceAtLeast(trim.startFrame + 1L)) },
+            modifier = Modifier.fillMaxHeight(),
         )
     }
 }
 
 @Composable
-private fun TrimTimeBubble(label: String, time: String, modifier: Modifier = Modifier) {
-    Surface(
-        modifier = modifier,
-        shape = RoundedCornerShape(6.dp),
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
-        border = BorderStroke(1.dp, StudioTrim),
-        tonalElevation = 6.dp,
+private fun BoxWithConstraintsScope.TrimHandle(
+    clip: AudioClip,
+    frame: Long,
+    tag: String,
+    label: String,
+    onFrameChanged: (Long) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val widthPx = constraints.maxWidth.toFloat().coerceAtLeast(1f)
+    val fraction = TrimControlPolicy.visibleFractionForFrame(clip, frame)
+    val handleWidth = 48.dp
+    val handleX = (maxWidth * fraction - handleWidth / 2).coerceIn(0.dp, (maxWidth - handleWidth).coerceAtLeast(0.dp))
+    val currentFrame by rememberUpdatedState(frame)
+    val latestOnFrameChanged by rememberUpdatedState(onFrameChanged)
+
+    Box(
+        modifier = modifier
+            .offset(x = handleX)
+            .width(handleWidth)
+            .zIndex(6f)
+            .semantics { contentDescription = label }
+            .testTag(tag)
+            .pointerInput(clip.id, tag, widthPx) {
+                detectDragGestures { change, dragAmount ->
+                    change.consume()
+                    val currentX = TrimControlPolicy.visibleFractionForFrame(clip, currentFrame) * widthPx
+                    latestOnFrameChanged(TrimControlPolicy.visibleFrameAtPointerX(clip, currentX + dragAmount.x, widthPx))
+                }
+            },
+        contentAlignment = Alignment.Center,
     ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(0.dp),
-        ) {
-            Text(label, style = MaterialTheme.typography.labelSmall, color = StudioTrim, maxLines = 1)
-            Text(time, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurface, maxLines = 1)
-        }
+        Box(
+            Modifier
+                .width(3.dp)
+                .fillMaxHeight()
+                .background(StudioTrim),
+        )
+        Surface(
+            modifier = Modifier.size(width = 18.dp, height = 38.dp),
+            shape = RoundedCornerShape(6.dp),
+            color = StudioTrim,
+            border = BorderStroke(2.dp, Color.White.copy(alpha = 0.88f)),
+            tonalElevation = 6.dp,
+        ) {}
     }
 }
 
@@ -1372,11 +2110,17 @@ private fun TrackSettingsDialog(
     sampleRate: Int,
     takes: List<studio.guitarlab.core.model.RecordingTake>,
     levelAnalysis: studio.guitarlab.core.project.LevelAnalysis?,
+    availableRoles: List<TrackRoleDefinition>,
     onActivateTake: (String) -> Unit,
+    onAuditionTake: (String) -> Unit,
+    onUpdateTakeMetadata: (String, String, String, Double) -> Unit,
+    onToggleTakeFavorite: (String) -> Unit,
+    onDeleteTake: (String) -> Unit,
     onAnalyzeLevel: () -> Unit,
     onApplyLevel: () -> Unit,
+    onClearTrack: () -> Unit,
     onDismiss: () -> Unit,
-    onSave: (String, Int) -> Unit,
+    onSave: (String, Int, String?) -> Unit,
     onDelete: () -> Unit,
 ) {
     val hasClips = clips.isNotEmpty()
@@ -1384,8 +2128,12 @@ private fun TrackSettingsDialog(
     var colorIndex by remember(track.id, track.colorIndex) {
         mutableIntStateOf(if (track.colorIndex in StudioTrackPalette.indices) track.colorIndex else track.order % StudioTrackPalette.size)
     }
+    var selectedRoleId by remember(track.id, track.roleId) { mutableStateOf(track.roleId) }
     val validName = name.trim().length in 1..24
     val scrollState = rememberScrollState()
+    var confirmClearTrack by remember(track.id) { mutableStateOf(false) }
+    var editingTakeId by remember(track.id) { mutableStateOf<String?>(null) }
+    var deleteTakeId by remember(track.id) { mutableStateOf<String?>(null) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -1417,7 +2165,12 @@ private fun TrackSettingsDialog(
                                 onNameChange = { if (it.length <= 24) name = it },
                                 modifier = Modifier.weight(1.35f),
                             )
-                            TrackRoleCard(track = track, modifier = Modifier.weight(0.85f))
+                            TrackRoleEditor(
+                                selectedRoleId = selectedRoleId,
+                                availableRoles = availableRoles,
+                                onRoleSelected = { selectedRoleId = it },
+                                modifier = Modifier.weight(0.85f),
+                            )
                         }
                     } else {
                         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -1426,7 +2179,12 @@ private fun TrackSettingsDialog(
                                 onNameChange = { if (it.length <= 24) name = it },
                                 modifier = Modifier.fillMaxWidth(),
                             )
-                            TrackRoleCard(track = track, modifier = Modifier.fillMaxWidth())
+                            TrackRoleEditor(
+                                selectedRoleId = selectedRoleId,
+                                availableRoles = availableRoles,
+                                onRoleSelected = { selectedRoleId = it },
+                                modifier = Modifier.fillMaxWidth(),
+                            )
                         }
                     }
                 }
@@ -1443,26 +2201,63 @@ private fun TrackSettingsDialog(
                     modifier = Modifier.fillMaxWidth(),
                 )
 
-                Surface(modifier=Modifier.fillMaxWidth(), shape=RoundedCornerShape(9.dp), color=MaterialTheme.colorScheme.surfaceVariant.copy(alpha=0.22f)) {
+                Surface(modifier=Modifier.fillMaxWidth(), shape=RoundedCornerShape(8.dp), color=MaterialTheme.colorScheme.surfaceVariant.copy(alpha=0.22f)) {
                     Column(Modifier.padding(10.dp), verticalArrangement=Arrangement.spacedBy(6.dp)) {
                         Text("Nível assistido", style=MaterialTheme.typography.titleSmall)
                         if (levelAnalysis == null) {
-                            Text("Analisa o áudio real e sugere ganho com alvo RMS de −18 dBFS e pico máximo de −3 dBFS. Nada é aplicado automaticamente.", style=MaterialTheme.typography.bodySmall)
+                            Text("Analisa o nível efetivo da pista, incluindo os ganhos atuais da pista e dos clipes, com alvo RMS de −18 dBFS e pico máximo de −3 dBFS. Nada é aplicado automaticamente.", style=MaterialTheme.typography.bodySmall)
                             OutlinedButton(onClick=onAnalyzeLevel, enabled=hasClips) { Text("Analisar pista") }
                         } else {
-                            Text("Pico ${"%.1f".format(levelAnalysis.peakDbfs)} dBFS · RMS ${"%.1f".format(levelAnalysis.rmsDbfs)} dBFS · ajuste ${"%+.1f".format(levelAnalysis.recommendedGainDb)} dB", style=MaterialTheme.typography.bodySmall)
-                            Button(onClick=onApplyLevel, enabled=!levelAnalysis.silent) { Text("Aplicar sugestão") }
+                            Text("Pico efetivo ${"%.1f".format(levelAnalysis.peakDbfs)} dBFS · RMS ${"%.1f".format(levelAnalysis.rmsDbfs)} dBFS · ajuste ${"%+.1f".format(levelAnalysis.recommendedGainDb)} dB", style=MaterialTheme.typography.bodySmall)
+                            if (kotlin.math.abs(levelAnalysis.recommendedGainDb) < 0.1f && !levelAnalysis.silent) {
+                                Text("Nível já está dentro do alvo.", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.secondary)
+                                OutlinedButton(onClick=onAnalyzeLevel) { Text("Analisar novamente") }
+                            } else {
+                                Button(onClick=onApplyLevel, enabled=!levelAnalysis.silent) { Text("Aplicar sugestão") }
+                            }
                         }
                     }
                 }
 
                 if (takes.isNotEmpty()) {
-                    Surface(modifier=Modifier.fillMaxWidth(), shape=RoundedCornerShape(9.dp), color=MaterialTheme.colorScheme.surfaceVariant.copy(alpha=0.22f)) {
-                        Column(Modifier.padding(10.dp), verticalArrangement=Arrangement.spacedBy(5.dp)) {
-                            Text("Takes", style=MaterialTheme.typography.titleSmall)
-                            takes.sortedByDescending { it.createdAtEpochMs }.forEach { take ->
-                                if (take.active) Button(onClick={}, enabled=false, modifier=Modifier.fillMaxWidth()) { Text("Ativo · ${take.name}") }
-                                else OutlinedButton(onClick={onActivateTake(take.id)}, modifier=Modifier.fillMaxWidth()) { Text("Usar ${take.name}") }
+                    Surface(modifier=Modifier.fillMaxWidth(), shape=RoundedCornerShape(8.dp), color=MaterialTheme.colorScheme.surfaceVariant.copy(alpha=0.22f)) {
+                        Column(Modifier.padding(10.dp), verticalArrangement=Arrangement.spacedBy(8.dp)) {
+                            Text("Gerenciar takes", style=MaterialTheme.typography.titleSmall)
+                            Text("Escolha o take ativo, ouça rapidamente e organize nome, nota e favorito sem alterar o áudio original.", style=MaterialTheme.typography.bodySmall, color=MaterialTheme.colorScheme.onSurfaceVariant)
+                            takes.sortedWith(
+                                compareByDescending<studio.guitarlab.core.model.RecordingTake> { it.active }
+                                    .thenByDescending { it.favorite }
+                                    .thenByDescending { it.createdAtEpochMs }
+                                    .thenBy { it.id }
+                            ).forEach { take ->
+                                Surface(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.62f),
+                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.22f)),
+                                ) {
+                                    Column(Modifier.padding(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                            Text(
+                                                buildString {
+                                                    if (take.favorite) append("★ ")
+                                                    if (take.active) append("Ativo · ")
+                                                    append(take.name)
+                                                },
+                                                style = MaterialTheme.typography.labelLarge,
+                                                modifier = Modifier.weight(1f),
+                                            )
+                                            TextButton(onClick = { onToggleTakeFavorite(take.id) }) { Text(if (take.favorite) "Desfavoritar" else "Favoritar") }
+                                        }
+                                        if (take.note.isNotBlank()) Text(take.note, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                                            if (!take.active) OutlinedButton(onClick = { onActivateTake(take.id) }) { Text("Usar") }
+                                            OutlinedButton(onClick = { onAuditionTake(take.id) }) { Text("Ouvir") }
+                                            TextButton(onClick = { editingTakeId = take.id }) { Text("Editar") }
+                                            TextButton(onClick = { deleteTakeId = take.id }, colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)) { Text("Excluir") }
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
@@ -1474,12 +2269,34 @@ private fun TrackSettingsDialog(
                         shape = RoundedCornerShape(8.dp),
                         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.26f),
                     ) {
-                        Text(
-                            "Para excluir esta pista, use primeiro “Limpar pista” no menu de áudio. A pista só pode ser excluída quando estiver vazia.",
+                        Column(
                             modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
+                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                            Text(
+                                "Limpar toda a pista remove todos os clipes/takes desta pista, mas preserva a pista, sua função, cor e mixagem.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            if (confirmClearTrack) {
+                                Text("Confirma remover todo o conteúdo desta pista?", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.error)
+                                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    Button(
+                                        onClick = { confirmClearTrack = false; onClearTrack() },
+                                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                                    ) { Text("Limpar toda a pista") }
+                                    TextButton(onClick = { confirmClearTrack = false }) { Text("Cancelar") }
+                                }
+                            } else {
+                                OutlinedButton(
+                                    onClick = { confirmClearTrack = true },
+                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                                ) {
+                                    Icon(Icons.Default.Delete, contentDescription = null)
+                                    Text("Limpar toda a pista", modifier = Modifier.padding(start = 6.dp))
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -1501,9 +2318,110 @@ private fun TrackSettingsDialog(
             }
         },
         confirmButton = {
-            Button(onClick = { onSave(name.trim(), colorIndex) }, enabled = validName) { Text("Salvar") }
+            Button(onClick = { onSave(name.trim(), colorIndex, selectedRoleId) }, enabled = validName) { Text("Salvar") }
         },
     )
+
+    editingTakeId?.let { id ->
+        val take = takes.firstOrNull { it.id == id }
+        if (take == null) {
+            LaunchedEffect(id) { editingTakeId = null }
+        } else {
+            var takeName by remember(id, take.name) { mutableStateOf(take.name) }
+            var takeNote by remember(id, take.note) { mutableStateOf(take.note) }
+            var takeFineMs by remember(id, take.fineAdjustmentFrames, sampleRate) {
+                mutableStateOf(studio.guitarlab.core.audio.LatencyFineAdjustmentPolicy.framesToMilliseconds(take.fineAdjustmentFrames, sampleRate))
+            }
+            fun adjustTakeFine(deltaMs: Double) {
+                val bounded = (takeFineMs + deltaMs).coerceIn(
+                    -studio.guitarlab.core.audio.LatencyFineAdjustmentPolicy.MAX_ABS_MILLISECONDS,
+                    studio.guitarlab.core.audio.LatencyFineAdjustmentPolicy.MAX_ABS_MILLISECONDS,
+                )
+                takeFineMs = bounded
+            }
+            AlertDialog(
+                onDismissRequest = { editingTakeId = null },
+                title = { Text("Editar take") },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        OutlinedTextField(
+                            value = takeName,
+                            onValueChange = { if (it.length <= studio.guitarlab.core.project.TakeManagementPolicy.MAX_NAME_LENGTH) takeName = it },
+                            label = { Text("Nome") },
+                            singleLine = true,
+                            supportingText = { Text("1–${studio.guitarlab.core.project.TakeManagementPolicy.MAX_NAME_LENGTH} caracteres") },
+                            isError = takeName.trim().isEmpty(),
+                        )
+                        OutlinedTextField(
+                            value = takeNote,
+                            onValueChange = { if (it.length <= studio.guitarlab.core.project.TakeManagementPolicy.MAX_NOTE_LENGTH) takeNote = it },
+                            label = { Text("Nota curta") },
+                            minLines = 2,
+                            maxLines = 4,
+                            supportingText = { Text("Até ${studio.guitarlab.core.project.TakeManagementPolicy.MAX_NOTE_LENGTH} caracteres") },
+                        )
+                        Text("Sincronização desta take", style = MaterialTheme.typography.titleSmall)
+                        Text(
+                            "Ajuste persistente somente desta take. Positivo antecipa; negativo atrasa. Splits da mesma take acompanham juntos e o áudio original não é alterado.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Text(
+                            String.format(java.util.Locale.US, "%+.1f ms", takeFineMs),
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                            OutlinedButton(onClick = { adjustTakeFine(-25.0) }) { Text("−25 ms") }
+                            OutlinedButton(onClick = { adjustTakeFine(-5.0) }) { Text("−5 ms") }
+                            OutlinedButton(onClick = { adjustTakeFine(-1.0) }) { Text("−1 ms") }
+                            TextButton(onClick = { takeFineMs = 0.0 }) { Text("Zerar") }
+                            OutlinedButton(onClick = { adjustTakeFine(1.0) }) { Text("+1 ms") }
+                            OutlinedButton(onClick = { adjustTakeFine(5.0) }) { Text("+5 ms") }
+                            OutlinedButton(onClick = { adjustTakeFine(25.0) }) { Text("+25 ms") }
+                        }
+                        Text(
+                            "O ajuste global de Configurações vale apenas para novas gravações. Este valor pertence à take atual e é salvo no projeto.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        enabled = takeName.trim().isNotEmpty(),
+                        onClick = {
+                            onUpdateTakeMetadata(id, takeName.trim(), takeNote.trim(), takeFineMs)
+                            editingTakeId = null
+                        },
+                    ) { Text("Salvar") }
+                },
+                dismissButton = { TextButton(onClick = { editingTakeId = null }) { Text("Cancelar") } },
+            )
+        }
+    }
+
+    deleteTakeId?.let { id ->
+        val take = takes.firstOrNull { it.id == id }
+        if (take != null) {
+            AlertDialog(
+                onDismissRequest = { deleteTakeId = null },
+                title = { Text("Excluir ${take.name}?") },
+                text = { Text("Os clipes deste take serão removidos da sessão. O GuitarLab mantém a operação reversível pelo histórico e não apaga mídia compartilhada automaticamente.") },
+                confirmButton = {
+                    Button(
+                        onClick = { onDeleteTake(id); deleteTakeId = null },
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                    ) { Text("Excluir take") }
+                },
+                dismissButton = { TextButton(onClick = { deleteTakeId = null }) { Text("Cancelar") } },
+            )
+        } else {
+            LaunchedEffect(id) { deleteTakeId = null }
+        }
+    }
 }
 
 @Composable
@@ -1524,30 +2442,91 @@ private fun TrackNameField(
 }
 
 @Composable
-private fun TrackRoleCard(track: AudioTrack, modifier: Modifier = Modifier) {
+private fun TrackRoleEditor(
+    selectedRoleId: String?,
+    availableRoles: List<TrackRoleDefinition>,
+    onRoleSelected: (String?) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val selectedName = availableRoles.firstOrNull { it.id == selectedRoleId }?.name
+        ?: BuiltInRoles.definitions.firstOrNull { it.id == selectedRoleId }?.name
+        ?: "Sem função"
+
     Surface(
         modifier = modifier.heightIn(min = 62.dp),
-        shape = RoundedCornerShape(9.dp),
+        shape = RoundedCornerShape(8.dp),
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.30f),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.30f)),
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
-        ) {
-            Text(
-                "Função",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Text(
-                roleName(track.roleId),
-                style = MaterialTheme.typography.bodyMedium,
-                maxLines = 2,
-            )
+        Box {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { expanded = true }
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Função", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(selectedName, style = MaterialTheme.typography.bodyMedium, maxLines = 2)
+                }
+                Text("Alterar", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+            }
+            DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                DropdownMenuItem(
+                    text = { Text("Sem função") },
+                    onClick = {
+                        expanded = false
+                        onRoleSelected(null)
+                    },
+                )
+                availableRoles.forEach { role ->
+                    DropdownMenuItem(
+                        text = { Text(role.name) },
+                        onClick = {
+                            expanded = false
+                            onRoleSelected(role.id)
+                        },
+                    )
+                }
+            }
         }
     }
+}
+
+@Composable
+private fun NewTrackRolePromptDialog(
+    trackName: String,
+    suggestions: List<TrackRoleDefinition>,
+    onChoose: (String) -> Unit,
+    onKeepGeneric: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onKeepGeneric,
+        title = { Text("Definir função da nova pista?") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("“$trackName” foi criada. Há funções importantes ainda disponíveis neste projeto:")
+                suggestions.forEach { role ->
+                    OutlinedButton(
+                        onClick = { onChoose(role.id) },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text(role.name)
+                    }
+                }
+                Text(
+                    "A função ajuda o GuitarLab a organizar comparação e gravação. Você também pode alterá-la depois em Configurar pista.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        },
+        confirmButton = {},
+        dismissButton = { TextButton(onClick = onKeepGeneric) { Text("Agora não") } },
+    )
 }
 
 @Composable
@@ -1558,7 +2537,7 @@ private fun TrackColorSection(
 ) {
     Surface(
         modifier = modifier,
-        shape = RoundedCornerShape(9.dp),
+        shape = RoundedCornerShape(8.dp),
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.22f),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.26f)),
     ) {
@@ -1591,14 +2570,14 @@ private fun TrackColorSection(
                                 Surface(
                                     modifier = Modifier
                                         .size(48.dp)
-                                        .clip(CircleShape)
+                                        .clip(RoundedCornerShape(8.dp))
                                         .semantics {
                                             contentDescription = "Cor da pista ${index + 1}"
                                             selected = colorIndex == index
                                             role = Role.RadioButton
                                         }
                                         .clickable { onColorChange(index) },
-                                    shape = CircleShape,
+                                    shape = RoundedCornerShape(8.dp),
                                     color = color,
                                     border = BorderStroke(
                                         if (colorIndex == index) 3.dp else 1.dp,
@@ -1624,7 +2603,7 @@ private fun TrackSourceMetadata(
         Text("Áudio fonte", style = MaterialTheme.typography.titleSmall)
         Surface(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(9.dp),
+            shape = RoundedCornerShape(8.dp),
             color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.30f),
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.30f)),
         ) {
@@ -1639,10 +2618,10 @@ private fun TrackSourceMetadata(
                         Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
                             MetadataLine("Arquivo", clip.name)
                             MetadataLine("Formato", clip.sourceFormat ?: "—")
-                            MetadataLine("Sample rate", clip.sourceSampleRateHz?.let { "$it Hz" } ?: "—")
+                            MetadataLine("Taxa de amostragem", clip.sourceSampleRateHz?.let { "$it Hz" } ?: "—")
                             MetadataLine("Canais", clip.sourceChannelCount?.toString() ?: "—")
-                            MetadataLine("Bit depth", clip.sourceBitsPerSample?.let { "$it-bit" } ?: "—")
-                            MetadataLine("Encoding", clip.sourceEncoding ?: "—")
+                            MetadataLine("Profundidade de bits", clip.sourceBitsPerSample?.let { "$it bits" } ?: "—")
+                            MetadataLine("Codificação", clip.sourceEncoding ?: "—")
                             val durationFrames = clip.sourceTotalFrames ?: clip.lengthFrames
                             val durationRate = clip.sourceSampleRateHz ?: sampleRate
                             MetadataLine("Duração", formatPreciseTime(durationFrames, durationRate))
@@ -1697,9 +2676,9 @@ private fun ClipFadeDialog(
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
                 Text(clip.name, style = MaterialTheme.typography.bodyMedium)
-                Text("Fade in · ${fadeInMs.toInt()} ms")
+                Text("Fade-in · ${fadeInMs.toInt()} ms")
                 androidx.compose.material3.Slider(value = fadeInMs, onValueChange = { fadeInMs = it }, valueRange = 0f..maxMs)
-                Text("Fade out · ${fadeOutMs.toInt()} ms")
+                Text("Fade-out · ${fadeOutMs.toInt()} ms")
                 androidx.compose.material3.Slider(value = fadeOutMs, onValueChange = { fadeOutMs = it }, valueRange = 0f..maxMs)
                 Text("A edição é não destrutiva e usa a mesma curva na reprodução e na exportação.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }

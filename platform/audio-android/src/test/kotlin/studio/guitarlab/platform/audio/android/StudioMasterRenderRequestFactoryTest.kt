@@ -38,6 +38,29 @@ class StudioMasterRenderRequestFactoryTest {
         assertEquals(110L, request.projectEndFrame)
     }
 
+    @Test fun masterRequestAfterPreparedReferenceRebindUsesNewReferenceAndKeepsRecording() {
+        val project = project(
+            tracks = listOf(
+                AudioTrack("backing", "Backing", order = 0),
+                AudioTrack("recorded", "My Guitar", order = 1),
+            ),
+            clips = listOf(
+                clip("prepared-new", "backing", source = "media/references/backing-new.wav"),
+                clip("take-1", "recorded", source = "media/recordings/take-1.wav"),
+            ),
+        )
+        val resolved = mutableListOf<String>()
+
+        val request = StudioMasterRenderRequestFactory.create(project, 48_000) { path ->
+            resolved += path
+            File(path)
+        }
+
+        assertEquals(listOf("media/references/backing-new.wav", "media/recordings/take-1.wav"), resolved)
+        assertEquals(setOf("backing-new.wav", "take-1.wav"), request.clips.map { it.file.name }.toSet())
+        assertEquals(setOf("backing", "recorded"), request.trackMixes.map { it.trackId }.toSet())
+    }
+
     @Test fun rejectsUnconvertedClipIdenticallyForEveryCaller() {
         val project = project(
             tracks = listOf(AudioTrack("t", "Track", order = 0)),

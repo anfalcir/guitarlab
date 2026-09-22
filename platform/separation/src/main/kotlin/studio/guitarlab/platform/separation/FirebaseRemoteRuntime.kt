@@ -13,6 +13,7 @@ import com.google.firebase.storage.StorageMetadata
 import java.io.File
 import java.util.UUID
 import java.util.concurrent.TimeUnit
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.tasks.await
 import studio.guitarlab.core.model.PreparationStatus
 import studio.guitarlab.core.project.*
@@ -43,26 +44,144 @@ internal class FirebaseResultTransport(private val context:Context,private val a
     private suspend fun prefix(identity:RemoteJobIdentity)="remote/v1/users/${uid()}/jobs/${identity.jobId}/output"
 }
 
-class RemoteSeparationWorker(context:Context,params:WorkerParameters):CoroutineWorker(context,params) {
-    override suspend fun doWork():Result {
-        val id=runCatching{RemoteJobIdentity(requireNotNull(inputData.getString("jobId")),requireNotNull(inputData.getString("projectId")),requireNotNull(inputData.getString("sourceAssetId")),requireNotNull(inputData.getString("inputSha256")))}.getOrElse{return Result.failure()}
-        val app=GuitarLabFirebase.app(applicationContext);val auth=FirebaseAuth.getInstance(app);val store=FileRemoteJobStore(applicationContext);val coordinator=RemoteSeparationCoordinator(store,FirebaseRemoteBackend(auth,FirebaseFirestore.getInstance(app),FirebaseFunctions.getInstance(app,"us-central1")),FirebaseResultTransport(applicationContext,auth,FirebaseStorage.getInstance(app)),RemoteManifestCodec::decode,ManagedStemSetPublisher(StemSetProjectPublisher(FileProjectRepository(applicationContext.filesDir),ProjectManagedMediaStore(applicationContext.filesDir))))
-        return try { val current=store.load(id.jobId);val next=if(current==null)coordinator.start(id) else coordinator.reconcile(id);when(next.state){RemoteJobState.IMPORTED,RemoteJobState.CANCELLED->Result.success();RemoteJobState.FAILED,RemoteJobState.EXPIRED->Result.failure();else->Result.retry()} } catch(e:Throwable){if(RemoteFailurePolicy.shouldRetry(sanitize(e),runAttemptCount,20))Result.retry() else Result.failure()}
+class RemoteSeparationWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
+    override suspend fun doWork(): Result {
+        val id = runCatching {
+            RemoteJobIdentity(
+                requireNotNull(inputData.getString("jobId")),
+                requireNotNull(inputData.getString("projectId")),
+                requireNotNull(inputData.getString("sourceAssetId")),
+                requireNotNull(inputData.getString("inputSha256")),
+            )
+        }.getOrElse { return Result.failure() }
+        val app = GuitarLabFirebase.app(applicationContext)
+        val auth = FirebaseAuth.getInstance(app)
+        val store = FileRemoteJobStore(applicationContext)
+        val repository = FileProjectRepository(applicationContext.filesDir)
+        val mediaStore = ProjectManagedMediaStore(applicationContext.filesDir)
+        val coordinator = RemoteSeparationCoordinator(
+            store,
+            FirebaseRemoteBackend(auth, FirebaseFirestore.getInstance(app), FirebaseFunctions.getInstance(app, "us-central1")),
+            FirebaseResultTransport(applicationContext, auth, FirebaseStorage.getInstance(app)),
+            RemoteManifestCodec::decode,
+            ManagedStemSetPublisher(StemSetProjectPublisher(repository, mediaStore)),
+        )
+        return try {
+            val current = store.load(id.jobId)
+            val next = if (current == null) coordinator.start(id) else coordinator.reconcile(id)
+            when (next.state) {
+                RemoteJobState.IMPORTED -> prepareReferencesOrRetry(id, next, store, repository, mediaStore)
+                RemoteJobState.CANCELLED -> Result.success()
+                RemoteJobState.FAILED, RemoteJobState.EXPIRED -> Result.failure()
+                else -> Result.retry()
+            }
+        } catch (error: Throwable) {
+            if (RemoteFailurePolicy.shouldRetry(sanitize(error), runAttemptCount, 20)) Result.retry() else Result.failure()
+        }
     }
-    private fun sanitize(e:Throwable)=e.message?.substringBefore(':')?.take(48)?.replace(Regex("[^A-Z0-9_]"),"_")?:"BACKEND_UNAVAILABLE"
+
+    private fun prepareReferencesOrRetry(
+        id: RemoteJobIdentity,
+        importedJob: DurableRemoteJob,
+        store: FileRemoteJobStore,
+        repository: FileProjectRepository,
+        mediaStore: ProjectManagedMediaStore,
+    ): Result = try {
+        PreparedReferenceService(repository, mediaStore, applicationContext.cacheDir).prepare(id.projectId)
+        store.save(importedJob.copy(updatedAtMs = System.currentTimeMillis()))
+        Result.success()
+    } catch (error: Throwable) {
+        markReferencePreparationError(id, repository)
+        store.save(importedJob.copy(updatedAtMs = System.currentTimeMillis(), errorCode = "REFERENCE_PREPARATION_FAILED"))
+        Result.failure()
+    }
+
+    private fun markReferencePreparationError(id: RemoteJobIdentity, repository: FileProjectRepository) {
+        val project = repository.load(id.projectId) ?: return
+        val preparation = project.preparation ?: return
+        val sameGeneration = preparation.sourceAssetId == id.sourceAssetId && preparation.activeStemAssetIds.size == 6
+        val referencesMissing = preparation.activeBackingAssetId == null || preparation.activeGuitarAssetId == null
+        if (sameGeneration && referencesMissing) {
+            repository.save(
+                project.copy(
+                    updatedAtEpochMs = System.currentTimeMillis(),
+                    preparation = preparation.copy(status = PreparationStatus.ERROR),
+                ),
+            )
+        }
+    }
+
+    private fun sanitize(error: Throwable) = error.message?.substringBefore(':')?.take(48)
+        ?.replace(Regex("[^A-Z0-9_]"), "_") ?: "BACKEND_UNAVAILABLE"
+
 }
 
-class RemoteSeparationClient(private val context:Context) {
-    fun enqueue(projectId:String):String {
-        val repo=FileProjectRepository(context.filesDir);val project=requireNotNull(repo.load(projectId));val sourceId=requireNotNull(project.preparation?.sourceAssetId){"Fonte gerenciada necessária."};val source=project.assets.single{it.assetId==sourceId};val jobId=UUID.randomUUID().toString();val id=RemoteJobIdentity(jobId,projectId,sourceId,source.sha256)
-        repo.save(project.copy(updatedAtEpochMs=System.currentTimeMillis(),preparation=requireNotNull(project.preparation).copy(status=PreparationStatus.SEPARATING)))
-        val request=OneTimeWorkRequestBuilder<RemoteSeparationWorker>().setInputData(workDataOf("jobId" to id.jobId,"projectId" to id.projectId,"sourceAssetId" to id.sourceAssetId,"inputSha256" to id.inputSha256)).setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()).setBackoffCriteria(BackoffPolicy.EXPONENTIAL,30,TimeUnit.SECONDS).addTag("guitarlab-separation").addTag("guitarlab-separation:$projectId").build()
-        WorkManager.getInstance(context).enqueueUniqueWork("guitarlab-separation:$projectId",ExistingWorkPolicy.KEEP,request);return jobId
+class RemoteSeparationClient(private val context: Context) {
+    fun enqueue(projectId: String): String {
+        val repo = FileProjectRepository(context.filesDir)
+        val project = requireNotNull(repo.load(projectId))
+        val sourceId = requireNotNull(project.preparation?.sourceAssetId) { "Fonte gerenciada necessária." }
+        val source = project.assets.single { it.assetId == sourceId }
+        val jobId = UUID.randomUUID().toString()
+        val id = RemoteJobIdentity(jobId, projectId, sourceId, source.sha256)
+        repo.save(
+            project.copy(
+                updatedAtEpochMs = System.currentTimeMillis(),
+                preparation = requireNotNull(project.preparation).copy(status = PreparationStatus.SEPARATING),
+            ),
+        )
+        val request = OneTimeWorkRequestBuilder<RemoteSeparationWorker>()
+            .setInputData(workDataOf("jobId" to id.jobId, "projectId" to id.projectId, "sourceAssetId" to id.sourceAssetId, "inputSha256" to id.inputSha256))
+            .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
+            .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
+            .addTag("guitarlab-separation")
+            .addTag("guitarlab-separation:$projectId")
+            .build()
+        WorkManager.getInstance(context).enqueueUniqueWork("guitarlab-separation:$projectId", ExistingWorkPolicy.KEEP, request)
+        return jobId
     }
-    fun snapshot(jobId:String)=FileRemoteJobStore(context).load(jobId)
-    fun snapshotProject(projectId:String)=FileRemoteJobStore(context).active().filter{it.identity.projectId==projectId}.maxByOrNull{it.updatedAtMs}
-    fun cancel(projectId:String,jobId:String){val store=FileRemoteJobStore(context);val job=store.load(jobId)?:return;store.save(job.copy(state=RemoteJobState.CANCEL_REQUESTED,updatedAtMs=System.currentTimeMillis()));val request=OneTimeWorkRequestBuilder<RemoteCancelWorker>().setInputData(workDataOf("jobId" to jobId,"projectId" to projectId,"sourceAssetId" to job.identity.sourceAssetId,"inputSha256" to job.identity.inputSha256)).setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()).build();WorkManager.getInstance(context).enqueueUniqueWork("guitarlab-separation-cancel:$jobId",ExistingWorkPolicy.KEEP,request)}
-    fun resumePending(){FileRemoteJobStore(context).active().filter{it.state !in setOf(RemoteJobState.IMPORTED,RemoteJobState.CANCELLED,RemoteJobState.FAILED,RemoteJobState.EXPIRED)}.forEach{job->val id=job.identity;val request=OneTimeWorkRequestBuilder<RemoteSeparationWorker>().setInputData(workDataOf("jobId" to id.jobId,"projectId" to id.projectId,"sourceAssetId" to id.sourceAssetId,"inputSha256" to id.inputSha256)).setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()).setBackoffCriteria(BackoffPolicy.EXPONENTIAL,30,TimeUnit.SECONDS).build();WorkManager.getInstance(context).enqueueUniqueWork("guitarlab-separation:${id.projectId}",ExistingWorkPolicy.KEEP,request)}}
+
+    fun snapshot(jobId: String) = FileRemoteJobStore(context).load(jobId)
+    fun snapshotProject(projectId: String) = FileRemoteJobStore(context).latestForProject(projectId)
+    fun observeProject(projectId: String): Flow<DurableRemoteJob?> = FileRemoteJobStore(context).observeProject(projectId)
+
+    fun cancel(projectId: String, jobId: String) {
+        val store = FileRemoteJobStore(context)
+        val job = store.load(jobId) ?: return
+        store.save(job.copy(state = RemoteJobState.CANCEL_REQUESTED, updatedAtMs = System.currentTimeMillis()))
+        val request = OneTimeWorkRequestBuilder<RemoteCancelWorker>()
+            .setInputData(workDataOf("jobId" to jobId, "projectId" to projectId, "sourceAssetId" to job.identity.sourceAssetId, "inputSha256" to job.identity.inputSha256))
+            .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
+            .build()
+        WorkManager.getInstance(context).enqueueUniqueWork("guitarlab-separation-cancel:$jobId", ExistingWorkPolicy.KEEP, request)
+    }
+
+    fun closeProject(projectId: String) {
+        val store = FileRemoteJobStore(context)
+        store.active()
+            .filter { it.identity.projectId == projectId && it.state !in TERMINAL_STATES }
+            .forEach { cancel(projectId, it.identity.jobId) }
+        WorkManager.getInstance(context).cancelUniqueWork("guitarlab-separation:$projectId")
+        store.removeProject(projectId)
+    }
+
+    fun resumePending() {
+        FileRemoteJobStore(context).active()
+            .filter { it.state !in TERMINAL_STATES }
+            .forEach { job ->
+                val id = job.identity
+                val request = OneTimeWorkRequestBuilder<RemoteSeparationWorker>()
+                    .setInputData(workDataOf("jobId" to id.jobId, "projectId" to id.projectId, "sourceAssetId" to id.sourceAssetId, "inputSha256" to id.inputSha256))
+                    .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
+                    .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
+                    .build()
+                WorkManager.getInstance(context).enqueueUniqueWork("guitarlab-separation:${id.projectId}", ExistingWorkPolicy.KEEP, request)
+            }
+    }
+
+    private companion object {
+        val TERMINAL_STATES = setOf(RemoteJobState.IMPORTED, RemoteJobState.CANCELLED, RemoteJobState.FAILED, RemoteJobState.EXPIRED)
+    }
 }
 
 class RemoteCancelWorker(context:Context,params:WorkerParameters):CoroutineWorker(context,params){override suspend fun doWork():Result{val id=runCatching{RemoteJobIdentity(requireNotNull(inputData.getString("jobId")),requireNotNull(inputData.getString("projectId")),requireNotNull(inputData.getString("sourceAssetId")),requireNotNull(inputData.getString("inputSha256")))}.getOrElse{return Result.failure()};return runCatching{val app=GuitarLabFirebase.app(applicationContext);val auth=FirebaseAuth.getInstance(app);FirebaseRemoteBackend(auth,FirebaseFirestore.getInstance(app),FirebaseFunctions.getInstance(app,"us-central1")).cancel(id);Result.success()}.getOrElse{Result.retry()}}}

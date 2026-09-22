@@ -43,6 +43,8 @@ import studio.guitarlab.core.project.PracticeWorkflowEditor
 import studio.guitarlab.core.project.SectionBoundarySuggestion
 import studio.guitarlab.core.project.TimelineControlPolicy
 
+internal val TimelineMarkerRailHeight = 62.dp
+
 enum class TimelineMarkerKind {
     PLAYHEAD,
     LOOP_START,
@@ -64,6 +66,7 @@ fun TimelineMarkerRail(
     sectionSuggestions: List<SectionBoundarySuggestion>,
     markers: List<ProjectTimelineMarker>,
     enabled: Boolean,
+    playheadDragEnabled: Boolean = true,
     onPlayheadFrameChanged: (Long) -> Unit,
     onLoopStartFrameChanged: (Long) -> Unit,
     onLoopEndFrameChanged: (Long) -> Unit,
@@ -73,7 +76,7 @@ fun TimelineMarkerRail(
     modifier: Modifier = Modifier,
 ) {
     BoxWithConstraints(
-        modifier = modifier.height(62.dp).alpha(if (enabled) 1f else 0.52f),
+        modifier = modifier.height(TimelineMarkerRailHeight).alpha(if (enabled || playheadDragEnabled) 1f else 0.52f),
     ) {
         val density = LocalDensity.current
         val widthPx = with(density) { maxWidth.toPx() }.coerceAtLeast(1f)
@@ -115,9 +118,7 @@ fun TimelineMarkerRail(
             projectEndFrame,
             sampleRateHz,
             widthPx,
-            // The playhead remains gesture-enabled during Play. StudioViewModel is the authority
-            // that rejects movement during countdown/REC and normalizes live seeks to loop bounds.
-            true,
+            playheadDragEnabled,
             onPlayheadFrameChanged,
             modifier = Modifier.zIndex(4f),
         )
@@ -144,14 +145,17 @@ private fun TimelineAnnotations(
         PracticeWorkflowEditor.previewSuggestedSections(sectionSuggestions, projectEndFrame.coerceAtLeast(1L)).forEach { preview ->
             val start = TimelineControlPolicy.frameToFraction(preview.startFrame, projectEndFrame) * widthPx
             val end = TimelineControlPolicy.frameToFraction(preview.endFrame, projectEndFrame) * widthPx
-            val width = (end - start).coerceAtLeast(with(density) { 34.dp.toPx() })
+            val naturalWidth = (end - start).coerceAtLeast(0f)
+            val remainingWidth = (widthPx - start).coerceAtLeast(0f)
+            val width = minOf(naturalWidth.coerceAtLeast(with(density) { 34.dp.toPx() }), remainingWidth)
+            if (width <= 0f) return@forEach
             Surface(
                 modifier = Modifier
                     .offset { IntOffset(start.roundToInt(), with(density) { 2.dp.roundToPx() }) }
                     .width(with(density) { width.toDp() })
                     .height(24.dp)
                     .zIndex(1f),
-                shape = RoundedCornerShape(5.dp),
+                shape = RoundedCornerShape(4.dp),
                 color = previewColor.copy(alpha = 0.13f),
                 border = BorderStroke(1.dp, previewColor.copy(alpha = 0.60f)),
             ) {
@@ -169,14 +173,17 @@ private fun TimelineAnnotations(
         sections.forEach { section ->
             val start = TimelineControlPolicy.frameToFraction(section.startFrame, projectEndFrame) * widthPx
             val end = TimelineControlPolicy.frameToFraction(section.endFrame, projectEndFrame) * widthPx
-            val width = (end - start).coerceAtLeast(with(density) { 34.dp.toPx() })
+            val naturalWidth = (end - start).coerceAtLeast(0f)
+            val remainingWidth = (widthPx - start).coerceAtLeast(0f)
+            val width = minOf(naturalWidth.coerceAtLeast(with(density) { 34.dp.toPx() }), remainingWidth)
+            if (width <= 0f) return@forEach
             Surface(
                 modifier = Modifier
                     .offset { IntOffset(start.roundToInt(), with(density) { 2.dp.roundToPx() }) }
                     .width(with(density) { width.toDp() })
                     .height(24.dp)
                     .zIndex(1f),
-                shape = RoundedCornerShape(5.dp),
+                shape = RoundedCornerShape(4.dp),
                 color = sectionColor.copy(alpha = 0.16f),
                 border = BorderStroke(1.dp, sectionColor.copy(alpha = 0.48f)),
             ) {
@@ -263,7 +270,7 @@ private fun TimelineMarker(
             contentAlignment = Alignment.TopCenter,
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Surface(shape = RoundedCornerShape(7.dp), color = color, tonalElevation = 0.dp) {
+                Surface(shape = RoundedCornerShape(6.dp), color = color, tonalElevation = 0.dp) {
                     Text(
                         text = "$label ${formatFrameTime(frame, sampleRateHz)}",
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),

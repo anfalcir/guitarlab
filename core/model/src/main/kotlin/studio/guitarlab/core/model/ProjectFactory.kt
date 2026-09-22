@@ -30,10 +30,10 @@ class ProjectFactory(
 
         val tracks = listOf(
             AudioTrack(id = idGenerator(), name = "Base", groupId = backingGroup.id, roleId = BuiltInRoles.BACKING, roleSource = RoleSource.AUTO, channelLayout = ChannelLayout.STEREO, pan = 0f, order = 0, colorIndex = 0),
-            AudioTrack(id = idGenerator(), name = "Guitarra Ref. E", groupId = referenceGroup.id, roleId = BuiltInRoles.REFERENCE_GUITAR_L, roleSource = RoleSource.AUTO, channelLayout = ChannelLayout.MONO, pan = -1f, order = 1, colorIndex = 1),
-            AudioTrack(id = idGenerator(), name = "Guitarra Ref. D", groupId = referenceGroup.id, roleId = BuiltInRoles.REFERENCE_GUITAR_R, roleSource = RoleSource.AUTO, channelLayout = ChannelLayout.MONO, pan = 1f, order = 2, colorIndex = 2),
-            AudioTrack(id = idGenerator(), name = "Minha Guitarra E", groupId = myGuitarsGroup.id, roleId = BuiltInRoles.RECORDED_GUITAR_L, roleSource = RoleSource.AUTO, channelLayout = ChannelLayout.MONO, pan = -1f, order = 3, colorIndex = 5),
-            AudioTrack(id = idGenerator(), name = "Minha Guitarra D", groupId = myGuitarsGroup.id, roleId = BuiltInRoles.RECORDED_GUITAR_R, roleSource = RoleSource.AUTO, channelLayout = ChannelLayout.MONO, pan = 1f, order = 4, colorIndex = 7)
+            AudioTrack(id = idGenerator(), name = "Guitarra de referência E", groupId = referenceGroup.id, roleId = BuiltInRoles.REFERENCE_GUITAR_L, roleSource = RoleSource.AUTO, channelLayout = ChannelLayout.MONO, pan = -1f, order = 1, colorIndex = 1),
+            AudioTrack(id = idGenerator(), name = "Guitarra de referência D", groupId = referenceGroup.id, roleId = BuiltInRoles.REFERENCE_GUITAR_R, roleSource = RoleSource.AUTO, channelLayout = ChannelLayout.MONO, pan = 1f, order = 2, colorIndex = 2),
+            AudioTrack(id = idGenerator(), name = "Minha guitarra E", groupId = myGuitarsGroup.id, roleId = BuiltInRoles.RECORDED_GUITAR_L, roleSource = RoleSource.AUTO, channelLayout = ChannelLayout.MONO, pan = -1f, order = 3, colorIndex = 5),
+            AudioTrack(id = idGenerator(), name = "Minha guitarra D", groupId = myGuitarsGroup.id, roleId = BuiltInRoles.RECORDED_GUITAR_R, roleSource = RoleSource.AUTO, channelLayout = ChannelLayout.MONO, pan = 1f, order = 4, colorIndex = 7)
         )
 
         return GuitarProject(

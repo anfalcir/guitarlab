@@ -65,11 +65,11 @@ class FileProjectRepository(
         val sourceDirectory = projectDirectory(projectId)
         val destinationDirectory = projectDirectory(newProjectId)
         require(!destinationDirectory.exists()) { "Project '$newProjectId' already exists." }
-        val duplicate = source.copy(
-            id = newProjectId,
-            name = newName.trim(),
-            createdAtEpochMs = nowEpochMs,
-            updatedAtEpochMs = nowEpochMs
+        val duplicate = ProjectLifecyclePolicy.duplicateSnapshot(
+            source = source,
+            newProjectId = newProjectId,
+            newName = newName,
+            nowEpochMs = nowEpochMs,
         )
         try {
             copyReferencedMedia(source, sourceDirectory, destinationDirectory)
@@ -83,8 +83,7 @@ class FileProjectRepository(
     private fun copyReferencedMedia(project: GuitarProject, sourceDirectory: File, destinationDirectory: File) {
         val sourceRoot = sourceDirectory.canonicalFile
         val destinationRoot = destinationDirectory.canonicalFile
-        project.clips
-            .flatMap { listOfNotNull(it.managedSourcePath, it.managedEditProxyPath) }
+        (project.clips.flatMap { listOfNotNull(it.managedSourcePath, it.managedEditProxyPath) } + project.assets.map { it.relativePath })
             .distinct()
             .forEach { relativePath ->
                 val source = File(sourceRoot, relativePath).canonicalFile

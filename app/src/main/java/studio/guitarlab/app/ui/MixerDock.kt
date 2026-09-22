@@ -3,7 +3,6 @@ package studio.guitarlab.app.ui
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -17,12 +16,11 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.FiberManualRecord
-import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
@@ -42,6 +40,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import kotlin.math.abs
 import kotlin.math.log10
@@ -61,7 +60,6 @@ fun MixerDock(
     tracks: List<AudioTrack>,
     auditionMode: GuitarAuditionMode = GuitarAuditionMode.MIXER,
     selectedTrackId: String?,
-    pinned: Boolean,
     mixControlsEnabled: Boolean,
     structuralControlsEnabled: Boolean,
     masterGainDb: Float,
@@ -70,8 +68,6 @@ fun MixerDock(
     masterClipLatched: Boolean,
     trackClipLatched: Set<String>,
     onSelectTrack: (String) -> Unit,
-    onPin: () -> Unit,
-    onClose: () -> Unit,
     onGainPreview: (String, Float) -> Unit,
     onGainCommit: (String, Float) -> Unit,
     onPanPreview: (String, Float) -> Unit,
@@ -83,6 +79,7 @@ fun MixerDock(
     onMasterGainCommit: (Float) -> Unit,
     onClearTrackClip: (String) -> Unit,
     onClearMasterClip: () -> Unit,
+    headerContent: (@Composable () -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     Surface(
@@ -92,37 +89,26 @@ fun MixerDock(
         tonalElevation = 3.dp,
     ) {
         Column(Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 8.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
+            Box(
+                modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp),
+                contentAlignment = Alignment.Center,
             ) {
-                Text("Mixer", style = MaterialTheme.typography.titleMedium)
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (!pinned) {
-                        AppIconButton(
-                            icon = Icons.Default.PushPin,
-                            contentDescription = "Fixar mixer",
-                            onClick = onPin,
-                        )
-                    }
-                    AppIconButton(
-                        icon = Icons.Default.Close,
-                        contentDescription = if (pinned) "Fechar e desafixar mixer" else "Fechar mixer",
-                        onClick = onClose,
-                    )
-                }
+                headerContent?.invoke()
             }
 
             Row(
                 modifier = Modifier.fillMaxWidth().weight(1f),
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                Row(
-                    modifier = Modifier.weight(1f).fillMaxHeight().horizontalScroll(rememberScrollState()),
+                LazyRow(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .testTag("mixer-track-scroll"),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    userScrollEnabled = true,
                 ) {
-                    tracks.sortedBy { it.order }.forEach { track ->
+                    items(tracks.sortedBy { it.order }, key = { it.id }) { track ->
                         MixerTrackStrip(
                             track = track,
                             auditionMode = auditionMode,
@@ -184,8 +170,13 @@ private fun MixerTrackStrip(
     val borderColor = if (selected) accent else MaterialTheme.colorScheme.outline.copy(alpha = 0.55f)
 
     Surface(
-        modifier = Modifier.width(184.dp).fillMaxHeight().clip(RoundedCornerShape(12.dp)).clickable(onClick = onSelect),
-        shape = RoundedCornerShape(12.dp),
+        modifier = Modifier
+            .width(184.dp)
+            .fillMaxHeight()
+            .testTag("mixer-track-strip-${track.id}")
+            .clip(RoundedCornerShape(8.dp))
+            .clickable(onClick = onSelect),
+        shape = RoundedCornerShape(8.dp),
         color = if (selected) accent.copy(alpha = 0.10f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.28f),
         border = BorderStroke(if (selected) 1.5.dp else 1.dp, borderColor),
     ) {
@@ -205,7 +196,7 @@ private fun MixerTrackStrip(
                     val included = auditionState == GuitarAuditionTrackState.INCLUDED
                     val comparisonColor = if (included) StudioComparisonActive else StudioComparisonHidden
                     Surface(
-                        shape = RoundedCornerShape(5.dp),
+                        shape = RoundedCornerShape(4.dp),
                         color = comparisonColor.copy(alpha = 0.16f),
                         border = BorderStroke(1.25.dp, comparisonColor.copy(alpha = 0.95f)),
                         modifier = Modifier.semantics { stateDescription = if (included) "Incluída na comparação" else "Oculta pela comparação" },
@@ -296,8 +287,8 @@ private fun MasterStrip(
     var gainDraft by remember(gainDb) { mutableFloatStateOf(gainDb) }
     val accent = MaterialTheme.colorScheme.secondary
     Surface(
-        modifier = Modifier.width(198.dp).fillMaxHeight(),
-        shape = RoundedCornerShape(12.dp),
+        modifier = Modifier.width(198.dp).fillMaxHeight().testTag("mixer-master-strip"),
+        shape = RoundedCornerShape(8.dp),
         color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.30f),
         border = BorderStroke(1.5.dp, accent.copy(alpha = 0.78f)),
     ) {
@@ -314,7 +305,7 @@ private fun MasterStrip(
                 heldPeak = meter.heldPeak,
                 clipLatched = clipLatched,
                 onClearClip = onClearClip,
-                clipContentDescription = "Limpar clipping do Master",
+                clipContentDescription = "Limpar clipping do master",
             )
             MeterRow("RMS", meter.rms, accent)
             LabeledVolumeSlider(
@@ -327,7 +318,7 @@ private fun MasterStrip(
                     onGainPreview(value)
                 },
                 onValueChangeFinished = { onGainCommit(gainDraft) },
-                contentDescription = "Volume Master",
+                contentDescription = "Volume do master",
             )
         }
     }
@@ -545,10 +536,10 @@ private fun MeterRow(
         }
         if (clipLatched && onClearClip != null) {
             Surface(
-                modifier = Modifier.clip(RoundedCornerShape(5.dp))
+                modifier = Modifier.clip(RoundedCornerShape(4.dp))
                     .clickable(role = Role.Button, onClick = onClearClip)
                     .semantics { contentDescription = clipContentDescription ?: "Limpar indicador de clipping" },
-                shape = RoundedCornerShape(5.dp),
+                shape = RoundedCornerShape(4.dp),
                 color = MaterialTheme.colorScheme.error.copy(alpha = 0.16f),
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.error),
             ) {

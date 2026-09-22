@@ -28,20 +28,24 @@ class ProjectBundleWriter(
                 val file = File(projectDirectory, relativePath).canonicalFile
                 require(file.path.startsWith(projectDirectory.canonicalPath + File.separator)) { "Project media escaped package root." }
                 require(file.isFile) { "Referenced project media is missing: $relativePath" }
-                zip.putNextEntry(ZipEntry(relativePath.replace('\\', '/')))
+                zip.putNextEntry(deterministicEntry(relativePath.replace('\\', '/')))
                 file.inputStream().buffered().use { it.copyTo(zip) }
                 zip.closeEntry()
             }
         }
     }
 
-    private fun referencedMedia(project: GuitarProject): List<String> = project.clips
-        .flatMap { listOfNotNull(it.managedSourcePath, it.managedEditProxyPath) }
+    private fun referencedMedia(project: GuitarProject): List<String> = (
+        project.clips.flatMap { listOfNotNull(it.managedSourcePath, it.managedEditProxyPath) } +
+            project.assets.map { it.relativePath }
+        )
         .distinct()
         .sorted()
 
+    private fun deterministicEntry(name: String): ZipEntry = ZipEntry(name).apply { time = 0L }
+
     private fun writeText(zip: ZipOutputStream, name: String, value: String) {
-        zip.putNextEntry(ZipEntry(name))
+        zip.putNextEntry(deterministicEntry(name))
         zip.write(value.toByteArray(Charsets.UTF_8))
         zip.closeEntry()
     }

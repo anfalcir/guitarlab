@@ -45,4 +45,25 @@ class ProjectBundleWriterTest {
             assertTrue("media/proxy/edit.wav" in names)
         } finally { root.deleteRecursively() }
     }
+    @Test fun samePersistedRevisionProducesByteIdenticalBundle() {
+        val root = createTempDirectory("guitarlab-bundle-deterministic-").toFile()
+        try {
+            File(root, "media/source").mkdirs()
+            File(root, "media/source/original.wav").writeBytes(ByteArray(4096) { (it % 251).toByte() })
+            val project = GuitarProject(
+                id = "p-deterministic", name = "Deterministico", template = ProjectTemplate.BLANK,
+                createdAtEpochMs = 1, updatedAtEpochMs = 2,
+                tracks = listOf(AudioTrack(id = "t1", name = "Pista", order = 0)),
+                clips = listOf(AudioClip(
+                    id = "c1", trackId = "t1", name = "original.wav", sourceUri = "managed://media/source/original.wav",
+                    startFrame = 0, lengthFrames = 10, managedSourcePath = "media/source/original.wav",
+                )),
+            )
+            val first = ByteArrayOutputStream().also { ProjectBundleWriter().write(project, root, it) }.toByteArray()
+            Thread.sleep(20)
+            val second = ByteArrayOutputStream().also { ProjectBundleWriter().write(project, root, it) }.toByteArray()
+            assertTrue(first.contentEquals(second), "The same persisted revision must regenerate identical backup bytes.")
+        } finally { root.deleteRecursively() }
+    }
+
 }

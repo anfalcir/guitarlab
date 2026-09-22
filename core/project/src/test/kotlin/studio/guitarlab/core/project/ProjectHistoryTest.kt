@@ -88,4 +88,41 @@ class ProjectHistoryTest {
         history.record(cursor, branched)
         assertFalse(history.canRedo)
     }
+    @Test
+    fun repeatedGainEditsUndoRedoNeverLoseAvailabilityOrExactState() {
+        val history = ProjectHistory(capacity = 64)
+        var cursor = project("Gain stress").copy(
+            tracks = listOf(AudioTrack("t1", "Guitar", order = 0, gainDb = 0f)),
+        )
+        val snapshots = mutableListOf(cursor)
+
+        repeat(24) { index ->
+            val next = cursor.copy(
+                tracks = cursor.tracks.map { track ->
+                    if (track.id == "t1") track.copy(gainDb = -12f + index.toFloat()) else track
+                },
+                updatedAtEpochMs = index.toLong() + 2L,
+            )
+            history.record(cursor, next)
+            cursor = next
+            snapshots += next
+            assertTrue(history.canUndo)
+            assertFalse(history.canRedo)
+        }
+
+        for (index in snapshots.lastIndex - 1 downTo 0) {
+            cursor = history.undo(cursor)!!
+            assertEquals(snapshots[index], cursor)
+            assertEquals(index > 0, history.canUndo)
+            assertTrue(history.canRedo)
+        }
+
+        for (index in 1..snapshots.lastIndex) {
+            cursor = history.redo(cursor)!!
+            assertEquals(snapshots[index], cursor)
+            assertTrue(history.canUndo)
+            assertEquals(index < snapshots.lastIndex, history.canRedo)
+        }
+    }
+
 }

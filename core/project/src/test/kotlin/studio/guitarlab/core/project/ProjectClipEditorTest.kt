@@ -4,10 +4,13 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertSame
+import kotlin.test.assertTrue
 import studio.guitarlab.core.model.AudioClip
 import studio.guitarlab.core.model.AudioTrack
 import studio.guitarlab.core.model.GuitarProject
 import studio.guitarlab.core.model.ProjectTemplate
+import studio.guitarlab.core.model.ProjectValidator
+import studio.guitarlab.core.model.RecordingTake
 
 class ProjectClipEditorTest {
     private fun project(): GuitarProject = GuitarProject(
@@ -21,6 +24,25 @@ class ProjectClipEditorTest {
             sourceFormat = "WAVE", sourceSampleRateHz = 48_000, sourceChannelCount = 2, sourceBitsPerSample = 32, sourceEncoding = "IEEE_FLOAT",
         )),
     )
+
+
+    private fun recordedSplitProject(): GuitarProject {
+        val base = project()
+        val recorded = base.copy(
+            clips = listOf(base.clips.single().copy(takeId = "take-1")),
+            takes = listOf(
+                RecordingTake(
+                    id = "take-1",
+                    trackId = "t1",
+                    clipId = "c1",
+                    name = "Take 1",
+                    createdAtEpochMs = 20L,
+                    active = true,
+                )
+            ),
+        )
+        return ProjectClipEditor.splitClipAtTimelineFrame(recorded, "c1", 13_000, "c2", 21L)
+    }
 
     @Test fun removeClipUpdatesProjectAtomically() {
         val edited = ProjectClipEditor.removeClip(project(), "c1", 100)
@@ -102,6 +124,41 @@ class ProjectClipEditorTest {
         assertFailsWith<IllegalArgumentException> { ProjectClipEditor.duplicateClip(project(), "c1", "c1", 0, 113) }
         assertFailsWith<IllegalArgumentException> { ProjectClipEditor.splitClipAtTimelineFrame(project(), "c1", 10_000, "c2", 114) }
         assertFailsWith<IllegalArgumentException> { ProjectClipEditor.splitClipAtTimelineFrame(project(), "c1", 18_000, "c2", 115) }
+    }
+
+    @Test fun deletingSplitChildPreservesTakeAndCanonicalSibling() {
+        val split = recordedSplitProject()
+        val edited = ProjectClipEditor.removeClip(split, "c2", 200L)
+        assertEquals(listOf("c1"), edited.clips.map { it.id })
+        assertEquals("c1", edited.takes.single().clipId)
+        assertTrue(edited.takes.single().active)
+        assertTrue(ProjectValidator.validate(edited).isEmpty())
+    }
+
+    @Test fun deletingCanonicalSplitChildPromotesDeterministicSibling() {
+        val edited = ProjectClipEditor.removeClip(recordedSplitProject(), "c1", 201L)
+        assertEquals(listOf("c2"), edited.clips.map { it.id })
+        assertEquals("c2", edited.takes.single().clipId)
+        assertTrue(ProjectValidator.validate(edited).isEmpty())
+    }
+
+    @Test fun movingSplitChildDetachesOnlyMovedSegmentAndPreservesTakeLineage() {
+        val edited = ProjectClipEditor.moveClipToTrack(recordedSplitProject(), "c2", "t2", 202L)
+        val left = edited.clips.first { it.id == "c1" }
+        val moved = edited.clips.first { it.id == "c2" }
+        assertEquals("take-1", left.takeId)
+        assertEquals("t2", moved.trackId)
+        assertEquals(null, moved.takeId)
+        assertEquals("c1", edited.takes.single().clipId)
+        assertTrue(ProjectValidator.validate(edited).isEmpty())
+    }
+
+    @Test fun movingCanonicalSplitChildPromotesSiblingBeforeDetaching() {
+        val edited = ProjectClipEditor.moveClipToTrack(recordedSplitProject(), "c1", "t2", 203L)
+        assertEquals(null, edited.clips.first { it.id == "c1" }.takeId)
+        assertEquals("take-1", edited.clips.first { it.id == "c2" }.takeId)
+        assertEquals("c2", edited.takes.single().clipId)
+        assertTrue(ProjectValidator.validate(edited).isEmpty())
     }
 
     @Test fun rejectsMissingClipAndNegativeMove() {

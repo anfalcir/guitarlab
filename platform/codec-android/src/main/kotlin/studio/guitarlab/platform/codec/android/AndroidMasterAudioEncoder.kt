@@ -2,11 +2,13 @@ package studio.guitarlab.platform.codec.android
 
 import android.media.AudioFormat
 import android.media.MediaCodec
+import android.media.MediaCodecList
 import android.media.MediaFormat
 import java.io.File
 import java.io.FileOutputStream
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import java.util.concurrent.CancellationException
 import studio.guitarlab.core.codec.AudioCodecException
 import studio.guitarlab.core.codec.AudioEncodingTimeline
 import studio.guitarlab.core.codec.FileSeekableByteSource
@@ -20,8 +22,21 @@ enum class MasterExportFormat(val extension: String, val mimeType: String) {
 
 /** Encodes a rendered float WAV to Android-supported lossless/lossy delivery formats. */
 object AndroidMasterAudioEncoder {
-    fun encode(renderedFloatWav: File, destination: File, format: MasterExportFormat) {
+    fun isSupported(format: MasterExportFormat, sampleRateHz: Int, channelCount: Int): Boolean {
+        if (format == MasterExportFormat.WAV_FLOAT32) return true
+        if (sampleRateHz <= 0 || channelCount !in 1..2) return false
+        val mediaFormat = encodingFormat(format, sampleRateHz, channelCount)
+        return runCatching { MediaCodecList(MediaCodecList.REGULAR_CODECS).findEncoderForFormat(mediaFormat) != null }.getOrDefault(false)
+    }
+
+    fun encode(
+        renderedFloatWav: File,
+        destination: File,
+        format: MasterExportFormat,
+        shouldCancel: () -> Boolean = { false },
+    ) {
         require(format != MasterExportFormat.WAV_FLOAT32) { "WAV is already the render format." }
+        if (shouldCancel()) throw CancellationException("Export cancelled")
         FileSeekableByteSource(renderedFloatWav).use { source ->
             WavPcmDecoder(source).use { decoder ->
                 val metadata = decoder.metadata
@@ -32,16 +47,13 @@ object AndroidMasterAudioEncoder {
                     throw AudioCodecException("Este dispositivo não oferece encoder ${format.name} compatível.", error)
                 }
                 try {
-                    val mediaFormat = MediaFormat.createAudioFormat(format.mimeType, metadata.sampleRateHz, metadata.channelCount).apply {
-                        setInteger(MediaFormat.KEY_PCM_ENCODING, AudioFormat.ENCODING_PCM_16BIT)
-                        if (format == MasterExportFormat.MP3) setInteger(MediaFormat.KEY_BIT_RATE, 320_000)
-                    }
+                    val mediaFormat = encodingFormat(format, metadata.sampleRateHz, metadata.channelCount)
                     codec.configure(mediaFormat, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
                     codec.start()
-                    encodeLoop(codec, decoder, destination, format)
+                    encodeLoop(codec, decoder, destination, format, shouldCancel)
                 } catch (error: Throwable) {
                     destination.delete()
-                    if (error is AudioCodecException) throw error
+                    if (error is AudioCodecException || error is CancellationException) throw error
                     throw AudioCodecException("Falha ao codificar ${format.name}.", error)
                 } finally {
                     runCatching { codec.stop() }
@@ -56,6 +68,7 @@ object AndroidMasterAudioEncoder {
         decoder: WavPcmDecoder,
         destination: File,
         format: MasterExportFormat,
+        shouldCancel: () -> Boolean,
     ) {
         destination.parentFile?.mkdirs()
         FileOutputStream(destination).use { output ->
@@ -65,6 +78,7 @@ object AndroidMasterAudioEncoder {
             var flacHeaderWritten = format != MasterExportFormat.FLAC
             val channels = decoder.metadata.channelCount
             while (!outputEnded) {
+                if (shouldCancel()) throw CancellationException("Export cancelled")
                 if (!inputEnded) {
                     val index = codec.dequeueInputBuffer(TIMEOUT_US)
                     if (index >= 0) {
@@ -142,6 +156,12 @@ object AndroidMasterAudioEncoder {
         }
         require(destination.length() > 0L) { "Encoder produced an empty file." }
     }
+
+    private fun encodingFormat(format: MasterExportFormat, sampleRateHz: Int, channelCount: Int): MediaFormat =
+        MediaFormat.createAudioFormat(format.mimeType, sampleRateHz, channelCount).apply {
+            setInteger(MediaFormat.KEY_PCM_ENCODING, AudioFormat.ENCODING_PCM_16BIT)
+            if (format == MasterExportFormat.MP3) setInteger(MediaFormat.KEY_BIT_RATE, 320_000)
+        }
 
     private fun ByteBuffer.toByteArrayPreservingPosition(): ByteArray {
         val copy = duplicate()

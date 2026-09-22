@@ -2,13 +2,85 @@ package studio.guitarlab.core.model
 
 import kotlinx.serialization.Serializable
 
-const val CURRENT_PROJECT_SCHEMA_VERSION: Int = 1
+const val CURRENT_PROJECT_SCHEMA_VERSION: Int = 2
 
 @Serializable enum class ProjectTemplate { BLANK, GUITAR }
 @Serializable enum class RoleSource { NONE, AUTO, USER }
 @Serializable enum class ChannelLayout { MONO, STEREO }
 @Serializable enum class SampleRateMode { AUTO, FIXED }
 @Serializable enum class SectionOrigin { MANUAL, AUTOMATIC }
+@Serializable enum class AssetRole {
+    SOURCE_ORIGINAL,
+    STEM_DRUMS,
+    STEM_BASS,
+    STEM_OTHER,
+    STEM_VOCALS,
+    STEM_GUITAR,
+    STEM_PIANO,
+    REFERENCE_BACKING,
+    REFERENCE_GUITAR,
+    RECORDING_TAKE,
+    STUDIO_MASTER,
+    PRACTICE_EXPORT,
+}
+@Serializable enum class AssetClassification { AUTHORITATIVE, DERIVED }
+@Serializable enum class AssetLifecycle { STAGING, VALIDATED, MANAGED }
+@Serializable enum class PreparationStatus { NOT_STARTED, SOURCE_READY, SEPARATING, READY, ERROR }
+@Serializable enum class ReferenceBindingKind { BACKING, GUITAR_REFERENCE, GUITAR_LEFT, GUITAR_RIGHT }
+
+@Serializable data class AssetProvenance(
+    val kind: String,
+    val inputAssetIds: List<String> = emptyList(),
+    val inputSha256: List<String> = emptyList(),
+    val engine: String? = null,
+    val model: String? = null,
+    val parameters: Map<String, String> = emptyMap(),
+    val contractVersion: Int = 1,
+    val executionMode: String? = null,
+)
+
+@Serializable data class ManagedAsset(
+    val assetId: String,
+    val role: AssetRole,
+    val relativePath: String,
+    val sha256: String,
+    val byteSize: Long,
+    val format: String,
+    val sampleRateHz: Int? = null,
+    val channelCount: Int? = null,
+    val frameCount: Long? = null,
+    val createdAtEpochMs: Long,
+    val classification: AssetClassification,
+    val lifecycle: AssetLifecycle = AssetLifecycle.MANAGED,
+    val provenance: AssetProvenance? = null,
+)
+
+@Serializable data class PreparationState(
+    val status: PreparationStatus = PreparationStatus.NOT_STARTED,
+    val sourceAssetId: String? = null,
+    val activeStemAssetIds: Map<AssetRole, String> = emptyMap(),
+    val activeBackingAssetId: String? = null,
+    val activeGuitarAssetId: String? = null,
+    val availableReferenceAssetIds: List<String> = emptyList(),
+    /** Desired reference revision explicitly kept or applied by the Studio user. */
+    val acknowledgedReferenceRevisionId: String? = null,
+)
+
+@Serializable data class ReferenceBinding(
+    val bindingId: String,
+    val trackId: String,
+    val assetId: String,
+    val kind: ReferenceBindingKind,
+    val createdAtEpochMs: Long,
+)
+
+@Serializable data class ProjectMigrationProvenance(
+    val sourceProduct: String,
+    val sourceSchemaVersion: Int,
+    val sourceProjectId: String,
+    val importedAtEpochMs: Long,
+    val sourceRevisionSha256: String? = null,
+)
 
 @Serializable data class SampleRateConfig(val mode: SampleRateMode = SampleRateMode.AUTO, val fixedHz: Int? = null)
 @Serializable data class TrackRoleDefinition(val id: String, val name: String, val builtIn: Boolean, val defaultChannelLayout: ChannelLayout, val defaultPan: Float = 0f)
@@ -133,6 +205,10 @@ object BuiltInRoles {
     val name: String,
     val createdAtEpochMs: Long,
     val active: Boolean = true,
+    val note: String = "",
+    val favorite: Boolean = false,
+    /** User-owned post-recording synchronization adjustment. Positive advances this take. */
+    val fineAdjustmentFrames: Long = 0L,
 )
 @Serializable data class PunchRegion(
     val startFrame: Long,
@@ -158,4 +234,8 @@ object BuiltInRoles {
     val sections: List<TimelineSection> = emptyList(),
     val takes: List<RecordingTake> = emptyList(),
     val punchRegion: PunchRegion? = null,
+    val assets: List<ManagedAsset> = emptyList(),
+    val preparation: PreparationState? = null,
+    val referenceBindings: List<ReferenceBinding> = emptyList(),
+    val migrationProvenance: ProjectMigrationProvenance? = null,
 )

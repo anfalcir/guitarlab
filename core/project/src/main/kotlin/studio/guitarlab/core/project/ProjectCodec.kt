@@ -14,5 +14,7 @@ class ProjectCodec(
     }
 ) {
     fun encode(project: GuitarProject): String = json.encodeToString(project)
-    fun decode(serialized: String): GuitarProject = json.decodeFromString(serialized)
+    fun decode(serialized: String): GuitarProject = UnifiedProjectMigrator.upgrade(
+        TakeManagementPolicy.normalizeAll(json.decodeFromString(serialized))
+    )
 }

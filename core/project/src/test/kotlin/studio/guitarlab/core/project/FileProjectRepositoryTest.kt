@@ -12,6 +12,12 @@ import kotlin.test.assertContentEquals
 import kotlin.test.assertFailsWith
 import studio.guitarlab.core.model.AudioClip
 import studio.guitarlab.core.model.AudioTrack
+import studio.guitarlab.core.model.AssetClassification
+import studio.guitarlab.core.model.AssetLifecycle
+import studio.guitarlab.core.model.AssetRole
+import studio.guitarlab.core.model.ManagedAsset
+import studio.guitarlab.core.model.PreparationState
+import studio.guitarlab.core.model.PreparationStatus
 
 class FileProjectRepositoryTest {
     @Test
@@ -28,6 +34,30 @@ class FileProjectRepositoryTest {
             assertNotNull(repository.load(project.id))
             assertTrue(repository.delete(project.id))
             assertTrue(repository.list().isEmpty())
+        } finally {
+            root.deleteRecursively()
+        }
+    }
+
+
+    @Test
+    fun renamePreservesStableProjectIdentityWhileDuplicateGetsFreshIdentity() {
+        val root = Files.createTempDirectory("guitarlab-project-identity").toFile()
+        try {
+            val repository = FileProjectRepository(root)
+            val original = ProjectFactory(idGenerator = { "stable-id" }, clock = { 100L })
+                .create("Original", ProjectTemplate.BLANK)
+            repository.save(original)
+
+            repository.save(original.copy(name = "Renamed", updatedAtEpochMs = 200L))
+            val renamed = repository.load("stable-id")
+            assertEquals("stable-id", renamed?.id)
+            assertEquals("Renamed", renamed?.name)
+
+            val duplicate = repository.duplicate("stable-id", "Renamed - Cópia", "fresh-id", 300L)
+            assertEquals("fresh-id", duplicate.id)
+            assertEquals("stable-id", repository.load("stable-id")?.id)
+            assertEquals(2, repository.list().map { it.id }.toSet().size)
         } finally {
             root.deleteRecursively()
         }
@@ -71,6 +101,34 @@ class FileProjectRepositoryTest {
     }
 
     @Test
+    fun duplicateNormalizesTransientPreparationStateWithoutLosingDurableSource() {
+        val root = Files.createTempDirectory("guitarlab-duplicate-lifecycle").toFile()
+        try {
+            val repository = FileProjectRepository(root)
+            val source = ManagedAsset(
+                assetId = "source-asset", role = AssetRole.SOURCE_ORIGINAL, relativePath = "media/source.wav",
+                sha256 = "a".repeat(64), byteSize = 128, format = "wav", sampleRateHz = 44_100, channelCount = 2, frameCount = 32,
+                createdAtEpochMs = 1L, classification = AssetClassification.AUTHORITATIVE, lifecycle = AssetLifecycle.MANAGED,
+            )
+            val original = ProjectFactory({ "source-project" }, { 1L }).create("Original", ProjectTemplate.BLANK).copy(
+                assets = listOf(source),
+                preparation = PreparationState(status = PreparationStatus.SEPARATING, sourceAssetId = source.assetId),
+            )
+            repository.save(original)
+            val media = File(root, "projects/source-project/media/source.wav")
+            media.parentFile!!.mkdirs()
+            media.writeBytes(ByteArray(128) { 7 })
+
+            val duplicate = repository.duplicate("source-project", "Copy", "copy-project", 5L)
+
+            assertEquals(PreparationStatus.SOURCE_READY, duplicate.preparation?.status)
+            assertEquals(source.assetId, duplicate.preparation?.sourceAssetId)
+            assertTrue(File(root, "projects/copy-project/media/source.wav").isFile)
+            assertEquals(PreparationStatus.SEPARATING, repository.load("source-project")?.preparation?.status)
+        } finally { root.deleteRecursively() }
+    }
+
+    @Test
     fun unsafeAndPreviouslyCollidingIdsStayConfinedAndIndependent() {
         val root = Files.createTempDirectory("guitarlab-storage-key").toFile()
         try {
@@ -109,4 +167,61 @@ class FileProjectRepositoryTest {
             assertTrue(!File(root, "projects/project.json").exists())
         } finally { root.deleteRecursively() }
     }
+    @Test
+    fun recordedSplitMoveDeleteRoundTripsWithoutDanglingTakeLineage() {
+        val root = Files.createTempDirectory("guitarlab-split-lineage-roundtrip").toFile()
+        try {
+            val repository = FileProjectRepository(root)
+            val base = ProjectFactory(idGenerator = { "p-lineage" }, clock = { 10L })
+                .create("Lineage", ProjectTemplate.BLANK)
+                .copy(
+                    tracks = listOf(
+                        AudioTrack("t1", "Guitar", order = 0),
+                        AudioTrack("t2", "Double", order = 1),
+                    ),
+                    clips = listOf(
+                        AudioClip(
+                            id = "c1",
+                            trackId = "t1",
+                            name = "Take",
+                            sourceUri = "managed://media/source/take.wav",
+                            managedSourcePath = "media/source/take.wav",
+                            startFrame = 0,
+                            lengthFrames = 48_000,
+                            sourceTotalFrames = 48_000,
+                            takeId = "take-1",
+                        )
+                    ),
+                    takes = listOf(
+                        studio.guitarlab.core.model.RecordingTake(
+                            id = "take-1",
+                            trackId = "t1",
+                            clipId = "c1",
+                            name = "Take 1",
+                            createdAtEpochMs = 10L,
+                            active = true,
+                        )
+                    ),
+                )
+
+            val split = ProjectClipEditor.splitClipAtTimelineFrame(base, "c1", 24_000, "c2", 11L)
+            val moved = ProjectClipEditor.moveClipToTrack(split, "c2", "t2", 12L)
+            repository.save(moved)
+            val reopenedAfterMove = requireNotNull(repository.load(base.id))
+            assertTrue(studio.guitarlab.core.model.ProjectValidator.validate(reopenedAfterMove).isEmpty())
+            assertEquals("take-1", reopenedAfterMove.clips.first { it.id == "c1" }.takeId)
+            assertEquals(null, reopenedAfterMove.clips.first { it.id == "c2" }.takeId)
+            assertEquals("c1", reopenedAfterMove.takes.single().clipId)
+
+            val deleted = ProjectClipEditor.removeClip(reopenedAfterMove, "c1", 13L)
+            repository.save(deleted)
+            val reopenedAfterDelete = requireNotNull(repository.load(base.id))
+            assertTrue(studio.guitarlab.core.model.ProjectValidator.validate(reopenedAfterDelete).isEmpty())
+            assertEquals(listOf("c2"), reopenedAfterDelete.clips.map { it.id })
+            assertTrue(reopenedAfterDelete.takes.isEmpty())
+        } finally {
+            root.deleteRecursively()
+        }
+    }
+
 }

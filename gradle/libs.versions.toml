@@ -10,6 +10,9 @@ junit4 = "4.13.2"
 androidxTestExtJunit = "1.3.0"
 androidxTestRunner = "1.7.0"
 androidxTestUiAutomator = "2.4.0"
+work = "2.11.2"
+playServicesAuth = "22.0.0"
+youtubeDlAndroid = "0.18.1"
 
 [libraries]
 compose-bom = { module = "androidx.compose:compose-bom", version.ref = "composeBom" }
@@ -31,6 +34,9 @@ junit4 = { module = "junit:junit", version.ref = "junit4" }
 androidx-test-ext-junit = { module = "androidx.test.ext:junit", version.ref = "androidxTestExtJunit" }
 androidx-test-runner = { module = "androidx.test:runner", version.ref = "androidxTestRunner" }
 androidx-test-uiautomator = { module = "androidx.test.uiautomator:uiautomator", version.ref = "androidxTestUiAutomator" }
+androidx-work-runtime-ktx = { module = "androidx.work:work-runtime-ktx", version.ref = "work" }
+play-services-auth = { module = "com.google.android.gms:play-services-auth", version.ref = "playServicesAuth" }
+youtube-dl-android = { module = "io.github.junkfood02.youtubedl-android:library", version.ref = "youtubeDlAndroid" }
 
 [plugins]
 android-library = { id = "com.android.library", version.ref = "agp" }

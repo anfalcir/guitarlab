@@ -7,6 +7,8 @@ import studio.guitarlab.core.model.AudioClip
 import studio.guitarlab.core.model.AudioTrack
 import studio.guitarlab.core.model.GuitarProject
 import studio.guitarlab.core.model.ProjectTemplate
+import studio.guitarlab.core.model.PreparationState
+import studio.guitarlab.core.model.PreparationStatus
 
 class ProjectMediaCompatibilityTest {
     private val codec = ProjectCodec()
@@ -91,5 +93,24 @@ class ProjectMediaCompatibilityTest {
         assertEquals("media/proxy/source.wav", clip.managedEditProxyPath)
         assertEquals("FLAC", clip.sourceFormat)
         assertEquals(24, clip.sourceBitsPerSample)
+    }
+
+    @Test
+    fun acknowledgedPreparedReferenceRevisionSurvivesProjectRoundTrip() {
+        val project = GuitarProject(
+            id = "prepared-revision",
+            name = "Prepared project",
+            template = ProjectTemplate.GUITAR,
+            createdAtEpochMs = 1,
+            updatedAtEpochMs = 2,
+            preparation = PreparationState(
+                status = PreparationStatus.READY,
+                acknowledgedReferenceRevisionId = "revision-sha256",
+            ),
+        )
+
+        val decoded = codec.decode(codec.encode(project))
+
+        assertEquals("revision-sha256", decoded.preparation?.acknowledgedReferenceRevisionId)
     }
 }

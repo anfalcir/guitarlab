@@ -34,7 +34,16 @@ class PracticeWorkflowPolicyTest {
     @Test fun punchAccountsForPreRollAndLatency() {
         val plan=PunchRecordingPolicy.plan(PunchRegion(10_000,20_000,3_000,1_000),250)
         assertEquals(7_000,plan.captureStartFrame); assertEquals(14_250,plan.automaticStopAfterFrames)
-        assertEquals(3_250,plan.keptSourceStartFrame); assertEquals(10_000,plan.keptLengthFrames)
+        assertEquals(3_000,plan.keptSourceStartFrame); assertEquals(10_000,plan.keptLengthFrames)
+    }
+
+    @Test fun `punch keep window derives crop from final compensated take placement`() {
+        val region = PunchRegion(10_000, 20_000, 3_000, 1_000)
+        assertEquals(
+            PunchKeepWindow(10_000, 5_400, 10_000),
+            PunchRecordingPolicy.keepWindow(region, takeTimelineStartFrame = 7_000, takeSourceStartFrame = 2_400, capturedFrames = 20_000),
+        )
+        assertNull(PunchRecordingPolicy.keepWindow(region, takeTimelineStartFrame = 12_000, takeSourceStartFrame = 0, capturedFrames = 20_000))
     }
 
     @Test fun recordingChoiceIsTransientAndOnlyLoopChoiceCreatesPunch() {
@@ -113,9 +122,38 @@ class PracticeWorkflowPolicyTest {
         assertEquals(11L, cleared.updatedAtEpochMs)
     }
 
+    @Test fun sectionPreviewRejectsTrailingAndLeadingMicroSections() {
+        val suggestions = listOf(
+            SectionBoundarySuggestion(1, .9f),
+            SectionBoundarySuggestion(100, .8f),
+            SectionBoundarySuggestion(399, .7f),
+        )
+        val preview = PracticeWorkflowEditor.previewSuggestedSections(suggestions, 400)
+        assertEquals(listOf(0L to 100L, 100L to 400L), preview.map { it.startFrame to it.endFrame })
+        assertTrue(preview.all { it.startFrame >= 0L && it.endFrame <= 400L && it.endFrame > it.startFrame })
+    }
+
     @Test fun levelAdviceProtectsHeadroom() {
         val result=TrackLevelAdvisor.analyze(floatArrayOf(0.5f,-0.5f,0.5f,-0.5f))
         assertTrue(result.recommendedGainDb <= 0.1f); assertFalse(result.silent)
+    }
+
+    @Test fun `level advice includes current playback gain and converges after apply`() {
+        val samples = floatArrayOf(0.05f, -0.05f, 0.05f, -0.05f)
+        val first = TrackLevelAdvisor.analyze(samples)
+        assertTrue(first.recommendedGainDb > 0f)
+
+        val afterApply = TrackLevelAdvisor.analyze(samples, gainDb = first.recommendedGainDb)
+        assertEquals(0f, afterApply.recommendedGainDb, 0.15f)
+        assertTrue(afterApply.rmsDbfs > first.rmsDbfs)
+    }
+
+    @Test fun `level accumulator supports per clip gain before track recommendation`() {
+        val accumulator = TrackLevelAccumulator()
+        accumulator.append(floatArrayOf(0.1f, -0.1f), gainLinear = TrackLevelAdvisor.gainLinear(6.0206f))
+        val result = accumulator.finish()
+        assertEquals(-13.98f, result.rmsDbfs, 0.2f)
+        assertTrue(result.recommendedGainDb < 0f)
     }
 
     @Test fun sectionAnalysisRejectsTinyTimeline() {

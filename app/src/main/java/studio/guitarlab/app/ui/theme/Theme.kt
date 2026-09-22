@@ -55,12 +55,15 @@ private val LightColors = lightColorScheme(
     error = StudioError,
 )
 
+// Hardware-inspired geometry contract: controls read as controls, panels as panels,
+// without pill-shaped ambiguity. Circular shapes remain reserved for semantic indicators
+// such as recording/countdown rather than general interaction chrome.
 private val GuitarLabShapes = Shapes(
-    extraSmall = RoundedCornerShape(8.dp),
-    small = RoundedCornerShape(10.dp),
-    medium = RoundedCornerShape(14.dp),
-    large = RoundedCornerShape(18.dp),
-    extraLarge = RoundedCornerShape(24.dp),
+    extraSmall = RoundedCornerShape(4.dp),
+    small = RoundedCornerShape(6.dp),
+    medium = RoundedCornerShape(8.dp),
+    large = RoundedCornerShape(10.dp),
+    extraLarge = RoundedCornerShape(10.dp),
 )
 
 @Composable

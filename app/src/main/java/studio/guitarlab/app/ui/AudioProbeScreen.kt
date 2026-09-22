@@ -41,6 +41,7 @@ import studio.guitarlab.core.audio.AudioDeviceDescriptor
 import studio.guitarlab.core.audio.AudioProbeOperation
 import studio.guitarlab.core.audio.AudioProbeResult
 import studio.guitarlab.core.audio.PcmEncoding
+import studio.guitarlab.core.audio.RecordingSessionHealthRecord
 
 @Composable
 fun AudioProbeScreen(
@@ -65,10 +66,10 @@ fun AudioProbeScreen(
             AppIconButton(icon = Icons.Default.ArrowBack, contentDescription = "Voltar", enabled = state.running == null, onClick = onBack)
         }
 
-        Surface(shape = RoundedCornerShape(16.dp), tonalElevation = 1.dp, modifier = Modifier.fillMaxWidth()) {
+        Surface(shape = RoundedCornerShape(10.dp), tonalElevation = 1.dp, modifier = Modifier.fillMaxWidth()) {
             Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text("Segurança", style = MaterialTheme.typography.titleMedium)
-                Text("Os testes de saída usam um sinal de baixo nível. Comece com o volume do fone ou Master baixo.")
+                Text("Os testes de saída usam um sinal de baixo nível. Comece com o volume do fone ou do master em nível baixo.")
                 if (!state.permissionGranted) {
                     Text("Os testes de entrada precisam de permissão para gravar áudio.", color = MaterialTheme.colorScheme.error)
                     Button(onClick = { permissionLauncher.launch(Manifest.permission.RECORD_AUDIO) }) {
@@ -99,8 +100,9 @@ fun AudioProbeScreen(
         }
         state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         state.lastResult?.let { ProbeResultCard(it) }
+        state.sessionHealth.lastOrNull()?.let { RecordingSessionHealthCard(it) }
 
-        Surface(shape = RoundedCornerShape(16.dp), tonalElevation = 1.dp, modifier = Modifier.fillMaxWidth()) {
+        Surface(shape = RoundedCornerShape(10.dp), tonalElevation = 1.dp, modifier = Modifier.fillMaxWidth()) {
             Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text("Eventos de dispositivos", style = MaterialTheme.typography.titleMedium)
                 if (state.eventLog.isEmpty()) Text("Nenhum evento ainda.")
@@ -127,6 +129,24 @@ fun AudioProbeScreen(
 }
 
 @Composable
+private fun RecordingSessionHealthCard(record: RecordingSessionHealthRecord) {
+    Surface(shape = RoundedCornerShape(10.dp), tonalElevation = 1.dp, modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+            Text("Última sessão de gravação", style = MaterialTheme.typography.titleMedium)
+            Text("Saúde: ${record.healthClass}", style = MaterialTheme.typography.bodyMedium)
+            Text("Evidência de tempo: ${record.timingEvidenceBasis} · ${record.sampleRateHz} Hz", style = MaterialTheme.typography.bodySmall)
+            Text("Delta ${record.sessionDeltaFrames} f · latência de rota ${record.acceptedRouteLatencyFrames} f · ajuste fino ${record.residualFineAdjustmentFrames} f", style = MaterialTheme.typography.bodySmall)
+            Text("Entrada: ${record.effectiveInputIdentity ?: record.selectedInputIdentity ?: "automática"}", style = MaterialTheme.typography.bodySmall)
+            Text("Saída: ${record.effectiveOutputIdentity ?: record.selectedOutputIdentity ?: "automática"}", style = MaterialTheme.typography.bodySmall)
+            if (record.outputFallback || record.routeChanged) {
+                Text("A rota mudou durante a sessão; compensação específica da rota foi invalidada.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+            }
+            record.failureReason?.let { Text("Último motivo: $it", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+        }
+    }
+}
+
+@Composable
 private fun DeviceSelector(
     title: String,
     devices: List<AudioDeviceDescriptor>,
@@ -136,7 +156,7 @@ private fun DeviceSelector(
     var expanded by remember { mutableStateOf(false) }
     val selected = devices.firstOrNull { it.key == selectedKey }
 
-    Surface(shape = RoundedCornerShape(16.dp), tonalElevation = 1.dp, modifier = Modifier.fillMaxWidth()) {
+    Surface(shape = RoundedCornerShape(10.dp), tonalElevation = 1.dp, modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(title, style = MaterialTheme.typography.titleMedium)
             OutlinedButton(onClick = { expanded = true }, enabled = devices.isNotEmpty()) {
@@ -171,7 +191,7 @@ private fun DeviceDetails(device: AudioDeviceDescriptor) {
 
 @Composable
 private fun ProbeResultCard(result: AudioProbeResult) {
-    Surface(shape = RoundedCornerShape(16.dp), tonalElevation = 2.dp, modifier = Modifier.fillMaxWidth()) {
+    Surface(shape = RoundedCornerShape(10.dp), tonalElevation = 2.dp, modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(
                 "${result.operation.label()} • ${when { result.stopped -> "PARADO"; result.success -> "APROVADO"; else -> "FALHA" }}",
@@ -205,6 +225,6 @@ private fun AudioProbeOperation.label(): String = when (this) {
 }
 
 private fun PcmEncoding.label(): String = when (this) {
-    PcmEncoding.FLOAT_32 -> "float 32 bits"
+    PcmEncoding.FLOAT_32 -> "Float 32 bits"
     PcmEncoding.PCM_16 -> "PCM 16 bits"
 }

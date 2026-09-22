@@ -1,13 +1,14 @@
 package studio.guitarlab.core.audio
 
 import kotlin.test.Test
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class AudioProbeReportFormatterTest {
     @Test
-    fun reportContainsSelectedRouteAndOutcome() {
+    fun reportContainsSemanticRouteAndOutcomeWithoutTransientKeys() {
         val device = AudioDeviceDescriptor(
-            key = "7",
+            key = "transient-device-7",
             name = "USB Interface",
             typeLabel = "USB audio device",
             transport = AudioTransport.USB,
@@ -21,13 +22,14 @@ class AudioProbeReportFormatterTest {
             operation = AudioProbeOperation.RECORD,
             success = true,
             elapsedMs = 100,
-            inputConfig = AudioStreamConfig("7", "7", 44_100, 1, PcmEncoding.PCM_16, 256, false, "UNPROCESSED"),
+            inputConfig = AudioStreamConfig("transient-device-7", "transient-device-7", 44_100, 1, PcmEncoding.PCM_16, 256, false, "UNPROCESSED"),
             message = "ok"
         )
 
-        val report = AudioProbeReportFormatter.format(listOf(device), "7", "7", result)
-        assertTrue(report.contains("USB Interface [7]"))
+        val report = AudioProbeReportFormatter.format(listOf(device), "transient-device-7", "transient-device-7", result)
+        assertTrue(report.contains("USB Interface"))
         assertTrue(report.contains("outcome=PASS"))
-        assertTrue(report.contains("routed=7"))
+        assertTrue(report.contains("routed=USB Interface"))
+        assertFalse(report.contains("transient-device-7"))
     }
 }

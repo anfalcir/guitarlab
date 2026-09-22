@@ -8,11 +8,14 @@ import android.media.AudioDeviceInfo
 import android.media.AudioFormat
 import android.media.AudioRecord
 import android.media.AudioTrack
+import android.media.AudioTimestamp
 import android.media.MediaRecorder
 import java.io.File
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.sqrt
+import studio.guitarlab.core.audio.AudioClockAnchorPolicy
+import studio.guitarlab.core.audio.AudioClockObservation
 import studio.guitarlab.core.audio.AudioTransport
 import studio.guitarlab.core.audio.MonitoringMode
 import studio.guitarlab.core.audio.SoftwareMonitoringPolicy
@@ -34,6 +37,10 @@ data class StudioRecordingConfig(
     val routedInputLabel: String?,
     val routedInputDeviceId: Int?,
     val softwareMonitoringEnabled: Boolean,
+    val captureStartMonotonicNs: Long,
+    val captureTimestampBased: Boolean,
+    val captureAnchorJitterNs: Long?,
+    val captureAnchorObservations: Int?,
 )
 
 enum class StudioRecordingStopReason { USER_STOP, ROUTE_LOST, INPUT_ERROR }
@@ -47,6 +54,7 @@ data class StudioRecordingResult(
     val rms: Float,
     val stopReason: StudioRecordingStopReason,
     val partial: Boolean,
+    val inputZeroReadEvents: Int = 0,
     val message: String? = null,
 )
 
@@ -118,15 +126,20 @@ class AndroidStudioRecordingEngine(context: Context) : AutoCloseable {
         var overallSamples = 0L
         var stopReason = StudioRecordingStopReason.USER_STOP
         var failureMessage: String? = null
+        var totalZeroReadEvents = 0
 
         try {
             val takeWriter = FloatWavFileWriter(request.temporaryFile, opened.sampleRateHz, opened.channelCount)
             writer = takeWriter
 
+            val captureCommandNs = System.nanoTime()
             recorder.startRecording()
             if (recorder.recordingState != AudioRecord.RECORDSTATE_RECORDING) error("A entrada não entrou no estado de gravação.")
 
             val routedAtStart = awaitRoutedInput(recorder, request.preferredInputDevice)
+            val captureClockAnchor = stableCaptureClockAnchor(recorder, opened.sampleRateHz)
+            val hasCaptureTimestamp = captureClockAnchor != null
+            val captureStartNs = captureClockAnchor?.streamOriginMonotonicNs ?: captureCommandNs
             if (!RecordingInputRoutePolicy.accepts(request.preferredInputRequested, request.preferredInputDevice?.id, routedAtStart?.id)) {
                 stopReason = StudioRecordingStopReason.ROUTE_LOST
                 failureMessage = "A gravação foi bloqueada: o Android não confirmou a entrada selecionada. Nenhum fallback para o microfone foi permitido."
@@ -156,6 +169,10 @@ class AndroidStudioRecordingEngine(context: Context) : AutoCloseable {
                         routedInputLabel = routedAtStart?.productName?.toString() ?: request.preferredInputDevice?.productName?.toString(),
                         routedInputDeviceId = routedAtStart?.id,
                         softwareMonitoringEnabled = monitor != null,
+                        captureStartMonotonicNs = captureStartNs,
+                        captureTimestampBased = hasCaptureTimestamp,
+                        captureAnchorJitterNs = captureClockAnchor?.jitterNs,
+                        captureAnchorObservations = captureClockAnchor?.observations,
                     )
                 )
             }
@@ -180,6 +197,7 @@ class AndroidStudioRecordingEngine(context: Context) : AutoCloseable {
                 }
                 if (chunk.samplesRead == 0) {
                     zeroReads++
+                    totalZeroReadEvents++
                     if (zeroReads >= MAX_ZERO_READS) {
                         stopReason = StudioRecordingStopReason.INPUT_ERROR
                         failureMessage = "A entrada de áudio parou de fornecer dados."
@@ -246,6 +264,7 @@ class AndroidStudioRecordingEngine(context: Context) : AutoCloseable {
                 rms = rms,
                 stopReason = stopReason,
                 partial = stopReason != StudioRecordingStopReason.USER_STOP,
+                inputZeroReadEvents = totalZeroReadEvents,
                 message = failureMessage,
             )
         )
@@ -341,6 +360,22 @@ class AndroidStudioRecordingEngine(context: Context) : AutoCloseable {
         return routed
     }
 
+    private fun stableCaptureClockAnchor(recorder: AudioRecord, sampleRateHz: Int) =
+        AudioClockAnchorPolicy.estimate(
+            observations = buildList {
+                repeat(CLOCK_ANCHOR_SAMPLES) { index ->
+                    val timestamp = AudioTimestamp()
+                    if (recorder.getTimestamp(timestamp, AudioTimestamp.TIMEBASE_MONOTONIC) == AudioRecord.SUCCESS) {
+                        add(AudioClockObservation(timestamp.framePosition, timestamp.nanoTime))
+                    }
+                    if (index + 1 < CLOCK_ANCHOR_SAMPLES) {
+                        try { Thread.sleep(CLOCK_ANCHOR_POLL_MS) } catch (_: InterruptedException) { return@repeat }
+                    }
+                }
+            },
+            sampleRateHz = sampleRateHz,
+        )
+
     private fun writeMonitor(track: AudioTrack, input: FloatArray, sampleCount: Int, channels: Int) {
         val stereo = if (channels == 2) input.copyOf(sampleCount) else FloatArray(sampleCount * 2).also { output ->
             repeat(sampleCount) { index ->
@@ -400,5 +435,7 @@ class AndroidStudioRecordingEngine(context: Context) : AutoCloseable {
         const val MAX_ZERO_READS = 8
         const val ROUTE_CONFIRM_POLL_MS = 10L
         const val ROUTE_CONFIRM_TIMEOUT_NS = 750_000_000L
+        const val CLOCK_ANCHOR_SAMPLES = 6
+        const val CLOCK_ANCHOR_POLL_MS = 3L
     }
 }

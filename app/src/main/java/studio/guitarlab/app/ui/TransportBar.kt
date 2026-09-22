@@ -59,10 +59,17 @@ fun TransportBar(
                 enabled = state.mode != TransportMode.RECORDING && recordingPhase == RecordingSessionPhase.IDLE,
                 onClick = onReturnToStart,
             )
+            val recordingStopAvailable = recordingPhase == RecordingSessionPhase.COUNTDOWN || recordingPhase == RecordingSessionPhase.CAPTURING
             AppIconButton(
-                icon = if (state.mode == TransportMode.STOPPED) Icons.Default.PlayArrow else Icons.Default.Stop,
-                contentDescription = if (state.mode == TransportMode.STOPPED) "Reproduzir" else "Parar",
-                enabled = TransportPolicy.playStopEnabled(state, engineReady) && recordingPhase == RecordingSessionPhase.IDLE,
+                modifier = Modifier.testTag("transport-play-stop"),
+                icon = if (state.mode == TransportMode.STOPPED && recordingPhase == RecordingSessionPhase.IDLE) Icons.Default.PlayArrow else Icons.Default.Stop,
+                contentDescription = when (recordingPhase) {
+                    RecordingSessionPhase.COUNTDOWN -> "Cancelar gravação"
+                    RecordingSessionPhase.CAPTURING -> "Parar gravação"
+                    RecordingSessionPhase.FINALIZING -> "Finalizando gravação"
+                    RecordingSessionPhase.IDLE -> if (state.mode == TransportMode.STOPPED) "Reproduzir" else "Parar"
+                },
+                enabled = recordingStopAvailable || (recordingPhase == RecordingSessionPhase.IDLE && TransportPolicy.playStopEnabled(state, engineReady)),
                 onClick = onPlayStop,
             )
             AppIconButton(

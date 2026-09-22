@@ -28,14 +28,32 @@ class ProjectManagedMediaStore(
     fun ingestEditProxy(projectId: String, suggestedName: String, input: InputStream): ManagedMediaAsset =
         ingestInto(projectId, PROXY_DIRECTORY, suggestedName, input)
 
+    fun ingestStem(projectId: String, suggestedName: String, input: InputStream): ManagedMediaAsset =
+        ingestInto(projectId, STEM_DIRECTORY, suggestedName, input)
+
+    fun ingestReference(projectId: String, suggestedName: String, input: InputStream): ManagedMediaAsset =
+        ingestInto(projectId, REFERENCE_DIRECTORY, suggestedName, input)
+
     fun resolve(projectId: String, relativePath: String): File = resolveManaged(projectId, relativePath, SOURCE_DIRECTORY)
 
     fun resolveEditable(projectId: String, relativePath: String): File =
-        resolveManaged(projectId, relativePath, SOURCE_DIRECTORY, PROXY_DIRECTORY)
+        resolveManaged(projectId, relativePath, SOURCE_DIRECTORY, PROXY_DIRECTORY, REFERENCE_DIRECTORY)
+
+    fun resolveAsset(projectId: String, relativePath: String): File =
+        resolveManaged(projectId, relativePath, SOURCE_DIRECTORY, PROXY_DIRECTORY, STEM_DIRECTORY, REFERENCE_DIRECTORY)
 
     /** Only for rollback of an import transaction that failed before the project references it. */
     fun discardUncommitted(projectId: String, relativePath: String) {
         runCatching { resolveEditable(projectId, relativePath).delete() }
+    }
+
+    /** Removes only unreferenced staging files owned by one remote separation job. */
+    fun discardAbandonedStemSet(projectId: String, jobId: String) {
+        require(jobId.matches(Regex("[A-Za-z0-9-]{1,64}"))) { "Invalid remote job id." }
+        val directory = File(projectDirectory(projectId), STEM_DIRECTORY)
+        directory.listFiles { file -> file.isFile && file.name.contains("-$jobId-") }
+            .orEmpty()
+            .forEach { file -> runCatching { file.delete() } }
     }
 
     private fun ingestInto(projectId: String, directoryName: String, suggestedName: String, input: InputStream): ManagedMediaAsset {
@@ -102,5 +120,7 @@ class ProjectManagedMediaStore(
     private companion object {
         const val SOURCE_DIRECTORY = "media/source"
         const val PROXY_DIRECTORY = "media/proxy"
+        const val STEM_DIRECTORY = "media/stems"
+        const val REFERENCE_DIRECTORY = "media/references"
     }
 }

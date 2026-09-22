@@ -1,0 +1,433 @@
+diff --git a/core/model/src/main/kotlin/studio/guitarlab/core/model/ProjectModels.kt b/core/model/src/main/kotlin/studio/guitarlab/core/model/ProjectModels.kt
+index a1bc98b..6a0ccb1 100644
+--- a/core/model/src/main/kotlin/studio/guitarlab/core/model/ProjectModels.kt
++++ b/core/model/src/main/kotlin/studio/guitarlab/core/model/ProjectModels.kt
+@@ -62,6 +62,8 @@ const val CURRENT_PROJECT_SCHEMA_VERSION: Int = 2
+     val activeBackingAssetId: String? = null,
+     val activeGuitarAssetId: String? = null,
+     val availableReferenceAssetIds: List<String> = emptyList(),
++    /** Desired reference revision explicitly kept or applied by the Studio user. */
++    val acknowledgedReferenceRevisionId: String? = null,
+ )
+ 
+ @Serializable data class ReferenceBinding(
+diff --git a/core/project/src/main/kotlin/studio/guitarlab/core/project/PreparedReferencePipeline.kt b/core/project/src/main/kotlin/studio/guitarlab/core/project/PreparedReferencePipeline.kt
+index b09d04d..ad9644a 100644
+--- a/core/project/src/main/kotlin/studio/guitarlab/core/project/PreparedReferencePipeline.kt
++++ b/core/project/src/main/kotlin/studio/guitarlab/core/project/PreparedReferencePipeline.kt
+@@ -296,7 +296,27 @@ object PreparedReferenceBindingPolicy {
+     fun updateAvailable(project: GuitarProject): Boolean {
+         val desired = desired(project)
+         if (desired.isEmpty()) return false
+-        return desired.any { (kind, asset) -> project.referenceBindings.none { it.kind == kind && it.assetId == asset.assetId } }
++        return bindingDiffersFromDesired(project) && project.preparation?.acknowledgedReferenceRevisionId != desiredRevisionId(desired)
++    }
++
++    fun bindingDiffersFromDesired(project: GuitarProject): Boolean {
++        val desired = desired(project)
++        return desired.isNotEmpty() && desired.any { (kind, asset) ->
++            project.referenceBindings.none { it.kind == kind && it.assetId == asset.assetId }
++        }
++    }
++
++    fun desiredRevisionId(project: GuitarProject): String? = desired(project).takeIf { it.isNotEmpty() }?.let(::desiredRevisionId)
++
++    fun acknowledgeCurrent(project: GuitarProject, now: Long): GuitarProject {
++        val desired = desired(project)
++        require(desired.isNotEmpty()) { "Não há referências preparadas ativas." }
++        return project.copy(
++            updatedAtEpochMs = now,
++            preparation = requireNotNull(project.preparation).copy(
++                acknowledgedReferenceRevisionId = desiredRevisionId(desired),
++            ),
++        )
+     }
+ 
+     fun applyInitialBindings(project: GuitarProject, now: Long, idFactory: () -> String): GuitarProject {
+@@ -320,7 +340,12 @@ object PreparedReferenceBindingPolicy {
+             val track = targetTrack(next, kind) ?: return@forEach
+             next = bind(next, kind, asset, track.id, now, idFactory, replaceExisting = true)
+         }
+-        return next.copy(updatedAtEpochMs = now)
++        return next.copy(
++            updatedAtEpochMs = now,
++            preparation = requireNotNull(next.preparation).copy(
++                acknowledgedReferenceRevisionId = desiredRevisionId(desired),
++            ),
++        )
+     }
+ 
+     private fun desired(project: GuitarProject): Map<ReferenceBindingKind, ManagedAsset> {
+@@ -341,6 +366,15 @@ object PreparedReferenceBindingPolicy {
+         }
+     }
+ 
++    private fun desiredRevisionId(desired: Map<ReferenceBindingKind, ManagedAsset>): String {
++        val canonical = desired.entries.sortedBy { it.key.name }.joinToString("\n", prefix = "prepared-reference-v1\n") {
++            (kind, asset) -> "${kind.name}:${asset.assetId}:${asset.sha256}"
++        }
++        return MessageDigest.getInstance("SHA-256")
++            .digest(canonical.toByteArray())
++            .joinToString("") { "%02x".format(it) }
++    }
++
+     private fun targetTrack(project: GuitarProject, kind: ReferenceBindingKind) = project.tracks.firstOrNull { track ->
+         track.roleId == when (kind) {
+             ReferenceBindingKind.BACKING -> BuiltInRoles.BACKING
+diff --git a/core/project/src/test/kotlin/studio/guitarlab/core/project/PreparedReferencePipelineTest.kt b/core/project/src/test/kotlin/studio/guitarlab/core/project/PreparedReferencePipelineTest.kt
+index 8e33632..5b6d2c5 100644
+--- a/core/project/src/test/kotlin/studio/guitarlab/core/project/PreparedReferencePipelineTest.kt
++++ b/core/project/src/test/kotlin/studio/guitarlab/core/project/PreparedReferencePipelineTest.kt
+@@ -67,7 +67,9 @@ class PreparedReferencePipelineTest {
+         val recording = AudioClip("recording", recordedTrack.id, "Take 1", "managed://recording", 11, lengthFrames = 7, takeId = "take")
+         val take = RecordingTake("take", recordedTrack.id, recording.id, "Take 1", 5, active = true)
+         val marker = TimelineMarker("m", "Entrada", 9)
+-        fixture.repo.save(first.copy(clips = first.clips + recording, takes = listOf(take), markers = listOf(marker), masterGainDb = -3f))
++        val section = TimelineSection("s", "Refrão", 4, 20)
++        val mixedTracks = first.tracks.map { if (it.id == recordedTrack.id) it.copy(gainDb = -4f, muted = true) else it }
++        fixture.repo.save(first.copy(clips = first.clips + recording, takes = listOf(take), markers = listOf(marker), sections = listOf(section), tracks = mixedTracks, masterGainDb = -3f))
+         fixture.replaceStemSet(scale = 0.03f)
+         val second = fixture.service.prepare(fixture.projectId).project
+         assertEquals(oldBindings.mapValues { it.value.assetId }, second.referenceBindings.associate { it.kind to it.assetId })
+@@ -77,6 +79,8 @@ class PreparedReferencePipelineTest {
+         assertNotEquals(oldBindings[ReferenceBindingKind.BACKING]!!.assetId, updated.referenceBindings.first { it.kind == ReferenceBindingKind.BACKING }.assetId)
+         assertEquals(take, updated.takes.single())
+         assertEquals(marker, updated.markers.single())
++        assertEquals(section, updated.sections.single())
++        assertEquals(mixedTracks, updated.tracks)
+         assertEquals(-3f, updated.masterGainDb)
+         assertEquals(recording, updated.clips.single { it.id == "recording" })
+     }
+@@ -106,6 +110,28 @@ class PreparedReferencePipelineTest {
+         assertFalse(PreparedReferenceBindingPolicy.updateAvailable(redone))
+     }
+ 
++    @Test fun keepCurrentAcknowledgesExactPreparedRevisionDurablyWithoutChangingCreativeState() {
++        val fixture = fixture()
++        val first = fixture.service.prepare(fixture.projectId).project
++        fixture.replaceStemSet(scale = 0.05f)
++        val pending = fixture.service.prepare(fixture.projectId).project
++        assertTrue(PreparedReferenceBindingPolicy.updateAvailable(pending))
++
++        val acknowledged = PreparedReferenceBindingPolicy.acknowledgeCurrent(pending, 1_000)
++        assertFalse(PreparedReferenceBindingPolicy.updateAvailable(acknowledged))
++        assertTrue(PreparedReferenceBindingPolicy.bindingDiffersFromDesired(acknowledged))
++        assertEquals(first.referenceBindings, acknowledged.referenceBindings)
++        assertEquals(pending.clips, acknowledged.clips)
++        assertEquals(pending.takes, acknowledged.takes)
++        assertEquals(pending.sections, acknowledged.sections)
++        fixture.repo.save(acknowledged)
++        assertFalse(PreparedReferenceBindingPolicy.updateAvailable(fixture.repo.load(fixture.projectId)!!))
++
++        fixture.replaceStemSet(scale = 0.06f)
++        val newer = fixture.service.prepare(fixture.projectId).project
++        assertTrue(PreparedReferenceBindingPolicy.updateAvailable(newer))
++    }
++
+     @Test fun corruptStemFailsClosedBeforeProjectMutation() {
+         val fixture = fixture()
+         val before = fixture.repo.load(fixture.projectId)!!
+@@ -129,14 +155,15 @@ class PreparedReferencePipelineTest {
+         fun replaceStemSet(scale: Float) {
+             val current = repo.load(projectId)!!
+             val old = current.preparation!!
++            val generation = ids.incrementAndGet()
+             val newAssets = mutableListOf<ManagedAsset>()
+             val map = linkedMapOf<AssetRole, String>()
+             val roles = listOf(AssetRole.STEM_DRUMS, AssetRole.STEM_BASS, AssetRole.STEM_OTHER, AssetRole.STEM_VOCALS, AssetRole.STEM_GUITAR, AssetRole.STEM_PIANO)
+             roles.forEachIndexed { index, role ->
+-                val file = File(root, "replacement-$role.wav")
++                val file = File(root, "replacement-$generation-$role.wav")
+                 wav(file, 32, scale * (index + 1))
+-                val managed = file.inputStream().use { media.ingestStem(projectId, "replacement-$role.wav", it) }
+-                val asset = ManagedAsset("replacement-${role.name}", role, managed.relativePath, sha(managed.file), managed.byteCount, "wav", 44_100, 2, 32, 3, AssetClassification.AUTHORITATIVE, AssetLifecycle.MANAGED, AssetProvenance("REMOTE_SEPARATION", parameters = mapOf("jobId" to "replacement")))
++                val managed = file.inputStream().use { media.ingestStem(projectId, "replacement-$generation-$role.wav", it) }
++                val asset = ManagedAsset("replacement-$generation-${role.name}", role, managed.relativePath, sha(managed.file), managed.byteCount, "wav", 44_100, 2, 32, 3, AssetClassification.AUTHORITATIVE, AssetLifecycle.MANAGED, AssetProvenance("REMOTE_SEPARATION", parameters = mapOf("jobId" to "replacement-$generation")))
+                 newAssets += asset; map[role] = asset.assetId
+             }
+             repo.save(current.copy(assets = current.assets + newAssets, preparation = old.copy(activeStemAssetIds = map), updatedAtEpochMs = 3))
+diff --git a/app/src/main/java/studio/guitarlab/app/ui/StudioViewModel.kt b/app/src/main/java/studio/guitarlab/app/ui/StudioViewModel.kt
+index 61f26c2..673949b 100644
+--- a/app/src/main/java/studio/guitarlab/app/ui/StudioViewModel.kt
++++ b/app/src/main/java/studio/guitarlab/app/ui/StudioViewModel.kt
+@@ -349,7 +349,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application)
+     fun applyPreparedReferenceUpdate() {
+         val currentState = _state.value
+         val project = currentState.project ?: return
+-        if (!currentState.preparedReferenceUpdateAvailable || !structuralEditingAllowed(currentState)) return
++        if (!PreparedReferenceBindingPolicy.bindingDiffersFromDesired(project) || !structuralEditingAllowed(currentState)) return
+         viewModelScope.launch {
+             _state.value = _state.value.copy(historyBusy = true, error = null)
+             runCatching {
+@@ -376,7 +376,33 @@ class StudioViewModel(application: Application) : AndroidViewModel(application)
+     }
+ 
+     fun keepCurrentPreparedReferences() {
+-        _state.value = _state.value.copy(preparedReferenceUpdateAvailable = false, transientNotice = "Referências atuais mantidas nesta sessão.")
++        val currentState = _state.value
++        val project = currentState.project ?: return
++        if (!currentState.preparedReferenceUpdateAvailable || !structuralEditingAllowed(currentState)) return
++        viewModelScope.launch {
++            _state.value = _state.value.copy(historyBusy = true, error = null)
++            runCatching {
++                saveLatest(project.id) { latest ->
++                    PreparedReferenceBindingPolicy.acknowledgeCurrent(latest, System.currentTimeMillis())
++                }
++            }.onSuccess { saved ->
++                val state = _state.value
++                if (state.project?.id != saved.id) return@onSuccess
++                _state.value = state.copy(
++                    historyBusy = false,
++                    project = saved,
++                    preparedReferenceUpdateAvailable = PreparedReferenceBindingPolicy.updateAvailable(saved),
++                    canUndo = projectHistory.canUndo,
++                    canRedo = projectHistory.canRedo,
++                    transientNotice = "A versão atual do Studio foi mantida.",
++                )
++            }.onFailure { error ->
++                _state.value = _state.value.copy(
++                    historyBusy = false,
++                    error = error.message ?: "Não foi possível manter a referência atual.",
++                )
++            }
++        }
+     }
+ 
+     fun importAudio(trackId: String, uri: Uri) {
+diff --git a/app/src/main/java/studio/guitarlab/app/ui/StudioShellScreen.kt b/app/src/main/java/studio/guitarlab/app/ui/StudioShellScreen.kt
+index eea467a..a6e54fe 100644
+--- a/app/src/main/java/studio/guitarlab/app/ui/StudioShellScreen.kt
++++ b/app/src/main/java/studio/guitarlab/app/ui/StudioShellScreen.kt
+@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.padding
+ import androidx.compose.foundation.layout.widthIn
+ import androidx.compose.material.icons.Icons
+ import androidx.compose.material.icons.filled.Equalizer
++import androidx.compose.material.icons.filled.FolderOpen
+ import androidx.compose.material.icons.filled.Info
+ import androidx.compose.material3.AlertDialog
+ import androidx.compose.material3.Button
+@@ -46,6 +47,7 @@ import androidx.compose.ui.unit.dp
+ import androidx.lifecycle.viewmodel.compose.viewModel
+ import studio.guitarlab.core.model.GuitarProject
+ import studio.guitarlab.core.project.PracticeRecordingMode
++import studio.guitarlab.core.project.PreparedReferenceBindingPolicy
+ import studio.guitarlab.core.project.ExternalControlCommandDispatcher
+ import studio.guitarlab.core.project.ExternalControlCommandHandlers
+ import studio.guitarlab.core.project.RecordingSessionPhase
+@@ -69,6 +71,7 @@ fun StudioShellScreen(
+     var selectedTrackId by rememberSaveable(projectId) { mutableStateOf<String?>(null) }
+     var helpDialogVisible by rememberSaveable(projectId) { mutableStateOf(false) }
+     var allLevelsDialogVisible by rememberSaveable(projectId) { mutableStateOf(false) }
++    var projectMediaVisible by rememberSaveable(projectId) { mutableStateOf(false) }
+     var pendingRecordMode by remember(projectId) { mutableStateOf(PracticeRecordingMode.CURRENT_PLAYHEAD) }
+     val snackbarHostState = remember { SnackbarHostState() }
+     val recordPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+@@ -153,6 +156,12 @@ fun StudioShellScreen(
+             onExport = onExport,
+             onSettings = onOptions,
+             trailingActions = {
++                AppIconButton(
++                    icon = Icons.Default.FolderOpen,
++                    contentDescription = "Mídia do projeto",
++                    onClick = { projectMediaVisible = true },
++                    modifier = Modifier.testTag("studio-project-media"),
++                )
+                 AppIconButton(
+                     icon = Icons.Default.Equalizer,
+                     contentDescription = if (mixerVisible) "Ocultar Mixer" else "Mostrar Mixer",
+@@ -328,6 +337,24 @@ fun StudioShellScreen(
+         StudioUserGuideDialog(onDismiss = { helpDialogVisible = false })
+     }
+ 
++    val mediaProject = state.project
++    if (projectMediaVisible && mediaProject != null) {
++        ProjectMediaDialog(
++            project = mediaProject,
++            referenceBindingDiffers = PreparedReferenceBindingPolicy.bindingDiffersFromDesired(mediaProject),
++            referenceDecisionPending = state.preparedReferenceUpdateAvailable,
++            onKeepCurrent = {
++                viewModel.keepCurrentPreparedReferences()
++                projectMediaVisible = false
++            },
++            onApplyUpdate = {
++                viewModel.applyPreparedReferenceUpdate()
++                projectMediaVisible = false
++            },
++            onDismiss = { projectMediaVisible = false },
++        )
++    }
++
+ 
+ }
+ 
+diff --git a/app/src/androidTest/java/studio/guitarlab/app/UnifiedProjectShellInstrumentedTest.kt b/app/src/androidTest/java/studio/guitarlab/app/UnifiedProjectShellInstrumentedTest.kt
+index b7189cb..2039644 100644
+--- a/app/src/androidTest/java/studio/guitarlab/app/UnifiedProjectShellInstrumentedTest.kt
++++ b/app/src/androidTest/java/studio/guitarlab/app/UnifiedProjectShellInstrumentedTest.kt
+@@ -23,6 +23,7 @@ import studio.guitarlab.app.ui.HomeViewModel
+ import studio.guitarlab.app.ui.NewProjectScreen
+ import studio.guitarlab.app.ui.NewProjectSourceIntent
+ import studio.guitarlab.app.ui.ProjectShellScaffold
++import studio.guitarlab.app.ui.ProjectMediaDialog
+ import studio.guitarlab.app.ui.ProjectWorkspace
+ import studio.guitarlab.app.ui.UnifiedPrepareScreen
+ import studio.guitarlab.app.ui.UnifiedExportScreen
+@@ -126,6 +127,39 @@ class UnifiedProjectShellInstrumentedTest {
+         composeRule.runOnIdle { check(openedStudio) }
+     }
+ 
++    @Test fun projectMediaSurfaceExplainsManagedAssetsAndOffersExplicitReferenceChoice() {
++        val backing = asset("backing", AssetRole.REFERENCE_BACKING)
++        val project = GuitarProject(
++            id = "media", name = "Song", template = ProjectTemplate.GUITAR,
++            createdAtEpochMs = 1, updatedAtEpochMs = 2,
++            assets = listOf(backing),
++            preparation = PreparationState(
++                status = PreparationStatus.READY,
++                activeBackingAssetId = backing.assetId,
++                availableReferenceAssetIds = listOf(backing.assetId),
++            ),
++        )
++        var kept = false
++        var updated = false
++        composeRule.setContent {
++            GuitarLabTheme(darkTheme = true) {
++                ProjectMediaDialog(
++                    project = project,
++                    referenceBindingDiffers = true,
++                    referenceDecisionPending = true,
++                    onKeepCurrent = { kept = true },
++                    onApplyUpdate = { updated = true },
++                    onDismiss = {},
++                )
++            }
++        }
++
++        composeRule.onNodeWithTag("project-media-dialog").assertIsDisplayed()
++        composeRule.onNodeWithText("Referências · 1").performScrollTo().assertIsDisplayed()
++        composeRule.onNodeWithText("Manter atual").performClick()
++        composeRule.runOnIdle { check(kept && !updated) }
++    }
++
+     @Test fun prepareWorkspaceShowsRankedCandidateAndPersistentActivity() {
+         val project = GuitarProject(id = "p", name = "Song", template = ProjectTemplate.BLANK, createdAtEpochMs = 1, updatedAtEpochMs = 1)
+         val candidate = RankedSourceCandidate(
+diff --git a/app/src/main/java/studio/guitarlab/app/ui/ProjectMediaDialog.kt b/app/src/main/java/studio/guitarlab/app/ui/ProjectMediaDialog.kt
+new file mode 100644
+index 0000000..30d43b5
+--- /dev/null
++++ b/app/src/main/java/studio/guitarlab/app/ui/ProjectMediaDialog.kt
+@@ -0,0 +1,113 @@
++package studio.guitarlab.app.ui
++
++import androidx.compose.foundation.layout.Arrangement
++import androidx.compose.foundation.layout.Column
++import androidx.compose.foundation.layout.Row
++import androidx.compose.foundation.layout.fillMaxWidth
++import androidx.compose.foundation.layout.heightIn
++import androidx.compose.foundation.layout.padding
++import androidx.compose.foundation.rememberScrollState
++import androidx.compose.foundation.verticalScroll
++import androidx.compose.material3.AlertDialog
++import androidx.compose.material3.Button
++import androidx.compose.material3.HorizontalDivider
++import androidx.compose.material3.MaterialTheme
++import androidx.compose.material3.OutlinedButton
++import androidx.compose.material3.Text
++import androidx.compose.material3.TextButton
++import androidx.compose.runtime.Composable
++import androidx.compose.ui.Alignment
++import androidx.compose.ui.Modifier
++import androidx.compose.ui.platform.testTag
++import androidx.compose.ui.unit.dp
++import studio.guitarlab.core.model.AssetRole
++import studio.guitarlab.core.model.GuitarProject
++import studio.guitarlab.core.model.ManagedAsset
++
++@Composable
++fun ProjectMediaDialog(
++    project: GuitarProject,
++    referenceBindingDiffers: Boolean,
++    referenceDecisionPending: Boolean,
++    onKeepCurrent: () -> Unit,
++    onApplyUpdate: () -> Unit,
++    onDismiss: () -> Unit,
++) {
++    val boundIds = project.referenceBindings.mapTo(mutableSetOf()) { it.assetId }
++    val activePreparationIds = buildSet {
++        project.preparation?.sourceAssetId?.let(::add)
++        project.preparation?.activeStemAssetIds?.values?.let(::addAll)
++        project.preparation?.activeBackingAssetId?.let(::add)
++        project.preparation?.activeGuitarAssetId?.let(::add)
++    }
++    AlertDialog(
++        onDismissRequest = onDismiss,
++        modifier = Modifier.testTag("project-media-dialog"),
++        title = { Text("Mídia do projeto") },
++        text = {
++            Column(
++                Modifier.fillMaxWidth().heightIn(max = 520.dp).verticalScroll(rememberScrollState()),
++                verticalArrangement = Arrangement.spacedBy(10.dp),
++            ) {
++                Text(
++                    "Arquivos gerenciados pelo GuitarLab. Atualizar referências não adiciona stems à timeline nem altera suas gravações.",
++                    style = MaterialTheme.typography.bodyMedium,
++                    color = MaterialTheme.colorScheme.onSurfaceVariant,
++                )
++                if (referenceBindingDiffers) {
++                    Column(
++                        Modifier.fillMaxWidth().testTag("project-media-reference-update"),
++                        verticalArrangement = Arrangement.spacedBy(8.dp),
++                    ) {
++                        Text("Uma nova versão preparada está disponível.", style = MaterialTheme.typography.titleSmall)
++                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
++                            if (referenceDecisionPending) {
++                                OutlinedButton(onClick = onKeepCurrent) { Text("Manter atual") }
++                            }
++                            Button(onClick = onApplyUpdate) { Text("Usar nova versão") }
++                        }
++                    }
++                    HorizontalDivider()
++                }
++                MediaGroup("Fonte", project.assets.filter { it.role == AssetRole.SOURCE_ORIGINAL }, activePreparationIds, boundIds)
++                MediaGroup("Stems preparados", project.assets.filter { it.role.name.startsWith("STEM_") }, activePreparationIds, boundIds)
++                MediaGroup("Referências", project.assets.filter { it.role in setOf(AssetRole.REFERENCE_BACKING, AssetRole.REFERENCE_GUITAR) }, activePreparationIds, boundIds)
++                MediaGroup("Gravações", project.assets.filter { it.role == AssetRole.RECORDING_TAKE }, activePreparationIds, boundIds)
++            }
++        },
++        confirmButton = { TextButton(onClick = onDismiss) { Text("Fechar") } },
++    )
++}
++
++@Composable
++private fun MediaGroup(
++    title: String,
++    assets: List<ManagedAsset>,
++    activeIds: Set<String>,
++    boundIds: Set<String>,
++) {
++    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
++        Text("$title · ${assets.size}", style = MaterialTheme.typography.titleSmall)
++        if (assets.isEmpty()) {
++            Text("Nenhum arquivo", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
++        } else {
++            assets.sortedByDescending { it.createdAtEpochMs }.forEach { asset ->
++                val status = when {
++                    asset.assetId in boundIds -> "Em uso no Studio"
++                    asset.assetId in activeIds -> "Versão preparada ativa"
++                    else -> "Versão anterior"
++                }
++                Column(Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
++                    Text(asset.relativePath.substringAfterLast('/'), style = MaterialTheme.typography.bodyMedium)
++                    Text("$status · ${asset.format.uppercase()} · ${formatBytes(asset.byteSize)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
++                }
++            }
++        }
++    }
++}
++
++private fun formatBytes(bytes: Long): String = when {
++    bytes >= 1024L * 1024L -> "%.1f MB".format(bytes / (1024.0 * 1024.0))
++    bytes >= 1024L -> "%.1f KB".format(bytes / 1024.0)
++    else -> "$bytes B"
++}

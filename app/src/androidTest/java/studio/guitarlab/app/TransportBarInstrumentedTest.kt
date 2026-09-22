@@ -15,6 +15,7 @@ import org.junit.runner.RunWith
 import studio.guitarlab.app.ui.TransportBar
 import studio.guitarlab.app.ui.theme.GuitarLabTheme
 import studio.guitarlab.core.project.RecordingSessionPhase
+import studio.guitarlab.core.project.TransportMode
 import studio.guitarlab.core.project.TransportState
 
 @RunWith(AndroidJUnit4::class)
@@ -52,4 +53,33 @@ class TransportBarInstrumentedTest {
 
         assertEquals("REC must invoke its callback exactly once", 1, recordClicks.get())
     }
+    @Test
+    fun stopButtonRemainsAvailableDuringCaptureAndUsesTheSameTransportCallback() {
+        val stopClicks = AtomicInteger(0)
+
+        composeRule.setContent {
+            GuitarLabTheme(darkTheme = false) {
+                TransportBar(
+                    state = TransportState(mode = TransportMode.RECORDING),
+                    engineReady = true,
+                    recordEnabled = true,
+                    recordingPhase = RecordingSessionPhase.CAPTURING,
+                    canUndo = false,
+                    canRedo = false,
+                    onReturnToStart = {},
+                    onPlayStop = { stopClicks.incrementAndGet() },
+                    onRecord = {},
+                    onToggleLoop = {},
+                    onUndo = {},
+                    onRedo = {},
+                )
+            }
+        }
+
+        val stop = composeRule.onNodeWithTag("transport-play-stop")
+        stop.assertIsEnabled().assert(hasClickAction()).performClick()
+        composeRule.waitForIdle()
+        assertEquals("STOP during capture must invoke the shared stop callback exactly once", 1, stopClicks.get())
+    }
+
 }

@@ -1,6 +1,7 @@
 package studio.guitarlab.app
 
 import android.os.Bundle
+import android.view.KeyEvent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
@@ -13,11 +14,13 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import studio.guitarlab.app.ui.GuitarLabApp
+import studio.guitarlab.app.ui.ExternalControlHub
 import studio.guitarlab.app.ui.theme.GuitarLabTheme
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        ExternalControlHub.initialize(this)
         enterImmersiveMode()
         setContent {
             GuitarLabTheme {
@@ -29,6 +32,33 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        ExternalControlHub.setForeground(true)
+    }
+
+    override fun onPause() {
+        ExternalControlHub.setForeground(false)
+        super.onPause()
+    }
+
+    override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
+        if (handleExternalHid(event)) return true
+        return super.onKeyDown(keyCode, event)
+    }
+
+    override fun onKeyUp(keyCode: Int, event: KeyEvent): Boolean {
+        if (handleExternalHid(event)) return true
+        return super.onKeyUp(keyCode, event)
+    }
+
+    private fun handleExternalHid(event: KeyEvent): Boolean {
+        val token = ExternalControlHub.hidToken(event) ?: return false
+        if (!ExternalControlHub.shouldCaptureHid(this, token)) return false
+        ExternalControlHub.onHidEvent(this, token, event)
+        return true
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {

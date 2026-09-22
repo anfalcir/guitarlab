@@ -4,6 +4,7 @@ import android.media.AudioAttributes
 import android.media.AudioDeviceInfo
 import android.media.AudioFormat
 import android.media.AudioTrack
+import android.media.AudioTimestamp
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
@@ -12,6 +13,8 @@ import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.pow
 import kotlin.math.sqrt
+import studio.guitarlab.core.audio.AudioClockAnchorPolicy
+import studio.guitarlab.core.audio.AudioClockObservation
 import studio.guitarlab.core.audio.PlaybackClockPolicy
 import studio.guitarlab.core.project.GuitarAuditionMode
 import studio.guitarlab.core.project.GuitarAuditionPolicy
@@ -61,6 +64,16 @@ data class StudioPlaybackRoutingStatus(
     val deviceLabel: String? = null,
 )
 
+data class StudioPlaybackStartInfo(
+    val presentationStartMonotonicNs: Long,
+    val timestampBased: Boolean,
+    val routedOutputLabel: String? = null,
+    val routedOutputDeviceId: Int? = null,
+    val playbackAnchorJitterNs: Long? = null,
+    val playbackAnchorObservations: Int? = null,
+    val outputUnderrunCount: Int? = null,
+)
+
 data class StudioPlaybackMeter(
     val peak: Float,
     val rms: Float,
@@ -72,6 +85,7 @@ data class StudioPlaybackTrackMeter(
 )
 
 interface StudioPlaybackListener {
+    fun onStarted(info: StudioPlaybackStartInfo) {}
     fun onPosition(frame: Long)
     fun onStopped(frame: Long)
     fun onError(message: String)
@@ -216,8 +230,10 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
             val mix = FloatArray(CHUNK_FRAMES * 2)
             val trackBuffers = linkedMapOf<String, FloatArray>()
             readers.forEach { reader -> trackBuffers.getOrPut(reader.trackId) { FloatArray(CHUNK_FRAMES * 2) } }
+            val playCommandNs = System.nanoTime()
             audioTrack.play()
             clockHeadBase = playbackHead(audioTrack)
+            var playbackStartReported = false
 
             while (running) {
                 val requestedSeek = pendingSeekFrame.getAndSet(NO_PENDING_SEEK)
@@ -272,6 +288,24 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
                 val writtenFrames = samplesWritten / 2
                 if (writtenFrames <= 0) error("A saída de áudio não avançou durante a reprodução.")
                 writtenFramesSinceClockBase += writtenFrames
+                if (!playbackStartReported) {
+                    val playbackClockAnchor = stablePlaybackClockAnchor(audioTrack, request.sampleRateHz)
+                    val hasTimestamp = playbackClockAnchor != null
+                    val presentationStartNs = playbackClockAnchor?.streamOriginMonotonicNs ?: playCommandNs
+                    val routed = audioTrack.routedDevice
+                    listener.onStarted(
+                        StudioPlaybackStartInfo(
+                            presentationStartMonotonicNs = presentationStartNs,
+                            timestampBased = hasTimestamp,
+                            routedOutputLabel = routed?.productName?.toString(),
+                            routedOutputDeviceId = routed?.id,
+                            playbackAnchorJitterNs = playbackClockAnchor?.jitterNs,
+                            playbackAnchorObservations = playbackClockAnchor?.observations,
+                            outputUnderrunCount = audioTrack.underrunCount,
+                        )
+                    )
+                    playbackStartReported = true
+                }
                 renderFrame += writtenFrames
                 if (repeatLoop && renderFrame >= request.loopEndFrame) renderFrame = request.loopStartFrame
 
@@ -325,6 +359,22 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
             synchronized(this) { worker = null }
         }
     }
+
+    private fun stablePlaybackClockAnchor(track: AudioTrack, sampleRateHz: Int) =
+        AudioClockAnchorPolicy.estimate(
+            observations = buildList {
+                repeat(CLOCK_ANCHOR_SAMPLES) { index ->
+                    val timestamp = AudioTimestamp()
+                    if (track.getTimestamp(timestamp)) {
+                        add(AudioClockObservation(timestamp.framePosition, timestamp.nanoTime))
+                    }
+                    if (index + 1 < CLOCK_ANCHOR_SAMPLES) {
+                        try { Thread.sleep(CLOCK_ANCHOR_POLL_MS) } catch (_: InterruptedException) { return@repeat }
+                    }
+                }
+            },
+            sampleRateHz = sampleRateHz,
+        )
 
     private fun applyRuntimeTrackMix(trackId: String, samples: FloatArray, sampleCount: Int) {
         val runtime = runtimeTrackMixes[trackId] ?: return
@@ -406,5 +456,7 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
         const val DRAIN_TIMEOUT_NS = 2_000_000_000L
         const val STOP_JOIN_TIMEOUT_MS = 1_500L
         const val NO_PENDING_SEEK = Long.MIN_VALUE
+        const val CLOCK_ANCHOR_SAMPLES = 6
+        const val CLOCK_ANCHOR_POLL_MS = 3L
     }
 }

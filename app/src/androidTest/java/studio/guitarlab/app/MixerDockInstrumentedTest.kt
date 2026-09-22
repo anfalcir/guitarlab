@@ -1,14 +1,20 @@
 package studio.guitarlab.app
 
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipe
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import java.util.concurrent.atomic.AtomicInteger
@@ -49,7 +55,6 @@ class MixerDockInstrumentedTest {
                 MixerDock(
                     tracks = listOf(track),
                     selectedTrackId = track.id,
-                    pinned = true,
                     mixControlsEnabled = true,
                     structuralControlsEnabled = true,
                     masterGainDb = 0f,
@@ -58,8 +63,6 @@ class MixerDockInstrumentedTest {
                     masterClipLatched = true,
                     trackClipLatched = setOf(track.id),
                     onSelectTrack = {},
-                    onPin = {},
-                    onClose = {},
                     onGainPreview = { _, _ -> },
                     onGainCommit = { _, _ -> },
                     onPanPreview = { _, _ -> },
@@ -88,7 +91,7 @@ class MixerDockInstrumentedTest {
         solo.performClick()
         arm.performClick()
         composeRule.onNodeWithContentDescription("Limpar clipping da pista Teste").assert(buttonRole).performClick()
-        composeRule.onNodeWithContentDescription("Limpar clipping do Master").assert(buttonRole).performClick()
+        composeRule.onNodeWithContentDescription("Limpar clipping do master").assert(buttonRole).performClick()
 
         assertEquals(1, muteClicks.get())
         assertEquals(1, soloClicks.get())
@@ -105,4 +108,66 @@ class MixerDockInstrumentedTest {
         assertTrue("Mute/Solo expanded touch targets must not overlap", abs(soloCenter.x - muteCenter.x) >= minimumCenterDistancePx)
         assertTrue("Solo/Arm expanded touch targets must not overlap", abs(armCenter.x - soloCenter.x) >= minimumCenterDistancePx)
     }
+    @Test
+    fun overflowingTracksSwipeHorizontallyWhileMasterRemainsAnchored() {
+        val tracks = List(10) { index -> AudioTrack(id = "overflow-$index", name = "Track $index", order = index) }
+        composeRule.setContent {
+            GuitarLabTheme(darkTheme = true) {
+                MixerDock(
+                    tracks = tracks,
+                    selectedTrackId = tracks.first().id,
+                    mixControlsEnabled = true,
+                    structuralControlsEnabled = true,
+                    masterGainDb = 0f,
+                    masterMeter = MeterBallisticsState(),
+                    trackMeters = emptyMap(),
+                    masterClipLatched = false,
+                    trackClipLatched = emptySet(),
+                    onSelectTrack = {},
+                    onGainPreview = { _, _ -> },
+                    onGainCommit = { _, _ -> },
+                    onPanPreview = { _, _ -> },
+                    onPanCommit = { _, _ -> },
+                    onToggleMute = {},
+                    onToggleSolo = {},
+                    onToggleArm = {},
+                    onMasterGainPreview = {},
+                    onMasterGainCommit = {},
+                    onClearTrackClip = {},
+                    onClearMasterClip = {},
+                )
+            }
+        }
+
+        val master = composeRule.onNodeWithTag("mixer-master-strip").assertIsDisplayed()
+        val masterBefore = master.fetchSemanticsNode().boundsInRoot
+        val scroller = composeRule.onNodeWithTag("mixer-track-scroll").assertIsDisplayed()
+        val scrollerBounds = scroller.fetchSemanticsNode().boundsInRoot
+        val swipeStart = Offset(scrollerBounds.width * 0.90f, scrollerBounds.height * 0.08f)
+        val swipeEnd = Offset(scrollerBounds.width * 0.10f, scrollerBounds.height * 0.08f)
+        var lastTrackVisible = false
+        repeat(20) {
+            if (!lastTrackVisible) {
+                // Swipe through the strip header band instead of centerY. The center crosses the
+                // volume/pan sliders, which legitimately consume horizontal gestures. A user
+                // scrolls the Mixer from non-slider chrome such as the track header.
+                scroller.performTouchInput { swipe(swipeStart, swipeEnd, durationMillis = 220L) }
+                composeRule.waitForIdle()
+                val candidates = composeRule.onAllNodesWithTag("mixer-track-strip-overflow-9")
+                    .fetchSemanticsNodes()
+                lastTrackVisible = candidates.any { node ->
+                    val bounds = node.boundsInRoot
+                    bounds.right > scrollerBounds.left && bounds.left < scrollerBounds.right
+                }
+            }
+        }
+        assertTrue(
+            "Last mixer track must be reachable by repeated physical horizontal swipe regardless of viewport width",
+            lastTrackVisible,
+        )
+        val masterAfter = composeRule.onNodeWithTag("mixer-master-strip").fetchSemanticsNode().boundsInRoot
+        assertEquals(masterBefore.left, masterAfter.left, 1f)
+        assertEquals(masterBefore.right, masterAfter.right, 1f)
+    }
+
 }

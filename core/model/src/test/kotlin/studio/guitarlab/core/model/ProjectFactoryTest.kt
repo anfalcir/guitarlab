@@ -18,14 +18,14 @@ class ProjectFactoryTest {
     @Test fun guitarTemplateHasThreeGroupsAndFiveTracks() {
         val project = factory.create("Estudo", ProjectTemplate.GUITAR)
         assertEquals(listOf("Base", "Guitarras de referência", "Minhas guitarras"), project.groups.sortedBy { it.order }.map { it.name })
-        assertEquals(listOf("Base", "Guitarra Ref. E", "Guitarra Ref. D", "Minha Guitarra E", "Minha Guitarra D"), project.tracks.sortedBy { it.order }.map { it.name })
+        assertEquals(listOf("Base", "Guitarra de referência E", "Guitarra de referência D", "Minha guitarra E", "Minha guitarra D"), project.tracks.sortedBy { it.order }.map { it.name })
         assertTrue(ProjectValidator.validate(project).isEmpty())
     }
 
     @Test fun doubleTrackingDefaultsAreMonoAndHardPanned() {
         val project = factory.create("Estudo", ProjectTemplate.GUITAR)
-        val left = project.tracks.first { it.name == "Minha Guitarra E" }
-        val right = project.tracks.first { it.name == "Minha Guitarra D" }
+        val left = project.tracks.first { it.name == "Minha guitarra E" }
+        val right = project.tracks.first { it.name == "Minha guitarra D" }
         assertEquals(ChannelLayout.MONO, left.channelLayout)
         assertEquals(ChannelLayout.MONO, right.channelLayout)
         assertEquals(-1f, left.pan)

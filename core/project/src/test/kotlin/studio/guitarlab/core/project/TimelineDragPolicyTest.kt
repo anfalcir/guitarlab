@@ -57,4 +57,24 @@ class TimelineDragPolicyTest {
         assertEquals(100f, TimelineDragPolicy.insertionIndicatorYPx(0, partial, ids))
         assertEquals(290f, TimelineDragPolicy.insertionIndicatorYPx(3, partial, ids))
     }
+    @Test fun `clip drop intent gives delete precedence and never invents a move`() {
+        val trash = TimelineDragPolicy.DropBounds(300f, 300f, 400f, 390f)
+        assertEquals(
+            TimelineDragPolicy.ClipDropIntent.Delete,
+            TimelineDragPolicy.clipDropIntent("a", "d", 350f, 340f, trash),
+        )
+        assertEquals(
+            TimelineDragPolicy.ClipDropIntent.Move("c"),
+            TimelineDragPolicy.clipDropIntent("a", "c", 250f, 250f, trash),
+        )
+        assertEquals(
+            TimelineDragPolicy.ClipDropIntent.NoOp,
+            TimelineDragPolicy.clipDropIntent("a", "a", 50f, 40f, trash),
+        )
+        assertEquals(
+            TimelineDragPolicy.ClipDropIntent.NoOp,
+            TimelineDragPolicy.clipDropIntent("a", null, 50f, 40f, trash),
+        )
+    }
+
 }

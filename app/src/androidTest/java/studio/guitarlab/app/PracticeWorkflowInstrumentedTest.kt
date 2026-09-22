@@ -46,7 +46,7 @@ class PracticeWorkflowInstrumentedTest {
             composeRule.waitForIdle()
 
             assertEquals(RecordingSessionPhase.IDLE, studio().state.value.recordingSession.phase)
-            composeRule.onNodeWithText("Auto Seções").assertIsEnabled()
+            composeRule.onNodeWithText("Auto seções").assertIsEnabled()
             composeRule.onNodeWithText("Criar seção do loop").assertIsNotEnabled()
 
             // Activate loop through the same ViewModel command used by the toolbar so the test is
@@ -59,7 +59,14 @@ class PracticeWorkflowInstrumentedTest {
             composeRule.onNodeWithText("Criar seção do loop").assertIsEnabled()
             waitUntilTagEnabled("transport-record")
 
-            composeRule.onNodeWithTag("transport-record").performClick()
+            // TransportBar owns the REC button interaction contract in TransportBarInstrumentedTest.
+            // This full-app regression owns the state/dialog contract independently, avoiding a
+            // flaky cross-window semantic click from hiding whether the feature itself is correct.
+            studio().showLoopRecordingChoice()
+            composeRule.waitUntil(timeoutMillis = UI_TIMEOUT_MS) {
+                studio().state.value.loopRecordingChoiceVisible
+            }
+            assertTrue(studio().state.value.loopRecordingChoiceVisible)
 
             // AlertDialog is hosted in a separate Android window. Validate its semantic contract;
             // target-tablet geometry is covered independently by TargetTabletGeometryInstrumentedTest.
@@ -69,7 +76,11 @@ class PracticeWorkflowInstrumentedTest {
             waitUntilEnabled("Cancelar")
             composeRule.onNodeWithText("Cancelar").performClick()
 
+            composeRule.waitUntil(timeoutMillis = UI_TIMEOUT_MS) {
+                !studio().state.value.loopRecordingChoiceVisible
+            }
             composeRule.waitForIdle()
+            assertTrue("Cancel must dismiss the transient recording choice", !studio().state.value.loopRecordingChoiceVisible)
             assertTrue("Cancel must preserve the active loop", studio().state.value.transport.loopEnabled)
             assertEquals(RecordingSessionPhase.IDLE, studio().state.value.recordingSession.phase)
             composeRule.onNodeWithTag("transport-record").assertIsEnabled()

@@ -35,4 +35,12 @@ class TrimControlPolicyTest {
         assertEquals(12_801, TrimControlPolicy.moveEnd(state, 0, clip).endFrame)
         assertEquals(28_000, TrimControlPolicy.moveEnd(state, 99_999, clip).endFrame)
     }
+    @Test
+    fun pointerMappingIsDeterministicAndClamped() {
+        assertEquals(10_000L, TrimControlPolicy.visibleFrameAtPointerX(clip, -50f, 800f))
+        assertEquals(14_000L, TrimControlPolicy.visibleFrameAtPointerX(clip, 400f, 800f))
+        assertEquals(18_000L, TrimControlPolicy.visibleFrameAtPointerX(clip, 900f, 800f))
+        assertEquals(0.5f, TrimControlPolicy.visibleFractionForFrame(clip, 14_000L))
+    }
+
 }

@@ -11,8 +11,8 @@ android {
         applicationId = "studio.guitarlab.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 23
-        versionName = "0.5.0-rc3"
+        versionCode = 24
+        versionName = "0.5.0-rc4"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -63,12 +63,16 @@ android {
 }
 
 dependencies {
+    implementation(project(":core:separation"))
+    implementation(project(":platform:separation"))
     implementation(project(":core:model"))
     implementation(project(":core:audio"))
     implementation(project(":platform:audio-android"))
     implementation(project(":core:project"))
     implementation(project(":core:codec"))
     implementation(project(":platform:codec-android"))
+    implementation(project(":core:source"))
+    implementation(project(":platform:source-android"))
 
     val composeBom = platform(libs.compose.bom)
     implementation(composeBom)
@@ -83,6 +87,9 @@ dependencies {
     implementation(libs.lifecycle.viewmodel.ktx)
     implementation(libs.lifecycle.runtime.compose)
     implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.androidx.work.runtime.ktx)
+    implementation(libs.play.services.auth)
+    implementation(libs.kotlinx.serialization.json)
 
     testImplementation(kotlin("test"))
     testImplementation(libs.junit4)

@@ -1,0 +1,65 @@
+package studio.guitarlab.core.project
+
+import java.util.concurrent.TimeUnit
+import kotlin.test.assertEquals
+import kotlin.test.assertTrue
+import kotlinx.coroutines.runBlocking
+import org.junit.Test
+
+class UnifiedDriveGarbageCollectorTest {
+    @Test fun newestManifestPerProjectIsAlwaysRetained() {
+        val old = manifest("p", "old", 1, asset("a"))
+        val newest = manifest("p", "new", 2, asset("b"))
+        assertEquals(listOf(newest), DriveManifestRetentionPlanner.retained(listOf(old, newest), BackupRetentionPolicy(1, 1), Long.MAX_VALUE))
+    }
+
+    @Test fun sharedPendingAndYoungAssetsAreProtectedGlobally() = runBlocking {
+        val shared = asset("a")
+        val pending = asset("b")
+        val young = asset("c")
+        val orphan = asset("d")
+        val now = TimeUnit.DAYS.toMillis(100)
+        val store = FakeStore(
+            listOf(manifest("one", "r1", now, shared), manifest("two", "r2", now, shared)),
+            listOf(
+                DriveGcCandidate(shared, 0), DriveGcCandidate(pending, 0),
+                DriveGcCandidate(young, now - 1), DriveGcCandidate(orphan, 0),
+            ),
+        )
+        val report = UnifiedDriveGarbageCollector(store).collect(
+            BackupRetentionPolicy(null, 1), setOf(pending.sha256), now, TimeUnit.DAYS.toMillis(1),
+        )
+        assertEquals(listOf(orphan.sha256), store.deleted)
+        assertEquals(1, report.deleted)
+        assertEquals(2, report.retainedManifests)
+    }
+
+    @Test fun deletionFailureIsReportedWithoutInvalidatingSuccessfulDeletes() = runBlocking {
+        val first = asset("a")
+        val second = asset("b")
+        val store = FakeStore(emptyList(), listOf(DriveGcCandidate(first, 0), DriveGcCandidate(second, 0)), fail = first.sha256)
+        val report = UnifiedDriveGarbageCollector(store).collect(BackupRetentionPolicy(), emptySet(), 10, 0)
+        assertEquals(1, report.deleted)
+        assertEquals(1, report.deleteFailures)
+        assertTrue(second.sha256 in store.deleted)
+    }
+
+    private fun asset(char: String) = DriveAssetObject(char.repeat(64), 1)
+    private fun manifest(project: String, revision: String, time: Long, vararg assets: DriveAssetObject) =
+        DriveProjectRevisionManifest(project, revision, null, time, "f".repeat(64), assets.toList())
+
+    private class FakeStore(
+        private val manifests: List<DriveProjectRevisionManifest>,
+        private val assets: List<DriveGcCandidate>,
+        private val fail: String? = null,
+    ) : UnifiedDriveGarbageCollectionStore {
+        val deleted = mutableListOf<String>()
+        override suspend fun listCommittedManifests() = manifests
+        override suspend fun listAssets() = assets
+        override suspend fun deleteAsset(asset: DriveAssetObject): Boolean {
+            if (asset.sha256 == fail) return false
+            deleted += asset.sha256
+            return true
+        }
+    }
+}

@@ -21,6 +21,7 @@ import studio.guitarlab.core.audio.AudioProbeOperation
 import studio.guitarlab.core.audio.AudioProbeReportFormatter
 import studio.guitarlab.core.audio.AudioProbeResult
 import studio.guitarlab.core.audio.AudioTransport
+import studio.guitarlab.core.audio.RecordingSessionHealthRecord
 import studio.guitarlab.platform.audio.android.AndroidAudioProbeEngine
 
 data class AudioProbeUiState(
@@ -32,6 +33,7 @@ data class AudioProbeUiState(
     val stopping: Boolean = false,
     val lastResult: AudioProbeResult? = null,
     val eventLog: List<String> = emptyList(),
+    val sessionHealth: List<RecordingSessionHealthRecord> = emptyList(),
     val error: String? = null,
 ) {
     val inputs: List<AudioDeviceDescriptor> get() = devices.filter { it.supports(AudioDirection.INPUT) }
@@ -40,7 +42,15 @@ data class AudioProbeUiState(
 
 class AudioProbeViewModel(application: Application) : AndroidViewModel(application) {
     private val engine = AndroidAudioProbeEngine(application)
-    private val _state = MutableStateFlow(AudioProbeUiState(permissionGranted = hasRecordPermission(application)))
+    private val healthStore = RecordingSessionHealthStore(application)
+    private val routingStore = StudioAudioRoutingStore(application)
+    private val latencyStore = StudioLatencyCalibrationStore(application)
+    private val _state = MutableStateFlow(
+        AudioProbeUiState(
+            permissionGranted = hasRecordPermission(application),
+            sessionHealth = healthStore.history(),
+        )
+    )
     val state: StateFlow<AudioProbeUiState> = _state.asStateFlow()
 
     init {
@@ -83,6 +93,7 @@ class AudioProbeViewModel(application: Application) : AndroidViewModel(applicati
                             devices = devices,
                             selectedInputKey = retainOrChoose(current.selectedInputKey, devices, AudioDirection.INPUT),
                             selectedOutputKey = retainOrChoose(current.selectedOutputKey, devices, AudioDirection.OUTPUT),
+                            sessionHealth = healthStore.history(),
                             error = null,
                             eventLog = appendLog(current.eventLog, "Atualização manual concluída (${devices.size})."),
                         )
@@ -108,6 +119,19 @@ class AudioProbeViewModel(application: Application) : AndroidViewModel(applicati
             appendLine("Aplicativo: GuitarLab Studio ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})")
             appendLine("Android: ${Build.VERSION.RELEASE} / API ${Build.VERSION.SDK_INT}")
             appendLine("Dispositivo: ${Build.MANUFACTURER} ${Build.MODEL}")
+            appendLine("Rota do Studio — entrada: ${routingStore.selectedInputDiagnosticIdentity() ?: "automática"}")
+            appendLine("Rota do Studio — saída: ${routingStore.selectedOutputDiagnosticIdentity() ?: "automática"}")
+            val inputSignature = routingStore.selectedInputSignature()
+            val outputSignature = routingStore.selectedOutputSignature()
+            listOf(44_100, 48_000, 88_200, 96_000).forEach { rate ->
+                latencyStore.find(inputSignature, outputSignature, rate)?.let { calibration ->
+                    appendLine(
+                        "Calibração $rate Hz: latency=${calibration.latencyFrames}f jitter=${calibration.jitterFrames}f " +
+                            "drift=${"%.1f".format(calibration.driftPpm)}ppm confidence=${"%.0f".format(calibration.confidence * 100f)}% " +
+                            "attempts=${calibration.attempts} accepted=${calibration.accepted}"
+                    )
+                }
+            }
             appendLine()
             append(
                 AudioProbeReportFormatter.format(
@@ -117,7 +141,34 @@ class AudioProbeViewModel(application: Application) : AndroidViewModel(applicati
                     result = snapshot.lastResult,
                 )
             )
+            appendLine()
+            appendLine()
+            appendLine("Recording Session Health (mais recente primeiro)")
+            if (snapshot.sessionHealth.isEmpty()) {
+                appendLine("- Nenhuma sessão de gravação registrada.")
+            } else {
+                snapshot.sessionHealth.asReversed().forEachIndexed { index, record ->
+                    appendLine("- #${index + 1}: ${formatSessionHealth(record)}")
+                }
+            }
         }
+    }
+
+    private fun formatSessionHealth(record: RecordingSessionHealthRecord): String = buildString {
+        append(record.healthClass.name)
+        append(" | ${record.sampleRateHz} Hz")
+        append(" | evidence=${record.timingEvidenceBasis}")
+        append(" | delta=${record.sessionDeltaFrames}f")
+        append(" | routeLatency=${record.acceptedRouteLatencyFrames}f")
+        append(" | fine=${record.residualFineAdjustmentFrames}f")
+        append(" | captured=${record.capturedFrames}f")
+        append(" | in=${record.effectiveInputIdentity ?: record.selectedInputIdentity ?: "auto"}")
+        append(" | out=${record.effectiveOutputIdentity ?: record.selectedOutputIdentity ?: "auto"}")
+        if (record.outputFallback) append(" | outputFallback=true")
+        if (record.routeChanged) append(" | routeChanged=true")
+        if (record.inputZeroReadEvents > 0) append(" | zeroReads=${record.inputZeroReadEvents}")
+        record.outputUnderrunCount?.takeIf { it > 0 }?.let { append(" | underruns=$it") }
+        record.failureReason?.let { append(" | failure=$it") }
     }
 
     private fun run(operation: AudioProbeOperation) {

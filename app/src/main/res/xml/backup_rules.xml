@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+    <!-- Drive authorization/account binding and resumable-session capability URLs are device-local; never back them up. -->
+    <exclude domain="sharedpref" path="guitarlab_drive_connection.xml" />
+    <exclude domain="sharedpref" path="guitarlab_drive_backup_state.xml" />
+</full-backup-content>

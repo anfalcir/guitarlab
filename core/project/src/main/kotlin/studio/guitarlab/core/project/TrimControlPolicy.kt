@@ -32,6 +32,20 @@ object TrimControlPolicy {
         return clip.startFrame + remainingFromCurrentSourceStart
     }
 
+    /** Maps a horizontal pointer position to the visible timeline domain of a clip. */
+    fun visibleFrameAtPointerX(clip: AudioClip, pointerXPx: Float, widthPx: Float): Long {
+        require(clip.lengthFrames > 0L) { "Trim requires a non-empty clip." }
+        require(widthPx > 0f && widthPx.isFinite()) { "Trim width must be finite and positive." }
+        val fraction = (pointerXPx / widthPx).coerceIn(0f, 1f)
+        return clip.startFrame + (clip.lengthFrames.toDouble() * fraction.toDouble()).toLong()
+    }
+
+    /** Converts a visible timeline frame back to the normalized horizontal position. */
+    fun visibleFractionForFrame(clip: AudioClip, frame: Long): Float {
+        require(clip.lengthFrames > 0L) { "Trim requires a non-empty clip." }
+        return ((frame - clip.startFrame).toDouble() / clip.lengthFrames.toDouble()).toFloat().coerceIn(0f, 1f)
+    }
+
     fun moveStart(state: TrimControlState, requestedFrame: Long, clip: AudioClip): TrimControlState {
         require(state.clipId == clip.id) { "Trim state does not belong to clip '${clip.id}'." }
         val maxStart = (state.endFrame - 1L).coerceAtLeast(minimumStartFrame(clip))
