@@ -45,7 +45,9 @@ class UnifiedDriveBackupDomainTest {
         assertTrue(first.isCompleteProjectSnapshot)
         assertEquals(first.canonicalBytes().decodeToString(), second.canonicalBytes().decodeToString())
         assertEquals(first.manifestSha256, second.manifestSha256)
-        assertEquals(first, DriveProjectRevisionManifest.parseCanonical(first.canonicalBytes()))
+        val parsed = DriveProjectRevisionManifest.parseCanonical(first.canonicalBytes())
+        assertEquals(first.canonicalBytes().decodeToString(), parsed.canonicalBytes().decodeToString())
+        assertEquals(listOf("media/source.wav", "media/take.wav"), parsed.fileEntries.map { it.relativePath })
         val stateOnly = first.copy(assets = listOf(state), fileEntries = emptyList())
         assertEquals(stateOnly, DriveProjectRevisionManifest.parseCanonical(stateOnly.canonicalBytes()))
         assertFailsWith<IllegalArgumentException> {
