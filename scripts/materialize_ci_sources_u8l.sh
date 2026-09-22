@@ -4,12 +4,14 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PREVIOUS="$ROOT/scripts/materialize_ci_sources_u8k.sh"
 PAYLOAD="$ROOT/.source-parts/U8lNetworkFaultGate.patch.b64"
-PAYLOAD_SHA256="631f98be5d683dceda292e9ef37510f12ee43eca3951326bc7f4c046d43e05b4"
-PATCH_SHA256="a50bbc41f82f6a4cd023017c58f3f8bfb590b57516e494d8bb077604d735924d"
+PAYLOAD_SHA256="daac2fa9e2c81ad451fcc6bbf3db208e61d26292e74905c7c1b3d2aa8d964afb"
+PATCH_SHA256="dfbe639c886383449320ca24584cc4bd9fe34564adaabc2436e36970cacb03e3"
 
 declare -a FILES=(
+  "app/src/main/java/studio/guitarlab/app/backup/AutomaticBackupWorker.kt"
   "app/src/main/java/studio/guitarlab/app/backup/DriveV3Protocol.kt"
   "app/src/main/java/studio/guitarlab/app/backup/UnifiedDriveProductionAccess.kt"
+  "app/src/main/java/studio/guitarlab/app/backup/UnifiedDriveProductionService.kt"
   "app/src/main/java/studio/guitarlab/app/backup/UnifiedDriveV3RemoteStore.kt"
   "app/src/test/java/studio/guitarlab/app/backup/DriveV3NetworkFaultTest.kt"
   "app/src/test/java/studio/guitarlab/app/backup/DriveV3ProtocolTest.kt"
@@ -17,8 +19,10 @@ declare -a FILES=(
 )
 
 declare -a HASHES=(
+  "a3b63b708271a0c929941325ce936dc84e01673d"
   "5e3e1c66d8a8d028ac922624fad163a26cf6a85a"
   "e450220a850d60ac9a45f8a3542e2598b554c999"
+  "dfac08b30e9025100472d57196263976ee175755"
   "252421a2a090711724a1c7180640b59220a902fd"
   "5a985554d71819d68f55a51bde7bdc28a4903ddc"
   "3e75b4a2c0d883dd849668f6b91addff68b68b0f"
