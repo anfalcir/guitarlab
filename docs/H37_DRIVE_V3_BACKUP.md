@@ -1,9 +1,9 @@
 # H37 — Native Google Drive API v3 Backup Transport
 
-Status: **H37b SOURCE PRE-GATE**
-Updated: 2026-09-20
-Target line: `0.5.0-rc4` / versionCode `24`
-Signed authority remains: **CI #663 / `0.5.0-rc3`** until the manual canonical gate passes.
+Status: **CLOSED / ABSORBED INTO UNIFIED U8 DRIVE v3 PRODUCTION PATH**
+Updated: 2026-09-22
+Historical transport candidate: `0.5.0-rc4` / versionCode `24`
+Signed rc4 authority: **CI #669 / run `35591631207`**. Provider-real unified acceptance: **U8m PASS · r_1790095960 · cleanup 8/8/14**. U11 rc5/25 is the active release freeze.
 
 ## Purpose
 H37 replaces SAF as the primary backup transport with direct client-side Google Drive API v3 while preserving the H28 backup domain contract. Firebase, Cloud Functions, Cloud Run, service accounts and backend token custody are intentionally not part of the backup data path.
@@ -12,7 +12,7 @@ Data path:
 
 `GuitarLab Android -> Google Identity Services OAuth -> Drive API v3 -> user's Google Drive`
 
-The legacy SAF implementation remains only as a one-time migration source for users who already have H26-H28 history.
+The legacy SAF implementation is historical compatibility code only. Under the 2026-09-21 clean-cutover decision, migrating H26-H28/standalone histories is not a unified-release requirement; current unified projects use the Drive v3 path.
 
 ## Security and authorization contract
 - OAuth scope: `https://www.googleapis.com/auth/drive.file` only.
@@ -87,17 +87,9 @@ Interrupted or incomplete `uploading` files are never returned by the restore ca
 ## Deterministic package bytes
 `ProjectBundleWriter` now writes deterministic ZIP entry timestamps and already sorts referenced media paths. Regenerating the same persisted revision therefore produces the same package bytes, allowing a resumable session to remain safe across Android process death.
 
-## Legacy SAF migration
-H37 can copy the complete committed H26-H28 SAF history to Drive.
+## Legacy SAF migration — historical only
 
-Migration rules:
-- validates the persisted SAF read/write permission first;
-- preserves `projectId`, `revisionId`, timestamps and package SHA-256;
-- skips a Drive revision only when revision identity, size and SHA-256 match;
-- validates every SAF package locally before upload;
-- never deletes legacy remote content;
-- releases the old SAF permission and removes the local legacy destination only after the migration finishes with zero failures;
-- any partial failure leaves the SAF destination intact and reports the affected projects.
+The H37 migration design is retained for traceability but is **not a U11/U12 release gate**. The clean-cutover decision retired U9 because no retained production corpus requires automatic migration. Current unified-line backup/restore validation targets the direct Drive v3 representation and current unified project schema.
 
 ## Automatic backup
 The existing WorkManager scheduling policy is retained, but jobs are scheduled only when Drive is connected. Existing cadence, unmetered-network, charging, battery/storage guards, edit coalescing and retention semantics remain intact.
