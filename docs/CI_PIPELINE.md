@@ -14,22 +14,29 @@ Authority layers:
 `.source-parts/` + `scripts/materialize_ci_sources.sh` are source-of-truth build inputs. Unexpected drift fails closed by exact SHA-256/Git blob checks.
 
 Canonical source tail continues through the historical H-series and unified
-U-series to **U8m**. The canonical entrypoint is
-`scripts/materialize_ci_sources.sh`, which currently delegates to
-`scripts/materialize_ci_sources_u8m.sh`; U8m invokes U8l and the complete
-preceding fail-closed chain. U8m verifies payload SHA-256
-`d1f18b0d4bfa3e994c87808293dbce101d54fd4aba3ab4ecd3a4e7f83c367a2d`, decoded
-patch SHA-256 `51a56dd12f73fe9686e9d41457bca366168a568c1ce7aa34ce8d845c5c9a52ab`,
-all seven terminal production/test Git blobs, apply/check/diff sanity and a
-reverse-apply ready-state check. Android CI #757 / run `35753982993` validated
-this exact tail at technical source `2375dcb72983376cb486eccf41faf1734633cc94` with the software and API36 gates
-fully green; signed homologation was intentionally skipped.
+U-series to **U10zb**. The canonical entrypoint is
+`scripts/materialize_ci_sources.sh`, which delegates to
+`scripts/materialize_ci_sources_u10zb.sh`; U10zb invokes U10za and the complete
+preceding fail-closed chain through U8m/U10. The current tail verifies the
+U10zb patch blob, exact terminal test blob, semantic assertions, `git diff --check`
+and reverse-apply ready state. Android CI #781 / run `35791192802` validated
+this exact tail at technical source `2aa97aa8b2c3af91d35e7d48a0eeb89c2c330e63` with the software and API36 gates
+fully green. The API36 gate proved 23/23 classified instrumented classes,
+76 observed tests and 24/24 required C8 screenshots. Signed homologation was
+intentionally skipped because U11 owns candidate freeze and signing.
 
 U8m then completed the separate provider-real acceptance gate through the same
 production vNext Drive transport/store. Result: `U8m PASS · r_1790095960 · cleanup 8/8/14`; sanitized report
 SHA-256 `84efb70615be8ef5939da538eee5f714f7311aa6d44dd5bb2cdd0b5e9e66b702`. This provider gate authorizes closure of U8 but is not a
 signed release promotion. CI #669 remains the latest signed authority until the
 U11 candidate freeze.
+
+U10/C8 closure is recorded in `docs/U10_FINAL_DIGITAL_COHESION_GATE.md`. The
+#781 integration artifact digest is
+`sha256:1c355f88bef4e20393a5c26c39fb4db94da8383089023724988af55953f509e3`;
+its exact-source artifact digest is
+`sha256:e17472db3fc95fe2ae2e49c56571f06f72a0465c4fbbeecb0ad14e7c0d02210f`.
+These are unsigned technical/cohesion authorities only.
 
 The previously accepted historical materializers remain preserved as evidence.
 For current builds, never infer the active source from an older H-series tail
