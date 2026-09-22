@@ -4,8 +4,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PREVIOUS="$ROOT/scripts/materialize_ci_sources_u8j.sh"
 PAYLOAD="$ROOT/.source-parts/U8kProductionDriveCutover.patch.b64"
-PAYLOAD_SHA256="aebd8c7f58cbc524375f15641bdaa3c55f367f78fa891cba8606ca83331dea4c"
-PATCH_SHA256="cc395240210817e74209427a27a85b2901e53dbf86ee32651d65e8df57367fe5"
+PAYLOAD_SHA256="828303c397ab248f670f9824d0789d29186fcd4cb165c8a66c40e340e96957b6"
+PATCH_SHA256="74bf509b79d8e74c87621b0422aaa9fb0bf7bb3d7732e9ff06ba5447c7af507b"
 
 declare -a FILES=(
   "app/src/androidTest/java/studio/guitarlab/app/BackupScreenInstrumentedTest.kt"
@@ -32,7 +32,7 @@ declare -a HASHES=(
   "0ba93b5ffecd7bda0990fb8fab24f61208697d3f"
   "8b4edc8f1726bb66a3e8e2561da377923bf87d50"
   "13ac8c39d5928bab79e89a2a9ad449128cee055a"
-  "eb0fe74995ff2825bd664d689b44e7ada734cd1f"
+  "fdcde97f0ce03f9f6c75a7cffaba2c3521386e6e"
   "951c25b5bc9188a5b3bff1bd93bd8f78c88516a0"
   "627439bffbe6f630eea9e8825c91b4a5712d481b"
   "1baf6a31cdcedadcd148658bd307785754e5b18b"
