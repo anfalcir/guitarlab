@@ -5,7 +5,7 @@ Updated: 2026-09-22
 ## Contract
 `.github/workflows/android-ci.yml` supports manual `workflow_dispatch` and controlled `main` commit triggers. A commit containing `[run ci]` runs the software and API 36 gates; `[run ci signed]` additionally produces the signed homologation APK. Ordinary commits retain `[skip ci]` and do not consume hosted CI. This workstream is authorized to use and monitor the controlled triggers while executing the unified roadmap.
 
-Current release phase: **U11 active**, candidate `0.5.0-rc5` / versionCode `25`. U10/C8 technical authority is #781; CI #669 remains the signed authority until the U11 signed freeze succeeds.
+Current release phase: **U11 CLOSED / U12 ACTIVE**. The frozen signed candidate is `0.5.0-rc5` / versionCode `25`, producer `4218e4343746932a4de61c5abaa29ba5769a30ed`, Android CI #783 / run `35793456972`. Signed APK SHA-256: `795839766f2b7546af53b2c56a0638b11c25b79622fe73cce5860b5602f050e0`.
 
 Authority layers:
 1. **software gate** — deterministic source materialization, JVM/unit/audio/DSP/persistence/migration tests, performance evidence, Lint, debug/release assembly and unsigned provenance;
@@ -30,8 +30,7 @@ intentionally skipped because U11 owns candidate freeze and signing.
 U8m then completed the separate provider-real acceptance gate through the same
 production vNext Drive transport/store. Result: `U8m PASS · r_1790095960 · cleanup 8/8/14`; sanitized report
 SHA-256 `84efb70615be8ef5939da538eee5f714f7311aa6d44dd5bb2cdd0b5e9e66b702`. This provider gate authorizes closure of U8 but is not a
-signed release promotion. CI #669 remains the latest signed authority until the
-U11 candidate freeze.
+signed release promotion. CI #783 is now the latest signed authority for the U12 physical campaign.
 
 U10/C8 closure is recorded in `docs/U10_FINAL_DIGITAL_COHESION_GATE.md`. The
 #781 integration artifact digest is
