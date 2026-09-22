@@ -9,7 +9,7 @@ index a1bc98b..6a0ccb1 100644
 +    /** Desired reference revision explicitly kept or applied by the Studio user. */
 +    val acknowledgedReferenceRevisionId: String? = null,
  )
- 
+
  @Serializable data class ReferenceBinding(
 diff --git a/core/project/src/main/kotlin/studio/guitarlab/core/project/PreparedReferencePipeline.kt b/core/project/src/main/kotlin/studio/guitarlab/core/project/PreparedReferencePipeline.kt
 index b09d04d..ad9644a 100644
@@ -42,7 +42,7 @@ index b09d04d..ad9644a 100644
 +            ),
 +        )
      }
- 
+
      fun applyInitialBindings(project: GuitarProject, now: Long, idFactory: () -> String): GuitarProject {
 @@ -320,7 +340,12 @@ object PreparedReferenceBindingPolicy {
              val track = targetTrack(next, kind) ?: return@forEach
@@ -56,12 +56,12 @@ index b09d04d..ad9644a 100644
 +            ),
 +        )
      }
- 
+
      private fun desired(project: GuitarProject): Map<ReferenceBindingKind, ManagedAsset> {
 @@ -341,6 +366,15 @@ object PreparedReferenceBindingPolicy {
          }
      }
- 
+
 +    private fun desiredRevisionId(desired: Map<ReferenceBindingKind, ManagedAsset>): String {
 +        val canonical = desired.entries.sortedBy { it.key.name }.joinToString("\n", prefix = "prepared-reference-v1\n") {
 +            (kind, asset) -> "${kind.name}:${asset.assetId}:${asset.sha256}"
@@ -101,7 +101,7 @@ index 8e33632..5b6d2c5 100644
 @@ -106,6 +110,28 @@ class PreparedReferencePipelineTest {
          assertFalse(PreparedReferenceBindingPolicy.updateAvailable(redone))
      }
- 
+
 +    @Test fun keepCurrentAcknowledgesExactPreparedRevisionDurablyWithoutChangingCreativeState() {
 +        val fixture = fixture()
 +        val first = fixture.service.prepare(fixture.projectId).project
@@ -161,7 +161,7 @@ index 61f26c2..673949b 100644
              runCatching {
 @@ -376,7 +376,33 @@ class StudioViewModel(application: Application) : AndroidViewModel(application)
      }
- 
+
      fun keepCurrentPreparedReferences() {
 -        _state.value = _state.value.copy(preparedReferenceUpdateAvailable = false, transientNotice = "Referências atuais mantidas nesta sessão.")
 +        val currentState = _state.value
@@ -192,7 +192,7 @@ index 61f26c2..673949b 100644
 +            }
 +        }
      }
- 
+
      fun importAudio(trackId: String, uri: Uri) {
 diff --git a/app/src/main/java/studio/guitarlab/app/ui/StudioShellScreen.kt b/app/src/main/java/studio/guitarlab/app/ui/StudioShellScreen.kt
 index eea467a..a6e54fe 100644
@@ -238,7 +238,7 @@ index eea467a..a6e54fe 100644
 @@ -328,6 +337,24 @@ fun StudioShellScreen(
          StudioUserGuideDialog(onDismiss = { helpDialogVisible = false })
      }
- 
+
 +    val mediaProject = state.project
 +    if (projectMediaVisible && mediaProject != null) {
 +        ProjectMediaDialog(
@@ -257,9 +257,9 @@ index eea467a..a6e54fe 100644
 +        )
 +    }
 +
- 
+
  }
- 
+
 diff --git a/app/src/androidTest/java/studio/guitarlab/app/UnifiedProjectShellInstrumentedTest.kt b/app/src/androidTest/java/studio/guitarlab/app/UnifiedProjectShellInstrumentedTest.kt
 index b7189cb..2039644 100644
 --- a/app/src/androidTest/java/studio/guitarlab/app/UnifiedProjectShellInstrumentedTest.kt
@@ -275,7 +275,7 @@ index b7189cb..2039644 100644
 @@ -126,6 +127,39 @@ class UnifiedProjectShellInstrumentedTest {
          composeRule.runOnIdle { check(openedStudio) }
      }
- 
+
 +    @Test fun projectMediaSurfaceExplainsManagedAssetsAndOffersExplicitReferenceChoice() {
 +        val backing = asset("backing", AssetRole.REFERENCE_BACKING)
 +        val project = GuitarProject(
