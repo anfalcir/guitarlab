@@ -1,0 +1,11 @@
+diff --git a/scripts/ci_run_api36_regression_groups.sh b/scripts/ci_run_api36_regression_groups.sh
+--- a/scripts/ci_run_api36_regression_groups.sh
++++ b/scripts/ci_run_api36_regression_groups.sh
+@@ -11,6 +11,7 @@ DIAG_ROOT="$ROOT/ci-diagnostics/api36-groups"
+ mkdir -p "$DIAG_ROOT"
+ 
+ GROUP1_CLASSES=(
++  CohesionResponsiveAccessibilityInstrumentedTest
+   GuitarLabLifecycleInstrumentedTest
+   HomeProjectLibraryInstrumentedTest
+   ProjectDeleteConfirmationInstrumentedTest
