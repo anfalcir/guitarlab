@@ -14,7 +14,6 @@ import studio.guitarlab.app.activity.AppNotificationDeepLink
 import studio.guitarlab.app.activity.UnifiedActivityStore
 import studio.guitarlab.app.ui.AppScreen
 import studio.guitarlab.core.project.BackupRetentionPolicy
-import studio.guitarlab.core.project.ProjectBackupCoordinator
 import studio.guitarlab.core.project.UnifiedOperationKind
 import studio.guitarlab.core.project.UnifiedOperationState
 
@@ -28,47 +27,90 @@ class AutomaticBackupWorker(
         if (!settings.driveConnected || !settings.automaticEnabled) return Result.success()
         val operationId = "automatic-backup"
         val activity = UnifiedActivityStore(applicationContext)
-        val confirmedRevisions = ConfirmedRevisionStore(applicationContext)
+        val unifiedDrive = UnifiedDriveProductionService(applicationContext)
         activity.record(operationId, null, UnifiedOperationKind.BACKUP, UnifiedOperationState.RUNNING, null, "Backup automático em andamento")
 
         setForeground(createForegroundInfo(operationId))
-        return BackupOperationLock.withLock {
-            val remote = DriveV3BackupRemoteStore(applicationContext)
-            val report = try {
-                ProjectBackupCoordinator(applicationContext.filesDir, remote).backupAll(
-                    force = false,
-                    retentionPolicy = BackupRetentionPolicy(settings.retentionDays, settings.maximumVersions),
-                )
-            } catch (error: Throwable) {
-                if (error is CancellationException) throw error
-                val message = error.message ?: "Falha inesperada no backup automático."
-                settingsStore.recordError(message)
-                activity.record(operationId, null, UnifiedOperationKind.BACKUP, UnifiedOperationState.FAILED, null, "Backup automático interrompido", message)
-                return@withLock when {
-                    error is DriveAuthorizationRequiredException -> Result.failure()
-                    error is IOException && runAttemptCount < 4 -> Result.retry()
-                    else -> Result.failure()
+        return try {
+            BackupOperationLock.withLock {
+                val report = try {
+                    unifiedDrive.backupAll(
+                        retentionPolicy = BackupRetentionPolicy(
+                            settings.retentionDays,
+                            settings.maximumVersions,
+                        ),
+                    )
+                } catch (error: Throwable) {
+                    if (error is CancellationException) throw error
+                    val message = error.message ?: "Falha inesperada no backup automático."
+                    settingsStore.recordError(message)
+                    val retry = error is IOException && runAttemptCount < 4
+                    activity.record(
+                        operationId,
+                        null,
+                        UnifiedOperationKind.BACKUP,
+                        if (retry) UnifiedOperationState.RETRYING else UnifiedOperationState.FAILED,
+                        null,
+                        if (retry) "Backup automático aguardando nova tentativa" else "Backup automático interrompido",
+                        message,
+                    )
+                    return@withLock when {
+                        error is DriveAuthorizationRequiredException -> Result.failure()
+                        retry -> Result.retry()
+                        else -> Result.failure()
+                    }
+                }
+                val summary = report.userSummary("Backup automático")
+                val failure = report.userFailureDetail()
+                if (failure == null) {
+                    settingsStore.recordSuccess(summary)
+                    activity.record(
+                        operationId,
+                        null,
+                        UnifiedOperationKind.BACKUP,
+                        UnifiedOperationState.SUCCEEDED,
+                        100,
+                        summary,
+                    )
+                    Result.success()
+                } else {
+                    settingsStore.recordPartial(summary, failure)
+                    val authorizationBlocked = report.attempts.any { attempt ->
+                        attempt.error?.contains(
+                            DriveAuthorizationRequiredException.MESSAGE,
+                            ignoreCase = true,
+                        ) == true
+                    }
+                    val retry =
+                        !authorizationBlocked &&
+                            report.committedCount == 0 &&
+                            runAttemptCount < 4
+                    activity.record(
+                        operationId,
+                        null,
+                        UnifiedOperationKind.BACKUP,
+                        if (retry) UnifiedOperationState.RETRYING else UnifiedOperationState.FAILED,
+                        null,
+                        if (retry) "Backup automático aguardando nova tentativa" else "Backup automático parcial",
+                        failure,
+                    )
+                    when {
+                        authorizationBlocked -> Result.failure()
+                        retry -> Result.retry()
+                        else -> Result.success()
+                    }
                 }
             }
-            confirmedRevisions.record(report)
-            val summary = report.userSummary("Backup automático")
-            val failure = report.userFailureDetail()
-            if (failure == null) {
-                settingsStore.recordSuccess(summary)
-                activity.record(operationId, null, UnifiedOperationKind.BACKUP, UnifiedOperationState.SUCCEEDED, 100, summary)
-                Result.success()
-            } else {
-                settingsStore.recordPartial(summary, failure)
-                activity.record(operationId, null, UnifiedOperationKind.BACKUP, UnifiedOperationState.FAILED, null, "Backup automático parcial", failure)
-                val authorizationBlocked = report.attempts.any { attempt ->
-                    attempt.error?.contains(DriveAuthorizationRequiredException.MESSAGE, ignoreCase = true) == true
-                }
-                when {
-                    authorizationBlocked -> Result.failure()
-                    report.committedCount == 0 && runAttemptCount < 4 -> Result.retry()
-                    else -> Result.success()
-                }
-            }
+        } catch (error: CancellationException) {
+            activity.record(
+                operationId,
+                null,
+                UnifiedOperationKind.BACKUP,
+                UnifiedOperationState.CANCELLED,
+                null,
+                "Backup automático cancelado",
+            )
+            throw error
         }
     }
 
