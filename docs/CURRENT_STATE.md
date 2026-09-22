@@ -30,14 +30,30 @@ Updated: 2026-09-22
 
 ## Active line
 - Repository/branch: `anfalcir/guitarlab` / `main`.
-- Active U11 candidate: `0.5.0-rc5`, versionCode `25`, package `studio.guitarlab.app`. **U10/C8 is CLOSED / DIGITAL PASS and U11 is active.** The exact U10 technical source is `2aa97aa8b2c3af91d35e7d48a0eeb89c2c330e63`; Android CI #781 / run `35791192802` passed deterministic materialization through U10zb, software/Lint/build gates and all five API 36 groups. The C8 gate retained 24/24 screenshots and deterministic visual review passed. The rc5 identity is reserved for the one U11 exact freeze; it is not a signed authority until that freeze run passes.
-- Latest signed version is `0.5.0-rc4`, versionCode `24`, package `studio.guitarlab.app`.
-- Latest signed DIGITAL PASS: **CI #669** / run `35591631207` / producer `14b69271f2ae04529fa14475e1a34f2fdd864553`.
+- **U11 is CLOSED / DIGITAL PASS; U12 is active.** Exact signed candidate: `0.5.0-rc5`, versionCode `25`, package `studio.guitarlab.app`, producer `4218e4343746932a4de61c5abaa29ba5769a30ed`. Android CI #783 / run `35793456972`, U4 Cloud Integration Smoke #104 / run `35793456955` and U7 Cloud Backend #62 / run `35793456941` all passed on that same freeze SHA. The candidate is now bound to the consolidated SM-X230 + MK-300 U12 physical campaign.
+- Latest signed version is `0.5.0-rc5`, versionCode `25`, package `studio.guitarlab.app`.
+- Latest signed DIGITAL PASS: **Android CI #783** / run `35793456972` / producer `4218e4343746932a4de61c5abaa29ba5769a30ed`.
 - #663 scope: H28 → H29 → H30 → H31 → H32 → H33 → H33a → H33b → H34 → H35 → H35a → H36 → H36a → H36b → H36c.
-- Signed APK SHA-256: `8e6e0f555bc5e834c4bccbdb011134c42d124806ce0316dd28787a6c98fe7bf3`.
-- Signed APK size: `13,835,802` bytes.
+- Signed APK SHA-256: `795839766f2b7546af53b2c56a0638b11c25b79622fe73cce5860b5602f050e0`.
+- Signed APK size: `82,894,480` bytes.
 - Locked signer SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
 - CI supports manual dispatch and controlled `[run ci]` / `[run ci signed]` triggers on `main`; ordinary commits remain `[skip ci]`.
+
+## U11 closure evidence
+- exact frozen producer: `4218e4343746932a4de61c5abaa29ba5769a30ed`;
+- Android CI #783 / run `35793456972`: PASS;
+- software gate, Android Lint, debug/release assembly and exact unsigned provenance: PASS;
+- API36: 23/23 classified instrumented classes, 76 observed tests across 5/5 groups PASS;
+- screenshot matrix: 24/24 PASS;
+- target-tablet geometry: 1920×1200 PASS;
+- signed homologation: PASS;
+- U4 Cloud Integration Smoke #104 / run `35793456955`: PASS, six-stem real Cloud Run contract + cleanup;
+- U7 Cloud Backend #62 / run `35793456941`: PASS, tests/schema/script/secret-hygiene/container build; deploy skipped;
+- unsigned APK SHA-256: `6af047a1f40b0e08382a5cca74890bc186aad68a3207a14e20a87cde5df9bc2c`;
+- signed APK SHA-256: `795839766f2b7546af53b2c56a0638b11c25b79622fe73cce5860b5602f050e0`;
+- signer SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`;
+- detailed evidence: `docs/U11_FINAL_DIGITAL_RELEASE_GATE.md`;
+- physical campaign: `docs/U12_FINAL_PHYSICAL_HOMOLOGATION.md`.
 
 ## U10 / C8 closure evidence
 - exact technical source: `2aa97aa8b2c3af91d35e7d48a0eeb89c2c330e63`;
@@ -58,7 +74,7 @@ Updated: 2026-09-22
 - real-provider result: `U8m PASS · r_1790095960 · cleanup 8/8/14`;
 - sanitized report SHA-256: `84efb70615be8ef5939da538eee5f714f7311aa6d44dd5bb2cdd0b5e9e66b702`;
 - acceptance used a dedicated Android OAuth client for the debug signing identity solely to authorize the controlled real-Drive campaign; this does not supersede the official signed candidate identity;
-- latest signed authority remains CI #669 / run `35591631207` until U11 freezes a new signed candidate.
+- provider-real U8m evidence remains supporting authority; the latest signed authority is now U11/CI #783.
 
 ## U5 digital evidence
 Canonical U5 source: `4bada624e68f8a55ff22830e1dc276c8d51af223`.
