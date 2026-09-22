@@ -1,0 +1,143 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gbw.local/schemas/result-manifest.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "jobId",
+    "uid",
+    "projectId",
+    "inputSha256",
+    "engine",
+    "engineRevision",
+    "model",
+    "modelSha256",
+    "sampleRate",
+    "channels",
+    "frames",
+    "duration",
+    "startedAt",
+    "completedAt",
+    "wallTimeMs",
+    "vCPU",
+    "blasThreads",
+    "demucsThreads",
+    "inferenceStrategy",
+    "stems"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "jobId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "uid": {
+      "type": "string",
+      "minLength": 1
+    },
+    "projectId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "inputSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "engine": {
+      "const": "demucs.cpp"
+    },
+    "engineRevision": {
+      "type": "string"
+    },
+    "model": {
+      "const": "htdemucs_6s"
+    },
+    "modelSha256": {
+      "const": "09704f4ceae204e56e77d5eefd6ac71d7275be81fd507e6913371d59abcee856"
+    },
+    "sampleRate": {
+      "const": 44100
+    },
+    "channels": {
+      "const": 2
+    },
+    "frames": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "duration": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "startedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "completedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "wallTimeMs": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "vCPU": {
+      "const": 8
+    },
+    "blasThreads": {
+      "const": 2
+    },
+    "stems": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 6,
+      "items": {
+        "$ref": "#/$defs/stem"
+      }
+    },
+    "demucsThreads": {
+      "const": 4
+    },
+    "inferenceStrategy": {
+      "const": "mt4_omp2"
+    }
+  },
+  "$defs": {
+    "stem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "path",
+        "bytes",
+        "sha256"
+      ],
+      "properties": {
+        "name": {
+          "enum": [
+            "drums",
+            "bass",
+            "other",
+            "vocals",
+            "guitar",
+            "piano"
+          ]
+        },
+        "path": {
+          "type": "string"
+        },
+        "bytes": {
+          "type": "integer",
+          "minimum": 45
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,189 @@
+name: U7 Cloud Backend
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Verification or controlled cloud stage
+        required: true
+        default: verify
+        type: choice
+        options: [verify, shadow, production]
+      confirm:
+        description: Type DEPLOY for cloud modes
+        required: false
+        default: ""
+        type: string
+      production_confirm:
+        description: Type PRODUCTION for production cutover
+        required: false
+        default: ""
+        type: string
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: guitarlab-u7-cloud-backend
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: Verify backend source and container
+    if: >-
+      github.repository_id == '1361533070' &&
+      github.repository_owner_id == '216095257' &&
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[run u7 cloud]'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout exact GuitarLab source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.12'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: cloud/remote-separation/functions/package-lock.json
+
+      - name: Verify immutable repository boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY_ID" = "1361533070"
+          test "$GITHUB_REPOSITORY_OWNER_ID" = "216095257"
+          test "$GITHUB_REF" = "refs/heads/main"
+          git diff --check
+
+      - name: Test worker and Functions
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s cloud/remote-separation/worker/tests -v
+          npm ci --prefix cloud/remote-separation/functions
+          npm test --prefix cloud/remote-separation/functions
+
+      - name: Validate schemas, scripts and secret hygiene
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m json.tool cloud/remote-separation/schemas/remote-job.schema.json >/dev/null
+          python3 -m json.tool cloud/remote-separation/schemas/result-manifest.schema.json >/dev/null
+          find cloud/remote-separation scripts -type f -name '*.sh' -print0 | xargs -0 -n1 bash -n
+          ! grep -RIE --exclude-dir=node_modules --exclude-dir=lib '(BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY|"private_key"[[:space:]]*:|AIza[0-9A-Za-z_-]{30,})' cloud/remote-separation .github/workflows/u7-cloud-backend.yml
+
+      - name: Build worker container without publishing
+        run: docker build --pull --tag guitarlab-u7-worker:${GITHUB_SHA} cloud/remote-separation/worker
+
+  deploy:
+    name: Controlled shadow or production deploy
+    needs: verify
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      (inputs.mode == 'shadow' || inputs.mode == 'production') &&
+      inputs.confirm == 'DEPLOY' &&
+      (inputs.mode != 'production' || inputs.production_confirm == 'PRODUCTION')
+    permissions:
+      contents: read
+      id-token: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      GBW_GCP_PROJECT: gbwapp-ef048
+      GBW_BUCKET: gbwapp-ef048.firebasestorage.app
+      GBW_REGION: us-central1
+      GBW_ALLOWED_UIDS: ${{ secrets.GBW_ALLOWED_UIDS }}
+    steps:
+      - name: Checkout exact verified source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Authenticate keylessly to Google Cloud
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
+        with:
+          workload_identity_provider: projects/119299736855/locations/global/workloadIdentityPools/github-gbw/providers/github-actions
+          service_account: gbw-github-deployer@gbwapp-ef048.iam.gserviceaccount.com
+          create_credentials_file: true
+
+      - name: Set up Google Cloud CLI
+        uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3
+        with:
+          version: '585.0.0'
+          install_components: 'beta'
+
+      - name: Set up Node.js for production Functions
+        if: inputs.mode == 'production'
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: cloud/remote-separation/functions/package-lock.json
+
+      - name: Install pinned Firebase CLI for production
+        if: inputs.mode == 'production'
+        run: npm install --global firebase-tools@15.30.2
+
+      - name: Capture last-known-good production identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          gcloud config set project "$GBW_GCP_PROJECT" >/dev/null
+          previous="$(gcloud run jobs describe gbw-demucs --region "$GBW_REGION" --format='value(spec.template.spec.template.spec.containers[0].image)')"
+          test -n "$previous"
+          printf 'source_sha=%s\nmode=%s\nprevious_production_image=%s\n' "$GITHUB_SHA" "${{ inputs.mode }}" "$previous" | tee u7-deploy-evidence.txt
+          echo "PREVIOUS_PRODUCTION_IMAGE=$previous" >> "$GITHUB_ENV"
+
+      - name: Deploy digest-pinned worker
+        id: worker
+        shell: bash
+        env:
+          GBW_JOB_NAME: ${{ inputs.mode == 'shadow' && 'guitarlab-demucs-shadow' || 'gbw-demucs' }}
+        run: |
+          set -euo pipefail
+          pinned="$(bash cloud/remote-separation/scripts/deploy-worker.sh | tail -1)"
+          case "$pinned" in *@sha256:*) ;; *) echo "Worker image is not digest-pinned" >&2; exit 1;; esac
+          echo "pinned_image=$pinned" >> "$GITHUB_OUTPUT"
+          echo "deployed_image=$pinned" >> u7-deploy-evidence.txt
+
+      - name: Deploy production rules and Functions
+        if: inputs.mode == 'production'
+        run: bash cloud/remote-separation/scripts/deploy-functions.sh
+
+      - name: Verify deployed runtime contract
+        shell: bash
+        env:
+          GBW_JOB_NAME: ${{ inputs.mode == 'shadow' && 'guitarlab-demucs-shadow' || 'gbw-demucs' }}
+          EXPECTED_IMAGE: ${{ steps.worker.outputs.pinned_image }}
+        run: |
+          set -euo pipefail
+          actual="$(gcloud run jobs describe "$GBW_JOB_NAME" --region "$GBW_REGION" --format='value(spec.template.spec.template.spec.containers[0].image)')"
+          test "$actual" = "$EXPECTED_IMAGE"
+          job_json="$(gcloud run jobs describe "$GBW_JOB_NAME" --region "$GBW_REGION" --format=json)"
+          python3 -c 'import json,sys; d=json.load(sys.stdin); t=d["spec"]["template"]["spec"]; i=t["template"]["spec"]; assert int(t["taskCount"])==1; assert int(t["parallelism"])==1; assert int(i["maxRetries"])==0; assert int(str(i["timeoutSeconds"]).removesuffix("s"))==1800' <<<"$job_json"
+          echo "runtime_contract=PASS" >> u7-deploy-evidence.txt
+
+      - name: Restore prior production image after failed cutover
+        if: failure() && inputs.mode == 'production' && env.PREVIOUS_PRODUCTION_IMAGE != ''
+        shell: bash
+        run: |
+          set -euo pipefail
+          gcloud run jobs update gbw-demucs --region "$GBW_REGION" --image "$PREVIOUS_PRODUCTION_IMAGE" --quiet
+          restored="$(gcloud run jobs describe gbw-demucs --region "$GBW_REGION" --format='value(spec.template.spec.template.spec.containers[0].image)')"
+          test "$restored" = "$PREVIOUS_PRODUCTION_IMAGE"
+          echo "automatic_rollback=PASS" >> u7-deploy-evidence.txt
+
+      - name: Upload deploy identity and rollback evidence
+        if: always()
+        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4
+        with:
+          name: u7-cloud-deploy-${{ github.sha }}-${{ inputs.mode }}
+          path: u7-deploy-evidence.txt
+          if-no-files-found: error

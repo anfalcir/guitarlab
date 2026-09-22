@@ -31,3 +31,10 @@ build-infra/cache-bundles/
 .toolchain/
 
 *.parts/
+
+# Cloud/backend local dependency and test outputs
+**/node_modules/
+cloud/remote-separation/functions/node_modules
+cloud/remote-separation/functions/lib/
+**/__pycache__/
+*.pyc

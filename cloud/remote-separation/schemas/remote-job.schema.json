@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gbw.local/schemas/remote-job.schema.json",
+  "type": "object",
+  "required": ["schemaVersion", "projectId", "inputPath", "inputSha256", "state", "createdAt"],
+  "properties": {
+    "schemaVersion": {"const": 1}, "projectId": {"type": "string", "format": "uuid"},
+    "inputPath": {"type": "string"}, "inputSha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "state": {"enum": ["UPLOADING", "READY", "QUEUED", "RUNNING", "COMPLETED", "IMPORTING", "IMPORTED", "CANCEL_REQUESTED", "CANCELLED", "FAILED", "EXPIRED"]},
+    "resultManifestSha256": {"type": ["string", "null"], "pattern": "^[a-f0-9]{64}$"},
+    "remoteCleanupState": {"enum": ["NONE", "PENDING", "PURGING", "PURGED", "FAILED"]}
+  }
+}

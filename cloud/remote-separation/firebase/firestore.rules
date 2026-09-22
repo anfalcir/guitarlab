@@ -1,0 +1,15 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function mine(uid) { return request.auth != null && request.auth.uid == uid; }
+    match /users/{uid}/jobs/{jobId} {
+      allow read: if mine(uid);
+      allow create, update, delete: if false;
+    }
+    match /users/{uid}/usage/{month} {
+      allow read: if mine(uid);
+      allow write: if false;
+    }
+    match /{document=**} { allow read, write: if false; }
+  }
+}

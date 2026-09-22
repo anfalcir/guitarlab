@@ -1,0 +1,21 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    function mine(uid) { return request.auth != null && request.auth.uid == uid; }
+    match /remote/v1/users/{uid}/jobs/{jobId}/input/{fileName} {
+      allow read: if false;
+      allow create: if mine(uid)
+        && request.resource.size > 0 && request.resource.size <= 1073741824
+        && (request.resource.contentType.matches('audio/.*') || request.resource.contentType == 'application/octet-stream')
+        && request.resource.metadata.jobId == jobId
+        && request.resource.metadata.projectId.matches('^[0-9a-fA-F-]{36}$')
+        && request.resource.metadata.sha256.matches('^[a-f0-9]{64}$');
+      allow update, delete: if false;
+    }
+    match /remote/v1/users/{uid}/jobs/{jobId}/output/{fileName} {
+      allow read: if mine(uid) && (fileName.matches('^(drums|bass|other|vocals|guitar|piano)\\.wav$') || fileName == 'result-manifest.json');
+      allow write: if false;
+    }
+    match /{path=**} { allow read, write: if false; }
+  }
+}
