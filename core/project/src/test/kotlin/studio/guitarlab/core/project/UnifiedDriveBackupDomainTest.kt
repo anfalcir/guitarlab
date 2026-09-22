@@ -45,6 +45,9 @@ class UnifiedDriveBackupDomainTest {
         assertTrue(first.isCompleteProjectSnapshot)
         assertEquals(first.canonicalBytes().decodeToString(), second.canonicalBytes().decodeToString())
         assertEquals(first.manifestSha256, second.manifestSha256)
+        assertEquals(first, DriveProjectRevisionManifest.parseCanonical(first.canonicalBytes()))
+        val stateOnly = first.copy(assets = listOf(state), fileEntries = emptyList())
+        assertEquals(stateOnly, DriveProjectRevisionManifest.parseCanonical(stateOnly.canonicalBytes()))
         assertFailsWith<IllegalArgumentException> {
             first.copy(fileEntries = listOf(DriveProjectFileEntry("../escape", source)))
         }

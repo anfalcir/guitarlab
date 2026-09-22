@@ -130,7 +130,7 @@ data class DriveProjectRevisionManifest(
                 }
             }
             require(scalar.getValue("schema").toInt() == SCHEMA_VERSION) { "Drive manifest schema is unsupported." }
-            require((projectState == null) == entries.isEmpty()) { "Drive manifest layout is incomplete." }
+            require(projectState != null || entries.isEmpty()) { "Drive manifest paths require a project state object." }
             require(projectState == null || genericAssets.isEmpty()) { "Drive manifest mixes generic and path-aware layouts." }
 
             val assets = if (projectState == null) {
