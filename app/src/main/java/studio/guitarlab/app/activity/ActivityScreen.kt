@@ -124,7 +124,6 @@ private fun ActivityRecordCard(record: UnifiedOperationRecord) {
                     )
                 }
                 Text(record.summary, style = MaterialTheme.typography.bodyMedium)
-                record.projectId?.let { Text("Projeto $it", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 record.progressPercent?.let { progress ->
                     if (active) {
                         androidx.compose.material3.LinearProgressIndicator(
