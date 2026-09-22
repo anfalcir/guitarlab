@@ -27,8 +27,8 @@ Use these first for current status, release identity and remaining work:
 - `CANDIDATE_IDENTITY_POLICY.md` — candidate identity/provenance rules;
 - `CI_PIPELINE.md` — manual CI, source materialization and signing provenance;
 - `TEST_AND_HOMOLOGATION_PLAN.md` — current automated/physical evidence boundary;
-- `RC3_FINAL_PHYSICAL_HOMOLOGATION.md` — current target-device checklist bound to CI #663;
-- `RELEASE_NOTES_0.5.0-rc3.md` — current signed RC3 behavior delta;
+- `U12_FINAL_PHYSICAL_HOMOLOGATION.md` — current target-device checklist bound to the exact signed U11 rc5 candidate;
+- `RELEASE_NOTES_0.5.0-rc3.md` — historical signed RC3 behavior delta;
 - `RELEASE_NOTES_0.5.0-rc4.md` — H37/H37a/H37b RC4 delta and historical source-pre-gate narrative; its signed gate was later closed by CI #669;
 - `H35_TAKE_SYNC_QUIET_CALIBRATION.md` — global-vs-take synchronization and quiet/silent calibration contract;
 - `H36_SETTINGS_UX_POLISH.md` — Settings/calibration presentation refinement plus H36a/H36b/H36c corrective history and #663 DIGITAL PASS evidence.
@@ -74,7 +74,7 @@ CI #783 / run `35793456972` / producer `4218e4343746932a4de61c5abaa29ba5769a30ed
 
 Signed APK SHA-256: `795839766f2b7546af53b2c56a0638b11c25b79622fe73cce5860b5602f050e0`.
 
-The newest unified technical DIGITAL PASS source is intentionally unsigned: U10/C8 closed on exact source `2aa97aa8b2c3af91d35e7d48a0eeb89c2c330e63` after Android CI #781 / run `35791192802`. The #781 gate passed software/Lint/build plus all five API36 groups, proved 23/23 classified instrumented classes and retained 24/24 required screenshots; deterministic visual review passed. U8m real-provider acceptance remains supporting authority: `U8m PASS · r_1790095960 · cleanup 8/8/14`, sanitized report SHA-256 `84efb70615be8ef5939da538eee5f714f7311aa6d44dd5bb2cdd0b5e9e66b702`. Historical #663/H36c and H37/H37a/H37b evidence remains preserved for traceability. CI #669 remains the latest signed release authority until U11 signing. Remaining hardware-only audio acceptance is deferred to the consolidated U12 physical campaign; H33 real-controller physical acceptance remains a separate 1.1 boundary unless later roadmap authority supersedes it.
+U10/C8 technical closure remains preserved at exact source `2aa97aa8b2c3af91d35e7d48a0eeb89c2c330e63` / Android CI #781. U11 subsequently froze and signed the exact rc5 candidate at producer `4218e4343746932a4de61c5abaa29ba5769a30ed` / Android CI #783. U8m real-provider acceptance remains supporting authority: `U8m PASS · r_1790095960 · cleanup 8/8/14`, sanitized report SHA-256 `84efb70615be8ef5939da538eee5f714f7311aa6d44dd5bb2cdd0b5e9e66b702`. Historical #663/H36c and H37/H37a/H37b evidence remains preserved for traceability. Remaining hardware-only acceptance is the consolidated U12 physical campaign; H33 real-controller physical acceptance remains a separate 1.1 boundary unless later roadmap authority supersedes it.
 
 ## Repository audits
 - `REPOSITORY_SANITIZATION_2026-09-20.md` records the branch audit supporting a single-branch (`main`) repository cleanup.
