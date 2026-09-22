@@ -115,3 +115,25 @@ cutover:
 
 Transactional restore and explicit conflict actions are the next U8
 checkpoint after the U8d CI gate.
+
+## U8e transactional restore and conflict actions
+
+U8e status: SOURCE COMPLETE / PRE-GATE.
+
+The provider-neutral restore boundary now:
+
+- verifies the immutable descriptor against the loaded manifest before any
+  asset is eligible for publication;
+- requires the resolved target set to match the manifest asset set exactly;
+- rejects absolute, traversal and platform-ambiguous staging paths;
+- downloads every object into an isolated staging tree and validates exact
+  size plus SHA-256 before running full-project validation;
+- delegates only a completely validated tree to the atomic local publisher;
+- removes staging on success, corruption, cancellation or validation failure,
+  so an existing local project is never touched by a partial restore;
+- exposes keep-local, use-Drive and import-as-copy as explicit conflict
+  actions, with action availability derived from reconciliation state rather
+  than timestamps.
+
+Reachability-based retention/GC is the next U8 checkpoint after the U8e CI
+gate.
