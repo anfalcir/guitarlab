@@ -1,0 +1,104 @@
+diff --git a/app/src/androidTest/java/studio/guitarlab/app/UnifiedProjectShellInstrumentedTest.kt b/app/src/androidTest/java/studio/guitarlab/app/UnifiedProjectShellInstrumentedTest.kt
+index 7b8426f..7512952 100644
+--- a/app/src/androidTest/java/studio/guitarlab/app/UnifiedProjectShellInstrumentedTest.kt
++++ b/app/src/androidTest/java/studio/guitarlab/app/UnifiedProjectShellInstrumentedTest.kt
+@@ -5,6 +5,7 @@ import androidx.compose.ui.test.assertCountEquals
+ import androidx.compose.ui.test.assertIsDisplayed
+ import androidx.compose.ui.test.assertIsEnabled
+ import androidx.compose.ui.test.assertIsNotEnabled
++import androidx.compose.ui.test.assertTextContains
+ import androidx.compose.ui.test.assertTextEquals
+ import androidx.compose.ui.test.junit4.createComposeRule
+ import androidx.compose.ui.test.onAllNodesWithTag
+@@ -101,6 +102,7 @@ class UnifiedProjectShellInstrumentedTest {
+         )
+         val stemIds = stemRoles.associateWith { "asset-${it.name}" }
+         val assets = stemRoles.map { role -> asset(stemIds.getValue(role), role) } + listOf(
++            asset("source", AssetRole.SOURCE_ORIGINAL),
+             asset("backing", AssetRole.REFERENCE_BACKING),
+             asset("guitar", AssetRole.REFERENCE_GUITAR),
+         )
+@@ -109,6 +111,7 @@ class UnifiedProjectShellInstrumentedTest {
+             createdAtEpochMs = 1, updatedAtEpochMs = 2, assets = assets,
+             preparation = PreparationState(
+                 status = PreparationStatus.READY,
++                sourceAssetId = "source",
+                 activeStemAssetIds = stemIds,
+                 activeBackingAssetId = "backing",
+                 activeGuitarAssetId = "guitar",
+@@ -221,7 +224,15 @@ class UnifiedProjectShellInstrumentedTest {
+         composeRule.onNodeWithTag("prepare-replace-source").performScrollTo().assertIsDisplayed().performClick()
+         composeRule.runOnIdle { check(replacementRequested) }
+         composeRule.onAllNodesWithText("Importar áudio").assertCountEquals(0)
++    }
+ 
++    @Test fun sourceReplacementModeReturnsPickersWithoutDroppingProtectedSource() {
++        val source = asset("source", AssetRole.SOURCE_ORIGINAL)
++        val project = GuitarProject(
++            id = "replace-active", name = "Song", template = ProjectTemplate.GUITAR, createdAtEpochMs = 1, updatedAtEpochMs = 2,
++            assets = listOf(source),
++            preparation = PreparationState(status = PreparationStatus.SOURCE_READY, sourceAssetId = source.assetId),
++        )
+         composeRule.setContent {
+             GuitarLabTheme(darkTheme = true) {
+                 UnifiedPrepareScreen(
+@@ -297,7 +308,6 @@ class UnifiedProjectShellInstrumentedTest {
+     }
+ 
+     @Test fun rankingBadgeIsTextualAndTechnicalDetailsStayCollapsed() {
+-        val source = asset("source", AssetRole.SOURCE_ORIGINAL)
+         val candidate = RankedSourceCandidate(
+             provider = SourceProvider.YOUTUBE,
+             title = "Hero (Official Audio)", uploader = "Skillet - Topic", url = "https://example.test/hero",
+@@ -305,12 +315,6 @@ class UnifiedProjectShellInstrumentedTest {
+             previewOnly = false, durationWarning = false, official = true, score = 88,
+             reason = "canal oficial, título compatível", automaticDownloadSupported = true,
+         )
+-        val sourceProject = GuitarProject(
+-            id = "technical-details", name = "Song", template = ProjectTemplate.GUITAR,
+-            createdAtEpochMs = 1, updatedAtEpochMs = 2, assets = listOf(source),
+-            preparation = PreparationState(status = PreparationStatus.SOURCE_READY, sourceAssetId = source.assetId),
+-        )
+-
+         composeRule.setContent {
+             GuitarLabTheme(darkTheme = true) {
+                 UnifiedPrepareScreen(
+@@ -320,7 +324,15 @@ class UnifiedProjectShellInstrumentedTest {
+             }
+         }
+         composeRule.onNodeWithText("Excelente · 88/100").performScrollTo().assertIsDisplayed()
++    }
+ 
++    @Test fun technicalAssetDetailsStayCollapsedUntilExplicitlyExpanded() {
++        val source = asset("source-details", AssetRole.SOURCE_ORIGINAL)
++        val sourceProject = GuitarProject(
++            id = "technical-details", name = "Song", template = ProjectTemplate.GUITAR,
++            createdAtEpochMs = 1, updatedAtEpochMs = 2, assets = listOf(source),
++            preparation = PreparationState(status = PreparationStatus.SOURCE_READY, sourceAssetId = source.assetId),
++        )
+         composeRule.setContent {
+             GuitarLabTheme(darkTheme = true) {
+                 UnifiedPrepareScreen(project = sourceProject, projectId = sourceProject.id, onBack = {}, onStudio = {}, onExport = {})
+@@ -354,8 +366,10 @@ class UnifiedProjectShellInstrumentedTest {
+             }
+         }
+ 
+-        composeRule.onNodeWithText("Não foi possível concluir a separação. As mídias válidas do projeto foram preservadas.")
+-            .performScrollTo().assertIsDisplayed()
++        composeRule.onNodeWithTag("prepare-safe-state-separation-failed")
++            .performScrollTo()
++            .assertTextContains("Não foi possível concluir a separação. As mídias válidas do projeto foram preservadas.")
++            .assertIsDisplayed()
+         composeRule.onAllNodesWithText("FAILED").assertCountEquals(0)
+         composeRule.onAllNodesWithText("REMOTE_JOB_NOT_FOUND").assertCountEquals(0)
+     }
+@@ -440,7 +454,9 @@ class UnifiedProjectShellInstrumentedTest {
+             composeRule.onNodeWithText(heading).performScrollTo().assertIsDisplayed()
+         }
+         composeRule.onAllNodesWithText("GBW", substring = true).assertCountEquals(0)
++    }
+ 
++    @Test fun studioHelpRemainsContextual() {
+         composeRule.setContent {
+             GuitarLabTheme(darkTheme = true) {
+                 StudioUserGuideDialog(onDismiss = {})
