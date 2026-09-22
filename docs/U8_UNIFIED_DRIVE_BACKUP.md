@@ -162,7 +162,8 @@ unified Conta e nuvem presentation.
 
 ## U8g shared Activity and sync-state domain
 
-U8g status: SOURCE COMPLETE / PRE-GATE.
+U8g status: CLOSED / DIGITAL PASS — Android CI #734 / run `35712643271`,
+exact source `be05ae66a0d1d1f54ca493a18e38b3eae447d306`
 
 The integration starts from one provider-neutral presentation contract:
 
