@@ -7,7 +7,7 @@ Repository documentation is split into **live authority**, **normative contracts
 
 A historical document may intentionally contain an old statement such as “current”, “latest”, “pending”, an old branch name or an old hardware target because it preserves contemporaneous evidence. Such statements apply only to that document's dated context and **never override the live authority set below**.
 
-## Live authority — unified line through U8m/U8 closure / signed #669 historical release authority
+## Live authority — unified line through U10/C8 closure / U11 active / signed #669 historical release authority
 Use these first for current status, release identity and remaining work:
 - `README.md` — repository entry point;
 - `CURRENT_STATE.md` — current unified source candidate, latest signed authority and remaining digital/physical residual;
@@ -18,6 +18,7 @@ Use these first for current status, release identity and remaining work:
 - `IMPLEMENTATION_ROADMAP.md` — milestone/release sequence;
 - `UNIFIED_GUITARLAB_GBW_IMPLEMENTATION_ROADMAP.md` — approved U0→U12 successor program for the GBW/GuitarLab unification, including autonomous Work protocol and final physical-homologation boundary;
 - `UNIFIED_PRODUCT_COHESION_AUDIT.md` — release-blocking C1-C8 consolidation contract ensuring Prepare/Studio/Export/cloud/backup behave and look like one GuitarLab product;
+- `U10_FINAL_DIGITAL_COHESION_GATE.md` — canonical #781 evidence closing U10/C7/C8 and handing the exact unsigned technical source to U11;
 - `U0_BASELINE_INVENTORY.md` — closed U0 baseline, schema/fixture freeze and GBW→GuitarLab ownership map; its machine-readable companion is `integration/u0/inventory.json`;
 - `POST_H28_HARDENING_AND_EXTERNAL_CONTROL_PLAN.md` — H29→1.1 implementation/closure plan;
 - `CANDIDATE_IDENTITY_POLICY.md` — candidate identity/provenance rules;
@@ -36,10 +37,13 @@ CLOSED / DIGITAL PASS on #750; U8l network/HTTP fault injection is CLOSED /
 DIGITAL PASS on #756; and U8m closes the provider-real gate on exact technical
 source `2375dcb72983376cb486eccf41faf1734633cc94` after Android CI #757 / run `35753982993` plus real Google
 Drive result `U8m PASS · r_1790095960 · cleanup 8/8/14`, report SHA-256
-`84efb70615be8ef5939da538eee5f714f7311aa6d44dd5bb2cdd0b5e9e66b702`. **U8 is CLOSED / DIGITAL PASS and U10 is active.**
-The latest signed release authority is Android CI #669 / run `35591631207`,
-producer `14b69271f2ae04529fa14475e1a34f2fdd864553`, until a later signed unified
-candidate exists.
+`84efb70615be8ef5939da538eee5f714f7311aa6d44dd5bb2cdd0b5e9e66b702`.
+**U10/C8 is CLOSED / DIGITAL PASS** on Android CI #781 / run `35791192802`,
+exact technical source `2aa97aa8b2c3af91d35e7d48a0eeb89c2c330e63`, with 23/23
+instrumented classes, 76 observed API36 tests and 24/24 retained visual artifacts.
+**U11 is active.** The latest signed release authority is Android CI #669 / run
+`35591631207`, producer `14b69271f2ae04529fa14475e1a34f2fdd864553`,
+until U11 freezes and signs the new unified candidate.
 
 ## Normative subsystem contracts
 These define behavior and remain valid unless explicitly superseded:
@@ -69,7 +73,7 @@ CI #669 / run `35591631207` / producer `14b69271f2ae04529fa14475e1a34f2fdd864553
 
 Signed APK SHA-256: `8e6e0f555bc5e834c4bccbdb011134c42d124806ce0316dd28787a6c98fe7bf3`.
 
-The newest unified technical DIGITAL PASS source is intentionally unsigned: U8m/U8 closed on exact source `2375dcb72983376cb486eccf41faf1734633cc94` after Android CI #757 / run `35753982993` and the controlled real Google Drive acceptance `U8m PASS · r_1790095960 · cleanup 8/8/14`; sanitized report SHA-256 `84efb70615be8ef5939da538eee5f714f7311aa6d44dd5bb2cdd0b5e9e66b702`. Historical #663/H36c and H37/H37a/H37b evidence remains preserved for traceability. CI #669 remains the latest signed release authority and is not superseded by the U8m debug/provider gate. U8 is closed; the unified program advances to U10. Remaining hardware-only audio acceptance is deferred to the consolidated final physical campaign; H33 real-controller physical acceptance remains a separate 1.1 boundary unless later roadmap authority supersedes it.
+The newest unified technical DIGITAL PASS source is intentionally unsigned: U10/C8 closed on exact source `2aa97aa8b2c3af91d35e7d48a0eeb89c2c330e63` after Android CI #781 / run `35791192802`. The #781 gate passed software/Lint/build plus all five API36 groups, proved 23/23 classified instrumented classes and retained 24/24 required screenshots; deterministic visual review passed. U8m real-provider acceptance remains supporting authority: `U8m PASS · r_1790095960 · cleanup 8/8/14`, sanitized report SHA-256 `84efb70615be8ef5939da538eee5f714f7311aa6d44dd5bb2cdd0b5e9e66b702`. Historical #663/H36c and H37/H37a/H37b evidence remains preserved for traceability. CI #669 remains the latest signed release authority until U11 signing. Remaining hardware-only audio acceptance is deferred to the consolidated U12 physical campaign; H33 real-controller physical acceptance remains a separate 1.1 boundary unless later roadmap authority supersedes it.
 
 ## Repository audits
 - `REPOSITORY_SANITIZATION_2026-09-20.md` records the branch audit supporting a single-branch (`main`) repository cleanup.
