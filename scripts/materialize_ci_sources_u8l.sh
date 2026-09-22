@@ -4,8 +4,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PREVIOUS="$ROOT/scripts/materialize_ci_sources_u8k.sh"
 PAYLOAD="$ROOT/.source-parts/U8lNetworkFaultGate.patch.b64"
-PAYLOAD_SHA256="63102c22b674c071d70aa0870a7d80dcc5ed7b16ef696a768c40833624e8f7bb"
-PATCH_SHA256="dada4d9fdf65aa681aede7ae4e0accafaae16ddcbcafe9bca861cfda6594d886"
+PAYLOAD_SHA256="631f98be5d683dceda292e9ef37510f12ee43eca3951326bc7f4c046d43e05b4"
+PATCH_SHA256="a50bbc41f82f6a4cd023017c58f3f8bfb590b57516e494d8bb077604d735924d"
 
 declare -a FILES=(
   "app/src/main/java/studio/guitarlab/app/backup/DriveV3Protocol.kt"
@@ -17,12 +17,12 @@ declare -a FILES=(
 )
 
 declare -a HASHES=(
-  "d5c0188e9cb901e4c53b77b25ab05ee4742fa960"
+  "5e3e1c66d8a8d028ac922624fad163a26cf6a85a"
   "e450220a850d60ac9a45f8a3542e2598b554c999"
   "252421a2a090711724a1c7180640b59220a902fd"
   "5a985554d71819d68f55a51bde7bdc28a4903ddc"
-  "b142bb391dde9d452be0db4bd46c10fc2998fa59"
-  "4f9bca498f3942071be20c45a229b192dacedbbb"
+  "3e75b4a2c0d883dd849668f6b91addff68b68b0f"
+  "6935a349b7c5e47dc9e1256fcb777586a3a85995"
 )
 
 ready() {
