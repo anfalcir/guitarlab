@@ -1950,11 +1950,13 @@ Do not delete old GBW cloud evidence yet.
 
 ## U8 — Unified Drive backup vNext
 
-**Current status:** ACTIVE through U8i. C6 cloud/backup/Activity cohesion is
-CLOSED / DIGITAL PASS on Android CI #744 / run `35729709715`, exact source
-`89a7cca5acd2d5a1c9aabbb5f72e028347dd00db`. The remaining U8 work is the
-production vNext backup/restore cutover followed by network-fault,
-instrumentation and real-Drive acceptance.
+**Current status:** ACTIVE through U8k. C6 cloud/backup/Activity cohesion is
+CLOSED / DIGITAL PASS on Android CI #744 / run `35729709715`; the production
+vNext backup/restore cutover is CLOSED / DIGITAL PASS on Android CI #750 / run
+`35742420939`, exact source `b5bf8d39008aa267d7411244ea0ae526142863f7`.
+The active product path now uses the unified snapshot/durable transaction/Drive
+v3/transactional restore/GC stack. Remaining U8 work is the network/HTTP fault
+matrix followed by real-Drive acceptance.
 
 ### Objective
 Replace standalone app backup concepts with one scalable transactional project backup **integrated into the same project shell, Activity model and Settings language**.
