@@ -4,8 +4,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PREVIOUS="$ROOT/scripts/materialize_ci_sources_u8h.sh"
 PAYLOAD="$ROOT/.source-parts/U8iConfirmedSyncDeepLinks.patch.b64"
-PAYLOAD_SHA256="96f6904d03d3ee3be4da7724d50830689a784132935917709b6d8e69bcec610c"
-PATCH_SHA256="dfd26a13c827e4a97be3ccc38e6f3f5021a4921d8ee83c0693d366994e7ea9a2"
+PAYLOAD_SHA256="5988bac9f3640113a36464f26e4f1cfb9c9d6329e60d074a1d82a7a980979456"
+PATCH_SHA256="0d0c41944b72ea00f90b462dca2d545679851cbbb9f02be04587beec76dff23a"
 
 declare -a FILES=(
   "app/src/androidTest/java/studio/guitarlab/app/ActivityNotificationDeepLinkInstrumentedTest.kt"
@@ -23,6 +23,7 @@ declare -a FILES=(
   "app/src/test/java/studio/guitarlab/app/ui/ProjectSyncLabelTest.kt"
   "core/project/src/main/kotlin/studio/guitarlab/core/project/ProjectBackupCoordinator.kt"
   "core/project/src/test/kotlin/studio/guitarlab/core/project/ProjectBackupCoordinatorTest.kt"
+  "scripts/ci_run_api36_regression_groups.sh"
 )
 
 declare -a HASHES=(
@@ -41,6 +42,7 @@ declare -a HASHES=(
   "a28b2ba95585ab0e4014c92870a47e27955c3fdf"
   "035429cf4eebce78165a57090171f58bd9b9afff"
   "b9ead1dcd990bf774b234cea72c1c34a2d60fca4"
+  "d74b57a8c18e3855caf3d44201e639f988e68c9d"
 )
 
 ready() {
