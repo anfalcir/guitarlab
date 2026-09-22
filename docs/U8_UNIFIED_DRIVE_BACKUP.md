@@ -4,6 +4,8 @@ Updated: 2026-09-22
 Status: U8a CLOSED / DIGITAL PASS — Android CI run `35678941252`, exact source
 `a5d851ce8becd40ef08e95fd302424ac7ea4c082`
 
+U8b status: SOURCE / PRE-GATE
+
 ## Scope boundary
 
 U8 replaces the historical monolithic H37 backup protocol for projects created
@@ -46,3 +48,22 @@ the next checkpoint.
 5. reachability-based retention/GC;
 6. C6 Activity, Home sync state and unified “Conta e nuvem” presentation;
 7. network-fault, instrumentation and real Drive integration gates.
+
+## U8b transactional coordinator
+
+U8b adds the provider-neutral commit coordinator above the U8a domain:
+
+- validates the frozen asset set, local sizes and SHA-256 before upload;
+- uploads only absent content objects and verifies every server receipt;
+- publishes and verifies the immutable manifest before any head record;
+- checks the known base both before object transfer and immediately before
+  publication;
+- uses append-only head records and detects divergent descendants rather than
+  assuming an undocumented Drive compare-and-swap primitive;
+- recovers a lost final publish response by reading back the exact head;
+- marks completion only after the head is uniquely observed;
+- reports uploaded object count/bytes for deterministic efficiency evidence.
+
+The existing H37 transport is not switched by this checkpoint. A Drive v3
+adapter for this interface and durable transaction state remain subsequent U8
+work.
