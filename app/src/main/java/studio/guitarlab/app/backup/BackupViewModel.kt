@@ -15,6 +15,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.util.UUID
+import studio.guitarlab.app.activity.UnifiedActivityStore
 import studio.guitarlab.core.model.GuitarProject
 import studio.guitarlab.core.project.BackupRetentionPolicy
 import studio.guitarlab.core.project.BackupRunReport
@@ -22,6 +24,8 @@ import studio.guitarlab.core.project.BackupVersionDescriptor
 import studio.guitarlab.core.project.FileProjectRepository
 import studio.guitarlab.core.project.ProjectBackupAttempt
 import studio.guitarlab.core.project.ProjectBackupCoordinator
+import studio.guitarlab.core.project.UnifiedOperationKind
+import studio.guitarlab.core.project.UnifiedOperationState
 
 data class BackupUiState(
     val loading: Boolean = true,
@@ -38,6 +42,7 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
     private val settingsStore = BackupSettingsStore(application)
     private val repository = FileProjectRepository(application.filesDir)
     private val authorization = GoogleDriveAuthorization(application)
+    private val activityStore = UnifiedActivityStore(application)
     private val _state = MutableStateFlow(BackupUiState())
     val state: StateFlow<BackupUiState> = _state.asStateFlow()
 
@@ -167,39 +172,58 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
     fun setRetentionDays(value: Int?) = updateSettings { settingsStore.setRetentionDays(value) }
     fun setMaximumVersions(value: Int) = updateSettings { settingsStore.setMaximumVersions(value) }
 
-    fun backupAllNow() = runBackup("Backup total") { coordinator ->
+    fun backupAllNow() = runBackup(null, "Backup total") { coordinator ->
         val settings = settingsStore.snapshot()
         coordinator.backupAll(force = false, retentionPolicy = retention(settings))
     }
 
-    fun backupProjectNow(projectId: String) = runBackup("Backup do projeto") { coordinator ->
+    fun backupProjectNow(projectId: String) = runBackup(projectId, "Backup do projeto") { coordinator ->
         val settings = settingsStore.snapshot()
         coordinator.backupProject(projectId, force = false, retentionPolicy = retention(settings))
     }
 
     fun restoreVersion(version: BackupVersionDescriptor, onProjectsChanged: () -> Unit) = runBusy(null) {
+        val operationId = UUID.randomUUID().toString()
+        activityStore.record(operationId, version.projectId, UnifiedOperationKind.RESTORE, UnifiedOperationState.RUNNING, null, "Restaurando uma versão do projeto")
         val coordinator = coordinatorOrError()
-        val result = BackupOperationLock.withLock { coordinator.restoreVersion(version) }
-        if (!result.succeeded) error(result.error ?: "Não foi possível restaurar o backup.")
-        settingsStore.recordSuccess("Projeto restaurado: ${result.restoredProject?.name.orEmpty()}")
-        withContext(Dispatchers.Main) { onProjectsChanged() }
-        _state.update { it.copy(message = "Projeto restaurado como uma nova cópia local.") }
+        try {
+            val result = BackupOperationLock.withLock { coordinator.restoreVersion(version) }
+            if (!result.succeeded) error(result.error ?: "Não foi possível restaurar o backup.")
+            settingsStore.recordSuccess("Projeto restaurado: ${result.restoredProject?.name.orEmpty()}")
+            activityStore.record(operationId, version.projectId, UnifiedOperationKind.RESTORE, UnifiedOperationState.SUCCEEDED, 100, "Projeto restaurado como uma nova cópia local")
+            withContext(Dispatchers.Main) { onProjectsChanged() }
+            _state.update { it.copy(message = "Projeto restaurado como uma nova cópia local.") }
+        } catch (error: Throwable) {
+            if (error is CancellationException) throw error
+            activityStore.record(operationId, version.projectId, UnifiedOperationKind.RESTORE, UnifiedOperationState.FAILED, null, "Não foi possível restaurar o projeto", error.message)
+            throw error
+        }
     }
 
     fun restoreLatestAll(onProjectsChanged: () -> Unit) = runBusy(null) {
+        val operationId = UUID.randomUUID().toString()
+        activityStore.record(operationId, null, UnifiedOperationKind.RESTORE, UnifiedOperationState.RUNNING, null, "Restaurando os projetos mais recentes")
         val coordinator = coordinatorOrError()
-        val results = BackupOperationLock.withLock { coordinator.restoreLatestAll() }
-        val ok = results.count { it.succeeded }
-        val failed = results.size - ok
-        if (ok > 0) withContext(Dispatchers.Main) { onProjectsChanged() }
-        val summary = "Restauração total: ${countLabel(ok, "projeto restaurado", "projetos restaurados")}${if (failed > 0) ", ${countLabel(failed, "falha", "falhas")}" else ""}."
-        if (failed == 0) {
-            settingsStore.recordSuccess(summary)
-            _state.update { it.copy(message = summary) }
-        } else {
-            val detail = results.firstOrNull { !it.succeeded }?.error ?: "Não foi possível restaurar todos os projetos."
-            settingsStore.recordPartial(summary, detail)
-            _state.update { it.copy(error = detail, message = summary) }
+        try {
+            val results = BackupOperationLock.withLock { coordinator.restoreLatestAll() }
+            val ok = results.count { it.succeeded }
+            val failed = results.size - ok
+            if (ok > 0) withContext(Dispatchers.Main) { onProjectsChanged() }
+            val summary = "Restauração total: ${countLabel(ok, "projeto restaurado", "projetos restaurados")}${if (failed > 0) ", ${countLabel(failed, "falha", "falhas")}" else ""}."
+            if (failed == 0) {
+                settingsStore.recordSuccess(summary)
+                activityStore.record(operationId, null, UnifiedOperationKind.RESTORE, UnifiedOperationState.SUCCEEDED, 100, summary)
+                _state.update { it.copy(message = summary) }
+            } else {
+                val detail = results.firstOrNull { !it.succeeded }?.error ?: "Não foi possível restaurar todos os projetos."
+                settingsStore.recordPartial(summary, detail)
+                activityStore.record(operationId, null, UnifiedOperationKind.RESTORE, UnifiedOperationState.FAILED, null, "Restauração parcial", detail)
+                _state.update { it.copy(error = detail, message = summary) }
+            }
+        } catch (error: Throwable) {
+            if (error is CancellationException) throw error
+            activityStore.record(operationId, null, UnifiedOperationKind.RESTORE, UnifiedOperationState.FAILED, null, "Não foi possível restaurar os projetos", error.message)
+            throw error
         }
     }
 
@@ -220,17 +244,29 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
         refresh()
     }
 
-    private fun runBackup(label: String, action: suspend (ProjectBackupCoordinator) -> BackupRunReport) = runBusy(null) {
-        val coordinator = coordinatorOrError()
-        val report = BackupOperationLock.withLock { action(coordinator) }
-        val summary = report.userSummary(label)
-        val failureDetail = report.userFailureDetail()
-        if (failureDetail == null) {
-            settingsStore.recordSuccess(summary)
-            _state.update { it.copy(message = summary) }
-        } else {
-            settingsStore.recordPartial(summary, failureDetail)
-            _state.update { it.copy(message = summary, error = failureDetail) }
+    private fun runBackup(projectId: String?, label: String, action: suspend (ProjectBackupCoordinator) -> BackupRunReport): Unit {
+        val operationId = UUID.randomUUID().toString()
+        activityStore.record(operationId, projectId, UnifiedOperationKind.BACKUP, UnifiedOperationState.RUNNING, null, label)
+        runBusy(null) {
+            try {
+                val coordinator = coordinatorOrError()
+                val report = BackupOperationLock.withLock { action(coordinator) }
+                val summary = report.userSummary(label)
+                val failureDetail = report.userFailureDetail()
+                if (failureDetail == null) {
+                    settingsStore.recordSuccess(summary)
+                    activityStore.record(operationId, projectId, UnifiedOperationKind.BACKUP, UnifiedOperationState.SUCCEEDED, 100, summary)
+                    _state.update { it.copy(message = summary) }
+                } else {
+                    settingsStore.recordPartial(summary, failureDetail)
+                    activityStore.record(operationId, projectId, UnifiedOperationKind.BACKUP, UnifiedOperationState.FAILED, null, "Backup parcial", failureDetail)
+                    _state.update { it.copy(message = summary, error = failureDetail) }
+                }
+            } catch (error: Throwable) {
+                if (error is CancellationException) throw error
+                activityStore.record(operationId, projectId, UnifiedOperationKind.BACKUP, UnifiedOperationState.FAILED, null, "Não foi possível concluir o backup", error.message)
+                throw error
+            }
         }
     }
 

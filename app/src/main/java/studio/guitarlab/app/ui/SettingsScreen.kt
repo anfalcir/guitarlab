@@ -64,6 +64,7 @@ fun SettingsScreen(
     onAudioDiagnostics: () -> Unit,
     onCodecDiagnostics: () -> Unit,
     onBackupSettings: () -> Unit = {},
+    onActivity: () -> Unit = {},
 ) {
     val context = LocalContext.current
     ExternalControlHub.initialize(context)
@@ -343,24 +344,34 @@ fun SettingsScreen(
 
             item {
                 OptionSection(
-                    title = "Backup e restauração",
-                    subtitle = "Proteja seus projetos e recupere versões anteriores quando precisar.",
+                    title = "Conta e nuvem",
+                    subtitle = "Recursos em nuvem são opcionais. O Studio local continua disponível sem login.",
                 ) {
                     OptionRow(
-                        "Destino",
-                        backupSettings.folderLabel ?: "Não configurado",
-                        if (backupSettings.treeUri == null) "Nenhuma pasta tem acesso concedido." else "Acesso persistente limitado somente à pasta selecionada.",
+                        "Processamento em nuvem",
+                        "Separação e referências",
+                        "Operações em andamento continuam no aplicativo e aparecem em Atividade.",
                     )
                     OptionRow(
-                        "Automático",
-                        if (backupSettings.automaticEnabled) backupSettings.cadence.label else "Desativado",
-                        "Backup incremental, histórico limitado de versões e restauração sem sobrescrever projetos locais.",
+                        "Backup no Google Drive",
+                        if (backupSettings.driveConnected) "Conectado" else "Não conectado",
+                        if (backupSettings.driveConnected)
+                            "Backup incremental, histórico de versões e restauração sem sobrescrever projetos locais."
+                        else
+                            "Conecte somente quando quiser proteger ou recuperar projetos.",
                     )
                     SettingsActionRow(
-                        title = "Gerenciar backups",
-                        detail = "Pasta, backup manual, versões, restauração e retenção.",
+                        title = "Gerenciar backup no Google Drive",
+                        detail = "Conexão, backup automático, versões, restauração e retenção.",
                         actionLabel = "Abrir",
                         onClick = onBackupSettings,
+                    )
+                    SettingsActionRow(
+                        title = "Ver atividade",
+                        detail = "Fonte, separação, referências, exportações, backup e restauração em um único histórico.",
+                        actionLabel = "Abrir",
+                        onClick = onActivity,
+                        testTag = "settings-open-activity",
                     )
                 }
             }

@@ -1,0 +1,983 @@
+diff --git a/app/src/main/java/studio/guitarlab/app/activity/ActivityScreen.kt b/app/src/main/java/studio/guitarlab/app/activity/ActivityScreen.kt
+new file mode 100644
+index 0000000..498a341
+--- /dev/null
++++ b/app/src/main/java/studio/guitarlab/app/activity/ActivityScreen.kt
+@@ -0,0 +1,130 @@
++package studio.guitarlab.app.activity
++
++import androidx.compose.foundation.layout.Arrangement
++import androidx.compose.foundation.layout.Box
++import androidx.compose.foundation.layout.Column
++import androidx.compose.foundation.layout.Row
++import androidx.compose.foundation.layout.fillMaxSize
++import androidx.compose.foundation.layout.fillMaxWidth
++import androidx.compose.foundation.layout.padding
++import androidx.compose.foundation.lazy.LazyColumn
++import androidx.compose.foundation.lazy.items
++import androidx.compose.material.icons.Icons
++import androidx.compose.material.icons.filled.ArrowBack
++import androidx.compose.material.icons.filled.CheckCircle
++import androidx.compose.material.icons.filled.Error
++import androidx.compose.material.icons.filled.Info
++import androidx.compose.material.icons.filled.Refresh
++import androidx.compose.material.icons.filled.Sync
++import androidx.compose.material3.Card
++import androidx.compose.material3.CircularProgressIndicator
++import androidx.compose.material3.Icon
++import androidx.compose.material3.MaterialTheme
++import androidx.compose.material3.Text
++import androidx.compose.runtime.Composable
++import androidx.compose.runtime.getValue
++import androidx.compose.ui.Alignment
++import androidx.compose.ui.Modifier
++import androidx.compose.ui.platform.testTag
++import androidx.compose.ui.unit.dp
++import androidx.lifecycle.compose.collectAsStateWithLifecycle
++import java.text.DateFormat
++import java.util.Date
++import studio.guitarlab.app.ui.AppIconButton
++import studio.guitarlab.core.project.UnifiedOperationKind
++import studio.guitarlab.core.project.UnifiedOperationRecord
++import studio.guitarlab.core.project.UnifiedOperationState
++
++@Composable
++fun ActivityScreen(
++    onBack: () -> Unit,
++    viewModel: UnifiedActivityViewModel,
++) {
++    val state by viewModel.state.collectAsStateWithLifecycle()
++    Column(
++        Modifier.fillMaxSize().padding(horizontal = 22.dp, vertical = 16.dp),
++        verticalArrangement = Arrangement.spacedBy(12.dp),
++    ) {
++        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
++            AppIconButton(Icons.Default.ArrowBack, "Voltar", onBack)
++            Text("Atividade", Modifier.weight(1f).padding(start = 10.dp), style = MaterialTheme.typography.headlineSmall)
++            Icon(Icons.Default.Info, contentDescription = "Atividade reúne operações do aplicativo")
++        }
++        Text(
++            "Acompanhe fontes, separação, referências, exportações e backup no mesmo histórico.",
++            style = MaterialTheme.typography.bodyMedium,
++            color = MaterialTheme.colorScheme.onSurfaceVariant,
++        )
++        if (state.records.isEmpty()) {
++            ActivityEmptyState(Modifier.fillMaxWidth().weight(1f))
++        } else {
++            LazyColumn(
++                Modifier.fillMaxWidth().weight(1f).testTag("activity-screen"),
++                verticalArrangement = Arrangement.spacedBy(10.dp),
++            ) {
++                items(state.records, key = { it.operationId }) { record -> ActivityRecordCard(record) }
++            }
++        }
++    }
++}
++
++@Composable
++private fun ActivityEmptyState(modifier: Modifier) {
++    Box(modifier, contentAlignment = Alignment.Center) {
++        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
++            Icon(Icons.Default.Sync, contentDescription = null)
++            Text("Nenhuma atividade recente", style = MaterialTheme.typography.titleMedium)
++            Text("Quando uma operação começar, ela aparecerá aqui.", color = MaterialTheme.colorScheme.onSurfaceVariant)
++        }
++    }
++}
++
++@Composable
++private fun ActivityRecordCard(record: UnifiedOperationRecord) {
++    val active = record.state.isActive
++    Card(Modifier.fillMaxWidth().testTag("activity-record-${record.operationId}")) {
++        Row(Modifier.fillMaxWidth().padding(14.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.Top) {
++            Icon(
++                when {
++                    active -> Icons.Default.Refresh
++                    record.state == UnifiedOperationState.SUCCEEDED -> Icons.Default.CheckCircle
++                    record.state == UnifiedOperationState.FAILED -> Icons.Default.Error
++                    else -> Icons.Default.Info
++                },
++                contentDescription = null,
++                tint = when {
++                    record.state == UnifiedOperationState.FAILED -> MaterialTheme.colorScheme.error
++                    record.state == UnifiedOperationState.SUCCEEDED -> MaterialTheme.colorScheme.primary
++                    else -> MaterialTheme.colorScheme.onSurfaceVariant
++                },
++            )
++            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
++                Text(activityKindLabel(record.kind), style = MaterialTheme.typography.titleSmall)
++                Text(record.summary, style = MaterialTheme.typography.bodyMedium)
++                record.projectId?.let { Text("Projeto $it", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
++                record.progressPercent?.let { progress ->
++                    if (active) {
++                        androidx.compose.material3.LinearProgressIndicator(
++                            progress = { progress / 100f },
++                            Modifier.fillMaxWidth().padding(top = 4.dp),
++                        )
++                    }
++                }
++                Text(
++                    DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(Date(record.updatedAtEpochMs)),
++                    style = MaterialTheme.typography.labelSmall,
++                    color = MaterialTheme.colorScheme.onSurfaceVariant,
++                )
++            }
++        }
++    }
++}
++
++private fun activityKindLabel(kind: UnifiedOperationKind): String = when (kind) {
++    UnifiedOperationKind.SOURCE_ACQUISITION -> "Fonte"
++    UnifiedOperationKind.SEPARATION -> "Separação"
++    UnifiedOperationKind.REFERENCE_PREPARATION -> "Referências"
++    UnifiedOperationKind.EXPORT -> "Exportação"
++    UnifiedOperationKind.BACKUP -> "Backup"
++    UnifiedOperationKind.RESTORE -> "Restauração"
++}
+diff --git a/app/src/main/java/studio/guitarlab/app/activity/UnifiedActivityStore.kt b/app/src/main/java/studio/guitarlab/app/activity/UnifiedActivityStore.kt
+new file mode 100644
+index 0000000..5dbda2f
+--- /dev/null
++++ b/app/src/main/java/studio/guitarlab/app/activity/UnifiedActivityStore.kt
+@@ -0,0 +1,130 @@
++package studio.guitarlab.app.activity
++
++import android.content.Context
++import android.content.SharedPreferences
++import kotlinx.coroutines.flow.MutableStateFlow
++import kotlinx.coroutines.flow.StateFlow
++import kotlinx.coroutines.flow.asStateFlow
++import org.json.JSONArray
++import org.json.JSONObject
++import studio.guitarlab.core.project.UnifiedOperationKind
++import studio.guitarlab.core.project.UnifiedOperationRecord
++import studio.guitarlab.core.project.UnifiedOperationState
++
++/**
++ * The durable, provider-neutral activity source for the Android layer.
++ *
++ * Workers write snapshots and every UI surface observes the same preference-backed stream. The
++ * preference is deliberately small and bounded: finished history is useful for diagnostics, but
++ * it must never grow with every export or retry forever.
++ */
++class UnifiedActivityStore(context: Context) {
++    private val preferences = context.applicationContext.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
++    private val lock = Any()
++    private val _records = MutableStateFlow(read())
++    val records: StateFlow<List<UnifiedOperationRecord>> = _records.asStateFlow()
++
++    private val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
++        if (key == RECORDS_KEY) _records.value = read()
++    }
++
++    init {
++        preferences.registerOnSharedPreferenceChangeListener(listener)
++    }
++
++    fun snapshot(): List<UnifiedOperationRecord> = _records.value
++
++    fun upsert(record: UnifiedOperationRecord) {
++        synchronized(lock) {
++            val next = (_records.value.filterNot { it.operationId == record.operationId } + record)
++                .sortedByDescending { it.updatedAtEpochMs }
++                .let(::bounded)
++            write(next)
++            _records.value = next
++        }
++    }
++
++    fun record(
++        operationId: String,
++        projectId: String?,
++        kind: UnifiedOperationKind,
++        state: UnifiedOperationState,
++        progressPercent: Int?,
++        summary: String,
++        technicalDetail: String? = null,
++        updatedAtEpochMs: Long = System.currentTimeMillis(),
++    ) = upsert(
++        UnifiedOperationRecord(
++            operationId = operationId,
++            projectId = projectId,
++            kind = kind,
++            state = state,
++            progressPercent = progressPercent,
++            updatedAtEpochMs = updatedAtEpochMs,
++            summary = summary,
++            technicalDetail = technicalDetail,
++        ),
++    )
++
++    fun remove(operationId: String) {
++        synchronized(lock) {
++            val next = _records.value.filterNot { it.operationId == operationId }
++            write(next)
++            _records.value = next
++        }
++    }
++
++    private fun read(): List<UnifiedOperationRecord> = synchronized(lock) {
++        runCatching {
++            val array = JSONArray(preferences.getString(RECORDS_KEY, "[]"))
++            buildList {
++                for (index in 0 until array.length()) {
++                    val item = array.optJSONObject(index) ?: continue
++                    runCatching {
++                        UnifiedOperationRecord(
++                            operationId = item.getString("operationId"),
++                            projectId = item.optString("projectId").ifBlank { null },
++                            kind = UnifiedOperationKind.valueOf(item.getString("kind")),
++                            state = UnifiedOperationState.valueOf(item.getString("state")),
++                            progressPercent = if (item.isNull("progressPercent")) null else item.optInt("progressPercent"),
++                            updatedAtEpochMs = item.getLong("updatedAtEpochMs"),
++                            summary = item.getString("summary"),
++                            technicalDetail = item.optString("technicalDetail").ifBlank { null },
++                        )
++                    }.onSuccess(::add)
++                }
++            }.let(::bounded)
++        }.getOrDefault(emptyList())
++    }
++
++    private fun write(records: List<UnifiedOperationRecord>) {
++        val array = JSONArray()
++        records.forEach { record ->
++            array.put(
++                JSONObject()
++                    .put("operationId", record.operationId)
++                    .put("projectId", record.projectId)
++                    .put("kind", record.kind.name)
++                    .put("state", record.state.name)
++                    .put("progressPercent", record.progressPercent)
++                    .put("updatedAtEpochMs", record.updatedAtEpochMs)
++                    .put("summary", record.summary)
++                    .put("technicalDetail", record.technicalDetail),
++            )
++        }
++        preferences.edit().putString(RECORDS_KEY, array.toString()).apply()
++    }
++
++    private fun bounded(records: List<UnifiedOperationRecord>): List<UnifiedOperationRecord> {
++        val active = records.filter { it.state.isActive }
++        val history = records.filterNot { it.state.isActive }.take(MAX_HISTORY)
++        return (active + history).distinctBy { it.operationId }
++            .sortedWith(compareByDescending<UnifiedOperationRecord> { it.state.isActive }.thenByDescending { it.updatedAtEpochMs })
++    }
++
++    private companion object {
++        const val PREFERENCES = "guitarlab_unified_activity"
++        const val RECORDS_KEY = "records"
++        const val MAX_HISTORY = 100
++    }
++}
+diff --git a/app/src/main/java/studio/guitarlab/app/activity/UnifiedActivityViewModel.kt b/app/src/main/java/studio/guitarlab/app/activity/UnifiedActivityViewModel.kt
+new file mode 100644
+index 0000000..16a2849
+--- /dev/null
++++ b/app/src/main/java/studio/guitarlab/app/activity/UnifiedActivityViewModel.kt
+@@ -0,0 +1,26 @@
++package studio.guitarlab.app.activity
++
++import android.app.Application
++import androidx.lifecycle.AndroidViewModel
++import androidx.lifecycle.viewModelScope
++import kotlinx.coroutines.flow.SharingStarted
++import kotlinx.coroutines.flow.StateFlow
++import kotlinx.coroutines.flow.map
++import kotlinx.coroutines.flow.stateIn
++import studio.guitarlab.core.project.UnifiedActivityPolicy
++import studio.guitarlab.core.project.UnifiedOperationRecord
++
++data class UnifiedActivityUiState(
++    val records: List<UnifiedOperationRecord> = emptyList(),
++    val active: UnifiedOperationRecord? = null,
++)
++
++class UnifiedActivityViewModel(application: Application) : AndroidViewModel(application) {
++    private val store = UnifiedActivityStore(application)
++    val state: StateFlow<UnifiedActivityUiState> = store.records
++        .map { records ->
++            val ordered = UnifiedActivityPolicy.ordered(records)
++            UnifiedActivityUiState(ordered, ordered.firstOrNull { it.state.isActive })
++        }
++        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), UnifiedActivityUiState())
++}
+diff --git a/app/src/main/java/studio/guitarlab/app/backup/AutomaticBackupWorker.kt b/app/src/main/java/studio/guitarlab/app/backup/AutomaticBackupWorker.kt
+index 7df2dea..2608894 100644
+--- a/app/src/main/java/studio/guitarlab/app/backup/AutomaticBackupWorker.kt
++++ b/app/src/main/java/studio/guitarlab/app/backup/AutomaticBackupWorker.kt
+@@ -10,8 +10,11 @@ import androidx.work.ForegroundInfo
+ import androidx.work.WorkerParameters
+ import java.io.IOException
+ import kotlinx.coroutines.CancellationException
++import studio.guitarlab.app.activity.UnifiedActivityStore
+ import studio.guitarlab.core.project.BackupRetentionPolicy
+ import studio.guitarlab.core.project.ProjectBackupCoordinator
++import studio.guitarlab.core.project.UnifiedOperationKind
++import studio.guitarlab.core.project.UnifiedOperationState
+ 
+ class AutomaticBackupWorker(
+     appContext: Context,
+@@ -21,6 +24,9 @@ class AutomaticBackupWorker(
+         val settingsStore = BackupSettingsStore(applicationContext)
+         val settings = settingsStore.snapshot()
+         if (!settings.driveConnected || !settings.automaticEnabled) return Result.success()
++        val operationId = "automatic-backup"
++        val activity = UnifiedActivityStore(applicationContext)
++        activity.record(operationId, null, UnifiedOperationKind.BACKUP, UnifiedOperationState.RUNNING, null, "Backup automático em andamento")
+ 
+         setForeground(createForegroundInfo())
+         return BackupOperationLock.withLock {
+@@ -34,6 +40,7 @@ class AutomaticBackupWorker(
+                 if (error is CancellationException) throw error
+                 val message = error.message ?: "Falha inesperada no backup automático."
+                 settingsStore.recordError(message)
++                activity.record(operationId, null, UnifiedOperationKind.BACKUP, UnifiedOperationState.FAILED, null, "Backup automático interrompido", message)
+                 return@withLock when {
+                     error is DriveAuthorizationRequiredException -> Result.failure()
+                     error is IOException && runAttemptCount < 4 -> Result.retry()
+@@ -44,9 +51,11 @@ class AutomaticBackupWorker(
+             val failure = report.userFailureDetail()
+             if (failure == null) {
+                 settingsStore.recordSuccess(summary)
++                activity.record(operationId, null, UnifiedOperationKind.BACKUP, UnifiedOperationState.SUCCEEDED, 100, summary)
+                 Result.success()
+             } else {
+                 settingsStore.recordPartial(summary, failure)
++                activity.record(operationId, null, UnifiedOperationKind.BACKUP, UnifiedOperationState.FAILED, null, "Backup automático parcial", failure)
+                 val authorizationBlocked = report.attempts.any { attempt ->
+                     attempt.error?.contains(DriveAuthorizationRequiredException.MESSAGE, ignoreCase = true) == true
+                 }
+diff --git a/app/src/main/java/studio/guitarlab/app/backup/BackupViewModel.kt b/app/src/main/java/studio/guitarlab/app/backup/BackupViewModel.kt
+index e19efc1..d537f5c 100644
+--- a/app/src/main/java/studio/guitarlab/app/backup/BackupViewModel.kt
++++ b/app/src/main/java/studio/guitarlab/app/backup/BackupViewModel.kt
+@@ -15,6 +15,8 @@ import kotlinx.coroutines.flow.asStateFlow
+ import kotlinx.coroutines.flow.update
+ import kotlinx.coroutines.launch
+ import kotlinx.coroutines.withContext
++import java.util.UUID
++import studio.guitarlab.app.activity.UnifiedActivityStore
+ import studio.guitarlab.core.model.GuitarProject
+ import studio.guitarlab.core.project.BackupRetentionPolicy
+ import studio.guitarlab.core.project.BackupRunReport
+@@ -22,6 +24,8 @@ import studio.guitarlab.core.project.BackupVersionDescriptor
+ import studio.guitarlab.core.project.FileProjectRepository
+ import studio.guitarlab.core.project.ProjectBackupAttempt
+ import studio.guitarlab.core.project.ProjectBackupCoordinator
++import studio.guitarlab.core.project.UnifiedOperationKind
++import studio.guitarlab.core.project.UnifiedOperationState
+ 
+ data class BackupUiState(
+     val loading: Boolean = true,
+@@ -38,6 +42,7 @@ class BackupViewModel(application: Application) : AndroidViewModel(application)
+     private val settingsStore = BackupSettingsStore(application)
+     private val repository = FileProjectRepository(application.filesDir)
+     private val authorization = GoogleDriveAuthorization(application)
++    private val activityStore = UnifiedActivityStore(application)
+     private val _state = MutableStateFlow(BackupUiState())
+     val state: StateFlow<BackupUiState> = _state.asStateFlow()
+ 
+@@ -167,39 +172,58 @@ class BackupViewModel(application: Application) : AndroidViewModel(application)
+     fun setRetentionDays(value: Int?) = updateSettings { settingsStore.setRetentionDays(value) }
+     fun setMaximumVersions(value: Int) = updateSettings { settingsStore.setMaximumVersions(value) }
+ 
+-    fun backupAllNow() = runBackup("Backup total") { coordinator ->
++    fun backupAllNow() = runBackup(null, "Backup total") { coordinator ->
+         val settings = settingsStore.snapshot()
+         coordinator.backupAll(force = false, retentionPolicy = retention(settings))
+     }
+ 
+-    fun backupProjectNow(projectId: String) = runBackup("Backup do projeto") { coordinator ->
++    fun backupProjectNow(projectId: String) = runBackup(projectId, "Backup do projeto") { coordinator ->
+         val settings = settingsStore.snapshot()
+         coordinator.backupProject(projectId, force = false, retentionPolicy = retention(settings))
+     }
+ 
+     fun restoreVersion(version: BackupVersionDescriptor, onProjectsChanged: () -> Unit) = runBusy(null) {
++        val operationId = UUID.randomUUID().toString()
++        activityStore.record(operationId, version.projectId, UnifiedOperationKind.RESTORE, UnifiedOperationState.RUNNING, null, "Restaurando uma versão do projeto")
+         val coordinator = coordinatorOrError()
+-        val result = BackupOperationLock.withLock { coordinator.restoreVersion(version) }
+-        if (!result.succeeded) error(result.error ?: "Não foi possível restaurar o backup.")
+-        settingsStore.recordSuccess("Projeto restaurado: ${result.restoredProject?.name.orEmpty()}")
+-        withContext(Dispatchers.Main) { onProjectsChanged() }
+-        _state.update { it.copy(message = "Projeto restaurado como uma nova cópia local.") }
++        try {
++            val result = BackupOperationLock.withLock { coordinator.restoreVersion(version) }
++            if (!result.succeeded) error(result.error ?: "Não foi possível restaurar o backup.")
++            settingsStore.recordSuccess("Projeto restaurado: ${result.restoredProject?.name.orEmpty()}")
++            activityStore.record(operationId, version.projectId, UnifiedOperationKind.RESTORE, UnifiedOperationState.SUCCEEDED, 100, "Projeto restaurado como uma nova cópia local")
++            withContext(Dispatchers.Main) { onProjectsChanged() }
++            _state.update { it.copy(message = "Projeto restaurado como uma nova cópia local.") }
++        } catch (error: Throwable) {
++            if (error is CancellationException) throw error
++            activityStore.record(operationId, version.projectId, UnifiedOperationKind.RESTORE, UnifiedOperationState.FAILED, null, "Não foi possível restaurar o projeto", error.message)
++            throw error
++        }
+     }
+ 
+     fun restoreLatestAll(onProjectsChanged: () -> Unit) = runBusy(null) {
++        val operationId = UUID.randomUUID().toString()
++        activityStore.record(operationId, null, UnifiedOperationKind.RESTORE, UnifiedOperationState.RUNNING, null, "Restaurando os projetos mais recentes")
+         val coordinator = coordinatorOrError()
+-        val results = BackupOperationLock.withLock { coordinator.restoreLatestAll() }
+-        val ok = results.count { it.succeeded }
+-        val failed = results.size - ok
+-        if (ok > 0) withContext(Dispatchers.Main) { onProjectsChanged() }
+-        val summary = "Restauração total: ${countLabel(ok, "projeto restaurado", "projetos restaurados")}${if (failed > 0) ", ${countLabel(failed, "falha", "falhas")}" else ""}."
+-        if (failed == 0) {
+-            settingsStore.recordSuccess(summary)
+-            _state.update { it.copy(message = summary) }
+-        } else {
+-            val detail = results.firstOrNull { !it.succeeded }?.error ?: "Não foi possível restaurar todos os projetos."
+-            settingsStore.recordPartial(summary, detail)
+-            _state.update { it.copy(error = detail, message = summary) }
++        try {
++            val results = BackupOperationLock.withLock { coordinator.restoreLatestAll() }
++            val ok = results.count { it.succeeded }
++            val failed = results.size - ok
++            if (ok > 0) withContext(Dispatchers.Main) { onProjectsChanged() }
++            val summary = "Restauração total: ${countLabel(ok, "projeto restaurado", "projetos restaurados")}${if (failed > 0) ", ${countLabel(failed, "falha", "falhas")}" else ""}."
++            if (failed == 0) {
++                settingsStore.recordSuccess(summary)
++                activityStore.record(operationId, null, UnifiedOperationKind.RESTORE, UnifiedOperationState.SUCCEEDED, 100, summary)
++                _state.update { it.copy(message = summary) }
++            } else {
++                val detail = results.firstOrNull { !it.succeeded }?.error ?: "Não foi possível restaurar todos os projetos."
++                settingsStore.recordPartial(summary, detail)
++                activityStore.record(operationId, null, UnifiedOperationKind.RESTORE, UnifiedOperationState.FAILED, null, "Restauração parcial", detail)
++                _state.update { it.copy(error = detail, message = summary) }
++            }
++        } catch (error: Throwable) {
++            if (error is CancellationException) throw error
++            activityStore.record(operationId, null, UnifiedOperationKind.RESTORE, UnifiedOperationState.FAILED, null, "Não foi possível restaurar os projetos", error.message)
++            throw error
+         }
+     }
+ 
+@@ -220,17 +244,29 @@ class BackupViewModel(application: Application) : AndroidViewModel(application)
+         refresh()
+     }
+ 
+-    private fun runBackup(label: String, action: suspend (ProjectBackupCoordinator) -> BackupRunReport) = runBusy(null) {
+-        val coordinator = coordinatorOrError()
+-        val report = BackupOperationLock.withLock { action(coordinator) }
+-        val summary = report.userSummary(label)
+-        val failureDetail = report.userFailureDetail()
+-        if (failureDetail == null) {
+-            settingsStore.recordSuccess(summary)
+-            _state.update { it.copy(message = summary) }
+-        } else {
+-            settingsStore.recordPartial(summary, failureDetail)
+-            _state.update { it.copy(message = summary, error = failureDetail) }
++    private fun runBackup(projectId: String?, label: String, action: suspend (ProjectBackupCoordinator) -> BackupRunReport): Unit {
++        val operationId = UUID.randomUUID().toString()
++        activityStore.record(operationId, projectId, UnifiedOperationKind.BACKUP, UnifiedOperationState.RUNNING, null, label)
++        runBusy(null) {
++            try {
++                val coordinator = coordinatorOrError()
++                val report = BackupOperationLock.withLock { action(coordinator) }
++                val summary = report.userSummary(label)
++                val failureDetail = report.userFailureDetail()
++                if (failureDetail == null) {
++                    settingsStore.recordSuccess(summary)
++                    activityStore.record(operationId, projectId, UnifiedOperationKind.BACKUP, UnifiedOperationState.SUCCEEDED, 100, summary)
++                    _state.update { it.copy(message = summary) }
++                } else {
++                    settingsStore.recordPartial(summary, failureDetail)
++                    activityStore.record(operationId, projectId, UnifiedOperationKind.BACKUP, UnifiedOperationState.FAILED, null, "Backup parcial", failureDetail)
++                    _state.update { it.copy(message = summary, error = failureDetail) }
++                }
++            } catch (error: Throwable) {
++                if (error is CancellationException) throw error
++                activityStore.record(operationId, projectId, UnifiedOperationKind.BACKUP, UnifiedOperationState.FAILED, null, "Não foi possível concluir o backup", error.message)
++                throw error
++            }
+         }
+     }
+ 
+diff --git a/app/src/main/java/studio/guitarlab/app/ui/AppScreen.kt b/app/src/main/java/studio/guitarlab/app/ui/AppScreen.kt
+index 870854e..5096aef 100644
+--- a/app/src/main/java/studio/guitarlab/app/ui/AppScreen.kt
++++ b/app/src/main/java/studio/guitarlab/app/ui/AppScreen.kt
+@@ -2,6 +2,7 @@ package studio.guitarlab.app.ui
+ 
+ sealed interface AppScreen {
+     data object Home : AppScreen
++    data object Activity : AppScreen
+     data object NewProject : AppScreen
+     data class Prepare(val projectId: String) : AppScreen
+     data class Studio(val projectId: String) : AppScreen
+@@ -16,6 +17,7 @@ sealed interface AppScreen {
+ object AppRouteCodec {
+     fun encode(screen: AppScreen): String = when (screen) {
+         AppScreen.Home -> "home"
++        AppScreen.Activity -> "activity"
+         AppScreen.NewProject -> "new"
+         is AppScreen.Prepare -> "prepare:${screen.projectId}"
+         is AppScreen.Studio -> "studio:${screen.projectId}"
+@@ -28,6 +30,7 @@ object AppRouteCodec {
+ 
+     fun decode(route: String): AppScreen = when {
+         route == "home" -> AppScreen.Home
++        route == "activity" -> AppScreen.Activity
+         route == "new" -> AppScreen.NewProject
+         route.startsWith("prepare:") -> route.substringAfter(':').takeIf { it.isNotBlank() }?.let(AppScreen::Prepare) ?: AppScreen.Home
+         route.startsWith("studio:") -> route.substringAfter(':').takeIf { it.isNotBlank() }?.let(AppScreen::Studio) ?: AppScreen.Home
+diff --git a/app/src/main/java/studio/guitarlab/app/ui/GuitarLabApp.kt b/app/src/main/java/studio/guitarlab/app/ui/GuitarLabApp.kt
+index 345672c..cbf08d3 100644
+--- a/app/src/main/java/studio/guitarlab/app/ui/GuitarLabApp.kt
++++ b/app/src/main/java/studio/guitarlab/app/ui/GuitarLabApp.kt
+@@ -21,6 +21,8 @@ import androidx.compose.ui.platform.testTag
+ import androidx.compose.ui.unit.dp
+ import androidx.lifecycle.viewmodel.compose.viewModel
+ import studio.guitarlab.app.backup.BackupScreen
++import studio.guitarlab.app.activity.ActivityScreen
++import studio.guitarlab.app.activity.UnifiedActivityViewModel
+ import studio.guitarlab.core.model.GuitarProject
+ import studio.guitarlab.core.model.ProjectTemplate
+ 
+@@ -49,8 +51,13 @@ fun GuitarLabApp(
+             onPrepareProject = { navigate(AppScreen.Prepare(it)) },
+             onExportWorkspace = { navigate(ExportEntryPointPolicy.destination(it)) },
+             onSettings = { navigate(AppScreen.Options()) },
++            onActivity = { navigate(AppScreen.Activity) },
+             onBackupProject = { navigate(AppScreen.Backup(it, returnToHome = true)) },
+         )
++        AppScreen.Activity -> ActivityScreen(
++            onBack = { navigate(AppScreen.Home) },
++            viewModel = viewModel<UnifiedActivityViewModel>(),
++        )
+         AppScreen.NewProject -> NewProjectScreen(
+             onBack = { navigate(AppScreen.Home) },
+             onCreate = { name, template ->
+@@ -128,6 +135,7 @@ fun GuitarLabApp(
+             onAudioDiagnostics = { navigate(AppScreen.AudioProbe(current.projectId)) },
+             onCodecDiagnostics = { navigate(AppScreen.CodecProbe(current.projectId)) },
+             onBackupSettings = { navigate(AppScreen.Backup(current.projectId)) },
++            onActivity = { navigate(AppScreen.Activity) },
+         )
+         is AppScreen.AudioProbe -> AudioProbeScreen(onBack = { navigate(AppScreen.Options(current.projectId)) })
+         is AppScreen.CodecProbe -> CodecProbeScreen(onBack = { navigate(AppScreen.Options(current.projectId)) })
+diff --git a/app/src/main/java/studio/guitarlab/app/ui/HomeScreen.kt b/app/src/main/java/studio/guitarlab/app/ui/HomeScreen.kt
+index b38c919..8cfe36e 100644
+--- a/app/src/main/java/studio/guitarlab/app/ui/HomeScreen.kt
++++ b/app/src/main/java/studio/guitarlab/app/ui/HomeScreen.kt
+@@ -31,6 +31,7 @@ import androidx.compose.material.icons.filled.MusicNote
+ import androidx.compose.material.icons.filled.Search
+ import androidx.compose.material.icons.filled.Share
+ import androidx.compose.material.icons.filled.Sort
++import androidx.compose.material.icons.filled.Sync
+ import androidx.compose.material.icons.filled.Tune
+ import androidx.compose.material3.AlertDialog
+ import androidx.compose.material3.Button
+@@ -58,9 +59,13 @@ import androidx.compose.runtime.setValue
+ import androidx.compose.ui.Alignment
+ import androidx.compose.ui.Modifier
+ import androidx.compose.ui.draw.clip
++import androidx.compose.ui.platform.LocalContext
+ import androidx.compose.ui.platform.testTag
+ import androidx.compose.ui.unit.dp
+ import androidx.lifecycle.compose.collectAsStateWithLifecycle
++import androidx.lifecycle.viewmodel.compose.viewModel
++import studio.guitarlab.app.activity.UnifiedActivityViewModel
++import studio.guitarlab.app.backup.BackupSettingsStore
+ import java.text.DateFormat
+ import java.util.Date
+ import studio.guitarlab.core.model.GuitarProject
+@@ -76,11 +81,16 @@ fun HomeScreen(
+     onNewProject: () -> Unit,
+     onOpenProject: (String) -> Unit,
+     onSettings: () -> Unit,
++    onActivity: () -> Unit = {},
+     onBackupProject: (String) -> Unit = {},
+     onPrepareProject: (String) -> Unit = {},
+     onExportWorkspace: (String) -> Unit = {},
++    activityViewModel: UnifiedActivityViewModel = viewModel(),
+ ) {
+     val state by viewModel.state.collectAsStateWithLifecycle()
++    val activityState by activityViewModel.state.collectAsStateWithLifecycle()
++    val context = LocalContext.current
++    val backupConnected = remember(context) { BackupSettingsStore(context).snapshot().driveConnected }
+     var renameProject by remember { mutableStateOf<GuitarProject?>(null) }
+     var deleteProject by remember { mutableStateOf<GuitarProject?>(null) }
+     var deleteHasActiveOperations by remember { mutableStateOf(false) }
+@@ -106,6 +116,12 @@ fun HomeScreen(
+                     Text("Pratique · grave · compare", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                 }
+                 Row(horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.CenterVertically) {
++                    AppIconButton(
++                        icon = Icons.Default.Sync,
++                        contentDescription = "Atividade",
++                        onClick = onActivity,
++                        modifier = Modifier.testTag("home-activity"),
++                    )
+                     AppIconButton(
+                         icon = Icons.Default.Info,
+                         contentDescription = "Ajuda",
+@@ -148,6 +164,9 @@ fun HomeScreen(
+                     }
+                 }
+             }
++            activityState.active?.let { active ->
++                CompactActivityPanel(active, onClick = onActivity)
++            }
+             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                 Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                     Text("Projetos", style = MaterialTheme.typography.titleLarge)
+@@ -199,6 +218,7 @@ fun HomeScreen(
+                                 deleteHasActiveOperations = viewModel.hasActiveProjectOperations(project.id)
+                                 deleteProject = project
+                             },
++                            syncLabel = projectSyncLabel(project.id, backupConnected, activityState.records),
+                         )
+                     }
+                 }
+@@ -226,6 +246,30 @@ fun HomeScreen(
+     }
+ }
+ 
++@Composable
++private fun CompactActivityPanel(
++    record: studio.guitarlab.core.project.UnifiedOperationRecord,
++    onClick: () -> Unit,
++) {
++    Surface(
++        onClick = onClick,
++        modifier = Modifier.fillMaxWidth().testTag("home-active-operation"),
++        shape = RoundedCornerShape(10.dp),
++        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f),
++    ) {
++        Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
++            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
++                Text("Atividade em andamento", style = MaterialTheme.typography.labelLarge)
++                Text("Ver atividade", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
++            }
++            Text(record.summary, style = MaterialTheme.typography.bodyMedium)
++            record.progressPercent?.let { progress ->
++                androidx.compose.material3.LinearProgressIndicator(progress = { progress / 100f }, Modifier.fillMaxWidth())
++            }
++        }
++    }
++}
++
+ @Composable
+ fun ProjectDeleteConfirmationDialog(
+     projectName: String,
+@@ -489,6 +533,7 @@ private fun ProjectRow(
+     onBackup: () -> Unit,
+     onDuplicate: () -> Unit,
+     onDelete: () -> Unit,
++    syncLabel: String,
+ ) {
+     var menuOpen by remember { mutableStateOf(false) }
+     val shape = RoundedCornerShape(10.dp)
+@@ -509,6 +554,12 @@ private fun ProjectRow(
+                         color = MaterialTheme.colorScheme.primary,
+                         modifier = Modifier.testTag("project-status-${project.id}"),
+                     )
++                    Text(
++                        syncLabel,
++                        style = MaterialTheme.typography.labelSmall,
++                        color = MaterialTheme.colorScheme.onSurfaceVariant,
++                        modifier = Modifier.testTag("project-sync-${project.id}"),
++                    )
+                 }
+             }
+             Box(Modifier.padding(horizontal = 8.dp)) {
+@@ -527,3 +578,22 @@ private fun ProjectRow(
+         }
+     }
+ }
++
++private fun projectSyncLabel(
++    projectId: String,
++    driveConnected: Boolean,
++    records: List<studio.guitarlab.core.project.UnifiedOperationRecord>,
++): String {
++    if (!driveConnected) return "Nuvem desconectada · somente local"
++    val latest = records
++        .filter { it.projectId == projectId && it.kind == studio.guitarlab.core.project.UnifiedOperationKind.BACKUP }
++        .maxByOrNull { it.updatedAtEpochMs }
++    return when (latest?.state) {
++        studio.guitarlab.core.project.UnifiedOperationState.QUEUED -> "Backup pendente"
++        studio.guitarlab.core.project.UnifiedOperationState.RUNNING,
++        studio.guitarlab.core.project.UnifiedOperationState.RETRYING -> "Sincronizando…"
++        studio.guitarlab.core.project.UnifiedOperationState.SUCCEEDED -> "Sincronizado"
++        studio.guitarlab.core.project.UnifiedOperationState.FAILED -> "Backup com erro"
++        studio.guitarlab.core.project.UnifiedOperationState.CANCELLED, null -> "Somente local"
++    }
++}
+diff --git a/app/src/main/java/studio/guitarlab/app/ui/HomeViewModel.kt b/app/src/main/java/studio/guitarlab/app/ui/HomeViewModel.kt
+index 2dacee2..d35cf2b 100644
+--- a/app/src/main/java/studio/guitarlab/app/ui/HomeViewModel.kt
++++ b/app/src/main/java/studio/guitarlab/app/ui/HomeViewModel.kt
+@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.asStateFlow
+ import kotlinx.coroutines.flow.update
+ import kotlinx.coroutines.launch
+ import kotlinx.coroutines.withContext
++import studio.guitarlab.app.activity.UnifiedActivityStore
+ import studio.guitarlab.app.backup.BackupScheduler
+ import studio.guitarlab.core.model.GuitarProject
+ import studio.guitarlab.core.model.ProjectFactory
+@@ -40,6 +41,8 @@ import studio.guitarlab.platform.source.android.SourceOperationState
+ import studio.guitarlab.core.separation.DurableRemoteJob
+ import studio.guitarlab.core.separation.RemoteJobState
+ import studio.guitarlab.platform.separation.RemoteSeparationClient
++import studio.guitarlab.core.project.UnifiedOperationKind
++import studio.guitarlab.core.project.UnifiedOperationState
+ 
+ data class HomeUiState(
+     val loading: Boolean = true,
+@@ -69,6 +72,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
+     private val sourceAcquisition = SourceAcquisitionClient(application)
+     private val separation = RemoteSeparationClient(application)
+     private val preparedReferences = PreparedReferenceService(repository, ProjectManagedMediaStore(application.filesDir), application.cacheDir)
++    private val activityStore = UnifiedActivityStore(application)
+     private val sourceSearchJobs = mutableMapOf<String, Job>()
+     private val preparedReferenceJobs = mutableMapOf<String, Job>()
+     private val prepareObservationJobs = mutableMapOf<String, Job>()
+@@ -177,6 +181,26 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
+                 },
+             )
+         }
++        snapshot?.let { current ->
++            val state = when (current.state) {
++                SourceOperationState.RUNNING -> UnifiedOperationState.RUNNING
++                SourceOperationState.RETRYING -> UnifiedOperationState.RETRYING
++                SourceOperationState.SUCCESS -> UnifiedOperationState.SUCCEEDED
++                SourceOperationState.ERROR -> UnifiedOperationState.FAILED
++                SourceOperationState.CANCELLED -> UnifiedOperationState.CANCELLED
++                SourceOperationState.IDLE -> return@let
++            }
++            activityStore.record(
++                operationId = current.operationId,
++                projectId = projectId,
++                kind = UnifiedOperationKind.SOURCE_ACQUISITION,
++                state = state,
++                progressPercent = current.progress,
++                summary = sourceActivitySummary(current.state),
++                technicalDetail = current.message,
++                updatedAtEpochMs = current.updatedAtEpochMs,
++            )
++        }
+         if (snapshot?.state == SourceOperationState.SUCCESS && handledSourceSuccessOperations.add(snapshot.operationId)) {
+             _state.update { current -> current.copy(sourceReplacementProjects = current.sourceReplacementProjects - projectId) }
+             BackupScheduler.enqueueCoalesced(getApplication())
+@@ -194,6 +218,25 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
+                 },
+             )
+         }
++        job?.let { current ->
++            val state = when (current.state) {
++                RemoteJobState.IMPORTED -> UnifiedOperationState.SUCCEEDED
++                RemoteJobState.CANCELLED -> UnifiedOperationState.CANCELLED
++                RemoteJobState.FAILED, RemoteJobState.EXPIRED -> UnifiedOperationState.FAILED
++                RemoteJobState.QUEUED, RemoteJobState.READY -> UnifiedOperationState.QUEUED
++                else -> UnifiedOperationState.RUNNING
++            }
++            activityStore.record(
++                operationId = current.identity.jobId,
++                projectId = projectId,
++                kind = UnifiedOperationKind.SEPARATION,
++                state = state,
++                progressPercent = null,
++                summary = separationActivitySummary(current.state),
++                technicalDetail = current.errorCode,
++                updatedAtEpochMs = current.updatedAtMs,
++            )
++        }
+         if (job != null && job.state in TERMINAL_SEPARATION_STATES) {
+             val completionKey = "${job.identity.jobId}:${job.updatedAtMs}:${job.errorCode.orEmpty()}"
+             if (handledSeparationCompletions.add(completionKey)) refresh()
+@@ -433,6 +476,15 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
+ 
+     fun prepareReferences(projectId: String) {
+         if (preparedReferenceJobs[projectId]?.isActive == true) return
++        val activityId = referenceActivityId(projectId)
++        activityStore.record(
++            operationId = activityId,
++            projectId = projectId,
++            kind = UnifiedOperationKind.REFERENCE_PREPARATION,
++            state = UnifiedOperationState.RUNNING,
++            progressPercent = 10,
++            summary = "Preparando referências para o Studio",
++        )
+         val job = viewModelScope.launch {
+             _state.update { it.copy(preparedReferenceBusyProjects = it.preparedReferenceBusyProjects + projectId, error = null, message = null) }
+             try {
+@@ -441,10 +493,35 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
+                 _state.update { it.copy(
+                     message = if (result.reusedExisting) "Referências preparadas já estavam atualizadas." else "Base e referência preparadas para o Studio.",
+                 ) }
++                activityStore.record(
++                    operationId = activityId,
++                    projectId = projectId,
++                    kind = UnifiedOperationKind.REFERENCE_PREPARATION,
++                    state = UnifiedOperationState.SUCCEEDED,
++                    progressPercent = 100,
++                    summary = "Referências prontas para o Studio",
++                )
+                 refresh()
+             } catch (_: CancellationException) {
++                activityStore.record(
++                    operationId = activityId,
++                    projectId = projectId,
++                    kind = UnifiedOperationKind.REFERENCE_PREPARATION,
++                    state = UnifiedOperationState.CANCELLED,
++                    progressPercent = null,
++                    summary = "Preparação de referências cancelada",
++                )
+                 _state.update { it.copy(message = "Preparação de referências cancelada.") }
+             } catch (error: Throwable) {
++                activityStore.record(
++                    operationId = activityId,
++                    projectId = projectId,
++                    kind = UnifiedOperationKind.REFERENCE_PREPARATION,
++                    state = UnifiedOperationState.FAILED,
++                    progressPercent = null,
++                    summary = "Não foi possível preparar as referências",
++                    technicalDetail = error.message,
++                )
+                 _state.update { it.copy(error = error.message ?: "Não foi possível preparar a base e a guitarra de referência.") }
+             } finally {
+                 preparedReferenceJobs.remove(projectId)
+@@ -454,13 +531,13 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
+         preparedReferenceJobs[projectId] = job
+     }
+ 
+-    fun saveProjectPackage(projectId: String, uri: Uri) = launchExport("Projeto GuitarLab") {
++    fun saveProjectPackage(projectId: String, uri: Uri) = launchExport(projectId, "Projeto GuitarLab") {
+         exportService.saveProject(projectId, uri)
+         "Projeto GuitarLab salvo com sucesso."
+     }
+ 
+     fun exportStudyReference(projectId: String, kind: StudyExportKind, uri: Uri, format: MasterExportFormat) =
+-        launchExport("${kind.label} ${format.name}") {
++        launchExport(projectId, "${kind.label} ${format.name}") {
+             val result = exportService.exportStudyReference(projectId, kind, uri, format)
+             val detail = when (result.strategy) {
+                 StudyExportStrategy.DIRECT_CANONICAL_WAV -> "WAV publicado diretamente, sem conversão."
+@@ -470,7 +547,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
+         }
+ 
+     fun exportMaster(projectId: String, uri: Uri, format: MasterExportFormat) =
+-        launchExport("Master ${format.name}") {
++        launchExport(projectId, "Master ${format.name}") {
+             exportService.exportMaster(projectId, uri, format)
+             "Master ${format.name} exportado com sucesso."
+         }
+@@ -479,16 +556,28 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
+ 
+     fun clearMessage() { _state.update { it.copy(message = null, error = null) } }
+ 
+-    private fun launchExport(label: String, action: suspend () -> String) {
++    private fun launchExport(projectId: String, label: String, action: suspend () -> String) {
+         if (_state.value.exportBusy) return
++        val operationId = UUID.randomUUID().toString()
++        activityStore.record(
++            operationId = operationId,
++            projectId = projectId,
++            kind = UnifiedOperationKind.EXPORT,
++            state = UnifiedOperationState.RUNNING,
++            progressPercent = null,
++            summary = "Exportando $label",
++        )
+         exportJob = viewModelScope.launch {
+             _state.update { it.copy(exportBusy = true, exportOperationLabel = label, error = null, message = null) }
+             try {
+                 val success = action()
++                activityStore.record(operationId, projectId, UnifiedOperationKind.EXPORT, UnifiedOperationState.SUCCEEDED, 100, success)
+                 _state.update { it.copy(exportBusy = false, exportOperationLabel = null, message = success) }
+             } catch (_: CancellationException) {
++                activityStore.record(operationId, projectId, UnifiedOperationKind.EXPORT, UnifiedOperationState.CANCELLED, null, "Exportação cancelada")
+                 _state.update { it.copy(exportBusy = false, exportOperationLabel = null, message = "Exportação cancelada.") }
+             } catch (error: Throwable) {
++                activityStore.record(operationId, projectId, UnifiedOperationKind.EXPORT, UnifiedOperationState.FAILED, null, "Não foi possível concluir a exportação", error.message)
+                 _state.update { it.copy(exportBusy = false, exportOperationLabel = null, error = error.message ?: "Não foi possível exportar o projeto.") }
+             } finally {
+                 exportJob = null
+@@ -516,6 +605,24 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
+     }
+ 
+     private companion object {
++        fun referenceActivityId(projectId: String) = "reference-preparation:$projectId"
++
++        fun sourceActivitySummary(state: SourceOperationState): String = when (state) {
++            SourceOperationState.RUNNING, SourceOperationState.RETRYING -> "Adquirindo fonte"
++            SourceOperationState.SUCCESS -> "Fonte pronta para separação"
++            SourceOperationState.ERROR -> "Não foi possível adquirir a fonte"
++            SourceOperationState.CANCELLED -> "Aquisição de fonte cancelada"
++            SourceOperationState.IDLE -> "Aquisição de fonte aguardando"
++        }
++
++        fun separationActivitySummary(state: RemoteJobState): String = when (state) {
++            RemoteJobState.IMPORTED -> "Separação e referências concluídas"
++            RemoteJobState.FAILED, RemoteJobState.EXPIRED -> "Não foi possível concluir a separação"
++            RemoteJobState.CANCELLED, RemoteJobState.CANCEL_REQUESTED -> "Separação cancelada"
++            RemoteJobState.QUEUED, RemoteJobState.READY -> "Separação aguardando processamento"
++            else -> "Separando fonte"
++        }
++
+         val TERMINAL_SEPARATION_STATES = setOf(RemoteJobState.IMPORTED, RemoteJobState.CANCELLED, RemoteJobState.FAILED, RemoteJobState.EXPIRED)
+     }
+ }
+diff --git a/app/src/main/java/studio/guitarlab/app/ui/SettingsScreen.kt b/app/src/main/java/studio/guitarlab/app/ui/SettingsScreen.kt
+index 4b89c81..01b34e0 100644
+--- a/app/src/main/java/studio/guitarlab/app/ui/SettingsScreen.kt
++++ b/app/src/main/java/studio/guitarlab/app/ui/SettingsScreen.kt
+@@ -64,6 +64,7 @@ fun SettingsScreen(
+     onAudioDiagnostics: () -> Unit,
+     onCodecDiagnostics: () -> Unit,
+     onBackupSettings: () -> Unit = {},
++    onActivity: () -> Unit = {},
+ ) {
+     val context = LocalContext.current
+     ExternalControlHub.initialize(context)
+@@ -343,25 +344,35 @@ fun SettingsScreen(
+ 
+             item {
+                 OptionSection(
+-                    title = "Backup e restauração",
+-                    subtitle = "Proteja seus projetos e recupere versões anteriores quando precisar.",
++                    title = "Conta e nuvem",
++                    subtitle = "Recursos em nuvem são opcionais. O Studio local continua disponível sem login.",
+                 ) {
+                     OptionRow(
+-                        "Destino",
+-                        backupSettings.folderLabel ?: "Não configurado",
+-                        if (backupSettings.treeUri == null) "Nenhuma pasta tem acesso concedido." else "Acesso persistente limitado somente à pasta selecionada.",
++                        "Processamento em nuvem",
++                        "Separação e referências",
++                        "Operações em andamento continuam no aplicativo e aparecem em Atividade.",
+                     )
+                     OptionRow(
+-                        "Automático",
+-                        if (backupSettings.automaticEnabled) backupSettings.cadence.label else "Desativado",
+-                        "Backup incremental, histórico limitado de versões e restauração sem sobrescrever projetos locais.",
++                        "Backup no Google Drive",
++                        if (backupSettings.driveConnected) "Conectado" else "Não conectado",
++                        if (backupSettings.driveConnected)
++                            "Backup incremental, histórico de versões e restauração sem sobrescrever projetos locais."
++                        else
++                            "Conecte somente quando quiser proteger ou recuperar projetos.",
+                     )
+                     SettingsActionRow(
+-                        title = "Gerenciar backups",
+-                        detail = "Pasta, backup manual, versões, restauração e retenção.",
++                        title = "Gerenciar backup no Google Drive",
++                        detail = "Conexão, backup automático, versões, restauração e retenção.",
+                         actionLabel = "Abrir",
+                         onClick = onBackupSettings,
+                     )
++                    SettingsActionRow(
++                        title = "Ver atividade",
++                        detail = "Fonte, separação, referências, exportações, backup e restauração em um único histórico.",
++                        actionLabel = "Abrir",
++                        onClick = onActivity,
++                        testTag = "settings-open-activity",
++                    )
+                 }
+             }
+ 

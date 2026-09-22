@@ -21,6 +21,8 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import studio.guitarlab.app.backup.BackupScreen
+import studio.guitarlab.app.activity.ActivityScreen
+import studio.guitarlab.app.activity.UnifiedActivityViewModel
 import studio.guitarlab.core.model.GuitarProject
 import studio.guitarlab.core.model.ProjectTemplate
 
@@ -49,7 +51,12 @@ fun GuitarLabApp(
             onPrepareProject = { navigate(AppScreen.Prepare(it)) },
             onExportWorkspace = { navigate(ExportEntryPointPolicy.destination(it)) },
             onSettings = { navigate(AppScreen.Options()) },
+            onActivity = { navigate(AppScreen.Activity) },
             onBackupProject = { navigate(AppScreen.Backup(it, returnToHome = true)) },
+        )
+        AppScreen.Activity -> ActivityScreen(
+            onBack = { navigate(AppScreen.Home) },
+            viewModel = viewModel<UnifiedActivityViewModel>(),
         )
         AppScreen.NewProject -> NewProjectScreen(
             onBack = { navigate(AppScreen.Home) },
@@ -128,6 +135,7 @@ fun GuitarLabApp(
             onAudioDiagnostics = { navigate(AppScreen.AudioProbe(current.projectId)) },
             onCodecDiagnostics = { navigate(AppScreen.CodecProbe(current.projectId)) },
             onBackupSettings = { navigate(AppScreen.Backup(current.projectId)) },
+            onActivity = { navigate(AppScreen.Activity) },
         )
         is AppScreen.AudioProbe -> AudioProbeScreen(onBack = { navigate(AppScreen.Options(current.projectId)) })
         is AppScreen.CodecProbe -> CodecProbeScreen(onBack = { navigate(AppScreen.Options(current.projectId)) })

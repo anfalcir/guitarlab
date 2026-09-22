@@ -31,6 +31,7 @@ import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Sort
+import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -58,9 +59,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
+import studio.guitarlab.app.activity.UnifiedActivityViewModel
+import studio.guitarlab.app.backup.BackupSettingsStore
 import java.text.DateFormat
 import java.util.Date
 import studio.guitarlab.core.model.GuitarProject
@@ -76,11 +81,16 @@ fun HomeScreen(
     onNewProject: () -> Unit,
     onOpenProject: (String) -> Unit,
     onSettings: () -> Unit,
+    onActivity: () -> Unit = {},
     onBackupProject: (String) -> Unit = {},
     onPrepareProject: (String) -> Unit = {},
     onExportWorkspace: (String) -> Unit = {},
+    activityViewModel: UnifiedActivityViewModel = viewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val activityState by activityViewModel.state.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val backupConnected = remember(context) { BackupSettingsStore(context).snapshot().driveConnected }
     var renameProject by remember { mutableStateOf<GuitarProject?>(null) }
     var deleteProject by remember { mutableStateOf<GuitarProject?>(null) }
     var deleteHasActiveOperations by remember { mutableStateOf(false) }
@@ -106,6 +116,12 @@ fun HomeScreen(
                     Text("Pratique · grave · compare", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.CenterVertically) {
+                    AppIconButton(
+                        icon = Icons.Default.Sync,
+                        contentDescription = "Atividade",
+                        onClick = onActivity,
+                        modifier = Modifier.testTag("home-activity"),
+                    )
                     AppIconButton(
                         icon = Icons.Default.Info,
                         contentDescription = "Ajuda",
@@ -147,6 +163,9 @@ fun HomeScreen(
                         }
                     }
                 }
+            }
+            activityState.active?.let { active ->
+                CompactActivityPanel(active, onClick = onActivity)
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
@@ -199,6 +218,7 @@ fun HomeScreen(
                                 deleteHasActiveOperations = viewModel.hasActiveProjectOperations(project.id)
                                 deleteProject = project
                             },
+                            syncLabel = projectSyncLabel(project.id, backupConnected, activityState.records),
                         )
                     }
                 }
@@ -223,6 +243,30 @@ fun HomeScreen(
                 deleteProject = null
             },
         )
+    }
+}
+
+@Composable
+private fun CompactActivityPanel(
+    record: studio.guitarlab.core.project.UnifiedOperationRecord,
+    onClick: () -> Unit,
+) {
+    Surface(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth().testTag("home-active-operation"),
+        shape = RoundedCornerShape(10.dp),
+        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f),
+    ) {
+        Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("Atividade em andamento", style = MaterialTheme.typography.labelLarge)
+                Text("Ver atividade", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+            }
+            Text(record.summary, style = MaterialTheme.typography.bodyMedium)
+            record.progressPercent?.let { progress ->
+                androidx.compose.material3.LinearProgressIndicator(progress = { progress / 100f }, Modifier.fillMaxWidth())
+            }
+        }
     }
 }
 
@@ -489,6 +533,7 @@ private fun ProjectRow(
     onBackup: () -> Unit,
     onDuplicate: () -> Unit,
     onDelete: () -> Unit,
+    syncLabel: String,
 ) {
     var menuOpen by remember { mutableStateOf(false) }
     val shape = RoundedCornerShape(10.dp)
@@ -509,6 +554,12 @@ private fun ProjectRow(
                         color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.testTag("project-status-${project.id}"),
                     )
+                    Text(
+                        syncLabel,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.testTag("project-sync-${project.id}"),
+                    )
                 }
             }
             Box(Modifier.padding(horizontal = 8.dp)) {
@@ -525,5 +576,24 @@ private fun ProjectRow(
                 }
             }
         }
+    }
+}
+
+private fun projectSyncLabel(
+    projectId: String,
+    driveConnected: Boolean,
+    records: List<studio.guitarlab.core.project.UnifiedOperationRecord>,
+): String {
+    if (!driveConnected) return "Nuvem desconectada · somente local"
+    val latest = records
+        .filter { it.projectId == projectId && it.kind == studio.guitarlab.core.project.UnifiedOperationKind.BACKUP }
+        .maxByOrNull { it.updatedAtEpochMs }
+    return when (latest?.state) {
+        studio.guitarlab.core.project.UnifiedOperationState.QUEUED -> "Backup pendente"
+        studio.guitarlab.core.project.UnifiedOperationState.RUNNING,
+        studio.guitarlab.core.project.UnifiedOperationState.RETRYING -> "Sincronizando…"
+        studio.guitarlab.core.project.UnifiedOperationState.SUCCEEDED -> "Sincronizado"
+        studio.guitarlab.core.project.UnifiedOperationState.FAILED -> "Backup com erro"
+        studio.guitarlab.core.project.UnifiedOperationState.CANCELLED, null -> "Somente local"
     }
 }

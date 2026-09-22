@@ -10,8 +10,11 @@ import androidx.work.ForegroundInfo
 import androidx.work.WorkerParameters
 import java.io.IOException
 import kotlinx.coroutines.CancellationException
+import studio.guitarlab.app.activity.UnifiedActivityStore
 import studio.guitarlab.core.project.BackupRetentionPolicy
 import studio.guitarlab.core.project.ProjectBackupCoordinator
+import studio.guitarlab.core.project.UnifiedOperationKind
+import studio.guitarlab.core.project.UnifiedOperationState
 
 class AutomaticBackupWorker(
     appContext: Context,
@@ -21,6 +24,9 @@ class AutomaticBackupWorker(
         val settingsStore = BackupSettingsStore(applicationContext)
         val settings = settingsStore.snapshot()
         if (!settings.driveConnected || !settings.automaticEnabled) return Result.success()
+        val operationId = "automatic-backup"
+        val activity = UnifiedActivityStore(applicationContext)
+        activity.record(operationId, null, UnifiedOperationKind.BACKUP, UnifiedOperationState.RUNNING, null, "Backup automático em andamento")
 
         setForeground(createForegroundInfo())
         return BackupOperationLock.withLock {
@@ -34,6 +40,7 @@ class AutomaticBackupWorker(
                 if (error is CancellationException) throw error
                 val message = error.message ?: "Falha inesperada no backup automático."
                 settingsStore.recordError(message)
+                activity.record(operationId, null, UnifiedOperationKind.BACKUP, UnifiedOperationState.FAILED, null, "Backup automático interrompido", message)
                 return@withLock when {
                     error is DriveAuthorizationRequiredException -> Result.failure()
                     error is IOException && runAttemptCount < 4 -> Result.retry()
@@ -44,9 +51,11 @@ class AutomaticBackupWorker(
             val failure = report.userFailureDetail()
             if (failure == null) {
                 settingsStore.recordSuccess(summary)
+                activity.record(operationId, null, UnifiedOperationKind.BACKUP, UnifiedOperationState.SUCCEEDED, 100, summary)
                 Result.success()
             } else {
                 settingsStore.recordPartial(summary, failure)
+                activity.record(operationId, null, UnifiedOperationKind.BACKUP, UnifiedOperationState.FAILED, null, "Backup automático parcial", failure)
                 val authorizationBlocked = report.attempts.any { attempt ->
                     attempt.error?.contains(DriveAuthorizationRequiredException.MESSAGE, ignoreCase = true) == true
                 }

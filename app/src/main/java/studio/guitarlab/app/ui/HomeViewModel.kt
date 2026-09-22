@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import studio.guitarlab.app.activity.UnifiedActivityStore
 import studio.guitarlab.app.backup.BackupScheduler
 import studio.guitarlab.core.model.GuitarProject
 import studio.guitarlab.core.model.ProjectFactory
@@ -40,6 +41,8 @@ import studio.guitarlab.platform.source.android.SourceOperationState
 import studio.guitarlab.core.separation.DurableRemoteJob
 import studio.guitarlab.core.separation.RemoteJobState
 import studio.guitarlab.platform.separation.RemoteSeparationClient
+import studio.guitarlab.core.project.UnifiedOperationKind
+import studio.guitarlab.core.project.UnifiedOperationState
 
 data class HomeUiState(
     val loading: Boolean = true,
@@ -69,6 +72,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private val sourceAcquisition = SourceAcquisitionClient(application)
     private val separation = RemoteSeparationClient(application)
     private val preparedReferences = PreparedReferenceService(repository, ProjectManagedMediaStore(application.filesDir), application.cacheDir)
+    private val activityStore = UnifiedActivityStore(application)
     private val sourceSearchJobs = mutableMapOf<String, Job>()
     private val preparedReferenceJobs = mutableMapOf<String, Job>()
     private val prepareObservationJobs = mutableMapOf<String, Job>()
@@ -177,6 +181,26 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 },
             )
         }
+        snapshot?.let { current ->
+            val state = when (current.state) {
+                SourceOperationState.RUNNING -> UnifiedOperationState.RUNNING
+                SourceOperationState.RETRYING -> UnifiedOperationState.RETRYING
+                SourceOperationState.SUCCESS -> UnifiedOperationState.SUCCEEDED
+                SourceOperationState.ERROR -> UnifiedOperationState.FAILED
+                SourceOperationState.CANCELLED -> UnifiedOperationState.CANCELLED
+                SourceOperationState.IDLE -> return@let
+            }
+            activityStore.record(
+                operationId = current.operationId,
+                projectId = projectId,
+                kind = UnifiedOperationKind.SOURCE_ACQUISITION,
+                state = state,
+                progressPercent = current.progress,
+                summary = sourceActivitySummary(current.state),
+                technicalDetail = current.message,
+                updatedAtEpochMs = current.updatedAtEpochMs,
+            )
+        }
         if (snapshot?.state == SourceOperationState.SUCCESS && handledSourceSuccessOperations.add(snapshot.operationId)) {
             _state.update { current -> current.copy(sourceReplacementProjects = current.sourceReplacementProjects - projectId) }
             BackupScheduler.enqueueCoalesced(getApplication())
@@ -192,6 +216,25 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 } else {
                     current.separationJobsByProject + (projectId to job)
                 },
+            )
+        }
+        job?.let { current ->
+            val state = when (current.state) {
+                RemoteJobState.IMPORTED -> UnifiedOperationState.SUCCEEDED
+                RemoteJobState.CANCELLED -> UnifiedOperationState.CANCELLED
+                RemoteJobState.FAILED, RemoteJobState.EXPIRED -> UnifiedOperationState.FAILED
+                RemoteJobState.QUEUED, RemoteJobState.READY -> UnifiedOperationState.QUEUED
+                else -> UnifiedOperationState.RUNNING
+            }
+            activityStore.record(
+                operationId = current.identity.jobId,
+                projectId = projectId,
+                kind = UnifiedOperationKind.SEPARATION,
+                state = state,
+                progressPercent = null,
+                summary = separationActivitySummary(current.state),
+                technicalDetail = current.errorCode,
+                updatedAtEpochMs = current.updatedAtMs,
             )
         }
         if (job != null && job.state in TERMINAL_SEPARATION_STATES) {
@@ -433,6 +476,15 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     fun prepareReferences(projectId: String) {
         if (preparedReferenceJobs[projectId]?.isActive == true) return
+        val activityId = referenceActivityId(projectId)
+        activityStore.record(
+            operationId = activityId,
+            projectId = projectId,
+            kind = UnifiedOperationKind.REFERENCE_PREPARATION,
+            state = UnifiedOperationState.RUNNING,
+            progressPercent = 10,
+            summary = "Preparando referências para o Studio",
+        )
         val job = viewModelScope.launch {
             _state.update { it.copy(preparedReferenceBusyProjects = it.preparedReferenceBusyProjects + projectId, error = null, message = null) }
             try {
@@ -441,10 +493,35 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 _state.update { it.copy(
                     message = if (result.reusedExisting) "Referências preparadas já estavam atualizadas." else "Base e referência preparadas para o Studio.",
                 ) }
+                activityStore.record(
+                    operationId = activityId,
+                    projectId = projectId,
+                    kind = UnifiedOperationKind.REFERENCE_PREPARATION,
+                    state = UnifiedOperationState.SUCCEEDED,
+                    progressPercent = 100,
+                    summary = "Referências prontas para o Studio",
+                )
                 refresh()
             } catch (_: CancellationException) {
+                activityStore.record(
+                    operationId = activityId,
+                    projectId = projectId,
+                    kind = UnifiedOperationKind.REFERENCE_PREPARATION,
+                    state = UnifiedOperationState.CANCELLED,
+                    progressPercent = null,
+                    summary = "Preparação de referências cancelada",
+                )
                 _state.update { it.copy(message = "Preparação de referências cancelada.") }
             } catch (error: Throwable) {
+                activityStore.record(
+                    operationId = activityId,
+                    projectId = projectId,
+                    kind = UnifiedOperationKind.REFERENCE_PREPARATION,
+                    state = UnifiedOperationState.FAILED,
+                    progressPercent = null,
+                    summary = "Não foi possível preparar as referências",
+                    technicalDetail = error.message,
+                )
                 _state.update { it.copy(error = error.message ?: "Não foi possível preparar a base e a guitarra de referência.") }
             } finally {
                 preparedReferenceJobs.remove(projectId)
@@ -454,13 +531,13 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         preparedReferenceJobs[projectId] = job
     }
 
-    fun saveProjectPackage(projectId: String, uri: Uri) = launchExport("Projeto GuitarLab") {
+    fun saveProjectPackage(projectId: String, uri: Uri) = launchExport(projectId, "Projeto GuitarLab") {
         exportService.saveProject(projectId, uri)
         "Projeto GuitarLab salvo com sucesso."
     }
 
     fun exportStudyReference(projectId: String, kind: StudyExportKind, uri: Uri, format: MasterExportFormat) =
-        launchExport("${kind.label} ${format.name}") {
+        launchExport(projectId, "${kind.label} ${format.name}") {
             val result = exportService.exportStudyReference(projectId, kind, uri, format)
             val detail = when (result.strategy) {
                 StudyExportStrategy.DIRECT_CANONICAL_WAV -> "WAV publicado diretamente, sem conversão."
@@ -470,7 +547,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         }
 
     fun exportMaster(projectId: String, uri: Uri, format: MasterExportFormat) =
-        launchExport("Master ${format.name}") {
+        launchExport(projectId, "Master ${format.name}") {
             exportService.exportMaster(projectId, uri, format)
             "Master ${format.name} exportado com sucesso."
         }
@@ -479,16 +556,28 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     fun clearMessage() { _state.update { it.copy(message = null, error = null) } }
 
-    private fun launchExport(label: String, action: suspend () -> String) {
+    private fun launchExport(projectId: String, label: String, action: suspend () -> String) {
         if (_state.value.exportBusy) return
+        val operationId = UUID.randomUUID().toString()
+        activityStore.record(
+            operationId = operationId,
+            projectId = projectId,
+            kind = UnifiedOperationKind.EXPORT,
+            state = UnifiedOperationState.RUNNING,
+            progressPercent = null,
+            summary = "Exportando $label",
+        )
         exportJob = viewModelScope.launch {
             _state.update { it.copy(exportBusy = true, exportOperationLabel = label, error = null, message = null) }
             try {
                 val success = action()
+                activityStore.record(operationId, projectId, UnifiedOperationKind.EXPORT, UnifiedOperationState.SUCCEEDED, 100, success)
                 _state.update { it.copy(exportBusy = false, exportOperationLabel = null, message = success) }
             } catch (_: CancellationException) {
+                activityStore.record(operationId, projectId, UnifiedOperationKind.EXPORT, UnifiedOperationState.CANCELLED, null, "Exportação cancelada")
                 _state.update { it.copy(exportBusy = false, exportOperationLabel = null, message = "Exportação cancelada.") }
             } catch (error: Throwable) {
+                activityStore.record(operationId, projectId, UnifiedOperationKind.EXPORT, UnifiedOperationState.FAILED, null, "Não foi possível concluir a exportação", error.message)
                 _state.update { it.copy(exportBusy = false, exportOperationLabel = null, error = error.message ?: "Não foi possível exportar o projeto.") }
             } finally {
                 exportJob = null
@@ -516,6 +605,24 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private companion object {
+        fun referenceActivityId(projectId: String) = "reference-preparation:$projectId"
+
+        fun sourceActivitySummary(state: SourceOperationState): String = when (state) {
+            SourceOperationState.RUNNING, SourceOperationState.RETRYING -> "Adquirindo fonte"
+            SourceOperationState.SUCCESS -> "Fonte pronta para separação"
+            SourceOperationState.ERROR -> "Não foi possível adquirir a fonte"
+            SourceOperationState.CANCELLED -> "Aquisição de fonte cancelada"
+            SourceOperationState.IDLE -> "Aquisição de fonte aguardando"
+        }
+
+        fun separationActivitySummary(state: RemoteJobState): String = when (state) {
+            RemoteJobState.IMPORTED -> "Separação e referências concluídas"
+            RemoteJobState.FAILED, RemoteJobState.EXPIRED -> "Não foi possível concluir a separação"
+            RemoteJobState.CANCELLED, RemoteJobState.CANCEL_REQUESTED -> "Separação cancelada"
+            RemoteJobState.QUEUED, RemoteJobState.READY -> "Separação aguardando processamento"
+            else -> "Separando fonte"
+        }
+
         val TERMINAL_SEPARATION_STATES = setOf(RemoteJobState.IMPORTED, RemoteJobState.CANCELLED, RemoteJobState.FAILED, RemoteJobState.EXPIRED)
     }
 }
