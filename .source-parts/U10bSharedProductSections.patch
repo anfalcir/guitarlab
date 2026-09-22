@@ -1,0 +1,170 @@
+diff --git a/app/src/main/java/studio/guitarlab/app/ui/ProductUiPrimitives.kt b/app/src/main/java/studio/guitarlab/app/ui/ProductUiPrimitives.kt
+--- a/app/src/main/java/studio/guitarlab/app/ui/ProductUiPrimitives.kt
++++ b/app/src/main/java/studio/guitarlab/app/ui/ProductUiPrimitives.kt
+@@ -0,0 +1,64 @@
++package studio.guitarlab.app.ui
++
++import androidx.compose.foundation.BorderStroke
++import androidx.compose.foundation.layout.Arrangement
++import androidx.compose.foundation.layout.Column
++import androidx.compose.foundation.layout.ColumnScope
++import androidx.compose.foundation.layout.fillMaxWidth
++import androidx.compose.foundation.layout.padding
++import androidx.compose.material3.HorizontalDivider
++import androidx.compose.material3.MaterialTheme
++import androidx.compose.material3.Surface
++import androidx.compose.material3.Text
++import androidx.compose.runtime.Composable
++import androidx.compose.ui.Modifier
++import androidx.compose.ui.unit.dp
++
++/**
++ * Shared major section surface for non-Studio product screens.
++ *
++ * Keeps Settings, Backup and later Activity/Prepare surfaces on the same
++ * 10dp maximum panel geometry and header/content hierarchy defined by
++ * docs/UI_VISUAL_SYSTEM.md.
++ */
++@Composable
++fun ProductSectionCard(
++    title: String,
++    subtitle: String? = null,
++    modifier: Modifier = Modifier,
++    content: @Composable ColumnScope.() -> Unit,
++) {
++    Surface(
++        modifier = modifier.fillMaxWidth(),
++        shape = MaterialTheme.shapes.large,
++        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.18f),
++        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.28f)),
++        tonalElevation = 0.dp,
++    ) {
++        Column(
++            modifier = Modifier.fillMaxWidth().padding(14.dp),
++            verticalArrangement = Arrangement.spacedBy(9.dp),
++        ) {
++            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
++                Text(
++                    title,
++                    style = MaterialTheme.typography.titleMedium,
++                    color = MaterialTheme.colorScheme.onSurface,
++                )
++                subtitle?.let {
++                    Text(
++                        it,
++                        style = MaterialTheme.typography.bodySmall,
++                        color = MaterialTheme.colorScheme.onSurfaceVariant,
++                    )
++                }
++            }
++            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.24f))
++            Column(
++                modifier = Modifier.fillMaxWidth(),
++                verticalArrangement = Arrangement.spacedBy(8.dp),
++                content = content,
++            )
++        }
++    }
++}
+diff --git a/app/src/main/java/studio/guitarlab/app/ui/SettingsScreen.kt b/app/src/main/java/studio/guitarlab/app/ui/SettingsScreen.kt
+--- a/app/src/main/java/studio/guitarlab/app/ui/SettingsScreen.kt
++++ b/app/src/main/java/studio/guitarlab/app/ui/SettingsScreen.kt
+@@ -19,7 +19,6 @@ import androidx.compose.foundation.layout.heightIn
+ import androidx.compose.foundation.layout.widthIn
+ import androidx.compose.foundation.layout.padding
+ import androidx.compose.foundation.lazy.LazyColumn
+-import androidx.compose.foundation.BorderStroke
+ import androidx.compose.foundation.shape.RoundedCornerShape
+ import androidx.compose.material.icons.Icons
+ import androidx.compose.material.icons.filled.ArrowBack
+@@ -831,29 +830,11 @@ private fun OptionSection(
+     subtitle: String,
+     content: @Composable ColumnScope.() -> Unit,
+ ) {
+-    Surface(
+-        modifier = Modifier.fillMaxWidth(),
+-        shape = RoundedCornerShape(14.dp),
+-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.16f),
+-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.28f)),
+-        tonalElevation = 0.dp,
+-    ) {
+-        Column(
+-            modifier = Modifier.fillMaxWidth().padding(14.dp),
+-            verticalArrangement = Arrangement.spacedBy(9.dp),
+-        ) {
+-            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+-                Text(title, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
+-                Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+-            }
+-            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.24f))
+-            Column(
+-                modifier = Modifier.fillMaxWidth(),
+-                verticalArrangement = Arrangement.spacedBy(8.dp),
+-                content = content,
+-            )
+-        }
+-    }
++    ProductSectionCard(
++        title = title,
++        subtitle = subtitle,
++        content = content,
++    )
+ }
+ 
+ @Composable
+diff --git a/app/src/main/java/studio/guitarlab/app/backup/BackupScreen.kt b/app/src/main/java/studio/guitarlab/app/backup/BackupScreen.kt
+--- a/app/src/main/java/studio/guitarlab/app/backup/BackupScreen.kt
++++ b/app/src/main/java/studio/guitarlab/app/backup/BackupScreen.kt
+@@ -51,6 +51,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
+ import java.text.DateFormat
+ import java.util.Date
+ import studio.guitarlab.app.ui.AppIconButton
++import studio.guitarlab.app.ui.ProductSectionCard
+ import studio.guitarlab.core.project.BackupVersionDescriptor
+ import studio.guitarlab.core.project.DriveReconciliation
+ 
+@@ -451,37 +452,13 @@ fun BackupScreenContent(
+ }
+ 
+ @Composable
+-private fun BackupSection(title: String, subtitle: String?, content: @Composable () -> Unit) {
+-    Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.28f)) {
+-        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+-            Text(title, style = MaterialTheme.typography.titleMedium)
+-            subtitle?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+-            content()
+-        }
+-    }
+-}
+-
+-@Composable
+-private fun ToggleRow(label: String, checked: Boolean, enabled: Boolean, onCheckedChange: (Boolean) -> Unit) {
+-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+-        Text(label, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+-        Switch(checked = checked, onCheckedChange = onCheckedChange, enabled = enabled)
+-    }
+-}
+-
+-@Composable
+-private fun <T> ChoiceRow(label: String, value: String, options: List<Pair<String, T>>, enabled: Boolean, onSelect: (T) -> Unit) {
+-    var open by remember { mutableStateOf(false) }
+-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+-        Text(label, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+-        Box {
+-            OutlinedButton(onClick = { open = true }, enabled = enabled) { Text(value) }
+-            DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+-                options.forEach { (optionLabel, optionValue) ->
+-                    DropdownMenuItem(text = { Text(optionLabel) }, onClick = { open = false; onSelect(optionValue) })
+-                }
+-            }
+-        }
++private fun BackupSection(
++    title: String,
++    subtitle: String?,
++    content: @Composable () -> Unit,
++) {
++    ProductSectionCard(title = title, subtitle = subtitle) {
++        content()
+     }
+ }
+ 
