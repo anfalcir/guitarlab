@@ -343,6 +343,14 @@ internal class DriveV3HttpClient(
     )
 }
 
+internal fun isTransientDriveFailure(error: Throwable): Boolean = when (error) {
+    is DriveAuthorizationRequiredException -> false
+    is DriveApiException ->
+        DriveRetryPolicy.retryableStatus(error.statusCode, error.responseBody)
+    is IOException -> true
+    else -> false
+}
+
 internal class DriveApiException(val statusCode: Int, val responseBody: String) : IOException(
     when (statusCode) {
         401 -> "A autorização do Google Drive expirou. Reconecte sua conta."
