@@ -29,6 +29,7 @@ class SettingsVisualHierarchyInstrumentedTest {
         }
 
         composeRule.onNodeWithTag("settings-content").assertIsDisplayed()
+        composeRule.captureCohesionScreenshot("settings-dark")
         composeRule.onNodeWithTag("settings-open-calibration").assertIsDisplayed()
         composeRule.onNodeWithTag("settings-refresh-audio-devices").assertIsDisplayed()
 
