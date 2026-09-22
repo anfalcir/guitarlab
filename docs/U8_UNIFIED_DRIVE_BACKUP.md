@@ -10,8 +10,8 @@ exact source `b3ecd5f5269728e9e481156a187922c16b93c05b`
 U8c status: CLOSED / DIGITAL PASS — Android CI #730 / run `35707441794`,
 exact source `58aad5cd230c9bb3700529dbf4b97498e08b429a`
 
-U8d status: SOURCE COMPLETE / PRE-GATE — durable transaction journal and
-process-death convergence implemented; exact CI evidence pending.
+U8d status: CLOSED / DIGITAL PASS — Android CI #731 / run `35708902719`,
+exact source `51b2fb69a49e8bf1b96991432c7685db9db51784`
 
 ## Scope boundary
 
