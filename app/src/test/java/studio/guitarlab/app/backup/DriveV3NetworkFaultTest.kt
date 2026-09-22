@@ -12,6 +12,7 @@ import java.nio.file.Files
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.runBlocking
 import org.junit.Test
 
@@ -101,6 +102,49 @@ class DriveV3NetworkFaultTest {
             offlineClient.get("https://example.test/offline")
         }
         assertEquals(DriveRetryPolicy.MAX_ATTEMPTS, offlineFactory.openCount)
+    }
+
+    @Test fun sessionCreationRetriesNetworkFailureBeforeAnyChunkIsSent() = runBlocking {
+        val factory = ScriptedConnectionFactory(
+            Step(responseError = IOException("network dropped before upload")),
+            Step(
+                code = 200,
+                headers = mapOf("Location" to listOf("https://example.test/session")),
+            ),
+        )
+        val delays = mutableListOf<Long>()
+        val client = DriveV3HttpClient(
+            tokenProvider = FakeTokenProvider(),
+            retryDelay = { delays += it },
+            connectionFactory = factory::open,
+        )
+
+        val response = client.postJson(
+            "https://example.test/upload",
+            """{"name":"asset"}""",
+        )
+
+        assertEquals(200, response.code)
+        assertEquals("https://example.test/session", response.header("Location"))
+        assertEquals(2, factory.openCount)
+        assertEquals(1, delays.size)
+    }
+
+    @Test fun cancellationDuringBackoffStopsRetryImmediately() = runBlocking {
+        val factory = ScriptedConnectionFactory(
+            Step(code = 503, body = "transient"),
+            Step(code = 200, body = "must-not-run"),
+        )
+        val client = DriveV3HttpClient(
+            tokenProvider = FakeTokenProvider(),
+            retryDelay = { throw CancellationException("cancelled") },
+            connectionFactory = factory::open,
+        )
+
+        assertFailsWith<CancellationException> {
+            client.get("https://example.test/cancel")
+        }
+        assertEquals(1, factory.openCount)
     }
 
     @Test fun interruptedDownloadDeletesPartialBytesBeforeRetry() = runBlocking {
