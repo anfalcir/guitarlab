@@ -30,7 +30,7 @@ Updated: 2026-09-22
 
 ## Active line
 - Repository/branch: `anfalcir/guitarlab` / `main`.
-- Source candidate: `0.5.0-rc4`, versionCode `24`. **U10 is CLOSED / DIGITAL PASS and U11 is active.** The exact U10 technical source is `2aa97aa8b2c3af91d35e7d48a0eeb89c2c330e63`; Android CI #781 / run `35791192802` passed deterministic materialization through U10zb, software/Lint/build gates and all five API 36 groups. The C8 gate retained 24/24 screenshots and the manual artifact review passed. U8m real-provider evidence remains valid and is not repeated merely because U10 closed. Signed homologation was intentionally skipped in #781; CI #669 remains the signed authority until U11 freezes and signs the new exact candidate.
+- Active U11 candidate: `0.5.0-rc5`, versionCode `25`, package `studio.guitarlab.app`. **U10/C8 is CLOSED / DIGITAL PASS and U11 is active.** The exact U10 technical source is `2aa97aa8b2c3af91d35e7d48a0eeb89c2c330e63`; Android CI #781 / run `35791192802` passed deterministic materialization through U10zb, software/Lint/build gates and all five API 36 groups. The C8 gate retained 24/24 screenshots and deterministic visual review passed. The rc5 identity is reserved for the one U11 exact freeze; it is not a signed authority until that freeze run passes.
 - Latest signed version is `0.5.0-rc4`, versionCode `24`, package `studio.guitarlab.app`.
 - Latest signed DIGITAL PASS: **CI #669** / run `35591631207` / producer `14b69271f2ae04529fa14475e1a34f2fdd864553`.
 - #663 scope: H28 → H29 → H30 → H31 → H32 → H33 → H33a → H33b → H34 → H35 → H35a → H36 → H36a → H36b → H36c.
@@ -39,7 +39,20 @@ Updated: 2026-09-22
 - Locked signer SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
 - CI supports manual dispatch and controlled `[run ci]` / `[run ci signed]` triggers on `main`; ordinary commits remain `[skip ci]`.
 
-## U10 / C8 closure evidence\n- exact technical source: `2aa97aa8b2c3af91d35e7d48a0eeb89c2c330e63`;\n- canonical CI: Android CI #781 / run `35791192802` — PASS;\n- software gate: PASS, including Android Lint with 0 errors and debug/release build;\n- API 36: 23/23 classified instrumented classes, 76 observed tests across 5/5 groups;\n- screenshot matrix: 24/24 required artifacts retained;\n- target-tablet geometry: 1920×1200 PASS;\n- deterministic visual review: PASS, with no ANR/system overlay contamination;\n- Android integration artifact digest: `sha256:1c355f88bef4e20393a5c26c39fb4db94da8383089023724988af55953f509e3`;\n- exact-source artifact digest: `sha256:e17472db3fc95fe2ae2e49c56571f06f72a0465c4fbbeecb0ad14e7c0d02210f`;\n- signed homologation: intentionally skipped; U11 owns the next signing event;\n- detailed evidence: `docs/U10_FINAL_DIGITAL_COHESION_GATE.md`.\n\n## U8m / U8 closure evidence
+## U10 / C8 closure evidence
+- exact technical source: `2aa97aa8b2c3af91d35e7d48a0eeb89c2c330e63`;
+- canonical CI: Android CI #781 / run `35791192802` — PASS;
+- software gate: PASS, including Android Lint with 0 errors and debug/release build;
+- API 36: 23/23 classified instrumented classes, 76 observed tests across 5/5 groups;
+- screenshot matrix: 24/24 required artifacts retained;
+- target-tablet geometry: 1920×1200 PASS;
+- deterministic visual review: PASS, with no ANR/system overlay contamination;
+- Android integration artifact digest: `sha256:1c355f88bef4e20393a5c26c39fb4db94da8383089023724988af55953f509e3`;
+- exact-source artifact digest: `sha256:e17472db3fc95fe2ae2e49c56571f06f72a0465c4fbbeecb0ad14e7c0d02210f`;
+- signed homologation: intentionally skipped; U11 owns the next signing event;
+- detailed evidence: `docs/U10_FINAL_DIGITAL_COHESION_GATE.md`.
+
+## U8m / U8 closure evidence
 - exact technical source: `2375dcb72983376cb486eccf41faf1734633cc94`;
 - software CI: Android CI #757 / run `35753982993` — PASS;
 - real-provider result: `U8m PASS · r_1790095960 · cleanup 8/8/14`;
