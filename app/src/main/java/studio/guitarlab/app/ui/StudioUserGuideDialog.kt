@@ -14,17 +14,108 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 
+private enum class GuideArea {
+    HOME,
+    PREPARE,
+    STUDIO,
+    EXPORT,
+    CLOUD,
+    SETTINGS,
+}
+
+private data class GuideSectionContent(
+    val area: GuideArea,
+    val title: String,
+    val body: String,
+)
+
 /**
- * Novice-facing in-app guide. Keep this synchronized with user-visible Studio behavior.
- * See docs/USER_GUIDE_POLICY.md.
+ * One canonical help-content model for the unified GuitarLab product.
+ * Home consumes the complete guide; dense Studio surfaces consume only the
+ * contextual Studio subset so the two entry points cannot drift into
+ * independent help systems.
  */
+private object GuitarLabGuideContent {
+    val all: List<GuideSectionContent> = listOf(
+        GuideSectionContent(
+            GuideArea.HOME,
+            "Biblioteca e novo projeto",
+            "A Home é a biblioteca do GuitarLab. Pesquise, filtre e ordene projetos sem alterar seus arquivos. Em Novo projeto, escolha Buscar música, Importar áudio ou Começar no Studio. Renomear é apenas uma mudança de nome; Duplicar cria outro projeto; Excluir sempre pede confirmação. Quando houver trabalho em segundo plano, a interface informa a atividade e evita ações destrutivas inseguras.",
+        ),
+        GuideSectionContent(
+            GuideArea.PREPARE,
+            "Preparar",
+            "O fluxo é Fonte → Separação → Referências de estudo → Pronto para o Studio. Trocar a fonte é uma ação explícita. Depois de seis stems válidos, o GuitarLab cria automaticamente a base sem guitarra e a guitarra de referência. Falhas de preparação preservam as mídias já validadas e oferecem a próxima ação segura. Você pode sair da tela enquanto uma operação persistente continua e acompanhar o progresso em Atividade.",
+        ),
+        GuideSectionContent(
+            GuideArea.STUDIO,
+            "Studio · transporte e edição",
+            "Preparar e Studio usam o mesmo projeto e as mesmas mídias gerenciadas: não há exportação e reimportação entre eles. Use Play/Stop, posição, Loop, marcadores, seções, Trim, Split, fades e ações de clipe sem alterar o áudio de origem. Excluir um clipe remove apenas aquele trecho; Limpar pista remove o conteúdo da pista; Excluir pista remove a pista.",
+        ),
+        GuideSectionContent(
+            GuideArea.STUDIO,
+            "Studio · gravação e Mixer",
+            "Arme a pista correta antes de REC. A contagem aparece sem deslocar o layout; durante a gravação, waveform, Peak e RMS acompanham a take. A entrada selecionada precisa ser confirmada pelo Android: o GuitarLab não troca silenciosamente para o microfone do aparelho. Stop e REC finalizam pela mesma rotina segura. No Mixer, volume, pan, Mute, Solo e Arm mudam a mixagem sem apagar o áudio original.",
+        ),
+        GuideSectionContent(
+            GuideArea.STUDIO,
+            "Studio · prática e referências",
+            "Loop, Comparação, marcadores e seções ajudam a estudar trechos. Quando uma nova preparação produz outra base ou guitarra de referência, o Studio não troca a referência usada por uma sessão existente sem sua escolha: você pode manter a atual ou atualizar explicitamente, preservando gravações, takes e edições.",
+        ),
+        GuideSectionContent(
+            GuideArea.EXPORT,
+            "Exportar",
+            "A área Exportar é o único lugar para escolher o resultado externo. Projeto portátil salva o projeto para transporte; Arquivos para estudo publica base e referência quando disponíveis; Mix final do Studio renderiza a sessão atual. O formato só é convertido quando necessário para o resultado escolhido.",
+        ),
+        GuideSectionContent(
+            GuideArea.CLOUD,
+            "Atividade, nuvem e backup",
+            "Atividade reúne operações longas como aquisição, separação, preparação, exportação, backup e restauração. O Studio continua utilizável sem login. O Google Drive é autorizado somente quando uma função de backup precisa dele. O backup usa revisões transacionais e envia apenas o conteúdo necessário; uma revisão só é confirmada depois da validação remota. Restaurar cria uma cópia local segura e conflitos oferecem ações explícitas, sem sobrescrever silenciosamente o projeto.",
+        ),
+        GuideSectionContent(
+            GuideArea.SETTINGS,
+            "Opções e diagnósticos",
+            "Em Opções, configure áudio e gravação, monitoramento, sample rate, sincronização/calibração, controle externo quando habilitado, Conta e nuvem e preferências do aplicativo. Diagnósticos mostram detalhes técnicos apenas quando eles ajudam a investigar um problema. Calibração digital não substitui a verificação física da latência da rota USB.",
+        ),
+    )
+
+    val studio: List<GuideSectionContent> = all.filter { it.area == GuideArea.STUDIO }
+}
+
+@Composable
+fun GuitarLabUserGuideDialog(onDismiss: () -> Unit) {
+    UserGuideDialog(
+        title = "Guia do GuitarLab",
+        sections = GuitarLabGuideContent.all,
+        testTag = "guitarlab-user-guide",
+        onDismiss = onDismiss,
+    )
+}
+
 @Composable
 fun StudioUserGuideDialog(onDismiss: () -> Unit) {
+    UserGuideDialog(
+        title = "Ajuda do Studio",
+        sections = GuitarLabGuideContent.studio,
+        testTag = "studio-user-guide",
+        onDismiss = onDismiss,
+    )
+}
+
+@Composable
+private fun UserGuideDialog(
+    title: String,
+    sections: List<GuideSectionContent>,
+    testTag: String,
+    onDismiss: () -> Unit,
+) {
     AlertDialog(
+        modifier = Modifier.testTag(testTag),
         onDismissRequest = onDismiss,
-        title = { Text("Guia rápido do GuitarLab") },
+        title = { Text(title) },
         text = {
             Column(
                 modifier = Modifier
@@ -33,58 +124,7 @@ fun StudioUserGuideDialog(onDismiss: () -> Unit) {
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                GuideSection(
-                    "Projetos na Home",
-                    "A Home mostra sua biblioteca de projetos. Use Pesquisar projetos para localizar nomes sem precisar respeitar maiúsculas, minúsculas ou acentos. O botão de filtro permite combinar template, conteúdo e sample rate; o botão de ordenação alterna entre modificação, criação e nome. Filtros ativos aparecem logo abaixo da busca e podem ser limpos sem apagar nem alterar nenhum projeto. Excluir um projeto sempre exige confirmação explícita antes de remover o projeto e seus arquivos gerenciados.",
-                )
-                GuideSection(
-                    "Preparar a música",
-                    "Preparar segue uma sequência única: Fonte, Separação, Referências de estudo e Pronto para o Studio. Depois que uma fonte é aceita, a pesquisa e a importação ficam recolhidas em Trocar fonte. A separação gera seis faixas e, quando elas são validadas, o GuitarLab cria automaticamente a base sem guitarra e a guitarra de referência; não existe uma confirmação extra no caminho normal. Se essa preparação automática falhar, as seis faixas permanecem preservadas e aparece apenas a ação Tentar novamente. Você pode sair e voltar ao projeto enquanto o processamento continua. Use Ver detalhes somente quando precisar conferir informações técnicas dos arquivos ou da operação.",
-                )
-                GuideSection(
-                    "Pistas e funções",
-                    "Cada pista pode ter uma função, como Base, Guitarra de referência E/D ou Minha guitarra E/D. Isso ajuda o GuitarLab a organizar comparação e gravação. Ao criar uma pista, o app pode sugerir funções importantes ainda livres. Você pode trocar ou remover a função em Configurar pista.",
-                )
-                GuideSection(
-                    "Play, Stop e posição",
-                    "Use Play/Stop normalmente. Durante o Play você pode arrastar o marcador azul para outro ponto e a música continua dali. Ao chegar ao fim, o Play para e volta ao início. O Stop manual mantém a posição atual. Durante uma gravação, tanto Stop quanto tocar em REC novamente finalizam o take com segurança.",
-                )
-                GuideSection(
-                    "Loop",
-                    "Ative Loop para trabalhar entre os dois marcadores verdes. O Play fica dentro desse trecho, termina no segundo marcador e volta parado ao primeiro. Criar seção do loop só fica disponível quando o Loop está ativo.",
-                )
-                GuideSection(
-                    "Comparação",
-                    "Desativado reproduz a mixagem normal, sem realce de comparação. Referência destaca as guitarras de referência; Minha destaca suas guitarras; Ambas permite ouvir as duas. As etiquetas ATIVA e OCULTA mostram claramente o que participa da comparação. Quando o Mixer está aberto, Comparação, Ajustes e Timeline formam uma única barra segmentada no topo do painel. Em Ajustes, Níveis abre a análise assistida de todas as pistas, com opção de analisar/reanalisar cada uma e aplicar sugestões individualmente ou em lote. O botão Mixer da barra superior continua alternando abrir/fechar o painel e essa escolha fica persistida.",
-                )
-                GuideSection(
-                    "Marcadores e seções",
-                    "Marcadores servem como pontos de referência. Crie uma seção a partir do Loop ou use Auto seções para receber uma prévia automática. Durante a prévia, o mesmo espaço vira Aplicar + X: aplique para salvar ou toque no X vermelho para descartar. Limpar seções não apaga seus áudios.",
-                )
-                GuideSection(
-                    "Edição de clipes",
-                    "Abra Ações do áudio para cortar, dividir, duplicar, aplicar fades ou excluir um trecho. Tocar na própria área de waveform também seleciona a pista, da mesma forma que tocar no cabeçalho lateral ou no Mixer. Um toque em Cortar abre a edição assim que o menu fecha; se a edição estiver temporariamente bloqueada, o GuitarLab informa o motivo em vez de ignorar o comando. Em Cortar, arraste separadamente os marcadores de início e fim; T1/T2 usam a mesma geometria da timeline e aparecem apenas como pequenos traços amarelos na régua de tempo, sem rótulos numéricos nem ocupar a régua de seções/playhead; depois você aplica o corte. Excluir clipe remove somente aquele trecho; Limpar toda a pista fica em Configurar pista e remove todos os clipes/takes da pista sem excluir a própria pista. Arrastar um clipe até a lixeira usa a mesma exclusão confirmada e preserva arquivos de origem ainda compartilhados.",
-                )
-                GuideSection(
-                    "Gravação",
-                    "Arme a pista que receberá a gravação; ela fica destacada em vermelho na lista e na timeline. Ao iniciar REC, uma contagem de 3 segundos aparece sobreposta no centro sem mover o layout. Com Loop desligado, REC grava a partir da posição atual. Com Loop ligado, você escolhe gravar somente o trecho marcado ou desde o início. Durante o REC, a forma de onda usa uma escala temporal uniforme para que o que já foi gravado não se comprima nem se acumule para trás. A pista em gravação mostra Peak e RMS em tempo real na timeline e alimenta os mesmos medidores no Mixer. O app mede separadamente o sincronismo de início e a compensação da rota de áudio; Stop e REC finalizam o mesmo take pela mesma rotina segura.",
-                )
-                GuideSection(
-                    "Mixer",
-                    "No mixer você controla volume, posição esquerda/direita, Mute, Solo e qual pista está armada para gravar. Quando houver mais pistas do que cabem na tela, deslize horizontalmente a área das pistas; o MASTER permanece fixo à direita. Esses controles alteram o que você ouve sem apagar o áudio original. Em Configurar pista, Nível assistido mede uma pista; o botão Níveis do bloco Ajustes abre a visão de todas as pistas. Depois de aplicar uma sugestão, uma nova análise parte do novo ganho e não repete automaticamente a mesma correção.",
-                )
-                GuideSection(
-                    "Backup e restauração",
-                    "Em Opções, abra Backup e restauração para escolher uma pasta de destino. Você pode proteger todos os projetos ou apenas um, ativar o backup automático, definir quando ele pode ser executado e limitar o histórico por idade e quantidade de versões. O GuitarLab evita cópias repetidas da mesma versão, verifica os arquivos antes de disponibilizá-los para restauração e sempre restaura como uma nova cópia local, sem sobrescrever projetos existentes.",
-                )
-                GuideSection(
-                    "Controle externo",
-                    "Em Opções > Controle externo você pode habilitar, mapear e reaprender pedais ou controladores MIDI/HID compatíveis. O recurso vem desligado por padrão. Use Aprender, escolha a ação e pressione o controle desejado. Play/Stop, REC, retornar ao início, Loop, Desfazer e Refazer usam exatamente as mesmas regras dos botões na tela; um controlador nunca muda a rota de áudio, não ignora as proteções de gravação e não comanda o Studio quando o GuitarLab está em segundo plano.",
-                )
-                GuideSection(
-                    "Opções e saída",
-                    "Use Opções para entrada/saída de áudio, monitoramento e ajustes do Studio. O botão Calibração abre um painel dedicado: o ajuste global vale somente para novas takes; uma take já gravada pode receber seu próprio ajuste persistente em Configurar pista > Editar take. A Verificação digital silenciosa usa PCM zero para confirmar rota e clocks, mas não mede a latência física. A calibração física round-trip usa um chirp curto de baixo nível somente depois que a rota efetiva é confirmada. Gravar continua permitido sem calibração quando a sincronização base está disponível. Os diagnósticos de áudio/dispositivos e de codecs/arquivos ficam reunidos na seção Diagnóstico. Interfaces USB que o Android publica como múltiplos endpoints equivalentes aparecem como uma única saída física; quando necessário, o GuitarLab confirma silenciosamente qual endpoint realmente roteia áudio antes de usá-lo. Use Exportar para criar um Projeto portátil, Arquivos para estudo ou o Mix final do Studio em um formato disponível no aparelho.",
-                )
+                sections.forEach { section -> GuideSection(section) }
             }
         },
         confirmButton = { TextButton(onClick = onDismiss) { Text("Fechar") } },
@@ -92,18 +132,22 @@ fun StudioUserGuideDialog(onDismiss: () -> Unit) {
 }
 
 @Composable
-private fun GuideSection(title: String, body: String) {
+private fun GuideSection(section: GuideSectionContent) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
+        shape = MaterialTheme.shapes.medium,
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.28f),
     ) {
         Column(
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
             verticalArrangement = Arrangement.spacedBy(3.dp),
         ) {
-            Text(title, style = MaterialTheme.typography.titleSmall)
-            Text(body, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(section.title, style = MaterialTheme.typography.titleSmall)
+            Text(
+                section.body,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }
