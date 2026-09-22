@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# U10p corrective seal: persist C8 screenshots in shared emulator storage across test teardown.
+# U10p corrective seal: persist C8 screenshots in shared emulator storage across test teardown; canonical checkpoint.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
