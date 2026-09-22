@@ -1,23 +1,32 @@
 # Test and Homologation Plan
 
-Updated: 2026-09-20
+Updated: 2026-09-22
 
 ## Current evidence boundary
-The current signed DIGITAL PASS is **CI #663** / run `35523442620` / producer `51d4098fa7b1b44a9fa315e939541020f594654d`, through H36c.
 
-Signed APK SHA-256: `8e6e0f555bc5e834c4bccbdb011134c42d124806ce0316dd28787a6c98fe7bf3`.
+The newest unified **technical DIGITAL PASS** is U10/C8 on Android CI #781 / run `35791192802`, exact source `2aa97aa8b2c3af91d35e7d48a0eeb89c2c330e63`.
 
-Audited digital evidence:
-- 330/330 JVM/unit PASS, 0 failures/errors/skips;
-- Android Lint PASS, 0 errors / 50 warnings / 4 hints;
-- debug/release assembly and unsigned provenance PASS;
-- unsigned tested APK SHA-256 `215315f8b943704b9b820f98b4b7747df2fbbc62b862ab08e6c14d4dea9e89ad`;
-- 34/34 standard API36 instrumented PASS;
-- 1/1 isolated target-tablet geometry PASS;
-- exact tested-artifact signed homologation/provenance/certificate verification PASS;
-- signed APK SHA-256 `8e6e0f555bc5e834c4bccbdb011134c42d124806ce0316dd28787a6c98fe7bf3`.
+U10 evidence:
+- deterministic source materialization through U10zb PASS;
+- software gate PASS;
+- Android Lint PASS with 0 errors;
+- debug/release build gate PASS;
+- API 36 fail-closed classification 23/23 classes;
+- 76 observed instrumented tests across 5/5 groups PASS;
+- 1/1 isolated target-tablet 1920×1200 geometry PASS;
+- 24/24 required cohesion screenshots retained;
+- deterministic visual review PASS;
+- signed homologation intentionally skipped because U11 owns final freeze/signing.
 
-Target-device backup testing after #653 confirmed the H28 SAF corrective is functioning correctly. CI #663 is the latest signed DIGITAL PASS through H36c. H37b is the current SOURCE PRE-GATE Drive transport candidate and does not supersede this evidence.
+The latest signed authority remains Android CI #669 / run `35591631207`, producer `14b69271f2ae04529fa14475e1a34f2fdd864553`, package `studio.guitarlab.app`, `0.5.0-rc4` / versionCode `24`, signed APK SHA-256 `8e6e0f555bc5e834c4bccbdb011134c42d124806ce0316dd28787a6c98fe7bf3`.
+
+The active U11 candidate identity is `0.5.0-rc5` / versionCode `25`. It becomes the physical-homologation candidate only after one exact freeze SHA passes the complete U11 signed gate.
+
+Drive provider-real acceptance remains closed by U8m:
+`U8m PASS · r_1790095960 · cleanup 8/8/14`;
+sanitized report SHA-256 `84efb70615be8ef5939da538eee5f714f7311aa6d44dd5bb2cdd0b5e9e66b702`.
+
+U11 must repeat exact-source real-cloud separation smoke and backend/security verification on the freeze SHA. U12 then performs only the physical claims that software/emulators cannot prove.
 
 ## H29-H36c digital closure
 CI #663 digitally closes H29-H36c on exact source. The H34/H35 take-synchronization, silent-verification and quieter calibration code is therefore covered by the canonical unit/Lint/build/API36/signing pipeline.
@@ -44,8 +53,8 @@ Automated or programmatic coverage must continue to prove:
 - exact remote write verification does not depend on immediate parent-list visibility;
 - retention remains bounded per project and fail-safe on partial/total failure.
 
-## H37/H37a/H37b Drive v3 pre-gate and acceptance contract
-H37 changes the backup transport and therefore requires new digital and target evidence before promotion. Manual CI #664 failed before those gates at Kotlin compilation; H37a is the compile corrective; H37b is the final OAuth token-cache hardening and must be the source exercised by the next run.
+## H37/H37a/H37b Drive v3 historical acceptance contract
+H37 introduced the direct Drive v3 transport and its historical corrective sequence. CI #669 closed the signed rc4 gate; U8/U8m later closed unified production cutover and provider-real acceptance. The detailed contract below remains a protected regression reference, not a pending U11 migration/pre-gate.
 
 Canonical automated gate must additionally prove:
 - H37 five-part archive reconstructs to the declared gzip/patch hashes and all terminal Git blobs;
@@ -59,7 +68,7 @@ Canonical automated gate must additionally prove:
 - all pre-existing H28 coordinator/domain regressions still pass;
 - Android Lint, debug/release build, API36 instrumentation/geometry and signing remain green on the exact H37 producer.
 
-First target OAuth/Drive acceptance must cover:
+Historical first target OAuth/Drive acceptance contract covered:
 - Google Drive API enabled and an Android OAuth client registered for package `studio.guitarlab.app` and signer SHA-1 `42:C7:0C:79:D3:B5:CB:2C:FE:BD:F7:FF:80:93:1B:BB:F4:D1:00:37`;
 - consent requests only `drive.file`;
 - first manual full backup creates committed revisions visible in Drive;
