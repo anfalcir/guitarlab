@@ -31,13 +31,12 @@ Use these first for current status, release identity and remaining work:
 
 C6 is digitally closed by Android CI #744 / run `35729709715` at exact
 materialized source `89a7cca5acd2d5a1c9aabbb5f72e028347dd00db`. U8j is CLOSED /
-DIGITAL PASS on Android CI #746 / run `35732391636`, exact source
-`ca44bd8efada617bbc30c8c3f3cf9f3d6b18a3c1`. U8k production cutover is
-CLOSED / DIGITAL PASS on Android CI #750 / run `35742420939`, exact source
-`b5bf8d39008aa267d7411244ea0ae526142863f7`. U8l network/HTTP fault injection
-is CLOSED / DIGITAL PASS on Android CI #756 / run `35746523924`, exact source
-`2cacbfe4c95bfbee694e717468075b8eedc7f9c6`. U8 remains active only for the
-controlled real Google Drive end-to-end acceptance gate.
+DIGITAL PASS on Android CI #746 / run `35732391636`; U8k production cutover is
+CLOSED / DIGITAL PASS on #750; U8l network/HTTP fault injection is CLOSED /
+DIGITAL PASS on #756; and U8m closes the provider-real gate on exact technical
+source `2375dcb72983376cb486eccf41faf1734633cc94` after Android CI #757 / run `35753982993` plus real Google
+Drive result `U8m PASS · r_1790095960 · cleanup 8/8/14`, report SHA-256
+`84efb70615be8ef5939da538eee5f714f7311aa6d44dd5bb2cdd0b5e9e66b702`. **U8 is CLOSED / DIGITAL PASS and U10 is active.**
 The latest signed release authority is Android CI #669 / run `35591631207`,
 producer `14b69271f2ae04529fa14475e1a34f2fdd864553`, until a later signed unified
 candidate exists.
