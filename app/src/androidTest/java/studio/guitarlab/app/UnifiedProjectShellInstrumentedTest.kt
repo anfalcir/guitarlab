@@ -63,6 +63,7 @@ class UnifiedProjectShellInstrumentedTest {
             }
         }
 
+        composeRule.captureCohesionScreenshot("new-project-phone-dark")
         composeRule.onNodeWithTag("new-project-search").assertIsDisplayed().performClick()
         composeRule.onAllNodesWithText("Projeto vazio").assertCountEquals(0)
         composeRule.onNodeWithTag("new-project-name").performTextInput("Projeto C3")
@@ -125,6 +126,7 @@ class UnifiedProjectShellInstrumentedTest {
         }
 
         composeRule.onNodeWithTag("prepare-references-ready").performScrollTo().assertIsDisplayed()
+        composeRule.captureCohesionScreenshot("prepare-ready-dark")
         composeRule.onNodeWithText("Studio").performClick()
         composeRule.runOnIdle { check(openedStudio) }
     }
@@ -198,6 +200,7 @@ class UnifiedProjectShellInstrumentedTest {
         composeRule.runOnIdle { check(selected) }
         composeRule.onNodeWithTag("prepare-activity").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithTag("prepare-cancel-source").assertIsDisplayed().assertIsEnabled()
+        composeRule.captureCohesionScreenshot("prepare-search-running-dark")
     }
     @Test fun existingSourceRequiresExplicitReplacementBeforeSourcePickersReturn() {
         val source = asset("source", AssetRole.SOURCE_ORIGINAL)
