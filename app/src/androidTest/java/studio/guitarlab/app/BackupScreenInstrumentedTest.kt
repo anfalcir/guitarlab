@@ -109,6 +109,7 @@ class BackupScreenInstrumentedTest {
         compose.onNodeWithTag("backup-catalog-empty").assertIsDisplayed()
         compose.onNodeWithText("Nenhum backup disponível").assertIsDisplayed()
         compose.onNodeWithText("Quando um backup for concluído, a versão aparecerá aqui.").assertIsDisplayed()
+        compose.captureCohesionScreenshot("backup-empty-connected")
     }
 
 
