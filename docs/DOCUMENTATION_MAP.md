@@ -19,6 +19,8 @@ Use these first for current status, release identity and remaining work:
 - `UNIFIED_GUITARLAB_GBW_IMPLEMENTATION_ROADMAP.md` — approved U0→U12 successor program for the GBW/GuitarLab unification, including autonomous Work protocol and final physical-homologation boundary;
 - `UNIFIED_PRODUCT_COHESION_AUDIT.md` — release-blocking C1-C8 consolidation contract ensuring Prepare/Studio/Export/cloud/backup behave and look like one GuitarLab product;
 - `U10_FINAL_DIGITAL_COHESION_GATE.md` — canonical #781 evidence closing U10/C7/C8 and handing the exact unsigned technical source to U11;
+- `U11_FINAL_DIGITAL_RELEASE_GATE.md` — exact rc5 freeze/signing/cloud/security gate and producer-identity contract;
+- `U12_FINAL_PHYSICAL_HOMOLOGATION.md` — consolidated final SM-X230 + MK-300 physical-only acceptance campaign;
 - `U0_BASELINE_INVENTORY.md` — closed U0 baseline, schema/fixture freeze and GBW→GuitarLab ownership map; its machine-readable companion is `integration/u0/inventory.json`;
 - `POST_H28_HARDENING_AND_EXTERNAL_CONTROL_PLAN.md` — H29→1.1 implementation/closure plan;
 - `CANDIDATE_IDENTITY_POLICY.md` — candidate identity/provenance rules;
