@@ -19,6 +19,7 @@ import studio.guitarlab.app.ui.theme.GuitarLabTheme
 import studio.guitarlab.core.model.ProjectFactory
 import studio.guitarlab.core.model.ProjectTemplate
 import studio.guitarlab.core.project.BackupVersionDescriptor
+import studio.guitarlab.core.project.DriveReconciliation
 
 class BackupScreenInstrumentedTest {
     @get:Rule val compose = createComposeRule()
@@ -32,11 +33,11 @@ class BackupScreenInstrumentedTest {
                 BackupScreenContent(
                     state = configuredState(localProjects = listOf(project)),
                     projectId = project.id,
-                    onBack = {}, onConnectDrive = {}, onDisconnectDrive = {}, onMigrateLegacySaf = {}, onRefresh = {},
+                    onBack = {}, onConnectDrive = {}, onDisconnectDrive = {}, onRefresh = {},
                     onAutomaticEnabled = {}, onCadence = {}, onUnmeteredOnly = {}, onChargingOnly = {},
                     onRetentionDays = {}, onMaximumVersions = {},
                     onBackupAll = { allCalls++ }, onBackupProject = { if (it == project.id) projectCalls++ },
-                    onRestoreVersion = {}, onRestoreAll = {},
+                    onKeepLocal = { _, _ -> }, onUseCloud = {}, onRestoreVersion = {}, onRestoreAll = {},
                 )
             }
         }
@@ -52,10 +53,10 @@ class BackupScreenInstrumentedTest {
             GuitarLabTheme {
                 BackupScreenContent(
                     state = configuredState(versions = listOf(version("remote-copy"))), projectId = null,
-                    onBack = {}, onConnectDrive = {}, onDisconnectDrive = {}, onMigrateLegacySaf = {}, onRefresh = {},
+                    onBack = {}, onConnectDrive = {}, onDisconnectDrive = {}, onRefresh = {},
                     onAutomaticEnabled = {}, onCadence = {}, onUnmeteredOnly = {}, onChargingOnly = {},
                     onRetentionDays = {}, onMaximumVersions = {}, onBackupAll = {}, onBackupProject = {},
-                    onRestoreVersion = {}, onRestoreAll = {},
+                    onKeepLocal = { _, _ -> }, onUseCloud = {}, onRestoreVersion = {}, onRestoreAll = {},
                 )
             }
         }
@@ -74,9 +75,10 @@ class BackupScreenInstrumentedTest {
             GuitarLabTheme {
                 BackupScreenContent(
                     state = configuredState(versions = listOf(version)), projectId = null,
-                    onBack = {}, onConnectDrive = {}, onDisconnectDrive = {}, onMigrateLegacySaf = {}, onRefresh = {},
+                    onBack = {}, onConnectDrive = {}, onDisconnectDrive = {}, onRefresh = {},
                     onAutomaticEnabled = {}, onCadence = {}, onUnmeteredOnly = {}, onChargingOnly = {},
                     onRetentionDays = {}, onMaximumVersions = {}, onBackupAll = {}, onBackupProject = {},
+                    onKeepLocal = { _, _ -> }, onUseCloud = {},
                     onRestoreVersion = { restored = it }, onRestoreAll = {},
                 )
             }
@@ -92,9 +94,10 @@ class BackupScreenInstrumentedTest {
             GuitarLabTheme {
                 BackupScreenContent(
                     state = configuredState(versions = listOf(version("remote-2"))), projectId = null,
-                    onBack = {}, onConnectDrive = {}, onDisconnectDrive = {}, onMigrateLegacySaf = {}, onRefresh = {},
+                    onBack = {}, onConnectDrive = {}, onDisconnectDrive = {}, onRefresh = {},
                     onAutomaticEnabled = {}, onCadence = {}, onUnmeteredOnly = {}, onChargingOnly = {},
                     onRetentionDays = {}, onMaximumVersions = {}, onBackupAll = {}, onBackupProject = {},
+                    onKeepLocal = { _, _ -> }, onUseCloud = {},
                     onRestoreVersion = {}, onRestoreAll = { calls++ },
                 )
             }
@@ -102,6 +105,62 @@ class BackupScreenInstrumentedTest {
         scrollToAndClick("restore-all")
         compose.onNodeWithTag("confirm-restore-all").assertIsDisplayed().performClick()
         assertEquals(1, calls)
+    }
+
+
+    @Test fun conflictOffersExplicitSafeResolutionActions() {
+        val project = ProjectFactory(
+            idGenerator = { "p" },
+            clock = { 10 },
+        ).create("Projeto", ProjectTemplate.BLANK)
+        val remote = version("remote-conflict").copy(projectId = project.id)
+        var keptLocal: BackupVersionDescriptor? = null
+        var usedCloud: BackupVersionDescriptor? = null
+        var importedCopy: BackupVersionDescriptor? = null
+
+        compose.setContent {
+            GuitarLabTheme {
+                BackupScreenContent(
+                    state = configuredState(
+                        localProjects = listOf(project),
+                        versions = listOf(remote),
+                        reconciliations = mapOf(project.id to DriveReconciliation.CONFLICT),
+                        remoteTips = mapOf(project.id to listOf(remote)),
+                    ),
+                    projectId = project.id,
+                    onBack = {},
+                    onConnectDrive = {},
+                    onDisconnectDrive = {},
+                    onRefresh = {},
+                    onAutomaticEnabled = {},
+                    onCadence = {},
+                    onUnmeteredOnly = {},
+                    onChargingOnly = {},
+                    onRetentionDays = {},
+                    onMaximumVersions = {},
+                    onBackupAll = {},
+                    onBackupProject = {},
+                    onKeepLocal = { id, version ->
+                        if (id == project.id) keptLocal = version
+                    },
+                    onUseCloud = { usedCloud = it },
+                    onRestoreVersion = { importedCopy = it },
+                    onRestoreAll = {},
+                )
+            }
+        }
+
+        scrollToAndClick("conflict-keep-local")
+        compose.onNodeWithTag("confirm-keep-local").assertIsDisplayed().performClick()
+        assertEquals(remote, keptLocal)
+
+        scrollToAndClick("conflict-use-cloud-remote-conflict")
+        compose.onNodeWithTag("confirm-use-cloud").assertIsDisplayed().performClick()
+        assertEquals(remote, usedCloud)
+
+        scrollToAndClick("conflict-import-copy-remote-conflict")
+        compose.onNodeWithTag("confirm-restore-version").assertIsDisplayed().performClick()
+        assertEquals(remote, importedCopy)
     }
 
     private fun scrollToAndClick(tag: String) {
@@ -112,11 +171,15 @@ class BackupScreenInstrumentedTest {
     private fun configuredState(
         localProjects: List<studio.guitarlab.core.model.GuitarProject> = emptyList(),
         versions: List<BackupVersionDescriptor> = emptyList(),
+        reconciliations: Map<String, DriveReconciliation> = emptyMap(),
+        remoteTips: Map<String, List<BackupVersionDescriptor>> = emptyMap(),
     ) = BackupUiState(
         loading = false,
         settings = BackupSettingsSnapshot(driveConnected = true, driveAccountLabel = "conta@example.com"),
         localProjects = localProjects,
         versions = versions,
+        reconciliations = reconciliations,
+        remoteTips = remoteTips,
     )
 
     private fun version(id: String) = BackupVersionDescriptor(
