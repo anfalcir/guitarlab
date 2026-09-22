@@ -15,6 +15,7 @@ import studio.guitarlab.core.project.DriveConflictResolver
 import studio.guitarlab.core.project.DriveCurrentDescriptor
 import studio.guitarlab.core.project.DriveManifestRetentionPlanner
 import studio.guitarlab.core.project.DriveProjectRevisionManifest
+import studio.guitarlab.core.project.DrivePublishedHead
 import studio.guitarlab.core.project.DriveReconciliation
 import studio.guitarlab.core.project.UnifiedDriveBackupResult
 import studio.guitarlab.core.project.DriveRestorePublisher
@@ -373,6 +374,50 @@ internal class UnifiedDriveProductionService(
             UnifiedDriveBackupCoordinator(remote)
                 .commit(frozen.manifest, frozen.localAssets, baseRevisionId)
                 .descriptor
+        }
+
+    /**
+     * U8m adversarial constructor for the documented append-only head race.
+     *
+     * This intentionally bypasses the coordinator's pre-publish base check only after the
+     * immutable objects and manifest have been verified through the production remote store.
+     * It exists solely to create the second concurrent sibling required to prove that the
+     * production reconciliation path fails closed when multiple tips are actually present.
+     */
+    internal suspend fun u8mPublishConcurrentSiblingForAcceptance(
+        project: GuitarProject,
+        baseRevisionId: String,
+    ): DriveCurrentDescriptor =
+        snapshotBuilder.freeze(project, baseRevisionId).use { frozen ->
+            frozen.localAssets.forEach { local ->
+                val receipt = remote.findAsset(local.identity.sha256)
+                    ?: remote.uploadAsset(local)
+                require(receipt.matches(local.identity)) {
+                    "U8m concurrent sibling asset verification failed."
+                }
+            }
+            val manifestIdentity = studio.guitarlab.core.project.DriveAssetObject(
+                frozen.manifest.manifestSha256,
+                frozen.manifest.canonicalBytes().size.toLong(),
+            )
+            val manifestReceipt = remote.findManifest(frozen.manifest.manifestSha256)
+                ?: remote.uploadManifest(frozen.manifest)
+            require(manifestReceipt.matches(manifestIdentity)) {
+                "U8m concurrent sibling manifest verification failed."
+            }
+            val descriptor = DriveCurrentDescriptor(
+                frozen.manifest.projectId,
+                frozen.manifest.revisionId,
+                frozen.manifest.manifestSha256,
+            )
+            remote.publishHead(DrivePublishedHead(descriptor, baseRevisionId))
+            val exact = remote.listHeads(project.id).filter {
+                it.descriptor.revisionId == descriptor.revisionId
+            }
+            require(exact.size == 1 && exact.single().descriptor == descriptor) {
+                "U8m concurrent sibling head was not read back exactly."
+            }
+            descriptor
         }
 
     private suspend fun backupProjectInternal(
