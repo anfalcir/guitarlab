@@ -165,9 +165,10 @@ internal class UnifiedDriveProductionService(
 
     suspend fun keepLocal(
         projectId: String,
-        remoteDescriptor: DriveCurrentDescriptor,
+        remoteVersion: BackupVersionDescriptor,
         retentionPolicy: BackupRetentionPolicy,
     ): BackupRunReport {
+        val remoteDescriptor = descriptor(remoteVersion)
         val tips = currentTips(remote.listHeads(projectId))
         require(tips.size == 1 && tips.single().descriptor == remoteDescriptor) {
             "A versão remota mudou; atualize o conflito antes de manter a versão local."
