@@ -1,0 +1,673 @@
+diff --git a/app/src/androidTest/java/studio/guitarlab/app/ActivityNotificationDeepLinkInstrumentedTest.kt b/app/src/androidTest/java/studio/guitarlab/app/ActivityNotificationDeepLinkInstrumentedTest.kt
+new file mode 100644
+--- /dev/null
++++ b/app/src/androidTest/java/studio/guitarlab/app/ActivityNotificationDeepLinkInstrumentedTest.kt
+@@ -0,0 +1,80 @@
++package studio.guitarlab.app
++
++import androidx.compose.ui.test.assertIsDisplayed
++import androidx.compose.ui.test.junit4.createAndroidComposeRule
++import androidx.compose.ui.test.onNodeWithTag
++import androidx.test.ext.junit.runners.AndroidJUnit4
++import kotlin.test.assertEquals
++import org.junit.Rule
++import org.junit.Test
++import org.junit.runner.RunWith
++import studio.guitarlab.app.activity.AppNotificationDeepLink
++import studio.guitarlab.app.activity.UnifiedActivityStore
++import studio.guitarlab.app.backup.ConfirmedRevisionStore
++import studio.guitarlab.app.ui.AppScreen
++import studio.guitarlab.core.project.BackupRunReport
++import studio.guitarlab.core.project.BackupVersionDescriptor
++import studio.guitarlab.core.project.ProjectBackupAttempt
++import studio.guitarlab.core.project.UnifiedOperationKind
++import studio.guitarlab.core.project.UnifiedOperationState
++
++@RunWith(AndroidJUnit4::class)
++class ActivityNotificationDeepLinkInstrumentedTest {
++    @get:Rule val composeRule = createAndroidComposeRule<MainActivity>()
++
++    @Test fun notificationPendingIntentOpensOwningActivityItem() {
++        val operationId = "notification-deep-link-test"
++        val store = UnifiedActivityStore(composeRule.activity)
++        store.record(
++            operationId = operationId,
++            projectId = "project-notification",
++            kind = UnifiedOperationKind.BACKUP,
++            state = UnifiedOperationState.SUCCEEDED,
++            progressPercent = 100,
++            summary = "Backup concluído",
++        )
++        try {
++            AppNotificationDeepLink.pendingIntent(
++                composeRule.activity,
++                AppScreen.Activity(operationId),
++            ).send()
++            composeRule.onNodeWithTag("activity-record-$operationId").assertIsDisplayed()
++        } finally {
++            store.remove(operationId)
++        }
++    }
++
++    @Test fun confirmedRevisionStoreIgnoresUnconfirmedFailure() {
++        val store = ConfirmedRevisionStore(composeRule.activity)
++        val projectId = "confirmed-store-test"
++        store.clearProject(projectId)
++        val confirmed = descriptor(projectId, "r_1_" + "a".repeat(24))
++        store.record(report(ProjectBackupAttempt.Status.COMMITTED, confirmed))
++        assertEquals(confirmed.revisionId, store.confirmedRevision(projectId))
++
++        val failed = descriptor(projectId, "r_2_" + "b".repeat(24))
++        store.record(report(ProjectBackupAttempt.Status.FAILED, failed))
++        assertEquals(confirmed.revisionId, store.confirmedRevision(projectId))
++        store.clearProject(projectId)
++    }
++
++    private fun descriptor(projectId: String, revisionId: String) = BackupVersionDescriptor(
++        remoteId = revisionId,
++        projectId = projectId,
++        projectName = "Projeto",
++        projectUpdatedAtEpochMs = 1L,
++        backupCreatedAtEpochMs = 2L,
++        sizeBytes = 1L,
++        sha256 = "a".repeat(64),
++        revisionId = revisionId,
++        formatVersion = 2,
++    )
++
++    private fun report(status: ProjectBackupAttempt.Status, version: BackupVersionDescriptor) = BackupRunReport(
++        attempts = listOf(ProjectBackupAttempt(version.projectId, version.projectName, status, version = version)),
++        deletedVersions = 0,
++        retentionDeleteFailures = 0,
++        cleanedIncompleteVersions = 0,
++        retentionSuppressed = false,
++    )
++}
+diff --git a/app/src/main/java/studio/guitarlab/app/MainActivity.kt b/app/src/main/java/studio/guitarlab/app/MainActivity.kt
+--- a/app/src/main/java/studio/guitarlab/app/MainActivity.kt
++++ b/app/src/main/java/studio/guitarlab/app/MainActivity.kt
+@@ -1,10 +1,12 @@
+ package studio.guitarlab.app
+ 
++import android.content.Intent
+ import android.os.Bundle
+ import android.view.KeyEvent
+ import androidx.activity.ComponentActivity
+ import androidx.activity.compose.setContent
+ import androidx.compose.foundation.layout.fillMaxSize
++import androidx.compose.runtime.mutableStateOf
+ import androidx.compose.material3.MaterialTheme
+ import androidx.compose.material3.Surface
+ import androidx.compose.ui.Modifier
+@@ -13,13 +15,17 @@ import androidx.compose.ui.semantics.testTagsAsResourceId
+ import androidx.core.view.WindowCompat
+ import androidx.core.view.WindowInsetsCompat
+ import androidx.core.view.WindowInsetsControllerCompat
++import studio.guitarlab.app.activity.AppNotificationDeepLink
+ import studio.guitarlab.app.ui.GuitarLabApp
+ import studio.guitarlab.app.ui.ExternalControlHub
+ import studio.guitarlab.app.ui.theme.GuitarLabTheme
+ 
+ class MainActivity : ComponentActivity() {
++    private val notificationRoute = mutableStateOf<String?>(null)
++
+     override fun onCreate(savedInstanceState: Bundle?) {
+         super.onCreate(savedInstanceState)
++        notificationRoute.value = AppNotificationDeepLink.route(intent)
+         ExternalControlHub.initialize(this)
+         enterImmersiveMode()
+         setContent {
+@@ -28,12 +34,21 @@ class MainActivity : ComponentActivity() {
+                     modifier = Modifier.fillMaxSize().semantics { testTagsAsResourceId = true },
+                     color = MaterialTheme.colorScheme.background,
+                 ) {
+-                    GuitarLabApp()
++                    GuitarLabApp(
++                        deepLinkRoute = notificationRoute.value,
++                        onDeepLinkConsumed = { notificationRoute.value = null },
++                    )
+                 }
+             }
+         }
+     }
+ 
++    override fun onNewIntent(intent: Intent) {
++        super.onNewIntent(intent)
++        setIntent(intent)
++        notificationRoute.value = AppNotificationDeepLink.route(intent)
++    }
++
+     override fun onResume() {
+         super.onResume()
+         ExternalControlHub.setForeground(true)
+diff --git a/app/src/main/java/studio/guitarlab/app/activity/ActivityScreen.kt b/app/src/main/java/studio/guitarlab/app/activity/ActivityScreen.kt
+--- a/app/src/main/java/studio/guitarlab/app/activity/ActivityScreen.kt
++++ b/app/src/main/java/studio/guitarlab/app/activity/ActivityScreen.kt
+@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
+ import androidx.compose.foundation.layout.padding
+ import androidx.compose.foundation.lazy.LazyColumn
+ import androidx.compose.foundation.lazy.items
++import androidx.compose.foundation.lazy.rememberLazyListState
+ import androidx.compose.material.icons.Icons
+ import androidx.compose.material.icons.filled.ArrowBack
+ import androidx.compose.material.icons.filled.CheckCircle
+@@ -22,6 +23,7 @@ import androidx.compose.material3.Icon
+ import androidx.compose.material3.MaterialTheme
+ import androidx.compose.material3.Text
+ import androidx.compose.runtime.Composable
++import androidx.compose.runtime.LaunchedEffect
+ import androidx.compose.runtime.getValue
+ import androidx.compose.ui.Alignment
+ import androidx.compose.ui.Modifier
+@@ -39,8 +41,16 @@ import studio.guitarlab.core.project.UnifiedOperationState
+ fun ActivityScreen(
+     onBack: () -> Unit,
+     viewModel: UnifiedActivityViewModel,
++    focusOperationId: String? = null,
+ ) {
+     val state by viewModel.state.collectAsStateWithLifecycle()
++    val listState = rememberLazyListState()
++    LaunchedEffect(focusOperationId, state.records) {
++        val targetIndex = focusOperationId?.let { operationId ->
++            state.records.indexOfFirst { it.operationId == operationId }
++        } ?: -1
++        if (targetIndex >= 0) listState.scrollToItem(targetIndex)
++    }
+     Column(
+         Modifier.fillMaxSize().padding(horizontal = 22.dp, vertical = 16.dp),
+         verticalArrangement = Arrangement.spacedBy(12.dp),
+@@ -60,6 +70,7 @@ fun ActivityScreen(
+         } else {
+             LazyColumn(
+                 Modifier.fillMaxWidth().weight(1f).testTag("activity-screen"),
++                state = listState,
+                 verticalArrangement = Arrangement.spacedBy(10.dp),
+             ) {
+                 items(state.records, key = { it.operationId }) { record -> ActivityRecordCard(record) }
+diff --git a/app/src/main/java/studio/guitarlab/app/activity/AppNotificationDeepLink.kt b/app/src/main/java/studio/guitarlab/app/activity/AppNotificationDeepLink.kt
+new file mode 100644
+--- /dev/null
++++ b/app/src/main/java/studio/guitarlab/app/activity/AppNotificationDeepLink.kt
+@@ -0,0 +1,32 @@
++package studio.guitarlab.app.activity
++
++import android.app.PendingIntent
++import android.content.Context
++import android.content.Intent
++import studio.guitarlab.app.MainActivity
++import studio.guitarlab.app.ui.AppRouteCodec
++import studio.guitarlab.app.ui.AppScreen
++
++/** Typed notification route contract shared by foreground/background operations. */
++object AppNotificationDeepLink {
++    const val EXTRA_ROUTE = "studio.guitarlab.app.extra.NOTIFICATION_ROUTE"
++
++    fun intent(context: Context, destination: AppScreen): Intent =
++        Intent(context, MainActivity::class.java).apply {
++            flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
++            putExtra(EXTRA_ROUTE, AppRouteCodec.encode(destination))
++        }
++
++    fun pendingIntent(context: Context, destination: AppScreen): PendingIntent {
++        val route = AppRouteCodec.encode(destination)
++        return PendingIntent.getActivity(
++            context,
++            route.hashCode() and Int.MAX_VALUE,
++            intent(context, destination),
++            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
++        )
++    }
++
++    fun route(intent: Intent?): String? =
++        intent?.getStringExtra(EXTRA_ROUTE)?.takeIf { it.isNotBlank() }
++}
+diff --git a/app/src/main/java/studio/guitarlab/app/backup/AutomaticBackupWorker.kt b/app/src/main/java/studio/guitarlab/app/backup/AutomaticBackupWorker.kt
+--- a/app/src/main/java/studio/guitarlab/app/backup/AutomaticBackupWorker.kt
++++ b/app/src/main/java/studio/guitarlab/app/backup/AutomaticBackupWorker.kt
+@@ -10,7 +10,9 @@ import androidx.work.ForegroundInfo
+ import androidx.work.WorkerParameters
+ import java.io.IOException
+ import kotlinx.coroutines.CancellationException
++import studio.guitarlab.app.activity.AppNotificationDeepLink
+ import studio.guitarlab.app.activity.UnifiedActivityStore
++import studio.guitarlab.app.ui.AppScreen
+ import studio.guitarlab.core.project.BackupRetentionPolicy
+ import studio.guitarlab.core.project.ProjectBackupCoordinator
+ import studio.guitarlab.core.project.UnifiedOperationKind
+@@ -26,9 +28,10 @@ class AutomaticBackupWorker(
+         if (!settings.driveConnected || !settings.automaticEnabled) return Result.success()
+         val operationId = "automatic-backup"
+         val activity = UnifiedActivityStore(applicationContext)
++        val confirmedRevisions = ConfirmedRevisionStore(applicationContext)
+         activity.record(operationId, null, UnifiedOperationKind.BACKUP, UnifiedOperationState.RUNNING, null, "Backup automático em andamento")
+ 
+-        setForeground(createForegroundInfo())
++        setForeground(createForegroundInfo(operationId))
+         return BackupOperationLock.withLock {
+             val remote = DriveV3BackupRemoteStore(applicationContext)
+             val report = try {
+@@ -47,6 +50,7 @@ class AutomaticBackupWorker(
+                     else -> Result.failure()
+                 }
+             }
++            confirmedRevisions.record(report)
+             val summary = report.userSummary("Backup automático")
+             val failure = report.userFailureDetail()
+             if (failure == null) {
+@@ -68,7 +72,7 @@ class AutomaticBackupWorker(
+         }
+     }
+ 
+-    private fun createForegroundInfo(): ForegroundInfo {
++    private fun createForegroundInfo(operationId: String): ForegroundInfo {
+         val manager = applicationContext.getSystemService(NotificationManager::class.java)
+         manager.createNotificationChannel(
+             NotificationChannel(CHANNEL_ID, "Backup do GuitarLab", NotificationManager.IMPORTANCE_LOW).apply {
+@@ -79,6 +83,7 @@ class AutomaticBackupWorker(
+             .setSmallIcon(android.R.drawable.stat_sys_upload)
+             .setContentTitle("GuitarLab")
+             .setContentText("Protegendo projetos no Google Drive…")
++            .setContentIntent(AppNotificationDeepLink.pendingIntent(applicationContext, AppScreen.Activity(operationId)))
+             .setOngoing(true)
+             .setCategory(Notification.CATEGORY_SERVICE)
+             .build()
+diff --git a/app/src/main/java/studio/guitarlab/app/backup/BackupViewModel.kt b/app/src/main/java/studio/guitarlab/app/backup/BackupViewModel.kt
+--- a/app/src/main/java/studio/guitarlab/app/backup/BackupViewModel.kt
++++ b/app/src/main/java/studio/guitarlab/app/backup/BackupViewModel.kt
+@@ -43,6 +43,7 @@ class BackupViewModel(application: Application) : AndroidViewModel(application)
+     private val repository = FileProjectRepository(application.filesDir)
+     private val authorization = GoogleDriveAuthorization(application)
+     private val activityStore = UnifiedActivityStore(application)
++    private val confirmedRevisions = ConfirmedRevisionStore(application)
+     private val _state = MutableStateFlow(BackupUiState())
+     val state: StateFlow<BackupUiState> = _state.asStateFlow()
+ 
+@@ -122,6 +123,7 @@ class BackupViewModel(application: Application) : AndroidViewModel(application)
+             try {
+                 authorization.revoke()
+                 DriveBackupStateStore(getApplication()).clearAll()
++                confirmedRevisions.clearAll()
+                 settingsStore.clearDriveConnection()
+                 BackupScheduler.sync(getApplication())
+                 _state.update {
+@@ -251,6 +253,7 @@ class BackupViewModel(application: Application) : AndroidViewModel(application)
+             try {
+                 val coordinator = coordinatorOrError()
+                 val report = BackupOperationLock.withLock { action(coordinator) }
++                confirmedRevisions.record(report)
+                 val summary = report.userSummary(label)
+                 val failureDetail = report.userFailureDetail()
+                 if (failureDetail == null) {
+diff --git a/app/src/main/java/studio/guitarlab/app/backup/ConfirmedRevisionStore.kt b/app/src/main/java/studio/guitarlab/app/backup/ConfirmedRevisionStore.kt
+new file mode 100644
+--- /dev/null
++++ b/app/src/main/java/studio/guitarlab/app/backup/ConfirmedRevisionStore.kt
+@@ -0,0 +1,47 @@
++package studio.guitarlab.app.backup
++
++import android.content.Context
++import studio.guitarlab.core.project.BackupRunReport
++import studio.guitarlab.core.project.ProjectBackupAttempt
++
++/**
++ * Device-local mirror of the last project revision that the remote store actually confirmed.
++ *
++ * Worker/UI success is not sufficient: only an exact descriptor returned by the coordinator can
++ * advance this boundary. The store is provider-neutral so the U8 vNext cutover can reuse it.
++ */
++class ConfirmedRevisionStore(context: Context) {
++    private val preferences = context.applicationContext.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
++
++    fun confirmedRevision(projectId: String): String? =
++        preferences.getString(key(projectId), null)?.takeIf { it.isNotBlank() }
++
++    fun record(report: BackupRunReport) {
++        val editor = preferences.edit()
++        report.attempts.forEach { attempt ->
++            if (attempt.status == ProjectBackupAttempt.Status.FAILED) return@forEach
++            val version = attempt.version ?: return@forEach
++            if (version.projectId == attempt.projectId && version.revisionId.isNotBlank()) {
++                editor.putString(key(attempt.projectId), version.revisionId)
++            }
++        }
++        editor.apply()
++    }
++
++    fun clearProject(projectId: String) {
++        preferences.edit().remove(key(projectId)).apply()
++    }
++
++    fun clearAll() {
++        preferences.edit().clear().apply()
++    }
++
++    private fun key(projectId: String): String {
++        require(projectId.isNotBlank())
++        return "revision:$projectId"
++    }
++
++    private companion object {
++        const val PREFERENCES = "guitarlab_confirmed_revisions"
++    }
++}
+diff --git a/app/src/main/java/studio/guitarlab/app/ui/AppScreen.kt b/app/src/main/java/studio/guitarlab/app/ui/AppScreen.kt
+--- a/app/src/main/java/studio/guitarlab/app/ui/AppScreen.kt
++++ b/app/src/main/java/studio/guitarlab/app/ui/AppScreen.kt
+@@ -2,7 +2,7 @@ package studio.guitarlab.app.ui
+ 
+ sealed interface AppScreen {
+     data object Home : AppScreen
+-    data object Activity : AppScreen
++    data class Activity(val operationId: String? = null) : AppScreen
+     data object NewProject : AppScreen
+     data class Prepare(val projectId: String) : AppScreen
+     data class Studio(val projectId: String) : AppScreen
+@@ -17,7 +17,7 @@ sealed interface AppScreen {
+ object AppRouteCodec {
+     fun encode(screen: AppScreen): String = when (screen) {
+         AppScreen.Home -> "home"
+-        AppScreen.Activity -> "activity"
++        is AppScreen.Activity -> screen.operationId?.let { "activity:$it" } ?: "activity"
+         AppScreen.NewProject -> "new"
+         is AppScreen.Prepare -> "prepare:${screen.projectId}"
+         is AppScreen.Studio -> "studio:${screen.projectId}"
+@@ -30,7 +30,8 @@ object AppRouteCodec {
+ 
+     fun decode(route: String): AppScreen = when {
+         route == "home" -> AppScreen.Home
+-        route == "activity" -> AppScreen.Activity
++        route == "activity" -> AppScreen.Activity()
++        route.startsWith("activity:") -> route.substringAfter(':').takeIf { it.isNotBlank() }?.let(AppScreen::Activity) ?: AppScreen.Home
+         route == "new" -> AppScreen.NewProject
+         route.startsWith("prepare:") -> route.substringAfter(':').takeIf { it.isNotBlank() }?.let(AppScreen::Prepare) ?: AppScreen.Home
+         route.startsWith("studio:") -> route.substringAfter(':').takeIf { it.isNotBlank() }?.let(AppScreen::Studio) ?: AppScreen.Home
+diff --git a/app/src/main/java/studio/guitarlab/app/ui/GuitarLabApp.kt b/app/src/main/java/studio/guitarlab/app/ui/GuitarLabApp.kt
+--- a/app/src/main/java/studio/guitarlab/app/ui/GuitarLabApp.kt
++++ b/app/src/main/java/studio/guitarlab/app/ui/GuitarLabApp.kt
+@@ -30,6 +30,8 @@ import studio.guitarlab.core.model.ProjectTemplate
+ fun GuitarLabApp(
+     homeViewModel: HomeViewModel = viewModel(),
+     navigationViewModel: AppNavigationViewModel = viewModel(),
++    deepLinkRoute: String? = null,
++    onDeepLinkConsumed: () -> Unit = {},
+ ) {
+     val persistedRoute by navigationViewModel.persistedRoute.collectAsState()
+     val homeState by homeViewModel.state.collectAsState()
+@@ -40,6 +42,13 @@ fun GuitarLabApp(
+         navigationViewModel.navigate(destination)
+     }
+ 
++    LaunchedEffect(deepLinkRoute) {
++        deepLinkRoute?.takeIf { it.isNotBlank() }?.let { route ->
++            navigate(AppRouteCodec.decode(route))
++            onDeepLinkConsumed()
++        }
++    }
++
+     when (val current = screen) {
+         AppScreen.Home -> HomeScreen(
+             viewModel = homeViewModel,
+@@ -51,12 +60,13 @@ fun GuitarLabApp(
+             onPrepareProject = { navigate(AppScreen.Prepare(it)) },
+             onExportWorkspace = { navigate(ExportEntryPointPolicy.destination(it)) },
+             onSettings = { navigate(AppScreen.Options()) },
+-            onActivity = { navigate(AppScreen.Activity) },
++            onActivity = { navigate(AppScreen.Activity()) },
+             onBackupProject = { navigate(AppScreen.Backup(it, returnToHome = true)) },
+         )
+-        AppScreen.Activity -> ActivityScreen(
++        is AppScreen.Activity -> ActivityScreen(
+             onBack = { navigate(AppScreen.Home) },
+             viewModel = viewModel<UnifiedActivityViewModel>(),
++            focusOperationId = current.operationId,
+         )
+         AppScreen.NewProject -> NewProjectScreen(
+             onBack = { navigate(AppScreen.Home) },
+@@ -135,7 +145,7 @@ fun GuitarLabApp(
+             onAudioDiagnostics = { navigate(AppScreen.AudioProbe(current.projectId)) },
+             onCodecDiagnostics = { navigate(AppScreen.CodecProbe(current.projectId)) },
+             onBackupSettings = { navigate(AppScreen.Backup(current.projectId)) },
+-            onActivity = { navigate(AppScreen.Activity) },
++            onActivity = { navigate(AppScreen.Activity()) },
+         )
+         is AppScreen.AudioProbe -> AudioProbeScreen(onBack = { navigate(AppScreen.Options(current.projectId)) })
+         is AppScreen.CodecProbe -> CodecProbeScreen(onBack = { navigate(AppScreen.Options(current.projectId)) })
+diff --git a/app/src/main/java/studio/guitarlab/app/ui/HomeScreen.kt b/app/src/main/java/studio/guitarlab/app/ui/HomeScreen.kt
+--- a/app/src/main/java/studio/guitarlab/app/ui/HomeScreen.kt
++++ b/app/src/main/java/studio/guitarlab/app/ui/HomeScreen.kt
+@@ -66,14 +66,20 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
+ import androidx.lifecycle.viewmodel.compose.viewModel
+ import studio.guitarlab.app.activity.UnifiedActivityViewModel
+ import studio.guitarlab.app.backup.BackupSettingsStore
++import studio.guitarlab.app.backup.ConfirmedRevisionStore
+ import java.text.DateFormat
+ import java.util.Date
+ import studio.guitarlab.core.model.GuitarProject
++import studio.guitarlab.core.project.BackupRevisionIdentity
+ import studio.guitarlab.core.project.ProjectContentFilter
+ import studio.guitarlab.core.project.ProjectLibraryQuery
+ import studio.guitarlab.core.project.ProjectSampleRateFilter
+ import studio.guitarlab.core.project.ProjectSortOrder
+ import studio.guitarlab.core.project.ProjectTemplateFilter
++import studio.guitarlab.core.project.ProjectSyncState
++import studio.guitarlab.core.project.ProjectSyncStatePolicy
++import studio.guitarlab.core.project.UnifiedOperationKind
++import studio.guitarlab.core.project.UnifiedOperationRecord
+ 
+ @Composable
+ fun HomeScreen(
+@@ -90,7 +96,8 @@ fun HomeScreen(
+     val state by viewModel.state.collectAsStateWithLifecycle()
+     val activityState by activityViewModel.state.collectAsStateWithLifecycle()
+     val context = LocalContext.current
+-    val backupConnected = remember(context) { BackupSettingsStore(context).snapshot().driveConnected }
++    val backupConnected = BackupSettingsStore(context).snapshot().driveConnected
++    val confirmedRevisions = remember(context) { ConfirmedRevisionStore(context) }
+     var renameProject by remember { mutableStateOf<GuitarProject?>(null) }
+     var deleteProject by remember { mutableStateOf<GuitarProject?>(null) }
+     var deleteHasActiveOperations by remember { mutableStateOf(false) }
+@@ -218,7 +225,12 @@ fun HomeScreen(
+                                 deleteHasActiveOperations = viewModel.hasActiveProjectOperations(project.id)
+                                 deleteProject = project
+                             },
+-                            syncLabel = projectSyncLabel(project.id, backupConnected, activityState.records),
++                            syncLabel = projectSyncLabel(
++                                project,
++                                backupConnected,
++                                confirmedRevisions.confirmedRevision(project.id),
++                                activityState.records,
++                            ),
+                         )
+                     }
+                 }
+@@ -579,21 +591,32 @@ private fun ProjectRow(
+     }
+ }
+ 
+-private fun projectSyncLabel(
+-    projectId: String,
++internal fun projectSyncLabel(
++    project: GuitarProject,
+     driveConnected: Boolean,
+-    records: List<studio.guitarlab.core.project.UnifiedOperationRecord>,
++    confirmedRevisionId: String?,
++    records: List<UnifiedOperationRecord>,
+ ): String {
+-    if (!driveConnected) return "Nuvem desconectada · somente local"
+-    val latest = records
+-        .filter { it.projectId == projectId && it.kind == studio.guitarlab.core.project.UnifiedOperationKind.BACKUP }
++    val projectOperation = records
++        .filter { it.projectId == project.id && it.kind == UnifiedOperationKind.BACKUP }
++        .maxByOrNull { it.updatedAtEpochMs }
++    val globalActiveOperation = records
++        .filter { it.projectId == null && it.kind == UnifiedOperationKind.BACKUP && it.state.isActive }
+         .maxByOrNull { it.updatedAtEpochMs }
+-    return when (latest?.state) {
+-        studio.guitarlab.core.project.UnifiedOperationState.QUEUED -> "Backup pendente"
+-        studio.guitarlab.core.project.UnifiedOperationState.RUNNING,
+-        studio.guitarlab.core.project.UnifiedOperationState.RETRYING -> "Sincronizando…"
+-        studio.guitarlab.core.project.UnifiedOperationState.SUCCEEDED -> "Sincronizado"
+-        studio.guitarlab.core.project.UnifiedOperationState.FAILED -> "Backup com erro"
+-        studio.guitarlab.core.project.UnifiedOperationState.CANCELLED, null -> "Somente local"
++    val operation = listOfNotNull(projectOperation, globalActiveOperation).maxByOrNull { it.updatedAtEpochMs }
++    val syncState = ProjectSyncStatePolicy.derive(
++        driveConnected = driveConnected,
++        localRevisionId = BackupRevisionIdentity.forProject(project),
++        confirmedRevisionId = confirmedRevisionId,
++        backupOperation = operation,
++    )
++    return when (syncState) {
++        ProjectSyncState.NOT_CONNECTED -> "Nuvem desconectada · somente local"
++        ProjectSyncState.LOCAL_ONLY -> "Somente local"
++        ProjectSyncState.PENDING -> "Backup pendente"
++        ProjectSyncState.SYNCING -> "Sincronizando…"
++        ProjectSyncState.SYNCED -> "Sincronizado"
++        ProjectSyncState.ERROR -> "Backup com erro"
++        ProjectSyncState.CONFLICT -> "Conflito de backup"
+     }
+ }
+diff --git a/app/src/main/java/studio/guitarlab/app/ui/HomeViewModel.kt b/app/src/main/java/studio/guitarlab/app/ui/HomeViewModel.kt
+--- a/app/src/main/java/studio/guitarlab/app/ui/HomeViewModel.kt
++++ b/app/src/main/java/studio/guitarlab/app/ui/HomeViewModel.kt
+@@ -17,6 +17,7 @@ import kotlinx.coroutines.launch
+ import kotlinx.coroutines.withContext
+ import studio.guitarlab.app.activity.UnifiedActivityStore
+ import studio.guitarlab.app.backup.BackupScheduler
++import studio.guitarlab.app.backup.ConfirmedRevisionStore
+ import studio.guitarlab.core.model.GuitarProject
+ import studio.guitarlab.core.model.ProjectFactory
+ import studio.guitarlab.core.model.ProjectTemplate
+@@ -73,6 +74,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
+     private val separation = RemoteSeparationClient(application)
+     private val preparedReferences = PreparedReferenceService(repository, ProjectManagedMediaStore(application.filesDir), application.cacheDir)
+     private val activityStore = UnifiedActivityStore(application)
++    private val confirmedRevisions = ConfirmedRevisionStore(application)
+     private val sourceSearchJobs = mutableMapOf<String, Job>()
+     private val preparedReferenceJobs = mutableMapOf<String, Job>()
+     private val prepareObservationJobs = mutableMapOf<String, Job>()
+@@ -306,6 +308,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
+                             message = if (hadActiveOperations) "Projeto excluído. As operações em andamento foram canceladas e desvinculadas." else "Projeto excluído.",
+                         )
+                     }
++                    confirmedRevisions.clearProject(projectId)
+                     BackupScheduler.enqueueCoalesced(getApplication())
+                     refresh()
+                 }
+diff --git a/app/src/test/java/studio/guitarlab/app/ui/AppRouteCodecTest.kt b/app/src/test/java/studio/guitarlab/app/ui/AppRouteCodecTest.kt
+--- a/app/src/test/java/studio/guitarlab/app/ui/AppRouteCodecTest.kt
++++ b/app/src/test/java/studio/guitarlab/app/ui/AppRouteCodecTest.kt
+@@ -8,6 +8,8 @@ class AppRouteCodecTest {
+     fun everyNavigationStateRoundTripsIncludingOpaqueProjectIdentifiers() {
+         val screens = listOf(
+             AppScreen.Home,
++            AppScreen.Activity(),
++            AppScreen.Activity("operation:automatic-backup"),
+             AppScreen.NewProject,
+             AppScreen.Prepare("project:a/b?c"),
+             AppScreen.Studio("project:a/b?c"),
+diff --git a/app/src/test/java/studio/guitarlab/app/ui/ProjectSyncLabelTest.kt b/app/src/test/java/studio/guitarlab/app/ui/ProjectSyncLabelTest.kt
+new file mode 100644
+--- /dev/null
++++ b/app/src/test/java/studio/guitarlab/app/ui/ProjectSyncLabelTest.kt
+@@ -0,0 +1,38 @@
++package studio.guitarlab.app.ui
++
++import kotlin.test.assertEquals
++import org.junit.Test
++import studio.guitarlab.core.model.ProjectFactory
++import studio.guitarlab.core.model.ProjectTemplate
++import studio.guitarlab.core.project.BackupRevisionIdentity
++import studio.guitarlab.core.project.UnifiedOperationKind
++import studio.guitarlab.core.project.UnifiedOperationRecord
++import studio.guitarlab.core.project.UnifiedOperationState
++
++class ProjectSyncLabelTest {
++    private val project = ProjectFactory(idGenerator = { "project-sync" }, clock = { 1L })
++        .create("Projeto", ProjectTemplate.BLANK)
++        .copy(updatedAtEpochMs = 100L)
++
++    @Test fun workerSuccessCannotClaimSynchronizedWithoutConfirmedRevision() {
++        val completed = record("backup", project.id, UnifiedOperationState.SUCCEEDED, 10)
++        assertEquals("Backup pendente", projectSyncLabel(project, true, "older-revision", listOf(completed)))
++        assertEquals(
++            "Sincronizado",
++            projectSyncLabel(project, true, BackupRevisionIdentity.forProject(project), listOf(completed)),
++        )
++    }
++
++    @Test fun activeGlobalBackupIsVisibleWithoutInventingConfirmation() {
++        val running = record("automatic-backup", null, UnifiedOperationState.RUNNING, 20)
++        assertEquals("Sincronizando…", projectSyncLabel(project, true, null, listOf(running)))
++    }
++
++    @Test fun disconnectedDriveAlwaysWinsPresentation() {
++        val running = record("automatic-backup", null, UnifiedOperationState.RUNNING, 20)
++        assertEquals("Nuvem desconectada · somente local", projectSyncLabel(project, false, null, listOf(running)))
++    }
++
++    private fun record(id: String, projectId: String?, state: UnifiedOperationState, updated: Long) =
++        UnifiedOperationRecord(id, projectId, UnifiedOperationKind.BACKUP, state, null, updated, id)
++}
+diff --git a/core/project/src/main/kotlin/studio/guitarlab/core/project/ProjectBackupCoordinator.kt b/core/project/src/main/kotlin/studio/guitarlab/core/project/ProjectBackupCoordinator.kt
+--- a/core/project/src/main/kotlin/studio/guitarlab/core/project/ProjectBackupCoordinator.kt
++++ b/core/project/src/main/kotlin/studio/guitarlab/core/project/ProjectBackupCoordinator.kt
+@@ -94,15 +94,33 @@ class ProjectBackupCoordinator(
+         for (project in projects) {
+             val revisionId = BackupRevisionIdentity.forProject(project)
+             val existing = initialCatalog.filter { it.projectId == project.id }
+-            if (!force && !BackupIncrementalPolicy.needsBackup(project, existing)) {
+-                attempts += ProjectBackupAttempt(project.id, project.name, ProjectBackupAttempt.Status.SKIPPED_UP_TO_DATE)
++            val confirmedExisting = existing.firstOrNull { version ->
++                version.revisionId == revisionId ||
++                    (version.formatVersion < 2 && version.projectUpdatedAtEpochMs == project.updatedAtEpochMs)
++            }
++            if (!force && confirmedExisting != null) {
++                attempts += ProjectBackupAttempt(
++                    project.id,
++                    project.name,
++                    ProjectBackupAttempt.Status.SKIPPED_UP_TO_DATE,
++                    version = confirmedExisting,
++                )
+                 continue
+             }
+             // Document providers such as cloud-backed SAF implementations may publish directory
+             // listings after the bytes themselves are already durable. Before creating another
+             // package, perform a targeted revision lookup with provider-specific settling logic.
+-            if (!force && remoteStore.findCommittedVersion(project.id, revisionId) != null) {
+-                attempts += ProjectBackupAttempt(project.id, project.name, ProjectBackupAttempt.Status.SKIPPED_UP_TO_DATE)
++            val targetedConfirmation = if (force) null else remoteStore.findCommittedVersion(project.id, revisionId)
++            if (targetedConfirmation != null) {
++                require(targetedConfirmation.projectId == project.id && targetedConfirmation.revisionId == revisionId) {
++                    "O armazenamento remoto confirmou uma revisão diferente da solicitada."
++                }
++                attempts += ProjectBackupAttempt(
++                    project.id,
++                    project.name,
++                    ProjectBackupAttempt.Status.SKIPPED_UP_TO_DATE,
++                    version = targetedConfirmation,
++                )
+                 continue
+             }
+             attemptedWrites++
+diff --git a/core/project/src/test/kotlin/studio/guitarlab/core/project/ProjectBackupCoordinatorTest.kt b/core/project/src/test/kotlin/studio/guitarlab/core/project/ProjectBackupCoordinatorTest.kt
+--- a/core/project/src/test/kotlin/studio/guitarlab/core/project/ProjectBackupCoordinatorTest.kt
++++ b/core/project/src/test/kotlin/studio/guitarlab/core/project/ProjectBackupCoordinatorTest.kt
+@@ -22,8 +22,10 @@ class ProjectBackupCoordinatorTest {
+         assertEquals(1, first.committedCount)
+         val second = runSuspend { coordinator.backupAll(force = false, retentionPolicy = BackupRetentionPolicy(null, 3)) }
+         assertEquals(1, second.skippedCount)
++        assertEquals(BackupRevisionIdentity.forProject(project), second.attempts.single().version?.revisionId)
+         val third = runSuspend { coordinator.backupProject(project.id, force = false, retentionPolicy = BackupRetentionPolicy(null, 3)) }
+         assertEquals(1, third.skippedCount)
++        assertEquals(BackupRevisionIdentity.forProject(project), third.attempts.single().version?.revisionId)
+         assertEquals(1, remote.list(project.id).size)
+     }
+ 
+@@ -51,6 +53,7 @@ class ProjectBackupCoordinatorTest {
+ 
+         assertEquals(1, report.skippedCount)
+         assertEquals(0, report.committedCount)
++        assertEquals(hidden.remoteId, report.attempts.single().version?.remoteId)
+         assertEquals(0, remote.commitCalls)
+         assertTrue(remote.targetedLookupCalls > 0)
+         assertEquals(1, remote.list(project.id).size)
