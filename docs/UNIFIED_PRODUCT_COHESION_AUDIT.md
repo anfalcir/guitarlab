@@ -305,6 +305,10 @@ Exit:
 
 ### C6 — Cloud, Backup and Activity integration
 
+**Status: ACTIVE — Android integration sub-gate U8h CLOSED / DIGITAL PASS on
+Android CI #739 / run `35721268453`, exact source
+`336f0a137e6d16cf5936344ec93b884a9db27a17`.**
+
 **Objective:** background/cloud capabilities feel like services of one app.
 
 Required work during U7/U8:
@@ -323,6 +327,12 @@ Required work during U7/U8:
 Exit:
 - there is one activity/history surface and one cloud/settings language;
 - no feature owns a visually isolated “mini app” for its jobs.
+
+The U8h evidence satisfies the shared store, Activity surface, compact Home
+progress, unified cloud/settings hierarchy and project-card sync presentation
+parts of C6. C6 remains open until notification deep-links are implemented and
+tested, and until project sync labels are driven end to end by the confirmed
+revision boundary rather than only by the latest local operation snapshot.
 
 ### C7 — Visual, copy, responsive and accessibility consolidation
 

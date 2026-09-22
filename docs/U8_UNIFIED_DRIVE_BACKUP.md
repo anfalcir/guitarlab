@@ -1,6 +1,8 @@
 # U8 unified Drive backup
 
 Updated: 2026-09-22
+U8h status: CLOSED / DIGITAL PASS — Android CI #739 / run `35721268453`, exact
+source `336f0a137e6d16cf5936344ec93b884a9db27a17`.
 Status: U8a CLOSED / DIGITAL PASS — Android CI run `35678941252`, exact source
 `a5d851ce8becd40ef08e95fd302424ac7ea4c082`
 
@@ -180,3 +182,20 @@ The integration starts from one provider-neutral presentation contract:
 
 Android persistence and the Activity/Home/Conta e nuvem surfaces are the next
 U8g integration cut after this domain gate.
+
+## U8h Android Activity and cloud presentation
+
+U8h closes the Android integration cut for the shared Activity model. Durable
+Activity snapshots are persisted and observed by one Android store; source,
+separation, reference preparation, export, backup and restore are represented
+in one Activity surface; Home shows compact active-operation progress and
+project sync labels; and Settings presents one `Conta e nuvem` hierarchy with
+separate processing and Google Drive capabilities.
+
+Exact U8h materialization, JVM/unit, Lint, debug APK assembly and all API 36
+regression groups passed in Android CI #739 / run `35721268453`.
+
+U8h does not close the full U8 program. The next gate must prove
+confirmed-revision-backed sync labels end to end, notification deep-links to
+the owning project/activity item, network-fault recovery, instrumentation
+coverage and a real Drive integration campaign.
