@@ -51,6 +51,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import java.text.DateFormat
 import java.util.Date
 import studio.guitarlab.app.ui.AppIconButton
+import studio.guitarlab.app.ui.ProductEmptyState
 import studio.guitarlab.app.ui.ProductSectionCard
 import studio.guitarlab.core.project.BackupVersionDescriptor
 import studio.guitarlab.core.project.DriveReconciliation
@@ -356,9 +357,21 @@ fun BackupScreenContent(
             if (state.loading) {
                 item { Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() } }
             } else if (!configured) {
-                item { Text("Conecte o Google Drive para carregar o catálogo de backups.", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                item {
+                    ProductEmptyState(
+                        title = "Backup indisponível",
+                        body = "Conecte o Google Drive para carregar o catálogo de backups.",
+                        modifier = Modifier.testTag("backup-catalog-disconnected"),
+                    )
+                }
             } else if (state.versions.isEmpty()) {
-                item { Text("Nenhum backup disponível no Google Drive.", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                item {
+                    ProductEmptyState(
+                        title = "Nenhum backup disponível",
+                        body = "Quando um backup for concluído, a versão aparecerá aqui.",
+                        modifier = Modifier.testTag("backup-catalog-empty"),
+                    )
+                }
             } else {
                 items(state.versions, key = { it.remoteId }) { version ->
                     BackupVersionRow(version, enabled = !state.busy, onRestore = { restoreVersion = version })
