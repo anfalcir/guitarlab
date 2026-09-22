@@ -113,6 +113,7 @@ internal data class U8mRealDriveAcceptanceReport(
     val conflictActionsVerified: Boolean = false,
     val keepLocalVerified: Boolean = false,
     val useDriveVerified: Boolean = false,
+    val ambiguousHeadsFailClosed: Boolean = false,
     val gcRecent: DriveGarbageCollectionReport? = null,
     val gcFuture: DriveGarbageCollectionReport? = null,
     val confirmedRevisionAfterGc: String? = null,
@@ -142,6 +143,7 @@ internal data class U8mRealDriveAcceptanceReport(
         put("conflictActionsVerified", conflictActionsVerified)
         put("keepLocalVerified", keepLocalVerified)
         put("useDriveVerified", useDriveVerified)
+        put("ambiguousHeadsFailClosed", ambiguousHeadsFailClosed)
         confirmedRevisionAfterGc?.let { put("confirmedRevisionAfterGc", it) }
         error?.let { put("error", it.take(500)) }
         first?.let { put("firstSync", it.json()) }
@@ -216,6 +218,7 @@ internal class U8mRealDriveAcceptanceCampaign(
         var conflictActionsVerified = false
         var keepLocalVerified = false
         var useDriveVerified = false
+        var ambiguousHeadsFailClosed = false
         var gcRecent: DriveGarbageCollectionReport? = null
         var gcFuture: DriveGarbageCollectionReport? = null
         var confirmedAfterGc: String? = null
@@ -269,33 +272,54 @@ internal class U8mRealDriveAcceptanceCampaign(
             val latestVersion = requireNotNull(newTake.attempt.version)
             val expectedRemote = requireNotNull(repository.load(projectId))
 
-            phase = "restore"
             repository.save(
                 expectedRemote.copy(
                     masterGainDb = -7f,
                     updatedAtEpochMs = nowEpochMs() + 3L,
                 ),
             )
+
+            phase = "partial-restore"
+            val beforeFailedRestore = requireNotNull(repository.load(projectId))
+            val missingEntry = newTake.manifest.fileEntries.single {
+                it.asset.sha256 == withTake.newTakeHash
+            }
+            val missingAsset = missingEntry.asset
+            val referencedOutsideCampaign = remote.listCommittedManifests()
+                .filter { it.projectId != projectId }
+                .any { manifest ->
+                    manifest.assets.any { it.sha256 == missingAsset.sha256 }
+                }
+            require(!referencedOutsideCampaign) {
+                "U8m partial-restore injection refused a cross-project reachable object."
+            }
+            val localMissingFile = File(
+                File(File(rootDirectory, "projects"), projectId),
+                missingEntry.relativePath,
+            )
+            require(remote.deleteAsset(missingAsset)) {
+                "U8m could not remove the isolated test object for partial-restore injection."
+            }
+            try {
+                val failed = runCatching {
+                    service.restoreVersion(latestVersion, DriveConflictAction.USE_DRIVE)
+                }.isFailure
+                partialProtected = failed &&
+                    repository.load(projectId) == beforeFailedRestore &&
+                    U8mRealDriveFixture.noRestorePublicationStaging(rootDirectory)
+                require(partialProtected) {
+                    "Failed restore left partial local publication."
+                }
+            } finally {
+                remote.uploadAsset(DriveLocalAsset(missingAsset, localMissingFile))
+            }
+
+            phase = "restore"
             val restored = service.restoreVersion(latestVersion, DriveConflictAction.USE_DRIVE)
             restoreVerified = restored == expectedRemote &&
                 repository.load(projectId) == expectedRemote &&
                 U8mRealDriveFixture.verifyFiles(rootDirectory, restored)
             require(restoreVerified) { "Exact restore verification failed." }
-
-            phase = "partial-restore"
-            val beforeFailedRestore = requireNotNull(repository.load(projectId))
-            val bogus = latestVersion.copy(
-                remoteId = "u8:" + "f".repeat(64),
-                sha256 = "f".repeat(64),
-                revisionId = "e".repeat(64),
-            )
-            val failed = runCatching {
-                service.restoreVersion(bogus, DriveConflictAction.USE_DRIVE)
-            }.isFailure
-            partialProtected = failed &&
-                repository.load(projectId) == beforeFailedRestore &&
-                U8mRealDriveFixture.noRestorePublicationStaging(rootDirectory)
-            require(partialProtected) { "Failed restore left partial local publication." }
 
             phase = "import-as-copy"
             val copy = service.restoreVersion(latestVersion, DriveConflictAction.IMPORT_AS_COPY)
@@ -379,7 +403,23 @@ internal class U8mRealDriveAcceptanceCampaign(
             val gcFail = uploadOrphan(campaignId, "fail")
             val gcPending = uploadOrphan(campaignId, "pending")
             extraOwnedHashes += setOf(gcDelete.sha256, gcFail.sha256, gcPending.sha256)
-            val owned = setOf(gcDelete.sha256, gcFail.sha256, gcPending.sha256)
+            val currentTipForGc = service.currentRemoteTips(projectId).single()
+            val currentManifestForGc = remote.loadManifest(
+                studio.guitarlab.core.project.DriveCurrentDescriptor(
+                    projectId,
+                    currentTipForGc.revisionId,
+                    currentTipForGc.sha256,
+                ),
+            )
+            val reachableOwnedHashes = currentManifestForGc.assets.mapTo(mutableSetOf()) {
+                it.sha256
+            }
+            val owned = buildSet {
+                add(gcDelete.sha256)
+                add(gcFail.sha256)
+                add(gcPending.sha256)
+                addAll(reachableOwnedHashes)
+            }
             val policy = BackupRetentionPolicy(
                 maxAgeDays = null,
                 maximumVersionsPerProject = 2,
@@ -406,9 +446,38 @@ internal class U8mRealDriveAcceptanceCampaign(
                     gcFuture.deleted == 1 &&
                     gcFuture.deleteFailures == 1
             ) { "Scoped real-Drive GC did not prove delete/best-effort semantics." }
+            reachableOwnedHashes.forEach { hash ->
+                require(remote.findAsset(hash) != null) {
+                    "GC deleted an object reachable from the newest retained manifest."
+                }
+            }
             confirmedAfterGc = confirmedRevisions.confirmedRevision(projectId)
             require(confirmedAfterGc == remoteTip2.revisionId)
             require(service.currentRemoteTips(projectId).single().revisionId == remoteTip2.revisionId)
+
+            phase = "ambiguous-heads"
+            val ambiguityBase = remoteTip2.revisionId
+            val branchAProject = remoteProject2.copy(
+                masterGainDb = 4f,
+                updatedAtEpochMs = nowEpochMs() + 8L,
+            )
+            val branchA = service.u8mAdvanceRemote(branchAProject, ambiguityBase)
+            val branchBProject = remoteProject2.copy(
+                masterGainDb = 5f,
+                updatedAtEpochMs = nowEpochMs() + 9L,
+            )
+            val branchB = service.u8mPublishConcurrentSiblingForAcceptance(
+                branchBProject,
+                ambiguityBase,
+            )
+            val ambiguousTips = service.currentRemoteTips(projectId)
+            ambiguousHeadsFailClosed =
+                ambiguousTips.map { it.revisionId }.toSet() ==
+                    setOf(branchA.revisionId, branchB.revisionId) &&
+                    service.reconciliation(projectId) == DriveReconciliation.CONFLICT
+            require(ambiguousHeadsFailClosed) {
+                "Multiple real Drive tips were not rejected fail-closed."
+            }
         } catch (error: Throwable) {
             failure = error
         } finally {
@@ -439,6 +508,7 @@ internal class U8mRealDriveAcceptanceCampaign(
             conflictActionsVerified &&
             keepLocalVerified &&
             useDriveVerified &&
+            ambiguousHeadsFailClosed &&
             cleanup != null
         val report = U8mRealDriveAcceptanceReport(
             campaignId = campaignId,
@@ -455,6 +525,7 @@ internal class U8mRealDriveAcceptanceCampaign(
             conflictActionsVerified = conflictActionsVerified,
             keepLocalVerified = keepLocalVerified,
             useDriveVerified = useDriveVerified,
+            ambiguousHeadsFailClosed = ambiguousHeadsFailClosed,
             gcRecent = gcRecent,
             gcFuture = gcFuture,
             confirmedRevisionAfterGc = confirmedAfterGc,
