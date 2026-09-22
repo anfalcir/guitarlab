@@ -2204,7 +2204,7 @@ When current implementation differs from target design, ARCHITECTURE describes w
 
 # 27. Milestone status table
 
-| Milestone | Status at roadmap creation | Owner/manual dependency |
+| Milestone | Current status | Owner/manual dependency |
 |---|---|---|
 | U0 Baseline/inventory | PASS — `docs/U0_BASELINE_INVENTORY.md` | no physical |
 | U1 Unified domain | DIGITAL PASS — CI #669 at `14b69271f2ae04529fa14475e1a34f2fdd864553` | none |
@@ -2214,9 +2214,9 @@ When current implementation differs from target design, ARCHITECTURE describes w
 | U5 Prepare → Studio | DIGITAL PASS — CI #690 / run `35625349001` at `4bada624e68f8a55ff22830e1dc276c8d51af223` | none |
 | U6 Unified exports | DIGITAL PASS — CI #711 / run `35658467705` at `6ff1988a8309b7174eeb328e0044d6b1d3167ff6`; C1 CLOSED | none |
 | U7 Cloud source consolidation | DIGITAL PASS — verify `35675871322`, shadow `35676232948`, production `35677341933` at cloud source `e459e5e413ab2dea00b61a9f2f60375d9823e048` | none; rollback path retained |
-| U8 Unified Drive backup | ACTIVE — U8a–U8l DIGITAL PASS; production cutover closed by #750 and network/HTTP fault gate closed by #756 at exact source `2cacbfe4c95bfbee694e717468075b8eedc7f9c6`; only controlled real Google Drive end-to-end acceptance remains | OAuth/real Drive consent may require owner |
+| U8 Unified Drive backup | **CLOSED / DIGITAL PASS** — U8m exact technical source `2375dcb72983376cb486eccf41faf1734633cc94`; Android CI #757 / run `35753982993` PASS; real Drive `U8m PASS · r_1790095960 · cleanup 8/8/14`; report SHA-256 `84efb70615be8ef5939da538eee5f714f7311aa6d44dd5bb2cdd0b5e9e66b702` | closed; no remaining U8 owner dependency |
 | U9 Legacy migration | RETIRED — no implementation required by owner decision (2026-09-21) | none |
-| U10 Global hardening | NOT STARTED | none beyond external service smoke |
+| U10 Global hardening | **ACTIVE** — entered after U8m/U8 closure | none beyond external service smoke |
 | U11 Final digital gate | NOT STARTED | canonical CI dispatch under current policy |
 | U12 Final physical homologation | NOT STARTED | owner/manual target hardware |
 
