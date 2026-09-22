@@ -81,7 +81,16 @@ fun BackupScreen(
             onBack = onBack,
             onConnectDrive = {
                 viewModel.beginDriveConnection { pendingIntent ->
-                    authorizationLauncher.launch(IntentSenderRequest.Builder(pendingIntent.intentSender).build())
+                    authorizationLauncher.launch(
+                        IntentSenderRequest.Builder(pendingIntent.intentSender).build(),
+                    )
+                }
+            },
+            onRunU8mAcceptance = {
+                viewModel.beginU8mRealDriveAcceptance { pendingIntent ->
+                    authorizationLauncher.launch(
+                        IntentSenderRequest.Builder(pendingIntent.intentSender).build(),
+                    )
                 }
             },
             onDisconnectDrive = viewModel::disconnectDrive,
@@ -128,6 +137,7 @@ fun BackupScreenContent(
     onUseCloud: (BackupVersionDescriptor) -> Unit,
     onRestoreVersion: (BackupVersionDescriptor) -> Unit,
     onRestoreAll: () -> Unit,
+    onRunU8mAcceptance: () -> Unit = {},
 ) {
     var restoreVersion by remember { mutableStateOf<BackupVersionDescriptor?>(null) }
     var keepLocalVersion by remember { mutableStateOf<BackupVersionDescriptor?>(null) }
@@ -303,6 +313,37 @@ fun BackupScreenContent(
                     Text("Última execução: ${state.settings.lastRunLabel()}", style = MaterialTheme.typography.bodyMedium)
                     state.settings.lastRunSummary?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                     state.settings.lastError?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
+                }
+            }
+
+
+            item {
+                BackupSection(
+                    "Diagnóstico de homologação",
+                    "Executa a campanha automatizada U8m no Google Drive real, usando o mesmo fluxo de backup e restauração do produto. A autorização da Conta Google será solicitada somente se necessário.",
+                ) {
+                    OutlinedButton(
+                        onClick = onRunU8mAcceptance,
+                        enabled = !state.busy,
+                        modifier = Modifier.fillMaxWidth()
+                            .testTag("u8m-real-drive-acceptance"),
+                    ) {
+                        Text("Executar aceitação U8m")
+                    }
+                    state.u8mAcceptanceSummary?.let {
+                        Text(
+                            it,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    state.u8mAcceptanceReportSha256?.let {
+                        Text(
+                            "Relatório SHA-256: $it",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
             }
 

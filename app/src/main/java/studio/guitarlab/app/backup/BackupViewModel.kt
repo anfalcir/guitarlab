@@ -37,6 +37,8 @@ data class BackupUiState(
     val reconciliations: Map<String, DriveReconciliation> = emptyMap(),
     val remoteTips: Map<String, List<BackupVersionDescriptor>> = emptyMap(),
     val authorizationRequired: Boolean = false,
+    val u8mAcceptanceSummary: String? = null,
+    val u8mAcceptanceReportSha256: String? = null,
     val message: String? = null,
     val error: String? = null,
 )
@@ -50,6 +52,7 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
     private val unifiedDrive = UnifiedDriveProductionService(application)
     private val _state = MutableStateFlow(BackupUiState())
     val state: StateFlow<BackupUiState> = _state.asStateFlow()
+    private var runU8mAfterAuthorization: Boolean = false
 
     init { refresh() }
 
@@ -121,18 +124,32 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun beginDriveConnection(onResolution: (PendingIntent) -> Unit) {
+        beginDriveAuthorization(runU8m = false, onResolution = onResolution)
+    }
+
+    fun beginU8mRealDriveAcceptance(onResolution: (PendingIntent) -> Unit) {
+        beginDriveAuthorization(runU8m = true, onResolution = onResolution)
+    }
+
+    private fun beginDriveAuthorization(
+        runU8m: Boolean,
+        onResolution: (PendingIntent) -> Unit,
+    ) {
         if (_state.value.busy) return
+        runU8mAfterAuthorization = runU8m
         viewModelScope.launch {
             _state.update { it.copy(busy = true, error = null, message = null) }
             try {
                 when (val result = authorization.request()) {
-                    is DriveAuthorizationState.Authorized -> finishDriveConnection()
+                    is DriveAuthorizationState.Authorized ->
+                        finishDriveConnection(runU8m = runU8m)
                     is DriveAuthorizationState.NeedsUserConsent -> {
                         _state.update { it.copy(busy = false) }
                         onResolution(result.pendingIntent)
                     }
                 }
             } catch (error: Throwable) {
+                runU8mAfterAuthorization = false
                 if (error is CancellationException) throw error
                 fail(error)
             }
@@ -143,18 +160,27 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
         if (_state.value.busy) return
         viewModelScope.launch {
             _state.update { it.copy(busy = true, error = null, message = null) }
+            val runU8m = runU8mAfterAuthorization
             try {
                 authorization.tokenFromResult(data) // validates the user-granted result
-                finishDriveConnection()
+                finishDriveConnection(runU8m = runU8m)
             } catch (error: Throwable) {
                 if (error is CancellationException) throw error
                 fail(error)
+            } finally {
+                runU8mAfterAuthorization = false
             }
         }
     }
 
     fun authorizationCancelled() {
-        _state.update { it.copy(busy = false, error = "A conexão com o Google Drive foi cancelada.") }
+        runU8mAfterAuthorization = false
+        _state.update {
+            it.copy(
+                busy = false,
+                error = "A conexão com o Google Drive foi cancelada.",
+            )
+        }
     }
 
     fun disconnectDrive() {
@@ -308,16 +334,35 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
 
     fun clearMessage() = _state.update { it.copy(message = null, error = null) }
 
-    private suspend fun finishDriveConnection() {
+    private suspend fun finishDriveConnection(runU8m: Boolean) {
         val label = unifiedDrive.probeReadWriteDelete()
         settingsStore.setDriveConnected(label)
         BackupScheduler.sync(getApplication())
+
+        if (runU8m) {
+            val report = BackupOperationLock.withLock {
+                unifiedDrive.runU8mRealDriveAcceptance()
+            }
+            _state.update {
+                it.copy(
+                    u8mAcceptanceSummary = report.summary(),
+                    u8mAcceptanceReportSha256 = report.reportSha256,
+                )
+            }
+            require(report.passed) { report.summary() }
+        }
+
+        runU8mAfterAuthorization = false
         _state.update {
             it.copy(
                 busy = false,
                 settings = settingsStore.snapshot(),
                 authorizationRequired = false,
-                message = "Google Drive conectado e validado.",
+                message = if (runU8m) {
+                    "Aceitação U8m concluída com sucesso."
+                } else {
+                    "Google Drive conectado e validado."
+                },
             )
         }
         refresh()
