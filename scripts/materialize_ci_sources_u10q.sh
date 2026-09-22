@@ -5,7 +5,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PREVIOUS="$ROOT/scripts/materialize_ci_sources_u10p.sh"
 PATCH="$ROOT/.source-parts/U10qScreenshotMediaStoreAndExecutionCoverage.patch"
-PATCH_BLOB="544d61a231aae65d8d9b23b18526b5f64d8f4757"
+PATCH_BLOB="2cefcd881bf04e7295c78aeeae3c4e7f4e7a0e29"
 
 declare -a FILES=(
   "app/src/androidTest/java/studio/guitarlab/app/CohesionScreenshotArtifacts.kt"
@@ -64,7 +64,7 @@ verify_semantics() {
 if ready; then
   verify_patch
   verify_semantics
-  git -C "$ROOT" apply --check --reverse "$PATCH"
+  git -C "$ROOT" apply --unidiff-zero --check --reverse "$PATCH"
   echo "Source patch chain already materialized through U10q screenshot publication and execution coverage"
   exit 0
 fi
@@ -72,10 +72,10 @@ fi
 [[ -f "$PREVIOUS" ]] || { echo "Missing U10p materializer" >&2; exit 1; }
 verify_patch
 bash "$PREVIOUS"
-git -C "$ROOT" apply --check "$PATCH"
-git -C "$ROOT" apply "$PATCH"
+git -C "$ROOT" apply --unidiff-zero --check "$PATCH"
+git -C "$ROOT" apply --unidiff-zero "$PATCH"
 git -C "$ROOT" diff --check
 ready || { echo "U10q final blob mismatch" >&2; exit 1; }
 verify_semantics
-git -C "$ROOT" apply --check --reverse "$PATCH"
+git -C "$ROOT" apply --unidiff-zero --check --reverse "$PATCH"
 echo "Source patch chain materialized through U10q screenshot publication and execution coverage"
