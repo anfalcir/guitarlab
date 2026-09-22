@@ -241,7 +241,7 @@ fun HomeScreen(
     }
 
     if (helpDialogVisible) {
-        StudioUserGuideDialog(onDismiss = { helpDialogVisible = false })
+        GuitarLabUserGuideDialog(onDismiss = { helpDialogVisible = false })
     }
 
     renameProject?.let { project -> RenameProjectDialog(project.name, { renameProject = null }) { name -> viewModel.renameProject(project.id, name); renameProject = null } }
