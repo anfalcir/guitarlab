@@ -1,7 +1,7 @@
 # U11 — Final Digital Release Gate — GuitarLab
 
 Updated: 2026-09-22  
-Status: **FREEZE PREPARATION — FINAL GATES PENDING**  
+Status: **FROZEN CANDIDATE — FINAL GATES REQUESTED BY THIS COMMIT**  
 Candidate: `0.5.0-rc5` / versionCode `25`  
 Package: `studio.guitarlab.app`  
 Canonical branch: `main`
@@ -12,7 +12,7 @@ Freeze and sign one exact candidate for the consolidated U12 physical campaign.
 
 U10/C8 is already CLOSED / DIGITAL PASS on Android CI #781 / run `35791192802`, exact technical source `2aa97aa8b2c3af91d35e7d48a0eeb89c2c330e63`.
 
-The U11 producer SHA is intentionally left **pending** until the final freeze commit is created. It must not be guessed from a preparation/docs commit.
+The U11 producer SHA is **the Git commit containing this status change and the trigger message**. The canonical workflow metadata is the authority for its exact hexadecimal value; post-run documentation will record it after all gates complete.
 
 ## Preserved prerequisite evidence
 
@@ -43,6 +43,12 @@ Until U11 closes:
 - `0.5.0-rc4` / versionCode `24`;
 - signed APK SHA-256 `8e6e0f555bc5e834c4bccbdb011134c42d124806ce0316dd28787a6c98fe7bf3`;
 - signer SHA-256 `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
+
+## Pre-freeze audit
+
+`docs/U11_SECURITY_DOCUMENTATION_AUDIT.md`: **PASS**.
+
+Candidate identity, live-document consistency, U10zb materialization ready-state, credential hygiene, Drive `drive.file` scope and tuner exclusion were verified before this trigger.
 
 ## Freeze gates
 
