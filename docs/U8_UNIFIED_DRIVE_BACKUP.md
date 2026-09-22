@@ -103,7 +103,73 @@ Corrective history retained as evidence:
 - #749 exposed only test-constructor trailing-lambda ambiguity after production compilation succeeded;
 - #750 closed all three issues on the exact source above.
 
-Next block: U8l network/HTTP fault injection. U8 itself remains OPEN until the fault matrix and real Google Drive gate both pass.
+## U8l network/HTTP fault injection
+
+U8l status: **CLOSED / DIGITAL PASS** — Android CI #756 / run `35746523924`,
+exact source `2cacbfe4c95bfbee694e717468075b8eedc7f9c6`.
+
+U8l hardens and verifies the production vNext Drive transport rather than a
+test-only adapter:
+
+- ordinary requests retry bounded offline/timeout failures plus HTTP 429,
+  retryable quota-class 403 and 500/502/503/504 responses;
+- permanent permission-class 403 responses are not converted into transient
+  retry;
+- one rejected 401 refreshes the token once, while repeated 401 transitions to
+  the explicit Drive authorization-required boundary;
+- cancellation is never swallowed by network backoff;
+- download retries delete stale/partial destination bytes before retry and
+  leave no partial file after terminal failure;
+- resumable session creation retries pre-upload network loss without sending a
+  chunk first;
+- chunk-response loss queries authoritative upload status before retransmitting
+  bytes;
+- lost final chunk response accepts a committed 200/201 status without blind
+  replay;
+- 308 Range recovery resumes from the server-confirmed offset;
+- expired upload sessions restart within a bounded budget;
+- malformed Range data fails closed;
+- resumable auth/cancellation failures bypass generic network retry;
+- paginated Drive listing accepts only non-empty, non-repeating page tokens and
+  fails closed on malformed/cyclic pagination;
+- automatic backup exposes transient network failure as RETRYING and never
+  turns incomplete work into a confirmed/synchronized revision.
+
+The canonical U8l source materializer is
+`scripts/materialize_ci_sources_u8l.sh`, invoked by
+`scripts/materialize_ci_sources.sh`. It chains from U8k and protects all eight
+terminal production/test blobs. The canonical payload is
+`.source-parts/U8lNetworkFaultGate.patch.b64` with payload SHA-256
+`5ceb06ee612f437cd8fe2b2bf870e25745fb56e6d4cd3f30f43ccce1d2d67bae`
+and decoded patch SHA-256
+`6b21db17a22ccbc29d108b0136d26751769be7f1ae346107b44d735d79460c27`.
+Ready-state acceptance additionally requires every protected Git blob to match
+and a successful reverse-apply check.
+
+Canonical gate evidence:
+- deterministic U8l source materialization PASS;
+- JVM/unit tests PASS;
+- Android Lint PASS;
+- debug/release assembly PASS;
+- API 36 group 1 “Projeto e navegação” PASS — 9 tests observed;
+- API 36 group 2 “Studio e prática” PASS — 1 test observed;
+- API 36 group 3 “Importação, controles e ajustes” PASS — 1 test observed;
+- API 36 group 4 “Exportação, backup e master” PASS — 2 tests observed;
+- isolated tablet geometry 1920×1200 PASS — 1 test observed;
+- signed homologation APK SKIPPED intentionally because candidate freeze has
+  not started.
+
+Corrective history remains diagnostic only:
+- #751 exposed a JUnit assertion-signature issue before a complete gate;
+- #752 exposed an incompletely merged remote-store fake harness;
+- #753/#754 were superseded while the full eight-file source seal was being
+  corrected;
+- #755 reached compiled Unit Tests and exposed non-`Unit` JUnit test methods;
+- #756 closed the corrected and fully sealed U8l source.
+
+**Next block:** controlled real Google Drive end-to-end acceptance. Adopt
+`U8m` for that source block unless a newer normative document defines a
+different identifier. U8 itself remains OPEN until that real-Drive gate passes.
 
 ## U8b transactional coordinator
 
