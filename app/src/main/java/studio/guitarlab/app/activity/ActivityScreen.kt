@@ -33,6 +33,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import java.text.DateFormat
 import java.util.Date
 import studio.guitarlab.app.ui.AppIconButton
+import studio.guitarlab.app.ui.ProductStatusChip
+import studio.guitarlab.app.ui.ProductStatusTone
 import studio.guitarlab.core.project.UnifiedOperationKind
 import studio.guitarlab.core.project.UnifiedOperationRecord
 import studio.guitarlab.core.project.UnifiedOperationState
@@ -110,7 +112,18 @@ private fun ActivityRecordCard(record: UnifiedOperationRecord) {
                 },
             )
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(activityKindLabel(record.kind), style = MaterialTheme.typography.titleSmall)
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(activityKindLabel(record.kind), style = MaterialTheme.typography.titleSmall)
+                    ProductStatusChip(
+                        label = activityStateLabel(record.state),
+                        tone = activityStateTone(record.state),
+                        modifier = Modifier.testTag("activity-state-${record.operationId}"),
+                    )
+                }
                 Text(record.summary, style = MaterialTheme.typography.bodyMedium)
                 record.projectId?.let { Text("Projeto $it", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 record.progressPercent?.let { progress ->
@@ -138,4 +151,22 @@ private fun activityKindLabel(kind: UnifiedOperationKind): String = when (kind) 
     UnifiedOperationKind.EXPORT -> "Exportação"
     UnifiedOperationKind.BACKUP -> "Backup"
     UnifiedOperationKind.RESTORE -> "Restauração"
+}
+
+private fun activityStateLabel(state: UnifiedOperationState): String = when (state) {
+    UnifiedOperationState.QUEUED -> "Na fila"
+    UnifiedOperationState.RUNNING -> "Em andamento"
+    UnifiedOperationState.RETRYING -> "Tentando novamente"
+    UnifiedOperationState.SUCCEEDED -> "Concluída"
+    UnifiedOperationState.FAILED -> "Falhou"
+    UnifiedOperationState.CANCELLED -> "Cancelada"
+}
+
+private fun activityStateTone(state: UnifiedOperationState): ProductStatusTone = when (state) {
+    UnifiedOperationState.QUEUED,
+    UnifiedOperationState.RUNNING,
+    UnifiedOperationState.RETRYING -> ProductStatusTone.ACTIVE
+    UnifiedOperationState.SUCCEEDED -> ProductStatusTone.SUCCESS
+    UnifiedOperationState.FAILED -> ProductStatusTone.ERROR
+    UnifiedOperationState.CANCELLED -> ProductStatusTone.NEUTRAL
 }
