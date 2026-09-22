@@ -1,6 +1,9 @@
 # U8 unified Drive backup
 
 Updated: 2026-09-22
+U8i status: CLOSED / DIGITAL PASS — Android CI #744 / run `35729709715`, exact
+source `89a7cca5acd2d5a1c9aabbb5f72e028347dd00db`. C6 is CLOSED.
+
 U8h status: CLOSED / DIGITAL PASS — Android CI #739 / run `35721268453`, exact
 source `336f0a137e6d16cf5936344ec93b884a9db27a17`.
 Status: U8a CLOSED / DIGITAL PASS — Android CI run `35678941252`, exact source
@@ -195,7 +198,29 @@ separate processing and Google Drive capabilities.
 Exact U8h materialization, JVM/unit, Lint, debug APK assembly and all API 36
 regression groups passed in Android CI #739 / run `35721268453`.
 
-U8h does not close the full U8 program. The next gate must prove
-confirmed-revision-backed sync labels end to end, notification deep-links to
-the owning project/activity item, network-fault recovery, instrumentation
-coverage and a real Drive integration campaign.
+U8h did not close the full U8 program.
+
+## U8i confirmed sync boundary and Activity deep-links
+
+U8i closes C6. The Android layer now persists the exact project revision
+descriptor confirmed by the remote coordinator; a successful worker status by
+itself cannot mark a project synchronized. Home derives its compact sync label
+from the current deterministic local revision versus that confirmed revision,
+while active backup operations may only present transient pending/syncing
+states. Disconnect/delete clear stale local confirmation ownership.
+
+Backup foreground notifications now carry a typed route to the owning Activity
+operation. Cold start and `onNewIntent` both consume the same route contract,
+and Activity focuses the referenced durable operation. The regression avoids
+test-only lifecycle shortcuts by launching the exact deep-link intent in its
+own managed ActivityScenario.
+
+Android CI #744 / run `35729709715` passed deterministic materialization,
+JVM/unit, performance evidence, Lint, debug/release assembly and all API 36
+groups at exact source `89a7cca5acd2d5a1c9aabbb5f72e028347dd00db`.
+
+U8 remains open. Static production-usage audit confirms the vNext
+`UnifiedDriveV3RemoteStore`, durable commit coordinator, transactional restore
+and reachability GC are still not the active product path. The next cut must
+complete that production backup/restore cutover before network-fault and real
+Drive integration can close U8.

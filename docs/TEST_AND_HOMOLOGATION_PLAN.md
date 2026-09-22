@@ -297,3 +297,25 @@ Before U11 freeze, scan user-facing resources/source for:
 
 ### Physical boundary
 U12 must not be used to discover basic information-architecture, duplicate-flow or copy-consistency problems. Those are digital U10/U11 gates. U12 UX work is limited to real-device ergonomics, tactile behavior, viewing-distance readability and hardware-specific focus/system-bar anomalies.
+
+
+## U8i / C6 digital closure
+
+Android CI #744 / run `35729709715`, exact source
+`89a7cca5acd2d5a1c9aabbb5f72e028347dd00db`, closes C6 digitally.
+
+Evidence:
+- deterministic U8i materialization and source snapshot PASS;
+- JVM/unit and reproducible performance evidence PASS;
+- Android Lint PASS;
+- debug/release assembly PASS;
+- complete grouped API 36 regression PASS;
+- confirmed-revision persistence does not advance from failed/unconfirmed attempts;
+- project sync presentation requires the current local revision to equal the
+  durable server-confirmed revision before showing synchronized;
+- notification deep-link navigation to the owning Activity operation is
+  instrumented with lifecycle-safe ActivityScenario coverage.
+
+This does **not** close U8. Production vNext backup/restore cutover, fault
+recovery and real Google Drive acceptance remain mandatory before U8 DIGITAL
+PASS.

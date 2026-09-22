@@ -13,9 +13,16 @@ Authority layers:
 ## Current source materialization
 `.source-parts/` + `scripts/materialize_ci_sources.sh` are source-of-truth build inputs. Unexpected drift fails closed by exact SHA-256/Git blob checks.
 
-Canonical source tail: `… → H25 → H26 → H26a → H26b → H26e → H27 → H28 → H29 → H30 → H31 → H32 → H33 → H33a → H33b → H34 → H35 → H35a → H36 → H36a → H36b → H36c → H37 → H37a → H37b`.
+Canonical source tail continues through the historical H-series and unified
+U-series to **U8i**. The canonical entrypoint is
+`scripts/materialize_ci_sources.sh`, which currently delegates to
+`scripts/materialize_ci_sources_u8i.sh`; U8i invokes U8h and the complete
+preceding fail-closed chain.
 
-The previously accepted H28 materializer is preserved byte-for-byte as `scripts/materialize_ci_sources_through_h28.sh`. The canonical entrypoint now runs `scripts/materialize_ci_sources_h37b.sh`; H37b invokes H37a, which invokes H37 and the existing H29-H36c tail before applying the H37a compile corrective and H37b token-cache hardening.
+The previously accepted historical materializers remain preserved as evidence.
+For current builds, never infer the active source from an older H-series tail
+description; follow `scripts/materialize_ci_sources.sh` and verify the exact
+terminal Git blobs declared by its current U-series stage.
 
 H28 input remains `.source-parts/H28BackupIdentityConsistency.patch.gz.b64` with gzip SHA-256 `1abd8101361b241dfb443950c2a635141b41fecca77442d86343eb3f3025d3be` and decoded patch SHA-256 `3d06aa851ad1dc88dd078d60bb24ea097bbca7ef4f3e93089f47c9bd4a0a6e71`.
 

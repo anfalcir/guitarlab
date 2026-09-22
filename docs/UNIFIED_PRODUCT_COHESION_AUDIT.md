@@ -305,9 +305,8 @@ Exit:
 
 ### C6 — Cloud, Backup and Activity integration
 
-**Status: ACTIVE — Android integration sub-gate U8h CLOSED / DIGITAL PASS on
-Android CI #739 / run `35721268453`, exact source
-`336f0a137e6d16cf5936344ec93b884a9db27a17`.**
+**Status: CLOSED / DIGITAL PASS — Android CI #744 / run `35729709715`,
+exact source `89a7cca5acd2d5a1c9aabbb5f72e028347dd00db`.**
 
 **Objective:** background/cloud capabilities feel like services of one app.
 
@@ -328,11 +327,14 @@ Exit:
 - there is one activity/history surface and one cloud/settings language;
 - no feature owns a visually isolated “mini app” for its jobs.
 
-The U8h evidence satisfies the shared store, Activity surface, compact Home
-progress, unified cloud/settings hierarchy and project-card sync presentation
-parts of C6. C6 remains open until notification deep-links are implemented and
-tested, and until project sync labels are driven end to end by the confirmed
-revision boundary rather than only by the latest local operation snapshot.
+U8h established the shared store, Activity surface, compact Home progress,
+unified cloud/settings hierarchy and project-card sync presentation. U8i closes
+the two remaining C6 contracts: project sync labels now derive from the current
+local revision versus the durable server-confirmed revision boundary, and backup
+notifications use a typed Activity deep-link carrying the owning operation id.
+The API 36 regression includes the deep-link lifecycle path and the confirmed
+revision store rejects unconfirmed failures. C6 is therefore closed; subsequent
+U8 transport/cutover/fault work must preserve these product-cohesion contracts.
 
 ### C7 — Visual, copy, responsive and accessibility consolidation
 

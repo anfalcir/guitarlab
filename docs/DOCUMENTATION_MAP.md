@@ -7,7 +7,7 @@ Repository documentation is split into **live authority**, **normative contracts
 
 A historical document may intentionally contain an old statement such as “current”, “latest”, “pending”, an old branch name or an old hardware target because it preserves contemporaneous evidence. Such statements apply only to that document's dated context and **never override the live authority set below**.
 
-## Live authority — unified line through C5 / signed #663 historical release authority
+## Live authority — unified line through C6/U8i / signed #663 historical release authority
 Use these first for current status, release identity and remaining work:
 - `README.md` — repository entry point;
 - `CURRENT_STATE.md` — current signed authority, H37b source-candidate state and remaining physical residual;
@@ -29,9 +29,11 @@ Use these first for current status, release identity and remaining work:
 - `H35_TAKE_SYNC_QUIET_CALIBRATION.md` — global-vs-take synchronization and quiet/silent calibration contract;
 - `H36_SETTINGS_UX_POLISH.md` — Settings/calibration presentation refinement plus H36a/H36b/H36c corrective history and #663 DIGITAL PASS evidence.
 
-C5 is digitally closed by Android CI run `35717888405` at exact materialized source
-`03735dabd3f4cbfc5a7180633884c85ce5540adb`. The latest signed release authority
-remains the separate #663/H36c candidate until a later signed unified candidate exists.
+C6 is digitally closed by Android CI #744 / run `35729709715` at exact
+materialized source `89a7cca5acd2d5a1c9aabbb5f72e028347dd00db`. U8 remains
+active for production vNext backup/restore cutover and its fault/real-Drive gates.
+The latest signed release authority remains the separate #663/H36c candidate
+until a later signed unified candidate exists.
 
 ## Normative subsystem contracts
 These define behavior and remain valid unless explicitly superseded:
