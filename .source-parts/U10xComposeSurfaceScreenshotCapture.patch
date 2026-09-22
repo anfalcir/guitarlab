@@ -1,0 +1,42 @@
+diff --git a/app/src/androidTest/java/studio/guitarlab/app/CohesionScreenshotArtifacts.kt b/app/src/androidTest/java/studio/guitarlab/app/CohesionScreenshotArtifacts.kt
+index 9e4b4db..94d9638 100644
+--- a/app/src/androidTest/java/studio/guitarlab/app/CohesionScreenshotArtifacts.kt
++++ b/app/src/androidTest/java/studio/guitarlab/app/CohesionScreenshotArtifacts.kt
+@@ -5,7 +5,10 @@ import android.content.ContentValues
+ import android.graphics.Bitmap
+ import android.os.Build
+ import android.provider.MediaStore
++import androidx.compose.ui.graphics.asAndroidBitmap
++import androidx.compose.ui.test.captureToImage
+ import androidx.compose.ui.test.junit4.ComposeTestRule
++import androidx.compose.ui.test.onRoot
+ import androidx.test.platform.app.InstrumentationRegistry
+ 
+ private const val COHESION_SCREENSHOT_RELATIVE_PATH = "Pictures/guitarlab-ci-screenshots"
+@@ -13,10 +16,11 @@ private const val COHESION_SCREENSHOT_RELATIVE_PATH = "Pictures/guitarlab-ci-scr
+ /**
+  * Deterministic screenshot artifact helper for the U10/C8 cohesion gate.
+  *
+- * UiAutomation owns the full-display capture while MediaStore owns publication.
+- * This avoids compound shell-command parsing and scoped-storage permissions,
+- * and leaves a shared artifact that survives test-package teardown long enough
+- * for scripts/ci_run_api36_regression_groups.sh to collect it with adb.
++ * Compose owns the application-surface capture while MediaStore owns publication.
++ * Capturing the semantic roots excludes unrelated Android system overlays (for
++ * example emulator error/ANR dialogs) while still combining Compose popups and
++ * dialogs. The shared artifact survives test-package teardown long enough for
++ * scripts/ci_run_api36_regression_groups.sh to collect it with adb.
+  */
+ @TargetApi(Build.VERSION_CODES.Q)
+ fun ComposeTestRule.captureCohesionScreenshot(name: String) {
+@@ -39,9 +43,7 @@ fun ComposeTestRule.captureCohesionScreenshot(name: String) {
+         arrayOf(displayName, relativePath),
+     )
+ 
+-    val screenshot = checkNotNull(instrumentation.uiAutomation.takeScreenshot()) {
+-        "UiAutomation returned no screenshot for $displayName"
+-    }
++    val screenshot = onRoot().captureToImage().asAndroidBitmap()
+     val values = ContentValues().apply {
+         put(MediaStore.Images.Media.DISPLAY_NAME, displayName)
+         put(MediaStore.Images.Media.MIME_TYPE, "image/png")
