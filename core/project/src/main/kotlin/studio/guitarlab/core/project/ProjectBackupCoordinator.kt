@@ -94,15 +94,33 @@ class ProjectBackupCoordinator(
         for (project in projects) {
             val revisionId = BackupRevisionIdentity.forProject(project)
             val existing = initialCatalog.filter { it.projectId == project.id }
-            if (!force && !BackupIncrementalPolicy.needsBackup(project, existing)) {
-                attempts += ProjectBackupAttempt(project.id, project.name, ProjectBackupAttempt.Status.SKIPPED_UP_TO_DATE)
+            val confirmedExisting = existing.firstOrNull { version ->
+                version.revisionId == revisionId ||
+                    (version.formatVersion < 2 && version.projectUpdatedAtEpochMs == project.updatedAtEpochMs)
+            }
+            if (!force && confirmedExisting != null) {
+                attempts += ProjectBackupAttempt(
+                    project.id,
+                    project.name,
+                    ProjectBackupAttempt.Status.SKIPPED_UP_TO_DATE,
+                    version = confirmedExisting,
+                )
                 continue
             }
             // Document providers such as cloud-backed SAF implementations may publish directory
             // listings after the bytes themselves are already durable. Before creating another
             // package, perform a targeted revision lookup with provider-specific settling logic.
-            if (!force && remoteStore.findCommittedVersion(project.id, revisionId) != null) {
-                attempts += ProjectBackupAttempt(project.id, project.name, ProjectBackupAttempt.Status.SKIPPED_UP_TO_DATE)
+            val targetedConfirmation = if (force) null else remoteStore.findCommittedVersion(project.id, revisionId)
+            if (targetedConfirmation != null) {
+                require(targetedConfirmation.projectId == project.id && targetedConfirmation.revisionId == revisionId) {
+                    "O armazenamento remoto confirmou uma revisão diferente da solicitada."
+                }
+                attempts += ProjectBackupAttempt(
+                    project.id,
+                    project.name,
+                    ProjectBackupAttempt.Status.SKIPPED_UP_TO_DATE,
+                    version = targetedConfirmation,
+                )
                 continue
             }
             attemptedWrites++

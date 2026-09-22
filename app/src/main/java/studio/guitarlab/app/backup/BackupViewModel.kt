@@ -43,6 +43,7 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
     private val repository = FileProjectRepository(application.filesDir)
     private val authorization = GoogleDriveAuthorization(application)
     private val activityStore = UnifiedActivityStore(application)
+    private val confirmedRevisions = ConfirmedRevisionStore(application)
     private val _state = MutableStateFlow(BackupUiState())
     val state: StateFlow<BackupUiState> = _state.asStateFlow()
 
@@ -122,6 +123,7 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
             try {
                 authorization.revoke()
                 DriveBackupStateStore(getApplication()).clearAll()
+                confirmedRevisions.clearAll()
                 settingsStore.clearDriveConnection()
                 BackupScheduler.sync(getApplication())
                 _state.update {
@@ -251,6 +253,7 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
             try {
                 val coordinator = coordinatorOrError()
                 val report = BackupOperationLock.withLock { action(coordinator) }
+                confirmedRevisions.record(report)
                 val summary = report.userSummary(label)
                 val failureDetail = report.userFailureDetail()
                 if (failureDetail == null) {

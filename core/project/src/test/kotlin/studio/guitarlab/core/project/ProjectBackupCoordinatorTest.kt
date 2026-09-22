@@ -22,8 +22,10 @@ class ProjectBackupCoordinatorTest {
         assertEquals(1, first.committedCount)
         val second = runSuspend { coordinator.backupAll(force = false, retentionPolicy = BackupRetentionPolicy(null, 3)) }
         assertEquals(1, second.skippedCount)
+        assertEquals(BackupRevisionIdentity.forProject(project), second.attempts.single().version?.revisionId)
         val third = runSuspend { coordinator.backupProject(project.id, force = false, retentionPolicy = BackupRetentionPolicy(null, 3)) }
         assertEquals(1, third.skippedCount)
+        assertEquals(BackupRevisionIdentity.forProject(project), third.attempts.single().version?.revisionId)
         assertEquals(1, remote.list(project.id).size)
     }
 
@@ -51,6 +53,7 @@ class ProjectBackupCoordinatorTest {
 
         assertEquals(1, report.skippedCount)
         assertEquals(0, report.committedCount)
+        assertEquals(hidden.remoteId, report.attempts.single().version?.remoteId)
         assertEquals(0, remote.commitCalls)
         assertTrue(remote.targetedLookupCalls > 0)
         assertEquals(1, remote.list(project.id).size)

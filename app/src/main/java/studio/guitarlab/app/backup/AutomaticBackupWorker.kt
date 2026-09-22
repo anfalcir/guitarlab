@@ -26,6 +26,7 @@ class AutomaticBackupWorker(
         if (!settings.driveConnected || !settings.automaticEnabled) return Result.success()
         val operationId = "automatic-backup"
         val activity = UnifiedActivityStore(applicationContext)
+        val confirmedRevisions = ConfirmedRevisionStore(applicationContext)
         activity.record(operationId, null, UnifiedOperationKind.BACKUP, UnifiedOperationState.RUNNING, null, "Backup automático em andamento")
 
         setForeground(createForegroundInfo())
@@ -47,6 +48,7 @@ class AutomaticBackupWorker(
                     else -> Result.failure()
                 }
             }
+            confirmedRevisions.record(report)
             val summary = report.userSummary("Backup automático")
             val failure = report.userFailureDetail()
             if (failure == null) {
