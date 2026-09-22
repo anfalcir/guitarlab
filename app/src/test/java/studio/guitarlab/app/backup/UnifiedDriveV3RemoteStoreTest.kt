@@ -517,6 +517,7 @@ class UnifiedDriveV3RemoteStoreTest {
                 ),
             )
         }
+        Unit
     }
 
     @Test fun headListingConsumesEveryPageAndRejectsPaginationLoops() = runBlocking {
@@ -544,6 +545,7 @@ class UnifiedDriveV3RemoteStoreTest {
                 rootFolderId = { "root" },
             ).listHeads("p")
         }
+        Unit
     }
 
     @Test fun malformedAndAmbiguousHeadsFailClosed() = runBlocking {
@@ -797,6 +799,7 @@ class UnifiedDriveV3RemoteStoreTest {
                 ),
             )
         }
+        Unit
     }
 
     @Test fun paginationConsumesUniqueTokensAndRejectsCycles() = runBlocking {
@@ -839,6 +842,7 @@ class UnifiedDriveV3RemoteStoreTest {
                 rootFolderId = { "root" },
             ).listHeads("p")
         }
+        Unit
     }
 
     private class MemoryUploadState : UnifiedDriveUploadState {
