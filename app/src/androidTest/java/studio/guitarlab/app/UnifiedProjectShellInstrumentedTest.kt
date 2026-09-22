@@ -19,7 +19,9 @@ import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import studio.guitarlab.app.ui.GuitarLabUserGuideDialog
 import studio.guitarlab.app.ui.HomeViewModel
+import studio.guitarlab.app.ui.StudioUserGuideDialog
 import studio.guitarlab.app.ui.NewProjectScreen
 import studio.guitarlab.app.ui.NewProjectSourceIntent
 import studio.guitarlab.app.ui.ProjectShellScaffold
@@ -412,6 +414,41 @@ class UnifiedProjectShellInstrumentedTest {
         composeRule.runOnIdle { check(destination == "settings") }
         composeRule.onNodeWithTag("project-shell-projects").assertIsDisplayed().performClick()
         composeRule.runOnIdle { check(destination == "projects") }
+    }
+
+
+    @Test fun productWideHelpCoversWholeWorkflowAndStudioHelpRemainsContextual() {
+        composeRule.setContent {
+            GuitarLabTheme(darkTheme = true) {
+                GuitarLabUserGuideDialog(onDismiss = {})
+            }
+        }
+
+        composeRule.onNodeWithTag("guitarlab-user-guide").assertIsDisplayed()
+        composeRule.onNodeWithText("Guia do GuitarLab").assertIsDisplayed()
+        listOf(
+            "Biblioteca e novo projeto",
+            "Preparar",
+            "Studio · transporte e edição",
+            "Exportar",
+            "Atividade, nuvem e backup",
+            "Opções e diagnósticos",
+        ).forEach { heading ->
+            composeRule.onNodeWithText(heading).performScrollTo().assertIsDisplayed()
+        }
+        composeRule.onAllNodesWithText("GBW", substring = true).assertCountEquals(0)
+
+        composeRule.setContent {
+            GuitarLabTheme(darkTheme = true) {
+                StudioUserGuideDialog(onDismiss = {})
+            }
+        }
+
+        composeRule.onNodeWithTag("studio-user-guide").assertIsDisplayed()
+        composeRule.onNodeWithText("Ajuda do Studio").assertIsDisplayed()
+        composeRule.onNodeWithText("Studio · transporte e edição").assertIsDisplayed()
+        composeRule.onAllNodesWithText("Biblioteca e novo projeto").assertCountEquals(0)
+        composeRule.onAllNodesWithText("Atividade, nuvem e backup").assertCountEquals(0)
     }
 
     private fun asset(id: String, role: AssetRole) = ManagedAsset(
