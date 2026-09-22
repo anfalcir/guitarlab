@@ -22,7 +22,7 @@ Read first:
 
 ## Active source/release state
 
-**U10/C8 is CLOSED / DIGITAL PASS. U11 final digital release gate is active.**
+**U11 is CLOSED / DIGITAL PASS. U12 final physical homologation is active.**
 
 U10 technical authority:
 - Android CI #781 / run `35791192802`;
@@ -31,13 +31,16 @@ U10 technical authority:
 - API 36: 23/23 classified instrumented classes, 76 observed tests, 5/5 groups PASS;
 - visual cohesion: 24/24 retained screenshots, deterministic visual review PASS.
 
-Active U11 candidate identity:
+Frozen signed U11 candidate:
 - `0.5.0-rc5`
 - versionCode `25`
 - package `studio.guitarlab.app`
+- producer `4218e4343746932a4de61c5abaa29ba5769a30ed`
+- Android CI #783 / run `35793456972`
+- signed APK SHA-256 `795839766f2b7546af53b2c56a0638b11c25b79622fe73cce5860b5602f050e0`
 - branch `main`
 
-The latest signed release authority remains historical Android CI #669 / run `35591631207`, producer `14b69271f2ae04529fa14475e1a34f2fdd864553`, `0.5.0-rc4` / code `24`, until the exact U11 freeze run passes signing.
+This is the current signed release authority and the only APK eligible for U12 physical homologation.
 
 Locked homologation certificate SHA-256:
 `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
@@ -64,7 +67,7 @@ Legacy standalone GBW/H37/pre-unification migration is intentionally out of rele
 
 ## Current cloud/backup authority
 
-Remote separation uses the production cloud integration governed by the unified roadmap. U11 repeats the controlled real-cloud six-stem smoke on the exact freeze SHA.
+Remote separation uses the production cloud integration governed by the unified roadmap. U11 repeated the controlled real-cloud six-stem smoke on the exact freeze SHA; U4 Cloud Integration Smoke #104 passed.
 
 Drive backup uses direct client-side Google Identity Services + Drive API v3 with OAuth `drive.file`. U8m closed provider-real acceptance with:
 
@@ -83,7 +86,7 @@ No Firebase/Cloud Run/Functions hop, service account, client secret or refresh-t
 - `[run ci signed]` additionally signs the exact tested unsigned release candidate.
 - `[run u4 cloud]` runs the controlled real-cloud six-stem smoke.
 - `[run u7 cloud]` runs backend source/container/security verification; push-triggered execution does not deploy.
-- U11 freezes one exact SHA and binds all final digital evidence to that source.
+- U11 is frozen and closed at `4218e4343746932a4de61c5abaa29ba5769a30ed`; subsequent docs-only commits do not alter the APK producer identity.
 
 ## Source materialization
 
@@ -99,7 +102,7 @@ Drive authorization is limited to `drive.file`. Remote-separation deployment use
 
 ## Physical boundary
 
-U11 must finish the exact signed digital candidate first. U12 then performs one consolidated physical campaign on:
+U11 is complete. U12 now performs one consolidated physical campaign on:
 - Samsung SM-X230 / Android 16 / API 36;
 - M-VAVE MK-300 over USB;
 - actual intended hub/power topology when part of normal use.
