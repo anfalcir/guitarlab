@@ -6,6 +6,7 @@ import java.nio.file.Files
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.runBlocking
 import org.junit.Test
 import studio.guitarlab.core.project.BackupHashing
@@ -396,6 +397,93 @@ class UnifiedDriveV3RemoteStoreTest {
         assertEquals(DriveRetryPolicy.MAX_ATTEMPTS, api.statusCalls)
         assertEquals(DriveRetryPolicy.MAX_ATTEMPTS - 1, delays.size)
         assertEquals(listOf(0L), api.uploadStarts)
+    }
+
+    @Test fun resumableAuthorizationAndCancellationNeverEnterNetworkRetry() = runBlocking {
+        val payload = kotlin.io.path.createTempFile("u8l-auth-cancel", ".bin").toFile().apply {
+            writeText("payload")
+        }
+        val hash = BackupHashing.sha256(payload)
+
+        suspend fun assertDirectFailure(failure: Throwable) {
+            val api = FakeApi().apply {
+                getResponses += response(200, page())
+                postResponse = DriveHttpResponse(
+                    200,
+                    "",
+                    mapOf("Location" to listOf("session")),
+                )
+                uploadFailures += failure
+            }
+            val store = UnifiedDriveV3RemoteStore(
+                api,
+                rootFolderId = { "root" },
+                retryDelay = { error("must not retry auth/cancellation") },
+            )
+            when (failure) {
+                is DriveAuthorizationRequiredException ->
+                    assertFailsWith<DriveAuthorizationRequiredException> {
+                        store.uploadAsset(
+                            DriveLocalAsset(
+                                DriveAssetObject(hash, payload.length()),
+                                payload,
+                            ),
+                        )
+                    }
+                is CancellationException ->
+                    assertFailsWith<CancellationException> {
+                        store.uploadAsset(
+                            DriveLocalAsset(
+                                DriveAssetObject(hash, payload.length()),
+                                payload,
+                            ),
+                        )
+                    }
+            }
+            assertEquals(0, api.statusCalls)
+        }
+
+        assertDirectFailure(DriveAuthorizationRequiredException())
+        assertDirectFailure(CancellationException("cancelled"))
+    }
+
+    @Test fun chunk401RecoversOnlyThroughAuthoritativeStatus() = runBlocking {
+        val payload = kotlin.io.path.createTempFile("u8l-401", ".bin").toFile().apply {
+            writeText("payload")
+        }
+        val hash = BackupHashing.sha256(payload)
+        val api = FakeApi().apply {
+            getResponses += response(200, page())
+            postResponse = DriveHttpResponse(
+                200,
+                "",
+                mapOf("Location" to listOf("session")),
+            )
+            uploadResponses += response(401, "expired")
+            uploadResponses += response(
+                201,
+                file("asset", payload.length(), hash),
+            )
+            statusResponses += DriveHttpResponse(
+                308,
+                "",
+                mapOf("Range" to listOf("bytes=0-2")),
+            )
+        }
+
+        UnifiedDriveV3RemoteStore(
+            api,
+            rootFolderId = { "root" },
+            retryDelay = {},
+        ).uploadAsset(
+            DriveLocalAsset(
+                DriveAssetObject(hash, payload.length()),
+                payload,
+            ),
+        )
+
+        assertEquals(listOf(0L, 3L), api.uploadStarts)
+        assertEquals(1, api.statusCalls)
     }
 
     @Test fun malformedResumableRangeFailsClosed() = runBlocking {
