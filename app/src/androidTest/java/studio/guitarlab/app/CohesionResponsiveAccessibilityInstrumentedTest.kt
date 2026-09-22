@@ -66,6 +66,8 @@ class CohesionResponsiveAccessibilityInstrumentedTest {
         }
 
         compose.onNodeWithTag("settings-content").assertIsDisplayed()
+        compose.onNode(hasScrollAction())
+            .performScrollToNode(hasTestTag("settings-open-calibration"))
         compose.onNodeWithTag("settings-open-calibration").assertIsDisplayed()
         compose.onNode(hasScrollAction())
             .performScrollToNode(hasTestTag("settings-external-control-toggle"))
