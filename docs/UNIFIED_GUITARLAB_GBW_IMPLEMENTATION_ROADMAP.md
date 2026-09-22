@@ -1,6 +1,6 @@
 # Unified GuitarLab + GBW — Master Integration Roadmap
 
-Updated: 2026-09-21
+Updated: 2026-09-22
 Status: **APPROVED SUCCESSOR PROGRAM / PLANNING AUTHORITY**  
 Canonical repository: **anfalcir/guitarlab**  
 Target Android package: **studio.guitarlab.app**  
@@ -1950,17 +1950,15 @@ Do not delete old GBW cloud evidence yet.
 
 ## U8 — Unified Drive backup vNext
 
-**Current status:** ACTIVE through U8l. C6 cloud/backup/Activity cohesion is
-CLOSED / DIGITAL PASS on Android CI #744 / run `35729709715`; the production
-vNext backup/restore cutover is CLOSED / DIGITAL PASS on Android CI #750 / run
-`35742420939`, exact source `b5bf8d39008aa267d7411244ea0ae526142863f7`;
-and the production network/HTTP fault gate is CLOSED / DIGITAL PASS on Android
-CI #756 / run `35746523924`, exact source
-`2cacbfe4c95bfbee694e717468075b8eedc7f9c6`. The active product path now uses
-the unified snapshot/durable transaction/Drive v3/transactional restore/GC
-stack with bounded retry/auth/cancellation/resumable/pagination failure
-handling. Remaining U8 work is only controlled real Google Drive end-to-end
-acceptance.
+**Current status:** **CLOSED / DIGITAL PASS through U8m.** C6 cloud/backup/Activity
+cohesion is CLOSED on Android CI #744; the production vNext cutover is CLOSED on
+#750; the network/HTTP fault gate is CLOSED on #756; and the final U8m technical
+source `2375dcb72983376cb486eccf41faf1734633cc94` passed Android CI #757 / run `35753982993`. The controlled
+real Google Drive campaign then completed `U8m PASS · r_1790095960 · cleanup 8/8/14`, sanitized report SHA-256
+`84efb70615be8ef5939da538eee5f714f7311aa6d44dd5bb2cdd0b5e9e66b702`. That PASS exercises the production vNext path for initial and
+incremental sync, restore/no-partial-publication, import-as-copy, conflict
+resolution, ambiguous-head fail-closed behavior, GC/retention and isolated
+cleanup. U8 has no remaining gate. Signed authority remains #669 until U11.
 
 ### Objective
 Replace standalone app backup concepts with one scalable transactional project backup **integrated into the same project shell, Activity model and Settings language**.
@@ -2017,6 +2015,8 @@ The identifier U9 is retained only to avoid renumbering U10-U12 and invalidating
 ---
 
 ## U10 — Cross-product regression, stress, security, performance and product-cohesion hardening
+
+**Status:** ACTIVE — entered after U8m/U8 closure.
 
 ### Objective
 Attack the complete integrated system digitally before release-candidate work and close C2-C8 from `docs/UNIFIED_PRODUCT_COHESION_AUDIT.md`.
