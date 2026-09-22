@@ -1,0 +1,170 @@
+diff --git a/app/src/androidTest/java/studio/guitarlab/app/ActivityNotificationDeepLinkInstrumentedTest.kt b/app/src/androidTest/java/studio/guitarlab/app/ActivityNotificationDeepLinkInstrumentedTest.kt
+--- a/app/src/androidTest/java/studio/guitarlab/app/ActivityNotificationDeepLinkInstrumentedTest.kt
++++ b/app/src/androidTest/java/studio/guitarlab/app/ActivityNotificationDeepLinkInstrumentedTest.kt
+@@ -43,6 +43,7 @@ class ActivityNotificationDeepLinkInstrumentedTest {
+                 composeRule.onNodeWithTag("activity-record-$operationId").assertIsDisplayed()
+                 composeRule.onNodeWithText("Concluída").assertIsDisplayed()
+                 composeRule.onNodeWithText("project-notification", substring = true).assertDoesNotExist()
++                composeRule.captureCohesionScreenshot("activity-completed")
+             }
+         } finally {
+             store.remove(operationId)
+diff --git a/app/src/androidTest/java/studio/guitarlab/app/BackupScreenInstrumentedTest.kt b/app/src/androidTest/java/studio/guitarlab/app/BackupScreenInstrumentedTest.kt
+--- a/app/src/androidTest/java/studio/guitarlab/app/BackupScreenInstrumentedTest.kt
++++ b/app/src/androidTest/java/studio/guitarlab/app/BackupScreenInstrumentedTest.kt
+@@ -88,6 +88,7 @@ class BackupScreenInstrumentedTest {
+         compose.onNode(hasScrollAction()).performScrollToNode(hasTestTag("backup-catalog-disconnected"))
+         compose.onNodeWithTag("backup-catalog-disconnected").assertIsDisplayed()
+         compose.onNodeWithText("Backup indisponível").assertIsDisplayed()
++        compose.captureCohesionScreenshot("backup-disconnected")
+     }
+ 
+     @Test fun emptyConnectedCatalogUsesUnifiedEmptyState() {
+@@ -108,6 +109,7 @@ class BackupScreenInstrumentedTest {
+         compose.onNodeWithTag("backup-catalog-empty").assertIsDisplayed()
+         compose.onNodeWithText("Nenhum backup disponível").assertIsDisplayed()
+         compose.onNodeWithText("Quando um backup for concluído, a versão aparecerá aqui.").assertIsDisplayed()
++        compose.captureCohesionScreenshot("backup-empty-connected")
+     }
+ 
+ 
+diff --git a/app/src/androidTest/java/studio/guitarlab/app/CohesionScreenshotArtifacts.kt b/app/src/androidTest/java/studio/guitarlab/app/CohesionScreenshotArtifacts.kt
+new file mode 100644
+--- /dev/null
++++ b/app/src/androidTest/java/studio/guitarlab/app/CohesionScreenshotArtifacts.kt
+@@ -0,0 +1,37 @@
++package studio.guitarlab.app
++
++import android.graphics.Bitmap
++import androidx.compose.ui.test.ComposeTestRule
++import androidx.test.platform.app.InstrumentationRegistry
++import java.io.File
++import java.io.FileOutputStream
++
++/**
++ * Deterministic screenshot artifact helper for the U10/C8 cohesion gate.
++ *
++ * Screenshots are stored in the target app's internal files directory and
++ * collected by scripts/ci_run_api36_regression_groups.sh via adb run-as.
++ */
++fun ComposeTestRule.captureCohesionScreenshot(name: String) {
++    waitForIdle()
++
++    val instrumentation = InstrumentationRegistry.getInstrumentation()
++    val safeName = name
++        .lowercase()
++        .replace(Regex("[^a-z0-9._-]+"), "-")
++        .trim('-')
++        .ifBlank { "screenshot" }
++    val dir = File(instrumentation.targetContext.filesDir, "ci-screenshots").apply { mkdirs() }
++    val file = File(dir, "$safeName.png")
++
++    val bitmap = instrumentation.uiAutomation.takeScreenshot()
++    FileOutputStream(file).use { output ->
++        check(bitmap.compress(Bitmap.CompressFormat.PNG, 100, output)) {
++            "Could not encode cohesion screenshot: $safeName"
++        }
++    }
++    bitmap.recycle()
++    check(file.isFile && file.length() > 0L) {
++        "Cohesion screenshot was not written: ${file.absolutePath}"
++    }
++}
+diff --git a/app/src/androidTest/java/studio/guitarlab/app/ProjectDeleteConfirmationInstrumentedTest.kt b/app/src/androidTest/java/studio/guitarlab/app/ProjectDeleteConfirmationInstrumentedTest.kt
+--- a/app/src/androidTest/java/studio/guitarlab/app/ProjectDeleteConfirmationInstrumentedTest.kt
++++ b/app/src/androidTest/java/studio/guitarlab/app/ProjectDeleteConfirmationInstrumentedTest.kt
+@@ -31,6 +31,7 @@ class ProjectDeleteConfirmationInstrumentedTest {
+         composeRule.onNodeWithTag("home-delete-confirmation").assertIsDisplayed()
+         composeRule.onNodeWithText("Excluir projeto?").assertIsDisplayed()
+         composeRule.onNodeWithText("Projeto Teste", substring = true).assertIsDisplayed()
++        composeRule.captureCohesionScreenshot("destructive-delete-confirmation")
+         composeRule.onNodeWithTag("home-cancel-delete").performClick()
+         assertEquals(0, confirmed.get())
+         assertEquals(1, dismissed.get())
+diff --git a/app/src/androidTest/java/studio/guitarlab/app/SettingsVisualHierarchyInstrumentedTest.kt b/app/src/androidTest/java/studio/guitarlab/app/SettingsVisualHierarchyInstrumentedTest.kt
+--- a/app/src/androidTest/java/studio/guitarlab/app/SettingsVisualHierarchyInstrumentedTest.kt
++++ b/app/src/androidTest/java/studio/guitarlab/app/SettingsVisualHierarchyInstrumentedTest.kt
+@@ -29,6 +29,7 @@ class SettingsVisualHierarchyInstrumentedTest {
+         }
+ 
+         composeRule.onNodeWithTag("settings-content").assertIsDisplayed()
++        composeRule.captureCohesionScreenshot("settings-dark")
+         composeRule.onNodeWithTag("settings-open-calibration").assertIsDisplayed()
+         composeRule.onNodeWithTag("settings-refresh-audio-devices").assertIsDisplayed()
+ 
+diff --git a/app/src/androidTest/java/studio/guitarlab/app/UnifiedProjectShellInstrumentedTest.kt b/app/src/androidTest/java/studio/guitarlab/app/UnifiedProjectShellInstrumentedTest.kt
+--- a/app/src/androidTest/java/studio/guitarlab/app/UnifiedProjectShellInstrumentedTest.kt
++++ b/app/src/androidTest/java/studio/guitarlab/app/UnifiedProjectShellInstrumentedTest.kt
+@@ -63,6 +63,7 @@ class UnifiedProjectShellInstrumentedTest {
+             }
+         }
+ 
++        composeRule.captureCohesionScreenshot("new-project-phone-dark")
+         composeRule.onNodeWithTag("new-project-search").assertIsDisplayed().performClick()
+         composeRule.onAllNodesWithText("Projeto vazio").assertCountEquals(0)
+         composeRule.onNodeWithTag("new-project-name").performTextInput("Projeto C3")
+@@ -125,6 +126,7 @@ class UnifiedProjectShellInstrumentedTest {
+         }
+ 
+         composeRule.onNodeWithTag("prepare-references-ready").performScrollTo().assertIsDisplayed()
++        composeRule.captureCohesionScreenshot("prepare-ready-dark")
+         composeRule.onNodeWithText("Studio").performClick()
+         composeRule.runOnIdle { check(openedStudio) }
+     }
+@@ -198,6 +200,7 @@ class UnifiedProjectShellInstrumentedTest {
+         composeRule.runOnIdle { check(selected) }
+         composeRule.onNodeWithTag("prepare-activity").performScrollTo().assertIsDisplayed()
+         composeRule.onNodeWithTag("prepare-cancel-source").assertIsDisplayed().assertIsEnabled()
++        composeRule.captureCohesionScreenshot("prepare-search-running-dark")
+     }
+     @Test fun existingSourceRequiresExplicitReplacementBeforeSourcePickersReturn() {
+         val source = asset("source", AssetRole.SOURCE_ORIGINAL)
+diff --git a/scripts/ci_run_api36_regression_groups.sh b/scripts/ci_run_api36_regression_groups.sh
+--- a/scripts/ci_run_api36_regression_groups.sh
++++ b/scripts/ci_run_api36_regression_groups.sh
+@@ -137,6 +137,37 @@ count_testcases() {
+   echo "$count"
+ }
+ 
++collect_visual_evidence() {
++  local slug="$1"
++  local dest="$DIAG_ROOT/$slug/screenshots"
++  local remote name count=0
++  local remotes=""
++
++  mkdir -p "$dest"
++  remotes="$(
++    adb shell run-as studio.guitarlab.app sh -c \
++      'find files/ci-screenshots -maxdepth 1 -type f -name "*.png" -print' \
++      2>/dev/null | tr -d '\r' || true
++  )"
++
++  while IFS= read -r remote; do
++    [[ -n "$remote" ]] || continue
++    name="$(basename "$remote")"
++    if adb exec-out run-as studio.guitarlab.app cat "$remote" > "$dest/$name" 2>/dev/null &&
++       [[ -s "$dest/$name" ]]; then
++      count="$((count + 1))"
++    else
++      rm -f "$dest/$name"
++    fi
++  done <<< "$remotes"
++
++  adb shell run-as studio.guitarlab.app rm -rf files/ci-screenshots >/dev/null 2>&1 || true
++
++  if [[ "$count" -gt 0 ]]; then
++    echo "::notice title=C8 screenshots::${count} screenshot(s) coletado(s) em ci-diagnostics/api36-groups/$slug/screenshots"
++  fi
++}
++
+ collect_runtime_diagnostics() {
+   local slug="$1"
+   local title="$2"
+@@ -219,6 +250,7 @@ run_group() {
+   duration="$(format_duration "$elapsed")"
+ 
+   copy_group_evidence "$slug"
++  collect_visual_evidence "$slug"
+   tests="$(count_testcases "$dest/results")"
+ 
+   if [[ "$status" -eq 0 ]]; then
