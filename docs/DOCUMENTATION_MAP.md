@@ -7,7 +7,7 @@ Repository documentation is split into **live authority**, **normative contracts
 
 A historical document may intentionally contain an old statement such as “current”, “latest”, “pending”, an old branch name or an old hardware target because it preserves contemporaneous evidence. Such statements apply only to that document's dated context and **never override the live authority set below**.
 
-## Live authority — unified line through U8k / signed #669 historical release authority
+## Live authority — unified line through U8l / signed #669 historical release authority
 Use these first for current status, release identity and remaining work:
 - `README.md` — repository entry point;
 - `CURRENT_STATE.md` — current unified source candidate, latest signed authority and remaining digital/physical residual;
@@ -34,8 +34,10 @@ materialized source `89a7cca5acd2d5a1c9aabbb5f72e028347dd00db`. U8j is CLOSED /
 DIGITAL PASS on Android CI #746 / run `35732391636`, exact source
 `ca44bd8efada617bbc30c8c3f3cf9f3d6b18a3c1`. U8k production cutover is
 CLOSED / DIGITAL PASS on Android CI #750 / run `35742420939`, exact source
-`b5bf8d39008aa267d7411244ea0ae526142863f7`. U8 remains active only for
-network/HTTP fault injection and real-Drive acceptance.
+`b5bf8d39008aa267d7411244ea0ae526142863f7`. U8l network/HTTP fault injection
+is CLOSED / DIGITAL PASS on Android CI #756 / run `35746523924`, exact source
+`2cacbfe4c95bfbee694e717468075b8eedc7f9c6`. U8 remains active only for the
+controlled real Google Drive end-to-end acceptance gate.
 The latest signed release authority is Android CI #669 / run `35591631207`,
 producer `14b69271f2ae04529fa14475e1a34f2fdd864553`, until a later signed unified
 candidate exists.
@@ -68,7 +70,7 @@ CI #669 / run `35591631207` / producer `14b69271f2ae04529fa14475e1a34f2fdd864553
 
 Signed APK SHA-256: `8e6e0f555bc5e834c4bccbdb011134c42d124806ce0316dd28787a6c98fe7bf3`.
 
-The newest unified DIGITAL PASS source is intentionally unsigned: U8k closed digitally at CI #750 / run `35742420939` on `b5bf8d39008aa267d7411244ea0ae526142863f7`. Historical #663/H36c and H37/H37a/H37b evidence remains preserved for traceability but no longer defines the latest signed authority. The unified line has completed the U8 production cutover and still requires network/HTTP fault injection plus real-Drive proof before a new signed final-homologation candidate is justified. Remaining hardware-only audio acceptance is deferred to the consolidated final physical campaign; H33 real-controller physical acceptance remains a separate 1.1 boundary unless later roadmap authority supersedes it.
+The newest unified DIGITAL PASS source is intentionally unsigned: U8l closed digitally at CI #756 / run `35746523924` on `2cacbfe4c95bfbee694e717468075b8eedc7f9c6`. Historical #663/H36c and H37/H37a/H37b evidence remains preserved for traceability but no longer defines the latest signed authority. The unified line has completed both the U8 production cutover and the network/HTTP fault gate; only controlled real-Drive proof remains before U8 can close and later release-candidate work becomes justified. Remaining hardware-only audio acceptance is deferred to the consolidated final physical campaign; H33 real-controller physical acceptance remains a separate 1.1 boundary unless later roadmap authority supersedes it.
 
 ## Repository audits
 - `REPOSITORY_SANITIZATION_2026-09-20.md` records the branch audit supporting a single-branch (`main`) repository cleanup.
