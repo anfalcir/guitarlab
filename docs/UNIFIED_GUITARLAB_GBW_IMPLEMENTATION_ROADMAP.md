@@ -2016,7 +2016,7 @@ The identifier U9 is retained only to avoid renumbering U10-U12 and invalidating
 
 ## U10 — Cross-product regression, stress, security, performance and product-cohesion hardening
 
-**Status:** ACTIVE — entered after U8m/U8 closure.
+**Status:** **CLOSED / DIGITAL PASS — Android CI #781 / run `35791192802`, exact technical source `2aa97aa8b2c3af91d35e7d48a0eeb89c2c330e63` (2026-09-22).**
 
 ### Objective
 Attack the complete integrated system digitally before release-candidate work and close C2-C8 from `docs/UNIFIED_PRODUCT_COHESION_AUDIT.md`.
@@ -2054,6 +2054,8 @@ Required suites:
 
 ### Exit
 No repeatable P0/P1 digital defect; all accepted P2/P3 documented with rationale; C2-C8 product-cohesion gate PASS; no remaining repeatable evidence that the UI behaves like two stitched applications.
+
+**Closure evidence:** CI #781 passed the software gate and all five API 36 suites with 23/23 classified instrumented classes and 76 observed instrumented tests. The C8 visual gate retained 24/24 required screenshots, including Home active-operation state, Studio prepared-reference notice, backup restore/conflict, compact enlarged-font stress and isolated 1920×1200 target-tablet geometry. The artifacts were visually reviewed after Compose-surface screenshot hardening and contain no ANR/system-dialog contamination. Canonical evidence is recorded in `docs/U10_FINAL_DIGITAL_COHESION_GATE.md`. Signed homologation remained intentionally skipped; U11 owns the next signing event.
 
 ---
 
