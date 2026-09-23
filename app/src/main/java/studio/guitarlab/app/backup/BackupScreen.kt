@@ -105,30 +105,35 @@ fun BackupScreen(
         )
         SnackbarHost(snackbar, Modifier.align(Alignment.TopCenter).padding(top = 12.dp))
         if (state.busy) {
-            Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.scrim.copy(alpha = 0.28f)) {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Surface(
-                        modifier = Modifier.fillMaxWidth(0.72f).testTag("backup-busy-feedback"),
-                        shape = MaterialTheme.shapes.large,
-                        tonalElevation = 6.dp,
-                    ) {
-                        Column(
-                            Modifier.padding(24.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(12.dp),
-                        ) {
-                            CircularProgressIndicator()
-                            Text(
-                                state.busyLabel ?: "Concluindo operação…",
-                                style = MaterialTheme.typography.titleMedium,
-                            )
-                            Text(
-                                "O GuitarLab está verificando os dados e atualizará o histórico ao terminar.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    }
+            BackupBusyFeedback(state.busyLabel)
+        }
+    }
+}
+
+@Composable
+internal fun BackupBusyFeedback(label: String?) {
+    Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.scrim.copy(alpha = 0.28f)) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Surface(
+                modifier = Modifier.fillMaxWidth(0.72f).testTag("backup-busy-feedback"),
+                shape = MaterialTheme.shapes.large,
+                tonalElevation = 6.dp,
+            ) {
+                Column(
+                    Modifier.padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    CircularProgressIndicator()
+                    Text(
+                        label ?: "Concluindo operação…",
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                    Text(
+                        "O GuitarLab está verificando os dados e atualizará o histórico ao terminar.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
             }
         }

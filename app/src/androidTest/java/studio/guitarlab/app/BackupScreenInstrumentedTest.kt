@@ -12,6 +12,7 @@ import androidx.compose.ui.test.performScrollToNode
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
+import studio.guitarlab.app.backup.BackupBusyFeedback
 import studio.guitarlab.app.backup.BackupScreenContent
 import studio.guitarlab.app.backup.BackupSettingsSnapshot
 import studio.guitarlab.app.backup.BackupUiState
@@ -73,17 +74,7 @@ class BackupScreenInstrumentedTest {
     @Test fun busyBackupExplainsWhatIsHappening() {
         compose.setContent {
             GuitarLabTheme {
-                BackupScreenContent(
-                    state = configuredState().copy(
-                        busy = true,
-                        busyLabel = "Backup total em andamento…",
-                    ),
-                    projectId = null,
-                    onBack = {}, onConnectDrive = {}, onDisconnectDrive = {}, onRefresh = {},
-                    onAutomaticEnabled = {}, onCadence = {}, onUnmeteredOnly = {}, onChargingOnly = {},
-                    onRetentionDays = {}, onMaximumVersions = {}, onBackupAll = {}, onBackupProject = {},
-                    onKeepLocal = { _, _ -> }, onUseCloud = {}, onRestoreVersion = {}, onRestoreAll = {},
-                )
+                BackupBusyFeedback("Backup total em andamento…")
             }
         }
         compose.onNodeWithTag("backup-busy-feedback").assertIsDisplayed()

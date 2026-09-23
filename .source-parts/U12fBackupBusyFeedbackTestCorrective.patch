@@ -1,0 +1,110 @@
+diff --git a/app/src/main/java/studio/guitarlab/app/backup/BackupScreen.kt b/app/src/main/java/studio/guitarlab/app/backup/BackupScreen.kt
+index 79464db..61b5159 100644
+--- a/app/src/main/java/studio/guitarlab/app/backup/BackupScreen.kt
++++ b/app/src/main/java/studio/guitarlab/app/backup/BackupScreen.kt
+@@ -107,28 +107,3 @@
+-        if (state.busy) {
+-            Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.scrim.copy(alpha = 0.28f)) {
+-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+-                    Surface(
+-                        modifier = Modifier.fillMaxWidth(0.72f).testTag("backup-busy-feedback"),
+-                        shape = MaterialTheme.shapes.large,
+-                        tonalElevation = 6.dp,
+-                    ) {
+-                        Column(
+-                            Modifier.padding(24.dp),
+-                            horizontalAlignment = Alignment.CenterHorizontally,
+-                            verticalArrangement = Arrangement.spacedBy(12.dp),
+-                        ) {
+-                            CircularProgressIndicator()
+-                            Text(
+-                                state.busyLabel ?: "Concluindo operação…",
+-                                style = MaterialTheme.typography.titleMedium,
+-                            )
+-                            Text(
+-                                "O GuitarLab está verificando os dados e atualizará o histórico ao terminar.",
+-                                style = MaterialTheme.typography.bodySmall,
+-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+-                            )
+-                        }
+-                    }
+-                }
+-            }
+-        }
++        if (state.busy) {
++            BackupBusyFeedback(state.busyLabel)
++        }
+@@ -138,2 +138,32 @@
+-@Composable
+-fun BackupScreenContent(
++@Composable
++internal fun BackupBusyFeedback(label: String?) {
++    Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.scrim.copy(alpha = 0.28f)) {
++        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
++            Surface(
++                modifier = Modifier.fillMaxWidth(0.72f).testTag("backup-busy-feedback"),
++                shape = MaterialTheme.shapes.large,
++                tonalElevation = 6.dp,
++            ) {
++                Column(
++                    Modifier.padding(24.dp),
++                    horizontalAlignment = Alignment.CenterHorizontally,
++                    verticalArrangement = Arrangement.spacedBy(12.dp),
++                ) {
++                    CircularProgressIndicator()
++                    Text(
++                        label ?: "Concluindo operação…",
++                        style = MaterialTheme.typography.titleMedium,
++                    )
++                    Text(
++                        "O GuitarLab está verificando os dados e atualizará o histórico ao terminar.",
++                        style = MaterialTheme.typography.bodySmall,
++                        color = MaterialTheme.colorScheme.onSurfaceVariant,
++                    )
++                }
++            }
++        }
++    }
++}
++
++@Composable
++fun BackupScreenContent(
+diff --git a/app/src/androidTest/java/studio/guitarlab/app/BackupScreenInstrumentedTest.kt b/app/src/androidTest/java/studio/guitarlab/app/BackupScreenInstrumentedTest.kt
+index ae674e4..352d420 100644
+--- a/app/src/androidTest/java/studio/guitarlab/app/BackupScreenInstrumentedTest.kt
++++ b/app/src/androidTest/java/studio/guitarlab/app/BackupScreenInstrumentedTest.kt
+@@ -15,1 +15,2 @@
+-import studio.guitarlab.app.backup.BackupScreenContent
++import studio.guitarlab.app.backup.BackupBusyFeedback
++import studio.guitarlab.app.backup.BackupScreenContent
+@@ -73,20 +73,10 @@
+-    @Test fun busyBackupExplainsWhatIsHappening() {
+-        compose.setContent {
+-            GuitarLabTheme {
+-                BackupScreenContent(
+-                    state = configuredState().copy(
+-                        busy = true,
+-                        busyLabel = "Backup total em andamento…",
+-                    ),
+-                    projectId = null,
+-                    onBack = {}, onConnectDrive = {}, onDisconnectDrive = {}, onRefresh = {},
+-                    onAutomaticEnabled = {}, onCadence = {}, onUnmeteredOnly = {}, onChargingOnly = {},
+-                    onRetentionDays = {}, onMaximumVersions = {}, onBackupAll = {}, onBackupProject = {},
+-                    onKeepLocal = { _, _ -> }, onUseCloud = {}, onRestoreVersion = {}, onRestoreAll = {},
+-                )
+-            }
+-        }
+-        compose.onNodeWithTag("backup-busy-feedback").assertIsDisplayed()
+-        compose.onNodeWithText("Backup total em andamento…").assertIsDisplayed()
+-        compose.onNodeWithText("O GuitarLab está verificando os dados", substring = true).assertIsDisplayed()
+-    }
++    @Test fun busyBackupExplainsWhatIsHappening() {
++        compose.setContent {
++            GuitarLabTheme {
++                BackupBusyFeedback("Backup total em andamento…")
++            }
++        }
++        compose.onNodeWithTag("backup-busy-feedback").assertIsDisplayed()
++        compose.onNodeWithText("Backup total em andamento…").assertIsDisplayed()
++        compose.onNodeWithText("O GuitarLab está verificando os dados", substring = true).assertIsDisplayed()
++    }
