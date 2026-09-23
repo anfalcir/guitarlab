@@ -74,7 +74,7 @@ class FirebaseRemoteBackend(
     }
 
     private suspend fun user(): String = staged(RemotePipelineStage.AUTHENTICATING) {
-        auth.currentUser?.uid ?: requireNotNull(auth.signInAnonymously().await().user?.uid) { "AUTH_REQUIRED" }
+        requireStableRemoteUid(auth)
     }
 
     private suspend fun <T> staged(stage: RemotePipelineStage, block: suspend () -> T): T =

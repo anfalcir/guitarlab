@@ -38,7 +38,7 @@ internal class FirebaseResultTransport(
     private val storage: FirebaseStorage,
 ) : RemoteResultTransport {
     private suspend fun uid(): String = staged(RemotePipelineStage.AUTHENTICATING) {
-        auth.currentUser?.uid ?: requireNotNull(auth.signInAnonymously().await().user?.uid) { "AUTH_REQUIRED" }
+        requireStableRemoteUid(auth)
     }
 
     override suspend fun uploadSource(identity: RemoteJobIdentity): String = staged(RemotePipelineStage.UPLOADING) {

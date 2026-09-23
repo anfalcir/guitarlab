@@ -44,6 +44,7 @@ import studio.guitarlab.platform.source.android.SourceOperationSnapshot
 import studio.guitarlab.platform.source.android.SourceOperationState
 import studio.guitarlab.core.separation.DurableRemoteJob
 import studio.guitarlab.core.separation.RemoteJobState
+import studio.guitarlab.platform.separation.RemoteCloudAuthClient
 import studio.guitarlab.platform.separation.RemoteSeparationClient
 import studio.guitarlab.core.project.UnifiedOperationKind
 import studio.guitarlab.core.project.UnifiedOperationState
@@ -75,6 +76,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private val exportService = ProjectExportService(application)
     private val sourceAcquisition = SourceAcquisitionClient(application)
     private val separation = RemoteSeparationClient(application)
+    private val remoteCloudAuth = RemoteCloudAuthClient(application)
     private val preparedReferences = PreparedReferenceService(repository, ProjectManagedMediaStore(application.filesDir), application.cacheDir)
     private val activityStore = UnifiedActivityStore(application)
     private val confirmedRevisions = ConfirmedRevisionStore(application)
@@ -541,9 +543,26 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         applySourceOperationSnapshot(projectId, sourceAcquisition.snapshot(projectId))
     }
 
-    fun startSeparation(projectId: String) = runCatching { separation.enqueue(projectId) }
-        .onSuccess { _state.update { it.copy(message = "Separação Demucs iniciada em segundo plano.", error = null) }; refreshSeparation(projectId); refresh() }
-        .onFailure { error -> _state.update { it.copy(error = error.message ?: "Não foi possível iniciar a separação.") } }
+    fun startSeparation(projectId: String) {
+        if (remoteCloudAuth.currentSession() == null) {
+            _state.update {
+                it.copy(
+                    error = "Entre na conta da separação em nuvem em Opções → Conta e nuvem antes de iniciar.",
+                    message = null,
+                )
+            }
+            return
+        }
+        runCatching { separation.enqueue(projectId) }
+            .onSuccess {
+                _state.update { it.copy(message = "Separação Demucs iniciada em segundo plano.", error = null) }
+                refreshSeparation(projectId)
+                refresh()
+            }
+            .onFailure { error ->
+                _state.update { it.copy(error = error.message ?: "Não foi possível iniciar a separação.") }
+            }
+    }
 
     fun refreshSeparation(projectId: String) {
         applySeparationSnapshot(projectId, separation.snapshotProject(projectId))

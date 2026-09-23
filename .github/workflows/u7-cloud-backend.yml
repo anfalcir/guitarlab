@@ -82,11 +82,14 @@ jobs:
           import json
           with open("cloud/remote-separation/firebase.json", encoding="utf-8") as f:
               config = json.load(f)
-          assert config.get("auth", {}).get("providers", {}).get("anonymous") is True, "Firebase anonymous auth must be declared enabled"
+          providers = config.get("auth", {}).get("providers", {})
+          assert providers.get("emailPassword") is True, "Firebase email/password auth must be declared enabled"
+          assert providers.get("anonymous") is False, "Firebase anonymous auth must be declared disabled"
           PY
           grep -q 'roles/firebaseauth.admin' cloud/remote-separation/scripts/bootstrap-github-actions.sh
-          grep -q 'accounts:signUp' cloud/remote-separation/scripts/verify-anonymous-auth-client.sh
-          grep -q 'accounts:delete' cloud/remote-separation/scripts/verify-anonymous-auth-client.sh
+          grep -q 'updateMask=signIn.email.enabled,signIn.email.passwordRequired,signIn.anonymous.enabled' cloud/remote-separation/scripts/ensure-email-password-auth.sh
+          grep -q 'allowlisted_password_users=PASS' cloud/remote-separation/scripts/verify-allowlisted-auth-users.sh
+          grep -q 'Anonymous Firebase Authentication is intentionally disabled' cloud/remote-separation/scripts/ensure-anonymous-auth.sh
           find cloud/remote-separation scripts -type f -name '*.sh' -print0 | xargs -0 -n1 bash -n
           ! grep -RIE --exclude-dir=node_modules --exclude-dir=lib '(BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY|"private_key"[[:space:]]*:|AIza[0-9A-Za-z_-]{30,})' cloud/remote-separation .github/workflows/u7-cloud-backend.yml
 
@@ -107,7 +110,7 @@ jobs:
           done
 
   auth_config:
-    name: Enable and verify Firebase anonymous authentication
+    name: Enforce and verify Firebase email/password authentication
     if: >-
       github.repository_id == '1361533070' &&
       github.repository_owner_id == '216095257' &&
@@ -121,6 +124,7 @@ jobs:
     timeout-minutes: 15
     env:
       GBW_GCP_PROJECT: gbwapp-ef048
+      GBW_ALLOWED_UIDS: ${{ secrets.GBW_ALLOWED_UIDS }}
     steps:
       - name: Checkout exact verified source
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -137,32 +141,43 @@ jobs:
         with:
           version: '585.0.0'
 
-      - name: Enable and verify anonymous Authentication administratively
-        shell: bash
-        run: |
-          set -euo pipefail
-          bash cloud/remote-separation/scripts/ensure-anonymous-auth.sh u7-auth-config.json | tee u7-auth-admin-evidence.txt
+      - name: Set up Node.js
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: cloud/remote-separation/functions/package-lock.json
 
-      - name: Verify Android anonymous Authentication contract
+      - name: Enforce Firebase email/password Authentication
         shell: bash
         run: |
           set -euo pipefail
-          bash cloud/remote-separation/scripts/verify-anonymous-auth-client.sh u7-auth-client-evidence.txt
+          test -n "$GBW_ALLOWED_UIDS"
+          bash cloud/remote-separation/scripts/ensure-email-password-auth.sh u7-auth-config.json | tee u7-auth-admin-evidence.txt
+
+      - name: Install Firebase Admin dependencies
+        run: npm ci --prefix cloud/remote-separation/functions
+
+      - name: Verify allowlisted password-backed Firebase users
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash cloud/remote-separation/scripts/verify-allowlisted-auth-users.sh u7-auth-user-evidence.txt
 
       - name: Bind evidence to exact source
         shell: bash
         run: |
           printf 'source_sha=%s\n' "$GITHUB_SHA" >> u7-auth-admin-evidence.txt
-          printf 'source_sha=%s\n' "$GITHUB_SHA" >> u7-auth-client-evidence.txt
+          printf 'source_sha=%s\n' "$GITHUB_SHA" >> u7-auth-user-evidence.txt
 
       - name: Upload Authentication evidence
         uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4
         with:
-          name: u7-auth-verification-${{ github.sha }}
+          name: u7-email-auth-verification-${{ github.sha }}
           path: |
             u7-auth-config.json
             u7-auth-admin-evidence.txt
-            u7-auth-client-evidence.txt
+            u7-auth-user-evidence.txt
           if-no-files-found: error
 
   deploy:

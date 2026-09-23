@@ -176,6 +176,8 @@ object PrepareJourneyPolicy {
     }
 
     private fun failureMessage(errorCode: String?): String = when {
+        errorCode?.contains("AUTH_REQUIRED") == true ->
+            "Entre na conta da separação em nuvem em Opções → Conta e nuvem. A fonte foi preservada."
         errorCode?.contains("AUTH_PROVIDER_DISABLED") == true ->
             "A autenticação anônima do serviço está desativada. A fonte foi preservada; tente novamente após a configuração do serviço."
         errorCode?.contains("AUTH_") == true ->

@@ -21,7 +21,7 @@ npm ci --prefix cloud/remote-separation/functions
 npm run build --prefix cloud/remote-separation/functions
 test -f cloud/remote-separation/functions/lib/index.js
 
-bash cloud/remote-separation/scripts/ensure-anonymous-auth.sh
+bash cloud/remote-separation/scripts/ensure-email-password-auth.sh
 firebase deploy --config cloud/remote-separation/firebase.json --project "$GBW_GCP_PROJECT" --only firestore:rules,firestore:indexes,storage,functions \
   --force --non-interactive
-printf 'Firebase anonymous Authentication verified; rules and Functions deployed; App Check enforcement remains pending physical validation.\n'
+printf 'Firebase Email/Password Authentication verified and anonymous auth disabled; rules and Functions deployed; App Check enforcement remains pending physical validation.\n'

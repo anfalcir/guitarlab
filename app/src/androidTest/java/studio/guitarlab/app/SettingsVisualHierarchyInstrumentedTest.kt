@@ -7,6 +7,7 @@ import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
 import org.junit.Rule
 import org.junit.Test
@@ -38,4 +39,21 @@ class SettingsVisualHierarchyInstrumentedTest {
         composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("Diagnóstico"))
         composeRule.onNodeWithText("Diagnóstico").assertIsDisplayed()
     }
+
+    @Test
+    fun cloudSeparationAccountUsesExplicitEmailPasswordLogin() {
+        composeRule.setContent {
+            GuitarLabTheme(darkTheme = true) {
+                SettingsScreen(projectId = null, onBack = {}, onAudioDiagnostics = {}, onCodecDiagnostics = {})
+            }
+        }
+
+        composeRule.onNode(hasScrollAction()).performScrollToNode(hasTestTag("settings-cloud-auth"))
+        composeRule.onNodeWithTag("settings-cloud-auth").assertIsDisplayed().performClick()
+        composeRule.onNodeWithTag("settings-cloud-auth-dialog").assertIsDisplayed()
+        composeRule.onNodeWithTag("settings-cloud-auth-email").assertIsDisplayed()
+        composeRule.onNodeWithTag("settings-cloud-auth-password").assertIsDisplayed()
+        composeRule.onNodeWithText("Entrar").assertIsDisplayed()
+    }
+
 }

@@ -11,7 +11,8 @@
   },
   "auth": {
     "providers": {
-      "anonymous": true
+      "emailPassword": true,
+      "anonymous": false
     }
   },
   "emulators": {

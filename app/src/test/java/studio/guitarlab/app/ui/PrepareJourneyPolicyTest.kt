@@ -125,6 +125,19 @@ class PrepareJourneyPolicyTest {
         assertFalse(message.contains("NETWORK_UNAVAILABLE"))
     }
 
+    @Test fun missingCloudSessionPointsToSettingsWithoutLeakingTechnicalCode() {
+        val failed = DurableRemoteJob(
+            identity(),
+            RemoteJobState.FAILED,
+            1,
+            errorCode = "TERMINAL:AUTHENTICATING:AUTH_REQUIRED",
+        )
+        val message = PrepareJourneyPolicy.separationMessage(failed)
+        assertTrue(message.contains("Opções"))
+        assertTrue(message.contains("Conta e nuvem"))
+        assertFalse(message.contains("AUTH_REQUIRED"))
+    }
+
     @Test fun disabledAnonymousAuthFailsActionablyWithoutLeakingTechnicalCode() {
         val failed = DurableRemoteJob(
             identity(),

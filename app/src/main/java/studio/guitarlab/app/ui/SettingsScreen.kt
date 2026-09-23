@@ -29,6 +29,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -44,6 +45,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -55,6 +57,7 @@ import studio.guitarlab.core.codec.AudioImportFormatPolicy
 import studio.guitarlab.core.project.FileProjectRepository
 import studio.guitarlab.core.project.RecordingSampleRatePolicy
 import studio.guitarlab.core.project.ExternalControlAction
+import studio.guitarlab.platform.separation.RemoteCloudAuthClient
 
 @Composable
 fun SettingsScreen(
@@ -79,6 +82,13 @@ fun SettingsScreen(
     val latencyEngine = remember(context) { AndroidLatencyCalibrationEngine(context) }
     val projectRepository = remember(context) { FileProjectRepository(context.filesDir) }
     val scope = rememberCoroutineScope()
+    val remoteCloudAuth = remember(context) { RemoteCloudAuthClient(context) }
+    var remoteCloudSession by remember { mutableStateOf(remoteCloudAuth.currentSession()) }
+    var cloudLoginDialogVisible by remember { mutableStateOf(false) }
+    var cloudEmail by remember { mutableStateOf(remoteCloudSession?.email.orEmpty()) }
+    var cloudPassword by remember { mutableStateOf("") }
+    var cloudAuthBusy by remember { mutableStateOf(false) }
+    var cloudAuthMessage by remember { mutableStateOf<String?>(null) }
     var calibrating by remember { mutableStateOf(false) }
     var digitalVerifying by remember { mutableStateOf(false) }
     val latencyBusy = calibrating || digitalVerifying
@@ -348,9 +358,42 @@ fun SettingsScreen(
                 ) {
                     OptionRow(
                         "Processamento em nuvem",
-                        "Separação e referências",
-                        "Operações em andamento continuam no aplicativo e aparecem em Atividade.",
+                        if (remoteCloudSession != null) "Autenticado" else "Login necessário",
+                        remoteCloudSession?.let { "Conta autorizada: ${it.email}. A sessão é mantida pelo Firebase; a senha não é salva pelo GuitarLab." }
+                            ?: "Entre com a conta pessoal do Firebase usada pelo backend de separação.",
                     )
+                    SettingsActionRow(
+                        title = "Conta da separação em nuvem",
+                        detail = remoteCloudSession?.let { "Sessão ativa como ${it.email}. O UID estável desta conta é validado pelo backend." }
+                            ?: "Use o mesmo e-mail/senha da conta pessoal criada para o processamento remoto.",
+                        actionLabel = if (remoteCloudSession == null) "Entrar" else "Sair",
+                        onClick = {
+                            if (remoteCloudSession == null) {
+                                cloudAuthMessage = null
+                                cloudLoginDialogVisible = true
+                            } else {
+                                runCatching { remoteCloudAuth.signOut() }
+                                    .onSuccess {
+                                        remoteCloudSession = null
+                                        cloudEmail = ""
+                                        cloudPassword = ""
+                                        cloudAuthMessage = "Sessão da separação em nuvem encerrada."
+                                    }
+                                    .onFailure { error ->
+                                        cloudAuthMessage = error.message ?: "Não foi possível encerrar a sessão."
+                                    }
+                            }
+                        },
+                        testTag = "settings-cloud-auth",
+                    )
+                    cloudAuthMessage?.let {
+                        Text(
+                            it,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (remoteCloudSession != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.testTag("settings-cloud-auth-message"),
+                        )
+                    }
                     OptionRow(
                         "Backup no Google Drive",
                         if (backupSettings.driveConnected) "Conectado" else "Não conectado",
@@ -515,6 +558,88 @@ fun SettingsScreen(
             }
         }
         }
+    }
+
+    if (cloudLoginDialogVisible) {
+        AlertDialog(
+            modifier = Modifier.widthIn(max = 560.dp).testTag("settings-cloud-auth-dialog"),
+            onDismissRequest = {
+                if (!cloudAuthBusy) {
+                    cloudPassword = ""
+                    cloudLoginDialogVisible = false
+                }
+            },
+            title = { Text("Conta da separação em nuvem") },
+            text = {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Text(
+                        "Entre com a conta pessoal do Firebase usada pelo backend. A senha é utilizada apenas para autenticar e não é armazenada pelo GuitarLab.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    OutlinedTextField(
+                        value = cloudEmail,
+                        onValueChange = { cloudEmail = it },
+                        label = { Text("E-mail") },
+                        singleLine = true,
+                        enabled = !cloudAuthBusy,
+                        modifier = Modifier.fillMaxWidth().testTag("settings-cloud-auth-email"),
+                    )
+                    OutlinedTextField(
+                        value = cloudPassword,
+                        onValueChange = { cloudPassword = it },
+                        label = { Text("Senha") },
+                        singleLine = true,
+                        enabled = !cloudAuthBusy,
+                        visualTransformation = PasswordVisualTransformation(),
+                        modifier = Modifier.fillMaxWidth().testTag("settings-cloud-auth-password"),
+                    )
+                    cloudAuthMessage?.let { message ->
+                        Text(
+                            message,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = !cloudAuthBusy && cloudEmail.isNotBlank() && cloudPassword.isNotEmpty(),
+                    onClick = {
+                        val secret = cloudPassword.toCharArray()
+                        cloudPassword = ""
+                        cloudAuthBusy = true
+                        cloudAuthMessage = "Autenticando e validando autorização no backend…"
+                        scope.launch {
+                            runCatching { remoteCloudAuth.signInAndValidate(cloudEmail, secret) }
+                                .onSuccess { session ->
+                                    remoteCloudSession = session
+                                    cloudEmail = session.email
+                                    cloudAuthMessage = "Conta autenticada e autorizada para separação em nuvem."
+                                    cloudLoginDialogVisible = false
+                                }
+                                .onFailure { error ->
+                                    cloudAuthMessage = error.message ?: "Não foi possível autenticar a conta."
+                                }
+                            cloudAuthBusy = false
+                        }
+                    },
+                ) { Text(if (cloudAuthBusy) "Validando…" else "Entrar") }
+            },
+            dismissButton = {
+                TextButton(
+                    enabled = !cloudAuthBusy,
+                    onClick = {
+                        cloudPassword = ""
+                        cloudLoginDialogVisible = false
+                    },
+                ) { Text("Cancelar") }
+            },
+        )
     }
 
     if (calibrationDialogVisible) {

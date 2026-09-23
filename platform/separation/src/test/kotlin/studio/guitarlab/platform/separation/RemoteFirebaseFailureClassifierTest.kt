@@ -7,9 +7,18 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class RemoteFirebaseFailureClassifierTest {
-    @Test fun disabledAnonymousAuthIsTerminalAndActionable() {
+    @Test fun disabledAuthProviderIsTerminalAndActionable() {
         val failure = RemoteFirebaseFailureClassifier.classifyAuth("ERROR_OPERATION_NOT_ALLOWED")
         assertEquals("AUTH_PROVIDER_DISABLED", failure.code)
+        assertFalse(failure.retryable)
+        assertEquals(RemotePipelineStage.AUTHENTICATING, failure.stage)
+    }
+
+    @Test fun missingStableSessionIsTerminalAndNeverRetries() {
+        val failure = RemoteFirebaseFailureClassifier.classify(
+            RemotePipelineException(RemotePipelineStage.AUTHENTICATING, RemoteAuthenticationRequiredException()),
+        )
+        assertEquals("AUTH_REQUIRED", failure.code)
         assertFalse(failure.retryable)
         assertEquals(RemotePipelineStage.AUTHENTICATING, failure.stage)
     }

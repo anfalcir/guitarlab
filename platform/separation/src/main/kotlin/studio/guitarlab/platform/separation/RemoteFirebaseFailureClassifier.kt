@@ -37,6 +37,9 @@ internal object RemoteFirebaseFailureClassifier {
         val chain = generateSequence(error) { it.cause }.toList()
         val stage = chain.filterIsInstance<RemotePipelineException>().firstOrNull()?.stage
 
+        if (chain.any { it is RemoteAuthenticationRequiredException }) {
+            return RemoteFailure("AUTH_REQUIRED", false, stage ?: RemotePipelineStage.AUTHENTICATING)
+        }
         chain.filterIsInstance<FirebaseAuthException>().firstOrNull()?.let {
             return classifyAuth(it.errorCode, stage ?: RemotePipelineStage.AUTHENTICATING)
         }
