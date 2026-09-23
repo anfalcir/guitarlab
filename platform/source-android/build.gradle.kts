@@ -21,4 +21,7 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.androidx.work.runtime.ktx)
     implementation(libs.youtube.dl.android)
+
+    testImplementation(kotlin("test"))
+    testImplementation(libs.junit4)
 }

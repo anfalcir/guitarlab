@@ -18,9 +18,9 @@ U10 evidence:
 - deterministic visual review PASS;
 - signed homologation intentionally skipped because U11 owns final freeze/signing.
 
-The latest signed authority is Android CI #789 / run `35807008698`, producer `d0926e9dbd231b6d91c19448279fe8749d182ba1`, package `studio.guitarlab.app`, `0.5.0-rc6` / versionCode `26`, signed APK SHA-256 `4bc76565c74366d89df23db2e6410e77976a1cc827a79486ceec629fd16112b6`.
+The latest signed authority remains Android CI #789 / run `35807008698`, producer `d0926e9dbd231b6d91c19448279fe8749d182ba1`, package `studio.guitarlab.app`, `0.5.0-rc6` / versionCode `26`, signed APK SHA-256 `4bc76565c74366d89df23db2e6410e77976a1cc827a79486ceec629fd16112b6`; however rc6 is withdrawn from final U12 approval after the physical source-search failure.
 
-U11 rc5 remains CLOSED / DIGITAL PASS historical evidence but is withdrawn from final physical approval. The rc6 replacement is CLOSED / DIGITAL PASS for the Android exact-source gate and is now the active approvable U12 candidate. Final approval still requires the U12 target-device campaign and explicit owner acceptance.
+Replacement `0.5.0-rc7` / versionCode `27` is pending the U12g exact-source Android/API36/signing gate. The corrective is restricted to source discovery/runtime/error semantics and does not alter cloud backend contracts.
 
 Drive provider-real acceptance remains closed by U8m:
 `U8m PASS · r_1790095960 · cleanup 8/8/14`;

@@ -1,5 +1,6 @@
 package studio.guitarlab.app
 
+import android.content.pm.ApplicationInfo
 import androidx.compose.material3.Text
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
@@ -55,6 +56,13 @@ import studio.guitarlab.platform.source.android.SourceOperationState
 @RunWith(AndroidJUnit4::class)
 class UnifiedProjectShellInstrumentedTest {
     @get:Rule val composeRule = createComposeRule()
+
+    @Test fun packagedSourceRuntimeExtractsNativeLibraries() {
+        val appInfo = InstrumentationRegistry.getInstrumentation().targetContext.applicationInfo
+        check(appInfo.flags and ApplicationInfo.FLAG_EXTRACT_NATIVE_LIBS != 0) {
+            "The packaged yt-dlp runtime requires extracted native libraries."
+        }
+    }
 
     @Test fun newProjectExposesThreeExplicitIntentsAndHidesTemplatesFromStudyCreation() {
         var created: Pair<String, ProjectTemplate>? = null

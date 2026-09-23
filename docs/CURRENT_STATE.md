@@ -30,14 +30,12 @@ Updated: 2026-09-22
 
 ## Active line
 - Repository/branch: `anfalcir/guitarlab` / `main`.
-- **The rc6 replacement candidate is CLOSED / DIGITAL PASS and is the active U12 physical-homologation candidate.** Android CI #789 / run `35807008698` passed on exact producer `d0926e9dbd231b6d91c19448279fe8749d182ba1`, including deterministic source materialization, unit tests, performance evidence, Android Lint, debug/release assembly, all API 36 regression groups and signed homologation.
-- Latest signed version is `0.5.0-rc6`, versionCode `26`, package `studio.guitarlab.app`.
-- Latest signed DIGITAL PASS: **Android CI #789** / run `35807008698` / producer `d0926e9dbd231b6d91c19448279fe8749d182ba1`.
-- U12 is now **READY / PHYSICAL PASS PENDING**. Rc5 remains historical U11 evidence only and is not eligible for final approval.
-- The rc5→rc6 corrective delta contains no `cloud/`, U4/U7 workflow or cloud-smoke script changes. U4 Cloud Integration Smoke #104 / run `35793456955` and U7 Cloud Backend #62 / run `35793456941` therefore remain applicable cloud evidence for the unchanged cloud source.
-- #663 scope: H28 → H29 → H30 → H31 → H32 → H33 → H33a → H33b → H34 → H35 → H35a → H36 → H36a → H36b → H36c.
-- Signed APK SHA-256: `4bc76565c74366d89df23db2e6410e77976a1cc827a79486ceec629fd16112b6`.
-- Signed APK size: `82,894,480` bytes.
+- **rc6 is withdrawn from final U12 approval after the target-device source-search failure was reproduced.** The search dispatch starts correctly, but the yt-dlp provider path can fail immediately and be misreported as “Pesquisa concluída sem fontes compatíveis”.
+- Replacement candidate: `0.5.0-rc7` / versionCode `27`, pending exact-source Android CI/API36/signing after the U12g source-discovery corrective.
+- Latest signed authority remains `0.5.0-rc6` / versionCode `26` / Android CI #789 / producer `d0926e9dbd231b6d91c19448279fe8749d182ba1`, but it is **not approvable** for final U12.
+- rc7 corrective scope: require native-library extraction for the embedded yt-dlp runtime, refresh/retry the runtime once when all online discovery calls fail, surface provider failure instead of false empty success, and add deterministic regressions.
+- The corrective changes no `cloud/`, U4/U7 workflow or cloud-smoke source; existing U4/U7 cloud evidence remains applicable to that unchanged boundary.
+- Signed rc6 APK SHA-256: `4bc76565c74366d89df23db2e6410e77976a1cc827a79486ceec629fd16112b6`.
 - Locked signer SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
 - CI supports manual dispatch and controlled `[run ci]` / `[run ci signed]` triggers on `main`; ordinary commits remain `[skip ci]`.
 

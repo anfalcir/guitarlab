@@ -1,8 +1,8 @@
 # U12 — Final Physical Homologation — GuitarLab
 
 Updated: 2026-09-22  
-Status: **READY — RC6 DIGITAL PASS; FINAL PHYSICAL HOMOLOGATION PENDING**
-Target candidate: `0.5.0-rc6` / versionCode `26` / producer `d0926e9dbd231b6d91c19448279fe8749d182ba1`
+Status: **PAUSED — RC6 SOURCE-SEARCH FINDING UNDER CORRECTION; RC7 DIGITAL GATE PENDING**
+Target candidate: pending `0.5.0-rc7` / versionCode `27` exact-source Android gate and signing
 Package: `studio.guitarlab.app`  
 Target device: Samsung SM-X230 / Android 16 / API 36  
 Audio hardware: M-VAVE MK-300 over USB  
@@ -28,6 +28,18 @@ Historical U11 rc5 binding:
 - signed APK SHA-256: `795839766f2b7546af53b2c56a0638b11c25b79622fe73cce5860b5602f050e0`.
 
 A later docs-only commit never changes the APK producer identity. Rc5 remains historical evidence only and is no longer eligible for final U12 approval.
+
+## Target-device rc6 finding
+
+The rc6 target-device retry confirmed that the Prepare search button starts the operation, but the online discovery path can terminate immediately. Activity records the terminal state as “Pesquisa concluída sem fontes compatíveis” even when the yt-dlp YouTube/SoundCloud provider actually failed. Rc6 is therefore withdrawn from final approval.
+
+The U12g corrective must:
+- require extracted native libraries for the embedded yt-dlp runtime;
+- perform one controlled runtime refresh/retry when all yt-dlp discovery calls fail;
+- preserve cancellation semantics;
+- surface persistent provider failure as failure/diagnostics, never as successful empty search;
+- keep genuine zero-result searches distinct from provider failure;
+- pass deterministic unit/API36/signing gates before U12 resumes.
 
 ## Target-device findings that superseded rc5
 

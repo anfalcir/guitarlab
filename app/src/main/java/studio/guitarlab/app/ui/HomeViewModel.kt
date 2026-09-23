@@ -432,27 +432,35 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 val result = withTimeout(SOURCE_SEARCH_TIMEOUT_MS) {
                     sourceAcquisition.search(SourceSearchRequest(artist = artist, song = song))
                 }
+                val providerFailure = result.candidates.isEmpty() && result.warnings.isNotEmpty()
                 val emptyMessage = when {
                     result.candidates.isNotEmpty() -> null
-                    result.warnings.isNotEmpty() -> "As fontes de pesquisa estão temporariamente indisponíveis. Tente novamente."
+                    providerFailure -> null
                     else -> "Nenhuma fonte automática compatível foi encontrada."
+                }
+                val providerFailureMessage = if (providerFailure) {
+                    "A pesquisa não pôde consultar as fontes automáticas. Verifique a conexão e tente novamente."
+                } else {
+                    null
                 }
                 _state.update { current ->
                     current.copy(
                         sourceCandidatesByProject = current.sourceCandidatesByProject + (projectId to result.candidates),
                         sourceWarningsByProject = current.sourceWarningsByProject + (projectId to result.warnings),
                         message = emptyMessage,
+                        error = providerFailureMessage,
                     )
                 }
                 activityStore.record(
                     operationId,
                     projectId,
                     UnifiedOperationKind.SOURCE_ACQUISITION,
-                    UnifiedOperationState.SUCCEEDED,
-                    100,
-                    when (result.candidates.size) {
-                        0 -> "Pesquisa concluída sem fontes compatíveis"
-                        1 -> "1 fonte encontrada"
+                    if (providerFailure) UnifiedOperationState.FAILED else UnifiedOperationState.SUCCEEDED,
+                    if (providerFailure) null else 100,
+                    when {
+                        providerFailure -> "Pesquisa de fontes indisponível"
+                        result.candidates.isEmpty() -> "Pesquisa concluída sem fontes compatíveis"
+                        result.candidates.size == 1 -> "1 fonte encontrada"
                         else -> "${result.candidates.size} fontes encontradas"
                     },
                     result.warnings.joinToString("\n").ifBlank { null },

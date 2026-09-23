@@ -103,50 +103,34 @@ private suspend fun fetchBandcamp(url: String): String = withContext(Dispatchers
     } finally { connection.disconnect() }
 }
 
-internal class YtDlpDiscoveryProvider(private val context: Context) : SourceSearchProviderClient {
-    override suspend fun search(request: SourceSearchRequest): List<SourceCandidateDraft> {
-        val query = listOf(request.artist.trim(), request.song.trim()).filter { it.isNotBlank() }.joinToString(" ")
-        val limit = if (request.depth == SourceSearchDepth.MAXIMUM) 9 else 6
-        val searches = listOf(SourceProvider.SOUNDCLOUD to "scsearch$limit:$query", SourceProvider.YOUTUBE to "ytsearch$limit:$query official audio", SourceProvider.YOUTUBE to "ytsearch$limit:$query Topic")
-        val flat = coroutineScope {
-            searches.map { (provider, target) ->
-                async {
-                    try {
-                        flatSearch(target, provider)
-                    } catch (cancelled: CancellationException) {
-                        throw cancelled
-                    } catch (_: Exception) {
-                        emptyList()
-                    }
-                }
-            }.awaitAll().flatten()
-        }.distinctBy { it.url }
-        val planned = flat.filter { SourceSearchRules.titleMatchesSong(request.song, it.title) }.sortedByDescending { SourceSearchRules.textSimilarity(request.song, it.title) }.take(limit)
-        val semaphore = Semaphore(3)
-        return coroutineScope {
-            planned.map { item ->
-                async {
-                    semaphore.withPermit {
-                        try {
-                            inspectUrl(item.url, item.provider)
-                        } catch (cancelled: CancellationException) {
-                            throw cancelled
-                        } catch (_: Exception) {
-                            null
-                        }
-                    }
-                }
-            }.awaitAll().filterNotNull()
-        }
+internal interface YtDlpDiscoveryBackend {
+    suspend fun updateRuntime(force: Boolean)
+    suspend fun flatSearch(target: String, provider: SourceProvider): List<FlatCandidate>
+    suspend fun inspectUrl(url: String, provider: SourceProvider): SourceCandidateDraft
+}
+
+private class AndroidYtDlpDiscoveryBackend(private val context: Context) : YtDlpDiscoveryBackend {
+    override suspend fun updateRuntime(force: Boolean) {
+        YtDlpRuntime.updateNightly(context, force)
     }
 
-    suspend fun inspectUrl(url: String, provider: SourceProvider): SourceCandidateDraft {
-        val json = YtDlpRuntime.executeJson(context, url, listOf("--skip-download" to null, "--no-playlist" to null, "--dump-single-json" to null), "inspect-${UUID.randomUUID()}")
+    override suspend fun inspectUrl(url: String, provider: SourceProvider): SourceCandidateDraft {
+        val json = YtDlpRuntime.executeJson(
+            context,
+            url,
+            listOf("--skip-download" to null, "--no-playlist" to null, "--dump-single-json" to null),
+            "inspect-${UUID.randomUUID()}",
+        )
         return YtDlpInfoParser.toDraft(JSONObject(json), provider, url)
     }
 
-    private suspend fun flatSearch(target: String, provider: SourceProvider): List<FlatCandidate> {
-        val json = YtDlpRuntime.executeJson(context, target, listOf("--skip-download" to null, "--flat-playlist" to null, "--dump-single-json" to null), "search-${UUID.randomUUID()}")
+    override suspend fun flatSearch(target: String, provider: SourceProvider): List<FlatCandidate> {
+        val json = YtDlpRuntime.executeJson(
+            context,
+            target,
+            listOf("--skip-download" to null, "--flat-playlist" to null, "--dump-single-json" to null),
+            "search-${UUID.randomUUID()}",
+        )
         val entries = JSONObject(json).optJSONArray("entries") ?: return emptyList()
         return buildList {
             for (i in 0 until entries.length()) {
@@ -154,14 +138,127 @@ internal class YtDlpDiscoveryProvider(private val context: Context) : SourceSear
                 val title = e.optString("title").ifBlank { e.optString("track") }
                 val uploader = sequenceOf(e.optString("artist"), e.optString("uploader"), e.optString("channel")).firstOrNull { it.isNotBlank() }.orEmpty()
                 var url = sequenceOf(e.optString("webpage_url"), e.optString("original_url"), e.optString("url")).firstOrNull { it.startsWith("http") }.orEmpty()
-                if (url.isBlank() && provider == SourceProvider.YOUTUBE) e.optString("id").takeIf { it.isNotBlank() }?.let { url = "https://www.youtube.com/watch?v=$it" }
+                if (url.isBlank() && provider == SourceProvider.YOUTUBE) {
+                    e.optString("id").takeIf { it.isNotBlank() }?.let { url = "https://www.youtube.com/watch?v=$it" }
+                }
                 if (url.isNotBlank()) add(FlatCandidate(provider, title, uploader, url))
             }
         }
     }
 }
 
-private data class FlatCandidate(val provider: SourceProvider, val title: String, val uploader: String, val url: String)
+internal class YtDlpDiscoveryProvider internal constructor(
+    private val backend: YtDlpDiscoveryBackend,
+) : SourceSearchProviderClient {
+    constructor(context: Context) : this(AndroidYtDlpDiscoveryBackend(context.applicationContext))
+
+    override suspend fun search(request: SourceSearchRequest): List<SourceCandidateDraft> {
+        refreshRuntime(force = false)
+        return searchInternal(request, allowRecovery = true)
+    }
+
+    suspend fun inspectUrl(url: String, provider: SourceProvider): SourceCandidateDraft =
+        backend.inspectUrl(url, provider)
+
+    private suspend fun searchInternal(request: SourceSearchRequest, allowRecovery: Boolean): List<SourceCandidateDraft> {
+        val query = listOf(request.artist.trim(), request.song.trim()).filter { it.isNotBlank() }.joinToString(" ")
+        val limit = if (request.depth == SourceSearchDepth.MAXIMUM) 9 else 6
+        val searches = listOf(
+            SourceProvider.SOUNDCLOUD to "scsearch$limit:$query",
+            SourceProvider.YOUTUBE to "ytsearch$limit:$query official audio",
+            SourceProvider.YOUTUBE to "ytsearch$limit:$query Topic",
+        )
+
+        val searchAttempts = coroutineScope {
+            searches.map { (provider, target) ->
+                async { captureYtDlpAttempt { backend.flatSearch(target, provider) } }
+            }.awaitAll()
+        }
+
+        if (searchAttempts.all { it.error != null }) {
+            if (allowRecovery && refreshRuntime(force = true)) {
+                return searchInternal(request, allowRecovery = false)
+            }
+            throw IllegalStateException(
+                "YouTube/SoundCloud indisponíveis durante a pesquisa: " +
+                    summarizeYtDlpFailures(searchAttempts.mapNotNull { it.error }),
+            )
+        }
+
+        val flat = searchAttempts
+            .mapNotNull { it.value }
+            .flatten()
+            .distinctBy { it.url }
+
+        val planned = flat
+            .filter { SourceSearchRules.titleMatchesSong(request.song, it.title) }
+            .sortedByDescending { SourceSearchRules.textSimilarity(request.song, it.title) }
+            .take(limit)
+
+        if (planned.isEmpty()) return emptyList()
+
+        val semaphore = Semaphore(3)
+        val inspectionAttempts = coroutineScope {
+            planned.map { item ->
+                async {
+                    semaphore.withPermit {
+                        captureYtDlpAttempt { backend.inspectUrl(item.url, item.provider) }
+                    }
+                }
+            }.awaitAll()
+        }
+
+        val inspected = inspectionAttempts.mapNotNull { it.value }
+        if (inspected.isNotEmpty()) return inspected
+
+        if (inspectionAttempts.any { it.error != null }) {
+            if (allowRecovery && refreshRuntime(force = true)) {
+                return searchInternal(request, allowRecovery = false)
+            }
+            throw IllegalStateException(
+                "As fontes foram localizadas, mas não puderam ser validadas: " +
+                    summarizeYtDlpFailures(inspectionAttempts.mapNotNull { it.error }),
+            )
+        }
+        return emptyList()
+    }
+
+    private suspend fun refreshRuntime(force: Boolean): Boolean =
+        try {
+            backend.updateRuntime(force)
+            true
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Throwable) {
+            false
+        }
+}
+
+internal data class FlatCandidate(
+    val provider: SourceProvider,
+    val title: String,
+    val uploader: String,
+    val url: String,
+)
+
+private data class YtDlpAttempt<T>(val value: T? = null, val error: Throwable? = null)
+
+private suspend fun <T> captureYtDlpAttempt(block: suspend () -> T): YtDlpAttempt<T> =
+    try {
+        YtDlpAttempt(value = block())
+    } catch (cancelled: CancellationException) {
+        throw cancelled
+    } catch (error: Throwable) {
+        YtDlpAttempt(error = error)
+    }
+
+private fun summarizeYtDlpFailures(errors: List<Throwable>): String =
+    errors
+        .mapNotNull { it.message?.trim()?.takeIf(String::isNotBlank) }
+        .distinct()
+        .take(2)
+        .joinToString(" | ")
+        .ifBlank { "falha no motor de pesquisa" }
 
 internal object YtDlpInfoParser {
     private val losslessExts = setOf("flac", "wav", "alac", "ape", "aiff", "aif")
