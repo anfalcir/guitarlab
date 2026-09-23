@@ -36,7 +36,7 @@ def state(doc):
     return (
         email.get("enabled"),
         email.get("passwordRequired"),
-        anonymous.get("enabled"),
+        anonymous.get("enabled") is True,
     )
 
 before_state = state(before)
