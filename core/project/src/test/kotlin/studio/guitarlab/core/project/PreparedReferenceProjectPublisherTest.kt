@@ -40,8 +40,14 @@ class PreparedReferenceProjectPublisherTest {
             createdAtEpochMs = 1,
             classification = AssetClassification.AUTHORITATIVE,
         )
+        var templateId = 0
         repo.save(
-            ProjectFactory(idGenerator = { "p" }).create("P", ProjectTemplate.GUITAR).copy(
+            ProjectFactory(
+                idGenerator = {
+                    templateId += 1
+                    if (templateId == 1) "p" else "template-$templateId"
+                },
+            ).create("P", ProjectTemplate.GUITAR).copy(
                 assets = listOf(source),
                 preparation = PreparationState(
                     status = PreparationStatus.SOURCE_READY,
