@@ -65,16 +65,6 @@ format_duration() {
   printf '%dm%02ds' "$((seconds / 60))" "$((seconds % 60))"
 }
 
-class_filter() {
-  local out=""
-  local cls
-  for cls in "$@"; do
-    [[ -n "$out" ]] && out+=","
-    out+="studio.guitarlab.app.$cls"
-  done
-  printf '%s' "$out"
-}
-
 verify_test_coverage() {
   local expected actual diff
   expected="$(
@@ -105,18 +95,21 @@ verify_test_coverage() {
   echo "::notice title=API36 test coverage::Cobertura fail-closed validada: ${count} classes classificadas"
 }
 
-copy_group_evidence() {
+copy_class_evidence() {
   local slug="$1"
+  local class_name="$2"
   local dest="$DIAG_ROOT/$slug"
   mkdir -p "$dest"
 
   if [[ -d app/build/outputs/androidTest-results/connected ]]; then
-    rm -rf "$dest/results"
-    cp -R app/build/outputs/androidTest-results/connected "$dest/results"
+    rm -rf "$dest/results/$class_name"
+    mkdir -p "$dest/results"
+    cp -R app/build/outputs/androidTest-results/connected "$dest/results/$class_name"
   fi
   if [[ -d app/build/reports/androidTests/connected ]]; then
-    rm -rf "$dest/reports"
-    cp -R app/build/reports/androidTests/connected "$dest/reports"
+    rm -rf "$dest/reports/$class_name"
+    mkdir -p "$dest/reports"
+    cp -R app/build/reports/androidTests/connected "$dest/reports/$class_name"
   fi
 }
 
@@ -294,10 +287,14 @@ run_group() {
 
   local dest="$DIAG_ROOT/$slug"
   local log="$dest/gradle.log"
-  local started_epoch finished_epoch elapsed duration heartbeat_pid status tests state
+  local started_epoch finished_epoch elapsed duration heartbeat_pid status tests state deadline
+  local class_name class_status now remaining
 
+  rm -rf "$dest"
   mkdir -p "$dest"
+  : > "$log"
   started_epoch="$(date +%s)"
+  deadline="$((started_epoch + GROUP_TIMEOUT_SECONDS))"
 
   echo "::group::API36 ${index}/${TOTAL_GROUPS} — ${title}"
   echo "::notice title=API36 ${index}/${TOTAL_GROUPS}::Iniciando: ${title} · timeout ${GROUP_TIMEOUT_SECONDS}s"
@@ -305,12 +302,30 @@ run_group() {
   heartbeat "$index" "$title" "$started_epoch" &
   heartbeat_pid=$!
 
-  set +e
-  timeout --signal=TERM --kill-after=30s "${GROUP_TIMEOUT_SECONDS}s" \
-    gradle --console=plain --stacktrace :app:connectedDebugAndroidTest "$@" \
-    2>&1 | tee "$log"
-  status=${PIPESTATUS[0]}
-  set -e
+  status=0
+  for class_name in "${expected_classes[@]}"; do
+    now="$(date +%s)"
+    remaining="$((deadline - now))"
+    if [[ "$remaining" -le 0 ]]; then
+      status=124
+      break
+    fi
+
+    echo "::notice title=API36 ${index}/${TOTAL_GROUPS}::Executando classe $class_name" | tee -a "$log"
+    set +e
+    timeout --signal=TERM --kill-after=30s "${remaining}s" \
+      gradle --console=plain --stacktrace :app:connectedDebugAndroidTest \
+      "-Pandroid.testInstrumentationRunnerArguments.class=studio.guitarlab.app.$class_name" \
+      "$@" 2>&1 | tee -a "$log"
+    class_status=${PIPESTATUS[0]}
+    set -e
+
+    copy_class_evidence "$slug" "$class_name"
+    if [[ "$class_status" -ne 0 ]]; then
+      status="$class_status"
+      break
+    fi
+  done
 
   kill "$heartbeat_pid" 2>/dev/null || true
   wait "$heartbeat_pid" 2>/dev/null || true
@@ -319,7 +334,6 @@ run_group() {
   elapsed="$((finished_epoch - started_epoch))"
   duration="$(format_duration "$elapsed")"
 
-  copy_group_evidence "$slug"
   collect_visual_evidence "$slug"
   tests="$(count_testcases "$dest/results")"
 
@@ -381,6 +395,8 @@ echo "::notice title=API36::Validando conexão com o emulador"
 adb wait-for-device
 normalize_emulator_ui
 trap restore_emulator_ui EXIT
+echo "::notice title=API36::Pré-compilando APKs uma vez antes dos grupos"
+gradle --console=plain --stacktrace :app:assembleDebug :app:assembleDebugAndroidTest
 echo "::notice title=API36::Emulador conectado e normalizado; iniciando ${TOTAL_GROUPS} grupos"
 
 run_group \
@@ -388,32 +404,28 @@ run_group \
   "Projeto e navegação" \
   "01-project-navigation" \
   "${GROUP1_CLASSES[@]}" \
-  -- \
-  "-Pandroid.testInstrumentationRunnerArguments.class=$(class_filter "${GROUP1_CLASSES[@]}")"
+  --
 
 run_group \
   2 \
   "Studio e prática" \
   "02-studio-practice" \
   "${GROUP2_CLASSES[@]}" \
-  -- \
-  "-Pandroid.testInstrumentationRunnerArguments.class=$(class_filter "${GROUP2_CLASSES[@]}")"
+  --
 
 run_group \
   3 \
   "Importação, controles e ajustes" \
   "03-import-controls-settings" \
   "${GROUP3_CLASSES[@]}" \
-  -- \
-  "-Pandroid.testInstrumentationRunnerArguments.class=$(class_filter "${GROUP3_CLASSES[@]}")"
+  --
 
 run_group \
   4 \
   "Exportação, backup e master" \
   "04-export-backup-master" \
   "${GROUP4_CLASSES[@]}" \
-  -- \
-  "-Pandroid.testInstrumentationRunnerArguments.class=$(class_filter "${GROUP4_CLASSES[@]}")"
+  --
 
 echo "::notice title=API36 5/${TOTAL_GROUPS}::Configurando viewport tablet 1920×1200"
 adb shell wm size 1920x1200
@@ -428,7 +440,6 @@ run_group \
   "05-tablet-geometry" \
   "${GROUP5_CLASSES[@]}" \
   -- \
-  "-Pandroid.testInstrumentationRunnerArguments.class=$(class_filter "${GROUP5_CLASSES[@]}")" \
   "-Pandroid.testInstrumentationRunnerArguments.targetGeometry=true"
 
 verify_visual_matrix

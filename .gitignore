@@ -31,6 +31,7 @@ build-infra/cache-bundles/
 .toolchain/
 
 .venv/
+/ci-diagnostics/
 
 *.parts/
 
