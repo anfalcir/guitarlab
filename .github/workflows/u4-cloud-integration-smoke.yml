@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   smoke:
-    name: Real Cloud Run six-stem smoke
+    name: Real Cloud Run prepared-reference v2 smoke
     if: >-
       github.repository_id == '1361533070' &&
       github.repository_owner_id == '216095257' &&
@@ -28,6 +28,7 @@ jobs:
       GBW_BUCKET: gbwapp-ef048.firebasestorage.app
       GBW_REGION: us-central1
       MODEL_SHA256: 09704f4ceae204e56e77d5eefd6ac71d7275be81fd507e6913371d59abcee856
+      GBW_ALLOWED_UIDS: ${{ secrets.GBW_ALLOWED_UIDS }}
 
     steps:
       - name: Checkout exact GuitarLab source
@@ -45,6 +46,16 @@ jobs:
         with:
           version: '585.0.0'
           install_components: 'beta'
+
+      - name: Set up Node.js for Firebase Admin authentication
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: cloud/remote-separation/functions/package-lock.json
+
+      - name: Install Firebase Admin dependencies
+        run: npm ci --prefix cloud/remote-separation/functions
 
       - name: Run controlled real-cloud U4 contract
         shell: bash

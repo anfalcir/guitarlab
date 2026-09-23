@@ -5,9 +5,11 @@ set -euo pipefail
 GBW_REGION="${GBW_REGION:-us-central1}"
 GBW_JOB_NAME="${GBW_JOB_NAME:-gbw-demucs}"
 MODEL_SHA256="${MODEL_SHA256:?}"
+: "${GBW_ALLOWED_UIDS:?}"
 DELIVERABLES=(backing guitar)
 RUN_TOKEN="${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
-TEST_UID="guitarlab-u4-ci"
+TEST_UID="$(printf '%s' "${GBW_ALLOWED_UIDS%%,*}" | xargs)"
+test -n "$TEST_UID"
 JOB_ID="$(python3 - <<'PY'
 import uuid
 print(uuid.uuid4())
@@ -32,6 +34,46 @@ cleanup() {
 trap cleanup EXIT
 
 gcloud config set project "$GBW_GCP_PROJECT" >/dev/null
+
+# Obtain a short-lived Firebase ID token for the already-allowlisted UID. This
+# is CI-only bootstrap: it does not enable anonymous auth, add an allowed UID,
+# change a password, or alter the production authorization policy.
+CUSTOM_TOKEN="$(
+  cd cloud/remote-separation/functions
+  node - "$TEST_UID" <<'NODE'
+const {applicationDefault, initializeApp} = require("firebase-admin/app");
+const {getAuth} = require("firebase-admin/auth");
+(async () => {
+  const uid = process.argv[2];
+  const app = initializeApp(
+    {credential: applicationDefault(), projectId: process.env.GBW_GCP_PROJECT},
+    "u4-real-ack",
+  );
+  process.stdout.write(await getAuth(app).createCustomToken(uid));
+})().catch(error => {
+  console.error(String(error && error.stack ? error.stack : error));
+  process.exit(1);
+});
+NODE
+)"
+test -n "$CUSTOM_TOKEN"
+FIREBASE_API_KEY="$(
+  python3 - <<'PY'
+import pathlib,re
+text=pathlib.Path("platform/separation/src/main/kotlin/studio/guitarlab/platform/separation/FirebaseRemoteRuntime.kt").read_text()
+match=re.search(r'\.setApiKey\("([^"]+)"\)', text)
+if not match:
+    raise SystemExit("Firebase API key configuration not found")
+print(match.group(1))
+PY
+)"
+AUTH_JSON="$(
+  curl --fail-with-body --show-error --silent     -H "Content-Type: application/json"     -X POST "https://identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken?key=${FIREBASE_API_KEY}"     --data "{\"token\":\"${CUSTOM_TOKEN}\",\"returnSecureToken\":true}"
+)"
+FIREBASE_ID_TOKEN="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["idToken"])' <<<"$AUTH_JSON")"
+AUTH_UID="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["localId"])' <<<"$AUTH_JSON")"
+test "$AUTH_UID" = "$TEST_UID"
+test -n "$FIREBASE_ID_TOKEN"
 
 # Deterministic 2 s stereo WAV. The real production Demucs job processes it.
 python3 - "$TMP/source.wav" <<'PY'
@@ -96,6 +138,7 @@ for row in rows:
 print("U4 prepared-reference v2 manifest/integrity contract PASS")
 print("manifest_sha256="+hashlib.sha256(raw).hexdigest())
 PY
+MANIFEST_SHA="$(sha256sum "$TMP/result-manifest.json" | awk '{print $1}')"
 
 # Worker contract deletes the source only after durable prepared-reference + manifest publication.
 if gcloud storage objects describe "gs://${GBW_BUCKET}/${INPUT_PATH}" >/dev/null 2>&1; then
@@ -112,10 +155,46 @@ for artifact in "${DELIVERABLES[@]}"; do
 done
 gcloud storage objects describe "$MANIFEST_URI" >/dev/null
 
-# Simulate the exact whole-prefix storage boundary owned by acknowledgeRemoteImport and prove
-# idempotent absence. Callable authorization/purge semantics are independently gated in U7.
-gcloud storage rm "gs://${GBW_BUCKET}/${PREFIX}/**" --recursive >/dev/null
-! gcloud storage ls "gs://${GBW_BUCKET}/${PREFIX}/**" --recursive >/dev/null 2>&1
-gcloud storage rm "gs://${GBW_BUCKET}/${PREFIX}/**" --recursive >/dev/null 2>&1 || true
+# Call the production callable with a real Firebase-authenticated allowlisted identity.
+ACK_URL="https://${GBW_REGION}-${GBW_GCP_PROJECT}.cloudfunctions.net/acknowledgeRemoteImport"
+ACK_PAYLOAD="{\"data\":{\"jobId\":\"${JOB_ID}\",\"projectId\":\"${PROJECT_ID}\",\"resultManifestSha256\":\"${MANIFEST_SHA}\"}}"
+ACK_RESPONSE="$(
+  curl --fail-with-body --show-error --silent     -H "Authorization: Bearer ${FIREBASE_ID_TOKEN}"     -H "Content-Type: application/json"     -X POST "$ACK_URL"     --data "$ACK_PAYLOAD"
+)"
+python3 - "$ACK_RESPONSE" <<'PY'
+import json,sys
+payload=json.loads(sys.argv[1])
+result=payload.get("result") or {}
+assert result.get("state")=="IMPORTED", payload
+assert result.get("cleanup")=="PURGED", payload
+PY
 
-echo "U4 real Cloud Run smoke PASS: execution=${EXECUTION}; prepared-reference v2 contract PASS; no remote stems; source cleanup PASS; whole-prefix purge idempotency PASS."
+if gcloud storage ls "gs://${GBW_BUCKET}/${PREFIX}/**" --recursive >/dev/null 2>&1; then
+  echo "::error::acknowledgeRemoteImport left residual job objects in Storage."
+  exit 1
+fi
+
+FINAL_DOC="$(
+  curl --fail-with-body --show-error --silent     -H "Authorization: Bearer ${ACCESS_TOKEN}"     -H "X-Goog-User-Project: ${GBW_GCP_PROJECT}"     "https://firestore.googleapis.com/v1/projects/${GBW_GCP_PROJECT}/databases/(default)/documents/users/${TEST_UID}/jobs/${JOB_ID}"
+)"
+python3 - "$FINAL_DOC" <<'PY'
+import json,sys
+fields=json.loads(sys.argv[1])["fields"]
+assert fields["state"]["stringValue"]=="IMPORTED"
+assert fields["remoteCleanupState"]["stringValue"]=="PURGED"
+assert fields.get("remotePurgedAt",{}).get("timestampValue")
+PY
+
+ACK_AGAIN="$(
+  curl --fail-with-body --show-error --silent     -H "Authorization: Bearer ${FIREBASE_ID_TOKEN}"     -H "Content-Type: application/json"     -X POST "$ACK_URL"     --data "$ACK_PAYLOAD"
+)"
+python3 - "$ACK_AGAIN" <<'PY'
+import json,sys
+result=(json.loads(sys.argv[1]).get("result") or {})
+assert result.get("state")=="IMPORTED"
+assert result.get("cleanup")=="PURGED"
+assert result.get("idempotent") is True
+PY
+! gcloud storage ls "gs://${GBW_BUCKET}/${PREFIX}/**" --recursive >/dev/null 2>&1
+
+echo "U4 real Cloud Run smoke PASS: execution=${EXECUTION}; prepared-reference v2 contract PASS; no remote stems; source cleanup PASS; real ACK PASS; Firestore IMPORTED/PURGED PASS; whole-prefix purge idempotency PASS."
