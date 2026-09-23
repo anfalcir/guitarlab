@@ -87,7 +87,7 @@ PATCH_B64 = ROOT / ".source-parts/U12abRemotePreparedReferencesV2Rc13.patch.b64"
 PATCH_B64_BLOB = {b64_blob!r}
 PATCH_BLOB = {patch_blob!r}
 FILES = {json.dumps(hashes, sort_keys=True, indent=2)}
-CHECKS = {json.dumps(checks, indent=2)}
+CHECKS = {checks!r}
 
 
 def out(*args: str) -> str:
