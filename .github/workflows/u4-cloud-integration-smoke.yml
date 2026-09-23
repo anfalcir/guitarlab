@@ -54,6 +54,13 @@ jobs:
           sa="gbw-github-deployer@${GBW_GCP_PROJECT}.iam.gserviceaccount.com"
           gcloud iam service-accounts add-iam-policy-binding "$sa"             --project "$GBW_GCP_PROJECT"             --member "serviceAccount:$sa"             --role roles/iam.serviceAccountTokenCreator             --condition=None >/dev/null
 
+      - name: Ensure CI can sign its own short-lived Firebase test token
+        shell: bash
+        run: |
+          set -euo pipefail
+          sa="gbw-github-deployer@gbwapp-ef048.iam.gserviceaccount.com"
+          gcloud iam service-accounts add-iam-policy-binding "$sa"             --project "$GBW_GCP_PROJECT"             --member "serviceAccount:$sa"             --role roles/iam.serviceAccountTokenCreator             --condition=None >/dev/null
+
       - name: Set up Node.js for Firebase Admin authentication
         uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
         with:
