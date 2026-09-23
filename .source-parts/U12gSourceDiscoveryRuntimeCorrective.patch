@@ -1,0 +1,416 @@
+diff --git a/app/build.gradle.kts b/app/build.gradle.kts
+index 92413d38c748de760c5fa63126158b9456c94a39..a057ee46384c75718ad2aec8b65bc7d2ef0c266f 100644
+--- a/app/build.gradle.kts
++++ b/app/build.gradle.kts
+@@ -11,8 +11,8 @@ android {
+         applicationId = "studio.guitarlab.app"
+         minSdk = 26
+         targetSdk = 36
+-        versionCode = 26
+-        versionName = "0.5.0-rc6"
++        versionCode = 27
++        versionName = "0.5.0-rc7"
+         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+     }
+ 
+diff --git a/app/src/androidTest/java/studio/guitarlab/app/UnifiedProjectShellInstrumentedTest.kt b/app/src/androidTest/java/studio/guitarlab/app/UnifiedProjectShellInstrumentedTest.kt
+index 5a22a48e4c4f0c25b95934b5affcee01b7b67145..b19146be67ec25cd224e803cf5a58e8aec2b5bcb 100644
+--- a/app/src/androidTest/java/studio/guitarlab/app/UnifiedProjectShellInstrumentedTest.kt
++++ b/app/src/androidTest/java/studio/guitarlab/app/UnifiedProjectShellInstrumentedTest.kt
+@@ -1,5 +1,6 @@
+ package studio.guitarlab.app
+ 
++import android.content.pm.ApplicationInfo
+ import androidx.compose.material3.Text
+ import androidx.compose.ui.test.assertCountEquals
+ import androidx.compose.ui.test.assertIsDisplayed
+@@ -56,6 +57,13 @@ import studio.guitarlab.platform.source.android.SourceOperationState
+ class UnifiedProjectShellInstrumentedTest {
+     @get:Rule val composeRule = createComposeRule()
+ 
++    @Test fun packagedSourceRuntimeExtractsNativeLibraries() {
++        val appInfo = InstrumentationRegistry.getInstrumentation().targetContext.applicationInfo
++        check(appInfo.flags and ApplicationInfo.FLAG_EXTRACT_NATIVE_LIBS != 0) {
++            "The packaged yt-dlp runtime requires extracted native libraries."
++        }
++    }
++
+     @Test fun newProjectExposesThreeExplicitIntentsAndHidesTemplatesFromStudyCreation() {
+         var created: Pair<String, ProjectTemplate>? = null
+         var prepare: Pair<String, NewProjectSourceIntent>? = null
+diff --git a/app/src/main/AndroidManifest.xml b/app/src/main/AndroidManifest.xml
+index 790f061d61ba77306e8c5f41bc18611b49959de8..aed74d95956c4cb3de17c1d91d7866d167e547ad 100644
+--- a/app/src/main/AndroidManifest.xml
++++ b/app/src/main/AndroidManifest.xml
+@@ -10,6 +10,7 @@
+     <application
+         android:name=".GuitarLabApplication"
+         android:allowBackup="true"
++        android:extractNativeLibs="true"
+         android:dataExtractionRules="@xml/data_extraction_rules"
+         android:fullBackupContent="@xml/backup_rules"
+         android:icon="@mipmap/ic_launcher"
+diff --git a/app/src/main/java/studio/guitarlab/app/ui/HomeViewModel.kt b/app/src/main/java/studio/guitarlab/app/ui/HomeViewModel.kt
+index aecd0c7d70af6966ad787ef89bf4c67fc0cd8561..5e380015df5b767d24d9f507bcf4060bae2e840f 100644
+--- a/app/src/main/java/studio/guitarlab/app/ui/HomeViewModel.kt
++++ b/app/src/main/java/studio/guitarlab/app/ui/HomeViewModel.kt
+@@ -432,27 +432,35 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
+                 val result = withTimeout(SOURCE_SEARCH_TIMEOUT_MS) {
+                     sourceAcquisition.search(SourceSearchRequest(artist = artist, song = song))
+                 }
++                val providerFailure = result.candidates.isEmpty() && result.warnings.isNotEmpty()
+                 val emptyMessage = when {
+                     result.candidates.isNotEmpty() -> null
+-                    result.warnings.isNotEmpty() -> "As fontes de pesquisa estão temporariamente indisponíveis. Tente novamente."
++                    providerFailure -> null
+                     else -> "Nenhuma fonte automática compatível foi encontrada."
+                 }
++                val providerFailureMessage = if (providerFailure) {
++                    "A pesquisa não pôde consultar as fontes automáticas. Verifique a conexão e tente novamente."
++                } else {
++                    null
++                }
+                 _state.update { current ->
+                     current.copy(
+                         sourceCandidatesByProject = current.sourceCandidatesByProject + (projectId to result.candidates),
+                         sourceWarningsByProject = current.sourceWarningsByProject + (projectId to result.warnings),
+                         message = emptyMessage,
++                        error = providerFailureMessage,
+                     )
+                 }
+                 activityStore.record(
+                     operationId,
+                     projectId,
+                     UnifiedOperationKind.SOURCE_ACQUISITION,
+-                    UnifiedOperationState.SUCCEEDED,
+-                    100,
+-                    when (result.candidates.size) {
+-                        0 -> "Pesquisa concluída sem fontes compatíveis"
+-                        1 -> "1 fonte encontrada"
++                    if (providerFailure) UnifiedOperationState.FAILED else UnifiedOperationState.SUCCEEDED,
++                    if (providerFailure) null else 100,
++                    when {
++                        providerFailure -> "Pesquisa de fontes indisponível"
++                        result.candidates.isEmpty() -> "Pesquisa concluída sem fontes compatíveis"
++                        result.candidates.size == 1 -> "1 fonte encontrada"
+                         else -> "${result.candidates.size} fontes encontradas"
+                     },
+                     result.warnings.joinToString("\n").ifBlank { null },
+diff --git a/platform/source-android/build.gradle.kts b/platform/source-android/build.gradle.kts
+index 5d0625871da8a35c35d69b13bced6debbc049769..097bca78bc9cbfc2bc08b8fc41d96ab258dddb92 100644
+--- a/platform/source-android/build.gradle.kts
++++ b/platform/source-android/build.gradle.kts
+@@ -21,4 +21,7 @@ dependencies {
+     implementation(libs.kotlinx.coroutines.android)
+     implementation(libs.androidx.work.runtime.ktx)
+     implementation(libs.youtube.dl.android)
++
++    testImplementation(kotlin("test"))
++    testImplementation(libs.junit4)
+ }
+diff --git a/platform/source-android/src/main/kotlin/studio/guitarlab/platform/source/android/SourceDiscovery.kt b/platform/source-android/src/main/kotlin/studio/guitarlab/platform/source/android/SourceDiscovery.kt
+index 4df4131da5f0f47c32b727277af3684fe256a638..8d41e7381f9d7ece0b8e806aca64355659265f32 100644
+--- a/platform/source-android/src/main/kotlin/studio/guitarlab/platform/source/android/SourceDiscovery.kt
++++ b/platform/source-android/src/main/kotlin/studio/guitarlab/platform/source/android/SourceDiscovery.kt
+@@ -103,65 +103,162 @@ private suspend fun fetchBandcamp(url: String): String = withContext(Dispatchers
+     } finally { connection.disconnect() }
+ }
+ 
+-internal class YtDlpDiscoveryProvider(private val context: Context) : SourceSearchProviderClient {
+-    override suspend fun search(request: SourceSearchRequest): List<SourceCandidateDraft> {
+-        val query = listOf(request.artist.trim(), request.song.trim()).filter { it.isNotBlank() }.joinToString(" ")
+-        val limit = if (request.depth == SourceSearchDepth.MAXIMUM) 9 else 6
+-        val searches = listOf(SourceProvider.SOUNDCLOUD to "scsearch$limit:$query", SourceProvider.YOUTUBE to "ytsearch$limit:$query official audio", SourceProvider.YOUTUBE to "ytsearch$limit:$query Topic")
+-        val flat = coroutineScope {
+-            searches.map { (provider, target) ->
+-                async {
+-                    try {
+-                        flatSearch(target, provider)
+-                    } catch (cancelled: CancellationException) {
+-                        throw cancelled
+-                    } catch (_: Exception) {
+-                        emptyList()
+-                    }
+-                }
+-            }.awaitAll().flatten()
+-        }.distinctBy { it.url }
+-        val planned = flat.filter { SourceSearchRules.titleMatchesSong(request.song, it.title) }.sortedByDescending { SourceSearchRules.textSimilarity(request.song, it.title) }.take(limit)
+-        val semaphore = Semaphore(3)
+-        return coroutineScope {
+-            planned.map { item ->
+-                async {
+-                    semaphore.withPermit {
+-                        try {
+-                            inspectUrl(item.url, item.provider)
+-                        } catch (cancelled: CancellationException) {
+-                            throw cancelled
+-                        } catch (_: Exception) {
+-                            null
+-                        }
+-                    }
+-                }
+-            }.awaitAll().filterNotNull()
+-        }
++internal interface YtDlpDiscoveryBackend {
++    suspend fun updateRuntime(force: Boolean)
++    suspend fun flatSearch(target: String, provider: SourceProvider): List<FlatCandidate>
++    suspend fun inspectUrl(url: String, provider: SourceProvider): SourceCandidateDraft
++}
++
++private class AndroidYtDlpDiscoveryBackend(private val context: Context) : YtDlpDiscoveryBackend {
++    override suspend fun updateRuntime(force: Boolean) {
++        YtDlpRuntime.updateNightly(context, force)
+     }
+ 
+-    suspend fun inspectUrl(url: String, provider: SourceProvider): SourceCandidateDraft {
+-        val json = YtDlpRuntime.executeJson(context, url, listOf("--skip-download" to null, "--no-playlist" to null, "--dump-single-json" to null), "inspect-${UUID.randomUUID()}")
++    override suspend fun inspectUrl(url: String, provider: SourceProvider): SourceCandidateDraft {
++        val json = YtDlpRuntime.executeJson(
++            context,
++            url,
++            listOf("--skip-download" to null, "--no-playlist" to null, "--dump-single-json" to null),
++            "inspect-${UUID.randomUUID()}",
++        )
+         return YtDlpInfoParser.toDraft(JSONObject(json), provider, url)
+     }
+ 
+-    private suspend fun flatSearch(target: String, provider: SourceProvider): List<FlatCandidate> {
+-        val json = YtDlpRuntime.executeJson(context, target, listOf("--skip-download" to null, "--flat-playlist" to null, "--dump-single-json" to null), "search-${UUID.randomUUID()}")
++    override suspend fun flatSearch(target: String, provider: SourceProvider): List<FlatCandidate> {
++        val json = YtDlpRuntime.executeJson(
++            context,
++            target,
++            listOf("--skip-download" to null, "--flat-playlist" to null, "--dump-single-json" to null),
++            "search-${UUID.randomUUID()}",
++        )
+         val entries = JSONObject(json).optJSONArray("entries") ?: return emptyList()
+         return buildList {
+             for (i in 0 until entries.length()) {
+                 val e = entries.optJSONObject(i) ?: continue
+                 val title = e.optString("title").ifBlank { e.optString("track") }
+                 val uploader = sequenceOf(e.optString("artist"), e.optString("uploader"), e.optString("channel")).firstOrNull { it.isNotBlank() }.orEmpty()
+                 var url = sequenceOf(e.optString("webpage_url"), e.optString("original_url"), e.optString("url")).firstOrNull { it.startsWith("http") }.orEmpty()
+-                if (url.isBlank() && provider == SourceProvider.YOUTUBE) e.optString("id").takeIf { it.isNotBlank() }?.let { url = "https://www.youtube.com/watch?v=$it" }
++                if (url.isBlank() && provider == SourceProvider.YOUTUBE) {
++                    e.optString("id").takeIf { it.isNotBlank() }?.let { url = "https://www.youtube.com/watch?v=$it" }
++                }
+                 if (url.isNotBlank()) add(FlatCandidate(provider, title, uploader, url))
+             }
+         }
+     }
+ }
+ 
+-private data class FlatCandidate(val provider: SourceProvider, val title: String, val uploader: String, val url: String)
++internal class YtDlpDiscoveryProvider internal constructor(
++    private val backend: YtDlpDiscoveryBackend,
++) : SourceSearchProviderClient {
++    constructor(context: Context) : this(AndroidYtDlpDiscoveryBackend(context.applicationContext))
++
++    override suspend fun search(request: SourceSearchRequest): List<SourceCandidateDraft> {
++        refreshRuntime(force = false)
++        return searchInternal(request, allowRecovery = true)
++    }
++
++    suspend fun inspectUrl(url: String, provider: SourceProvider): SourceCandidateDraft =
++        backend.inspectUrl(url, provider)
++
++    private suspend fun searchInternal(request: SourceSearchRequest, allowRecovery: Boolean): List<SourceCandidateDraft> {
++        val query = listOf(request.artist.trim(), request.song.trim()).filter { it.isNotBlank() }.joinToString(" ")
++        val limit = if (request.depth == SourceSearchDepth.MAXIMUM) 9 else 6
++        val searches = listOf(
++            SourceProvider.SOUNDCLOUD to "scsearch$limit:$query",
++            SourceProvider.YOUTUBE to "ytsearch$limit:$query official audio",
++            SourceProvider.YOUTUBE to "ytsearch$limit:$query Topic",
++        )
++
++        val searchAttempts = coroutineScope {
++            searches.map { (provider, target) ->
++                async { captureYtDlpAttempt { backend.flatSearch(target, provider) } }
++            }.awaitAll()
++        }
++
++        if (searchAttempts.all { it.error != null }) {
++            if (allowRecovery && refreshRuntime(force = true)) {
++                return searchInternal(request, allowRecovery = false)
++            }
++            throw IllegalStateException(
++                "YouTube/SoundCloud indisponíveis durante a pesquisa: " +
++                    summarizeYtDlpFailures(searchAttempts.mapNotNull { it.error }),
++            )
++        }
++
++        val flat = searchAttempts
++            .mapNotNull { it.value }
++            .flatten()
++            .distinctBy { it.url }
++
++        val planned = flat
++            .filter { SourceSearchRules.titleMatchesSong(request.song, it.title) }
++            .sortedByDescending { SourceSearchRules.textSimilarity(request.song, it.title) }
++            .take(limit)
++
++        if (planned.isEmpty()) return emptyList()
++
++        val semaphore = Semaphore(3)
++        val inspectionAttempts = coroutineScope {
++            planned.map { item ->
++                async {
++                    semaphore.withPermit {
++                        captureYtDlpAttempt { backend.inspectUrl(item.url, item.provider) }
++                    }
++                }
++            }.awaitAll()
++        }
++
++        val inspected = inspectionAttempts.mapNotNull { it.value }
++        if (inspected.isNotEmpty()) return inspected
++
++        if (inspectionAttempts.any { it.error != null }) {
++            if (allowRecovery && refreshRuntime(force = true)) {
++                return searchInternal(request, allowRecovery = false)
++            }
++            throw IllegalStateException(
++                "As fontes foram localizadas, mas não puderam ser validadas: " +
++                    summarizeYtDlpFailures(inspectionAttempts.mapNotNull { it.error }),
++            )
++        }
++        return emptyList()
++    }
++
++    private suspend fun refreshRuntime(force: Boolean): Boolean =
++        try {
++            backend.updateRuntime(force)
++            true
++        } catch (cancelled: CancellationException) {
++            throw cancelled
++        } catch (_: Throwable) {
++            false
++        }
++}
++
++internal data class FlatCandidate(
++    val provider: SourceProvider,
++    val title: String,
++    val uploader: String,
++    val url: String,
++)
++
++private data class YtDlpAttempt<T>(val value: T? = null, val error: Throwable? = null)
++
++private suspend fun <T> captureYtDlpAttempt(block: suspend () -> T): YtDlpAttempt<T> =
++    try {
++        YtDlpAttempt(value = block())
++    } catch (cancelled: CancellationException) {
++        throw cancelled
++    } catch (error: Throwable) {
++        YtDlpAttempt(error = error)
++    }
++
++private fun summarizeYtDlpFailures(errors: List<Throwable>): String =
++    errors
++        .mapNotNull { it.message?.trim()?.takeIf(String::isNotBlank) }
++        .distinct()
++        .take(2)
++        .joinToString(" | ")
++        .ifBlank { "falha no motor de pesquisa" }
+ 
+ internal object YtDlpInfoParser {
+     private val losslessExts = setOf("flac", "wav", "alac", "ape", "aiff", "aif")
+diff --git a/platform/source-android/src/test/kotlin/studio/guitarlab/platform/source/android/SourceDiscoveryTest.kt b/platform/source-android/src/test/kotlin/studio/guitarlab/platform/source/android/SourceDiscoveryTest.kt
+new file mode 100644
+index 0000000000000000000000000000000000000000..995c908fd191e7ea881b4f38b21a6a3101828b58
+--- /dev/null
++++ b/platform/source-android/src/test/kotlin/studio/guitarlab/platform/source/android/SourceDiscoveryTest.kt
+@@ -0,0 +1,92 @@
++package studio.guitarlab.platform.source.android
++
++import kotlinx.coroutines.runBlocking
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertTrue
++import org.junit.Test
++import studio.guitarlab.core.source.SourceCandidateDraft
++import studio.guitarlab.core.source.SourceProvider
++import studio.guitarlab.core.source.SourceSearchRequest
++
++class SourceDiscoveryTest {
++    @Test
++    fun ytDlpSearchRetriesAfterForcedRuntimeRefresh() = runBlocking {
++        val backend = RecoveringBackend()
++        val results = YtDlpDiscoveryProvider(backend).search(
++            SourceSearchRequest(artist = "Wolves At The Gate", song = "Deadbolt"),
++        )
++
++        assertEquals(1, backend.forcedUpdates)
++        assertEquals(1, results.size)
++        assertEquals("Deadbolt", results.single().title)
++        assertEquals(SourceProvider.YOUTUBE, results.single().provider)
++    }
++
++    @Test
++    fun ytDlpSearchSurfacesPersistentRuntimeFailure() = runBlocking {
++        val backend = AlwaysFailingBackend()
++        val failure = runCatching {
++            YtDlpDiscoveryProvider(backend).search(
++                SourceSearchRequest(artist = "Wolves At The Gate", song = "Deadbolt"),
++            )
++        }.exceptionOrNull()
++
++        assertEquals(1, backend.forcedUpdates)
++        assertTrue(failure is IllegalStateException)
++        assertTrue(failure?.message.orEmpty().contains("indisponíveis"))
++    }
++
++    private class RecoveringBackend : YtDlpDiscoveryBackend {
++        var forcedUpdates = 0
++        private var recovered = false
++
++        override suspend fun updateRuntime(force: Boolean) {
++            if (force) {
++                forcedUpdates += 1
++                recovered = true
++            }
++        }
++
++        override suspend fun flatSearch(target: String, provider: SourceProvider): List<FlatCandidate> {
++            if (!recovered) error("runtime unavailable")
++            return if (provider == SourceProvider.YOUTUBE) {
++                listOf(
++                    FlatCandidate(
++                        provider = SourceProvider.YOUTUBE,
++                        title = "Deadbolt",
++                        uploader = "Wolves At The Gate",
++                        url = "https://www.youtube.com/watch?v=deadbolt",
++                    ),
++                )
++            } else {
++                emptyList()
++            }
++        }
++
++        override suspend fun inspectUrl(url: String, provider: SourceProvider): SourceCandidateDraft =
++            SourceCandidateDraft(
++                provider = provider,
++                title = "Deadbolt",
++                uploader = "Wolves At The Gate",
++                url = url,
++                quality = "stream M4A",
++                formatId = "140",
++                durationSeconds = 179.0,
++                automaticDownloadSupported = true,
++            )
++    }
++
++    private class AlwaysFailingBackend : YtDlpDiscoveryBackend {
++        var forcedUpdates = 0
++
++        override suspend fun updateRuntime(force: Boolean) {
++            if (force) forcedUpdates += 1
++        }
++
++        override suspend fun flatSearch(target: String, provider: SourceProvider): List<FlatCandidate> =
++            error("runtime unavailable")
++
++        override suspend fun inspectUrl(url: String, provider: SourceProvider): SourceCandidateDraft =
++            error("runtime unavailable")
++    }
++}
