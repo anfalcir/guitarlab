@@ -73,6 +73,7 @@ PROJECT_ROLES=(
   roles/cloudfunctions.admin
   roles/datastore.indexAdmin
   roles/firebase.viewer
+  roles/firebaseauth.admin
   roles/firebaserules.admin
   roles/run.admin
   roles/serviceusage.serviceUsageConsumer

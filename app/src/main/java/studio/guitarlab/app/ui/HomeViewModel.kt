@@ -694,12 +694,13 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         }
 
         fun separationActivitySummary(job: DurableRemoteJob): String {
-            if (job.errorCode?.startsWith("RETRY:") == true) {
+            val errorCode = job.errorCode
+            if (errorCode?.startsWith("RETRY:") == true) {
                 return when {
-                    job.errorCode.contains(":AUTHENTICATING:") -> "Autenticação da nuvem falhou temporariamente; nova tentativa agendada"
-                    job.errorCode.contains(":CHECKING_REMOTE:") -> "Consulta do processamento falhou temporariamente; nova tentativa agendada"
-                    job.errorCode.contains(":UPLOADING:") -> "Envio da fonte foi interrompido; nova tentativa agendada"
-                    job.errorCode.contains(":ENQUEUEING:") -> "Solicitação de separação não foi confirmada; nova tentativa agendada"
+                    errorCode.contains(":AUTHENTICATING:") -> "Autenticação da nuvem falhou temporariamente; nova tentativa agendada"
+                    errorCode.contains(":CHECKING_REMOTE:") -> "Consulta do processamento falhou temporariamente; nova tentativa agendada"
+                    errorCode.contains(":UPLOADING:") -> "Envio da fonte foi interrompido; nova tentativa agendada"
+                    errorCode.contains(":ENQUEUEING:") -> "Solicitação de separação não foi confirmada; nova tentativa agendada"
                     else -> "Falha temporária na separação; nova tentativa agendada"
                 }
             }
