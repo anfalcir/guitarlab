@@ -234,13 +234,15 @@ jobs:
           version: '585.0.0'
           install_components: 'beta'
 
-      - name: Set up Node.js for production Functions
-        if: inputs.mode == 'production'
+      - name: Set up Node.js for cloud smoke and production Functions
         uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
         with:
           node-version: '22'
           cache: npm
           cache-dependency-path: cloud/remote-separation/functions/package-lock.json
+
+      - name: Install Firebase Admin dependencies for cloud smoke
+        run: npm ci --prefix cloud/remote-separation/functions
 
       - name: Install pinned Firebase CLI for production
         if: inputs.mode == 'production'
