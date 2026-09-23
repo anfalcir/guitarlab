@@ -11,8 +11,10 @@ gcloud iam workload-identity-pools providers update-oidc "$PROVIDER_NAME"   --pr
 PRINCIPAL="principalSet://iam.googleapis.com/projects/${PROJECT_NUMBER}/locations/global/workloadIdentityPools/${POOL}/attribute.repository_id/1361533070"
 gcloud iam service-accounts add-iam-policy-binding "$SA" --project "$PROJECT"   --role=roles/iam.workloadIdentityUser --member="$PRINCIPAL"
 # U4 mints only a short-lived Firebase custom token for the already-allowlisted
-# UID. Grant signBlob narrowly on the CI service account itself.
+# UID. Grant signBlob narrowly on the CI service account to both the impersonated
+# identity and the repository-scoped WIF principal that performs remote signing.
 gcloud iam service-accounts add-iam-policy-binding "$SA" --project "$PROJECT"   --role=roles/iam.serviceAccountTokenCreator --member="serviceAccount:$SA" >/dev/null
+gcloud iam service-accounts add-iam-policy-binding "$SA" --project "$PROJECT"   --role=roles/iam.serviceAccountTokenCreator --member="$PRINCIPAL" >/dev/null
 # Firestore test-document access is required to mirror the callable-created durable job
 # precondition in the isolated cloud smoke. No project-wide admin role is granted.
 gcloud projects add-iam-policy-binding "$PROJECT" \

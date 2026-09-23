@@ -70,9 +70,34 @@ PY
 AUTH_JSON="$(
   curl --fail-with-body --show-error --silent     -H "Content-Type: application/json"     -X POST "https://identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken?key=${FIREBASE_API_KEY}"     --data "{\"token\":\"${CUSTOM_TOKEN}\",\"returnSecureToken\":true}"
 )"
-FIREBASE_ID_TOKEN="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["idToken"])' <<<"$AUTH_JSON")"
-AUTH_UID="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["localId"])' <<<"$AUTH_JSON")"
-test "$AUTH_UID" = "$TEST_UID"
+AUTH_JSON_PATH="$TMP/firebase-auth-response.json"
+printf '%s' "$AUTH_JSON" > "$AUTH_JSON_PATH"
+FIREBASE_ID_TOKEN="$(python3 - "$TEST_UID" "$GBW_GCP_PROJECT" "$AUTH_JSON_PATH" <<'PY'
+import base64
+import json
+import sys
+
+expected_uid, project_id, response_path = sys.argv[1:]
+with open(response_path, encoding="utf-8") as response_file:
+    response = json.load(response_file)
+token = response.get("idToken")
+if not isinstance(token, str) or not token:
+    raise SystemExit("Firebase custom-token exchange returned no ID token")
+try:
+    encoded_claims = token.split(".")[1]
+    encoded_claims += "=" * (-len(encoded_claims) % 4)
+    claims = json.loads(base64.urlsafe_b64decode(encoded_claims))
+except (IndexError, ValueError, json.JSONDecodeError) as exc:
+    raise SystemExit(f"Firebase custom-token exchange returned a malformed ID token: {exc}") from exc
+if claims.get("sub") != expected_uid or claims.get("user_id") != expected_uid:
+    raise SystemExit("Firebase ID token UID mismatch")
+if claims.get("aud") != project_id:
+    raise SystemExit("Firebase ID token audience mismatch")
+if claims.get("iss") != f"https://securetoken.google.com/{project_id}":
+    raise SystemExit("Firebase ID token issuer mismatch")
+print(token)
+PY
+)"
 test -n "$FIREBASE_ID_TOKEN"
 
 # Deterministic 2 s stereo WAV. The real production Demucs job processes it.
