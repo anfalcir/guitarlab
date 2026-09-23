@@ -108,7 +108,6 @@ jobs:
 
   auth_config:
     name: Enable and verify Firebase anonymous authentication
-    needs: verify
     if: >-
       github.repository_id == '1361533070' &&
       github.repository_owner_id == '216095257' &&
