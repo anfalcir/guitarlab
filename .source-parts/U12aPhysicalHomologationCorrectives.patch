@@ -1,0 +1,806 @@
+diff --git a/app/build.gradle.kts b/app/build.gradle.kts
+index ba52bf2..92413d3 100644
+--- a/app/build.gradle.kts
++++ b/app/build.gradle.kts
+@@ -11,8 +11,8 @@ android {
+         applicationId = "studio.guitarlab.app"
+         minSdk = 26
+         targetSdk = 36
+-        versionCode = 25
+-        versionName = "0.5.0-rc5"
++        versionCode = 26
++        versionName = "0.5.0-rc6"
+         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+     }
+ 
+diff --git a/app/src/androidTest/java/studio/guitarlab/app/BackupScreenInstrumentedTest.kt b/app/src/androidTest/java/studio/guitarlab/app/BackupScreenInstrumentedTest.kt
+index e0c262d..ae674e4 100644
+--- a/app/src/androidTest/java/studio/guitarlab/app/BackupScreenInstrumentedTest.kt
++++ b/app/src/androidTest/java/studio/guitarlab/app/BackupScreenInstrumentedTest.kt
+@@ -64,10 +64,33 @@ class BackupScreenInstrumentedTest {
+         compose.onNodeWithText("Storage Access Framework", substring = true).assertDoesNotExist()
+         compose.onNodeWithText("COMMITTED", substring = true).assertDoesNotExist()
+         compose.onNodeWithText("SHA-256", substring = true).assertDoesNotExist()
++        compose.onNodeWithText("Diagnóstico de homologação").assertDoesNotExist()
++        compose.onNodeWithText("Executar aceitação U8m").assertDoesNotExist()
+         compose.onNode(hasScrollAction()).performScrollToNode(hasText("Máximo de versões por projeto"))
+         compose.onNodeWithText("Máximo de versões por projeto").assertIsDisplayed()
+     }
+ 
++    @Test fun busyBackupExplainsWhatIsHappening() {
++        compose.setContent {
++            GuitarLabTheme {
++                BackupScreenContent(
++                    state = configuredState().copy(
++                        busy = true,
++                        busyLabel = "Backup total em andamento…",
++                    ),
++                    projectId = null,
++                    onBack = {}, onConnectDrive = {}, onDisconnectDrive = {}, onRefresh = {},
++                    onAutomaticEnabled = {}, onCadence = {}, onUnmeteredOnly = {}, onChargingOnly = {},
++                    onRetentionDays = {}, onMaximumVersions = {}, onBackupAll = {}, onBackupProject = {},
++                    onKeepLocal = { _, _ -> }, onUseCloud = {}, onRestoreVersion = {}, onRestoreAll = {},
++                )
++            }
++        }
++        compose.onNodeWithTag("backup-busy-feedback").assertIsDisplayed()
++        compose.onNodeWithText("Backup total em andamento…").assertIsDisplayed()
++        compose.onNodeWithText("O GuitarLab está verificando os dados", substring = true).assertIsDisplayed()
++    }
++
+     @Test fun disconnectedCatalogUsesUnifiedBlockedState() {
+         compose.setContent {
+             GuitarLabTheme {
+diff --git a/app/src/androidTest/java/studio/guitarlab/app/UnifiedProjectShellInstrumentedTest.kt b/app/src/androidTest/java/studio/guitarlab/app/UnifiedProjectShellInstrumentedTest.kt
+index 0f4c525..45515ef 100644
+--- a/app/src/androidTest/java/studio/guitarlab/app/UnifiedProjectShellInstrumentedTest.kt
++++ b/app/src/androidTest/java/studio/guitarlab/app/UnifiedProjectShellInstrumentedTest.kt
+@@ -7,10 +7,12 @@ import androidx.compose.ui.test.assertIsEnabled
+ import androidx.compose.ui.test.assertIsNotEnabled
+ import androidx.compose.ui.test.assertTextContains
+ import androidx.compose.ui.test.assertTextEquals
++import androidx.compose.ui.test.getUnclippedBoundsInRoot
+ import androidx.compose.ui.test.junit4.createComposeRule
+ import androidx.compose.ui.test.onAllNodesWithTag
+ import androidx.compose.ui.test.onAllNodesWithText
+ import androidx.compose.ui.test.onNodeWithTag
++import androidx.compose.ui.test.onNodeWithContentDescription
+ import androidx.compose.ui.test.onNodeWithText
+ import androidx.compose.ui.test.performClick
+ import androidx.compose.ui.test.performScrollTo
+@@ -20,6 +22,7 @@ import androidx.test.platform.app.InstrumentationRegistry
+ import kotlinx.coroutines.flow.MutableStateFlow
+ import org.junit.Rule
+ import org.junit.Test
++import org.junit.Assert.assertEquals
+ import org.junit.runner.RunWith
+ import studio.guitarlab.app.ui.GuitarLabUserGuideDialog
+ import studio.guitarlab.app.ui.HomeUiState
+@@ -97,6 +100,48 @@ class UnifiedProjectShellInstrumentedTest {
+         composeRule.onNodeWithTag("prepare-search-action").performScrollTo().assertIsDisplayed().assertIsNotEnabled()
+     }
+ 
++    @Test fun preparedProjectSearchDispatchesAndExposesVisibleProgress() {
++        val project = GuitarProject(
++            id = "search-project",
++            name = "Pesquisa",
++            template = ProjectTemplate.GUITAR,
++            createdAtEpochMs = 1,
++            updatedAtEpochMs = 2,
++        )
++        var request: Pair<String, String>? = null
++        composeRule.setContent {
++            GuitarLabTheme(darkTheme = true) {
++                UnifiedPrepareScreen(
++                    project = project,
++                    projectId = project.id,
++                    onBack = {},
++                    onStudio = {},
++                    onExport = {},
++                    onSearch = { artist, song -> request = artist to song },
++                )
++            }
++        }
++        composeRule.onNodeWithTag("prepare-search-artist").performScrollTo().performTextInput("Banda")
++        composeRule.onNodeWithTag("prepare-search-song").performTextInput("Música")
++        composeRule.onNodeWithTag("prepare-search-action").performClick()
++        composeRule.runOnIdle { check(request == ("Banda" to "Música")) }
++
++        composeRule.setContent {
++            GuitarLabTheme(darkTheme = true) {
++                UnifiedPrepareScreen(
++                    project = project,
++                    projectId = project.id,
++                    onBack = {},
++                    onStudio = {},
++                    onExport = {},
++                    searchBusy = true,
++                )
++            }
++        }
++        composeRule.onNodeWithTag("prepare-search-progress").performScrollTo().assertIsDisplayed()
++        composeRule.onNodeWithTag("prepare-search-action").assertIsNotEnabled()
++    }
++
+     @Test fun preparedReferencesAreVisibleAndStudioHandoffRemainsAvailable() {
+         val stemRoles = listOf(
+             AssetRole.STEM_DRUMS, AssetRole.STEM_BASS, AssetRole.STEM_OTHER,
+@@ -492,6 +537,13 @@ class UnifiedProjectShellInstrumentedTest {
+         composeRule.runOnIdle { check(destination == "settings") }
+         composeRule.onNodeWithTag("project-shell-projects").assertIsDisplayed().performClick()
+         composeRule.runOnIdle { check(destination == "projects") }
++        composeRule.onNodeWithContentDescription("Início").assertIsDisplayed()
++        composeRule.onAllNodesWithText("Projetos").assertCountEquals(0)
++        val shellBounds = composeRule.onNodeWithTag("project-shell-prepare").getUnclippedBoundsInRoot()
++        val navigationBounds = composeRule.onNodeWithTag("project-shell-navigation").getUnclippedBoundsInRoot()
++        val shellCenter = (shellBounds.left + shellBounds.right) / 2
++        val navigationCenter = (navigationBounds.left + navigationBounds.right) / 2
++        assertEquals(shellCenter.value, navigationCenter.value, 1f)
+     }
+ 
+ 
+diff --git a/app/src/main/java/studio/guitarlab/app/backup/BackupScheduler.kt b/app/src/main/java/studio/guitarlab/app/backup/BackupScheduler.kt
+index c840e4e..65c9b7d 100644
+--- a/app/src/main/java/studio/guitarlab/app/backup/BackupScheduler.kt
++++ b/app/src/main/java/studio/guitarlab/app/backup/BackupScheduler.kt
+@@ -45,6 +45,11 @@ object BackupScheduler {
+         WorkManager.getInstance(appContext).enqueueUniqueWork(COALESCED_WORK, ExistingWorkPolicy.KEEP, request)
+     }
+ 
++    /** A manual backup supersedes a pending debounced save of the same project state. */
++    fun cancelCoalesced(context: Context) {
++        WorkManager.getInstance(context.applicationContext).cancelUniqueWork(COALESCED_WORK)
++    }
++
+     private fun constraints(settings: BackupSettingsSnapshot): Constraints = Constraints.Builder()
+         .setRequiredNetworkType(if (settings.unmeteredOnly) NetworkType.UNMETERED else NetworkType.CONNECTED)
+         .setRequiresCharging(settings.chargingOnly)
+diff --git a/app/src/main/java/studio/guitarlab/app/backup/BackupScreen.kt b/app/src/main/java/studio/guitarlab/app/backup/BackupScreen.kt
+index 5c839b8..79464db 100644
+--- a/app/src/main/java/studio/guitarlab/app/backup/BackupScreen.kt
++++ b/app/src/main/java/studio/guitarlab/app/backup/BackupScreen.kt
+@@ -88,13 +88,6 @@ fun BackupScreen(
+                     )
+                 }
+             },
+-            onRunU8mAcceptance = {
+-                viewModel.beginU8mRealDriveAcceptance { pendingIntent ->
+-                    authorizationLauncher.launch(
+-                        IntentSenderRequest.Builder(pendingIntent.intentSender).build(),
+-                    )
+-                }
+-            },
+             onDisconnectDrive = viewModel::disconnectDrive,
+             onRefresh = viewModel::refresh,
+             onAutomaticEnabled = viewModel::setAutomaticEnabled,
+@@ -113,7 +106,30 @@ fun BackupScreen(
+         SnackbarHost(snackbar, Modifier.align(Alignment.TopCenter).padding(top = 12.dp))
+         if (state.busy) {
+             Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.scrim.copy(alpha = 0.28f)) {
+-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
++                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
++                    Surface(
++                        modifier = Modifier.fillMaxWidth(0.72f).testTag("backup-busy-feedback"),
++                        shape = MaterialTheme.shapes.large,
++                        tonalElevation = 6.dp,
++                    ) {
++                        Column(
++                            Modifier.padding(24.dp),
++                            horizontalAlignment = Alignment.CenterHorizontally,
++                            verticalArrangement = Arrangement.spacedBy(12.dp),
++                        ) {
++                            CircularProgressIndicator()
++                            Text(
++                                state.busyLabel ?: "Concluindo operação…",
++                                style = MaterialTheme.typography.titleMedium,
++                            )
++                            Text(
++                                "O GuitarLab está verificando os dados e atualizará o histórico ao terminar.",
++                                style = MaterialTheme.typography.bodySmall,
++                                color = MaterialTheme.colorScheme.onSurfaceVariant,
++                            )
++                        }
++                    }
++                }
+             }
+         }
+     }
+@@ -139,7 +155,6 @@ fun BackupScreenContent(
+     onUseCloud: (BackupVersionDescriptor) -> Unit,
+     onRestoreVersion: (BackupVersionDescriptor) -> Unit,
+     onRestoreAll: () -> Unit,
+-    onRunU8mAcceptance: () -> Unit = {},
+ ) {
+     var restoreVersion by remember { mutableStateOf<BackupVersionDescriptor?>(null) }
+     var keepLocalVersion by remember { mutableStateOf<BackupVersionDescriptor?>(null) }
+@@ -318,37 +333,6 @@ fun BackupScreenContent(
+                 }
+             }
+ 
+-
+-            item {
+-                BackupSection(
+-                    "Diagnóstico de homologação",
+-                    "Executa a campanha automatizada U8m no Google Drive real, usando o mesmo fluxo de backup e restauração do produto. A autorização da Conta Google será solicitada somente se necessário.",
+-                ) {
+-                    OutlinedButton(
+-                        onClick = onRunU8mAcceptance,
+-                        enabled = !state.busy,
+-                        modifier = Modifier.fillMaxWidth()
+-                            .testTag("u8m-real-drive-acceptance"),
+-                    ) {
+-                        Text("Executar aceitação U8m")
+-                    }
+-                    state.u8mAcceptanceSummary?.let {
+-                        Text(
+-                            it,
+-                            style = MaterialTheme.typography.bodySmall,
+-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+-                        )
+-                    }
+-                    state.u8mAcceptanceReportSha256?.let {
+-                        Text(
+-                            "Relatório SHA-256: $it",
+-                            style = MaterialTheme.typography.bodySmall,
+-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+-                        )
+-                    }
+-                }
+-            }
+-
+             item {
+                 Text("Versões disponíveis", style = MaterialTheme.typography.titleLarge)
+                 Text("Restaurar cria uma nova cópia local; nenhum projeto existente é sobrescrito.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+diff --git a/app/src/main/java/studio/guitarlab/app/backup/BackupViewModel.kt b/app/src/main/java/studio/guitarlab/app/backup/BackupViewModel.kt
+index 739b424..8bae410 100644
+--- a/app/src/main/java/studio/guitarlab/app/backup/BackupViewModel.kt
++++ b/app/src/main/java/studio/guitarlab/app/backup/BackupViewModel.kt
+@@ -12,6 +12,9 @@ import kotlinx.coroutines.Dispatchers
+ import kotlinx.coroutines.flow.MutableStateFlow
+ import kotlinx.coroutines.flow.StateFlow
+ import kotlinx.coroutines.flow.asStateFlow
++import kotlinx.coroutines.flow.distinctUntilChanged
++import kotlinx.coroutines.flow.drop
++import kotlinx.coroutines.flow.map
+ import kotlinx.coroutines.flow.update
+ import kotlinx.coroutines.launch
+ import kotlinx.coroutines.withContext
+@@ -31,14 +34,13 @@ import studio.guitarlab.core.project.UnifiedOperationState
+ data class BackupUiState(
+     val loading: Boolean = true,
+     val busy: Boolean = false,
++    val busyLabel: String? = null,
+     val settings: BackupSettingsSnapshot = BackupSettingsSnapshot(),
+     val localProjects: List<GuitarProject> = emptyList(),
+     val versions: List<BackupVersionDescriptor> = emptyList(),
+     val reconciliations: Map<String, DriveReconciliation> = emptyMap(),
+     val remoteTips: Map<String, List<BackupVersionDescriptor>> = emptyMap(),
+     val authorizationRequired: Boolean = false,
+-    val u8mAcceptanceSummary: String? = null,
+-    val u8mAcceptanceReportSha256: String? = null,
+     val message: String? = null,
+     val error: String? = null,
+ )
+@@ -52,9 +54,10 @@ class BackupViewModel(application: Application) : AndroidViewModel(application)
+     private val unifiedDrive = UnifiedDriveProductionService(application)
+     private val _state = MutableStateFlow(BackupUiState())
+     val state: StateFlow<BackupUiState> = _state.asStateFlow()
+-    private var runU8mAfterAuthorization: Boolean = false
+-
+-    init { refresh() }
++    init {
++        refresh()
++        observeAutomaticBackupCompletion()
++    }
+ 
+     fun refresh() {
+         viewModelScope.launch {
+@@ -124,32 +127,25 @@ class BackupViewModel(application: Application) : AndroidViewModel(application)
+     }
+ 
+     fun beginDriveConnection(onResolution: (PendingIntent) -> Unit) {
+-        beginDriveAuthorization(runU8m = false, onResolution = onResolution)
+-    }
+-
+-    fun beginU8mRealDriveAcceptance(onResolution: (PendingIntent) -> Unit) {
+-        beginDriveAuthorization(runU8m = true, onResolution = onResolution)
++        beginDriveAuthorization(onResolution)
+     }
+ 
+     private fun beginDriveAuthorization(
+-        runU8m: Boolean,
+         onResolution: (PendingIntent) -> Unit,
+     ) {
+         if (_state.value.busy) return
+-        runU8mAfterAuthorization = runU8m
++        _state.update { it.copy(busy = true, busyLabel = "Conectando ao Google Drive…", error = null, message = null) }
+         viewModelScope.launch {
+-            _state.update { it.copy(busy = true, error = null, message = null) }
+             try {
+                 when (val result = authorization.request()) {
+                     is DriveAuthorizationState.Authorized ->
+-                        finishDriveConnection(runU8m = runU8m)
++                        finishDriveConnection()
+                     is DriveAuthorizationState.NeedsUserConsent -> {
+-                        _state.update { it.copy(busy = false) }
++                        _state.update { it.copy(busy = false, busyLabel = null) }
+                         onResolution(result.pendingIntent)
+                     }
+                 }
+             } catch (error: Throwable) {
+-                runU8mAfterAuthorization = false
+                 if (error is CancellationException) throw error
+                 fail(error)
+             }
+@@ -158,26 +154,23 @@ class BackupViewModel(application: Application) : AndroidViewModel(application)
+ 
+     fun completeDriveConnection(data: Intent?) {
+         if (_state.value.busy) return
++        _state.update { it.copy(busy = true, busyLabel = "Validando a conexão…", error = null, message = null) }
+         viewModelScope.launch {
+-            _state.update { it.copy(busy = true, error = null, message = null) }
+-            val runU8m = runU8mAfterAuthorization
+             try {
+                 authorization.tokenFromResult(data) // validates the user-granted result
+-                finishDriveConnection(runU8m = runU8m)
++                finishDriveConnection()
+             } catch (error: Throwable) {
+                 if (error is CancellationException) throw error
+                 fail(error)
+-            } finally {
+-                runU8mAfterAuthorization = false
+             }
+         }
+     }
+ 
+     fun authorizationCancelled() {
+-        runU8mAfterAuthorization = false
+         _state.update {
+             it.copy(
+                 busy = false,
++                busyLabel = null,
+                 error = "A conexão com o Google Drive foi cancelada.",
+             )
+         }
+@@ -185,8 +178,8 @@ class BackupViewModel(application: Application) : AndroidViewModel(application)
+ 
+     fun disconnectDrive() {
+         if (_state.value.busy) return
++        _state.update { it.copy(busy = true, busyLabel = "Desconectando…", error = null, message = null) }
+         viewModelScope.launch {
+-            _state.update { it.copy(busy = true, error = null, message = null) }
+             try {
+                 authorization.revoke()
+                 unifiedDrive.clearAllLocalState()
+@@ -196,6 +189,7 @@ class BackupViewModel(application: Application) : AndroidViewModel(application)
+                 _state.update {
+                     it.copy(
+                         busy = false,
++                        busyLabel = null,
+                         settings = settingsStore.snapshot(),
+                         versions = emptyList(),
+                         reconciliations = emptyMap(),
+@@ -334,35 +328,17 @@ class BackupViewModel(application: Application) : AndroidViewModel(application)
+ 
+     fun clearMessage() = _state.update { it.copy(message = null, error = null) }
+ 
+-    private suspend fun finishDriveConnection(runU8m: Boolean) {
++    private suspend fun finishDriveConnection() {
+         val label = unifiedDrive.probeReadWriteDelete()
+         settingsStore.setDriveConnected(label)
+         BackupScheduler.sync(getApplication())
+-
+-        if (runU8m) {
+-            val report = BackupOperationLock.withLock {
+-                unifiedDrive.runU8mRealDriveAcceptance()
+-            }
+-            _state.update {
+-                it.copy(
+-                    u8mAcceptanceSummary = report.summary(),
+-                    u8mAcceptanceReportSha256 = report.reportSha256,
+-                )
+-            }
+-            require(report.passed) { report.summary() }
+-        }
+-
+-        runU8mAfterAuthorization = false
+         _state.update {
+             it.copy(
+                 busy = false,
++                busyLabel = null,
+                 settings = settingsStore.snapshot(),
+                 authorizationRequired = false,
+-                message = if (runU8m) {
+-                    "Aceitação U8m concluída com sucesso."
+-                } else {
+-                    "Google Drive conectado e validado."
+-                },
++                message = "Google Drive conectado e validado.",
+             )
+         }
+         refresh()
+@@ -373,9 +349,22 @@ class BackupViewModel(application: Application) : AndroidViewModel(application)
+         label: String,
+         action: suspend (UnifiedDriveProductionService) -> BackupRunReport,
+     ) {
+-        val operationId = UUID.randomUUID().toString()
+-        activityStore.record(operationId, projectId, UnifiedOperationKind.BACKUP, UnifiedOperationState.RUNNING, null, label)
+-        runBusy(null) {
++        if (_state.value.busy) return
++        val automaticBackupActive = activityStore.snapshot().any {
++            it.operationId == "automatic-backup" &&
++                it.state.isActive &&
++                System.currentTimeMillis() - it.updatedAtEpochMs < ACTIVE_OPERATION_STALE_MS
++        }
++        if (automaticBackupActive) {
++            _state.update {
++                it.copy(message = "Já existe um backup automático em andamento. O catálogo será atualizado quando ele terminar.")
++            }
++            return
++        }
++        BackupScheduler.cancelCoalesced(getApplication())
++        runBusy(successMessage = null, busyLabel = "$label em andamento…") {
++            val operationId = UUID.randomUUID().toString()
++            activityStore.record(operationId, projectId, UnifiedOperationKind.BACKUP, UnifiedOperationState.RUNNING, null, label)
+             try {
+                 requireDriveConnected()
+                 val report = BackupOperationLock.withLock { action(unifiedDrive) }
+@@ -410,13 +399,17 @@ class BackupViewModel(application: Application) : AndroidViewModel(application)
+         _state.update { it.copy(settings = settingsStore.snapshot()) }
+     }
+ 
+-    private fun runBusy(successMessage: String?, action: suspend () -> Unit) {
++    private fun runBusy(
++        successMessage: String?,
++        busyLabel: String = "Concluindo operação…",
++        action: suspend () -> Unit,
++    ) {
+         if (_state.value.busy) return
++        _state.update { it.copy(busy = true, busyLabel = busyLabel, error = null, message = null) }
+         viewModelScope.launch {
+-            _state.update { it.copy(busy = true, error = null, message = null) }
+             try {
+                 action()
+-                _state.update { it.copy(busy = false, message = it.message ?: successMessage) }
++                _state.update { it.copy(busy = false, busyLabel = null, message = it.message ?: successMessage) }
+                 refresh()
+             } catch (error: Throwable) {
+                 if (error is CancellationException) throw error
+@@ -431,11 +424,32 @@ class BackupViewModel(application: Application) : AndroidViewModel(application)
+         _state.update {
+             it.copy(
+                 busy = false,
++                busyLabel = null,
+                 authorizationRequired = error is DriveAuthorizationRequiredException || it.authorizationRequired,
+                 error = message,
+             )
+         }
+     }
++
++    private fun observeAutomaticBackupCompletion() {
++        viewModelScope.launch {
++            activityStore.records
++                .map { records ->
++                    records.firstOrNull {
++                        it.operationId == "automatic-backup" && !it.state.isActive
++                    }?.updatedAtEpochMs
++                }
++                .distinctUntilChanged()
++                .drop(1)
++                .collect { completedAt ->
++                    if (completedAt != null && settingsStore.snapshot().driveConnected) refresh()
++                }
++        }
++    }
++
++    private companion object {
++        const val ACTIVE_OPERATION_STALE_MS = 30L * 60L * 1_000L
++    }
+ }
+ 
+ internal fun BackupRunReport.userSummary(label: String): String = buildString {
+diff --git a/app/src/main/java/studio/guitarlab/app/ui/HomeScreen.kt b/app/src/main/java/studio/guitarlab/app/ui/HomeScreen.kt
+index f92d4b2..fb79832 100644
+--- a/app/src/main/java/studio/guitarlab/app/ui/HomeScreen.kt
++++ b/app/src/main/java/studio/guitarlab/app/ui/HomeScreen.kt
+@@ -119,7 +119,7 @@ fun HomeScreen(
+         Column(Modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 18.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                 Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+-                    Text("GuitarLab", style = MaterialTheme.typography.headlineLarge)
++                    Text("GuitarLab Studio", style = MaterialTheme.typography.headlineLarge)
+                     Text("Pratique · grave · compare", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                 }
+                 Row(horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.CenterVertically) {
+@@ -153,7 +153,7 @@ fun HomeScreen(
+                                 Text("Abra um projeto e trabalhe direto na música, com timeline, mixer e edição no mesmo fluxo.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                             }
+                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+-                                OutlinedButton(onClick = { projectPicker.launch(arrayOf("application/octet-stream", "application/zip", "*/*")) }, enabled = !state.loading && !state.exportBusy) { Icon(Icons.Default.FolderOpen, null); Text("Abrir projeto", Modifier.padding(start = 6.dp)) }
++                                OutlinedButton(onClick = { projectPicker.launch(arrayOf("application/octet-stream", "application/zip", "*/*")) }, enabled = !state.loading && !state.exportBusy) { Icon(Icons.Default.FolderOpen, null); Text("Importar projeto", Modifier.padding(start = 6.dp)) }
+                                 Button(onClick = onNewProject, enabled = !state.loading && !state.exportBusy) { Icon(Icons.Default.Add, null); Text("Novo projeto", Modifier.padding(start = 6.dp)) }
+                             }
+                         }
+@@ -164,7 +164,7 @@ fun HomeScreen(
+                                 Text("Abra um projeto e trabalhe direto na música, com timeline, mixer e edição no mesmo fluxo.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                             }
+                             Row(Modifier.padding(start = 20.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+-                                OutlinedButton(onClick = { projectPicker.launch(arrayOf("application/octet-stream", "application/zip", "*/*")) }, enabled = !state.loading && !state.exportBusy) { Icon(Icons.Default.FolderOpen, null); Text("Abrir projeto", Modifier.padding(start = 6.dp)) }
++                                OutlinedButton(onClick = { projectPicker.launch(arrayOf("application/octet-stream", "application/zip", "*/*")) }, enabled = !state.loading && !state.exportBusy) { Icon(Icons.Default.FolderOpen, null); Text("Importar projeto", Modifier.padding(start = 6.dp)) }
+                                 Button(onClick = onNewProject, enabled = !state.loading && !state.exportBusy) { Icon(Icons.Default.Add, null); Text("Novo projeto", Modifier.padding(start = 6.dp)) }
+                             }
+                         }
+@@ -592,8 +592,8 @@ private fun ProjectRow(
+             Box(Modifier.padding(horizontal = 8.dp)) {
+                 AppIconButton(icon = Icons.Default.MoreVert, contentDescription = "Mais ações de ${project.name}", onClick = { menuOpen = true })
+                 DropdownMenu(menuOpen, { menuOpen = false }) {
+-                    DropdownMenuItem({ Text("Preparar") }, { menuOpen = false; onPrepare() })
+-                    DropdownMenuItem({ Text("Abrir Studio") }, { menuOpen = false; onStudio() })
++                    DropdownMenuItem({ Text("Preparar") }, { menuOpen = false; onPrepare() }, leadingIcon = { Icon(Icons.Default.Tune, null) })
++                    DropdownMenuItem({ Text("Abrir Studio") }, { menuOpen = false; onStudio() }, leadingIcon = { Icon(Icons.Default.MusicNote, null) })
+                     DropdownMenuItem({ Text("Exportar") }, { menuOpen = false; onExportWorkspace() }, modifier = Modifier.testTag("project-export-${project.id}"), leadingIcon = { Icon(Icons.Default.Share, null) })
+                     HorizontalDivider()
+                     DropdownMenuItem({ Text("Renomear") }, { menuOpen = false; onRename() }, leadingIcon = { Icon(Icons.Default.Edit, null) })
+diff --git a/app/src/main/java/studio/guitarlab/app/ui/HomeViewModel.kt b/app/src/main/java/studio/guitarlab/app/ui/HomeViewModel.kt
+index 951c25b..aecd0c7 100644
+--- a/app/src/main/java/studio/guitarlab/app/ui/HomeViewModel.kt
++++ b/app/src/main/java/studio/guitarlab/app/ui/HomeViewModel.kt
+@@ -8,6 +8,7 @@ import java.util.UUID
+ import kotlinx.coroutines.Dispatchers
+ import kotlinx.coroutines.CancellationException
+ import kotlinx.coroutines.Job
++import kotlinx.coroutines.TimeoutCancellationException
+ import kotlinx.coroutines.cancelAndJoin
+ import kotlinx.coroutines.flow.MutableStateFlow
+ import kotlinx.coroutines.flow.StateFlow
+@@ -15,6 +16,7 @@ import kotlinx.coroutines.flow.asStateFlow
+ import kotlinx.coroutines.flow.update
+ import kotlinx.coroutines.launch
+ import kotlinx.coroutines.withContext
++import kotlinx.coroutines.withTimeout
+ import studio.guitarlab.app.activity.UnifiedActivityStore
+ import studio.guitarlab.app.backup.BackupScheduler
+ import studio.guitarlab.app.backup.ConfirmedRevisionStore
+@@ -78,6 +80,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
+     private val confirmedRevisions = ConfirmedRevisionStore(application)
+     private val unifiedDrive = UnifiedDriveProductionService(application)
+     private val sourceSearchJobs = mutableMapOf<String, Job>()
++    private val sourceSearchOperationIds = mutableMapOf<String, String>()
+     private val preparedReferenceJobs = mutableMapOf<String, Job>()
+     private val prepareObservationJobs = mutableMapOf<String, Job>()
+     private val handledSourceSuccessOperations = mutableSetOf<String>()
+@@ -397,6 +400,26 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
+             return
+         }
+         sourceSearchJobs.remove(projectId)?.cancel()
++        sourceSearchOperationIds.remove(projectId)?.let { replacedId ->
++            activityStore.record(
++                replacedId,
++                projectId,
++                UnifiedOperationKind.SOURCE_ACQUISITION,
++                UnifiedOperationState.CANCELLED,
++                null,
++                "Pesquisa de fontes substituída",
++            )
++        }
++        val operationId = UUID.randomUUID().toString()
++        sourceSearchOperationIds[projectId] = operationId
++        activityStore.record(
++            operationId,
++            projectId,
++            UnifiedOperationKind.SOURCE_ACQUISITION,
++            UnifiedOperationState.RUNNING,
++            null,
++            "Pesquisando fontes para a música",
++        )
+         sourceSearchJobs[projectId] = viewModelScope.launch {
+             _state.update { current ->
+                 current.copy(
+@@ -405,26 +428,63 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
+                     error = null,
+                 )
+             }
+-            runCatching { sourceAcquisition.search(SourceSearchRequest(artist = artist, song = song)) }
+-                .onSuccess { result ->
+-                    _state.update { current ->
+-                        current.copy(
+-                            sourceSearchBusyProjects = current.sourceSearchBusyProjects - projectId,
+-                            sourceCandidatesByProject = current.sourceCandidatesByProject + (projectId to result.candidates),
+-                            sourceWarningsByProject = current.sourceWarningsByProject + (projectId to result.warnings),
+-                            message = if (result.candidates.isEmpty()) "Nenhuma fonte automática compatível foi encontrada." else null,
+-                        )
+-                    }
++            try {
++                val result = withTimeout(SOURCE_SEARCH_TIMEOUT_MS) {
++                    sourceAcquisition.search(SourceSearchRequest(artist = artist, song = song))
+                 }
+-                .onFailure { error ->
+-                    if (error is kotlinx.coroutines.CancellationException) return@onFailure
++                val emptyMessage = when {
++                    result.candidates.isNotEmpty() -> null
++                    result.warnings.isNotEmpty() -> "As fontes de pesquisa estão temporariamente indisponíveis. Tente novamente."
++                    else -> "Nenhuma fonte automática compatível foi encontrada."
++                }
++                _state.update { current ->
++                    current.copy(
++                        sourceCandidatesByProject = current.sourceCandidatesByProject + (projectId to result.candidates),
++                        sourceWarningsByProject = current.sourceWarningsByProject + (projectId to result.warnings),
++                        message = emptyMessage,
++                    )
++                }
++                activityStore.record(
++                    operationId,
++                    projectId,
++                    UnifiedOperationKind.SOURCE_ACQUISITION,
++                    UnifiedOperationState.SUCCEEDED,
++                    100,
++                    when (result.candidates.size) {
++                        0 -> "Pesquisa concluída sem fontes compatíveis"
++                        1 -> "1 fonte encontrada"
++                        else -> "${result.candidates.size} fontes encontradas"
++                    },
++                    result.warnings.joinToString("\n").ifBlank { null },
++                )
++            } catch (_: TimeoutCancellationException) {
++                val message = "A pesquisa demorou mais que o esperado. Verifique a conexão e tente novamente."
++                _state.update { it.copy(error = message) }
++                activityStore.record(operationId, projectId, UnifiedOperationKind.SOURCE_ACQUISITION, UnifiedOperationState.FAILED, null, "Pesquisa de fontes expirou", message)
++            } catch (error: CancellationException) {
++                activityStore.record(operationId, projectId, UnifiedOperationKind.SOURCE_ACQUISITION, UnifiedOperationState.CANCELLED, null, "Pesquisa de fontes cancelada")
++                throw error
++            } catch (error: Throwable) {
++                val message = "Não foi possível pesquisar fontes. Verifique a conexão e tente novamente."
++                _state.update { it.copy(error = message) }
++                activityStore.record(
++                    operationId,
++                    projectId,
++                    UnifiedOperationKind.SOURCE_ACQUISITION,
++                    UnifiedOperationState.FAILED,
++                    null,
++                    "Não foi possível pesquisar fontes",
++                    error.message,
++                )
++            } finally {
++                if (sourceSearchOperationIds[projectId] == operationId) {
++                    sourceSearchOperationIds.remove(projectId)
++                    sourceSearchJobs.remove(projectId)
+                     _state.update { current ->
+-                        current.copy(
+-                            sourceSearchBusyProjects = current.sourceSearchBusyProjects - projectId,
+-                            error = error.message ?: "Não foi possível pesquisar fontes.",
+-                        )
++                        current.copy(sourceSearchBusyProjects = current.sourceSearchBusyProjects - projectId)
+                     }
+                 }
++            }
+         }
+     }
+ 
+@@ -611,6 +671,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
+     }
+ 
+     private companion object {
++        const val SOURCE_SEARCH_TIMEOUT_MS = 60_000L
+         fun referenceActivityId(projectId: String) = "reference-preparation:$projectId"
+ 
+         fun sourceActivitySummary(state: SourceOperationState): String = when (state) {
+diff --git a/app/src/main/java/studio/guitarlab/app/ui/ProjectShellScaffold.kt b/app/src/main/java/studio/guitarlab/app/ui/ProjectShellScaffold.kt
+index e6a0227..5095741 100644
+--- a/app/src/main/java/studio/guitarlab/app/ui/ProjectShellScaffold.kt
++++ b/app/src/main/java/studio/guitarlab/app/ui/ProjectShellScaffold.kt
+@@ -10,7 +10,9 @@ import androidx.compose.foundation.layout.fillMaxSize
+ import androidx.compose.foundation.layout.fillMaxWidth
+ import androidx.compose.foundation.layout.heightIn
+ import androidx.compose.foundation.layout.padding
++import androidx.compose.foundation.layout.widthIn
+ import androidx.compose.material.icons.Icons
++import androidx.compose.material.icons.filled.Home
+ import androidx.compose.material.icons.filled.Tune
+ import androidx.compose.material3.Button
+ import androidx.compose.material3.MaterialTheme
+@@ -107,7 +109,7 @@ fun ProjectShellScaffold(
+             color = MaterialTheme.colorScheme.surface,
+         ) {
+             BoxWithConstraints(Modifier.fillMaxWidth()) {
+-                val compact = maxWidth < 760.dp
++                val compact = maxWidth < 960.dp
+                 if (compact) {
+                     Column(
+                         Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp),
+@@ -120,15 +122,18 @@ fun ProjectShellScaffold(
+                         ) {
+                             ProjectIdentity(project, Modifier.weight(1f))
+                             trailingActions()
++                            AppIconButton(
++                                icon = Icons.Default.Home,
++                                contentDescription = "Início",
++                                onClick = onProjects,
++                                modifier = Modifier.testTag("project-shell-projects"),
++                            )
+                             AppIconButton(
+                                 icon = Icons.Default.Tune,
+                                 contentDescription = "Opções",
+                                 onClick = onSettings,
+                                 modifier = Modifier.testTag("project-shell-settings"),
+                             )
+-                            OutlinedButton(onClick = onProjects, modifier = Modifier.testTag("project-shell-projects")) {
+-                                Text("Projetos")
+-                            }
+                         }
+                         ProjectWorkspaceNavigation(
+                             currentWorkspace = currentWorkspace,
+@@ -138,33 +143,38 @@ fun ProjectShellScaffold(
+                         )
+                     }
+                 } else {
+-                    Row(
++                    Box(
+                         Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
+-                        verticalAlignment = Alignment.CenterVertically,
+-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                     ) {
+-                        ProjectIdentity(project, Modifier.weight(1f))
++                        ProjectIdentity(
++                            project,
++                            Modifier.align(Alignment.CenterStart).widthIn(max = 300.dp),
++                        )
+                         ProjectWorkspaceNavigation(
+                             currentWorkspace = currentWorkspace,
+                             onPrepare = onPrepare,
+                             onStudio = onStudio,
+                             onExport = onExport,
+-                            modifier = Modifier.weight(1.5f),
++                            modifier = Modifier.align(Alignment.Center).widthIn(max = 520.dp),
+                         )
+                         Row(
++                            modifier = Modifier.align(Alignment.CenterEnd),
+                             verticalAlignment = Alignment.CenterVertically,
+                             horizontalArrangement = Arrangement.spacedBy(4.dp),
+                         ) {
+                             trailingActions()
++                            AppIconButton(
++                                icon = Icons.Default.Home,
++                                contentDescription = "Início",
++                                onClick = onProjects,
++                                modifier = Modifier.testTag("project-shell-projects"),
++                            )
+                             AppIconButton(
+                                 icon = Icons.Default.Tune,
+                                 contentDescription = "Opções",
+                                 onClick = onSettings,
+                                 modifier = Modifier.testTag("project-shell-settings"),
+                             )
+-                            OutlinedButton(onClick = onProjects, modifier = Modifier.testTag("project-shell-projects")) {
+-                                Text("Projetos")
+-                            }
+                         }
+                     }
+                 }
+diff --git a/app/src/main/java/studio/guitarlab/app/ui/UnifiedProjectWorkspaceScreen.kt b/app/src/main/java/studio/guitarlab/app/ui/UnifiedProjectWorkspaceScreen.kt
+index 8ddf049..085d372 100644
+--- a/app/src/main/java/studio/guitarlab/app/ui/UnifiedProjectWorkspaceScreen.kt
++++ b/app/src/main/java/studio/guitarlab/app/ui/UnifiedProjectWorkspaceScreen.kt
+@@ -275,6 +275,23 @@ private fun SourceSelectionStep(
+         onClick = { onSearch(artist.trim(), song.trim()) },
+         modifier = Modifier.testTag("prepare-search-action"),
+     ) { Text(if (searchBusy) "Pesquisando…" else "Pesquisar fontes") }
++    if (searchBusy) {
++        Surface(
++            modifier = Modifier.fillMaxWidth().testTag("prepare-search-progress"),
++            tonalElevation = 1.dp,
++            shape = MaterialTheme.shapes.medium,
++        ) {
++            Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
++                Text("Pesquisando fontes compatíveis…", style = MaterialTheme.typography.bodyMedium)
++                Text(
++                    "A busca pode levar alguns segundos. Você pode acompanhar esta operação em Atividade.",
++                    style = MaterialTheme.typography.bodySmall,
++                    color = MaterialTheme.colorScheme.onSurfaceVariant,
++                )
++                LinearProgressIndicator(Modifier.fillMaxWidth())
++            }
++        }
++    }
+ 
+     warnings.forEach { warning ->
+         Text(warning, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.tertiary)

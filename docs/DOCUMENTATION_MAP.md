@@ -7,7 +7,7 @@ Repository documentation is split into **live authority**, **normative contracts
 
 A historical document may intentionally contain an old statement such as “current”, “latest”, “pending”, an old branch name or an old hardware target because it preserves contemporaneous evidence. Such statements apply only to that document's dated context and **never override the live authority set below**.
 
-## Live authority — unified line through U11 signed closure / U12 active
+## Live authority — unified line through U11 signed closure / U12 rc6 corrective gate
 Use these first for current status, release identity and remaining work:
 - `README.md` — repository entry point;
 - `CURRENT_STATE.md` — current unified source candidate, latest signed authority and remaining digital/physical residual;
@@ -27,7 +27,7 @@ Use these first for current status, release identity and remaining work:
 - `CANDIDATE_IDENTITY_POLICY.md` — candidate identity/provenance rules;
 - `CI_PIPELINE.md` — manual CI, source materialization and signing provenance;
 - `TEST_AND_HOMOLOGATION_PLAN.md` — current automated/physical evidence boundary;
-- `U12_FINAL_PHYSICAL_HOMOLOGATION.md` — current target-device checklist bound to the exact signed U11 rc5 candidate;
+- `U12_FINAL_PHYSICAL_HOMOLOGATION.md` — current target-device checklist recording rc5 findings and the pending rc6 replacement binding;
 - `RELEASE_NOTES_0.5.0-rc3.md` — historical signed RC3 behavior delta;
 - `RELEASE_NOTES_0.5.0-rc4.md` — H37/H37a/H37b RC4 delta and historical source-pre-gate narrative; its signed gate was later closed by CI #669;
 - `RELEASE_NOTES_0.5.0-rc5.md` — current signed U11 rc5/25 candidate identity, digital gate and U12 physical residual;
@@ -45,7 +45,7 @@ Drive result `U8m PASS · r_1790095960 · cleanup 8/8/14`, report SHA-256
 **U10/C8 is CLOSED / DIGITAL PASS** on Android CI #781 / run `35791192802`,
 exact technical source `2aa97aa8b2c3af91d35e7d48a0eeb89c2c330e63`, with 23/23
 instrumented classes, 76 observed API36 tests and 24/24 retained visual artifacts.
-**U11 is CLOSED / DIGITAL PASS and U12 is active.** The latest signed release authority is Android CI #783 / run `35793456972`, producer `4218e4343746932a4de61c5abaa29ba5769a30ed`, package `studio.guitarlab.app`, `0.5.0-rc5` / versionCode `25`.
+**U11 rc5 is CLOSED / DIGITAL PASS evidence; U12 is paused for an rc6 corrective candidate.** The latest signed release authority remains Android CI #783 / run `35793456972`, producer `4218e4343746932a4de61c5abaa29ba5769a30ed`, package `studio.guitarlab.app`, `0.5.0-rc5` / versionCode `25`, but rc5 is withdrawn from final physical approval.
 
 ## Normative subsystem contracts
 These define behavior and remain valid unless explicitly superseded:

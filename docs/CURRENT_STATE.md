@@ -30,7 +30,7 @@ Updated: 2026-09-22
 
 ## Active line
 - Repository/branch: `anfalcir/guitarlab` / `main`.
-- **U11 is CLOSED / DIGITAL PASS; U12 is active.** Exact signed candidate: `0.5.0-rc5`, versionCode `25`, package `studio.guitarlab.app`, producer `4218e4343746932a4de61c5abaa29ba5769a30ed`. Android CI #783 / run `35793456972`, U4 Cloud Integration Smoke #104 / run `35793456955` and U7 Cloud Backend #62 / run `35793456941` all passed on that same freeze SHA. The candidate is now bound to the consolidated SM-X230 + MK-300 U12 physical campaign.
+- **U11 rc5 remains CLOSED / DIGITAL PASS evidence, but its U12 promotion is withdrawn after target-device findings.** The physical campaign found source-search dispatch/feedback, duplicate backup initiation/history, stale post-backup catalog, backup-progress feedback and shell/Home cohesion defects. U12 is paused while `0.5.0-rc6` / versionCode `26` is digitally gated and signed; no rc6 PASS is claimed before exact-source CI evidence.
 - Latest signed version is `0.5.0-rc5`, versionCode `25`, package `studio.guitarlab.app`.
 - Latest signed DIGITAL PASS: **Android CI #783** / run `35793456972` / producer `4218e4343746932a4de61c5abaa29ba5769a30ed`.
 - #663 scope: H28 → H29 → H30 → H31 → H32 → H33 → H33a → H33b → H34 → H35 → H35a → H36 → H36a → H36b → H36c.

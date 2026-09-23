@@ -119,7 +119,7 @@ fun HomeScreen(
         Column(Modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 18.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
                 Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
-                    Text("GuitarLab", style = MaterialTheme.typography.headlineLarge)
+                    Text("GuitarLab Studio", style = MaterialTheme.typography.headlineLarge)
                     Text("Pratique · grave · compare", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -153,7 +153,7 @@ fun HomeScreen(
                                 Text("Abra um projeto e trabalhe direto na música, com timeline, mixer e edição no mesmo fluxo.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                                OutlinedButton(onClick = { projectPicker.launch(arrayOf("application/octet-stream", "application/zip", "*/*")) }, enabled = !state.loading && !state.exportBusy) { Icon(Icons.Default.FolderOpen, null); Text("Abrir projeto", Modifier.padding(start = 6.dp)) }
+                                OutlinedButton(onClick = { projectPicker.launch(arrayOf("application/octet-stream", "application/zip", "*/*")) }, enabled = !state.loading && !state.exportBusy) { Icon(Icons.Default.FolderOpen, null); Text("Importar projeto", Modifier.padding(start = 6.dp)) }
                                 Button(onClick = onNewProject, enabled = !state.loading && !state.exportBusy) { Icon(Icons.Default.Add, null); Text("Novo projeto", Modifier.padding(start = 6.dp)) }
                             }
                         }
@@ -164,7 +164,7 @@ fun HomeScreen(
                                 Text("Abra um projeto e trabalhe direto na música, com timeline, mixer e edição no mesmo fluxo.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                             Row(Modifier.padding(start = 20.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                                OutlinedButton(onClick = { projectPicker.launch(arrayOf("application/octet-stream", "application/zip", "*/*")) }, enabled = !state.loading && !state.exportBusy) { Icon(Icons.Default.FolderOpen, null); Text("Abrir projeto", Modifier.padding(start = 6.dp)) }
+                                OutlinedButton(onClick = { projectPicker.launch(arrayOf("application/octet-stream", "application/zip", "*/*")) }, enabled = !state.loading && !state.exportBusy) { Icon(Icons.Default.FolderOpen, null); Text("Importar projeto", Modifier.padding(start = 6.dp)) }
                                 Button(onClick = onNewProject, enabled = !state.loading && !state.exportBusy) { Icon(Icons.Default.Add, null); Text("Novo projeto", Modifier.padding(start = 6.dp)) }
                             }
                         }
@@ -592,8 +592,8 @@ private fun ProjectRow(
             Box(Modifier.padding(horizontal = 8.dp)) {
                 AppIconButton(icon = Icons.Default.MoreVert, contentDescription = "Mais ações de ${project.name}", onClick = { menuOpen = true })
                 DropdownMenu(menuOpen, { menuOpen = false }) {
-                    DropdownMenuItem({ Text("Preparar") }, { menuOpen = false; onPrepare() })
-                    DropdownMenuItem({ Text("Abrir Studio") }, { menuOpen = false; onStudio() })
+                    DropdownMenuItem({ Text("Preparar") }, { menuOpen = false; onPrepare() }, leadingIcon = { Icon(Icons.Default.Tune, null) })
+                    DropdownMenuItem({ Text("Abrir Studio") }, { menuOpen = false; onStudio() }, leadingIcon = { Icon(Icons.Default.MusicNote, null) })
                     DropdownMenuItem({ Text("Exportar") }, { menuOpen = false; onExportWorkspace() }, modifier = Modifier.testTag("project-export-${project.id}"), leadingIcon = { Icon(Icons.Default.Share, null) })
                     HorizontalDivider()
                     DropdownMenuItem({ Text("Renomear") }, { menuOpen = false; onRename() }, leadingIcon = { Icon(Icons.Default.Edit, null) })

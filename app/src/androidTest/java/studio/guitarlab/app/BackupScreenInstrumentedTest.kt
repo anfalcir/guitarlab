@@ -64,8 +64,31 @@ class BackupScreenInstrumentedTest {
         compose.onNodeWithText("Storage Access Framework", substring = true).assertDoesNotExist()
         compose.onNodeWithText("COMMITTED", substring = true).assertDoesNotExist()
         compose.onNodeWithText("SHA-256", substring = true).assertDoesNotExist()
+        compose.onNodeWithText("Diagnóstico de homologação").assertDoesNotExist()
+        compose.onNodeWithText("Executar aceitação U8m").assertDoesNotExist()
         compose.onNode(hasScrollAction()).performScrollToNode(hasText("Máximo de versões por projeto"))
         compose.onNodeWithText("Máximo de versões por projeto").assertIsDisplayed()
+    }
+
+    @Test fun busyBackupExplainsWhatIsHappening() {
+        compose.setContent {
+            GuitarLabTheme {
+                BackupScreenContent(
+                    state = configuredState().copy(
+                        busy = true,
+                        busyLabel = "Backup total em andamento…",
+                    ),
+                    projectId = null,
+                    onBack = {}, onConnectDrive = {}, onDisconnectDrive = {}, onRefresh = {},
+                    onAutomaticEnabled = {}, onCadence = {}, onUnmeteredOnly = {}, onChargingOnly = {},
+                    onRetentionDays = {}, onMaximumVersions = {}, onBackupAll = {}, onBackupProject = {},
+                    onKeepLocal = { _, _ -> }, onUseCloud = {}, onRestoreVersion = {}, onRestoreAll = {},
+                )
+            }
+        }
+        compose.onNodeWithTag("backup-busy-feedback").assertIsDisplayed()
+        compose.onNodeWithText("Backup total em andamento…").assertIsDisplayed()
+        compose.onNodeWithText("O GuitarLab está verificando os dados", substring = true).assertIsDisplayed()
     }
 
     @Test fun disconnectedCatalogUsesUnifiedBlockedState() {
@@ -128,7 +151,10 @@ class BackupScreenInstrumentedTest {
                 )
             }
         }
-        scrollToAndClick("restore-version-remote-1")
+        compose.onNode(hasScrollAction()).performScrollToNode(hasTestTag("restore-version-remote-1"))
+        compose.onNodeWithTag("restore-version-remote-1").assertIsDisplayed()
+        compose.captureCohesionScreenshot("backup-restore-version")
+        compose.onNodeWithTag("restore-version-remote-1").performClick()
         compose.onNodeWithTag("confirm-restore-version").assertIsDisplayed().performClick()
         assertEquals(version, restored)
     }
@@ -195,7 +221,10 @@ class BackupScreenInstrumentedTest {
             }
         }
 
-        scrollToAndClick("conflict-keep-local")
+        compose.onNode(hasScrollAction()).performScrollToNode(hasTestTag("conflict-keep-local"))
+        compose.onNodeWithTag("conflict-keep-local").assertIsDisplayed()
+        compose.captureCohesionScreenshot("backup-conflict")
+        compose.onNodeWithTag("conflict-keep-local").performClick()
         compose.onNodeWithTag("confirm-keep-local").assertIsDisplayed().performClick()
         assertEquals(remote, keptLocal)
 

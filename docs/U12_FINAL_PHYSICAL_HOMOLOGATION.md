@@ -1,8 +1,8 @@
 # U12 — Final Physical Homologation — GuitarLab
 
 Updated: 2026-09-22  
-Status: **ACTIVE — EXACT SIGNED CANDIDATE BOUND**  
-Target candidate: `0.5.0-rc5` / versionCode `25`  
+Status: **PAUSED — RC5 FINDINGS UNDER CORRECTION; RC6 SIGNED CANDIDATE PENDING**
+Target candidate: pending `0.5.0-rc6` / versionCode `26` exact-source digital gate
 Package: `studio.guitarlab.app`  
 Target device: Samsung SM-X230 / Android 16 / API 36  
 Audio hardware: M-VAVE MK-300 over USB  
@@ -15,7 +15,20 @@ Exact U11 candidate binding:
 - signed APK size: `82,894,480` bytes;
 - signer SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
 
-A later docs-only commit never changes the APK producer identity.
+A later docs-only commit never changes the APK producer identity. The rc5 identity above remains historical evidence, but rc5 is no longer eligible for final U12 approval.
+
+## Target-device findings that superseded rc5
+
+The first rc5 pass found the following reproducible product defects before physical acceptance completed:
+
+- Prepare source search could appear to do nothing and produced no visible Activity record;
+- one manual backup interaction could overlap a pending automatic backup, yielding two same-time history records;
+- backup exposed only an indeterminate spinner and did not refresh available versions after automatic completion;
+- the development-only U8m acceptance surface remained visible in Backup;
+- shell navigation was not geometrically centered, Home used a text “Projetos” action, and Prepare/Studio project-menu actions lacked icons;
+- Home branding/action copy still read “GuitarLab” and “Abrir projeto” instead of “GuitarLab Studio” and “Importar projeto”.
+
+These findings require a new signed candidate. Existing rc5 physical evidence remains reusable only where the rc6 delta cannot materially affect it; sections 1, 7, 8 and 9 plus adjacent navigation/background-operation smoke must be repeated on rc6.
 
 ## Purpose
 
@@ -26,11 +39,11 @@ Legacy standalone GBW/H37/pre-unification migration is out of scope. H33 real ex
 ## Candidate binding
 
 Before starting:
-- [ ] install only the exact signed U11 APK;
-- [ ] producer SHA matches U11 release evidence;
+- [ ] install only the exact signed rc6 replacement APK after its digital gate closes;
+- [ ] producer SHA matches the rc6 replacement release evidence;
 - [ ] package is `studio.guitarlab.app`;
-- [ ] version is `0.5.0-rc5` / `25`;
-- [ ] APK SHA-256 matches the U11 checksum;
+- [ ] version is `0.5.0-rc6` / `26`;
+- [ ] APK SHA-256 matches the rc6 replacement checksum;
 - [ ] signer SHA-256 is `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`;
 - [ ] device is Samsung SM-X230 / Android 16 / API 36;
 - [ ] MK-300 is connected through the intended normal-use USB/hub/power topology;

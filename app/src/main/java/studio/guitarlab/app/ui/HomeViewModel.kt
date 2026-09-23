@@ -8,6 +8,7 @@ import java.util.UUID
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -15,6 +16,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import studio.guitarlab.app.activity.UnifiedActivityStore
 import studio.guitarlab.app.backup.BackupScheduler
 import studio.guitarlab.app.backup.ConfirmedRevisionStore
@@ -78,6 +80,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private val confirmedRevisions = ConfirmedRevisionStore(application)
     private val unifiedDrive = UnifiedDriveProductionService(application)
     private val sourceSearchJobs = mutableMapOf<String, Job>()
+    private val sourceSearchOperationIds = mutableMapOf<String, String>()
     private val preparedReferenceJobs = mutableMapOf<String, Job>()
     private val prepareObservationJobs = mutableMapOf<String, Job>()
     private val handledSourceSuccessOperations = mutableSetOf<String>()
@@ -397,6 +400,26 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             return
         }
         sourceSearchJobs.remove(projectId)?.cancel()
+        sourceSearchOperationIds.remove(projectId)?.let { replacedId ->
+            activityStore.record(
+                replacedId,
+                projectId,
+                UnifiedOperationKind.SOURCE_ACQUISITION,
+                UnifiedOperationState.CANCELLED,
+                null,
+                "Pesquisa de fontes substituída",
+            )
+        }
+        val operationId = UUID.randomUUID().toString()
+        sourceSearchOperationIds[projectId] = operationId
+        activityStore.record(
+            operationId,
+            projectId,
+            UnifiedOperationKind.SOURCE_ACQUISITION,
+            UnifiedOperationState.RUNNING,
+            null,
+            "Pesquisando fontes para a música",
+        )
         sourceSearchJobs[projectId] = viewModelScope.launch {
             _state.update { current ->
                 current.copy(
@@ -405,26 +428,63 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                     error = null,
                 )
             }
-            runCatching { sourceAcquisition.search(SourceSearchRequest(artist = artist, song = song)) }
-                .onSuccess { result ->
+            try {
+                val result = withTimeout(SOURCE_SEARCH_TIMEOUT_MS) {
+                    sourceAcquisition.search(SourceSearchRequest(artist = artist, song = song))
+                }
+                val emptyMessage = when {
+                    result.candidates.isNotEmpty() -> null
+                    result.warnings.isNotEmpty() -> "As fontes de pesquisa estão temporariamente indisponíveis. Tente novamente."
+                    else -> "Nenhuma fonte automática compatível foi encontrada."
+                }
+                _state.update { current ->
+                    current.copy(
+                        sourceCandidatesByProject = current.sourceCandidatesByProject + (projectId to result.candidates),
+                        sourceWarningsByProject = current.sourceWarningsByProject + (projectId to result.warnings),
+                        message = emptyMessage,
+                    )
+                }
+                activityStore.record(
+                    operationId,
+                    projectId,
+                    UnifiedOperationKind.SOURCE_ACQUISITION,
+                    UnifiedOperationState.SUCCEEDED,
+                    100,
+                    when (result.candidates.size) {
+                        0 -> "Pesquisa concluída sem fontes compatíveis"
+                        1 -> "1 fonte encontrada"
+                        else -> "${result.candidates.size} fontes encontradas"
+                    },
+                    result.warnings.joinToString("\n").ifBlank { null },
+                )
+            } catch (_: TimeoutCancellationException) {
+                val message = "A pesquisa demorou mais que o esperado. Verifique a conexão e tente novamente."
+                _state.update { it.copy(error = message) }
+                activityStore.record(operationId, projectId, UnifiedOperationKind.SOURCE_ACQUISITION, UnifiedOperationState.FAILED, null, "Pesquisa de fontes expirou", message)
+            } catch (error: CancellationException) {
+                activityStore.record(operationId, projectId, UnifiedOperationKind.SOURCE_ACQUISITION, UnifiedOperationState.CANCELLED, null, "Pesquisa de fontes cancelada")
+                throw error
+            } catch (error: Throwable) {
+                val message = "Não foi possível pesquisar fontes. Verifique a conexão e tente novamente."
+                _state.update { it.copy(error = message) }
+                activityStore.record(
+                    operationId,
+                    projectId,
+                    UnifiedOperationKind.SOURCE_ACQUISITION,
+                    UnifiedOperationState.FAILED,
+                    null,
+                    "Não foi possível pesquisar fontes",
+                    error.message,
+                )
+            } finally {
+                if (sourceSearchOperationIds[projectId] == operationId) {
+                    sourceSearchOperationIds.remove(projectId)
+                    sourceSearchJobs.remove(projectId)
                     _state.update { current ->
-                        current.copy(
-                            sourceSearchBusyProjects = current.sourceSearchBusyProjects - projectId,
-                            sourceCandidatesByProject = current.sourceCandidatesByProject + (projectId to result.candidates),
-                            sourceWarningsByProject = current.sourceWarningsByProject + (projectId to result.warnings),
-                            message = if (result.candidates.isEmpty()) "Nenhuma fonte automática compatível foi encontrada." else null,
-                        )
+                        current.copy(sourceSearchBusyProjects = current.sourceSearchBusyProjects - projectId)
                     }
                 }
-                .onFailure { error ->
-                    if (error is kotlinx.coroutines.CancellationException) return@onFailure
-                    _state.update { current ->
-                        current.copy(
-                            sourceSearchBusyProjects = current.sourceSearchBusyProjects - projectId,
-                            error = error.message ?: "Não foi possível pesquisar fontes.",
-                        )
-                    }
-                }
+            }
         }
     }
 
@@ -611,6 +671,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private companion object {
+        const val SOURCE_SEARCH_TIMEOUT_MS = 60_000L
         fun referenceActivityId(projectId: String) = "reference-preparation:$projectId"
 
         fun sourceActivitySummary(state: SourceOperationState): String = when (state) {

@@ -1,5 +1,6 @@
 package studio.guitarlab.app.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -9,7 +10,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
@@ -106,7 +109,7 @@ fun ProjectShellScaffold(
             color = MaterialTheme.colorScheme.surface,
         ) {
             BoxWithConstraints(Modifier.fillMaxWidth()) {
-                val compact = maxWidth < 760.dp
+                val compact = maxWidth < 960.dp
                 if (compact) {
                     Column(
                         Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp),
@@ -120,14 +123,17 @@ fun ProjectShellScaffold(
                             ProjectIdentity(project, Modifier.weight(1f))
                             trailingActions()
                             AppIconButton(
+                                icon = Icons.Default.Home,
+                                contentDescription = "Início",
+                                onClick = onProjects,
+                                modifier = Modifier.testTag("project-shell-projects"),
+                            )
+                            AppIconButton(
                                 icon = Icons.Default.Tune,
                                 contentDescription = "Opções",
                                 onClick = onSettings,
                                 modifier = Modifier.testTag("project-shell-settings"),
                             )
-                            OutlinedButton(onClick = onProjects, modifier = Modifier.testTag("project-shell-projects")) {
-                                Text("Projetos")
-                            }
                         }
                         ProjectWorkspaceNavigation(
                             currentWorkspace = currentWorkspace,
@@ -137,40 +143,51 @@ fun ProjectShellScaffold(
                         )
                     }
                 } else {
-                    Row(
+                    Box(
                         Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
-                        ProjectIdentity(project, Modifier.weight(1f))
+                        ProjectIdentity(
+                            project,
+                            Modifier.align(Alignment.CenterStart).widthIn(max = 300.dp),
+                        )
                         ProjectWorkspaceNavigation(
                             currentWorkspace = currentWorkspace,
                             onPrepare = onPrepare,
                             onStudio = onStudio,
                             onExport = onExport,
-                            modifier = Modifier.weight(1.5f),
+                            modifier = Modifier.align(Alignment.Center).widthIn(max = 520.dp),
                         )
                         Row(
+                            modifier = Modifier.align(Alignment.CenterEnd),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(4.dp),
                         ) {
                             trailingActions()
+                            AppIconButton(
+                                icon = Icons.Default.Home,
+                                contentDescription = "Início",
+                                onClick = onProjects,
+                                modifier = Modifier.testTag("project-shell-projects"),
+                            )
                             AppIconButton(
                                 icon = Icons.Default.Tune,
                                 contentDescription = "Opções",
                                 onClick = onSettings,
                                 modifier = Modifier.testTag("project-shell-settings"),
                             )
-                            OutlinedButton(onClick = onProjects, modifier = Modifier.testTag("project-shell-projects")) {
-                                Text("Projetos")
-                            }
                         }
                     }
                 }
             }
         }
         secondaryBar?.invoke()
-        Box(Modifier.fillMaxWidth().weight(1f)) { content() }
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .weight(1f)
+                .background(MaterialTheme.colorScheme.background)
+                .testTag("project-shell-content"),
+        ) { content() }
     }
 }
 

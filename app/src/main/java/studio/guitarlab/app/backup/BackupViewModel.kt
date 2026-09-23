@@ -12,6 +12,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -31,14 +34,13 @@ import studio.guitarlab.core.project.UnifiedOperationState
 data class BackupUiState(
     val loading: Boolean = true,
     val busy: Boolean = false,
+    val busyLabel: String? = null,
     val settings: BackupSettingsSnapshot = BackupSettingsSnapshot(),
     val localProjects: List<GuitarProject> = emptyList(),
     val versions: List<BackupVersionDescriptor> = emptyList(),
     val reconciliations: Map<String, DriveReconciliation> = emptyMap(),
     val remoteTips: Map<String, List<BackupVersionDescriptor>> = emptyMap(),
     val authorizationRequired: Boolean = false,
-    val u8mAcceptanceSummary: String? = null,
-    val u8mAcceptanceReportSha256: String? = null,
     val message: String? = null,
     val error: String? = null,
 )
@@ -52,9 +54,10 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
     private val unifiedDrive = UnifiedDriveProductionService(application)
     private val _state = MutableStateFlow(BackupUiState())
     val state: StateFlow<BackupUiState> = _state.asStateFlow()
-    private var runU8mAfterAuthorization: Boolean = false
-
-    init { refresh() }
+    init {
+        refresh()
+        observeAutomaticBackupCompletion()
+    }
 
     fun refresh() {
         viewModelScope.launch {
@@ -124,32 +127,25 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun beginDriveConnection(onResolution: (PendingIntent) -> Unit) {
-        beginDriveAuthorization(runU8m = false, onResolution = onResolution)
-    }
-
-    fun beginU8mRealDriveAcceptance(onResolution: (PendingIntent) -> Unit) {
-        beginDriveAuthorization(runU8m = true, onResolution = onResolution)
+        beginDriveAuthorization(onResolution)
     }
 
     private fun beginDriveAuthorization(
-        runU8m: Boolean,
         onResolution: (PendingIntent) -> Unit,
     ) {
         if (_state.value.busy) return
-        runU8mAfterAuthorization = runU8m
+        _state.update { it.copy(busy = true, busyLabel = "Conectando ao Google Drive…", error = null, message = null) }
         viewModelScope.launch {
-            _state.update { it.copy(busy = true, error = null, message = null) }
             try {
                 when (val result = authorization.request()) {
                     is DriveAuthorizationState.Authorized ->
-                        finishDriveConnection(runU8m = runU8m)
+                        finishDriveConnection()
                     is DriveAuthorizationState.NeedsUserConsent -> {
-                        _state.update { it.copy(busy = false) }
+                        _state.update { it.copy(busy = false, busyLabel = null) }
                         onResolution(result.pendingIntent)
                     }
                 }
             } catch (error: Throwable) {
-                runU8mAfterAuthorization = false
                 if (error is CancellationException) throw error
                 fail(error)
             }
@@ -158,26 +154,23 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
 
     fun completeDriveConnection(data: Intent?) {
         if (_state.value.busy) return
+        _state.update { it.copy(busy = true, busyLabel = "Validando a conexão…", error = null, message = null) }
         viewModelScope.launch {
-            _state.update { it.copy(busy = true, error = null, message = null) }
-            val runU8m = runU8mAfterAuthorization
             try {
                 authorization.tokenFromResult(data) // validates the user-granted result
-                finishDriveConnection(runU8m = runU8m)
+                finishDriveConnection()
             } catch (error: Throwable) {
                 if (error is CancellationException) throw error
                 fail(error)
-            } finally {
-                runU8mAfterAuthorization = false
             }
         }
     }
 
     fun authorizationCancelled() {
-        runU8mAfterAuthorization = false
         _state.update {
             it.copy(
                 busy = false,
+                busyLabel = null,
                 error = "A conexão com o Google Drive foi cancelada.",
             )
         }
@@ -185,8 +178,8 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
 
     fun disconnectDrive() {
         if (_state.value.busy) return
+        _state.update { it.copy(busy = true, busyLabel = "Desconectando…", error = null, message = null) }
         viewModelScope.launch {
-            _state.update { it.copy(busy = true, error = null, message = null) }
             try {
                 authorization.revoke()
                 unifiedDrive.clearAllLocalState()
@@ -196,6 +189,7 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
                 _state.update {
                     it.copy(
                         busy = false,
+                        busyLabel = null,
                         settings = settingsStore.snapshot(),
                         versions = emptyList(),
                         reconciliations = emptyMap(),
@@ -334,35 +328,17 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
 
     fun clearMessage() = _state.update { it.copy(message = null, error = null) }
 
-    private suspend fun finishDriveConnection(runU8m: Boolean) {
+    private suspend fun finishDriveConnection() {
         val label = unifiedDrive.probeReadWriteDelete()
         settingsStore.setDriveConnected(label)
         BackupScheduler.sync(getApplication())
-
-        if (runU8m) {
-            val report = BackupOperationLock.withLock {
-                unifiedDrive.runU8mRealDriveAcceptance()
-            }
-            _state.update {
-                it.copy(
-                    u8mAcceptanceSummary = report.summary(),
-                    u8mAcceptanceReportSha256 = report.reportSha256,
-                )
-            }
-            require(report.passed) { report.summary() }
-        }
-
-        runU8mAfterAuthorization = false
         _state.update {
             it.copy(
                 busy = false,
+                busyLabel = null,
                 settings = settingsStore.snapshot(),
                 authorizationRequired = false,
-                message = if (runU8m) {
-                    "Aceitação U8m concluída com sucesso."
-                } else {
-                    "Google Drive conectado e validado."
-                },
+                message = "Google Drive conectado e validado.",
             )
         }
         refresh()
@@ -373,9 +349,22 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
         label: String,
         action: suspend (UnifiedDriveProductionService) -> BackupRunReport,
     ) {
-        val operationId = UUID.randomUUID().toString()
-        activityStore.record(operationId, projectId, UnifiedOperationKind.BACKUP, UnifiedOperationState.RUNNING, null, label)
-        runBusy(null) {
+        if (_state.value.busy) return
+        val automaticBackupActive = activityStore.snapshot().any {
+            it.operationId == "automatic-backup" &&
+                it.state.isActive &&
+                System.currentTimeMillis() - it.updatedAtEpochMs < ACTIVE_OPERATION_STALE_MS
+        }
+        if (automaticBackupActive) {
+            _state.update {
+                it.copy(message = "Já existe um backup automático em andamento. O catálogo será atualizado quando ele terminar.")
+            }
+            return
+        }
+        BackupScheduler.cancelCoalesced(getApplication())
+        runBusy(successMessage = null, busyLabel = "$label em andamento…") {
+            val operationId = UUID.randomUUID().toString()
+            activityStore.record(operationId, projectId, UnifiedOperationKind.BACKUP, UnifiedOperationState.RUNNING, null, label)
             try {
                 requireDriveConnected()
                 val report = BackupOperationLock.withLock { action(unifiedDrive) }
@@ -410,13 +399,17 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
         _state.update { it.copy(settings = settingsStore.snapshot()) }
     }
 
-    private fun runBusy(successMessage: String?, action: suspend () -> Unit) {
+    private fun runBusy(
+        successMessage: String?,
+        busyLabel: String = "Concluindo operação…",
+        action: suspend () -> Unit,
+    ) {
         if (_state.value.busy) return
+        _state.update { it.copy(busy = true, busyLabel = busyLabel, error = null, message = null) }
         viewModelScope.launch {
-            _state.update { it.copy(busy = true, error = null, message = null) }
             try {
                 action()
-                _state.update { it.copy(busy = false, message = it.message ?: successMessage) }
+                _state.update { it.copy(busy = false, busyLabel = null, message = it.message ?: successMessage) }
                 refresh()
             } catch (error: Throwable) {
                 if (error is CancellationException) throw error
@@ -431,10 +424,31 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
         _state.update {
             it.copy(
                 busy = false,
+                busyLabel = null,
                 authorizationRequired = error is DriveAuthorizationRequiredException || it.authorizationRequired,
                 error = message,
             )
         }
+    }
+
+    private fun observeAutomaticBackupCompletion() {
+        viewModelScope.launch {
+            activityStore.records
+                .map { records ->
+                    records.firstOrNull {
+                        it.operationId == "automatic-backup" && !it.state.isActive
+                    }?.updatedAtEpochMs
+                }
+                .distinctUntilChanged()
+                .drop(1)
+                .collect { completedAt ->
+                    if (completedAt != null && settingsStore.snapshot().driveConnected) refresh()
+                }
+        }
+    }
+
+    private companion object {
+        const val ACTIVE_OPERATION_STALE_MS = 30L * 60L * 1_000L
     }
 }
 

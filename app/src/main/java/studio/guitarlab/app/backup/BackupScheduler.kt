@@ -45,6 +45,11 @@ object BackupScheduler {
         WorkManager.getInstance(appContext).enqueueUniqueWork(COALESCED_WORK, ExistingWorkPolicy.KEEP, request)
     }
 
+    /** A manual backup supersedes a pending debounced save of the same project state. */
+    fun cancelCoalesced(context: Context) {
+        WorkManager.getInstance(context.applicationContext).cancelUniqueWork(COALESCED_WORK)
+    }
+
     private fun constraints(settings: BackupSettingsSnapshot): Constraints = Constraints.Builder()
         .setRequiredNetworkType(if (settings.unmeteredOnly) NetworkType.UNMETERED else NetworkType.CONNECTED)
         .setRequiresCharging(settings.chargingOnly)

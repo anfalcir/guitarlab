@@ -275,6 +275,23 @@ private fun SourceSelectionStep(
         onClick = { onSearch(artist.trim(), song.trim()) },
         modifier = Modifier.testTag("prepare-search-action"),
     ) { Text(if (searchBusy) "Pesquisando…" else "Pesquisar fontes") }
+    if (searchBusy) {
+        Surface(
+            modifier = Modifier.fillMaxWidth().testTag("prepare-search-progress"),
+            tonalElevation = 1.dp,
+            shape = MaterialTheme.shapes.medium,
+        ) {
+            Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Pesquisando fontes compatíveis…", style = MaterialTheme.typography.bodyMedium)
+                Text(
+                    "A busca pode levar alguns segundos. Você pode acompanhar esta operação em Atividade.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                LinearProgressIndicator(Modifier.fillMaxWidth())
+            }
+        }
+    }
 
     warnings.forEach { warning ->
         Text(warning, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.tertiary)

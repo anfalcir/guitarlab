@@ -20,13 +20,13 @@ U10 evidence:
 
 The latest signed authority is Android CI #783 / run `35793456972`, producer `4218e4343746932a4de61c5abaa29ba5769a30ed`, package `studio.guitarlab.app`, `0.5.0-rc5` / versionCode `25`, signed APK SHA-256 `795839766f2b7546af53b2c56a0638b11c25b79622fe73cce5860b5602f050e0`.
 
-U11 is CLOSED / DIGITAL PASS. The exact physical-homologation candidate is `0.5.0-rc5` / versionCode `25`, producer `4218e4343746932a4de61c5abaa29ba5769a30ed`, signed APK SHA-256 `795839766f2b7546af53b2c56a0638b11c25b79622fe73cce5860b5602f050e0`.
+U11 rc5 is CLOSED / DIGITAL PASS evidence, but rc5 is withdrawn from final physical approval after U12 exposed product defects. A replacement `0.5.0-rc6` / versionCode `26` candidate is pending exact-source software/API36/cloud/signing gates. Until those pass, rc5 remains the latest signed authority but there is no active approvable U12 candidate.
 
 Drive provider-real acceptance remains closed by U8m:
 `U8m PASS · r_1790095960 · cleanup 8/8/14`;
 sanitized report SHA-256 `84efb70615be8ef5939da538eee5f714f7311aa6d44dd5bb2cdd0b5e9e66b702`.
 
-U11 exact-source real-cloud separation smoke and backend/security verification passed on the freeze SHA. U12 is now active and performs only the physical claims that software/emulators cannot prove.
+U11 exact-source real-cloud separation smoke and backend/security verification passed on the rc5 freeze SHA. U12 resumes on rc6 after the replacement gate; only evidence affected by the corrective delta plus adjacent-risk smoke is invalidated.
 
 ## H29-H36c digital closure
 CI #663 digitally closes H29-H36c on exact source. The H34/H35 take-synchronization, silent-verification and quieter calibration code is therefore covered by the canonical unit/Lint/build/API36/signing pipeline.

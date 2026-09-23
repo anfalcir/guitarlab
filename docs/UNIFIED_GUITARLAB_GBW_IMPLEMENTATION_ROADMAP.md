@@ -2095,7 +2095,7 @@ Signed candidate frozen. No source change after freeze except through a new cand
 
 ## U12 — Consolidated physical homologation and cutover
 
-**Status:** ACTIVE — bound to the exact signed U11 rc5 candidate above.
+**Status:** PAUSED — rc5 target-device findings require a new signed rc6 candidate. Rc5 remains valid U11 digital evidence but is withdrawn from final U12 approval; U12 resumes only after rc6 passes exact-source software, API36, cloud and signing gates.
 
 ### Objective
 Validate only what digital systems cannot prove, ideally in one manual campaign.
