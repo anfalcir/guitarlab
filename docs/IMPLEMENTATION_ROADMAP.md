@@ -2,7 +2,7 @@
 
 Updated: 2026-09-23
 
-> **Current unified-line authority (2026-09-23):** historical H29-H37 remains architecture/evidence context. U10/C8 and U11 are CLOSED / DIGITAL PASS. U12 is active on the exact signed rc9 candidate produced by `635124acfbf133553a96c8b2013f2245f58a6877`; Android CI #794, U4 #111 and U7 #69 are green. Rc8 is withdrawn after the physical orphan-reconciliation finding.
+> **Current unified-line authority (2026-09-23):** historical H29-H37 remains architecture/evidence context. U10/C8 and U11 are CLOSED / DIGITAL PASS. U12 is active on the exact signed rc11 candidate produced by `34cb60624b2fabf21cfe2c60003b04eac1597418`; Android CI #806, U4 #123 and U7 #81 are green. Rc11 restores the stable Firebase Email/Password identity required by the backend UID allowlist and includes the rc9 orphan-reconciliation hardening.
 
 ## Milestones
 - **M1 — Foundation:** CLOSED.
@@ -15,17 +15,17 @@ Updated: 2026-09-23
 
 ## Current signed authority
 
-**Android CI #794** / run `35856278980` / producer `635124acfbf133553a96c8b2013f2245f58a6877` is the latest signed DIGITAL PASS (`0.5.0-rc9` / versionCode `29`).
+**Android CI #806** / run `35885021871` / producer `34cb60624b2fabf21cfe2c60003b04eac1597418` is the latest signed DIGITAL PASS (`0.5.0-rc11` / versionCode `31`).
 
-Signed APK SHA-256: `4fcf529b935a584217b3b882ca8dfa05e3c360f99cfe9d70071080175439dd6c`.
+Signed APK SHA-256: `3cd9bfe06c9aa1af7f452f0dd8d9e9bead50774bde4a3b22c72f09f51e5ea769`.
 
-The same producer passed U4 Cloud Integration Smoke #111. U7 Cloud Backend #69 passed source/container/security verification with deploy skipped. The locked signer remains `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
+The same producer passed U4 Cloud Integration Smoke #123 and U7 Cloud Backend #81. The U7 gate proves Email/Password Firebase authentication is enabled, anonymous auth is disabled, allowlisted users are backed by the password provider and backend source/container/security verification passes. The locked signer remains `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
 
 ## Current release closure
 
-U10/C8 and U11 are digitally closed. U12 is active on rc9. U12k closes the second remote-separation orphan class exposed physically in rc8: a durable local active record is no longer sufficient evidence that a remote job exists. Missing-remote and retry-exhaustion paths now converge to terminal local states while preserving the accepted source and protecting newer generations.
+U10/C8 and U11 are digitally closed. U12 is active on rc11. Rc9 remains the historical orphan-reconciliation corrective; rc10 hardened Firebase failure observability; rc11 restores the stable account identity contract inherited from GBW and required by `GBW_ALLOWED_UIDS`.
 
-The next required evidence is physical: install/upgrade rc9 over the actual stuck rc8 project, verify automatic convergence/source preservation/retry, confirm the new separation crosses the cloud boundary and survives background/reboot/cancel, then complete only the remaining hardware/subjective U12 residuals.
+The next required evidence is physical: install rc11 on the target tablet, authenticate once with the existing allowlisted Firebase Email/Password account, prove a fresh Prepare separation crosses the full Storage → Function → Cloud Run → import path, then complete the remaining USB/audio/10-minute/ergonomics acceptance residuals.
 
 ## Approved post-H28 implementation path
 Detailed authority: `POST_H28_HARDENING_AND_EXTERNAL_CONTROL_PLAN.md`.
@@ -112,7 +112,7 @@ A separate successor program is now approved to absorb GBW Android into GuitarLa
 
 Authoritative plan: `UNIFIED_GUITARLAB_GBW_IMPLEMENTATION_ROADMAP.md`.
 
-Current successor status: U0-U8 are closed (U9 retired); U10/C8 is **CLOSED / DIGITAL PASS** on Android CI #781; U11 is **CLOSED / DIGITAL PASS** historical release evidence; **U12 is active on signed rc9** at exact producer `635124acfbf133553a96c8b2013f2245f58a6877`, Android CI #794, with U4 #111 and U7 #69 green.
+Current successor status: U0-U8 are closed (U9 retired); U10/C8 is **CLOSED / DIGITAL PASS** on Android CI #781; U11 is **CLOSED / DIGITAL PASS** historical release evidence; **U12 is active on signed rc11** at exact producer `34cb60624b2fabf21cfe2c60003b04eac1597418`, Android CI #806, with U4 #123 and U7 #81 green.
 
 This successor program uses U0-U12 milestone numbering and is intentionally separate from the H29-H37/1.1 closure numbering. It does not retroactively alter the signed #663 evidence, H37b pre-gate state or historical 1.0/1.1 acceptance rules. Known physical residuals may be carried into the final unified-candidate campaign rather than forcing duplicate manual homologation, provided digital prerequisites remain objectively green.
 
@@ -127,7 +127,7 @@ Do not add to this line:
 - per-track independent physical output routing.
 
 ## Canonical materialization tail
-Current source chain is the fail-closed U-series tail ending at **U12k**, reached through `scripts/materialize_ci_sources.sh`. U12k seals the rc9 remote-orphan reconciliation corrective; historical intermediate H/U blocks remain traceable, but the entrypoint defines the active chain.
+Current source chain is the fail-closed U-series tail ending at **U12w**, reached through `scripts/materialize_ci_sources.sh`. U12w seals the rc11 cloud-auth UI instrumentation corrective after the stable Firebase account migration; historical intermediate H/U blocks remain traceable, but the entrypoint defines the active chain.
 
 H28 is frozen in `materialize_ci_sources_through_h28.sh`; the existing H29-H36c tail remains independently verified by `materialize_ci_sources_h29_h33.sh`; H37/H37a/H37b and U1/U1a/U1b are layered by their correspondingly named materializers. Each verifies its patch SHA-256 and terminal Git blobs. Future blocks must extend this chain deterministically and preserve the same fail-closed guarantees.
 

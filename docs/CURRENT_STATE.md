@@ -30,23 +30,37 @@ Updated: 2026-09-23
 
 ## Active line
 - Repository/branch: `anfalcir/guitarlab` / `main`.
-- **rc9 is CLOSED / DIGITAL PASS and is the active U12 physical-homologation candidate.**
-- Exact producer: `635124acfbf133553a96c8b2013f2245f58a6877`.
-- Version/package: `0.5.0-rc9` / versionCode `29` / `studio.guitarlab.app`.
-- Android CI #794 / run `35856278980`: PASS — exact materialization, unit tests, performance evidence, Android Lint, debug/release build, API 36 grouped regression and signed homologation.
-- U4 Cloud Integration Smoke #111 / run `35856278976`: PASS — controlled real six-stem Cloud Run contract on the same producer.
-- U7 Cloud Backend #69 / run `35856279117`: PASS — backend source/container/security verification; controlled deploy step skipped.
-- Signed artifact: `GuitarLabStudio-0.5.0-rc9-homologacao` / artifact id `10748475073`.
-- Signed APK SHA-256: `4fcf529b935a584217b3b882ca8dfa05e3c360f99cfe9d70071080175439dd6c`; size `79,945,360` bytes.
-- Signed artifact ZIP digest: `sha256:86077306c01afc80a07ba10b14080aec9fdb1a6a2e6416ef193bad190d274f53`.
+- **rc11 is CLOSED / DIGITAL PASS and is the active U12 physical-homologation candidate.**
+- Exact producer: `34cb60624b2fabf21cfe2c60003b04eac1597418`.
+- Version/package: `0.5.0-rc11` / versionCode `31` / `studio.guitarlab.app`.
+- Android CI #806 / run `35885021871`: PASS — exact materialization through U12w, unit tests, Android Lint, debug/release build, full API 36 grouped regression and signed homologation.
+- U4 Cloud Integration Smoke #123 / run `35885021902`: PASS — controlled real six-stem Cloud Run contract on the same producer.
+- U7 Cloud Backend #81 / run `35885021969`: PASS — Firebase Email/Password auth enforced, anonymous auth disabled, allowlisted password-backed Firebase users verified, backend source/container/security verification PASS; controlled deploy step skipped.
+- Signed artifact: `GuitarLabStudio-0.5.0-rc11-homologacao` / artifact id `10762204176`.
+- Signed APK SHA-256: `3cd9bfe06c9aa1af7f452f0dd8d9e9bead50774bde4a3b22c72f09f51e5ea769`; size `79,965,840` bytes.
+- Signed artifact ZIP digest: `sha256:9f9ad8e16222c4eac1d8dcc27d7946e75e54be6a9a9bfcd243beb0284e14e7b2`.
 - Locked signer SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
-- rc8 is withdrawn from final approval after the target tablet reproduced a local `CANCEL_REQUESTED` separation with no remote Firestore/Cloud Run job. Rc9 closes that second orphan class: local durable state is no longer treated as proof of remote existence.
-- Rc9 recovery rules: missing remote + `UPLOADING/READY/QUEUED` replays idempotently; missing remote + `CANCEL_REQUESTED` terminalizes `CANCELLED`; missing remote + `RUNNING/COMPLETED/IMPORTING` terminalizes `EXPIRED`; exhausted cancellation/worker retries terminalize instead of leaving an eternal active state.
-- Source recovery is generation-safe: `SOURCE_READY` is restored only for the same source generation and only when no newer active job exists. Active jobs outrank late terminal records in project snapshot selection.
-- U12 is **READY / PHYSICAL PASS PENDING** on rc9. Existing unrelated physical evidence remains reusable under the U12 invalidation rule.
-- CI supports manual dispatch and controlled `[run ci]` / `[run ci signed]` / `[run u4 cloud]` / `[run u7 cloud]` triggers on `main`; ordinary docs commits remain `[skip ci]`.
+- rc11 supersedes rc9/rc10 after target-device diagnostics proved the cloud worker was retrying before Storage/Functions/Cloud Run because the migrated client authentication model no longer matched the backend's stable UID allowlist. The original GBW contract used Firebase Email/Password with a stable personal UID; rc11 restores that contract without storing the password in GuitarLab.
+- Remote separation now requires a stable authenticated Firebase account before enqueue, validates that account against the backend, types Firebase/Auth/Firestore/Storage/Functions failures by pipeline stage, retries only transient failures and surfaces retry/terminal state explicitly.
+- Activity lifecycle is hardened: deleting/missing projects terminalizes stale active history, and `Limpar resolvidos` removes only `SUCCEEDED`/`CANCELLED`, preserving failures and unresolved active work.
+- U12 is **READY / PHYSICAL PASS PENDING** on rc11. Existing unrelated physical evidence remains reusable under the U12 invalidation rule.
+- CI supports controlled `[run ci]` / `[run ci signed]` / `[run u4 cloud]` / `[run u7 cloud]` triggers on `main`; ordinary docs commits remain `[skip ci]`.
 
-## U12 rc9 candidate evidence
+## U12 rc11 candidate evidence
+- exact producer: `34cb60624b2fabf21cfe2c60003b04eac1597418`;
+- Android CI #806 / run `35885021871`: PASS;
+- U4 Cloud Integration Smoke #123 / run `35885021902`: PASS;
+- U7 Cloud Backend #81 / run `35885021969`: PASS;
+- source materialization tail: U12w, fail-closed hash/reverse-apply guards PASS;
+- API 36 regression: PASS including the explicit Email/Password cloud-account Settings surface;
+- signed artifact: `GuitarLabStudio-0.5.0-rc11-homologacao` / artifact id `10762204176`;
+- signed APK SHA-256: `3cd9bfe06c9aa1af7f452f0dd8d9e9bead50774bde4a3b22c72f09f51e5ea769`;
+- signed APK size: `79,965,840` bytes;
+- artifact ZIP SHA-256: `9f9ad8e16222c4eac1d8dcc27d7946e75e54be6a9a9bfcd243beb0284e14e7b2`;
+- signer SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`;
+- final target-device acceptance remains pending under `docs/U12_FINAL_PHYSICAL_HOMOLOGATION.md`.
+
+## U12 rc9 historical corrective evidence
 - exact producer: `635124acfbf133553a96c8b2013f2245f58a6877`;
 - Android CI #794 / run `35856278980`: PASS;
 - U4 Cloud Integration Smoke #111 / run `35856278976`: PASS;

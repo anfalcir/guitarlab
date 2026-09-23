@@ -1,23 +1,59 @@
 # U12 — Final Physical Homologation — GuitarLab
 
 Updated: 2026-09-23
-Status: **READY — RC9 DIGITAL PASS; FOCUSED PHYSICAL RETEST + REMAINING PHYSICAL HOMOLOGATION PENDING**
-Target candidate: `0.5.0-rc9` / versionCode `29` / producer `635124acfbf133553a96c8b2013f2245f58a6877`
+Status: **READY — RC11 DIGITAL PASS; FINAL TARGET-DEVICE HOMOLOGATION PENDING**
+Target candidate: `0.5.0-rc11` / versionCode `31` / producer `34cb60624b2fabf21cfe2c60003b04eac1597418`
 Package: `studio.guitarlab.app`
 Target device: Samsung SM-X230 / Android 16 / API 36
 Audio hardware: M-VAVE MK-300 over USB
 Hardware loopback baseline: **OFF**
 
-## Exact rc9 candidate binding
-- Android CI: #794 / run `35856278980` — PASS;
-- U4 Cloud Integration Smoke: #111 / run `35856278976` — PASS, real six-stem Cloud Run contract;
-- U7 Cloud Backend: #69 / run `35856279117` — PASS, source/container/security verification; deploy skipped;
-- signed artifact: `GuitarLabStudio-0.5.0-rc9-homologacao` / artifact id `10748475073`;
-- signed APK SHA-256: `4fcf529b935a584217b3b882ca8dfa05e3c360f99cfe9d70071080175439dd6c`;
-- signed APK size: `79,945,360` bytes;
-- artifact ZIP SHA-256: `86077306c01afc80a07ba10b14080aec9fdb1a6a2e6416ef193bad190d274f53`;
+## Exact rc11 candidate binding
+- Android CI: #806 / run `35885021871` — PASS, including full API 36 regression and signed homologation;
+- U4 Cloud Integration Smoke: #123 / run `35885021902` — PASS, real six-stem Cloud Run contract;
+- U7 Cloud Backend: #81 / run `35885021969` — PASS, Firebase Email/Password configuration + allowlisted password-user verification + backend source/container/security verification;
+- signed artifact: `GuitarLabStudio-0.5.0-rc11-homologacao` / artifact id `10762204176`;
+- signed APK SHA-256: `3cd9bfe06c9aa1af7f452f0dd8d9e9bead50774bde4a3b22c72f09f51e5ea769`;
+- signed APK size: `79,965,840` bytes;
+- artifact ZIP SHA-256: `9f9ad8e16222c4eac1d8dcc27d7946e75e54be6a9a9bfcd243beb0284e14e7b2`;
 - signer SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`;
-- Android digital gate: exact-source materialization/unit/performance/Lint/build/API36/signing PASS.
+- exact-source materialization through U12w: PASS.
+
+## Rc11 authentication/lifecycle corrective
+
+Target-device diagnostics after rc9 proved that the worker itself was alive: WorkManager repeatedly started `RemoteSeparationWorker`, but each execution failed before any Storage object, Firestore job, callable invocation or Cloud Run execution existed. The first cloud gate reproduced `ADMIN_ONLY_OPERATION` for anonymous signup. Enabling anonymous auth then proved a second incompatibility: the backend still correctly enforced `GBW_ALLOWED_UIDS`, while anonymous login creates a new unstable UID.
+
+Historical GBW source confirmed the intended security model: one personal Firebase Email/Password account with a stable UID allowlisted in `GBW_ALLOWED_UIDS`. Rc11 restores that contract rather than weakening authorization.
+
+Rc11 therefore:
+- removes anonymous login from the Android remote-separation path;
+- adds an explicit Opções → Conta e nuvem Email/Password login;
+- keeps the password only for the immediate authentication call; GuitarLab does not persist it;
+- relies on Firebase session persistence after successful login;
+- validates the authenticated account against `remoteBackendStatus` before accepting the session;
+- refuses to start separation without a stable authenticated session;
+- types Firebase/Auth/Firestore/Storage/Functions failures by pipeline stage and retries only transient failures;
+- limits worker/cancel retries and exposes explicit retry/terminal messaging;
+- terminalizes stale Activity entries when projects disappear;
+- adds `Limpar resolvidos`, which removes only succeeded/cancelled history and preserves failed/unresolved operations.
+
+## Focused rc11 physical retest
+
+Before the remaining USB/audio campaign:
+- [ ] install/upgrade the exact rc11 APK;
+- [ ] open Opções → Conta e nuvem;
+- [ ] sign in with the existing personal Firebase Email/Password account whose UID is already allowlisted;
+- [ ] verify the UI reports the account as authenticated/authorized;
+- [ ] reopen the affected/new Prepare project and start a fresh separation;
+- [ ] confirm the source crosses Storage → Function → Firestore/Cloud Run rather than remaining in local retry;
+- [ ] confirm six stems return and import successfully;
+- [ ] background/foreground and one reboot while pending preserve/reconcile the active job;
+- [ ] cancel-before-dispatch or cancel-in-flight reaches a terminal state and permits another attempt;
+- [ ] delete a project only after resolving/cancelling its active work and verify Activity does not retain a phantom active card;
+- [ ] use `Limpar resolvidos` and verify only completed/cancelled items are removed while failed/open items remain;
+- [ ] adjacent navigation and backup smoke remain healthy.
+
+Rc10, rc9, rc8, rc7, rc6 and rc5 are historical evidence only and are not eligible for final approval.
 
 ## Target-device rc8 finding and rc9 corrective
 
@@ -95,10 +131,10 @@ Legacy standalone GBW/H37/pre-unification migration is out of scope. H33 real ex
 ## Candidate binding
 
 Before starting:
-- [ ] install/upgrade only the exact signed rc9 APK produced by `635124acfbf133553a96c8b2013f2245f58a6877`;
+- [ ] install/upgrade only the exact signed rc11 APK produced by `34cb60624b2fabf21cfe2c60003b04eac1597418`;
 - [ ] package is `studio.guitarlab.app`;
-- [ ] version is `0.5.0-rc9` / versionCode `29`;
-- [ ] APK SHA-256 is `4fcf529b935a584217b3b882ca8dfa05e3c360f99cfe9d70071080175439dd6c`;
+- [ ] version is `0.5.0-rc11` / versionCode `31`;
+- [ ] APK SHA-256 is `3cd9bfe06c9aa1af7f452f0dd8d9e9bead50774bde4a3b22c72f09f51e5ea769`;
 - [ ] signer SHA-256 is `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`;
 - [ ] device is Samsung SM-X230 / Android 16 / API 36;
 - [ ] MK-300 is connected through the intended normal-use USB/hub/power topology for audio-specific residual checks;

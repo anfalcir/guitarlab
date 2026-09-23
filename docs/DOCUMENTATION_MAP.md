@@ -7,7 +7,7 @@ Repository documentation is split into **live authority**, **normative contracts
 
 A historical document may intentionally contain an old statement such as “current”, “latest”, “pending”, an old branch name or an old hardware target because it preserves contemporaneous evidence. Such statements apply only to that document's dated context and **never override the live authority set below**.
 
-## Live authority — unified line through U11 closure / U12 rc9 signed physical candidate
+## Live authority — unified line through U11 closure / U12 rc11 signed physical candidate
 Use these first for current status, release identity and remaining work:
 - `README.md` — repository entry point;
 - `CURRENT_STATE.md` — current unified source candidate, latest signed authority and remaining digital/physical residual;
@@ -27,11 +27,12 @@ Use these first for current status, release identity and remaining work:
 - `CANDIDATE_IDENTITY_POLICY.md` — candidate identity/provenance rules;
 - `CI_PIPELINE.md` — manual CI, source materialization and signing provenance;
 - `TEST_AND_HOMOLOGATION_PLAN.md` — current automated/physical evidence boundary;
-- `U12_FINAL_PHYSICAL_HOMOLOGATION.md` — current target-device checklist, rc7/rc8 physical findings, exact rc9 binding and remaining focused physical acceptance;
+- `U12_FINAL_PHYSICAL_HOMOLOGATION.md` — current target-device checklist, rc11 Email/Password/allowlist corrective binding and remaining physical acceptance;
 - `RELEASE_NOTES_0.5.0-rc3.md` — historical signed RC3 behavior delta;
 - `RELEASE_NOTES_0.5.0-rc4.md` — H37/H37a/H37b RC4 delta and historical source-pre-gate narrative; its signed gate was later closed by CI #669;
 - `RELEASE_NOTES_0.5.0-rc5.md` — historical U11 rc5/25 freeze evidence;
-- `RELEASE_NOTES_0.5.0-rc9.md` — current signed U12 corrective candidate identity, remote-orphan reconciliation delta and focused physical retest;
+- `RELEASE_NOTES_0.5.0-rc11.md` — current signed U12 candidate identity, stable Firebase account corrective, Activity lifecycle hardening and final focused physical retest;
+- `RELEASE_NOTES_0.5.0-rc9.md` — historical remote-orphan corrective evidence;
 - `H35_TAKE_SYNC_QUIET_CALIBRATION.md` — global-vs-take synchronization and quiet/silent calibration contract;
 - `H36_SETTINGS_UX_POLISH.md` — Settings/calibration presentation refinement plus H36a/H36b/H36c corrective history and #663 DIGITAL PASS evidence.
 
@@ -46,7 +47,7 @@ Drive result `U8m PASS · r_1790095960 · cleanup 8/8/14`, report SHA-256
 **U10/C8 is CLOSED / DIGITAL PASS** on Android CI #781 / run `35791192802`,
 exact technical source `2aa97aa8b2c3af91d35e7d48a0eeb89c2c330e63`, with 23/23
 instrumented classes, 76 observed API36 tests and 24/24 retained visual artifacts.
-**U11 remains CLOSED / DIGITAL PASS historical evidence; U12 is active on rc9.** Android CI #794 / run `35856278980`, producer `635124acfbf133553a96c8b2013f2245f58a6877`, is the current signed authority. U4 #111 and U7 #69 are green on the same producer; final physical approval remains pending.
+**U11 remains CLOSED / DIGITAL PASS historical evidence; U12 is active on rc11.** Android CI #806 / run `35885021871`, producer `34cb60624b2fabf21cfe2c60003b04eac1597418`, is the current signed authority. U4 #123 and U7 #81 are green on the same producer; final physical approval remains pending.
 
 ## Normative subsystem contracts
 These define behavior and remain valid unless explicitly superseded:
@@ -72,22 +73,22 @@ These are preserved for traceability and must not be used as current-state autho
 - milestone-specific evidence such as `M2_HOMOLOGATION_EVIDENCE.md`, `H22_AUDIO_ROUTE_UX.md`, `H24_HOME_PROJECT_LIBRARY.md`, `H25_UI_SETTINGS_SAFETY.md`, `H26D_MATERIALIZER_RECOVERY.md`, `H26E_CI650_DIGITAL_PASS.md` and similar exact-source records.
 
 ## Current evidence boundary
-Android CI #794 / run `35856278980` / producer `635124acfbf133553a96c8b2013f2245f58a6877` is the latest signed DIGITAL PASS for package `studio.guitarlab.app`, version `0.5.0-rc9` / code `29`.
+Android CI #806 / run `35885021871` / producer `34cb60624b2fabf21cfe2c60003b04eac1597418` is the latest signed DIGITAL PASS for package `studio.guitarlab.app`, version `0.5.0-rc11` / code `31`.
 
-Signed APK SHA-256: `4fcf529b935a584217b3b882ca8dfa05e3c360f99cfe9d70071080175439dd6c`.
+Signed APK SHA-256: `3cd9bfe06c9aa1af7f452f0dd8d9e9bead50774bde4a3b22c72f09f51e5ea769`.
 Signer SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
 
 Same-producer supporting evidence:
-- U4 Cloud Integration Smoke #111 / run `35856278976`: PASS, real six-stem Cloud Run contract;
-- U7 Cloud Backend #69 / run `35856279117`: PASS, source/container/security verification; deploy skipped;
-- exact-source materialization tail U12k: PASS;
-- API36 recovered-orphan UI regression: PASS.
+- U4 Cloud Integration Smoke #123 / run `35885021902`: PASS, real six-stem Cloud Run contract;
+- U7 Cloud Backend #81 / run `35885021969`: PASS, Email/Password Firebase configuration, allowlisted password-backed user verification and source/container/security verification;
+- exact-source materialization tail U12w: PASS;
+- full API 36 grouped regression: PASS;
+- signed artifact `GuitarLabStudio-0.5.0-rc11-homologacao` / id `10762204176`;
+- artifact ZIP SHA-256 `9f9ad8e16222c4eac1d8dcc27d7946e75e54be6a9a9bfcd243beb0284e14e7b2`.
 
-Rc8 is retained as historical DIGITAL PASS but withdrawn from physical approval because the target device proved a durable local `CANCEL_REQUESTED` job can be orphaned from the remote backend. Rc9 is the first candidate that closes both project-without-local-job and local-job-without-remote-job recovery classes.
+Rc9 remains historical orphan-reconciliation evidence. Rc10 identified and hardened the pre-upload Firebase failure boundary. Rc11 restores the original stable Firebase Email/Password identity contract required by `GBW_ALLOWED_UIDS`, without weakening the backend allowlist.
 
-U10/C8 technical closure remains preserved at exact source `2aa97aa8b2c3af91d35e7d48a0eeb89c2c330e63` / Android CI #781. U11 rc5 remains the historical freeze. U8m real-provider Drive acceptance remains supporting authority: `U8m PASS · r_1790095960 · cleanup 8/8/14`, report SHA-256 `84efb70615be8ef5939da538eee5f714f7311aa6d44dd5bb2cdd0b5e9e66b702`.
-
-Remaining release work is U12 physical acceptance on rc9, beginning with the focused orphan-recovery upgrade/retry/reboot/cancel retest. H33 external-controller physical acceptance remains a separate 1.1 boundary unless later roadmap authority supersedes it.
+Remaining release work is U12 target-device acceptance on rc11.
 
 ## Repository audits
 - `REPOSITORY_SANITIZATION_2026-09-20.md` records the branch audit supporting a single-branch (`main`) repository cleanup.
