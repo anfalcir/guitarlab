@@ -417,6 +417,42 @@ class UnifiedProjectShellInstrumentedTest {
         composeRule.captureCohesionScreenshot("prepare-separating-dark")
     }
 
+    @Test fun recoveredOrphanExposesRetryAndPreservesAcceptedSource() {
+        val source = asset("source-orphan", AssetRole.SOURCE_ORIGINAL)
+        val project = GuitarProject(
+            id = "separation-orphan", name = "Song", template = ProjectTemplate.GUITAR,
+            createdAtEpochMs = 1, updatedAtEpochMs = 2, assets = listOf(source),
+            preparation = PreparationState(status = PreparationStatus.SOURCE_READY, sourceAssetId = source.assetId),
+        )
+        val job = DurableRemoteJob(
+            identity = RemoteJobIdentity(
+                "00000000-0000-4000-8000-000000000003", project.id, source.assetId, source.sha256,
+            ),
+            state = RemoteJobState.CANCELLED,
+            updatedAtMs = 3,
+            errorCode = "REMOTE_JOB_NOT_FOUND",
+        )
+        var retried = false
+        composeRule.setContent {
+            GuitarLabTheme(darkTheme = true) {
+                UnifiedPrepareScreen(
+                    project = project,
+                    projectId = project.id,
+                    onBack = {},
+                    onStudio = {},
+                    onExport = {},
+                    separationJob = job,
+                    onStartSeparation = { retried = true },
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag("prepare-source-ready").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithTag("prepare-start-separation").performScrollTo().assertIsDisplayed().assertIsEnabled().performClick()
+        composeRule.runOnIdle { check(retried) }
+        composeRule.onAllNodesWithText("REMOTE_JOB_NOT_FOUND").assertCountEquals(0)
+    }
+
     @Test fun separationFailureUsesUserSafeCopyInsteadOfRawJobStateOrBackendCode() {
         val source = asset("source", AssetRole.SOURCE_ORIGINAL)
         val project = GuitarProject(

@@ -35,6 +35,19 @@ object RemoteStateMachine {
  }
 }
 data class DurableRemoteJob(val identity:RemoteJobIdentity,val state:RemoteJobState,val updatedAtMs:Long,val resultManifestSha256:String?=null,val errorCode:String?=null)
+object RemoteMissingPolicy {
+ const val ERROR_REMOTE_JOB_NOT_FOUND="REMOTE_JOB_NOT_FOUND"
+ fun shouldReplay(state:RemoteJobState)=state in setOf(RemoteJobState.UPLOADING,RemoteJobState.READY,RemoteJobState.QUEUED)
+ fun terminalState(state:RemoteJobState):RemoteJobState?=when(state){
+  RemoteJobState.CANCEL_REQUESTED->RemoteJobState.CANCELLED
+  RemoteJobState.RUNNING,RemoteJobState.COMPLETED,RemoteJobState.IMPORTING->RemoteJobState.EXPIRED
+  else->null
+ }
+ fun failureTerminalState(state:RemoteJobState)=when(state){
+  RemoteJobState.COMPLETED,RemoteJobState.IMPORTING->RemoteJobState.EXPIRED
+  else->RemoteJobState.FAILED
+ }
+}
 interface RemoteJobStore { fun load(jobId:String):DurableRemoteJob?; fun save(job:DurableRemoteJob):DurableRemoteJob; fun active():List<DurableRemoteJob> = emptyList() }
 interface RemoteSeparationBackend { suspend fun enqueue(identity:RemoteJobIdentity,inputPath:String); suspend fun status(identity:RemoteJobIdentity):DurableRemoteJob?; suspend fun cancel(identity:RemoteJobIdentity); suspend fun acknowledge(identity:RemoteJobIdentity,resultManifestSha256:String) }
 interface RemoteResultTransport { suspend fun uploadSource(identity:RemoteJobIdentity):String; suspend fun downloadManifest(identity:RemoteJobIdentity):ByteArray; suspend fun downloadStem(identity:RemoteJobIdentity,stem:RemoteStem):ByteArray; suspend fun cleanup(identity:RemoteJobIdentity) }
@@ -51,11 +64,14 @@ class RemoteSeparationCoordinator(private val store:RemoteJobStore,private val b
   val local=requireNotNull(store.load(identity.jobId)){"local job missing"};require(local.identity==identity){"local job ownership mismatch"}
   val remote=backend.status(identity)
   if(remote==null){
-   if(local.state in setOf(RemoteJobState.UPLOADING,RemoteJobState.READY,RemoteJobState.QUEUED)){
+   if(RemoteMissingPolicy.shouldReplay(local.state)){
     val path=transport.uploadSource(identity)
     store.save(local.copy(state=RemoteJobState.READY,updatedAtMs=nowMs()))
     backend.enqueue(identity,path)
-    return store.save(local.copy(state=RemoteJobState.QUEUED,updatedAtMs=nowMs()))
+    return store.save(local.copy(state=RemoteJobState.QUEUED,updatedAtMs=nowMs(),errorCode=null))
+   }
+   RemoteMissingPolicy.terminalState(local.state)?.let { terminal ->
+    return store.save(local.copy(state=terminal,updatedAtMs=nowMs(),errorCode=RemoteMissingPolicy.ERROR_REMOTE_JOB_NOT_FOUND))
    }
    return local
   }

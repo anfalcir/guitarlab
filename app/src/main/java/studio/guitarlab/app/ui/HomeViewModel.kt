@@ -693,7 +693,8 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         fun separationActivitySummary(state: RemoteJobState): String = when (state) {
             RemoteJobState.IMPORTED -> "Separação e referências concluídas"
             RemoteJobState.FAILED, RemoteJobState.EXPIRED -> "Não foi possível concluir a separação"
-            RemoteJobState.CANCELLED, RemoteJobState.CANCEL_REQUESTED -> "Separação cancelada"
+            RemoteJobState.CANCEL_REQUESTED -> "Cancelamento da separação solicitado"
+            RemoteJobState.CANCELLED -> "Separação cancelada"
             RemoteJobState.QUEUED, RemoteJobState.READY -> "Separação aguardando processamento"
             else -> "Separando fonte"
         }

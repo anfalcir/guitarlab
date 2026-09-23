@@ -44,9 +44,8 @@ class FileRemoteJobStore(context: Context) : RemoteJobStore {
             .mapNotNull { runCatching { decode(it.readText()) }.getOrNull() }
     }
 
-    fun latestForProject(projectId: String): DurableRemoteJob? = active()
-        .filter { it.identity.projectId == projectId }
-        .maxByOrNull { it.updatedAtMs }
+    fun latestForProject(projectId: String): DurableRemoteJob? =
+        RemoteRecoveryPolicy.selectLatestForProject(active(), projectId)
 
     /** Local durable-job observation. Remote reconciliation remains owned by WorkManager. */
     fun observeProject(projectId: String): Flow<DurableRemoteJob?> = changes
