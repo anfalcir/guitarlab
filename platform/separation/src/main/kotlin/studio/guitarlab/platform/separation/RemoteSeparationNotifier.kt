@@ -26,7 +26,7 @@ internal object RemoteSeparationNotificationPolicy {
             RemoteJobState.QUEUED -> RemoteNotificationCopy("Aguardando início do processamento", true)
             RemoteJobState.RUNNING -> RemoteNotificationCopy("Separação em andamento no Cloud Run", true)
             RemoteJobState.COMPLETED -> RemoteNotificationCopy("Processamento concluído · preparando importação", true)
-            RemoteJobState.IMPORTING -> RemoteNotificationCopy("Baixando, validando e importando as seis faixas", true)
+            RemoteJobState.IMPORTING -> RemoteNotificationCopy("Baixando, validando e importando Backing e Guitar", true)
             RemoteJobState.CANCEL_REQUESTED -> RemoteNotificationCopy("Cancelamento solicitado", true)
             RemoteJobState.IMPORT_FAILED -> RemoteNotificationCopy("Processamento concluído · importação precisa ser retomada", false)
             RemoteJobState.IMPORTED -> RemoteNotificationCopy("Separação concluída e importada", false)
@@ -108,6 +108,8 @@ internal class RemoteSeparationNotifier(context: Context) {
             .map { it.id }
             .filter { (it and NOTIFICATION_FAMILY_MASK) == NOTIFICATION_BASE }
             .toSet()
+        val durableIds = jobs.map { notificationId(it.identity.jobId) }.toSet()
+        (visibleIds - durableIds).forEach(manager::cancel)
         jobs
             .filter { notificationId(it.identity.jobId) in visibleIds }
             .forEach { job ->

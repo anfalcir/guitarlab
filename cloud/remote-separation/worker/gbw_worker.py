@@ -325,6 +325,8 @@ def inference_strategy(config: Config) -> str:
 
 def build_manifest(config: Config, input_sha256: str, outputs: list[Path], shared_gain_db: float,
                    started: str, started_monotonic: float) -> dict:
+    if len(outputs) != len(REFERENCE_DELIVERABLES):
+        raise WorkerError("OUTPUT_INVALID", "prepared result must contain exactly two deliverables")
     contracts = [wav_contract(path) for path in outputs]
     reference = contracts[0]
     if any(contract != reference for contract in contracts[1:]):
@@ -419,7 +421,7 @@ def run(config: Config, storage_factory: Callable[[], object] | None = None) -> 
             raise WorkerError("JOB_CANCELLED", "job was cancelled before worker start")
         job_document.update({
             "state": "RUNNING",
-            "phase": "RUNNING",
+            "phase": "SEPARATING",
             "progress": 1,
             "startedAt": firestore.SERVER_TIMESTAMP,
             "updatedAt": firestore.SERVER_TIMESTAMP,
