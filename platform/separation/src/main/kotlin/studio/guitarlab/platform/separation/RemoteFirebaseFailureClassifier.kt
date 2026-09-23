@@ -102,7 +102,11 @@ internal object RemoteFirebaseFailureClassifier {
             StorageException.ERROR_BUCKET_NOT_FOUND -> RemoteFailure("STORAGE_BUCKET_NOT_FOUND", false, stage)
             StorageException.ERROR_PROJECT_NOT_FOUND -> RemoteFailure("STORAGE_PROJECT_NOT_FOUND", false, stage)
             StorageException.ERROR_QUOTA_EXCEEDED -> RemoteFailure("STORAGE_QUOTA_EXCEEDED", false, stage)
-            StorageException.ERROR_RETRY_LIMIT_EXCEEDED -> RemoteFailure("STORAGE_RETRY_LIMIT_EXCEEDED", true, stage)
+            StorageException.ERROR_RETRY_LIMIT_EXCEEDED -> RemoteFailure(
+                "STORAGE_RETRY_LIMIT_EXCEEDED",
+                stage == RemotePipelineStage.DOWNLOADING_RESULTS,
+                stage,
+            )
             StorageException.ERROR_CANCELED -> RemoteFailure("STORAGE_CANCELLED", false, stage)
             else -> RemoteFailure("STORAGE_UNKNOWN", true, stage)
         }

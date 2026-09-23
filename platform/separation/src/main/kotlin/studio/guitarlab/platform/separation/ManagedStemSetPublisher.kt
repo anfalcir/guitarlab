@@ -171,8 +171,8 @@ internal data class WavStructure(val sampleRate: Int, val channels: Int, val fra
                     alignment = buffer.short.toInt() and 0xffff
                 } else if (id == "data") {
                     dataBytes = size.toLong()
+                    skipFully(input, dataBytes)
                     if (rate > 0 && channels > 0 && alignment > 0) break
-                    skipFully(input, size.toLong())
                 } else {
                     skipFully(input, size.toLong())
                 }
