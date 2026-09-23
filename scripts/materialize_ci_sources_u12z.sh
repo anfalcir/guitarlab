@@ -4,8 +4,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PREVIOUS="$ROOT/scripts/materialize_ci_sources_u12w.sh"
 PATCH_B64="$ROOT/.source-parts/U12zRc12ImportRecoveryAndUx.patch.b64"
-PATCH_B64_BLOB="9e78111750b9516d85529b099c88ac66d90c1990"
-PATCH_BLOB="d6c05e1f3da40b88da38f263b64c31379ae434bf"
+PATCH_B64_BLOB="1c27eb97f08a709a9f962a863a28d88ddf81e390"
+PATCH_BLOB="47b14e903b2889aa62ac74bdf1f2f965d8de5b27"
 TMP_PATCH="$(mktemp)"
 trap 'rm -f "$TMP_PATCH"' EXIT
 
@@ -68,7 +68,7 @@ declare -a HASHES=(
   "119e488eb3b18f776165e76a6d1bc62169302d78"
   "1b20b033c0f94e907daf2a918a9f5d1b36336143"
   "13458f3cd46cca1e484e74d93f297e0a64e2f313"
-  "ef3cb0038484b64d1b9d70b656637761202b7c26"
+  "92419252247576c89bf0a346ddd7d845f859c69f"
   "dd6bd456a72971b77bb6e4b6f5cfa334f44500d0"
   "2010cdaf8ba2d674dc1386a4cd54740ab90ecf67"
   "97da5df926de093647bd79e624902d1bf76adc1f"
