@@ -91,7 +91,20 @@ jobs:
           ! grep -RIE --exclude-dir=node_modules --exclude-dir=lib '(BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY|"private_key"[[:space:]]*:|AIza[0-9A-Za-z_-]{30,})' cloud/remote-separation .github/workflows/u7-cloud-backend.yml
 
       - name: Build worker container without publishing
-        run: docker build --pull --tag guitarlab-u7-worker:${GITHUB_SHA} cloud/remote-separation/worker
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3 4; do
+            if docker build --pull --tag "guitarlab-u7-worker:${GITHUB_SHA}" cloud/remote-separation/worker; then
+              exit 0
+            fi
+            if [[ "$attempt" -eq 4 ]]; then
+              echo "::error::Worker container build failed after 4 attempts." >&2
+              exit 1
+            fi
+            echo "::warning::Worker container build attempt $attempt failed; retrying external dependency fetch."
+            sleep $((attempt * 15))
+          done
 
   auth_config:
     name: Enable and verify Firebase anonymous authentication
