@@ -62,7 +62,9 @@ internal class FirebaseResultTransport(
 
     override suspend fun downloadManifest(identity: RemoteJobIdentity): ByteArray =
         staged(RemotePipelineStage.DOWNLOADING_RESULTS) {
-            storage.reference.child(prefix(identity) + "/result-manifest.json").getBytes(65536).await()
+            staging.cachedManifest(identity)?.let { return@staged it }
+            val bytes = storage.reference.child(prefix(identity) + "/result-manifest.json").getBytes(65536).await()
+            staging.commitManifest(identity, bytes)
         }
 
     override suspend fun downloadStem(identity: RemoteJobIdentity, stem: RemoteStem): RemoteStemPayload =
@@ -94,17 +96,9 @@ internal class FirebaseResultTransport(
         }
 
     override suspend fun cleanup(identity: RemoteJobIdentity) {
-        try {
-            runCatching { deleteTree(storage.reference.child(prefix(identity))) }
-        } finally {
-            staging.clear(identity)
-        }
-    }
-
-    private suspend fun deleteTree(reference: com.google.firebase.storage.StorageReference) {
-        val listed = reference.listAll().await()
-        listed.items.forEach { item -> runCatching { item.delete().await() } }
-        listed.prefixes.forEach { child -> deleteTree(child) }
+        // Remote object ownership belongs to acknowledgeRemoteImport/cancel/janitor.
+        // Client cleanup is deliberately local-only so backend purge failures remain observable.
+        staging.clear(identity)
     }
 
     private suspend fun prefix(identity: RemoteJobIdentity) =
@@ -148,6 +142,7 @@ class RemoteSeparationWorker(context: Context, params: WorkerParameters) : Corou
                     tempDirectory = applicationContext.cacheDir,
                 ),
             ),
+            expectedResultUid = { requireStableRemoteUid(auth) },
         )
         val previousRetryCode = store.load(id.jobId)?.errorCode
         return try {
