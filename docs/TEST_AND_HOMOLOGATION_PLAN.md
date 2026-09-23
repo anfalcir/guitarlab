@@ -22,6 +22,8 @@ The latest signed authority is Android CI #792 / run `35810108338`, producer `74
 
 Rc7 is CLOSED / DIGITAL PASS but is withdrawn from final U12 approval. Physical testing found an orphan-before-dispatch path: the project was marked as separating before the durable job identity existed, and after the scheduled tablet reboot neither resume nor cancellation could act on that missing identity. Cloud evidence confirms no matching Storage input, Firestore job, Functions invocation or Cloud Run execution. Rc8 must persist identity before WorkManager scheduling, route resume according to the durable state, make cancellation terminal and idempotent, bind `sourceAssetId` through the backend contract, reject late publication after cancellation, and re-pass Android plus real-cloud gates before physical retest.
 
+Rc8 closes that corrective digitally at producer `68ddfd98ad61bd32f412872ab0332a7f6e97b60e`: Android CI #793 / run `35849669669` PASS, U4 real-cloud smoke #110 / run `35849764475` PASS, and U7 production deploy/post-deploy smoke #68 / run `35849761427` PASS. The signed candidate is `0.5.0-rc8` / versionCode `28`, artifact id `10745995732`, APK SHA-256 `b9d1633aabaea9ffb5fde06f586c04cf951860138a274173574f08c5cab5447a`. Physical retest is limited to upgrading over the orphaned rc7 state, starting separation across lock/reboot, cancel-before-dispatch/cancel-in-flight, retry, Activity visibility and adjacent backup smoke.
+
 Drive provider-real acceptance remains closed by U8m:
 `U8m PASS · r_1790095960 · cleanup 8/8/14`;
 sanitized report SHA-256 `84efb70615be8ef5939da538eee5f714f7311aa6d44dd5bb2cdd0b5e9e66b702`.

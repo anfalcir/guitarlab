@@ -2095,7 +2095,7 @@ Signed candidate frozen. No source change after freeze except through a new cand
 
 ## U12 — Consolidated physical homologation and cutover
 
-**Status:** CORRECTIVE ACTIVE — rc7 passed its digital gates but is withdrawn after physical testing exposed an orphaned separation across deferred WorkManager execution/reboot. Rc8 is being hardened across durable client identity, state-directed resume/cancel and cloud source identity/cancellation races. U12 resumes only after exact-source Android, real-cloud and signed-candidate gates pass.
+**Status:** READY — rc8 passed Android CI #793 / run `35849669669`, U4 real-cloud smoke #110 / run `35849764475`, and U7 production deploy/post-deploy smoke #68 / run `35849761427` at exact producer `68ddfd98ad61bd32f412872ab0332a7f6e97b60e`. The signed rc8 candidate closes durable identity before scheduling, upgrade recovery for rc7 orphans, state-directed reboot resume/cancel, backend source identity and late-result cancellation guards. Final physical retest remains pending only for the affected Prepare/background scenarios plus adjacent smoke.
 
 ### Objective
 Validate only what digital systems cannot prove, ideally in one manual campaign.

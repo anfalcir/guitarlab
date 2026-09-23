@@ -30,8 +30,9 @@ Updated: 2026-09-23
 
 ## Active line
 - Repository/branch: `anfalcir/guitarlab` / `main`.
-- **rc7 is CLOSED / DIGITAL PASS but withdrawn from final U12 approval after a target-device durability failure.** During physical homologation, a separation requested before the tablet's scheduled reboot remained only as `PreparationStatus.SEPARATING`: no input object, Firestore job, Cloud Function invocation or Cloud Run execution existed. Cancellation then had no durable local job identity and remained visually pending. The rc8 corrective is in development and must pass exact-source Android, U4/U7 cloud and signing gates before physical homologation resumes.
-- Version under validation: `0.5.0-rc8` / versionCode `28` / package `studio.guitarlab.app`; latest signed authority remains rc7 until the new gate passes.
+- **rc8 is CLOSED / DIGITAL PASS and is the active U12 physical-homologation candidate.** Android CI #793 / run `35849669669` passed at exact producer `68ddfd98ad61bd32f412872ab0332a7f6e97b60e`; the initial API36 dependency-resolution attempt received Maven Central HTTP 429, and the failed-job rerun passed the complete instrumented gate. U4 Cloud Integration Smoke #110 / run `35849764475` passed, and U7 Cloud Backend #68 / run `35849761427` passed production deploy plus post-deploy six-stem smoke.
+- Version: `0.5.0-rc8` / versionCode `28` / package `studio.guitarlab.app`.
+- Signed rc8 APK SHA-256: `b9d1633aabaea9ffb5fde06f586c04cf951860138a274173574f08c5cab5447a`; size `79,941,264` bytes; signer SHA-256 `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`; artifact `GuitarLabStudio-0.5.0-rc8-homologacao` / id `10745995732`.
 - rc7 corrects the target-device source-search defect by hardening the embedded yt-dlp runtime path, performing one controlled runtime refresh/retry, distinguishing provider failure from genuine zero-result search, and using AGP-supported legacy JNI packaging for the native runtime.
 - Signed rc7 APK SHA-256: `142b892b375d495df90030806843e66a2f884a0e1023aefad183d9fe46304e44`.
 - Signed rc7 APK size: `79,937,168` bytes.
