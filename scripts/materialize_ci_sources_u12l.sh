@@ -4,8 +4,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PREVIOUS="$ROOT/scripts/materialize_ci_sources_u12k.sh"
 PATCH_B64="$ROOT/.source-parts/U12lFirebasePreflightActivityHardening.patch.b64"
-PATCH_B64_BLOB="e2fdcd72cab7554538993101c25e7c2d558e0c82"
-PATCH_BLOB="dac2d9d2a47c44e31a8e6b094d0a15608eb37426"
+PATCH_B64_BLOB="5fad8d79c4bb1754db32a13cbde513cebac2eaec"
+PATCH_BLOB="ee19dedc837ffc083abe346732ce60739ed40fac"
 TMP_PATCH="$(mktemp)"
 trap 'rm -f "$TMP_PATCH"' EXIT
 
