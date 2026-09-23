@@ -3,9 +3,12 @@ package studio.guitarlab.app
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithContentDescription
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -16,7 +19,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
-import kotlin.test.assertEquals
+import org.junit.Assert.assertEquals
 import studio.guitarlab.app.ui.ProjectLibraryControls
 import studio.guitarlab.app.ui.HomeViewModel
 import studio.guitarlab.app.ui.theme.GuitarLabTheme
@@ -52,14 +55,14 @@ class HomeProjectLibraryInstrumentedTest {
         composeRule.onNodeWithTag("home-project-search").assertIsDisplayed().performTextInput("Hero")
         composeRule.onNodeWithTag("home-project-search").assertTextContains("Hero")
         composeRule.onNodeWithContentDescription("Limpar pesquisa").assertIsDisplayed().performClick()
-        composeRule.onNodeWithContentDescription("Limpar pesquisa").assertDoesNotExist()
+        composeRule.onAllNodesWithContentDescription("Limpar pesquisa").assertCountEquals(0)
 
         composeRule.onNodeWithTag("home-project-filter").assertIsDisplayed().performClick()
         composeRule.onNodeWithText("Guitarra").assertIsDisplayed().performClick()
         composeRule.onNodeWithTag("home-active-filters").assertIsDisplayed()
         composeRule.onNodeWithText("Filtros: Guitarra").assertIsDisplayed()
         composeRule.onNodeWithTag("home-clear-filters").performClick()
-        composeRule.onNodeWithTag("home-active-filters").assertDoesNotExist()
+        composeRule.onAllNodesWithTag("home-active-filters").assertCountEquals(0)
     }
 
     @Test

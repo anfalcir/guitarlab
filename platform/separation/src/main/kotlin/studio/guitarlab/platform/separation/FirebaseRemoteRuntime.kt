@@ -79,16 +79,32 @@ internal class FirebaseResultTransport(
             }
         }
 
+    override suspend fun downloadReference(identity: RemoteJobIdentity, reference: RemoteReference): RemoteStemPayload =
+        staged(RemotePipelineStage.DOWNLOADING_RESULTS) {
+            require(reference.path.startsWith(prefix(identity) + "/prepared/") && !reference.path.contains(".."))
+            staging.cached(identity, reference)?.let { return@staged it }
+            val partial = staging.partial(identity, reference)
+            storage.reference.child(reference.path).getFile(partial).await()
+            try {
+                staging.commit(identity, reference, partial)
+            } catch (error: Throwable) {
+                partial.delete()
+                throw RemoteResultValidationException("Downloaded prepared reference failed integrity validation.", error)
+            }
+        }
+
     override suspend fun cleanup(identity: RemoteJobIdentity) {
         try {
-            runCatching {
-                storage.reference.child(prefix(identity)).listAll().await().items.forEach { item ->
-                    runCatching { item.delete().await() }
-                }
-            }
+            runCatching { deleteTree(storage.reference.child(prefix(identity))) }
         } finally {
             staging.clear(identity)
         }
+    }
+
+    private suspend fun deleteTree(reference: com.google.firebase.storage.StorageReference) {
+        val listed = reference.listAll().await()
+        listed.items.forEach { item -> runCatching { item.delete().await() } }
+        listed.prefixes.forEach { child -> deleteTree(child) }
     }
 
     private suspend fun prefix(identity: RemoteJobIdentity) =
@@ -124,7 +140,14 @@ class RemoteSeparationWorker(context: Context, params: WorkerParameters) : Corou
             FirebaseRemoteBackend(auth, FirebaseFirestore.getInstance(app), FirebaseFunctions.getInstance(app, "us-central1")),
             resultTransport,
             RemoteManifestCodec::decode,
-            ManagedStemSetPublisher(StemSetProjectPublisher(repository, mediaStore)),
+            ManagedStemSetPublisher(
+                StemSetProjectPublisher(repository, mediaStore),
+                PreparedReferenceProjectPublisher(
+                    repository = repository,
+                    mediaStore = mediaStore,
+                    tempDirectory = applicationContext.cacheDir,
+                ),
+            ),
         )
         val previousRetryCode = store.load(id.jobId)?.errorCode
         return try {
@@ -134,7 +157,16 @@ class RemoteSeparationWorker(context: Context, params: WorkerParameters) : Corou
             when (next.state) {
                 RemoteJobState.IMPORTED -> {
                     resultTransport.cleanup(id)
-                    val result = prepareReferencesOrRetry(id, next, store, repository, mediaStore)
+                    val preparation = repository.load(id.projectId)?.preparation
+                    val referencesAlreadyPrepared =
+                        preparation?.status == PreparationStatus.READY &&
+                            preparation.activeBackingAssetId != null &&
+                            preparation.activeGuitarAssetId != null
+                    val result = if (referencesAlreadyPrepared) {
+                        Result.success()
+                    } else {
+                        prepareReferencesOrRetry(id, next, store, repository, mediaStore)
+                    }
                     notifier.show(id, projectName, RemoteJobState.IMPORTED, store.load(id.jobId)?.errorCode)
                     result
                 }

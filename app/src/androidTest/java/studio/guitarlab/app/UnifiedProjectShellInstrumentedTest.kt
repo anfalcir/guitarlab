@@ -3,7 +3,6 @@ package studio.guitarlab.app
 import android.content.pm.ApplicationInfo
 import androidx.compose.material3.Text
 import androidx.compose.ui.test.assertCountEquals
-import androidx.compose.ui.test.assertDoesNotExist
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
@@ -752,9 +751,9 @@ class UnifiedProjectShellInstrumentedTest {
             composeRule.waitForIdle()
 
             composeRule.onNodeWithTag("activity-record-$activeId").assertIsDisplayed()
-            composeRule.onNodeWithTag("activity-record-$failedId").assertDoesNotExist()
-            composeRule.onNodeWithTag("activity-record-$successId").assertDoesNotExist()
-            composeRule.onNodeWithTag("activity-record-$cancelledId").assertDoesNotExist()
+            composeRule.onAllNodesWithTag("activity-record-$failedId").assertCountEquals(0)
+            composeRule.onAllNodesWithTag("activity-record-$successId").assertCountEquals(0)
+            composeRule.onAllNodesWithTag("activity-record-$cancelledId").assertCountEquals(0)
         } finally {
             listOf(activeId, failedId, successId, cancelledId).forEach(store::remove)
         }

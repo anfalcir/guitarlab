@@ -2,12 +2,12 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://gbw.local/schemas/remote-job.schema.json",
   "type": "object",
-  "required": ["schemaVersion", "projectId", "sourceAssetId", "inputPath", "inputSha256", "state", "createdAt"],
+  "required": ["schemaVersion", "resultContract", "projectId", "sourceAssetId", "inputPath", "inputSha256", "state", "createdAt"],
   "properties": {
-    "schemaVersion": {"const": 1}, "projectId": {"type": "string", "format": "uuid"},
+    "schemaVersion": {"const": 2}, "resultContract": {"const": "prepared-reference-v2"}, "projectId": {"type": "string", "format": "uuid"},
     "sourceAssetId": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"},
     "inputPath": {"type": "string"}, "inputSha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
-    "state": {"enum": ["UPLOADING", "READY", "QUEUED", "RUNNING", "COMPLETED", "IMPORTING", "IMPORTED", "CANCEL_REQUESTED", "CANCELLED", "FAILED", "EXPIRED"]},
+    "state": {"enum": ["UPLOADING", "READY", "QUEUED", "RUNNING", "COMPLETED", "IMPORTING", "IMPORT_FAILED", "IMPORTED", "CANCEL_REQUESTED", "CANCELLED", "FAILED", "EXPIRED"]},
     "resultManifestSha256": {"type": ["string", "null"], "pattern": "^[a-f0-9]{64}$"},
     "remoteCleanupState": {"enum": ["NONE", "PENDING", "PURGING", "PURGED", "FAILED"]}
   }

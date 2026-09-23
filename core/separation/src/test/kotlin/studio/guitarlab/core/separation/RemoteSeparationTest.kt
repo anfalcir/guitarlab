@@ -152,6 +152,88 @@ class RemoteSeparationTest {
         assertEquals(RemoteJobState.IMPORTED, store.job.state)
     }
 
+
+    @Test fun preparedReferenceV2DownloadsOnlyTwoArtifactsAndAcknowledgesAfterPublication() = runBlocking {
+        val i = id()
+        val manifestBytes = "manifest-v2".toByteArray()
+        val manifestHash = sha(manifestBytes)
+        val bytes = wav()
+        val refs = listOf(
+            RemoteReference(
+                "backing", "REFERENCE_BACKING",
+                "remote/v1/users/u/jobs/${i.jobId}/output/prepared/backing.wav",
+                bytes.size.toLong(), sha(bytes), 44100, 2, 1, "FLOAT32_LE",
+            ),
+            RemoteReference(
+                "guitar", "REFERENCE_GUITAR",
+                "remote/v1/users/u/jobs/${i.jobId}/output/prepared/guitar.wav",
+                bytes.size.toLong(), sha(bytes), 44100, 2, 1, "FLOAT32_LE",
+            ),
+        )
+        val manifest = RemoteResultManifest(
+            jobId = i.jobId,
+            projectId = i.projectId,
+            inputSha256 = i.inputSha256,
+            engine = "demucs.cpp",
+            engineRevision = "rc13",
+            model = "htdemucs_6s",
+            modelSha256 = RemoteResultManifest.MODEL_SHA256,
+            sampleRate = 44100,
+            channels = 2,
+            frames = 1,
+            durationSeconds = 1.0,
+            schemaVersion = 2,
+            deliverables = refs,
+            referenceRecipe = RemoteReferenceRecipe(
+                "prepared-reference-v2",
+                -1.0,
+                -0.5,
+                RemoteResultManifest.BACKING_STEMS,
+                "guitar",
+            ),
+        )
+        val events = mutableListOf<String>()
+        val store = MemoryStore(DurableRemoteJob(i, RemoteJobState.RUNNING, 1))
+        val backend = backend(DurableRemoteJob(i, RemoteJobState.COMPLETED, 2, manifestHash), events)
+        val transport = object : RemoteResultTransport {
+            override suspend fun uploadSource(identity: RemoteJobIdentity) = error("unused")
+            override suspend fun downloadManifest(identity: RemoteJobIdentity) = manifestBytes
+            override suspend fun downloadStem(identity: RemoteJobIdentity, stem: RemoteStem) = error("v2 must not download stems")
+            override suspend fun downloadReference(identity: RemoteJobIdentity, reference: RemoteReference): RemoteStemPayload {
+                events += "download:${reference.name}"
+                return BytesPayload(reference.name, bytes)
+            }
+            override suspend fun cleanup(identity: RemoteJobIdentity) { events += "cleanup" }
+        }
+        val publisher = object : RemoteStemPublisher {
+            override fun publish(
+                identity: RemoteJobIdentity,
+                manifest: RemoteResultManifest,
+                manifestSha256: String,
+                stems: Map<String, RemoteStemPayload>,
+            ) = error("v2 must not publish stems")
+
+            override fun publishReferences(
+                identity: RemoteJobIdentity,
+                manifest: RemoteResultManifest,
+                manifestSha256: String,
+                references: Map<String, RemoteStemPayload>,
+            ): Boolean {
+                events += "publishReferences"
+                assertEquals(setOf("backing", "guitar"), references.keys)
+                return false
+            }
+        }
+
+        RemoteSeparationCoordinator(store, backend, transport, { manifest }, publisher).reconcile(i)
+
+        assertEquals(
+            listOf("download:backing", "download:guitar", "publishReferences", "ack", "cleanup"),
+            events,
+        )
+        assertEquals(RemoteJobState.IMPORTED, store.job.state)
+    }
+
     @Test fun completedResultCanStillImportWhenRemoteDocumentDisappearsAfterCompletion() = runBlocking {
         val i = id()
         val manifestBytes = "manifest".toByteArray()

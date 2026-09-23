@@ -80,12 +80,26 @@ jobs:
           python3 -m json.tool cloud/remote-separation/schemas/result-manifest.schema.json >/dev/null
           python3 - <<'PY'
           import json
+          with open("cloud/remote-separation/schemas/remote-job.schema.json", encoding="utf-8") as f:
+              job_schema = json.load(f)
+          with open("cloud/remote-separation/schemas/result-manifest.schema.json", encoding="utf-8") as f:
+              result_schema = json.load(f)
           with open("cloud/remote-separation/firebase.json", encoding="utf-8") as f:
               config = json.load(f)
+          assert job_schema["properties"]["schemaVersion"]["const"] == 2
+          assert job_schema["properties"]["resultContract"]["const"] == "prepared-reference-v2"
+          assert result_schema["properties"]["schemaVersion"]["const"] == 2
+          assert result_schema["properties"]["referenceRecipe"]["$ref"] == "#/$defs/referenceRecipe"
           providers = config.get("auth", {}).get("providers", {})
           assert providers.get("emailPassword") is True, "Firebase email/password auth must be declared enabled"
           assert providers.get("anonymous") is False, "Firebase anonymous auth must be declared disabled"
           PY
+          grep -q '"schemaVersion": 2' cloud/remote-separation/worker/gbw_worker.py
+          grep -q 'purgeStaleRemoteArtifacts' cloud/remote-separation/functions/src/index.ts
+          grep -q 'roles/cloudscheduler.admin' cloud/remote-separation/scripts/bootstrap-github-actions.sh
+          grep -q 'roles/storage.admin' cloud/remote-separation/scripts/bootstrap-github-actions.sh
+          grep -q 'remote_storage_lifecycle=PASS age_days=3 prefix=remote/v1/users/' cloud/remote-separation/scripts/ensure-remote-storage-lifecycle.sh
+          grep -q 'remote_prefix = "remote/v1/users/"' cloud/remote-separation/scripts/ensure-remote-storage-lifecycle.sh
           grep -q 'roles/firebaseauth.admin' cloud/remote-separation/scripts/bootstrap-github-actions.sh
           grep -q 'updateMask=signIn.email.enabled,signIn.email.passwordRequired,signIn.anonymous.enabled' cloud/remote-separation/scripts/ensure-email-password-auth.sh
           grep -q 'allowlisted_password_users=PASS' cloud/remote-separation/scripts/verify-allowlisted-auth-users.sh
@@ -281,7 +295,7 @@ jobs:
           python3 -c 'import json,sys; d=json.load(sys.stdin); t=d["spec"]["template"]["spec"]; i=t["template"]["spec"]; assert int(t["taskCount"])==1; assert int(t["parallelism"])==1; assert int(i["maxRetries"])==0; assert int(str(i["timeoutSeconds"]).removesuffix("s"))==1800' <<<"$job_json"
           echo "runtime_contract=PASS" >> u7-deploy-evidence.txt
 
-      - name: Exercise real six-stem job contract
+      - name: Exercise real prepared-reference v2 job contract
         shell: bash
         env:
           GBW_JOB_NAME: ${{ inputs.mode == 'shadow' && 'guitarlab-demucs-shadow' || 'gbw-demucs' }}

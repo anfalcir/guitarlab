@@ -3,8 +3,9 @@ import {Storage} from "@google-cloud/storage";
 import {initializeApp} from "firebase-admin/app";
 import {FieldValue, getFirestore} from "firebase-admin/firestore";
 import {HttpsError, onCall} from "firebase-functions/v2/https";
+import {onSchedule} from "firebase-functions/v2/scheduler";
 import {logger} from "firebase-functions";
-import {ACTIVE_STATES, BACKEND_POLICY_REVISION, JOB_ID, MAX_INPUT_BYTES, MAX_MONTHLY_JOBS, SHA256, isIdempotentJob, monthKey, requireAckable} from "./policy";
+import {ACTIVE_STATES, BACKEND_POLICY_REVISION, JOB_ID, MAX_INPUT_BYTES, MAX_MONTHLY_JOBS, RESULT_RECOVERY_WINDOW_MS, SHA256, isIdempotentJob, monthKey, requireAckable, retentionAction} from "./policy";
 
 initializeApp();
 const db = getFirestore();
@@ -63,7 +64,7 @@ export const enqueueRemoteSeparation = onCall({region, enforceAppCheck: false, t
     if (!activeSnapshot.empty) throw new HttpsError("resource-exhausted", "One remote job is already active.");
     const accepted = Number(usageSnapshot.data()?.acceptedJobs || 0);
     if (accepted >= MAX_MONTHLY_JOBS) throw new HttpsError("resource-exhausted", "Monthly remote quota reached.");
-    transaction.create(jobRef, {schemaVersion: 1, uid, projectId, sourceAssetId, inputPath, inputSha256, state: "QUEUED", progress: 0,
+    transaction.create(jobRef, {schemaVersion: 2, resultContract: "prepared-reference-v2", uid, projectId, sourceAssetId, inputPath, inputSha256, state: "QUEUED", progress: 0,
       phase: "QUEUED", createdAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp(), remoteCleanupState: "NONE"});
     transaction.set(usageRef, {acceptedJobs: FieldValue.increment(1), updatedAt: FieldValue.serverTimestamp()}, {merge: true});
     shouldExecute = true;
@@ -124,7 +125,7 @@ export const acknowledgeRemoteImport = onCall({region, enforceAppCheck: false, t
   if (job.projectId !== projectId || job.resultManifestSha256 !== manifestSha) throw new HttpsError("failed-precondition", "Manifest identity mismatch.");
   await ref.update({state: "IMPORTED", importedAt: job.importedAt || FieldValue.serverTimestamp(), remoteCleanupState: "PURGING", updatedAt: FieldValue.serverTimestamp()});
   try {
-    await storage.bucket(bucketName).deleteFiles({prefix: `remote/v1/users/${uid}/jobs/${jobId}/output/`});
+    await storage.bucket(bucketName).deleteFiles({prefix: `remote/v1/users/${uid}/jobs/${jobId}/`});
     await ref.update({remoteCleanupState: "PURGED", remotePurgedAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp()});
     return {jobId, state: "IMPORTED", cleanup: "PURGED"};
   } catch (error) {
@@ -138,7 +139,8 @@ export const remoteBackendStatus = onCall({region, enforceAppCheck: false, ...ru
   const {uid} = caller(request);
   const usage = await db.doc(`users/${uid}/usage/${monthKey()}`).get();
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
+    resultContract: "prepared-reference-v2",
     available: true,
     region,
     acceptedJobs: Number(usage.data()?.acceptedJobs || 0),
@@ -147,3 +149,52 @@ export const remoteBackendStatus = onCall({region, enforceAppCheck: false, ...ru
     backendRevision: process.env.GBW_BACKEND_REVISION || "unknown",
   };
 });
+
+export const purgeStaleRemoteArtifacts = onSchedule(
+  {
+    region,
+    schedule: "every 24 hours",
+    timeZone: "UTC",
+    timeoutSeconds: 300,
+    ...runtimeIdentity,
+  },
+  async () => {
+    const nowMs = Date.now();
+    const cutoff = new Date(nowMs - RESULT_RECOVERY_WINDOW_MS);
+    let examined = 0;
+    let purged = 0;
+    let expired = 0;
+    for (const uid of allowedUids) {
+      const snapshot = await db.collection(`users/${uid}/jobs`)
+        .where("updatedAt", "<", cutoff)
+        .limit(200)
+        .get();
+      for (const document of snapshot.docs) {
+        examined += 1;
+        const job = document.data() || {};
+        const updatedAtMs = typeof job.updatedAt?.toMillis === "function" ? job.updatedAt.toMillis() : 0;
+        const action = retentionAction(job.state, updatedAtMs, nowMs);
+        if (!action) continue;
+        const jobId = document.id;
+        await storage.bucket(bucketName).deleteFiles({
+          prefix: `remote/v1/users/${uid}/jobs/${jobId}/`,
+        });
+        const update: Record<string, unknown> = {
+          remoteCleanupState: "PURGED",
+          remotePurgedAt: FieldValue.serverTimestamp(),
+          updatedAt: FieldValue.serverTimestamp(),
+        };
+        if (action === "EXPIRE_AND_PURGE") {
+          update.state = "EXPIRED";
+          update.phase = "EXPIRED";
+          update.errorCode = "RESULT_EXPIRED";
+          expired += 1;
+        }
+        await document.ref.update(update);
+        purged += 1;
+      }
+    }
+    logger.info("remote artifact janitor completed", {examined, purged, expired});
+  },
+);
+

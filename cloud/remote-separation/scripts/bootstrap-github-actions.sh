@@ -7,11 +7,11 @@ set -euo pipefail
 GBW_GCP_PROJECT="${GBW_GCP_PROJECT:-gbwapp-ef048}"
 GBW_BUCKET="${GBW_BUCKET:-gbwapp-ef048.firebasestorage.app}"
 GBW_REGION="${GBW_REGION:-us-central1}"
-GBW_GITHUB_REPOSITORY="${GBW_GITHUB_REPOSITORY:-anfalcir/gbw}"
-GBW_GITHUB_REPOSITORY_ID="${GBW_GITHUB_REPOSITORY_ID:-1374753325}"
+GBW_GITHUB_REPOSITORY="${GBW_GITHUB_REPOSITORY:-anfalcir/guitarlab}"
+GBW_GITHUB_REPOSITORY_ID="${GBW_GITHUB_REPOSITORY_ID:-1361533070}"
 GBW_GITHUB_OWNER_ID="${GBW_GITHUB_OWNER_ID:-216095257}"
-GBW_GITHUB_REF="${GBW_GITHUB_REF:-refs/heads/dev/android-6.0}"
-GBW_GITHUB_WORKFLOW_REF="${GBW_GITHUB_WORKFLOW_REF:-anfalcir/gbw/.github/workflows/rc5-cloud-deploy.yml@refs/heads/dev/android-6.0}"
+GBW_GITHUB_REF="${GBW_GITHUB_REF:-refs/heads/main}"
+GBW_GITHUB_WORKFLOW_REF="${GBW_GITHUB_WORKFLOW_REF:-anfalcir/guitarlab/.github/workflows/u7-cloud-backend.yml@refs/heads/main}"
 GBW_WIF_POOL="${GBW_WIF_POOL:-github-gbw}"
 GBW_WIF_PROVIDER="${GBW_WIF_PROVIDER:-github-actions}"
 GBW_DEPLOYER_SA_NAME="${GBW_DEPLOYER_SA_NAME:-gbw-github-deployer}"
@@ -109,7 +109,7 @@ gcloud iam service-accounts add-iam-policy-binding "$FUNCTIONS_SERVICE_ACCOUNT" 
 
 gcloud storage buckets add-iam-policy-binding "gs://${GBW_BUCKET}" \
   --member="serviceAccount:${DEPLOYER_SA}" \
-  --role=roles/storage.objectViewer >/dev/null
+  --role=roles/storage.admin >/dev/null
 
 # Cloud Build uploads the submitted worker source to its staging bucket before
 # the build service takes over. Grant write access only to that dedicated

@@ -4,10 +4,12 @@ import {
   ACTIVE_STATES,
   BACKEND_POLICY_REVISION,
   MAX_MONTHLY_JOBS,
+  RESULT_RECOVERY_WINDOW_MS,
   inputPath,
   isIdempotentJob,
   monthKey,
   requireAckable,
+  retentionAction,
 } from "../policy";
 
 test("month key is UTC stable", () =>
@@ -52,4 +54,12 @@ test("cancel requested still occupies the single active-job slot", () =>
   assert.equal(ACTIVE_STATES.has("CANCEL_REQUESTED"), true));
 
 test("backend policy revision is explicit", () =>
-  assert.equal(BACKEND_POLICY_REVISION, "rc5-q40-mt4-omp2-v1"));
+  assert.equal(BACKEND_POLICY_REVISION, "rc13-q40-mt4-omp2-prepared-v2"));
+
+test("retention preserves recent results and expires abandoned imports after recovery window", () => {
+  const now = Date.UTC(2026, 8, 23, 12);
+  assert.equal(retentionAction("COMPLETED", now - RESULT_RECOVERY_WINDOW_MS + 1, now), null);
+  assert.equal(retentionAction("IMPORT_FAILED", now - RESULT_RECOVERY_WINDOW_MS - 1, now), "EXPIRE_AND_PURGE");
+  assert.equal(retentionAction("IMPORTED", now - RESULT_RECOVERY_WINDOW_MS - 1, now), "PURGE_ONLY");
+  assert.equal(retentionAction("RUNNING", now - RESULT_RECOVERY_WINDOW_MS - 1, now), null);
+});

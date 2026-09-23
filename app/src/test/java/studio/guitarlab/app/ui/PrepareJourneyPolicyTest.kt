@@ -166,6 +166,41 @@ class PrepareJourneyPolicyTest {
         assertFalse(message.contains("AUTH_PROVIDER_DISABLED"))
     }
 
+    @Test fun preparedReferencesV2AdvanceDirectlyToReadyWithoutLocalStemSet() {
+        val p = project(
+            preparation = PreparationState(
+                status = PreparationStatus.READY,
+                sourceAssetId = "source",
+                activeStemAssetIds = emptyMap(),
+                activeBackingAssetId = "backing-v2",
+                activeGuitarAssetId = "guitar-v2",
+                availableReferenceAssetIds = listOf("backing-v2", "guitar-v2"),
+            ),
+        )
+        val snapshot = PrepareJourneyPolicy.resolve(p, null, importedJob(), false, false)
+        assertEquals(PrepareStage.READY, snapshot.activeStage)
+        assertTrue(snapshot.stemsReady)
+        assertTrue(snapshot.referencesReady)
+        assertFalse(snapshot.referenceRetryRequired)
+        assertEquals(
+            PrepareStageState.COMPLETE,
+            snapshot.summaries.single { it.stage == PrepareStage.SEPARATION }.state,
+        )
+    }
+
+    @Test fun importFailureCopyDoesNotPromiseSixRemoteStemsForV2() {
+        val failedImport = DurableRemoteJob(
+            identity(),
+            RemoteJobState.IMPORT_FAILED,
+            1,
+            resultManifestSha256 = "b".repeat(64),
+        )
+        val message = PrepareJourneyPolicy.separationMessage(failedImport)
+        assertTrue(message.contains("resultados remotos", ignoreCase = true))
+        assertFalse(message.contains("stems", ignoreCase = true))
+    }
+
+
     private fun project(
         assets: List<ManagedAsset> = emptyList(),
         preparation: PreparationState? = null,

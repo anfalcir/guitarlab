@@ -18,13 +18,13 @@ class RemoteSeparationNotificationPolicyTest {
             RemoteJobState.CANCEL_REQUESTED,
         )
         active.forEach { state ->
-            assertTrue(RemoteSeparationNotificationPolicy.copy(state).ongoing, "Expected $state to remain ongoing")
+            assertTrue("Expected $state to remain ongoing", RemoteSeparationNotificationPolicy.copy(state).ongoing)
         }
     }
 
     @Test fun everyTerminalOrAttentionStateProducesADismissibleNotification() {
         RemoteSeparationNotificationPolicy.terminalStates.forEach { state ->
-            assertFalse(RemoteSeparationNotificationPolicy.copy(state).ongoing, "Expected $state to be dismissible")
+            assertFalse("Expected $state to be dismissible", RemoteSeparationNotificationPolicy.copy(state).ongoing)
         }
     }
 

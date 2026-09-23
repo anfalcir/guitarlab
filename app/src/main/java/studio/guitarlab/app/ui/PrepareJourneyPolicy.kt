@@ -58,20 +58,22 @@ object PrepareJourneyPolicy {
     ): PrepareJourneySnapshot {
         val preparation = project?.preparation
         val sourceAccepted = preparation?.sourceAssetId != null && !sourceReplacementActive
-        val stemsReady = preparation?.activeStemAssetIds?.size == 6
+        val legacyStemsReady = preparation?.activeStemAssetIds?.size == 6
         val referencesReady = preparation?.activeBackingAssetId != null && preparation.activeGuitarAssetId != null
+        val separationReady = legacyStemsReady || referencesReady
+        val stemsReady = separationReady
         val sourceNeedsAttention = !sourceAccepted && operation?.state == SourceOperationState.ERROR
-        val separationNeedsAttention = sourceAccepted && !stemsReady && separationJob?.state in setOf(
+        val separationNeedsAttention = sourceAccepted && !separationReady && separationJob?.state in setOf(
             RemoteJobState.IMPORT_FAILED,
             RemoteJobState.FAILED,
             RemoteJobState.CANCELLED,
             RemoteJobState.EXPIRED,
         )
-        val referenceRetryRequired = stemsReady && !referencesReady && preparation?.status == PreparationStatus.ERROR
+        val referenceRetryRequired = legacyStemsReady && !referencesReady && preparation?.status == PreparationStatus.ERROR
 
         val activeStage = when {
             sourceReplacementActive || !sourceAccepted -> PrepareStage.SOURCE
-            !stemsReady -> PrepareStage.SEPARATION
+            !separationReady -> PrepareStage.SEPARATION
             !referencesReady -> PrepareStage.REFERENCES
             else -> PrepareStage.READY
         }
@@ -79,7 +81,7 @@ object PrepareJourneyPolicy {
         val summaries = PrepareStage.entries.map { stage ->
             val complete = when (stage) {
                 PrepareStage.SOURCE -> sourceAccepted
-                PrepareStage.SEPARATION -> stemsReady
+                PrepareStage.SEPARATION -> separationReady
                 PrepareStage.REFERENCES -> referencesReady
                 PrepareStage.READY -> referencesReady
             }
@@ -109,9 +111,9 @@ object PrepareJourneyPolicy {
             }
             PrepareStage.SEPARATION -> separationMessage(separationJob)
             PrepareStage.REFERENCES -> when {
-                referenceRetryRequired -> "As seis faixas estão seguras, mas a preparação das referências precisa ser repetida."
+                referenceRetryRequired -> "Os stems legados estão seguros, mas a preparação das referências precisa ser repetida."
                 referenceBusy -> "Preparando automaticamente a base sem guitarra e a guitarra de referência…"
-                else -> "As seis faixas estão prontas. O GuitarLab está preparando as referências de estudo automaticamente."
+                else -> "Os resultados remotos estão prontos. O GuitarLab está preparando as referências de estudo automaticamente."
             }
             PrepareStage.READY -> "Preparação concluída. A base sem guitarra e a guitarra de referência estão prontas para o Studio."
         }
@@ -152,7 +154,7 @@ object PrepareJourneyPolicy {
     }
 
     fun separationMessage(job: DurableRemoteJob?): String {
-        if (job == null) return "A fonte está pronta. Inicie a separação em seis faixas quando quiser continuar."
+        if (job == null) return "A fonte está pronta. Inicie a separação para preparar base e guitarra de referência."
         val errorCode = job.errorCode
         if (errorCode?.startsWith("RETRY:") == true) {
             return when {
@@ -169,10 +171,10 @@ object PrepareJourneyPolicy {
             RemoteJobState.UPLOADING -> "Enviando a fonte para a nuvem…"
             RemoteJobState.READY -> "Fonte enviada. Preparando o processamento…"
             RemoteJobState.QUEUED -> "Aguardando início do processamento em nuvem…"
-            RemoteJobState.RUNNING -> "Separando a música em seis faixas…"
-            RemoteJobState.COMPLETED, RemoteJobState.IMPORTING -> "Baixando, validando e importando as faixas separadas…"
-            RemoteJobState.IMPORT_FAILED -> "O processamento em nuvem terminou, mas a importação precisa ser retomada. Os stems remotos foram preservados."
-            RemoteJobState.IMPORTED -> "Seis faixas separadas validadas"
+            RemoteJobState.RUNNING -> "Separando a música e preparando as referências na nuvem…"
+            RemoteJobState.COMPLETED, RemoteJobState.IMPORTING -> "Baixando, validando e importando base e guitarra de referência…"
+            RemoteJobState.IMPORT_FAILED -> "O processamento em nuvem terminou, mas a importação precisa ser retomada. Os resultados remotos foram preservados."
+            RemoteJobState.IMPORTED -> "Base e guitarra de referência validadas"
             RemoteJobState.CANCEL_REQUESTED -> "Cancelamento solicitado…"
             RemoteJobState.CANCELLED -> "Separação cancelada. Você pode iniciar novamente quando quiser."
             RemoteJobState.FAILED -> failureMessage(job.errorCode)
@@ -212,7 +214,7 @@ object PrepareJourneyPolicy {
             PrepareStageState.UPCOMING -> "Primeiro escolha uma fonte"
         }
         PrepareStage.SEPARATION -> when (state) {
-            PrepareStageState.COMPLETE -> "6 faixas prontas"
+            PrepareStageState.COMPLETE -> "Separação concluída"
             PrepareStageState.ATTENTION -> "A separação precisa de atenção"
             PrepareStageState.ACTIVE -> separationMessage(separationJob)
             PrepareStageState.UPCOMING -> "Depois da fonte"

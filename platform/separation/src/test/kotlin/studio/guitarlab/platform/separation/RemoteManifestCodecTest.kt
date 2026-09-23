@@ -15,6 +15,17 @@ class RemoteManifestCodecTest {
         val manifest=RemoteManifestCodec.decode(json.toByteArray());manifest.validateFor(RemoteJobIdentity(job,"p","source","b".repeat(64)));assertEquals(6,manifest.stems.size)
     }
     @Test fun malformedAndOversizedManifestFailClosed(){assertThrows(Exception::class.java){RemoteManifestCodec.decode("{}".toByteArray())};assertThrows(IllegalArgumentException::class.java){RemoteManifestCodec.decode(ByteArray(65537))}}
-    @Test fun wavParserRejectsWrongAndTruncatedContainers(){assertThrows(IllegalArgumentException::class.java){WavStructure.read(ByteArray(44))};val wav=wav(44100,2,4);val parsed=WavStructure.read(wav);assertEquals(44100,parsed.sampleRate);assertEquals(2,parsed.channels);assertEquals(4,parsed.frames);assertThrows(IllegalArgumentException::class.java){WavStructure.read(wav.copyOf(45))}}
+    @Test fun wavParserRejectsWrongAndTruncatedContainers(){assertThrows(IllegalArgumentException::class.java){WavStructure.read(ByteArray(44).inputStream())};val wav=wav(44100,2,4);val parsed=WavStructure.read(wav.inputStream());assertEquals(44100,parsed.sampleRate);assertEquals(2,parsed.channels);assertEquals(4,parsed.frames);assertThrows(IllegalArgumentException::class.java){WavStructure.read(wav.copyOf(45).inputStream())}}
+    @Test fun preparedReferenceV2ManifestParsesAndValidates() {
+        val job = UUID.randomUUID().toString()
+        val sha = "a".repeat(64)
+        val json = """{"schemaVersion":2,"jobId":"$job","uid":"u","projectId":"p","inputSha256":"${"b".repeat(64)}","engine":"demucs.cpp","engineRevision":"rc13","model":"htdemucs_6s","modelSha256":"${RemoteResultManifest.MODEL_SHA256}","sampleRate":44100,"channels":2,"frames":441,"duration":0.01,"startedAt":"2026-09-23T00:00:00Z","completedAt":"2026-09-23T00:00:01Z","wallTimeMs":1000,"vCPU":8,"blasThreads":2,"demucsThreads":4,"inferenceStrategy":"mt4_omp2","referenceRecipe":{"version":"prepared-reference-v2","targetPeakDbfs":-1.0,"sharedGainDb":-0.5,"backingStems":["drums","bass","other","vocals","piano"],"guitarStem":"guitar"},"deliverables":[{"name":"backing","role":"REFERENCE_BACKING","path":"remote/v1/users/u/jobs/$job/output/prepared/backing.wav","bytes":128,"sha256":"$sha","sampleRate":44100,"channels":2,"frames":441,"encoding":"FLOAT32_LE"},{"name":"guitar","role":"REFERENCE_GUITAR","path":"remote/v1/users/u/jobs/$job/output/prepared/guitar.wav","bytes":128,"sha256":"$sha","sampleRate":44100,"channels":2,"frames":441,"encoding":"FLOAT32_LE"}]}"""
+        val manifest = RemoteManifestCodec.decode(json.toByteArray())
+        manifest.validateFor(RemoteJobIdentity(job, "p", "source", "b".repeat(64)))
+        assertEquals(2, manifest.schemaVersion)
+        assertEquals(listOf("backing", "guitar"), manifest.deliverables.map { it.name })
+        assertTrue(manifest.stems.isEmpty())
+    }
+
     private fun wav(rate:Int,channels:Int,frames:Int):ByteArray { val data=frames*channels*2;val b=ByteBuffer.allocate(44+data).order(ByteOrder.LITTLE_ENDIAN);b.put("RIFF".toByteArray()).putInt(36+data).put("WAVEfmt ".toByteArray()).putInt(16).putShort(1).putShort(channels.toShort()).putInt(rate).putInt(rate*channels*2).putShort((channels*2).toShort()).putShort(16).put("data".toByteArray()).putInt(data);repeat(data){b.put(0)};return b.array() }
 }

@@ -6,7 +6,7 @@ GBW_REGION="${GBW_REGION:-us-central1}"
 gcloud config set project "$GBW_GCP_PROJECT"
 gcloud services enable run.googleapis.com artifactregistry.googleapis.com cloudbuild.googleapis.com \
   firestore.googleapis.com firebasestorage.googleapis.com cloudfunctions.googleapis.com \
-  identitytoolkit.googleapis.com firebaseappcheck.googleapis.com eventarc.googleapis.com pubsub.googleapis.com \
+  identitytoolkit.googleapis.com firebaseappcheck.googleapis.com eventarc.googleapis.com pubsub.googleapis.com cloudscheduler.googleapis.com \
   cloudbilling.googleapis.com firebaseextensions.googleapis.com storage.googleapis.com
 gcloud artifacts repositories describe gbw --location "$GBW_REGION" >/dev/null 2>&1 || \
   gcloud artifacts repositories create gbw --repository-format=docker --location "$GBW_REGION" --description "GBW immutable remote worker images"
@@ -22,9 +22,5 @@ gcloud projects add-iam-policy-binding "$GBW_GCP_PROJECT" --member "serviceAccou
 gcloud projects add-iam-policy-binding "$GBW_GCP_PROJECT" --member "serviceAccount:gbw-orchestrator@${GBW_GCP_PROJECT}.iam.gserviceaccount.com" --role roles/datastore.user --condition=None >/dev/null
 gcloud storage buckets add-iam-policy-binding "gs://${GBW_BUCKET}" --member "serviceAccount:gbw-orchestrator@${GBW_GCP_PROJECT}.iam.gserviceaccount.com" --role roles/storage.objectAdmin >/dev/null
 gcloud iam service-accounts add-iam-policy-binding "gbw-worker@${GBW_GCP_PROJECT}.iam.gserviceaccount.com" --member "serviceAccount:gbw-orchestrator@${GBW_GCP_PROJECT}.iam.gserviceaccount.com" --role roles/iam.serviceAccountUser >/dev/null
-cat > /tmp/gbw-lifecycle.json <<'JSON'
-{"rule":[{"action":{"type":"Delete"},"condition":{"age":1,"matchesPrefix":["remote/v1/users/"]}}]}
-JSON
-gcloud storage buckets update "gs://${GBW_BUCKET}" --lifecycle-file=/tmp/gbw-lifecycle.json
-rm -f /tmp/gbw-lifecycle.json
-echo "Infrastructure base provisioned without service-account keys."
+bash cloud/remote-separation/scripts/ensure-remote-storage-lifecycle.sh
+echo "Infrastructure base provisioned without service-account keys; remote/v1 fail-safe lifecycle=3 days."

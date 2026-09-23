@@ -558,7 +558,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         if (remoteCloudAuth.currentSession() == null) {
             _state.update {
                 it.copy(
-                    error = "Entre na conta da separação em nuvem em Opções → Conta e nuvem antes de iniciar.",
+                    error = "Entre na conta da separação em nuvem aqui em Preparar ou em Opções → Conta e nuvem antes de iniciar.",
                     message = null,
                 )
             }
@@ -587,7 +587,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         }
         runCatching { separation.resumeImport(projectId) }
             .onSuccess {
-                _state.update { it.copy(message = "Retomando download, validação e importação das faixas.", error = null) }
+                _state.update { it.copy(message = "Retomando download, validação e importação dos resultados preparados.", error = null) }
                 refreshSeparation(projectId)
             }
             .onFailure { error ->
@@ -753,22 +753,22 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                     errorCode.contains(":CHECKING_REMOTE:") -> "Consulta do processamento falhou temporariamente; nova tentativa agendada"
                     errorCode.contains(":UPLOADING:") -> "Envio da fonte foi interrompido; nova tentativa agendada"
                     errorCode.contains(":ENQUEUEING:") -> "Solicitação de separação não foi confirmada; nova tentativa agendada"
-                    errorCode.contains(":DOWNLOADING_RESULTS:") -> "Download/validação das faixas foi interrompido; nova tentativa agendada"
+                    errorCode.contains(":DOWNLOADING_RESULTS:") -> "Download/validação dos resultados foi interrompido; nova tentativa agendada"
                     errorCode.contains(":ACKNOWLEDGING:") -> "Confirmação da importação falhou temporariamente; nova tentativa agendada"
                     else -> "Falha temporária na separação; nova tentativa agendada"
                 }
             }
             return when (job.state) {
                 RemoteJobState.IMPORTED -> "Separação e referências concluídas"
-                RemoteJobState.IMPORT_FAILED -> "Processamento concluído; importação das faixas precisa ser retomada"
+                RemoteJobState.IMPORT_FAILED -> "Processamento concluído; importação dos resultados precisa ser retomada"
                 RemoteJobState.FAILED, RemoteJobState.EXPIRED -> "Não foi possível concluir a separação"
                 RemoteJobState.CANCEL_REQUESTED -> "Cancelamento da separação solicitado"
                 RemoteJobState.CANCELLED -> "Separação cancelada"
                 RemoteJobState.UPLOADING -> "Enviando fonte para processamento"
                 RemoteJobState.READY -> "Fonte enviada; preparando processamento"
                 RemoteJobState.QUEUED -> "Separação aguardando processamento"
-                RemoteJobState.RUNNING -> "Separando fonte"
-                RemoteJobState.COMPLETED, RemoteJobState.IMPORTING -> "Baixando, validando e importando faixas separadas"
+                RemoteJobState.RUNNING -> "Separando fonte e preparando referências"
+                RemoteJobState.COMPLETED, RemoteJobState.IMPORTING -> "Baixando, validando e importando base e guitarra"
             }
         }
 

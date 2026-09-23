@@ -11,7 +11,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import os
+import re
 import shutil
 import signal
 import struct
@@ -25,6 +27,10 @@ from pathlib import Path
 from typing import Callable
 
 STEMS = ("drums", "bass", "other", "vocals", "guitar", "piano")
+BACKING_STEMS = ("drums", "bass", "other", "vocals", "piano")
+REFERENCE_DELIVERABLES = ("backing", "guitar")
+REFERENCE_RECIPE = "prepared-reference-v2"
+TARGET_PEAK_DBFS = -1.0
 MODEL_NAME = "ggml-model-htdemucs-6s-f16.bin"
 MODEL_BYTES = 54_855_129
 MODEL_SHA256 = "09704f4ceae204e56e77d5eefd6ac71d7275be81fd507e6913371d59abcee856"
@@ -212,6 +218,91 @@ def normalize_outputs(raw_dir: Path, final_dir: Path) -> list[Path]:
     return outputs
 
 
+def run_ffmpeg(command: list[str], code: str, label: str, timeout: int = 600) -> None:
+    completed = subprocess.run(command, capture_output=True, text=True, timeout=timeout)
+    if completed.returncode:
+        raise WorkerError(code, f"{label}: {completed.stderr[-2000:]}")
+
+
+def mix_float(inputs: list[Path], output: Path) -> None:
+    if not inputs:
+        raise WorkerError("REFERENCE_RENDER_FAILED", "mix requires at least one input")
+    command = ["ffmpeg", "-nostdin", "-v", "error", "-y"]
+    for path in inputs:
+        command.extend(["-i", str(path)])
+    labels = "".join(f"[{index}:a]" for index in range(len(inputs)))
+    command.extend([
+        "-filter_complex",
+        f"{labels}amix=inputs={len(inputs)}:normalize=0:dropout_transition=0[mix]",
+        "-map", "[mix]",
+        "-map_metadata", "-1",
+        "-vn", "-ac", "2", "-ar", "44100", "-c:a", "pcm_f32le",
+        str(output),
+    ])
+    run_ffmpeg(command, "REFERENCE_RENDER_FAILED", f"mix failed for {output.name}")
+
+
+def peak_dbfs(path: Path) -> float:
+    completed = subprocess.run(
+        [
+            "ffmpeg", "-nostdin", "-hide_banner", "-v", "info", "-i", str(path),
+            "-af", "astats=metadata=1:reset=0", "-f", "null", "-",
+        ],
+        capture_output=True,
+        text=True,
+        timeout=600,
+    )
+    if completed.returncode:
+        raise WorkerError("REFERENCE_RENDER_FAILED", f"peak analysis failed: {completed.stderr[-2000:]}")
+    matches = re.findall(r"Peak level dB:\s*(-?inf|[-+0-9.]+)", completed.stderr, flags=re.IGNORECASE)
+    if not matches:
+        raise WorkerError("REFERENCE_RENDER_FAILED", f"peak analysis missing Peak level dB for {path.name}")
+    value = matches[-1].lower()
+    return float("-inf") if value == "-inf" else float(value)
+
+
+def apply_gain(source: Path, output: Path, gain_db: float) -> None:
+    run_ffmpeg(
+        [
+            "ffmpeg", "-nostdin", "-v", "error", "-y", "-i", str(source),
+            "-map_metadata", "-1", "-vn", "-ac", "2", "-ar", "44100",
+            "-af", f"volume={gain_db:.9f}dB", "-c:a", "pcm_f32le", str(output),
+        ],
+        "REFERENCE_RENDER_FAILED",
+        f"gain render failed for {output.name}",
+    )
+
+
+def render_prepared_references(outputs: list[Path], final_dir: Path) -> tuple[list[Path], float]:
+    by_name = dict(zip(STEMS, outputs))
+    if set(by_name) != set(STEMS):
+        raise WorkerError("REFERENCE_RENDER_FAILED", "six-stem set is incomplete")
+    final_dir.mkdir(parents=True, exist_ok=True)
+    backing_raw = final_dir / ".backing-raw.wav"
+    full_raw = final_dir / ".full-raw.wav"
+    backing = final_dir / "backing.wav"
+    guitar = final_dir / "guitar.wav"
+
+    mix_float([by_name[name] for name in BACKING_STEMS], backing_raw)
+    mix_float([backing_raw, by_name["guitar"]], full_raw)
+
+    peaks = [peak_dbfs(backing_raw), peak_dbfs(by_name["guitar"]), peak_dbfs(full_raw)]
+    finite_peaks = [value for value in peaks if math.isfinite(value)]
+    loudest_dbfs = max(finite_peaks) if finite_peaks else float("-inf")
+    shared_gain_db = min(0.0, TARGET_PEAK_DBFS - loudest_dbfs) if math.isfinite(loudest_dbfs) else 0.0
+
+    apply_gain(backing_raw, backing, shared_gain_db)
+    apply_gain(by_name["guitar"], guitar, shared_gain_db)
+
+    backing_contract = wav_contract(backing)
+    guitar_contract = wav_contract(guitar)
+    if backing_contract != guitar_contract:
+        raise WorkerError("REFERENCE_RENDER_FAILED", "prepared reference contracts differ")
+    backing_raw.unlink(missing_ok=True)
+    full_raw.unlink(missing_ok=True)
+    return [backing, guitar], shared_gain_db
+
+
 def demucs_command(config: Config, canonical: Path, raw_dir: Path) -> list[str]:
     command = [
         str(config.demucs_binary),
@@ -232,19 +323,29 @@ def inference_strategy(config: Config) -> str:
     )
 
 
-def build_manifest(config: Config, input_sha256: str, outputs: list[Path], started: str,
-                   started_monotonic: float) -> dict:
+def build_manifest(config: Config, input_sha256: str, outputs: list[Path], shared_gain_db: float,
+                   started: str, started_monotonic: float) -> dict:
     contracts = [wav_contract(path) for path in outputs]
     reference = contracts[0]
     if any(contract != reference for contract in contracts[1:]):
-        raise WorkerError("OUTPUT_INVALID", "stem duration contracts differ")
+        raise WorkerError("OUTPUT_INVALID", "prepared reference duration contracts differ")
     sample_rate, channels, frames, duration = reference
-    stem_rows = []
-    for name, path in zip(STEMS, outputs):
-        stem_rows.append({"name": name, "path": f"{config.prefix}/output/{name}.wav",
-                          "bytes": path.stat().st_size, "sha256": sha256_file(path)})
+    rows = []
+    roles = {"backing": "REFERENCE_BACKING", "guitar": "REFERENCE_GUITAR"}
+    for name, path in zip(REFERENCE_DELIVERABLES, outputs):
+        rows.append({
+            "name": name,
+            "role": roles[name],
+            "path": f"{config.prefix}/output/prepared/{name}.wav",
+            "bytes": path.stat().st_size,
+            "sha256": sha256_file(path),
+            "sampleRate": sample_rate,
+            "channels": channels,
+            "frames": frames,
+            "encoding": "FLOAT32_LE",
+        })
     return {
-        "schemaVersion": 1, "jobId": config.job_id, "uid": config.uid,
+        "schemaVersion": 2, "jobId": config.job_id, "uid": config.uid,
         "projectId": config.project_id, "inputSha256": input_sha256,
         "engine": "demucs.cpp", "engineRevision": ENGINE_REVISION,
         "model": "htdemucs_6s", "modelSha256": MODEL_SHA256,
@@ -256,9 +357,15 @@ def build_manifest(config: Config, input_sha256: str, outputs: list[Path], start
         "blasThreads": config.blas_threads,
         "demucsThreads": config.demucs_threads,
         "inferenceStrategy": inference_strategy(config),
-        "stems": stem_rows,
+        "referenceRecipe": {
+            "version": REFERENCE_RECIPE,
+            "targetPeakDbfs": TARGET_PEAK_DBFS,
+            "sharedGainDb": round(shared_gain_db, 9),
+            "backingStems": list(BACKING_STEMS),
+            "guitarStem": "guitar",
+        },
+        "deliverables": rows,
     }
-
 
 def report_terminal_failure(config: Config, code: str, message: str = "",
                             firestore_factory: Callable[[], object] | None = None) -> None:
@@ -358,15 +465,34 @@ def run(config: Config, storage_factory: Callable[[], object] | None = None) -> 
         if completed.returncode:
             raise WorkerError("DEMUCS_FAILED", f"Demucs exited {completed.returncode}")
         outputs = normalize_outputs(raw_dir, root / "final")
-        manifest = build_manifest(config, actual_input_sha, outputs, started, started_monotonic)
-        for path in outputs:
+        if job_document:
+            from google.cloud import firestore
+            job_document.update({
+                "phase": "PREPARING_REFERENCES",
+                "progress": 85,
+                "updatedAt": firestore.SERVER_TIMESTAMP,
+            })
+        prepared, shared_gain_db = render_prepared_references(outputs, root / "prepared")
+        manifest = build_manifest(config, actual_input_sha, prepared, shared_gain_db, started, started_monotonic)
+        if job_document:
+            from google.cloud import firestore
+            job_document.update({
+                "phase": "PUBLISHING_RESULTS",
+                "progress": 95,
+                "updatedAt": firestore.SERVER_TIMESTAMP,
+            })
+        for path in prepared:
             if job_document:
                 state = (job_document.get().to_dict() or {}).get("state")
                 if state in {"CANCEL_REQUESTED", "CANCELLED"}:
-                    raise WorkerError("JOB_CANCELLED", "job was cancelled while publishing output")
-            blob = bucket.blob(f"{config.prefix}/output/{path.name}")
+                    raise WorkerError("JOB_CANCELLED", "job was cancelled while publishing prepared references")
+            blob = bucket.blob(f"{config.prefix}/output/prepared/{path.name}")
             blob.upload_from_filename(str(path), content_type="audio/wav")
-            blob.metadata = {"sha256": sha256_file(path), "jobId": config.job_id}
+            blob.metadata = {
+                "sha256": sha256_file(path),
+                "jobId": config.job_id,
+                "resultContract": "prepared-reference-v2",
+            }
             blob.patch()
         manifest_bytes = json.dumps(manifest, separators=(",", ":"), sort_keys=True).encode()
         manifest_sha = hashlib.sha256(manifest_bytes).hexdigest()

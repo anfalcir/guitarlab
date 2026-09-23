@@ -24,119 +24,89 @@
     "blasThreads",
     "demucsThreads",
     "inferenceStrategy",
-    "stems"
+    "referenceRecipe",
+    "deliverables"
   ],
   "properties": {
-    "schemaVersion": {
-      "const": 1
-    },
-    "jobId": {
-      "type": "string",
-      "format": "uuid"
-    },
-    "uid": {
-      "type": "string",
-      "minLength": 1
-    },
-    "projectId": {
-      "type": "string",
-      "format": "uuid"
-    },
-    "inputSha256": {
-      "type": "string",
-      "pattern": "^[a-f0-9]{64}$"
-    },
-    "engine": {
-      "const": "demucs.cpp"
-    },
-    "engineRevision": {
-      "type": "string"
-    },
-    "model": {
-      "const": "htdemucs_6s"
-    },
-    "modelSha256": {
-      "const": "09704f4ceae204e56e77d5eefd6ac71d7275be81fd507e6913371d59abcee856"
-    },
-    "sampleRate": {
-      "const": 44100
-    },
-    "channels": {
-      "const": 2
-    },
-    "frames": {
-      "type": "integer",
-      "minimum": 1
-    },
-    "duration": {
-      "type": "number",
-      "exclusiveMinimum": 0
-    },
-    "startedAt": {
-      "type": "string",
-      "format": "date-time"
-    },
-    "completedAt": {
-      "type": "string",
-      "format": "date-time"
-    },
-    "wallTimeMs": {
-      "type": "integer",
-      "minimum": 0
-    },
-    "vCPU": {
-      "const": 8
-    },
-    "blasThreads": {
-      "const": 2
-    },
-    "stems": {
+    "schemaVersion": { "const": 2 },
+    "jobId": { "type": "string", "format": "uuid" },
+    "uid": { "type": "string", "minLength": 1 },
+    "projectId": { "type": "string", "format": "uuid" },
+    "inputSha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "engine": { "const": "demucs.cpp" },
+    "engineRevision": { "type": "string" },
+    "model": { "const": "htdemucs_6s" },
+    "modelSha256": { "const": "09704f4ceae204e56e77d5eefd6ac71d7275be81fd507e6913371d59abcee856" },
+    "sampleRate": { "const": 44100 },
+    "channels": { "const": 2 },
+    "frames": { "type": "integer", "minimum": 1 },
+    "duration": { "type": "number", "exclusiveMinimum": 0 },
+    "startedAt": { "type": "string", "format": "date-time" },
+    "completedAt": { "type": "string", "format": "date-time" },
+    "wallTimeMs": { "type": "integer", "minimum": 0 },
+    "vCPU": { "const": 8 },
+    "blasThreads": { "const": 2 },
+    "demucsThreads": { "const": 4 },
+    "inferenceStrategy": { "const": "mt4_omp2" },
+    "referenceRecipe": { "$ref": "#/$defs/referenceRecipe" },
+    "deliverables": {
       "type": "array",
-      "minItems": 6,
-      "maxItems": 6,
-      "items": {
-        "$ref": "#/$defs/stem"
-      }
-    },
-    "demucsThreads": {
-      "const": 4
-    },
-    "inferenceStrategy": {
-      "const": "mt4_omp2"
+      "minItems": 2,
+      "maxItems": 2,
+      "items": { "$ref": "#/$defs/deliverable" }
     }
   },
   "$defs": {
-    "stem": {
+    "referenceRecipe": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "targetPeakDbfs",
+        "sharedGainDb",
+        "backingStems",
+        "guitarStem"
+      ],
+      "properties": {
+        "version": { "const": "prepared-reference-v2" },
+        "targetPeakDbfs": { "const": -1.0 },
+        "sharedGainDb": { "type": "number", "maximum": 0.0 },
+        "backingStems": {
+          "type": "array",
+          "minItems": 5,
+          "maxItems": 5,
+          "uniqueItems": true,
+          "items": {
+            "enum": ["drums", "bass", "other", "vocals", "piano"]
+          }
+        },
+        "guitarStem": { "const": "guitar" }
+      }
+    },
+    "deliverable": {
       "type": "object",
       "additionalProperties": false,
       "required": [
         "name",
+        "role",
         "path",
         "bytes",
-        "sha256"
+        "sha256",
+        "sampleRate",
+        "channels",
+        "frames",
+        "encoding"
       ],
       "properties": {
-        "name": {
-          "enum": [
-            "drums",
-            "bass",
-            "other",
-            "vocals",
-            "guitar",
-            "piano"
-          ]
-        },
-        "path": {
-          "type": "string"
-        },
-        "bytes": {
-          "type": "integer",
-          "minimum": 45
-        },
-        "sha256": {
-          "type": "string",
-          "pattern": "^[a-f0-9]{64}$"
-        }
+        "name": { "enum": ["backing", "guitar"] },
+        "role": { "enum": ["REFERENCE_BACKING", "REFERENCE_GUITAR"] },
+        "path": { "type": "string" },
+        "bytes": { "type": "integer", "minimum": 45 },
+        "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "sampleRate": { "const": 44100 },
+        "channels": { "const": 2 },
+        "frames": { "type": "integer", "minimum": 1 },
+        "encoding": { "const": "FLOAT32_LE" }
       }
     }
   }

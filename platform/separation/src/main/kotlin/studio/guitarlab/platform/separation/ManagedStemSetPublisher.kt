@@ -5,14 +5,22 @@ import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.security.MessageDigest
 import kotlin.math.abs
+import studio.guitarlab.core.model.AssetRole
+import studio.guitarlab.core.project.PreparedReferenceProjectPublisher
+import studio.guitarlab.core.project.PreparedReferencePublicationRequest
 import studio.guitarlab.core.project.StemSetProjectPublisher
 import studio.guitarlab.core.project.StemSetPublicationRequest
+import studio.guitarlab.core.project.ValidatedPreparedReference
 import studio.guitarlab.core.project.ValidatedStem
 import studio.guitarlab.core.separation.RemoteJobIdentity
+import studio.guitarlab.core.separation.RemoteReference
 import studio.guitarlab.core.separation.RemoteResultManifest
 import studio.guitarlab.core.separation.RemoteStemPayload
 
-class ManagedStemSetPublisher(private val delegate: StemSetProjectPublisher) : studio.guitarlab.core.separation.RemoteStemPublisher {
+class ManagedStemSetPublisher(
+    private val delegate: StemSetProjectPublisher,
+    private val preparedDelegate: PreparedReferenceProjectPublisher? = null,
+) : studio.guitarlab.core.separation.RemoteStemPublisher {
     override fun publish(
         identity: RemoteJobIdentity,
         manifest: RemoteResultManifest,
@@ -55,6 +63,64 @@ class ManagedStemSetPublisher(private val delegate: StemSetProjectPublisher) : s
             ),
         )
     }
+
+    override fun publishReferences(
+        identity: RemoteJobIdentity,
+        manifest: RemoteResultManifest,
+        manifestSha256: String,
+        references: Map<String, RemoteStemPayload>,
+    ): Boolean {
+        require(manifest.schemaVersion == 2) { "prepared reference publisher requires manifest v2" }
+        val recipe = requireNotNull(manifest.referenceRecipe)
+        val validated = manifest.deliverables.map { entry ->
+            val payload = requireNotNull(references[entry.name])
+            require(payload.byteCount == entry.bytes && sha(payload.openStream()) == entry.sha256) {
+                "prepared reference integrity mismatch: ${entry.name}"
+            }
+            val wav = payload.openStream().use(WavStructure::read)
+            require(
+                wav.sampleRate == entry.sampleRate &&
+                    wav.channels == entry.channels &&
+                    wav.frames == entry.frames &&
+                    wav.sampleRate == manifest.sampleRate &&
+                    wav.channels == manifest.channels &&
+                    wav.frames == manifest.frames,
+            ) { "prepared reference audio contract mismatch: ${entry.name}" }
+            ValidatedPreparedReference(
+                name = entry.name,
+                role = role(entry),
+                byteCount = payload.byteCount,
+                sha256 = entry.sha256,
+                sampleRate = wav.sampleRate,
+                channels = wav.channels,
+                frames = wav.frames,
+                openStream = payload::openStream,
+            )
+        }
+        return requireNotNull(preparedDelegate) { "prepared reference delegate is not configured" }.publish(
+            PreparedReferencePublicationRequest(
+                projectId = identity.projectId,
+                jobId = identity.jobId,
+                sourceAssetId = identity.sourceAssetId,
+                sourceSha256 = identity.inputSha256,
+                manifestSha256 = manifestSha256,
+                engine = manifest.engine,
+                model = manifest.model,
+                modelSha256 = manifest.modelSha256,
+                recipeVersion = recipe.version,
+                targetPeakDbfs = recipe.targetPeakDbfs,
+                sharedGainDb = recipe.sharedGainDb,
+                references = validated,
+            ),
+        )
+    }
+
+    private fun role(reference: RemoteReference): AssetRole = when (reference.role) {
+        "REFERENCE_BACKING" -> AssetRole.REFERENCE_BACKING
+        "REFERENCE_GUITAR" -> AssetRole.REFERENCE_GUITAR
+        else -> error("unsupported prepared reference role: ${reference.role}")
+    }
+
 
     private fun sha(input: InputStream): String {
         val digest = MessageDigest.getInstance("SHA-256")

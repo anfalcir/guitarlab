@@ -6,6 +6,7 @@ import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 import java.security.MessageDigest
 import studio.guitarlab.core.separation.RemoteJobIdentity
+import studio.guitarlab.core.separation.RemoteReference
 import studio.guitarlab.core.separation.RemoteStem
 import studio.guitarlab.core.separation.RemoteStemPayload
 
@@ -18,26 +19,50 @@ internal class FileRemoteStemPayload(
 }
 
 internal class RemoteStemStaging(private val root: File) {
-    fun cached(identity: RemoteJobIdentity, stem: RemoteStem): FileRemoteStemPayload? {
-        val target = target(identity, stem)
+    fun cached(identity: RemoteJobIdentity, stem: RemoteStem): FileRemoteStemPayload? =
+        cached(identity, stem.name, stem.bytes, stem.sha256)
+
+    fun cached(identity: RemoteJobIdentity, reference: RemoteReference): FileRemoteStemPayload? =
+        cached(identity, reference.name, reference.bytes, reference.sha256)
+
+    fun partial(identity: RemoteJobIdentity, stem: RemoteStem): File =
+        partial(identity, stem.name)
+
+    fun partial(identity: RemoteJobIdentity, reference: RemoteReference): File =
+        partial(identity, reference.name)
+
+    fun commit(identity: RemoteJobIdentity, stem: RemoteStem, partial: File): FileRemoteStemPayload =
+        commit(identity, stem.name, stem.bytes, stem.sha256, partial)
+
+    fun commit(identity: RemoteJobIdentity, reference: RemoteReference, partial: File): FileRemoteStemPayload =
+        commit(identity, reference.name, reference.bytes, reference.sha256, partial)
+
+    private fun cached(identity: RemoteJobIdentity, name: String, bytes: Long, sha256: String): FileRemoteStemPayload? {
+        val target = target(identity, name)
         if (!target.isFile) return null
-        if (target.length() != stem.bytes || sha256(target) != stem.sha256) {
+        if (target.length() != bytes || sha256(target) != sha256) {
             target.delete()
             return null
         }
-        return FileRemoteStemPayload(stem.name, target)
+        return FileRemoteStemPayload(name, target)
     }
 
-    fun partial(identity: RemoteJobIdentity, stem: RemoteStem): File {
-        val target = target(identity, stem)
+    private fun partial(identity: RemoteJobIdentity, name: String): File {
+        val target = target(identity, name)
         target.parentFile?.mkdirs()
         return File(target.parentFile, ".${target.name}.part").also { it.delete() }
     }
 
-    fun commit(identity: RemoteJobIdentity, stem: RemoteStem, partial: File): FileRemoteStemPayload {
-        require(partial.isFile && partial.length() == stem.bytes) { "RESULT_INVALID" }
-        require(sha256(partial) == stem.sha256) { "RESULT_INVALID" }
-        val target = target(identity, stem)
+    private fun commit(
+        identity: RemoteJobIdentity,
+        name: String,
+        bytes: Long,
+        expectedSha256: String,
+        partial: File,
+    ): FileRemoteStemPayload {
+        require(partial.isFile && partial.length() == bytes) { "RESULT_INVALID" }
+        require(sha256(partial) == expectedSha256) { "RESULT_INVALID" }
+        val target = target(identity, name)
         try {
             Files.move(
                 partial.toPath(),
@@ -48,7 +73,7 @@ internal class RemoteStemStaging(private val root: File) {
         } catch (_: Exception) {
             Files.move(partial.toPath(), target.toPath(), StandardCopyOption.REPLACE_EXISTING)
         }
-        return FileRemoteStemPayload(stem.name, target)
+        return FileRemoteStemPayload(name, target)
     }
 
     fun clear(identity: RemoteJobIdentity) {
@@ -58,9 +83,9 @@ internal class RemoteStemStaging(private val root: File) {
     fun bytes(identity: RemoteJobIdentity): Long =
         directory(identity).walkTopDown().filter { it.isFile && !it.name.endsWith(".part") }.sumOf { it.length() }
 
-    private fun target(identity: RemoteJobIdentity, stem: RemoteStem): File {
-        require(stem.name.matches(Regex("[a-z0-9_-]{1,32}"))) { "RESULT_INVALID" }
-        return File(directory(identity), "${stem.name}.wav")
+    private fun target(identity: RemoteJobIdentity, name: String): File {
+        require(name.matches(Regex("[a-z0-9_-]{1,32}"))) { "RESULT_INVALID" }
+        return File(directory(identity), "$name.wav")
     }
 
     private fun directory(identity: RemoteJobIdentity): File =

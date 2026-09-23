@@ -34,6 +34,7 @@ object ProjectLifecyclePolicy {
     private fun PreparationState.stableCopy(): PreparationState = copy(
         status = when {
             sourceAssetId == null -> PreparationStatus.NOT_STARTED
+            activeBackingAssetId != null && activeGuitarAssetId != null -> PreparationStatus.READY
             activeStemAssetIds.size == 6 -> PreparationStatus.READY
             else -> PreparationStatus.SOURCE_READY
         },

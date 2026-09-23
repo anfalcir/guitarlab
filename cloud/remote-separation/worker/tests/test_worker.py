@@ -175,5 +175,64 @@ class WorkerContractTest(unittest.TestCase):
                 worker.Config.from_env()
 
 
+    def test_manifest_v2_exposes_only_prepared_deliverables(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            backing = root / "backing.wav"
+            guitar = root / "guitar.wav"
+            float_wav(backing)
+            float_wav(guitar)
+            config = SimpleNamespace(
+                prefix="remote/v1/users/u/jobs/00000000-0000-4000-8000-000000000001",
+                job_id="00000000-0000-4000-8000-000000000001",
+                uid="u",
+                project_id="00000000-0000-4000-8000-000000000002",
+                blas_threads=2,
+                demucs_threads=4,
+            )
+            with mock.patch.dict(os.environ, {"GBW_VCPU": "8"}, clear=False):
+                manifest = worker.build_manifest(
+                    config,
+                    "a" * 64,
+                    [backing, guitar],
+                    -0.75,
+                    "2026-09-23T00:00:00+00:00",
+                    0.0,
+                )
+            self.assertEqual(manifest["schemaVersion"], 2)
+            self.assertNotIn("stems", manifest)
+            self.assertEqual([row["name"] for row in manifest["deliverables"]], ["backing", "guitar"])
+            self.assertEqual(
+                [row["role"] for row in manifest["deliverables"]],
+                ["REFERENCE_BACKING", "REFERENCE_GUITAR"],
+            )
+            self.assertEqual(manifest["referenceRecipe"]["version"], "prepared-reference-v2")
+            self.assertEqual(manifest["referenceRecipe"]["sharedGainDb"], -0.75)
+
+    def test_reference_render_uses_one_shared_gain_for_backing_and_guitar(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            stems = []
+            for stem in worker.STEMS:
+                path = root / f"{stem}.wav"
+                float_wav(path)
+                stems.append(path)
+
+            def fake_mix(_inputs, output):
+                float_wav(output)
+
+            def fake_gain(source, output, _gain_db):
+                output.write_bytes(source.read_bytes())
+
+            with mock.patch.object(worker, "mix_float", side_effect=fake_mix), \
+                 mock.patch.object(worker, "peak_dbfs", side_effect=[-0.2, -3.0, -0.1]), \
+                 mock.patch.object(worker, "apply_gain", side_effect=fake_gain):
+                outputs, gain_db = worker.render_prepared_references(stems, root / "prepared")
+
+            self.assertAlmostEqual(gain_db, -0.9, places=6)
+            self.assertEqual([path.name for path in outputs], ["backing.wav", "guitar.wav"])
+            self.assertEqual(worker.wav_contract(outputs[0]), worker.wav_contract(outputs[1]))
+
+
 if __name__ == "__main__":
     unittest.main()

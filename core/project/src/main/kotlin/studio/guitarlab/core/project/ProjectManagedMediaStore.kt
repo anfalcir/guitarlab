@@ -50,7 +50,17 @@ class ProjectManagedMediaStore(
     /** Removes only unreferenced staging files owned by one remote separation job. */
     fun discardAbandonedStemSet(projectId: String, jobId: String) {
         require(jobId.matches(Regex("[A-Za-z0-9-]{1,64}"))) { "Invalid remote job id." }
-        val directory = File(projectDirectory(projectId), STEM_DIRECTORY)
+        discardJobFiles(projectId, STEM_DIRECTORY, jobId)
+    }
+
+    /** Removes only unreferenced prepared-reference files owned by one remote separation job. */
+    fun discardAbandonedReferenceSet(projectId: String, jobId: String) {
+        require(jobId.matches(Regex("[A-Za-z0-9-]{1,64}"))) { "Invalid remote job id." }
+        discardJobFiles(projectId, REFERENCE_DIRECTORY, jobId)
+    }
+
+    private fun discardJobFiles(projectId: String, directoryName: String, jobId: String) {
+        val directory = File(projectDirectory(projectId), directoryName)
         directory.listFiles { file -> file.isFile && file.name.contains("-$jobId-") }
             .orEmpty()
             .forEach { file -> runCatching { file.delete() } }
