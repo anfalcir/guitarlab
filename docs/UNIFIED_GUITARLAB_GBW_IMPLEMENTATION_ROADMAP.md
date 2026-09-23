@@ -2095,7 +2095,7 @@ Signed candidate frozen. No source change after freeze except through a new cand
 
 ## U12 — Consolidated physical homologation and cutover
 
-**Status:** READY — rc7 passed exact-source software, API36 and signing gates on Android CI #792 / run `35810108338`. The target-device source-search corrective now uses AGP-supported native-library packaging, one controlled yt-dlp runtime refresh/retry and fail-closed provider semantics. Final U12 physical homologation remains pending; previously passed U4/U7 evidence remains applicable because this corrective does not change the cloud boundary.
+**Status:** CORRECTIVE ACTIVE — rc7 passed its digital gates but is withdrawn after physical testing exposed an orphaned separation across deferred WorkManager execution/reboot. Rc8 is being hardened across durable client identity, state-directed resume/cancel and cloud source identity/cancellation races. U12 resumes only after exact-source Android, real-cloud and signed-candidate gates pass.
 
 ### Objective
 Validate only what digital systems cannot prove, ideally in one manual campaign.

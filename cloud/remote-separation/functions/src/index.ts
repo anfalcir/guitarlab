@@ -37,6 +37,7 @@ export const enqueueRemoteSeparation = onCall({region, enforceAppCheck: false, t
   const data = request.data || {};
   const jobId = text(data.jobId, "jobId", JOB_ID);
   const projectId = text(data.projectId, "projectId", uuid);
+  const sourceAssetId = text(data.sourceAssetId, "sourceAssetId", /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/);
   const inputSha256 = text(data.inputSha256, "inputSha256", SHA256);
   const inputPath = text(data.inputPath, "inputPath", new RegExp(`^remote/v1/users/${uid}/jobs/${jobId}/input/source\\.[a-z0-9]{1,8}$`));
   const [metadata] = await storage.bucket(bucketName).file(inputPath).getMetadata();
@@ -56,13 +57,13 @@ export const enqueueRemoteSeparation = onCall({region, enforceAppCheck: false, t
       transaction.get(db.collection(`users/${uid}/jobs`).where("state", "in", [...ACTIVE_STATES]).limit(2)),
     ]);
     if (jobSnapshot.exists) {
-      if (!isIdempotentJob(jobSnapshot.data() || {}, projectId, inputSha256)) throw new HttpsError("already-exists", "jobId conflict.");
+      if (!isIdempotentJob(jobSnapshot.data() || {}, projectId, sourceAssetId, inputSha256)) throw new HttpsError("already-exists", "jobId conflict.");
       return;
     }
     if (!activeSnapshot.empty) throw new HttpsError("resource-exhausted", "One remote job is already active.");
     const accepted = Number(usageSnapshot.data()?.acceptedJobs || 0);
     if (accepted >= MAX_MONTHLY_JOBS) throw new HttpsError("resource-exhausted", "Monthly remote quota reached.");
-    transaction.create(jobRef, {schemaVersion: 1, uid, projectId, inputPath, inputSha256, state: "QUEUED", progress: 0,
+    transaction.create(jobRef, {schemaVersion: 1, uid, projectId, sourceAssetId, inputPath, inputSha256, state: "QUEUED", progress: 0,
       phase: "QUEUED", createdAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp(), remoteCleanupState: "NONE"});
     transaction.set(usageRef, {acceptedJobs: FieldValue.increment(1), updatedAt: FieldValue.serverTimestamp()}, {merge: true});
     shouldExecute = true;
@@ -93,7 +94,11 @@ export const cancelRemoteSeparation = onCall({region, enforceAppCheck: false, ti
   const jobId = text(request.data?.jobId, "jobId", JOB_ID);
   const ref = db.doc(`users/${uid}/jobs/${jobId}`);
   const snapshot = await ref.get();
-  if (!snapshot.exists) throw new HttpsError("not-found", "Job not found.");
+  if (!snapshot.exists) {
+    await storage.bucket(bucketName).deleteFiles({prefix: `remote/v1/users/${uid}/jobs/${jobId}/`})
+      .catch(error => logger.warn("orphan cancel cleanup failed", {jobId, error: String(error)}));
+    return {jobId, state: "CANCELLED", idempotent: true, orphan: true};
+  }
   const current = snapshot.data() || {};
   if (["CANCELLED", "FAILED", "EXPIRED", "IMPORTED"].includes(current.state)) return {jobId, state: current.state, idempotent: true};
   await ref.update({state: "CANCEL_REQUESTED", updatedAt: FieldValue.serverTimestamp()});

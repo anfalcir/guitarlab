@@ -19,14 +19,22 @@ test("input path is namespaced", () =>
     "remote/v1/users/u/jobs/123e4567-e89b-42d3-a456-426614174000/input/source.mp3",
   ));
 
-test("idempotency binds project and hash", () => {
+test("idempotency binds project, source asset, and hash", () => {
   const hash = "a".repeat(64);
   assert.equal(
-    isIdempotentJob({projectId: "p", inputSha256: hash}, "p", hash),
+    isIdempotentJob({projectId: "p", sourceAssetId: "source", inputSha256: hash}, "p", "source", hash),
     true,
   );
   assert.equal(
-    isIdempotentJob({projectId: "p", inputSha256: hash}, "x", hash),
+    isIdempotentJob({projectId: "p", sourceAssetId: "source", inputSha256: hash}, "x", "source", hash),
+    false,
+  );
+  assert.equal(
+    isIdempotentJob({projectId: "p", sourceAssetId: "source", inputSha256: hash}, "p", "other-source", hash),
+    false,
+  );
+  assert.equal(
+    isIdempotentJob({projectId: "p", inputSha256: hash}, "p", "source", hash),
     false,
   );
 });

@@ -1,8 +1,8 @@
 # U12 — Final Physical Homologation — GuitarLab
 
-Updated: 2026-09-22  
-Status: **READY — RC7 DIGITAL PASS; FINAL PHYSICAL HOMOLOGATION PENDING**
-Target candidate: `0.5.0-rc7` / versionCode `27` / producer `74274dd51ad75a7d4b9e15a82fe4b64ba448c498`
+Updated: 2026-09-23
+Status: **CORRECTIVE ACTIVE — RC7 WITHDRAWN; RC8 DIGITAL VALIDATION PENDING**
+Target candidate: pending rc8 corrective validation (`0.5.0-rc8` / versionCode `28`). Rc7 is withdrawn from final approval.
 Package: `studio.guitarlab.app`  
 Target device: Samsung SM-X230 / Android 16 / API 36  
 Audio hardware: M-VAVE MK-300 over USB  
@@ -12,6 +12,8 @@ Exact rc7 candidate binding:
 - producer SHA: `74274dd51ad75a7d4b9e15a82fe4b64ba448c498`;
 - Android CI: #792 / run `35810108338`;
 - signed artifact: `GuitarLabStudio-0.5.0-rc7-homologacao` / artifact id `10729009613`;
+
+Rc7 physical finding (2026-09-23): a separation requested before the tablet's scheduled reboot never crossed the cloud boundary and remained visually active; cancellation could not resolve it because the client persisted the job identity only inside the deferred worker. Cloud correlation found no corresponding Storage input, Firestore job, Functions invocation or Cloud Run execution. Rc8 must close persistence-before-scheduling, reboot resume, cancellation routing/terminalization and cloud identity binding. Repeat only Prepare separation across lock/reboot, cancel/retry and adjacent activity/backup smoke; unrelated physical evidence remains reusable.
 - signed APK SHA-256: `142b892b375d495df90030806843e66a2f884a0e1023aefad183d9fe46304e44`;
 - signed APK size: `79,937,168` bytes;
 - signer SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`;

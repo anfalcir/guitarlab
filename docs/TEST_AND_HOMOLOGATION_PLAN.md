@@ -20,7 +20,7 @@ U10 evidence:
 
 The latest signed authority is Android CI #792 / run `35810108338`, producer `74274dd51ad75a7d4b9e15a82fe4b64ba448c498`, package `studio.guitarlab.app`, `0.5.0-rc7` / versionCode `27`, signed APK SHA-256 `142b892b375d495df90030806843e66a2f884a0e1023aefad183d9fe46304e44`.
 
-Rc7 is CLOSED / DIGITAL PASS and is the active U12 candidate. Rc6 remains historical evidence only and is withdrawn from final approval. The rc7 corrective changes only Android source-discovery/runtime packaging/error semantics; cloud backend contracts remain unchanged.
+Rc7 is CLOSED / DIGITAL PASS but is withdrawn from final U12 approval. Physical testing found an orphan-before-dispatch path: the project was marked as separating before the durable job identity existed, and after the scheduled tablet reboot neither resume nor cancellation could act on that missing identity. Cloud evidence confirms no matching Storage input, Firestore job, Functions invocation or Cloud Run execution. Rc8 must persist identity before WorkManager scheduling, route resume according to the durable state, make cancellation terminal and idempotent, bind `sourceAssetId` through the backend contract, reject late publication after cancellation, and re-pass Android plus real-cloud gates before physical retest.
 
 Drive provider-real acceptance remains closed by U8m:
 `U8m PASS · r_1790095960 · cleanup 8/8/14`;

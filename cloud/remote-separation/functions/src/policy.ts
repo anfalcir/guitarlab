@@ -14,8 +14,8 @@ export function inputPath(uid: string, jobId: string, extension: string): string
   return `remote/v1/users/${uid}/jobs/${jobId}/input/source.${extension.toLowerCase()}`;
 }
 
-export function isIdempotentJob(existing: Record<string, unknown>, projectId: string, hash: string): boolean {
-  return existing.projectId === projectId && existing.inputSha256 === hash;
+export function isIdempotentJob(existing: Record<string, unknown>, projectId: string, sourceAssetId: string, hash: string): boolean {
+  return existing.projectId === projectId && existing.sourceAssetId === sourceAssetId && existing.inputSha256 === hash;
 }
 
 export function requireAckable(state: unknown): void {

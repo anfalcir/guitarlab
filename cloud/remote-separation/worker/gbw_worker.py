@@ -306,6 +306,10 @@ def run(config: Config, storage_factory: Callable[[], object] | None = None) -> 
     job_document = firestore_client.document(f"users/{config.uid}/jobs/{config.job_id}") if firestore_client else None
     if job_document:
         from google.cloud import firestore
+        current = job_document.get()
+        current_state = (current.to_dict() or {}).get("state") if current.exists else None
+        if current_state in {"CANCEL_REQUESTED", "CANCELLED"}:
+            raise WorkerError("JOB_CANCELLED", "job was cancelled before worker start")
         job_document.update({
             "state": "RUNNING",
             "phase": "RUNNING",
@@ -356,12 +360,20 @@ def run(config: Config, storage_factory: Callable[[], object] | None = None) -> 
         outputs = normalize_outputs(raw_dir, root / "final")
         manifest = build_manifest(config, actual_input_sha, outputs, started, started_monotonic)
         for path in outputs:
+            if job_document:
+                state = (job_document.get().to_dict() or {}).get("state")
+                if state in {"CANCEL_REQUESTED", "CANCELLED"}:
+                    raise WorkerError("JOB_CANCELLED", "job was cancelled while publishing output")
             blob = bucket.blob(f"{config.prefix}/output/{path.name}")
             blob.upload_from_filename(str(path), content_type="audio/wav")
             blob.metadata = {"sha256": sha256_file(path), "jobId": config.job_id}
             blob.patch()
         manifest_bytes = json.dumps(manifest, separators=(",", ":"), sort_keys=True).encode()
         manifest_sha = hashlib.sha256(manifest_bytes).hexdigest()
+        if job_document:
+            state = (job_document.get().to_dict() or {}).get("state")
+            if state in {"CANCEL_REQUESTED", "CANCELLED"}:
+                raise WorkerError("JOB_CANCELLED", "job was cancelled before result commit")
         manifest_blob = bucket.blob(f"{config.prefix}/output/result-manifest.json")
         manifest_blob.metadata = {"sha256": manifest_sha, "jobId": config.job_id}
         manifest_blob.upload_from_string(manifest_bytes, content_type="application/json")
