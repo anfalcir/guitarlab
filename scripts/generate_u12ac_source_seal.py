@@ -86,7 +86,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 PREVIOUS = ROOT / "scripts/materialize_ci_sources_u12ab.py"
-PATCH_B64 = ROOT / ".source-parts/U12acRemotePreparedReferencesV2Rc13.patch.b64"
+PATCH_B64 = ROOT / ".source-parts/U12acRc13QualificationCorrectives.patch.b64"
 PATCH_B64_BLOB = {b64_blob!r}
 PATCH_BLOB = {patch_blob!r}
 FILES = {json.dumps(hashes, sort_keys=True, indent=2)}
