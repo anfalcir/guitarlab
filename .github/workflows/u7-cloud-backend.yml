@@ -122,35 +122,12 @@ jobs:
         with:
           version: '585.0.0'
 
-      - name: Set up Node.js
-        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
-        with:
-          node-version: '22'
-
-      - name: Install pinned Firebase CLI
-        run: npm install --global firebase-tools@15.30.2
-
-      - name: Deploy anonymous Authentication config only
+      - name: Enable and verify anonymous Authentication through Identity Toolkit
         shell: bash
         run: |
           set -euo pipefail
-          firebase deploy             --config cloud/remote-separation/firebase.json             --project "$GBW_GCP_PROJECT"             --only auth             --force             --non-interactive
-
-      - name: Verify anonymous Authentication is enabled remotely
-        shell: bash
-        run: |
-          set -euo pipefail
-          token="$(gcloud auth print-access-token)"
-          curl -fsS             -H "Authorization: Bearer $token"             "https://identitytoolkit.googleapis.com/admin/v2/projects/$GBW_GCP_PROJECT/config"             > u7-auth-config.json
-          python3 - <<'PY'
-          import json
-          with open("u7-auth-config.json", encoding="utf-8") as f:
-              config = json.load(f)
-          enabled = config.get("signIn", {}).get("anonymous", {}).get("enabled")
-          assert enabled is True, f"anonymous auth not enabled: {enabled!r}"
-          print("anonymous_auth=ENABLED")
-          PY
-          printf 'source_sha=%s\nanonymous_auth=ENABLED\n' "$GITHUB_SHA" > u7-auth-evidence.txt
+          bash cloud/remote-separation/scripts/ensure-anonymous-auth.sh u7-auth-config.json | tee u7-auth-evidence.txt
+          printf 'source_sha=%s\n' "$GITHUB_SHA" >> u7-auth-evidence.txt
 
       - name: Upload Authentication evidence
         uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4
