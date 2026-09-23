@@ -110,12 +110,12 @@ for artifact in "${DELIVERABLES[@]}"; do
   gcloud storage cp "gs://${GBW_BUCKET}/${PREFIX}/output/prepared/${artifact}.wav" "$TMP/${artifact}.wav" >/dev/null
 done
 
-python3 - "$TMP" "$JOB_ID" "$PROJECT_ID" "$INPUT_SHA" "$MODEL_SHA256" <<'PY'
+python3 - "$TMP" "$JOB_ID" "$PROJECT_ID" "$INPUT_SHA" "$MODEL_SHA256" "$TEST_UID" "$PREFIX" <<'PY'
 import hashlib,json,pathlib,sys
-root=pathlib.Path(sys.argv[1]); job,project,input_sha,model_sha=sys.argv[2:]
+root=pathlib.Path(sys.argv[1]); job,project,input_sha,model_sha,uid,prefix=sys.argv[2:]
 raw=(root/"result-manifest.json").read_bytes(); m=json.loads(raw)
 assert m["schemaVersion"]==2
-assert m["jobId"]==job and m["projectId"]==project and m["inputSha256"]==input_sha
+assert m["jobId"]==job and m["uid"]==uid and m["projectId"]==project and m["inputSha256"]==input_sha
 assert m["engine"]=="demucs.cpp" and m["model"]=="htdemucs_6s" and m["modelSha256"]==model_sha
 assert m["sampleRate"]==44100 and m["channels"]==2 and int(m["frames"])>0 and float(m["duration"])>0
 assert "stems" not in m
@@ -128,6 +128,7 @@ rows=m["deliverables"]
 assert [row["name"] for row in rows]==["backing","guitar"]
 assert [row["role"] for row in rows]==["REFERENCE_BACKING","REFERENCE_GUITAR"]
 for row in rows:
+    assert row["path"]==f"{prefix}/output/prepared/{row['name']}.wav"
     p=root/(row["name"]+".wav")
     data=p.read_bytes()
     assert len(data)==int(row["bytes"]) and len(data)>44

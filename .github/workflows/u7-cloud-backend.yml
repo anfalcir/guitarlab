@@ -101,6 +101,7 @@ jobs:
           grep -q 'remote_storage_lifecycle=PASS age_days=3 prefix=remote/v1/users/' cloud/remote-separation/scripts/ensure-remote-storage-lifecycle.sh
           grep -q 'remote_prefix = "remote/v1/users/"' cloud/remote-separation/scripts/ensure-remote-storage-lifecycle.sh
           grep -q 'roles/firebaseauth.admin' cloud/remote-separation/scripts/bootstrap-github-actions.sh
+          grep -q 'roles/iam.serviceAccountTokenCreator' scripts/bootstrap_u4_github_wif.sh
           grep -q 'updateMask=signIn.email.enabled,signIn.email.passwordRequired,signIn.anonymous.enabled' cloud/remote-separation/scripts/ensure-email-password-auth.sh
           grep -q 'allowlisted_password_users=PASS' cloud/remote-separation/scripts/verify-allowlisted-auth-users.sh
           grep -q 'Anonymous Firebase Authentication is intentionally disabled' cloud/remote-separation/scripts/ensure-anonymous-auth.sh
