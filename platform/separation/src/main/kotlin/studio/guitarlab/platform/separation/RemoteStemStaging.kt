@@ -19,6 +19,29 @@ internal class FileRemoteStemPayload(
 }
 
 internal class RemoteStemStaging(private val root: File) {
+    fun cachedManifest(identity: RemoteJobIdentity): ByteArray? {
+        val target = File(directory(identity), "result-manifest.json")
+        if (!target.isFile) return null
+        if (target.length() !in 2L..65_536L) {
+            target.delete()
+            return null
+        }
+        return target.readBytes()
+    }
+
+    fun commitManifest(identity: RemoteJobIdentity, bytes: ByteArray): ByteArray {
+        require(bytes.size in 2..65_536) { "RESULT_INVALID" }
+        val target = File(directory(identity), "result-manifest.json")
+        val partial = File(target.parentFile, ".result-manifest.json.part")
+        partial.writeBytes(bytes)
+        try {
+            Files.move(partial.toPath(), target.toPath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
+        } catch (_: Exception) {
+            Files.move(partial.toPath(), target.toPath(), StandardCopyOption.REPLACE_EXISTING)
+        }
+        return bytes
+    }
+
     fun cached(identity: RemoteJobIdentity, stem: RemoteStem): FileRemoteStemPayload? =
         cached(identity, stem.name, stem.bytes, stem.sha256)
 

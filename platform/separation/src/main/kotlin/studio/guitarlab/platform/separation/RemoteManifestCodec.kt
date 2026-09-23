@@ -10,6 +10,7 @@ object RemoteManifestCodec {
         val schemaVersion = root.reqInt("schemaVersion")
         val common = Common(
             jobId = root.reqString("jobId"),
+            uid = root["uid"]?.jsonPrimitive?.contentOrNull,
             projectId = root.reqString("projectId"),
             inputSha256 = root.reqString("inputSha256"),
             engine = root.reqString("engine"),
@@ -69,6 +70,7 @@ object RemoteManifestCodec {
 
     private data class Common(
         val jobId: String,
+        val uid: String?,
         val projectId: String,
         val inputSha256: String,
         val engine: String,
@@ -101,6 +103,7 @@ object RemoteManifestCodec {
             schemaVersion = schemaVersion,
             deliverables = deliverables,
             referenceRecipe = referenceRecipe,
+            uid = uid,
         )
     }
 
