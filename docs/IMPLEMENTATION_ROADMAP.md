@@ -1,8 +1,8 @@
 # Implementation Roadmap
 
-Updated: 2026-09-22
+Updated: 2026-09-23
 
-> **Current unified-line authority (2026-09-22):** the historical H29-H37 sections below remain architecture/evidence context. The active release path is the unified U0-U12 roadmap. U10/C8 and U11 are CLOSED / DIGITAL PASS. The latest signed authority is Android CI #783 / run `35793456972`, producer `4218e4343746932a4de61c5abaa29ba5769a30ed`, `0.5.0-rc5` / versionCode `25`. U12 is the only remaining stable-release physical campaign.
+> **Current unified-line authority (2026-09-23):** historical H29-H37 remains architecture/evidence context. U10/C8 and U11 are CLOSED / DIGITAL PASS. U12 is active on the exact signed rc9 candidate produced by `635124acfbf133553a96c8b2013f2245f58a6877`; Android CI #794, U4 #111 and U7 #69 are green. Rc8 is withdrawn after the physical orphan-reconciliation finding.
 
 ## Milestones
 - **M1 — Foundation:** CLOSED.
@@ -14,14 +14,18 @@ Updated: 2026-09-22
 - **M8 — Release hardening / unified successor:** historical H29-H37 evidence is absorbed; unified U10/C8 is digitally closed and U11/U12 own final release freeze + physical residual.
 
 ## Current signed authority
-**Android CI #783** / run `35793456972` / producer `4218e4343746932a4de61c5abaa29ba5769a30ed` is the latest signed DIGITAL PASS (`0.5.0-rc5` / versionCode `25`).
 
-Signed APK SHA-256: `795839766f2b7546af53b2c56a0638b11c25b79622fe73cce5860b5602f050e0`.
+**Android CI #794** / run `35856278980` / producer `635124acfbf133553a96c8b2013f2245f58a6877` is the latest signed DIGITAL PASS (`0.5.0-rc9` / versionCode `29`).
 
-H28 backup/provider-consistency behavior has subsequently passed the user's target-device functional check and is now a protected regression contract.
+Signed APK SHA-256: `4fcf529b935a584217b3b882ca8dfa05e3c360f99cfe9d70071080175439dd6c`.
+
+The same producer passed U4 Cloud Integration Smoke #111. U7 Cloud Backend #69 passed source/container/security verification with deploy skipped. The locked signer remains `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
 
 ## Current release closure
-U10/C8 is digitally closed. Direct Drive v3 production acceptance is closed by U8m, and the final unified candidate no longer carries an H37 pre-gate. U11 must freeze/sign exactly one rc5 candidate and prove the final exact-source cloud/security/documentation gates; U12 then validates only real-device MK-300 routing/capture/isolation, timing/listening, reconnect, 10-minute quality and target-device ergonomics.
+
+U10/C8 and U11 are digitally closed. U12 is active on rc9. U12k closes the second remote-separation orphan class exposed physically in rc8: a durable local active record is no longer sufficient evidence that a remote job exists. Missing-remote and retry-exhaustion paths now converge to terminal local states while preserving the accepted source and protecting newer generations.
+
+The next required evidence is physical: install/upgrade rc9 over the actual stuck rc8 project, verify automatic convergence/source preservation/retry, confirm the new separation crosses the cloud boundary and survives background/reboot/cancel, then complete only the remaining hardware/subjective U12 residuals.
 
 ## Approved post-H28 implementation path
 Detailed authority: `POST_H28_HARDENING_AND_EXTERNAL_CONTROL_PLAN.md`.

@@ -1,6 +1,6 @@
 # Unified GuitarLab + GBW — Master Integration Roadmap
 
-Updated: 2026-09-22
+Updated: 2026-09-23
 Status: **APPROVED SUCCESSOR PROGRAM / PLANNING AUTHORITY**  
 Canonical repository: **anfalcir/guitarlab**  
 Target Android package: **studio.guitarlab.app**  
@@ -2095,7 +2095,7 @@ Signed candidate frozen. No source change after freeze except through a new cand
 
 ## U12 — Consolidated physical homologation and cutover
 
-**Status:** READY — rc8 passed Android CI #793 / run `35849669669`, U4 real-cloud smoke #110 / run `35849764475`, and U7 production deploy/post-deploy smoke #68 / run `35849761427` at exact producer `68ddfd98ad61bd32f412872ab0332a7f6e97b60e`. The signed rc8 candidate closes durable identity before scheduling, upgrade recovery for rc7 orphans, state-directed reboot resume/cancel, backend source identity and late-result cancellation guards. Final physical retest remains pending only for the affected Prepare/background scenarios plus adjacent smoke.
+**Status:** READY — rc9 passed Android CI #794 / run `35856278980`, U4 real-cloud smoke #111 / run `35856278976`, and U7 backend verification #69 / run `35856279117` at exact producer `635124acfbf133553a96c8b2013f2245f58a6877`. Rc8 is withdrawn after physical testing exposed a durable local `CANCEL_REQUESTED` job with no remote counterpart. Rc9 makes remote existence authoritative for remote-required states, bounds retry terminalization, preserves the accepted source generation and prevents late old terminal records from masking newer active work. Final U12 physical approval is pending on the exact signed rc9 candidate.
 
 ### Objective
 Validate only what digital systems cannot prove, ideally in one manual campaign.
@@ -2224,9 +2224,9 @@ When current implementation differs from target design, ARCHITECTURE describes w
 | U7 Cloud source consolidation | DIGITAL PASS — verify `35675871322`, shadow `35676232948`, production `35677341933` at cloud source `e459e5e413ab2dea00b61a9f2f60375d9823e048` | none; rollback path retained |
 | U8 Unified Drive backup | **CLOSED / DIGITAL PASS** — U8m exact technical source `2375dcb72983376cb486eccf41faf1734633cc94`; Android CI #757 / run `35753982993` PASS; real Drive `U8m PASS · r_1790095960 · cleanup 8/8/14`; report SHA-256 `84efb70615be8ef5939da538eee5f714f7311aa6d44dd5bb2cdd0b5e9e66b702` | closed; no remaining U8 owner dependency |
 | U9 Legacy migration | RETIRED — no implementation required by owner decision (2026-09-21) | none |
-| U10 Global hardening | **ACTIVE** — entered after U8m/U8 closure | none beyond external service smoke |
-| U11 Final digital gate | NOT STARTED | canonical CI dispatch under current policy |
-| U12 Final physical homologation | NOT STARTED | owner/manual target hardware |
+| U10 Global hardening | **CLOSED / DIGITAL PASS** — Android CI #781 / run `35791192802` | none |
+| U11 Final digital gate | **CLOSED / DIGITAL PASS** — historical rc5 freeze at Android CI #783 | none |
+| U12 Final physical homologation | **ACTIVE — rc9 DIGITAL PASS; physical PASS pending** | focused rc9 orphan-recovery retest + remaining hardware-only acceptance |
 
 A Work session updates this table only after objective evidence.
 

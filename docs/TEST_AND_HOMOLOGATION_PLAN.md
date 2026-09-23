@@ -1,6 +1,6 @@
 # Test and Homologation Plan
 
-Updated: 2026-09-22
+Updated: 2026-09-23
 
 ## Current evidence boundary
 
@@ -18,17 +18,34 @@ U10 evidence:
 - deterministic visual review PASS;
 - signed homologation intentionally skipped because U11 owns final freeze/signing.
 
-The latest signed authority is Android CI #793 / run `35849669669`, producer `68ddfd98ad61bd32f412872ab0332a7f6e97b60e`, package `studio.guitarlab.app`, `0.5.0-rc8` / versionCode `28`, signed APK SHA-256 `b9d1633aabaea9ffb5fde06f586c04cf951860138a274173574f08c5cab5447a`.
+The latest signed authority is Android CI #794 / run `35856278980`, producer `635124acfbf133553a96c8b2013f2245f58a6877`, package `studio.guitarlab.app`, `0.5.0-rc9` / versionCode `29`, signed APK SHA-256 `4fcf529b935a584217b3b882ca8dfa05e3c360f99cfe9d70071080175439dd6c`.
 
-Rc7 is CLOSED / DIGITAL PASS but is withdrawn from final U12 approval. Physical testing found an orphan-before-dispatch path: the project was marked as separating before the durable job identity existed, and after the scheduled tablet reboot neither resume nor cancellation could act on that missing identity. Cloud evidence confirms no matching Storage input, Firestore job, Functions invocation or Cloud Run execution. Rc8 must persist identity before WorkManager scheduling, route resume according to the durable state, make cancellation terminal and idempotent, bind `sourceAssetId` through the backend contract, reject late publication after cancellation, and re-pass Android plus real-cloud gates before physical retest.
+Rc8 is CLOSED / DIGITAL PASS but withdrawn from final U12 approval after physical testing exposed the second orphan class: a durable local `CANCEL_REQUESTED` job can exist with no Firestore/Cloud Run counterpart. Treating local durability as proof of remote existence left the UI indefinitely active.
 
-Rc8 closes that corrective digitally at producer `68ddfd98ad61bd32f412872ab0332a7f6e97b60e`: Android CI #793 / run `35849669669` PASS, U4 real-cloud smoke #110 / run `35849764475` PASS, and U7 production deploy/post-deploy smoke #68 / run `35849761427` PASS. The signed candidate is `0.5.0-rc8` / versionCode `28`, artifact id `10745995732`, APK SHA-256 `b9d1633aabaea9ffb5fde06f586c04cf951860138a274173574f08c5cab5447a`. Physical retest is limited to upgrading over the orphaned rc7 state, starting separation across lock/reboot, cancel-before-dispatch/cancel-in-flight, retry, Activity visibility and adjacent backup smoke.
+Rc9 closes this corrective digitally on the exact producer:
+- Android CI #794 / run `35856278980`: exact materialization, unit/performance, Lint, build, API36 and signing PASS;
+- U4 Cloud Integration Smoke #111 / run `35856278976`: real six-stem Cloud Run smoke PASS;
+- U7 Cloud Backend #69 / run `35856279117`: backend source/container/security verification PASS; deploy skipped;
+- signed artifact id `10748475073`;
+- APK SHA-256 `4fcf529b935a584217b3b882ca8dfa05e3c360f99cfe9d70071080175439dd6c`;
+- signer SHA-256 `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
+
+Protected rc9 regression coverage:
+- `CANCEL_REQUESTED + remote missing` terminalizes locally as `CANCELLED`;
+- `RUNNING/COMPLETED/IMPORTING + remote missing` terminalizes as `EXPIRED`;
+- pre-dispatch `UPLOADING/READY/QUEUED + remote missing` retains idempotent replay;
+- cancellation and worker retry exhaustion cannot leave a durable nonterminal state forever;
+- `SOURCE_READY` recovery requires the same source generation and absence of a newer active job;
+- project snapshot selection prefers a newer/current active generation over a late terminal record from an older job;
+- API36 verifies the recovered-orphan UI preserves the accepted source, hides raw backend error codes and exposes retry.
+
+Physical retest is limited first to upgrading over the actual rc8 stuck state, confirming automatic convergence/source preservation/retry, then verifying the new job crosses the real cloud boundary across background/reboot/cancel. Unrelated accepted physical evidence remains reusable under the U12 invalidation rule.
 
 Drive provider-real acceptance remains closed by U8m:
 `U8m PASS · r_1790095960 · cleanup 8/8/14`;
 sanitized report SHA-256 `84efb70615be8ef5939da538eee5f714f7311aa6d44dd5bb2cdd0b5e9e66b702`.
 
-The rc5→rc6 corrective delta contains no cloud/backend/workflow/cloud-smoke source change, so the U11 U4 real-cloud separation smoke and U7 backend/security verification remain applicable. U12 resumes on rc7; the Prepare source-search flow and adjacent navigation/background-operation smoke must be repeated, while unaffected physical evidence may be reused according to the U12 invalidation rule.
+Historical rc5→rc8 evidence remains traceable but does not supersede rc9. U12 resumes on rc9; only the orphan-recovery/Prepare/background scenarios affected by U12k plus adjacent smoke must be repeated, while unrelated physical evidence may be reused according to the U12 invalidation rule.
 
 ## H29-H36c digital closure
 CI #663 digitally closes H29-H36c on exact source. The H34/H35 take-synchronization, silent-verification and quieter calibration code is therefore covered by the canonical unit/Lint/build/API36/signing pipeline.

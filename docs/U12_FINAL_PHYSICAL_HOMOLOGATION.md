@@ -1,46 +1,65 @@
 # U12 — Final Physical Homologation — GuitarLab
 
 Updated: 2026-09-23
-Status: **READY — RC8 DIGITAL PASS; FINAL PHYSICAL HOMOLOGATION PENDING**
-Target candidate: `0.5.0-rc8` / versionCode `28` / producer `68ddfd98ad61bd32f412872ab0332a7f6e97b60e`. Rc7 is withdrawn from final approval.
-Package: `studio.guitarlab.app`  
-Target device: Samsung SM-X230 / Android 16 / API 36  
-Audio hardware: M-VAVE MK-300 over USB  
+Status: **READY — RC9 DIGITAL PASS; FOCUSED PHYSICAL RETEST + REMAINING PHYSICAL HOMOLOGATION PENDING**
+Target candidate: `0.5.0-rc9` / versionCode `29` / producer `635124acfbf133553a96c8b2013f2245f58a6877`
+Package: `studio.guitarlab.app`
+Target device: Samsung SM-X230 / Android 16 / API 36
+Audio hardware: M-VAVE MK-300 over USB
 Hardware loopback baseline: **OFF**
 
-Exact rc7 candidate binding:
-- producer SHA: `74274dd51ad75a7d4b9e15a82fe4b64ba448c498`;
-- Android CI: #792 / run `35810108338`;
-- signed artifact: `GuitarLabStudio-0.5.0-rc7-homologacao` / artifact id `10729009613`;
-
-Rc7 physical finding (2026-09-23): a separation requested before the tablet's scheduled reboot never crossed the cloud boundary and remained visually active; cancellation could not resolve it because the client persisted the job identity only inside the deferred worker. Cloud correlation found no corresponding Storage input, Firestore job, Functions invocation or Cloud Run execution. Rc8 must close persistence-before-scheduling, reboot resume, cancellation routing/terminalization and cloud identity binding. Repeat only Prepare separation across lock/reboot, cancel/retry and adjacent activity/backup smoke; unrelated physical evidence remains reusable.
-
-Exact rc8 candidate binding: Android CI #793 / run `35849669669`; U4 Cloud Integration Smoke #110 / run `35849764475`; U7 Cloud Backend production deploy #68 / run `35849761427`; signed artifact `GuitarLabStudio-0.5.0-rc8-homologacao` / id `10745995732`; APK SHA-256 `b9d1633aabaea9ffb5fde06f586c04cf951860138a274173574f08c5cab5447a`; size `79,941,264` bytes; signer SHA-256 `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
-- signed APK SHA-256: `142b892b375d495df90030806843e66a2f884a0e1023aefad183d9fe46304e44`;
-- signed APK size: `79,937,168` bytes;
+## Exact rc9 candidate binding
+- Android CI: #794 / run `35856278980` — PASS;
+- U4 Cloud Integration Smoke: #111 / run `35856278976` — PASS, real six-stem Cloud Run contract;
+- U7 Cloud Backend: #69 / run `35856279117` — PASS, source/container/security verification; deploy skipped;
+- signed artifact: `GuitarLabStudio-0.5.0-rc9-homologacao` / artifact id `10748475073`;
+- signed APK SHA-256: `4fcf529b935a584217b3b882ca8dfa05e3c360f99cfe9d70071080175439dd6c`;
+- signed APK size: `79,945,360` bytes;
+- artifact ZIP SHA-256: `86077306c01afc80a07ba10b14080aec9fdb1a6a2e6416ef193bad190d274f53`;
 - signer SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`;
 - Android digital gate: exact-source materialization/unit/performance/Lint/build/API36/signing PASS.
 
-Exact rc6 candidate binding:
-- producer SHA: `d0926e9dbd231b6d91c19448279fe8749d182ba1`;
-- Android CI: #789 / run `35807008698`;
-- signed artifact: `GuitarLabStudio-0.5.0-rc6-homologacao` / artifact id `10728840806`;
-- signed APK SHA-256: `4bc76565c74366d89df23db2e6410e77976a1cc827a79486ceec629fd16112b6`;
-- signed APK size: `82,894,480` bytes;
-- signer SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`;
-- Android digital gate: unit/performance/Lint/build/API36/signing PASS.
+## Target-device rc8 finding and rc9 corrective
 
-Cloud-source continuity:
-- the rc5→rc6 corrective delta changes no `cloud/` source, U4/U7 workflow or cloud-smoke script;
-- U4 Cloud Integration Smoke #104 / run `35793456955` remains applicable for the unchanged real six-stem Cloud Run contract;
-- U7 Cloud Backend #62 / run `35793456941` remains applicable for the unchanged backend tests/security/container contract.
+Rc8 improved persistence-before-scheduling and reboot/cancellation routing, but physical retest exposed a second orphan class: the local durable job itself can exist while no corresponding Firestore/Cloud Run job exists. The observed project remained in `CANCEL_REQUESTED`; Cloud correlation found no remote execution for that job identity.
 
-Historical U11 rc5 binding:
-- producer SHA: `4218e4343746932a4de61c5abaa29ba5769a30ed`;
-- Android CI: #783 / run `35793456972`;
-- signed APK SHA-256: `795839766f2b7546af53b2c56a0638b11c25b79622fe73cce5860b5602f050e0`.
+Root cause in rc8:
+- orphan recovery treated any local nonterminal durable job as evidence that the separation was still valid;
+- `CANCEL_REQUESTED` therefore blocked the project-level `SOURCE_READY` recovery;
+- cancellation retries could exhaust while leaving the local durable state nonterminal;
+- reconciliation did not terminalize `RUNNING/COMPLETED/IMPORTING/CANCEL_REQUESTED` when backend status returned no job.
 
-A later docs-only commit never changes the APK producer identity. Rc5 remains historical evidence only and is no longer eligible for final U12 approval.
+Rc9 closes the lifecycle end to end:
+- backend existence is authoritative for remote-required durable states;
+- `UPLOADING/READY/QUEUED` with no remote job is replayed idempotently;
+- `CANCEL_REQUESTED` with no remote job becomes local `CANCELLED`;
+- `RUNNING/COMPLETED/IMPORTING` with no remote job becomes `EXPIRED`;
+- cancellation retry is bounded and terminalizes safely on exhaustion;
+- general worker retry exhaustion also terminalizes rather than leaving a phantom active operation;
+- accepted source recovery is guarded by source generation and by absence of a newer active job;
+- project snapshot selection prefers a current active generation over a late terminal record from an older job;
+- Activity copy distinguishes “cancelamento solicitado” from terminal cancellation.
+
+Automated coverage includes the exact `CANCEL_REQUESTED + backend.status()==null` scenario, other missing-remote states, bounded failures, source-generation protection, stale-terminal race and an API36 recovered-orphan retry surface.
+
+## Focused rc9 corrective physical retest
+
+Before broader U12 continuation, use the actual project/device state that reproduced the rc8 defect:
+
+- [ ] upgrade/install the exact rc9 APK without deleting the affected project;
+- [ ] open the project/Prepare screen that was stuck at `CANCEL_REQUESTED`;
+- [ ] the old orphan converges to a terminal state and does **not** remain indefinitely in “Cancelamento solicitado…”;
+- [ ] the accepted source remains present and unchanged;
+- [ ] the UI exposes “Tentar separação novamente” / equivalent retry path;
+- [ ] start a new separation and confirm the new job has a distinct identity;
+- [ ] confirm that this new job actually crosses the cloud boundary (Firestore/Functions/Cloud Run correlation);
+- [ ] background/foreground and one reboot while pending preserve/reconcile the correct new job;
+- [ ] cancel-before-dispatch or cancel-in-flight reaches a terminal state and permits another attempt;
+- [ ] an old terminal job never masks the newer active generation;
+- [ ] Activity reflects requested vs terminal cancellation coherently;
+- [ ] adjacent project navigation and backup smoke remain healthy.
+
+Rc8, rc7, rc6 and rc5 are historical evidence only and are not eligible for final approval.
 
 ## Target-device rc6 finding
 
@@ -76,14 +95,13 @@ Legacy standalone GBW/H37/pre-unification migration is out of scope. H33 real ex
 ## Candidate binding
 
 Before starting:
-- [ ] install only the exact signed rc6 replacement APK after its digital gate closes;
-- [ ] producer SHA matches the rc6 replacement release evidence;
+- [ ] install/upgrade only the exact signed rc9 APK produced by `635124acfbf133553a96c8b2013f2245f58a6877`;
 - [ ] package is `studio.guitarlab.app`;
-- [ ] version is `0.5.0-rc6` / `26`;
-- [ ] APK SHA-256 matches the rc6 replacement checksum;
+- [ ] version is `0.5.0-rc9` / versionCode `29`;
+- [ ] APK SHA-256 is `4fcf529b935a584217b3b882ca8dfa05e3c360f99cfe9d70071080175439dd6c`;
 - [ ] signer SHA-256 is `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`;
 - [ ] device is Samsung SM-X230 / Android 16 / API 36;
-- [ ] MK-300 is connected through the intended normal-use USB/hub/power topology;
+- [ ] MK-300 is connected through the intended normal-use USB/hub/power topology for audio-specific residual checks;
 - [ ] MK-300 hardware loopback is OFF.
 
 ## 1. Installation and current-project smoke
@@ -171,14 +189,18 @@ Perform one representative continuous session of at least 10 minutes with playba
 
 Using normal network/account conditions:
 
+- [ ] the focused rc9 orphan-recovery retest above passes first;
 - [ ] source search/import interaction is usable on the target tablet;
-- [ ] real cloud separation can be initiated and its progress/status understood;
-- [ ] leaving/reopening the app/project does not confuse ownership/status;
+- [ ] a new real cloud separation can be initiated and its progress/status understood;
+- [ ] local job identity correlates to the intended Firebase/Cloud Run processing identity;
+- [ ] leaving/reopening the app/project and rebooting once do not confuse ownership/status;
+- [ ] a local durable job with no remote counterpart converges safely instead of remaining active forever;
+- [ ] cancellation reaches a terminal state even if the remote job is absent or cancellation cannot be confirmed after bounded retries;
 - [ ] completed six-stem preparation reaches Ready for Studio;
 - [ ] prepared backing/reference is usable in Studio without manual reimport;
 - [ ] if a new reference revision is available, Update/Keep-current choice is understandable and non-destructive.
 
-The server protocol itself is already digitally gated; U12 judges target-device/account/network interaction and resulting audio usability.
+The six-stem server protocol and rc9 recovery contracts are digitally gated; U12 judges target-device/network interaction and resulting audio usability.
 
 ## 8. Real Drive account and backup/restore
 

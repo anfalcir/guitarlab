@@ -30,17 +30,40 @@ Updated: 2026-09-23
 
 ## Active line
 - Repository/branch: `anfalcir/guitarlab` / `main`.
-- **rc8 is CLOSED / DIGITAL PASS and is the active U12 physical-homologation candidate.** Android CI #793 / run `35849669669` passed at exact producer `68ddfd98ad61bd32f412872ab0332a7f6e97b60e`; the initial API36 dependency-resolution attempt received Maven Central HTTP 429, and the failed-job rerun passed the complete instrumented gate. U4 Cloud Integration Smoke #110 / run `35849764475` passed, and U7 Cloud Backend #68 / run `35849761427` passed production deploy plus post-deploy six-stem smoke.
-- Version: `0.5.0-rc8` / versionCode `28` / package `studio.guitarlab.app`.
-- Signed rc8 APK SHA-256: `b9d1633aabaea9ffb5fde06f586c04cf951860138a274173574f08c5cab5447a`; size `79,941,264` bytes; signer SHA-256 `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`; artifact `GuitarLabStudio-0.5.0-rc8-homologacao` / id `10745995732`.
-- rc7 corrects the target-device source-search defect by hardening the embedded yt-dlp runtime path, performing one controlled runtime refresh/retry, distinguishing provider failure from genuine zero-result search, and using AGP-supported legacy JNI packaging for the native runtime.
-- Signed rc7 APK SHA-256: `142b892b375d495df90030806843e66a2f884a0e1023aefad183d9fe46304e44`.
-- Signed rc7 APK size: `79,937,168` bytes.
+- **rc9 is CLOSED / DIGITAL PASS and is the active U12 physical-homologation candidate.**
+- Exact producer: `635124acfbf133553a96c8b2013f2245f58a6877`.
+- Version/package: `0.5.0-rc9` / versionCode `29` / `studio.guitarlab.app`.
+- Android CI #794 / run `35856278980`: PASS — exact materialization, unit tests, performance evidence, Android Lint, debug/release build, API 36 grouped regression and signed homologation.
+- U4 Cloud Integration Smoke #111 / run `35856278976`: PASS — controlled real six-stem Cloud Run contract on the same producer.
+- U7 Cloud Backend #69 / run `35856279117`: PASS — backend source/container/security verification; controlled deploy step skipped.
+- Signed artifact: `GuitarLabStudio-0.5.0-rc9-homologacao` / artifact id `10748475073`.
+- Signed APK SHA-256: `4fcf529b935a584217b3b882ca8dfa05e3c360f99cfe9d70071080175439dd6c`; size `79,945,360` bytes.
+- Signed artifact ZIP digest: `sha256:86077306c01afc80a07ba10b14080aec9fdb1a6a2e6416ef193bad190d274f53`.
 - Locked signer SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
-- rc6 remains historical digital evidence only and is withdrawn from final approval.
-- The rc7 corrective changes no `cloud/`, U4/U7 workflow or cloud-smoke source; existing U4/U7 cloud evidence remains applicable to that unchanged boundary.
-- U12 is **READY / PHYSICAL PASS PENDING** on rc7.
-- CI supports manual dispatch and controlled `[run ci]` / `[run ci signed]` triggers on `main`; ordinary commits remain `[skip ci]`.
+- rc8 is withdrawn from final approval after the target tablet reproduced a local `CANCEL_REQUESTED` separation with no remote Firestore/Cloud Run job. Rc9 closes that second orphan class: local durable state is no longer treated as proof of remote existence.
+- Rc9 recovery rules: missing remote + `UPLOADING/READY/QUEUED` replays idempotently; missing remote + `CANCEL_REQUESTED` terminalizes `CANCELLED`; missing remote + `RUNNING/COMPLETED/IMPORTING` terminalizes `EXPIRED`; exhausted cancellation/worker retries terminalize instead of leaving an eternal active state.
+- Source recovery is generation-safe: `SOURCE_READY` is restored only for the same source generation and only when no newer active job exists. Active jobs outrank late terminal records in project snapshot selection.
+- U12 is **READY / PHYSICAL PASS PENDING** on rc9. Existing unrelated physical evidence remains reusable under the U12 invalidation rule.
+- CI supports manual dispatch and controlled `[run ci]` / `[run ci signed]` / `[run u4 cloud]` / `[run u7 cloud]` triggers on `main`; ordinary docs commits remain `[skip ci]`.
+
+## U12 rc9 candidate evidence
+- exact producer: `635124acfbf133553a96c8b2013f2245f58a6877`;
+- Android CI #794 / run `35856278980`: PASS;
+- U4 Cloud Integration Smoke #111 / run `35856278976`: PASS;
+- U7 Cloud Backend #69 / run `35856279117`: PASS, deploy skipped;
+- source materialization tail: U12k, fail-closed hash/reverse-apply guards PASS;
+- unit coverage includes remote-missing `CANCEL_REQUESTED`, `RUNNING`, `COMPLETED` and `IMPORTING`, bounded cancel failure, source-generation ownership and stale-terminal-vs-new-active selection;
+- API 36 includes recovered-orphan retry UI with accepted source preserved and raw backend error hidden;
+- signed artifact: `GuitarLabStudio-0.5.0-rc9-homologacao` / artifact id `10748475073`;
+- signed APK SHA-256: `4fcf529b935a584217b3b882ca8dfa05e3c360f99cfe9d70071080175439dd6c`;
+- signed APK size: `79,945,360` bytes;
+- signer SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`;
+- final target-device acceptance remains pending under `docs/U12_FINAL_PHYSICAL_HOMOLOGATION.md`.
+
+## U12 rc8 historical corrective evidence
+- exact producer: `68ddfd98ad61bd32f412872ab0332a7f6e97b60e`;
+- Android CI #793 / U4 #110 / U7 #68: DIGITAL PASS;
+- rc8 is withdrawn from final U12 approval because physical testing proved that a local active record could itself be orphaned from the backend and remain stuck in `CANCEL_REQUESTED`.
 
 ## U12 rc7 replacement-candidate evidence
 - exact producer: `74274dd51ad75a7d4b9e15a82fe4b64ba448c498`;

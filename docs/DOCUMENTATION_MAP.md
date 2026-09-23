@@ -1,13 +1,13 @@
 # Documentation map
 
-Updated: 2026-09-22
+Updated: 2026-09-23
 
 ## Authority rule
 Repository documentation is split into **live authority**, **normative contracts**, and **historical evidence**.
 
 A historical document may intentionally contain an old statement such as “current”, “latest”, “pending”, an old branch name or an old hardware target because it preserves contemporaneous evidence. Such statements apply only to that document's dated context and **never override the live authority set below**.
 
-## Live authority — unified line through U11 closure / U12 rc6 signed physical candidate
+## Live authority — unified line through U11 closure / U12 rc9 signed physical candidate
 Use these first for current status, release identity and remaining work:
 - `README.md` — repository entry point;
 - `CURRENT_STATE.md` — current unified source candidate, latest signed authority and remaining digital/physical residual;
@@ -30,7 +30,8 @@ Use these first for current status, release identity and remaining work:
 - `U12_FINAL_PHYSICAL_HOMOLOGATION.md` — current target-device checklist recording rc5 findings and the pending rc6 replacement binding;
 - `RELEASE_NOTES_0.5.0-rc3.md` — historical signed RC3 behavior delta;
 - `RELEASE_NOTES_0.5.0-rc4.md` — H37/H37a/H37b RC4 delta and historical source-pre-gate narrative; its signed gate was later closed by CI #669;
-- `RELEASE_NOTES_0.5.0-rc5.md` — current signed U11 rc5/25 candidate identity, digital gate and U12 physical residual;
+- `RELEASE_NOTES_0.5.0-rc5.md` — historical U11 rc5/25 freeze evidence;
+- `RELEASE_NOTES_0.5.0-rc9.md` — current signed U12 corrective candidate identity, remote-orphan reconciliation delta and focused physical retest;
 - `H35_TAKE_SYNC_QUIET_CALIBRATION.md` — global-vs-take synchronization and quiet/silent calibration contract;
 - `H36_SETTINGS_UX_POLISH.md` — Settings/calibration presentation refinement plus H36a/H36b/H36c corrective history and #663 DIGITAL PASS evidence.
 
@@ -45,7 +46,7 @@ Drive result `U8m PASS · r_1790095960 · cleanup 8/8/14`, report SHA-256
 **U10/C8 is CLOSED / DIGITAL PASS** on Android CI #781 / run `35791192802`,
 exact technical source `2aa97aa8b2c3af91d35e7d48a0eeb89c2c330e63`, with 23/23
 instrumented classes, 76 observed API36 tests and 24/24 retained visual artifacts.
-**U11 rc5 is CLOSED / DIGITAL PASS evidence; U12 is paused for an rc6 corrective candidate.** The latest signed release authority remains Android CI #783 / run `35793456972`, producer `4218e4343746932a4de61c5abaa29ba5769a30ed`, package `studio.guitarlab.app`, `0.5.0-rc5` / versionCode `25`, but rc5 is withdrawn from final physical approval.
+**U11 remains CLOSED / DIGITAL PASS historical evidence; U12 is active on rc9.** Android CI #794 / run `35856278980`, producer `635124acfbf133553a96c8b2013f2245f58a6877`, is the current signed authority. U4 #111 and U7 #69 are green on the same producer; final physical approval remains pending.
 
 ## Normative subsystem contracts
 These define behavior and remain valid unless explicitly superseded:
@@ -71,11 +72,22 @@ These are preserved for traceability and must not be used as current-state autho
 - milestone-specific evidence such as `M2_HOMOLOGATION_EVIDENCE.md`, `H22_AUDIO_ROUTE_UX.md`, `H24_HOME_PROJECT_LIBRARY.md`, `H25_UI_SETTINGS_SAFETY.md`, `H26D_MATERIALIZER_RECOVERY.md`, `H26E_CI650_DIGITAL_PASS.md` and similar exact-source records.
 
 ## Current evidence boundary
-CI #783 / run `35793456972` / producer `4218e4343746932a4de61c5abaa29ba5769a30ed` is the latest signed DIGITAL PASS. The signed job passed on package `studio.guitarlab.app`, version `0.5.0-rc5` / code `25`, with certificate SHA-256 `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
+Android CI #794 / run `35856278980` / producer `635124acfbf133553a96c8b2013f2245f58a6877` is the latest signed DIGITAL PASS for package `studio.guitarlab.app`, version `0.5.0-rc9` / code `29`.
 
-Signed APK SHA-256: `795839766f2b7546af53b2c56a0638b11c25b79622fe73cce5860b5602f050e0`.
+Signed APK SHA-256: `4fcf529b935a584217b3b882ca8dfa05e3c360f99cfe9d70071080175439dd6c`.
+Signer SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
 
-U10/C8 technical closure remains preserved at exact source `2aa97aa8b2c3af91d35e7d48a0eeb89c2c330e63` / Android CI #781. U11 subsequently froze and signed the exact rc5 candidate at producer `4218e4343746932a4de61c5abaa29ba5769a30ed` / Android CI #783. U8m real-provider acceptance remains supporting authority: `U8m PASS · r_1790095960 · cleanup 8/8/14`, sanitized report SHA-256 `84efb70615be8ef5939da538eee5f714f7311aa6d44dd5bb2cdd0b5e9e66b702`. Historical #663/H36c and H37/H37a/H37b evidence remains preserved for traceability. Remaining hardware-only acceptance is the consolidated U12 physical campaign; H33 real-controller physical acceptance remains a separate 1.1 boundary unless later roadmap authority supersedes it.
+Same-producer supporting evidence:
+- U4 Cloud Integration Smoke #111 / run `35856278976`: PASS, real six-stem Cloud Run contract;
+- U7 Cloud Backend #69 / run `35856279117`: PASS, source/container/security verification; deploy skipped;
+- exact-source materialization tail U12k: PASS;
+- API36 recovered-orphan UI regression: PASS.
+
+Rc8 is retained as historical DIGITAL PASS but withdrawn from physical approval because the target device proved a durable local `CANCEL_REQUESTED` job can be orphaned from the remote backend. Rc9 is the first candidate that closes both project-without-local-job and local-job-without-remote-job recovery classes.
+
+U10/C8 technical closure remains preserved at exact source `2aa97aa8b2c3af91d35e7d48a0eeb89c2c330e63` / Android CI #781. U11 rc5 remains the historical freeze. U8m real-provider Drive acceptance remains supporting authority: `U8m PASS · r_1790095960 · cleanup 8/8/14`, report SHA-256 `84efb70615be8ef5939da538eee5f714f7311aa6d44dd5bb2cdd0b5e9e66b702`.
+
+Remaining release work is U12 physical acceptance on rc9, beginning with the focused orphan-recovery upgrade/retry/reboot/cancel retest. H33 external-controller physical acceptance remains a separate 1.1 boundary unless later roadmap authority supersedes it.
 
 ## Repository audits
 - `REPOSITORY_SANITIZATION_2026-09-20.md` records the branch audit supporting a single-branch (`main`) repository cleanup.

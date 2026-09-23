@@ -1,6 +1,6 @@
 # Architectural and Product Decisions
 
-Updated: 2026-09-20
+Updated: 2026-09-23
 
 This log records decisions that must survive chat/context loss. Historical decisions remain binding unless a later numbered decision explicitly supersedes them.
 
@@ -294,3 +294,18 @@ After all six authoritative stems are validated and published, the default backi
 The normal user path must not stop at a redundant “Criar base e referência” confirmation.
 
 A manual rebuild/retry action remains valid after failure or for an explicitly requested future alternate recipe. Automatic generation does not change the non-destructive Studio binding rule: a newly prepared reference never silently replaces an older version already bound to an edited Studio session.
+
+## D-085 — Remote job existence is authoritative during separation recovery
+
+A durable local separation record is recovery intent and provenance; it is **not** proof that a corresponding Firebase/Cloud Run job exists.
+
+When reconciling a nonterminal local job:
+- `UPLOADING`, `READY` and `QUEUED` may replay upload/enqueue idempotently when no remote job exists;
+- `CANCEL_REQUESTED` with no remote counterpart terminalizes locally as `CANCELLED`;
+- `RUNNING`, `COMPLETED` or `IMPORTING` with no remote counterpart terminalizes as `EXPIRED`;
+- bounded cancellation/worker retries must never leave a project indefinitely in a nonterminal state after exhaustion.
+
+Restoring a project from `SEPARATING` to `SOURCE_READY` is generation-safe: the job must belong to the current source asset and no newer active separation may exist. Likewise, per-project job selection prefers an active generation over a late terminal completion from an older job.
+
+This decision is fail-safe for media: terminalizing an orphan does not delete or replace the accepted source. It restores the ability to retry preparation while preserving source/project identity. It supersedes the rc8 assumption that any local nonterminal durable job should block orphan recovery.
+

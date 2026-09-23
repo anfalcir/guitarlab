@@ -93,6 +93,11 @@ No Firebase/Cloud Run/Functions hop, service account, client secret or refresh-t
 
 ## Current milestone boundary
 
-U10/C8 and U11 are CLOSED / DIGITAL PASS. The exact signed candidate is `0.5.0-rc5` / versionCode `25`, producer `4218e4343746932a4de61c5abaa29ba5769a30ed`. U12 is active and owns only the consolidated physical acceptance.
+U10/C8 and U11 remain CLOSED / DIGITAL PASS historical authorities. The current U12 signed candidate is `0.5.0-rc9` / versionCode `29`, exact producer `635124acfbf133553a96c8b2013f2245f58a6877`, Android CI #794.
 
-Drive provider-real acceptance is already closed by U8m and remains supporting evidence because U10 did not alter the production Drive transport/store contract. U12 is the remaining consolidated physical boundary for real MK-300 routing/capture/isolation, monitoring, timing/listening, USB reconnect, continuous 10-minute quality and target-device ergonomics. External-controller physical acceptance remains a separate 1.1 boundary unless explicitly promoted as a release claim.
+Remote separation recovery now treats the local durable store as recovery intent, not proof that a cloud job exists. When reconciliation finds no remote job, replayable pre-dispatch states are idempotently re-enqueued, cancellation requests terminalize locally, and states that require an already-created remote job expire safely. Cancellation/worker retry exhaustion must also end in a terminal local state. Restoration of `SOURCE_READY` is source-generation-aware and may not overwrite a newer active separation. Per-project observation prefers active work over a late terminal completion from an older generation.
+
+The exact rc9 producer also passed U4 Cloud Integration Smoke #111. U7 Cloud Backend #69 passed source/container/security verification; its controlled deploy step was skipped. Drive provider-real acceptance remains closed by U8m and is unaffected by U12k.
+
+U12 remains the only release boundary: first validate the rc8→rc9 orphan-recovery correction on the target tablet, then complete the residual real MK-300 routing/capture/isolation, monitoring, timing/listening, USB reconnect, continuous 10-minute quality and ergonomics checks. External-controller physical acceptance remains a separate 1.1 boundary unless explicitly promoted.
+
