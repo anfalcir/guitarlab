@@ -151,12 +151,13 @@ object PrepareJourneyPolicy {
 
     fun separationMessage(job: DurableRemoteJob?): String {
         if (job == null) return "A fonte está pronta. Inicie a separação em seis faixas quando quiser continuar."
-        if (job.errorCode?.startsWith("RETRY:") == true) {
+        val errorCode = job.errorCode
+        if (errorCode?.startsWith("RETRY:") == true) {
             return when {
-                job.errorCode.contains(":AUTHENTICATING:") -> "Não foi possível autenticar na nuvem. Nova tentativa agendada…"
-                job.errorCode.contains(":CHECKING_REMOTE:") -> "Não foi possível consultar o processamento. Nova tentativa agendada…"
-                job.errorCode.contains(":UPLOADING:") -> "O envio da fonte foi interrompido. Nova tentativa agendada…"
-                job.errorCode.contains(":ENQUEUEING:") -> "A solicitação de separação não foi confirmada. Nova tentativa agendada…"
+                errorCode.contains(":AUTHENTICATING:") -> "Não foi possível autenticar na nuvem. Nova tentativa agendada…"
+                errorCode.contains(":CHECKING_REMOTE:") -> "Não foi possível consultar o processamento. Nova tentativa agendada…"
+                errorCode.contains(":UPLOADING:") -> "O envio da fonte foi interrompido. Nova tentativa agendada…"
+                errorCode.contains(":ENQUEUEING:") -> "A solicitação de separação não foi confirmada. Nova tentativa agendada…"
                 else -> "Falha temporária na nuvem. Nova tentativa agendada…"
             }
         }
