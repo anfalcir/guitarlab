@@ -18,146 +18,16 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Build canonical U12ab source seal
-        shell: bash
-        run: |
-          set -euo pipefail
-          BASE="f4005d1ec7676b24a5e8d1517e4b033b46dcc9c7"
-          TARGET="$(git rev-parse HEAD)"
-          PATCH=".source-parts/U12abRemotePreparedReferencesV2Rc13.patch"
-          PATCH_B64="${PATCH}.b64"
-          MATERIALIZER="scripts/materialize_ci_sources_u12ab.sh"
-          ROOT_MATERIALIZER="scripts/materialize_ci_sources.sh"
-          mkdir -p .source-parts
-
-          mapfile -t FILES < <(
-            git diff --name-only "$BASE" "$TARGET" -- \
-              . \
-              ':(exclude)docs/**' \
-              ':(exclude).source-parts/**' \
-              ':(exclude)scripts/materialize_ci_sources*.sh' \
-              ':(exclude).github/workflows/u12-source-seal.yml'
-          )
-          test "${#FILES[@]}" -gt 0
-          git diff --binary --full-index "$BASE" "$TARGET" -- "${FILES[@]}" > "$PATCH"
-          grep -q '^diff --git ' "$PATCH"
-          git apply --check --reverse "$PATCH"
-
-          PATCH_BLOB="$(git hash-object "$PATCH")"
-          base64 -w 76 "$PATCH" > "$PATCH_B64"
-          PATCH_B64_BLOB="$(git hash-object "$PATCH_B64")"
-
-          python3 - "$PATCH_BLOB" "$PATCH_B64_BLOB" "${FILES[@]}" <<'PY'
-          from pathlib import Path
-          import subprocess, sys
-          patch_blob, b64_blob, *files = sys.argv[1:]
-          
-          def q(value):
-              return '"' + value.replace('\\', '\\\\').replace('"', '\\"') + '"'
-          
-          hashes=[]
-          for path in files:
-              p=Path(path)
-              hashes.append(
-                  subprocess.check_output(["git","hash-object",path], text=True).strip()
-                  if p.is_file() else "__MISSING__"
-              )
-          
-          lines = [
-              "#!/usr/bin/env bash",
-              "set -euo pipefail",
-              "",
-              'ROOT="$(cd "$(dirname "$0")/.." && pwd)!Ë
-              'PREVIOUS="$ROOT/scripts/materialize_ci_sources_u12z.sh"',
-              'PATCH_B64="$ROOT/.source-parts/U12abRemotePreparedReferencesV2Rc13.patch.b64"',
-              f'PATCH_B64_BLOB="{b64_blob}"',
-              f'PATCH_BLOB="{patch_blob}"',
-              'TMP_PATCH="$(mktemp)"',
-              "trap 'rm -f \"$TMP_PATCH\"' EXIT",
-              "",
-              "declare -a FILES=(",
-              *["  "+q(x) for x in files],
-              ")",
-              "declare -a HASHES=(",
-              *["  "+q(x) for x in hashes],
-              ")",
-              "",
-              "ready() {",
-               '  for i in "${!FILES[@]}"; do',
-              '    if [[ "${HASHES[$i]}" == "__MISSING__" ]]; then',
-              '      [[ ! -e "$ROOT/${FILES[$i]}" ]] || return 1',
-              "    else",
-              '      [[ -f "$ROOT/${FILES[$i]}" ]] || return 1',
-              '      [[ "$(git -C "$ROOT" hash-object "$ROOT/${FILES[$i]}")" == "${HASHES[$i]}" ]] || return 1',
-              "    fi",
-              "  done",
-              "}",
-              "",
-              "verify_semantics() {",
-              '  git -C "$ROOT" diff --check',
-              '  grep -q \'versionName = "0.5.0-rc13"\' "$ROOT/app/build.gradle.kts"',
-              '  grep -q \'versionCode = 33\' "$ROOT/app/build.gradle.kts!Ë
-              '  grep -q \'REFERENCE_DELIVERABLES = ("backing", "guitar")\' "$ROOT/cloud/remote-separation/worker/gbw_worker.py"',
-              '  grep -q \'"phase": "SEPARATING"\' "$ROOT/cloud/remote-separation/worker/gbw_worker.py"',
-              '  grep -q \'"phase": "PREPARING_REFERENCES"\' "$ROOT/cloud/remote-separation/worker/gbw_worker.py"',
-              '  grep -q \'"phase": "PUBLISHING_RESULTS"\' "$ROOT/cloud/remote-separation/worker/gbw_worker.py"',
-              '  grep -q \'"schemaVersion": 2\' "$ROOT/cloud/remote-separation/worker/gbw_worker.py"',
-              '  grep -q \'expectedResultUid\' "$ROOT/core/separation/src/main/kotlin/studio/guitarlab/core/separation/RemoteSeparation.kt!Ë
-              '  grep -q \'uid = root\\["uid"\\]\' "$ROOT/platform/separation/src/main/kotlin/studio/guitarlab/platform/separation/RemoteManifestCodec.kt!Ë
-              '  grep -q \'cachedManifest\' "$ROOT/platform/separation/src/main/kotlin/studio/guitarlab/platform/separation/RemoteStemStaging.kt!Ë
-              '  grep -q \'staging.cachedManifest\' "$ROOT/platform/separation/src/main/kotlin/studio/guitarlab/platform/separation/FirebaseRemoteRuntime.kt!Ë
-              '  ! grep -q \'deleteTree(storage.reference.child(prefix(identity)))\' "$ROOT/platform/separation/src/main/kotlin/studio/guitarlab/platform/separation/FirebaseRemoteRuntime.kt!Ë
-              '  grep -q \'acknowledgeRemoteImport\' "$ROOT/scripts/u4_cloud_integration_smoke.sh"',
-              '  grep -q \'Firestore IMPORTED/PURGED PASS\' "$ROOT/scripts/u4_cloud_integration_smoke.sh"',
-              '  grep -q \'roles/iam.serviceAccountTokenCreator\' "$ROOT/scripts/bootstrap_u4_github_wif.sh"',
-              '  grep -q \'remote_storage_lifecycle=PASS age_days=3 prefix=remote/v1/users/\' "$ROOT/cloud/remote-separation/scripts/ensure-remote-storage-lifecycle.sh"',
-              '  ! grep -Rqi --include=\'*.kt\' --include=\'*.java\' \'tuner\\|afinador\' "$ROOT/app/src/main" "$ROOT/core" "$ROOT/platform!Ë
-              "}",
-              "",
-              '[[ -f "$PATCH_B64" ]] || { echo "Missing U12ab rc13 payload" >&2; exit 1; }',
-              '[[ "$(git -C "$ROOT" hash-object "$PATCH_B64")" == "$PATCH_B64_BLOB" ]] || { echo "U12ab base64 payload blob mismatch" >&2; exit 1; }',
-              'base64 -d "$PATCH_B64" > "$TMP_PATCH"',
-              '[[ "$(git -C "$ROOT" hash-object "$TMP_PATCH")" == "$PATCH_BLOB" ]] || { echo "U12ab decoded patch blob mismatch" >&2; exit 1; }',
-              "",
-              "if ready; then",
-              "  verify_semantics",
-              '  git -C "$ROOT" apply --check --reverse "$TMP_PATCH"',
-              '  echo "Source patch chain already materialized through U12ab rc13 prepared references v2"',
-              "  exit 0",
-              "fi",
-              "",
-              '[[ -f "$PREVIOUS" ]] || { echo "Missing U12z materializer" >&2; exit 1; }',
-              'bash "$PREVIOUS"',
-              'git -C "$ROOT" apply --check "$TMP_PATCH"',
-              'git -C "$ROOT" apply "$TMP_PATCH"',
-              'git -C "$ROOT" diff --check',
-              'ready || { echo "U12ab final blob mismatch" >&2; exit 1; }',
-              "verify_semantics",
-              'git -C "$ROOT" apply --check --reverse "$TMP_PATCH"',
-              'echo "Source patch chain materialized through U12ab rc13 prepared references v2"',
-          ]
-          Path("scripts/materialize_ci_sources_u12ab.sh").write_text("\n".join(lines)+"\n")
-          PY
-          chmod +x "$MATERIALIZER"
-          cat > "$ROOT_MATERIALIZER" <<'EOF2'
-          #!/usr/bin/env bash
-          set -euo pipefail
-          ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-          bash "$ROOT/scripts/materialize_ci_sources_u12ab.sh"
-          EOF2
-          chmod +x "$ROOT_MATERIALIZER"
-
-          rm "$PATCH"
-          bash "$MATERIALIZER"
-          git diff --check
+      - name: Generate and verify canonical U12ab source seal
+        run: python3 scripts/generate_u12ab_source_seal.py
 
       - name: Commit source seal and trigger rc13 qualification
         shell: bash
         run: |
           set -euo pipefail
-          git rm .github/workflows/u12-source-seal.yml
+          git rm .github/workflows/u12-source-seal.yml scripts/generate_u12ab_source_seal.py
           git add .source-parts/U12abRemotePreparedReferencesV2Rc13.patch.b64 \
-            scripts/materialize_ci_sources_u12ab.sh \
+            scripts/materialize_ci_sources_u12ab.py \
             scripts/materialize_ci_sources.sh
           git diff --cached --check
           git config user.name "github-actions[bot]"
