@@ -125,6 +125,21 @@ class PrepareJourneyPolicyTest {
         assertFalse(message.contains("NETWORK_UNAVAILABLE"))
     }
 
+    @Test fun completedCloudResultWithImportFailureIsRecoverableAndDoesNotClaimExpiration() {
+        val failedImport = DurableRemoteJob(
+            identity(),
+            RemoteJobState.IMPORT_FAILED,
+            1,
+            resultManifestSha256 = "b".repeat(64),
+            errorCode = "WORKER_RETRY_EXHAUSTED_RETRY:DOWNLOADING_RESULTS:NETWORK_IO:ATTEMPT_6",
+        )
+        val message = PrepareJourneyPolicy.separationMessage(failedImport)
+        assertTrue(message.contains("importação", ignoreCase = true))
+        assertTrue(message.contains("preservados", ignoreCase = true))
+        assertFalse(message.contains("expir", ignoreCase = true))
+        assertFalse(PrepareJourneyPolicy.separationIsActive(failedImport))
+    }
+
     @Test fun missingCloudSessionPointsToSettingsWithoutLeakingTechnicalCode() {
         val failed = DurableRemoteJob(
             identity(),

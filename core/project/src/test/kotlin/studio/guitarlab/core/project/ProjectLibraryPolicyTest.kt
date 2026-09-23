@@ -179,4 +179,12 @@ class ProjectLibraryPolicyTest {
             takes = listOfNotNull(take),
         )
     }
+
+    @Test fun persistedSortOrderRestoresExactSelectionAndFallsBackSafely() {
+        assertEquals(ProjectSortOrder.NAME_DESC, ProjectLibraryPolicy.restoreSortOrder("NAME_DESC"))
+        assertEquals(ProjectSortOrder.CREATED_ASC, ProjectLibraryPolicy.restoreSortOrder("CREATED_ASC"))
+        assertEquals(ProjectSortOrder.UPDATED_DESC, ProjectLibraryPolicy.restoreSortOrder(null))
+        assertEquals(ProjectSortOrder.UPDATED_DESC, ProjectLibraryPolicy.restoreSortOrder("LEGACY_UNKNOWN_VALUE"))
+    }
+
 }

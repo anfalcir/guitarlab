@@ -42,6 +42,7 @@ data class CandidateScoreBadge(
 
 object PrepareJourneyPolicy {
     private val terminalSeparationStates = setOf(
+        RemoteJobState.IMPORT_FAILED,
         RemoteJobState.IMPORTED,
         RemoteJobState.CANCELLED,
         RemoteJobState.FAILED,
@@ -61,6 +62,7 @@ object PrepareJourneyPolicy {
         val referencesReady = preparation?.activeBackingAssetId != null && preparation.activeGuitarAssetId != null
         val sourceNeedsAttention = !sourceAccepted && operation?.state == SourceOperationState.ERROR
         val separationNeedsAttention = sourceAccepted && !stemsReady && separationJob?.state in setOf(
+            RemoteJobState.IMPORT_FAILED,
             RemoteJobState.FAILED,
             RemoteJobState.CANCELLED,
             RemoteJobState.EXPIRED,
@@ -158,6 +160,8 @@ object PrepareJourneyPolicy {
                 errorCode.contains(":CHECKING_REMOTE:") -> "Não foi possível consultar o processamento. Nova tentativa agendada…"
                 errorCode.contains(":UPLOADING:") -> "O envio da fonte foi interrompido. Nova tentativa agendada…"
                 errorCode.contains(":ENQUEUEING:") -> "A solicitação de separação não foi confirmada. Nova tentativa agendada…"
+                errorCode.contains(":DOWNLOADING_RESULTS:") -> "O download/validação das faixas foi interrompido. Nova tentativa agendada…"
+                errorCode.contains(":ACKNOWLEDGING:") -> "A confirmação da importação falhou temporariamente. Nova tentativa agendada…"
                 else -> "Falha temporária na nuvem. Nova tentativa agendada…"
             }
         }
@@ -166,12 +170,13 @@ object PrepareJourneyPolicy {
             RemoteJobState.READY -> "Fonte enviada. Preparando o processamento…"
             RemoteJobState.QUEUED -> "Aguardando início do processamento em nuvem…"
             RemoteJobState.RUNNING -> "Separando a música em seis faixas…"
-            RemoteJobState.COMPLETED, RemoteJobState.IMPORTING -> "Validando e trazendo as faixas separadas…"
+            RemoteJobState.COMPLETED, RemoteJobState.IMPORTING -> "Baixando, validando e importando as faixas separadas…"
+            RemoteJobState.IMPORT_FAILED -> "O processamento em nuvem terminou, mas a importação precisa ser retomada. Os stems remotos foram preservados."
             RemoteJobState.IMPORTED -> "Seis faixas separadas validadas"
             RemoteJobState.CANCEL_REQUESTED -> "Cancelamento solicitado…"
             RemoteJobState.CANCELLED -> "Separação cancelada. Você pode iniciar novamente quando quiser."
             RemoteJobState.FAILED -> failureMessage(job.errorCode)
-            RemoteJobState.EXPIRED -> "O processamento expirou. Você pode iniciar uma nova separação."
+            RemoteJobState.EXPIRED -> "O resultado remoto não está mais disponível. Você pode iniciar uma nova separação."
         }
     }
 
@@ -179,7 +184,7 @@ object PrepareJourneyPolicy {
         errorCode?.contains("AUTH_REQUIRED") == true ->
             "Entre na conta da separação em nuvem em Opções → Conta e nuvem. A fonte foi preservada."
         errorCode?.contains("AUTH_PROVIDER_DISABLED") == true ->
-            "A autenticação anônima do serviço está desativada. A fonte foi preservada; tente novamente após a configuração do serviço."
+            "O login da conta de separação está desativado no serviço. A fonte foi preservada; tente novamente após a configuração do serviço."
         errorCode?.contains("AUTH_") == true ->
             "Não foi possível autenticar no serviço de separação. A fonte foi preservada."
         errorCode?.contains("FIRESTORE_PERMISSION_DENIED") == true ||

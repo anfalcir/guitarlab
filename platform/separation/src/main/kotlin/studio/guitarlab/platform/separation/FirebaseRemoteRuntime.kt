@@ -37,6 +37,8 @@ internal class FirebaseResultTransport(
     private val auth: FirebaseAuth,
     private val storage: FirebaseStorage,
 ) : RemoteResultTransport {
+    private val staging = RemoteStemStaging(File(context.cacheDir, "remote-separation"))
+
     private suspend fun uid(): String = staged(RemotePipelineStage.AUTHENTICATING) {
         requireStableRemoteUid(auth)
     }
@@ -63,17 +65,29 @@ internal class FirebaseResultTransport(
             storage.reference.child(prefix(identity) + "/result-manifest.json").getBytes(65536).await()
         }
 
-    override suspend fun downloadStem(identity: RemoteJobIdentity, stem: RemoteStem): ByteArray =
+    override suspend fun downloadStem(identity: RemoteJobIdentity, stem: RemoteStem): RemoteStemPayload =
         staged(RemotePipelineStage.DOWNLOADING_RESULTS) {
             require(stem.path.startsWith(prefix(identity) + "/") && !stem.path.contains(".."))
-            storage.reference.child(stem.path).getBytes(stem.bytes).await()
+            staging.cached(identity, stem)?.let { return@staged it }
+            val partial = staging.partial(identity, stem)
+            storage.reference.child(stem.path).getFile(partial).await()
+            try {
+                staging.commit(identity, stem, partial)
+            } catch (error: Throwable) {
+                partial.delete()
+                throw RemoteResultValidationException("Downloaded stem failed integrity validation.", error)
+            }
         }
 
     override suspend fun cleanup(identity: RemoteJobIdentity) {
-        runCatching {
-            storage.reference.child(prefix(identity)).listAll().await().items.forEach { item ->
-                runCatching { item.delete().await() }
+        try {
+            runCatching {
+                storage.reference.child(prefix(identity)).listAll().await().items.forEach { item ->
+                    runCatching { item.delete().await() }
+                }
             }
+        } finally {
+            staging.clear(identity)
         }
     }
 
@@ -98,33 +112,50 @@ class RemoteSeparationWorker(context: Context, params: WorkerParameters) : Corou
         val store = FileRemoteJobStore(applicationContext)
         val repository = FileProjectRepository(applicationContext.filesDir)
         val mediaStore = ProjectManagedMediaStore(applicationContext.filesDir)
+        val notifier = RemoteSeparationNotifier(applicationContext)
+        val projectName = repository.load(id.projectId)?.name ?: "Projeto"
+        val resultTransport = FirebaseResultTransport(
+            applicationContext,
+            auth,
+            FirebaseStorage.getInstance(app),
+        )
         val coordinator = RemoteSeparationCoordinator(
             store,
             FirebaseRemoteBackend(auth, FirebaseFirestore.getInstance(app), FirebaseFunctions.getInstance(app, "us-central1")),
-            FirebaseResultTransport(applicationContext, auth, FirebaseStorage.getInstance(app)),
+            resultTransport,
             RemoteManifestCodec::decode,
             ManagedStemSetPublisher(StemSetProjectPublisher(repository, mediaStore)),
         )
+        val previousRetryCode = store.load(id.jobId)?.errorCode
         return try {
-            val current = store.load(id.jobId)?.let { stored ->
-                if (stored.errorCode?.startsWith("RETRY:") == true) {
-                    store.save(stored.copy(errorCode = null, updatedAtMs = System.currentTimeMillis()))
-                } else {
-                    stored
-                }
-            }
+            val current = store.load(id.jobId)
+            current?.let { notifier.show(id, projectName, it.state, it.errorCode) }
             val next = if (current == null) coordinator.start(id) else coordinator.reconcile(id)
             when (next.state) {
-                RemoteJobState.IMPORTED -> prepareReferencesOrRetry(id, next, store, repository, mediaStore)
+                RemoteJobState.IMPORTED -> {
+                    resultTransport.cleanup(id)
+                    val result = prepareReferencesOrRetry(id, next, store, repository, mediaStore)
+                    notifier.show(id, projectName, RemoteJobState.IMPORTED, store.load(id.jobId)?.errorCode)
+                    result
+                }
+                RemoteJobState.IMPORT_FAILED -> {
+                    notifier.show(id, projectName, RemoteJobState.IMPORT_FAILED, next.errorCode)
+                    Result.failure()
+                }
                 RemoteJobState.CANCELLED -> {
                     restoreSourceReadyAfterTerminal(id, store, repository)
+                    notifier.show(id, projectName, RemoteJobState.CANCELLED, next.errorCode)
                     Result.success()
                 }
                 RemoteJobState.FAILED, RemoteJobState.EXPIRED -> {
                     restoreSourceReadyAfterTerminal(id, store, repository)
+                    notifier.show(id, projectName, next.state, next.errorCode)
                     Result.failure()
                 }
-                else -> Result.retry()
+                else -> {
+                    notifier.show(id, projectName, next.state, next.errorCode)
+                    Result.retry()
+                }
             }
         } catch (cancelled: CancellationException) {
             throw cancelled
@@ -136,18 +167,24 @@ class RemoteSeparationWorker(context: Context, params: WorkerParameters) : Corou
                 error,
             )
             val current = store.load(id.jobId)
-            if (failure.retryable && runAttemptCount < MAX_WORKER_ATTEMPTS) {
+            val failureAttempt = RemoteWorkerRetryPolicy.nextAttempt(previousRetryCode, failure)
+            val durableFailure = RemoteWorkerRetryPolicy.durableCode(failure, failureAttempt)
+            if (RemoteWorkerRetryPolicy.shouldRetry(failure, failureAttempt)) {
                 if (current != null && current.state !in RemoteRecoveryPolicy.terminalStates) {
                     store.save(
                         current.copy(
                             updatedAtMs = System.currentTimeMillis(),
-                            errorCode = failure.durableCode(runAttemptCount),
+                            errorCode = durableFailure,
                         ),
                     )
                 }
+                notifier.showRetry(id, projectName, durableFailure)
                 Result.retry()
             } else {
-                terminalizeExhaustedWorker(id, failure.durableCode(runAttemptCount), store, repository)
+                terminalizeExhaustedWorker(id, durableFailure, store, repository)
+                store.load(id.jobId)?.let { terminal ->
+                    notifier.show(id, projectName, terminal.state, terminal.errorCode)
+                }
                 Result.failure()
             }
         }
@@ -185,15 +222,21 @@ class RemoteSeparationWorker(context: Context, params: WorkerParameters) : Corou
     }
 
     private companion object {
-        const val MAX_WORKER_ATTEMPTS = 5
         const val REMOTE_LOG_TAG = "GuitarLabRemote"
     }
 }
 
 class RemoteSeparationClient(private val context: Context) {
+    private val notifier = RemoteSeparationNotifier(context)
+    private val staging = RemoteStemStaging(File(context.cacheDir, "remote-separation"))
+
     fun enqueue(projectId: String): String {
         val repo = FileProjectRepository(context.filesDir)
         val store = FileRemoteJobStore(context)
+        val latest = store.latestForProject(projectId)
+        require(latest?.state != RemoteJobState.IMPORT_FAILED) {
+            "O processamento em nuvem já terminou. Retome a importação antes de iniciar uma nova separação."
+        }
         val existing = store.active().firstOrNull {
             it.identity.projectId == projectId && it.state !in RemoteRecoveryPolicy.terminalStates
         }
@@ -211,6 +254,7 @@ class RemoteSeparationClient(private val context: Context) {
                 preparation = requireNotNull(project.preparation).copy(status = PreparationStatus.SEPARATING),
             ),
         )
+        notifier.show(id, project.name, RemoteJobState.UPLOADING)
         WorkManager.getInstance(context).enqueueUniqueWork(
             workName(id.jobId),
             ExistingWorkPolicy.KEEP,
@@ -219,6 +263,26 @@ class RemoteSeparationClient(private val context: Context) {
         return jobId
     }
 
+    fun resumeImport(projectId: String): String {
+        val store = FileRemoteJobStore(context)
+        val job = requireNotNull(store.latestForProject(projectId)) { "Nenhum resultado remoto disponível para retomar." }
+        require(job.state == RemoteJobState.IMPORT_FAILED) { "A importação não está aguardando retomada." }
+        val resumed = store.save(
+            job.copy(
+                state = RemoteJobState.IMPORTING,
+                updatedAtMs = System.currentTimeMillis(),
+                errorCode = null,
+            ),
+        )
+        val projectName = FileProjectRepository(context.filesDir).load(projectId)?.name ?: "Projeto"
+        notifier.show(resumed.identity, projectName, RemoteJobState.IMPORTING)
+        WorkManager.getInstance(context).enqueueUniqueWork(
+            workName(resumed.identity.jobId),
+            ExistingWorkPolicy.REPLACE,
+            separationRequest(resumed.identity),
+        )
+        return resumed.identity.jobId
+    }
     fun snapshot(jobId: String) = FileRemoteJobStore(context).load(jobId)
     fun snapshotProject(projectId: String) = FileRemoteJobStore(context).latestForProject(projectId)
     fun observeProject(projectId: String): Flow<DurableRemoteJob?> = FileRemoteJobStore(context).observeProject(projectId)
@@ -226,29 +290,44 @@ class RemoteSeparationClient(private val context: Context) {
     fun cancel(projectId: String, jobId: String) {
         val store = FileRemoteJobStore(context)
         val job = store.load(jobId) ?: return
-        if (job.state in RemoteRecoveryPolicy.terminalStates) return
+        if (job.state in RemoteRecoveryPolicy.terminalStates && job.state != RemoteJobState.IMPORT_FAILED) return
         val requesting = store.save(job.copy(state = RemoteJobState.CANCEL_REQUESTED, updatedAtMs = System.currentTimeMillis()))
+        val projectName = FileProjectRepository(context.filesDir).load(projectId)?.name ?: "Projeto"
+        notifier.show(requesting.identity, projectName, RemoteJobState.CANCEL_REQUESTED)
         scheduleCancel(requesting)
     }
 
     fun closeProject(projectId: String) {
         val store = FileRemoteJobStore(context)
-        store.active()
-            .filter { it.identity.projectId == projectId && it.state !in RemoteRecoveryPolicy.terminalStates }
-            .forEach { cancel(projectId, it.identity.jobId) }
-        store.active().filter { it.identity.projectId == projectId }.forEach {
-            WorkManager.getInstance(context).cancelUniqueWork(workName(it.identity.jobId))
-            WorkManager.getInstance(context).cancelUniqueWork(cancelWorkName(it.identity.jobId))
+        val jobs = store.active().filter { it.identity.projectId == projectId }
+        val remoteOwned = jobs.filter {
+            it.state !in RemoteRecoveryPolicy.terminalStates || it.state == RemoteJobState.IMPORT_FAILED
         }
-        store.removeProject(projectId)
+        remoteOwned.forEach { cancel(projectId, it.identity.jobId) }
+        jobs.forEach { job ->
+            WorkManager.getInstance(context).cancelUniqueWork(workName(job.identity.jobId))
+            if (job !in remoteOwned) {
+                WorkManager.getInstance(context).cancelUniqueWork(cancelWorkName(job.identity.jobId))
+                staging.clear(job.identity)
+            }
+        }
+        if (remoteOwned.isEmpty()) store.removeProject(projectId)
     }
 
     fun resumePending() {
         val store = FileRemoteJobStore(context)
+        store.repairLegacyImportExpirations()
         recoverProjectsWithoutLocalJob(store)
-        store.active()
+        val repository = FileProjectRepository(context.filesDir)
+        val jobs = store.active()
+        notifier.reconcileExisting(jobs) { projectId ->
+            repository.load(projectId)?.name ?: "Projeto"
+        }
+        jobs
             .filter { it.state !in RemoteRecoveryPolicy.terminalStates }
             .forEach { job ->
+                val projectName = repository.load(job.identity.projectId)?.name ?: "Projeto"
+                notifier.show(job.identity, projectName, job.state, job.errorCode)
                 if (job.state == RemoteJobState.CANCEL_REQUESTED) {
                     scheduleCancel(job)
                 } else {
@@ -274,7 +353,7 @@ class RemoteSeparationClient(private val context: Context) {
     private fun recoverProjectsWithoutLocalJob(store: FileRemoteJobStore) {
         val repository = FileProjectRepository(context.filesDir)
         val activeProjectIds = store.active()
-            .filter { it.state !in RemoteRecoveryPolicy.terminalStates }
+            .filter { RemoteRecoveryPolicy.isUnresolved(it.state) }
             .map { it.identity.projectId }
             .toSet()
         repository.list()
@@ -298,7 +377,7 @@ class RemoteSeparationClient(private val context: Context) {
         OneTimeWorkRequestBuilder<RemoteSeparationWorker>()
             .setInputData(remoteWorkData(id))
             .setConstraints(networkConstraints())
-            .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
+            .setBackoffCriteria(BackoffPolicy.LINEAR, 30, TimeUnit.SECONDS)
             .addTag("guitarlab-separation")
             .addTag("guitarlab-separation:${id.projectId}")
             .build()
@@ -329,6 +408,10 @@ class RemoteCancelWorker(context: Context, params: WorkerParameters) : Coroutine
         )
         val store = FileRemoteJobStore(applicationContext)
         val repository = FileProjectRepository(applicationContext.filesDir)
+        val notifier = RemoteSeparationNotifier(applicationContext)
+        val staging = RemoteStemStaging(File(applicationContext.cacheDir, "remote-separation"))
+        val projectName = repository.load(id.projectId)?.name ?: "Projeto"
+        notifier.show(id, projectName, RemoteJobState.CANCEL_REQUESTED, store.load(id.jobId)?.errorCode)
 
         return try {
             val remote = backend.status(id)
@@ -361,6 +444,11 @@ class RemoteCancelWorker(context: Context, params: WorkerParameters) : Coroutine
                 }
             }
             restoreSourceReadyAfterTerminal(id, store, repository)
+            staging.clear(id)
+            store.load(id.jobId)?.let { finished ->
+                notifier.show(id, projectName, finished.state, finished.errorCode)
+            }
+            if (repository.load(id.projectId) == null) store.removeProject(id.projectId)
             Result.success()
         } catch (cancelled: CancellationException) {
             throw cancelled
@@ -380,6 +468,7 @@ class RemoteCancelWorker(context: Context, params: WorkerParameters) : Coroutine
                         ),
                     )
                 }
+                notifier.show(id, projectName, RemoteJobState.CANCEL_REQUESTED, failure.durableCode(runAttemptCount))
                 Result.retry()
             } else {
                 val current = store.load(id.jobId)
@@ -393,6 +482,7 @@ class RemoteCancelWorker(context: Context, params: WorkerParameters) : Coroutine
                     )
                 }
                 restoreSourceReadyAfterTerminal(id, store, repository)
+                notifier.show(id, projectName, RemoteJobState.FAILED, store.load(id.jobId)?.errorCode)
                 Result.failure()
             }
         }
@@ -432,7 +522,7 @@ private fun restoreSourceReadyAfterTerminal(
     val hasOtherActiveJob = store.active().any { candidate ->
         candidate.identity.projectId == id.projectId &&
             candidate.identity.jobId != id.jobId &&
-            candidate.state !in RemoteRecoveryPolicy.terminalStates
+            RemoteRecoveryPolicy.isUnresolved(candidate.state)
     }
     if (
         RemoteRecoveryPolicy.shouldRestoreAfterTerminalJob(
@@ -459,7 +549,9 @@ private fun terminalizeExhaustedWorker(
 ) {
     val current = store.load(id.jobId) ?: return
     if (current.state in RemoteRecoveryPolicy.terminalStates) {
-        restoreSourceReadyAfterTerminal(id, store, repository)
+        if (current.state != RemoteJobState.IMPORT_FAILED) {
+            restoreSourceReadyAfterTerminal(id, store, repository)
+        }
         return
     }
     val terminalState = RemoteMissingPolicy.failureTerminalState(current.state)
@@ -467,9 +559,11 @@ private fun terminalizeExhaustedWorker(
         current.copy(
             state = terminalState,
             updatedAtMs = System.currentTimeMillis(),
-            errorCode = "WORKER_RETRY_EXHAUSTED_${code.take(40)}",
+            errorCode = "WORKER_RETRY_EXHAUSTED_${code.take(80)}",
         ),
     )
-    restoreSourceReadyAfterTerminal(id, store, repository)
+    if (terminalState != RemoteJobState.IMPORT_FAILED) {
+        restoreSourceReadyAfterTerminal(id, store, repository)
+    }
 }
 

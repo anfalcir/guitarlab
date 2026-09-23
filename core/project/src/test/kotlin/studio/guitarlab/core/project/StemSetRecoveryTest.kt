@@ -29,7 +29,11 @@ class StemSetRecoveryTest {
         repository.save(ProjectFactory(idGenerator = { "project" }).create("Project", ProjectTemplate.BLANK).copy(assets = listOf(source), preparation = PreparationState(PreparationStatus.SOURCE_READY, source.assetId)))
         val jobId = UUID.randomUUID().toString()
         val abandoned = media.ingestStem("project", "$jobId-drums.wav", ByteArrayInputStream(ByteArray(48) { 9 }))
-        val stems = StemSetProjectPublisher.ROLES.keys.map { name -> ByteArray(48) { 2 }.let { ValidatedStem(name, it, sha(it), 44100, 2, 1) } }
+        val stems = StemSetProjectPublisher.ROLES.keys.map { name ->
+            ByteArray(48) { 2 }.let { bytes ->
+                ValidatedStem(name, bytes.size.toLong(), sha(bytes), 44100, 2, 1) { ByteArrayInputStream(bytes) }
+            }
+        }
         val request = StemSetPublicationRequest("project", jobId, source.assetId, source.sha256, "a".repeat(64), "demucs.cpp", "htdemucs_6s", "b".repeat(64), stems)
 
         assertFalse(StemSetProjectPublisher(repository, media).publish(request))

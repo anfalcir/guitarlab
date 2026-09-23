@@ -82,6 +82,10 @@ internal data class ProjectLibraryEntry(
 
 /** Pure Home project-library query policy. */
 object ProjectLibraryPolicy {
+    fun restoreSortOrder(persisted: String?): ProjectSortOrder =
+        persisted?.let { value -> runCatching { ProjectSortOrder.valueOf(value) }.getOrNull() }
+            ?: ProjectSortOrder.UPDATED_DESC
+
     fun index(projects: List<GuitarProject>): ProjectLibraryIndex = ProjectLibraryIndex(
         projects.map { ProjectLibraryEntry(it, normalizeForSearch(it.name)) },
     )

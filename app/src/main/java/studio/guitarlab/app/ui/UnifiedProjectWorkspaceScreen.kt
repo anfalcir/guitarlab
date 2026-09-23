@@ -1,5 +1,8 @@
 package studio.guitarlab.app.ui
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -68,9 +71,11 @@ fun UnifiedPrepareScreen(
     onAcquire: (RankedSourceCandidate) -> Unit = {},
     onCancel: () -> Unit = {},
     onStartSeparation: () -> Unit = {},
+    onResumeSeparationImport: () -> Unit = {},
     onCancelSeparation: () -> Unit = {},
     onPrepareReferences: () -> Unit = {},
     initialCloudSession: RemoteCloudAuthSession? = null,
+    requestNotificationPermission: Boolean = true,
 ) {
     val context = LocalContext.current
     val remoteCloudAuth = remember(context) { RemoteCloudAuthClient(context) }
@@ -79,10 +84,37 @@ fun UnifiedPrepareScreen(
     }
     var cloudLoginDialogVisible by rememberSaveable(projectId) { mutableStateOf(false) }
     var startAfterCloudLogin by rememberSaveable(projectId) { mutableStateOf(false) }
+    var resumeAfterCloudLogin by rememberSaveable(projectId) { mutableStateOf(false) }
+    var pendingNotificationAction by rememberSaveable(projectId) { mutableStateOf<String?>(null) }
     var cloudAuthMessage by rememberSaveable(projectId) { mutableStateOf<String?>(null) }
     var artist by rememberSaveable(projectId) { mutableStateOf("") }
     var song by rememberSaveable(projectId) { mutableStateOf("") }
     var detailsExpanded by rememberSaveable(projectId) { mutableStateOf(false) }
+
+    fun runCloudAction(action: String) {
+        if (action == "RESUME_IMPORT") onResumeSeparationImport() else onStartSeparation()
+    }
+
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (!granted) {
+            cloudAuthMessage = "A operação continuará, mas o Android pode ocultar a notificação de acompanhamento. Você pode reativá-la nas permissões do aplicativo."
+        }
+        pendingNotificationAction?.let(::runCloudAction)
+        pendingNotificationAction = null
+    }
+
+    fun runCloudActionWithNotificationPermission(action: String) {
+        val needsPermission =
+            requestNotificationPermission &&
+                Build.VERSION.SDK_INT >= 33 &&
+                context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        if (needsPermission) {
+            pendingNotificationAction = action
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        } else {
+            runCloudAction(action)
+        }
+    }
 
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) onImport(uri)
@@ -175,11 +207,13 @@ fun UnifiedPrepareScreen(
                     job = separationJob,
                     cloudSession = remoteCloudSession,
                     cloudAuthMessage = cloudAuthMessage,
-                    onLogin = {
-                        startAfterCloudLogin = true
+                    onLogin = { resumeImport ->
+                        startAfterCloudLogin = !resumeImport
+                        resumeAfterCloudLogin = resumeImport
                         cloudLoginDialogVisible = true
                     },
-                    onStart = onStartSeparation,
+                    onStart = { runCloudActionWithNotificationPermission("START") },
+                    onResumeImport = { runCloudActionWithNotificationPermission("RESUME_IMPORT") },
                     onCancel = onCancelSeparation,
                 )
 
@@ -210,15 +244,27 @@ fun UnifiedPrepareScreen(
         initialEmail = remoteCloudSession?.email.orEmpty(),
         onDismiss = {
             startAfterCloudLogin = false
+            resumeAfterCloudLogin = false
             cloudLoginDialogVisible = false
         },
         onAuthenticated = { session ->
             remoteCloudSession = session
-            cloudAuthMessage = "Conta autenticada e autorizada. Iniciando a separação…"
+            val resumingImport = resumeAfterCloudLogin
+            cloudAuthMessage = if (resumingImport) {
+                "Conta autenticada e autorizada. Retomando a importação…"
+            } else {
+                "Conta autenticada e autorizada. Iniciando a separação…"
+            }
             cloudLoginDialogVisible = false
-            if (startAfterCloudLogin) {
-                startAfterCloudLogin = false
-                onStartSeparation()
+            when {
+                resumingImport -> {
+                    resumeAfterCloudLogin = false
+                    runCloudActionWithNotificationPermission("RESUME_IMPORT")
+                }
+                startAfterCloudLogin -> {
+                    startAfterCloudLogin = false
+                    runCloudActionWithNotificationPermission("START")
+                }
             }
         },
         testTagPrefix = "prepare-cloud-auth",
@@ -357,8 +403,9 @@ private fun SeparationStep(
     job: DurableRemoteJob?,
     cloudSession: RemoteCloudAuthSession?,
     cloudAuthMessage: String?,
-    onLogin: () -> Unit,
+    onLogin: (resumeImport: Boolean) -> Unit,
     onStart: () -> Unit,
+    onResumeImport: () -> Unit,
     onCancel: () -> Unit,
 ) {
     Surface(Modifier.fillMaxWidth().testTag("prepare-separation-activity"), tonalElevation = 2.dp, shape = MaterialTheme.shapes.medium) {
@@ -377,8 +424,17 @@ private fun SeparationStep(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.testTag("prepare-cloud-auth-required"),
                 )
-                Button(onClick = onLogin, modifier = Modifier.testTag("prepare-cloud-auth-action")) {
-                    Text(if (job == null) "Entrar e iniciar separação" else "Entrar e tentar novamente")
+                Button(
+                    onClick = { onLogin(job?.state == RemoteJobState.IMPORT_FAILED) },
+                    modifier = Modifier.testTag("prepare-cloud-auth-action"),
+                ) {
+                    Text(
+                        when (job?.state) {
+                            RemoteJobState.IMPORT_FAILED -> "Entrar e retomar importação"
+                            null -> "Entrar e iniciar separação"
+                            else -> "Entrar e tentar novamente"
+                        },
+                    )
                 }
             } else {
                 Text(
@@ -395,8 +451,20 @@ private fun SeparationStep(
                         modifier = Modifier.testTag("prepare-cloud-auth-message"),
                     )
                 }
-                Button(onClick = onStart, modifier = Modifier.testTag("prepare-start-separation")) {
-                    Text(if (job == null) "Iniciar separação" else "Tentar separação novamente")
+                if (job?.state == RemoteJobState.IMPORT_FAILED) {
+                    Button(onClick = onResumeImport, modifier = Modifier.testTag("prepare-resume-import")) {
+                        Text("Retomar importação")
+                    }
+                    Text(
+                        "O Demucs já terminou. Esta ação reaproveita os stems remotos e não inicia uma nova separação.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.testTag("prepare-resume-import-note"),
+                    )
+                } else {
+                    Button(onClick = onStart, modifier = Modifier.testTag("prepare-start-separation")) {
+                        Text(if (job == null) "Iniciar separação" else "Tentar separação novamente")
+                    }
                 }
             }
         }

@@ -50,4 +50,39 @@ class RemoteFirebaseFailureClassifierTest {
         val failure = RemoteFailure("NETWORK_UNAVAILABLE", true, RemotePipelineStage.UPLOADING)
         assertEquals("RETRY:UPLOADING:NETWORK_UNAVAILABLE:ATTEMPT_3", failure.durableCode(2))
     }
+
+    @Test fun storageRetryLimitExceededIsRetryableForResultDownload() {
+        val failure = RemoteFirebaseFailureClassifier.classifyStorage(
+            com.google.firebase.storage.StorageException.ERROR_RETRY_LIMIT_EXCEEDED,
+            RemotePipelineStage.DOWNLOADING_RESULTS,
+        )
+        assertEquals("STORAGE_RETRY_LIMIT_EXCEEDED", failure.code)
+        assertTrue(failure.retryable)
+        assertEquals(RemotePipelineStage.DOWNLOADING_RESULTS, failure.stage)
+    }
+
+    @Test fun resultValidationFailureIsTerminalButRemainsAnImportProblem() {
+        val failure = RemoteFirebaseFailureClassifier.classify(
+            RemotePipelineException(
+                RemotePipelineStage.DOWNLOADING_RESULTS,
+                RemoteResultValidationException("bad stem"),
+            ),
+        )
+        assertEquals("RESULT_INVALID", failure.code)
+        assertFalse(failure.retryable)
+        assertEquals(RemotePipelineStage.DOWNLOADING_RESULTS, failure.stage)
+    }
+
+    @Test fun memoryPressureIsTypedInsteadOfMasqueradingAsRemoteExpiration() {
+        val failure = RemoteFirebaseFailureClassifier.classify(
+            RemotePipelineException(
+                RemotePipelineStage.DOWNLOADING_RESULTS,
+                OutOfMemoryError("simulated"),
+            ),
+        )
+        assertEquals("CLIENT_MEMORY_PRESSURE", failure.code)
+        assertFalse(failure.retryable)
+        assertEquals(RemotePipelineStage.DOWNLOADING_RESULTS, failure.stage)
+    }
+
 }

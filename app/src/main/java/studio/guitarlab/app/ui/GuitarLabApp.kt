@@ -110,6 +110,7 @@ fun GuitarLabApp(
                     onAcquire = { candidate -> homeViewModel.acquireSource(current.projectId, candidate) },
                     onCancel = { homeViewModel.cancelSourceAcquisition(current.projectId) },
                     onStartSeparation = { homeViewModel.startSeparation(current.projectId) },
+                    onResumeSeparationImport = { homeViewModel.resumeSeparationImport(current.projectId) },
                     onCancelSeparation = { homeViewModel.cancelSeparation(current.projectId) },
                     onPrepareReferences = { homeViewModel.prepareReferences(current.projectId) },
                     initialCloudSession = remoteCloudAuth.currentSession(),

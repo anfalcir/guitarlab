@@ -55,12 +55,41 @@ class RemoteRecoveryPolicyTest {
         )
     }
 
+    @Test fun importFailureRemainsUnresolvedAndWinsOverOlderTerminalHistory() {
+        val recoverable = job(RemoteJobState.IMPORT_FAILED, 30)
+        val oldTerminal = job(RemoteJobState.CANCELLED, 40)
+        assertTrue(RemoteRecoveryPolicy.isUnresolved(RemoteJobState.IMPORT_FAILED))
+        assertEquals(
+            recoverable.identity.jobId,
+            RemoteRecoveryPolicy.selectLatestForProject(listOf(oldTerminal, recoverable), "project")?.identity?.jobId,
+        )
+    }
+
     @Test fun latestTerminalIsUsedWhenNoActiveGenerationExists() {
         val older = job(RemoteJobState.FAILED, 10)
         val newer = job(RemoteJobState.CANCELLED, 20)
         assertEquals(
             newer.identity.jobId,
             RemoteRecoveryPolicy.selectLatestForProject(listOf(older, newer), "project")?.identity?.jobId,
+        )
+    }
+
+    @Test fun onlyLatestExpiredJobWithCompletedManifestIsEligibleForLegacyImportRepair() {
+        val recoverable = job(RemoteJobState.EXPIRED, 30).copy(resultManifestSha256 = "b".repeat(64))
+        val olderWithoutManifest = job(RemoteJobState.EXPIRED, 10)
+        assertEquals(
+            recoverable.identity.jobId,
+            RemoteRecoveryPolicy.legacyImportRecoveryCandidate(
+                listOf(olderWithoutManifest, recoverable),
+                "project",
+            )?.identity?.jobId,
+        )
+        assertEquals(
+            null,
+            RemoteRecoveryPolicy.legacyImportRecoveryCandidate(
+                listOf(recoverable, job(RemoteJobState.CANCELLED, 40)),
+                "project",
+            ),
         )
     }
 

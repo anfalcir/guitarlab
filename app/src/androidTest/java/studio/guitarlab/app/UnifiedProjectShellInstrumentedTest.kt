@@ -3,6 +3,7 @@ package studio.guitarlab.app
 import android.content.pm.ApplicationInfo
 import androidx.compose.material3.Text
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertDoesNotExist
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
@@ -25,6 +26,9 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.Assert.assertEquals
 import org.junit.runner.RunWith
+import studio.guitarlab.app.activity.ActivityScreen
+import studio.guitarlab.app.activity.UnifiedActivityStore
+import studio.guitarlab.app.activity.UnifiedActivityViewModel
 import studio.guitarlab.app.ui.GuitarLabUserGuideDialog
 import studio.guitarlab.app.ui.HomeUiState
 import studio.guitarlab.app.ui.HomeViewModel
@@ -45,6 +49,8 @@ import studio.guitarlab.core.model.PreparationState
 import studio.guitarlab.core.model.PreparationStatus
 import studio.guitarlab.core.model.GuitarProject
 import studio.guitarlab.core.model.ProjectTemplate
+import studio.guitarlab.core.project.UnifiedOperationKind
+import studio.guitarlab.core.project.UnifiedOperationState
 import studio.guitarlab.core.source.RankedSourceCandidate
 import studio.guitarlab.core.source.SourceProvider
 import studio.guitarlab.core.separation.DurableRemoteJob
@@ -449,6 +455,56 @@ class UnifiedProjectShellInstrumentedTest {
         composeRule.onNodeWithTag("prepare-cloud-auth-submit").assertIsDisplayed()
     }
 
+    @Test fun completedRemoteResultCanResumeImportWithoutStartingDemucsAgain() {
+        val source = asset("source-import-resume", AssetRole.SOURCE_ORIGINAL)
+        val project = GuitarProject(
+            id = "import-resume",
+            name = "Song",
+            template = ProjectTemplate.GUITAR,
+            createdAtEpochMs = 1,
+            updatedAtEpochMs = 2,
+            assets = listOf(source),
+            preparation = PreparationState(status = PreparationStatus.SEPARATING, sourceAssetId = source.assetId),
+        )
+        val job = DurableRemoteJob(
+            identity = RemoteJobIdentity(
+                "00000000-0000-4000-8000-000000000004",
+                project.id,
+                source.assetId,
+                source.sha256,
+            ),
+            state = RemoteJobState.IMPORT_FAILED,
+            updatedAtMs = 4,
+            resultManifestSha256 = "b".repeat(64),
+            errorCode = "WORKER_RETRY_EXHAUSTED_RETRY:DOWNLOADING_RESULTS:NETWORK_IO:ATTEMPT_6",
+        )
+        var resumed = false
+        var restarted = false
+        composeRule.setContent {
+            GuitarLabTheme(darkTheme = true) {
+                UnifiedPrepareScreen(
+                    project = project,
+                    projectId = project.id,
+                    onBack = {},
+                    onStudio = {},
+                    onExport = {},
+                    separationJob = job,
+                    onStartSeparation = { restarted = true },
+                    onResumeSeparationImport = { resumed = true },
+                    initialCloudSession = RemoteCloudAuthSession("test-uid", "test@example.com"),
+                    requestNotificationPermission = false,
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag("prepare-resume-import").performScrollTo().assertIsDisplayed().assertIsEnabled().performClick()
+        composeRule.onNodeWithTag("prepare-resume-import-note").assertIsDisplayed()
+        composeRule.runOnIdle {
+            check(resumed)
+            check(!restarted)
+        }
+    }
+
     @Test fun recoveredOrphanExposesRetryAndPreservesAcceptedSource() {
         val source = asset("source-orphan", AssetRole.SOURCE_ORIGINAL)
         val project = GuitarProject(
@@ -476,6 +532,7 @@ class UnifiedProjectShellInstrumentedTest {
                     separationJob = job,
                     onStartSeparation = { retried = true },
                     initialCloudSession = RemoteCloudAuthSession("test-uid", "test@example.com"),
+                    requestNotificationPermission = false,
                 )
             }
         }
@@ -666,5 +723,41 @@ class UnifiedProjectShellInstrumentedTest {
         createdAtEpochMs = 1, classification = if (role.name.startsWith("STEM_")) AssetClassification.AUTHORITATIVE else AssetClassification.DERIVED,
         lifecycle = AssetLifecycle.MANAGED,
     )
+
+
+    @Test fun activityClearHistoryRemovesAllTerminalRecordsButKeepsActiveWork() {
+        val application = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as android.app.Application
+        val store = UnifiedActivityStore(application)
+        val activeId = "test-history-active"
+        val failedId = "test-history-failed"
+        val successId = "test-history-success"
+        val cancelledId = "test-history-cancelled"
+        listOf(activeId, failedId, successId, cancelledId).forEach(store::remove)
+        try {
+            store.record(activeId, null, UnifiedOperationKind.BACKUP, UnifiedOperationState.RUNNING, null, "Operação ativa")
+            store.record(failedId, null, UnifiedOperationKind.BACKUP, UnifiedOperationState.FAILED, null, "Operação falhou")
+            store.record(successId, null, UnifiedOperationKind.BACKUP, UnifiedOperationState.SUCCEEDED, 100, "Operação concluída")
+            store.record(cancelledId, null, UnifiedOperationKind.BACKUP, UnifiedOperationState.CANCELLED, null, "Operação cancelada")
+
+            val viewModel = UnifiedActivityViewModel(application)
+            composeRule.setContent {
+                GuitarLabTheme(darkTheme = true) {
+                    ActivityScreen(onBack = {}, viewModel = viewModel)
+                }
+            }
+
+            composeRule.onNodeWithTag("activity-record-$activeId").assertIsDisplayed()
+            composeRule.onNodeWithTag("activity-record-$failedId").assertIsDisplayed()
+            composeRule.onNodeWithTag("activity-clear-history").assertIsDisplayed().performClick()
+            composeRule.waitForIdle()
+
+            composeRule.onNodeWithTag("activity-record-$activeId").assertIsDisplayed()
+            composeRule.onNodeWithTag("activity-record-$failedId").assertDoesNotExist()
+            composeRule.onNodeWithTag("activity-record-$successId").assertDoesNotExist()
+            composeRule.onNodeWithTag("activity-record-$cancelledId").assertDoesNotExist()
+        } finally {
+            listOf(activeId, failedId, successId, cancelledId).forEach(store::remove)
+        }
+    }
 
 }

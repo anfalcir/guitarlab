@@ -69,6 +69,7 @@ data class HomeUiState(
 )
 
 class HomeViewModel(application: Application) : AndroidViewModel(application) {
+    private val homePreferences = application.getSharedPreferences(HOME_PREFERENCES, android.content.Context.MODE_PRIVATE)
     private val repository = FileProjectRepository(application.filesDir)
     private val bundleReader = ProjectBundleReader(application.filesDir)
     private val recordingMediaStore = ProjectRecordingMediaStore(application.filesDir)
@@ -91,7 +92,13 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private var exportJob: Job? = null
     private var projectLibraryIndex: ProjectLibraryIndex = ProjectLibraryPolicy.index(emptyList())
 
-    private val _state = MutableStateFlow(HomeUiState())
+    private val _state = MutableStateFlow(
+        HomeUiState(
+            libraryQuery = ProjectLibraryQuery(
+                sortOrder = ProjectLibraryPolicy.restoreSortOrder(homePreferences.getString(SORT_ORDER_KEY, null)),
+            ),
+        ),
+    )
     val state: StateFlow<HomeUiState> = _state.asStateFlow()
 
     init {
@@ -141,7 +148,10 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     fun setProjectSampleRateFilter(filter: ProjectSampleRateFilter) = updateLibraryQuery { it.copy(sampleRate = filter) }
 
-    fun setProjectSortOrder(order: ProjectSortOrder) = updateLibraryQuery { it.copy(sortOrder = order) }
+    fun setProjectSortOrder(order: ProjectSortOrder) {
+        homePreferences.edit().putString(SORT_ORDER_KEY, order.name).apply()
+        updateLibraryQuery { it.copy(sortOrder = order) }
+    }
 
     fun clearProjectFilters() = updateLibraryQuery { it.clearFilters() }
 
@@ -232,7 +242,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             val state = when {
                 current.state == RemoteJobState.IMPORTED -> UnifiedOperationState.SUCCEEDED
                 current.state == RemoteJobState.CANCELLED -> UnifiedOperationState.CANCELLED
-                current.state == RemoteJobState.FAILED || current.state == RemoteJobState.EXPIRED -> UnifiedOperationState.FAILED
+                current.state == RemoteJobState.IMPORT_FAILED || current.state == RemoteJobState.FAILED || current.state == RemoteJobState.EXPIRED -> UnifiedOperationState.FAILED
                 current.errorCode?.startsWith("RETRY:") == true -> UnifiedOperationState.RETRYING
                 current.state == RemoteJobState.QUEUED || current.state == RemoteJobState.READY -> UnifiedOperationState.QUEUED
                 else -> UnifiedOperationState.RUNNING
@@ -331,7 +341,8 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         val source = sourceAcquisition.snapshot(projectId)
         val sourceActive = source?.state in setOf(SourceOperationState.RUNNING, SourceOperationState.RETRYING)
         val separationState = separation.snapshotProject(projectId)?.state
-        val separationActive = separationState != null && separationState !in TERMINAL_SEPARATION_STATES
+        val separationActive = separationState != null &&
+            (separationState !in TERMINAL_SEPARATION_STATES || separationState == RemoteJobState.IMPORT_FAILED)
         return sourceActive || separationActive || sourceSearchJobs[projectId]?.isActive == true || preparedReferenceJobs[projectId]?.isActive == true
     }
 
@@ -564,6 +575,26 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             }
     }
 
+    fun resumeSeparationImport(projectId: String) {
+        if (remoteCloudAuth.currentSession() == null) {
+            _state.update {
+                it.copy(
+                    error = "Entre na conta da separação em nuvem para retomar a importação.",
+                    message = null,
+                )
+            }
+            return
+        }
+        runCatching { separation.resumeImport(projectId) }
+            .onSuccess {
+                _state.update { it.copy(message = "Retomando download, validação e importação das faixas.", error = null) }
+                refreshSeparation(projectId)
+            }
+            .onFailure { error ->
+                _state.update { it.copy(error = error.message ?: "Não foi possível retomar a importação.") }
+            }
+    }
+
     fun refreshSeparation(projectId: String) {
         applySeparationSnapshot(projectId, separation.snapshotProject(projectId))
     }
@@ -701,6 +732,8 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private companion object {
+        const val HOME_PREFERENCES = "guitarlab_home_preferences"
+        const val SORT_ORDER_KEY = "project_sort_order"
         const val SOURCE_SEARCH_TIMEOUT_MS = 60_000L
         fun referenceActivityId(projectId: String) = "reference-preparation:$projectId"
 
@@ -720,11 +753,14 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                     errorCode.contains(":CHECKING_REMOTE:") -> "Consulta do processamento falhou temporariamente; nova tentativa agendada"
                     errorCode.contains(":UPLOADING:") -> "Envio da fonte foi interrompido; nova tentativa agendada"
                     errorCode.contains(":ENQUEUEING:") -> "Solicitação de separação não foi confirmada; nova tentativa agendada"
+                    errorCode.contains(":DOWNLOADING_RESULTS:") -> "Download/validação das faixas foi interrompido; nova tentativa agendada"
+                    errorCode.contains(":ACKNOWLEDGING:") -> "Confirmação da importação falhou temporariamente; nova tentativa agendada"
                     else -> "Falha temporária na separação; nova tentativa agendada"
                 }
             }
             return when (job.state) {
                 RemoteJobState.IMPORTED -> "Separação e referências concluídas"
+                RemoteJobState.IMPORT_FAILED -> "Processamento concluído; importação das faixas precisa ser retomada"
                 RemoteJobState.FAILED, RemoteJobState.EXPIRED -> "Não foi possível concluir a separação"
                 RemoteJobState.CANCEL_REQUESTED -> "Cancelamento da separação solicitado"
                 RemoteJobState.CANCELLED -> "Separação cancelada"
@@ -732,10 +768,10 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 RemoteJobState.READY -> "Fonte enviada; preparando processamento"
                 RemoteJobState.QUEUED -> "Separação aguardando processamento"
                 RemoteJobState.RUNNING -> "Separando fonte"
-                RemoteJobState.COMPLETED, RemoteJobState.IMPORTING -> "Importando faixas separadas"
+                RemoteJobState.COMPLETED, RemoteJobState.IMPORTING -> "Baixando, validando e importando faixas separadas"
             }
         }
 
-        val TERMINAL_SEPARATION_STATES = setOf(RemoteJobState.IMPORTED, RemoteJobState.CANCELLED, RemoteJobState.FAILED, RemoteJobState.EXPIRED)
+        val TERMINAL_SEPARATION_STATES = setOf(RemoteJobState.IMPORT_FAILED, RemoteJobState.IMPORTED, RemoteJobState.CANCELLED, RemoteJobState.FAILED, RemoteJobState.EXPIRED)
     }
 }

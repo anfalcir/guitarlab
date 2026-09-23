@@ -44,7 +44,7 @@ class ProjectManagedMediaStore(
 
     /** Only for rollback of an import transaction that failed before the project references it. */
     fun discardUncommitted(projectId: String, relativePath: String) {
-        runCatching { resolveEditable(projectId, relativePath).delete() }
+        runCatching { resolveAsset(projectId, relativePath).delete() }
     }
 
     /** Removes only unreferenced staging files owned by one remote separation job. */

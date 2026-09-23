@@ -126,6 +126,7 @@ class RemoteCloudAuthClient(context: Context) {
     fun signOut() {
         val hasActive = FileRemoteJobStore(appContext).active().any {
             it.state !in setOf(
+                RemoteJobState.IMPORT_FAILED,
                 RemoteJobState.IMPORTED,
                 RemoteJobState.CANCELLED,
                 RemoteJobState.FAILED,

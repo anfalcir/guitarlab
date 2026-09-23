@@ -22,6 +22,11 @@ internal class RemotePipelineException(
     cause: Throwable,
 ) : RuntimeException(cause)
 
+internal class RemoteResultValidationException(
+    message: String,
+    cause: Throwable? = null,
+) : IllegalStateException(message, cause)
+
 internal data class RemoteFailure(
     val code: String,
     val retryable: Boolean,
@@ -51,6 +56,12 @@ internal object RemoteFirebaseFailureClassifier {
         }
         chain.filterIsInstance<StorageException>().firstOrNull()?.let {
             return classifyStorage(it.errorCode, stage ?: RemotePipelineStage.UPLOADING)
+        }
+        if (chain.any { it is RemoteResultValidationException }) {
+            return RemoteFailure("RESULT_INVALID", false, stage ?: RemotePipelineStage.DOWNLOADING_RESULTS)
+        }
+        if (chain.any { it is OutOfMemoryError }) {
+            return RemoteFailure("CLIENT_MEMORY_PRESSURE", false, stage ?: RemotePipelineStage.DOWNLOADING_RESULTS)
         }
         if (chain.any { it is FirebaseNetworkException }) return RemoteFailure("NETWORK_UNAVAILABLE", true, stage)
         if (chain.any { it is IOException }) return RemoteFailure("NETWORK_IO", true, stage)
@@ -91,7 +102,7 @@ internal object RemoteFirebaseFailureClassifier {
             StorageException.ERROR_BUCKET_NOT_FOUND -> RemoteFailure("STORAGE_BUCKET_NOT_FOUND", false, stage)
             StorageException.ERROR_PROJECT_NOT_FOUND -> RemoteFailure("STORAGE_PROJECT_NOT_FOUND", false, stage)
             StorageException.ERROR_QUOTA_EXCEEDED -> RemoteFailure("STORAGE_QUOTA_EXCEEDED", false, stage)
-            StorageException.ERROR_RETRY_LIMIT_EXCEEDED -> RemoteFailure("STORAGE_RETRY_LIMIT_EXCEEDED", false, stage)
+            StorageException.ERROR_RETRY_LIMIT_EXCEEDED -> RemoteFailure("STORAGE_RETRY_LIMIT_EXCEEDED", true, stage)
             StorageException.ERROR_CANCELED -> RemoteFailure("STORAGE_CANCELLED", false, stage)
             else -> RemoteFailure("STORAGE_UNKNOWN", true, stage)
         }

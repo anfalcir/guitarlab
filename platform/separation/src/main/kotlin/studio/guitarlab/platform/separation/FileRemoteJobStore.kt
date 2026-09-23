@@ -27,16 +27,7 @@ class FileRemoteJobStore(context: Context) : RemoteJobStore {
     override fun save(job: DurableRemoteJob): DurableRemoteJob = synchronized(this) {
         val old = load(job.identity.jobId)
         if (old != null && !RemoteStateMachine.accepts(old.state, job.state)) return old
-        val target = File(dir, "${job.identity.jobId}.json")
-        val tmp = File(dir, "${target.name}.tmp")
-        tmp.writeText(encode(job))
-        runCatching {
-            Files.move(tmp.toPath(), target.toPath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
-        }.getOrElse {
-            Files.move(tmp.toPath(), target.toPath(), StandardCopyOption.REPLACE_EXISTING)
-        }
-        changes.tryEmit(job.identity.projectId)
-        job
+        writeUnchecked(job)
     }
 
     override fun active(): List<DurableRemoteJob> = synchronized(this) {
@@ -46,6 +37,29 @@ class FileRemoteJobStore(context: Context) : RemoteJobStore {
 
     fun latestForProject(projectId: String): DurableRemoteJob? =
         RemoteRecoveryPolicy.selectLatestForProject(active(), projectId)
+
+    /**
+     * Repairs only the newest legacy job for a project when rc11 had already observed
+     * a completed remote manifest but later mislabeled a client-side import failure as EXPIRED.
+     * This deliberately bypasses the normal terminal-state monotonicity guard for this one migration.
+     */
+    fun repairLegacyImportExpirations(nowMs: Long = System.currentTimeMillis()): Int = synchronized(this) {
+        val jobs = active()
+        val candidates = jobs
+            .map { it.identity.projectId }
+            .distinct()
+            .mapNotNull { projectId -> RemoteRecoveryPolicy.legacyImportRecoveryCandidate(jobs, projectId) }
+        candidates.forEach { legacy ->
+            writeUnchecked(
+                legacy.copy(
+                    state = RemoteJobState.IMPORT_FAILED,
+                    updatedAtMs = nowMs,
+                    errorCode = "LEGACY_IMPORT_EXPIRATION_RECOVERED:${legacy.errorCode.orEmpty().take(96)}",
+                ),
+            )
+        }
+        candidates.size
+    }
 
     /** Local durable-job observation. Remote reconciliation remains owned by WorkManager. */
     fun observeProject(projectId: String): Flow<DurableRemoteJob?> = changes
@@ -63,6 +77,19 @@ class FileRemoteJobStore(context: Context) : RemoteJobStore {
         }
         changes.tryEmit(projectId)
         removed
+    }
+
+    private fun writeUnchecked(job: DurableRemoteJob): DurableRemoteJob {
+        val target = File(dir, "${job.identity.jobId}.json")
+        val tmp = File(dir, "${target.name}.tmp")
+        tmp.writeText(encode(job))
+        runCatching {
+            Files.move(tmp.toPath(), target.toPath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
+        }.getOrElse {
+            Files.move(tmp.toPath(), target.toPath(), StandardCopyOption.REPLACE_EXISTING)
+        }
+        changes.tryEmit(job.identity.projectId)
+        return job
     }
 
     private fun encode(j: DurableRemoteJob) = JSONObject()
