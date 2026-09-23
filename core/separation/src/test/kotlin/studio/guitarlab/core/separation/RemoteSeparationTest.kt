@@ -147,7 +147,14 @@ class RemoteSeparationTest {
             }
         }
 
-        RemoteSeparationCoordinator(store, backend, transport, { manifest }, publisher).reconcile(i)
+        RemoteSeparationCoordinator(
+            store,
+            backend,
+            transport,
+            { manifest },
+            publisher,
+            expectedResultUid = { "u" },
+        ).reconcile(i)
         assertEquals(listOf("publish", "ack", "cleanup"), events)
         assertEquals(RemoteJobState.IMPORTED, store.job.state)
     }
@@ -191,6 +198,7 @@ class RemoteSeparationTest {
                 RemoteResultManifest.BACKING_STEMS,
                 "guitar",
             ),
+            uid = "u",
         )
         val events = mutableListOf<String>()
         val store = MemoryStore(DurableRemoteJob(i, RemoteJobState.RUNNING, 1))
