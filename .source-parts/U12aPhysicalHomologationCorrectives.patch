@@ -12,7 +12,7 @@ index ba52bf2..92413d3 100644
 +        versionName = "0.5.0-rc6"
          testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
      }
- 
+
 diff --git a/app/src/androidTest/java/studio/guitarlab/app/BackupScreenInstrumentedTest.kt b/app/src/androidTest/java/studio/guitarlab/app/BackupScreenInstrumentedTest.kt
 index e0c262d..ae674e4 100644
 --- a/app/src/androidTest/java/studio/guitarlab/app/BackupScreenInstrumentedTest.kt
@@ -26,7 +26,7 @@ index e0c262d..ae674e4 100644
          compose.onNode(hasScrollAction()).performScrollToNode(hasText("Máximo de versões por projeto"))
          compose.onNodeWithText("Máximo de versões por projeto").assertIsDisplayed()
      }
- 
+
 +    @Test fun busyBackupExplainsWhatIsHappening() {
 +        compose.setContent {
 +            GuitarLabTheme {
@@ -79,7 +79,7 @@ index 0f4c525..45515ef 100644
 @@ -97,6 +100,48 @@ class UnifiedProjectShellInstrumentedTest {
          composeRule.onNodeWithTag("prepare-search-action").performScrollTo().assertIsDisplayed().assertIsNotEnabled()
      }
- 
+
 +    @Test fun preparedProjectSearchDispatchesAndExposesVisibleProgress() {
 +        val project = GuitarProject(
 +            id = "search-project",
@@ -137,8 +137,8 @@ index 0f4c525..45515ef 100644
 +        val navigationCenter = (navigationBounds.left + navigationBounds.right) / 2
 +        assertEquals(shellCenter.value, navigationCenter.value, 1f)
      }
- 
- 
+
+
 diff --git a/app/src/main/java/studio/guitarlab/app/backup/BackupScheduler.kt b/app/src/main/java/studio/guitarlab/app/backup/BackupScheduler.kt
 index c840e4e..65c9b7d 100644
 --- a/app/src/main/java/studio/guitarlab/app/backup/BackupScheduler.kt
@@ -146,7 +146,7 @@ index c840e4e..65c9b7d 100644
 @@ -45,6 +45,11 @@ object BackupScheduler {
          WorkManager.getInstance(appContext).enqueueUniqueWork(COALESCED_WORK, ExistingWorkPolicy.KEEP, request)
      }
- 
+
 +    /** A manual backup supersedes a pending debounced save of the same project state. */
 +    fun cancelCoalesced(context: Context) {
 +        WorkManager.getInstance(context.applicationContext).cancelUniqueWork(COALESCED_WORK)
@@ -216,7 +216,7 @@ index 5c839b8..79464db 100644
 @@ -318,37 +333,6 @@ fun BackupScreenContent(
                  }
              }
- 
+
 -
 -            item {
 -                BackupSection(
@@ -292,12 +292,12 @@ index 739b424..8bae410 100644
 +        refresh()
 +        observeAutomaticBackupCompletion()
 +    }
- 
+
      fun refresh() {
          viewModelScope.launch {
 @@ -124,32 +127,25 @@ class BackupViewModel(application: Application) : AndroidViewModel(application)
      }
- 
+
      fun beginDriveConnection(onResolution: (PendingIntent) -> Unit) {
 -        beginDriveAuthorization(runU8m = false, onResolution = onResolution)
 -    }
@@ -306,7 +306,7 @@ index 739b424..8bae410 100644
 -        beginDriveAuthorization(runU8m = true, onResolution = onResolution)
 +        beginDriveAuthorization(onResolution)
      }
- 
+
      private fun beginDriveAuthorization(
 -        runU8m: Boolean,
          onResolution: (PendingIntent) -> Unit,
@@ -333,7 +333,7 @@ index 739b424..8bae410 100644
                  fail(error)
              }
 @@ -158,26 +154,23 @@ class BackupViewModel(application: Application) : AndroidViewModel(application)
- 
+
      fun completeDriveConnection(data: Intent?) {
          if (_state.value.busy) return
 +        _state.update { it.copy(busy = true, busyLabel = "Validando a conexão…", error = null, message = null) }
@@ -352,7 +352,7 @@ index 739b424..8bae410 100644
              }
          }
      }
- 
+
      fun authorizationCancelled() {
 -        runU8mAfterAuthorization = false
          _state.update {
@@ -363,7 +363,7 @@ index 739b424..8bae410 100644
              )
          }
 @@ -185,8 +178,8 @@ class BackupViewModel(application: Application) : AndroidViewModel(application)
- 
+
      fun disconnectDrive() {
          if (_state.value.busy) return
 +        _state.update { it.copy(busy = true, busyLabel = "Desconectando…", error = null, message = null) }
@@ -381,9 +381,9 @@ index 739b424..8bae410 100644
                          versions = emptyList(),
                          reconciliations = emptyMap(),
 @@ -334,35 +328,17 @@ class BackupViewModel(application: Application) : AndroidViewModel(application)
- 
+
      fun clearMessage() = _state.update { it.copy(message = null, error = null) }
- 
+
 -    private suspend fun finishDriveConnection(runU8m: Boolean) {
 +    private suspend fun finishDriveConnection() {
          val label = unifiedDrive.probeReadWriteDelete()
@@ -448,7 +448,7 @@ index 739b424..8bae410 100644
 @@ -410,13 +399,17 @@ class BackupViewModel(application: Application) : AndroidViewModel(application)
          _state.update { it.copy(settings = settingsStore.snapshot()) }
      }
- 
+
 -    private fun runBusy(successMessage: String?, action: suspend () -> Unit) {
 +    private fun runBusy(
 +        successMessage: String?,
@@ -497,7 +497,7 @@ index 739b424..8bae410 100644
 +        const val ACTIVE_OPERATION_STALE_MS = 30L * 60L * 1_000L
 +    }
  }
- 
+
  internal fun BackupRunReport.userSummary(label: String): String = buildString {
 diff --git a/app/src/main/java/studio/guitarlab/app/ui/HomeScreen.kt b/app/src/main/java/studio/guitarlab/app/ui/HomeScreen.kt
 index f92d4b2..fb79832 100644
@@ -675,14 +675,14 @@ index 951c25b..aecd0c7 100644
 +            }
          }
      }
- 
+
 @@ -611,6 +671,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
      }
- 
+
      private companion object {
 +        const val SOURCE_SEARCH_TIMEOUT_MS = 60_000L
          fun referenceActivityId(projectId: String) = "reference-preparation:$projectId"
- 
+
          fun sourceActivitySummary(state: SourceOperationState): String = when (state) {
 diff --git a/app/src/main/java/studio/guitarlab/app/ui/ProjectShellScaffold.kt b/app/src/main/java/studio/guitarlab/app/ui/ProjectShellScaffold.kt
 index e6a0227..5095741 100644
@@ -801,6 +801,6 @@ index 8ddf049..085d372 100644
 +            }
 +        }
 +    }
- 
+
      warnings.forEach { warning ->
          Text(warning, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.tertiary)

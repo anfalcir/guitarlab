@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PREVIOUS="$ROOT/scripts/materialize_ci_sources_u10zb.sh"
 PATCH="$ROOT/.source-parts/U12aPhysicalHomologationCorrectives.patch"
-PATCH_SHA256="690ea18235240f9d3b901ca1c96cedfc017604a221242c3097be648c92d76677"
+PATCH_SHA256="70f0bd7360f52237b9cd1a4e3ec72a31a3368ce95c4df13510e808fdd878c02b"
 
 declare -a FILES=(
   "app/build.gradle.kts"
