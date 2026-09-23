@@ -38,6 +38,7 @@ data class BackupUiState(
     val settings: BackupSettingsSnapshot = BackupSettingsSnapshot(),
     val localProjects: List<GuitarProject> = emptyList(),
     val versions: List<BackupVersionDescriptor> = emptyList(),
+    val deletedProjects: Map<String, DeletedProjectBackup> = emptyMap(),
     val reconciliations: Map<String, DriveReconciliation> = emptyMap(),
     val remoteTips: Map<String, List<BackupVersionDescriptor>> = emptyMap(),
     val authorizationRequired: Boolean = false,
@@ -52,6 +53,7 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
     private val activityStore = UnifiedActivityStore(application)
     private val confirmedRevisions = ConfirmedRevisionStore(application)
     private val unifiedDrive = UnifiedDriveProductionService(application)
+    private val deletedProjectStore = DeletedProjectBackupStore(application)
     private val _state = MutableStateFlow(BackupUiState())
     val state: StateFlow<BackupUiState> = _state.asStateFlow()
     init {
@@ -118,6 +120,7 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
                     settings = settingsStore.snapshot(),
                     localProjects = projects,
                     versions = versions,
+                    deletedProjects = deletedProjectStore.all(),
                     reconciliations = reconciliations,
                     remoteTips = remoteTips,
                     authorizationRequired = authRequired,
@@ -214,6 +217,7 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
 
     fun backupAllNow() = runBackup(null, "Backup total") { service ->
         val settings = settingsStore.snapshot()
+        cleanupExpiredDeletedProjects(service)
         service.backupAll(retentionPolicy = retention(settings))
     }
 
@@ -285,18 +289,30 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
         activityStore.record(operationId, version.projectId, UnifiedOperationKind.RESTORE, UnifiedOperationState.RUNNING, null, "Restaurando uma versão do projeto")
         requireDriveConnected()
         try {
+            val explicitlyDeleted = deletedProjectStore.all().containsKey(version.projectId)
             val restored = BackupOperationLock.withLock {
-                unifiedDrive.restoreVersion(version, DriveConflictAction.IMPORT_AS_COPY)
+                unifiedDrive.restoreVersion(
+                    version,
+                    if (explicitlyDeleted) DriveConflictAction.USE_DRIVE else DriveConflictAction.IMPORT_AS_COPY,
+                ).also { if (explicitlyDeleted) deletedProjectStore.remove(version.projectId) }
             }
             settingsStore.recordSuccess("Projeto restaurado: ${restored.name}")
-            activityStore.record(operationId, version.projectId, UnifiedOperationKind.RESTORE, UnifiedOperationState.SUCCEEDED, 100, "Projeto restaurado como uma nova cópia local")
+            val success = if (explicitlyDeleted) "Projeto restaurado" else "Projeto restaurado como uma nova cópia local"
+            activityStore.record(operationId, version.projectId, UnifiedOperationKind.RESTORE, UnifiedOperationState.SUCCEEDED, 100, success)
             withContext(Dispatchers.Main) { onProjectsChanged() }
-            _state.update { it.copy(message = "Projeto restaurado como uma nova cópia local.") }
+            _state.update { it.copy(message = "$success.") }
         } catch (error: Throwable) {
             if (error is CancellationException) throw error
             activityStore.record(operationId, version.projectId, UnifiedOperationKind.RESTORE, UnifiedOperationState.FAILED, null, "Não foi possível restaurar o projeto", error.message)
             throw error
         }
+    }
+
+    fun deleteCloudProject(projectId: String) = runBusy(null, "Excluindo backups da nuvem…") {
+        requireDriveConnected()
+        BackupOperationLock.withLock { unifiedDrive.deleteProjectBackups(projectId) }
+        deletedProjectStore.remove(projectId)
+        _state.update { it.copy(message = "Backups do projeto removidos da nuvem.") }
     }
 
     fun restoreLatestAll(onProjectsChanged: () -> Unit) = runBusy(null) {
@@ -392,6 +408,13 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     private fun retention(settings: BackupSettingsSnapshot) = BackupRetentionPolicy(settings.retentionDays, settings.maximumVersions)
+
+    private suspend fun cleanupExpiredDeletedProjects(service: UnifiedDriveProductionService) {
+        DeletedProjectRetentionPolicy.expired(deletedProjectStore.all().values, System.currentTimeMillis()).forEach { tombstone ->
+            service.deleteProjectBackups(tombstone.projectId)
+            deletedProjectStore.remove(tombstone.projectId)
+        }
+    }
 
     private fun updateSettings(change: () -> Unit) {
         change()

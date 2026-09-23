@@ -30,7 +30,15 @@ Updated: 2026-09-23
 
 ## Active line
 - Repository/branch: `anfalcir/guitarlab` / `main`.
-- **rc11 is CLOSED / DIGITAL PASS and is the active U12 physical-homologation candidate.**
+- **rc14 is the active source candidate; exact-source digital qualification and signing are pending.**
+- RC14 identity: `0.5.0-rc14` / versionCode `34` / `studio.guitarlab.app`.
+- RC14 scope: foreground remote separation, branded notification icon, one consolidated take-management flow, grouped backup history and explicit ten-day deleted-project lifecycle.
+- RC13 remains the latest signed DIGITAL PASS and completed all three gates on producer `bf78580dd79f4c2a4554aca34e6c8a65ccaa12e3`: Android CI #828 / run `35926732265`, U4 run `35926732269`, U7 run `35926732284`.
+- RC13 signed artifact: `GuitarLabStudio-0.5.0-rc13-homologacao` / artifact id `10779803277`.
+- RC14 release notes and physical checklist: `RELEASE_NOTES_0.5.0-rc14.md`, `RC14_FINAL_PHYSICAL_HOMOLOGATION.md`.
+
+## Superseded rc11 authority
+- **rc11 is CLOSED / DIGITAL PASS and historical.**
 - Exact producer: `34cb60624b2fabf21cfe2c60003b04eac1597418`.
 - Version/package: `0.5.0-rc11` / versionCode `31` / `studio.guitarlab.app`.
 - Android CI #806 / run `35885021871`: PASS — exact materialization through U12w, unit tests, Android Lint, debug/release build, full API 36 grouped regression and signed homologation.

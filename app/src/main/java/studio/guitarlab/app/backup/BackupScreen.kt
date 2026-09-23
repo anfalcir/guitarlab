@@ -10,7 +10,10 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -102,6 +105,7 @@ fun BackupScreen(
             onUseCloud = { viewModel.useCloudVersion(it, onProjectsChanged) },
             onRestoreVersion = { viewModel.restoreVersion(it, onProjectsChanged) },
             onRestoreAll = { viewModel.restoreLatestAll(onProjectsChanged) },
+            onDeleteCloudProject = viewModel::deleteCloudProject,
         )
         SnackbarHost(snackbar, Modifier.align(Alignment.TopCenter).padding(top = 12.dp))
         if (state.busy) {
@@ -160,12 +164,15 @@ fun BackupScreenContent(
     onUseCloud: (BackupVersionDescriptor) -> Unit,
     onRestoreVersion: (BackupVersionDescriptor) -> Unit,
     onRestoreAll: () -> Unit,
+    onDeleteCloudProject: (String) -> Unit = {},
 ) {
     var restoreVersion by remember { mutableStateOf<BackupVersionDescriptor?>(null) }
     var keepLocalVersion by remember { mutableStateOf<BackupVersionDescriptor?>(null) }
     var useCloudVersion by remember { mutableStateOf<BackupVersionDescriptor?>(null) }
     var confirmRestoreAll by remember { mutableStateOf(false) }
     var confirmDisconnect by remember { mutableStateOf(false) }
+    var selectedProjectId by remember { mutableStateOf<String?>(null) }
+    var confirmCloudDeleteId by remember { mutableStateOf<String?>(null) }
     val configured = state.settings.driveConnected
     val currentProject = projectId?.let { id ->
         state.localProjects.firstOrNull { it.id == id }
@@ -362,8 +369,18 @@ fun BackupScreenContent(
                     )
                 }
             } else {
-                items(state.versions, key = { it.remoteId }) { version ->
-                    BackupVersionRow(version, enabled = !state.busy, onRestore = { restoreVersion = version })
+                val grouped = state.versions.groupBy { it.projectId }.values
+                    .sortedBy { versions -> versions.first().projectName.lowercase() }
+                items(grouped, key = { it.first().projectId }) { versions ->
+                    val latest = versions.maxBy { it.backupCreatedAtEpochMs }
+                    BackupProjectRow(
+                        latest = latest,
+                        versionCount = versions.size,
+                        deleted = latest.projectId in state.deletedProjects,
+                        cloudOnly = state.localProjects.none { it.id == latest.projectId },
+                        enabled = !state.busy,
+                        onOpen = { selectedProjectId = latest.projectId },
+                    )
                 }
             }
         }
@@ -431,6 +448,44 @@ fun BackupScreenContent(
             text = { Text("Será criada uma nova cópia local de “${version.projectName}”. O projeto atual não será sobrescrito.") },
             dismissButton = { TextButton(onClick = { restoreVersion = null }) { Text("Cancelar") } },
             confirmButton = { TextButton(onClick = { restoreVersion = null; onRestoreVersion(version) }, modifier = Modifier.testTag("confirm-restore-version")) { Text("Restaurar") } },
+        )
+    }
+    selectedProjectId?.let { selectedId ->
+        val versions = state.versions.filter { it.projectId == selectedId }
+            .sortedByDescending { it.backupCreatedAtEpochMs }
+        if (versions.isNotEmpty()) {
+            val deleted = selectedId in state.deletedProjects
+            AlertDialog(
+                onDismissRequest = { selectedProjectId = null },
+                title = { Text(versions.first().projectName) },
+                text = {
+                    Column(
+                        Modifier.fillMaxWidth().heightIn(max = 520.dp).verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        Text("ID: $selectedId", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        if (deleted) Text("Excluído do aparelho · remoção automática após 10 dias", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelMedium)
+                        versions.forEach { version ->
+                            BackupVersionRow(version, enabled = !state.busy, onRestore = { selectedProjectId = null; restoreVersion = version })
+                        }
+                        if (deleted) {
+                            OutlinedButton(onClick = { selectedProjectId = null; confirmCloudDeleteId = selectedId }, enabled = !state.busy) {
+                                Text("Excluir definitivamente da nuvem")
+                            }
+                        }
+                    }
+                },
+                confirmButton = { TextButton(onClick = { selectedProjectId = null }) { Text("Fechar") } },
+            )
+        }
+    }
+    confirmCloudDeleteId?.let { selectedId ->
+        AlertDialog(
+            onDismissRequest = { confirmCloudDeleteId = null },
+            title = { Text("Excluir backups da nuvem?") },
+            text = { Text("Todas as versões deste projeto serão removidas definitivamente. Esta ação não pode ser desfeita.") },
+            dismissButton = { TextButton(onClick = { confirmCloudDeleteId = null }) { Text("Cancelar") } },
+            confirmButton = { TextButton(onClick = { confirmCloudDeleteId = null; onDeleteCloudProject(selectedId) }) { Text("Excluir definitivamente") } },
         )
     }
     if (confirmRestoreAll) {
@@ -509,6 +564,30 @@ private fun <T> ChoiceRow(
                     )
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun BackupProjectRow(
+    latest: BackupVersionDescriptor,
+    versionCount: Int,
+    deleted: Boolean,
+    cloudOnly: Boolean,
+    enabled: Boolean,
+    onOpen: () -> Unit,
+) {
+    val date = DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT).format(Date(latest.backupCreatedAtEpochMs))
+    Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(10.dp), border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
+        Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(latest.projectName, style = MaterialTheme.typography.titleSmall)
+                Text("ID: ${latest.projectId}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("$versionCount ${if (versionCount == 1) "versão" else "versões"} · mais recente em $date", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (deleted) Text("EXCLUÍDO", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
+                else if (cloudOnly) Text("SOMENTE NA NUVEM", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.tertiary)
+            }
+            OutlinedButton(onClick = onOpen, enabled = enabled) { Text("Ver versões") }
         }
     }
 }

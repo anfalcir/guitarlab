@@ -102,6 +102,12 @@ internal class UnifiedDriveProductionService(
             )
     }
 
+    suspend fun deleteProjectBackups(projectId: String): Int {
+        val deleted = remote.deleteProject(projectId)
+        clearProjectLocalState(projectId)
+        return deleted
+    }
+
     suspend fun backupAll(
         retentionPolicy: BackupRetentionPolicy,
     ): BackupRunReport {

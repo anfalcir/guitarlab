@@ -147,6 +147,14 @@ class RemoteSeparationWorker(context: Context, params: WorkerParameters) : Corou
         val previousRetryCode = store.load(id.jobId)?.errorCode
         return try {
             val current = store.load(id.jobId)
+            setForeground(
+                notifier.foregroundInfo(
+                    id,
+                    projectName,
+                    current?.state ?: RemoteJobState.UPLOADING,
+                    current?.errorCode,
+                ),
+            )
             current?.let { notifier.show(id, projectName, it.state, it.errorCode) }
             val next = if (current == null) coordinator.start(id) else coordinator.reconcile(id)
             when (next.state) {
@@ -593,4 +601,3 @@ private fun terminalizeExhaustedWorker(
         restoreSourceReadyAfterTerminal(id, store, repository)
     }
 }
-

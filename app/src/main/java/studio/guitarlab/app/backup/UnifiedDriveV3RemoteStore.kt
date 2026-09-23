@@ -74,6 +74,33 @@ internal class UnifiedDriveV3RemoteStore(
     suspend fun listAllHeads(): List<DrivePublishedHead> =
         listFiles(queryKind(KIND_HEAD)).map(::publishedHead)
 
+    /** Deletes one project's heads/manifests and only content assets not referenced elsewhere. */
+    suspend fun deleteProject(projectId: String): Int {
+        require(projectId.isNotBlank()) { "Project id is required for Drive cleanup." }
+        val headFiles = listFiles(query(KIND_HEAD, PROP_PROJECT_ID to projectId))
+        val manifestFiles = listFiles(query(KIND_MANIFEST, PROP_PROJECT_ID to projectId))
+        val manifests = manifestFiles.map { loadManifestResource(it, projectId) }
+        val ownedHashes = manifests.flatMapTo(mutableSetOf()) { it.assets.map(DriveAssetObject::sha256) }
+        val protectedHashes = listAllHeads()
+            .filter { it.descriptor.projectId != projectId }
+            .distinctBy { it.descriptor.manifestSha256 }
+            .flatMapTo(mutableSetOf()) { loadManifest(it.descriptor).assets.map(DriveAssetObject::sha256) }
+
+        var deleted = 0
+        headFiles.forEach { deleteFile(it.id); deleted++ }
+        manifestFiles.forEach { deleteFile(it.id); deleted++ }
+        (ownedHashes - protectedHashes).forEach { hash ->
+            listFiles(query(KIND_ASSET, PROP_SHA256 to hash)).forEach { file ->
+                require(file.verifiedReceipt()?.sha256 == hash) { "Drive cleanup found ambiguous asset metadata." }
+                deleteFile(file.id)
+                deleted++
+            }
+        }
+        require(listFiles(query(KIND_HEAD, PROP_PROJECT_ID to projectId)).isEmpty())
+        require(listFiles(query(KIND_MANIFEST, PROP_PROJECT_ID to projectId)).isEmpty())
+        return deleted
+    }
+
     override suspend fun listCommittedManifests(): List<DriveProjectRevisionManifest> =
         listAllHeads()
             .distinctBy { it.descriptor.manifestSha256 }

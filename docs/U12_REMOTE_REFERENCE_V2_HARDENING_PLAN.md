@@ -1,8 +1,10 @@
 # U12 — Remote Prepared References v2 hardening plan
 
 Updated: 2026-09-23
-Status: IMPLEMENTATION AUTHORIZED — supersedes rc12 for final physical homologation
-Target release candidate: 0.5.0-rc13 / versionCode 33
+Status: RC13 DIGITAL PASS; RC14 corrective source candidate active
+Target release candidate: 0.5.0-rc14 / versionCode 34
+
+RC13 closed the Prepared References v2 digital gate on producer `bf78580dd79f4c2a4554aca34e6c8a65ccaa12e3` (Android `35926732265`, U4 `35926732269`, U7 `35926732284`). RC14 preserves that protocol and adds only the post-homologation Android foreground/notification, take navigation and backup-lifecycle corrections documented in `RELEASE_NOTES_0.5.0-rc14.md`.
 
 ## 1. Problem statement
 

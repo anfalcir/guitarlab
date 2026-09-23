@@ -31,7 +31,9 @@ Use these first for current status, release identity and remaining work:
 - `RELEASE_NOTES_0.5.0-rc3.md` — historical signed RC3 behavior delta;
 - `RELEASE_NOTES_0.5.0-rc4.md` — H37/H37a/H37b RC4 delta and historical source-pre-gate narrative; its signed gate was later closed by CI #669;
 - `RELEASE_NOTES_0.5.0-rc5.md` — historical U11 rc5/25 freeze evidence;
-- `RELEASE_NOTES_0.5.0-rc11.md` — current signed U12 candidate identity, stable Firebase account corrective, Activity lifecycle hardening and final focused physical retest;
+- `RELEASE_NOTES_0.5.0-rc14.md` — active source candidate: foreground separation, branded notifications, unified take entry and deleted-project backup lifecycle;
+- `RC14_FINAL_PHYSICAL_HOMOLOGATION.md` — focused RC14 target-device acceptance;
+- `RELEASE_NOTES_0.5.0-rc11.md` — historical signed U12 candidate identity, stable Firebase account corrective and Activity lifecycle hardening;
 - `RELEASE_NOTES_0.5.0-rc9.md` — historical remote-orphan corrective evidence;
 - `H35_TAKE_SYNC_QUIET_CALIBRATION.md` — global-vs-take synchronization and quiet/silent calibration contract;
 - `H36_SETTINGS_UX_POLISH.md` — Settings/calibration presentation refinement plus H36a/H36b/H36c corrective history and #663 DIGITAL PASS evidence.
@@ -47,7 +49,7 @@ Drive result `U8m PASS · r_1790095960 · cleanup 8/8/14`, report SHA-256
 **U10/C8 is CLOSED / DIGITAL PASS** on Android CI #781 / run `35791192802`,
 exact technical source `2aa97aa8b2c3af91d35e7d48a0eeb89c2c330e63`, with 23/23
 instrumented classes, 76 observed API36 tests and 24/24 retained visual artifacts.
-**U11 remains CLOSED / DIGITAL PASS historical evidence; U12 is active on rc11.** Android CI #806 / run `35885021871`, producer `34cb60624b2fabf21cfe2c60003b04eac1597418`, is the current signed authority. U4 #123 and U7 #81 are green on the same producer; final physical approval remains pending.
+**U11 remains CLOSED / DIGITAL PASS historical evidence; U12 is active on RC14.** RC14 is pending qualification. RC13 is the latest signed authority at producer `bf78580dd79f4c2a4554aca34e6c8a65ccaa12e3`, with Android #828/run `35926732265`, U4 `35926732269` and U7 `35926732284` green.
 
 ## Normative subsystem contracts
 These define behavior and remain valid unless explicitly superseded:
@@ -73,22 +75,11 @@ These are preserved for traceability and must not be used as current-state autho
 - milestone-specific evidence such as `M2_HOMOLOGATION_EVIDENCE.md`, `H22_AUDIO_ROUTE_UX.md`, `H24_HOME_PROJECT_LIBRARY.md`, `H25_UI_SETTINGS_SAFETY.md`, `H26D_MATERIALIZER_RECOVERY.md`, `H26E_CI650_DIGITAL_PASS.md` and similar exact-source records.
 
 ## Current evidence boundary
-Android CI #806 / run `35885021871` / producer `34cb60624b2fabf21cfe2c60003b04eac1597418` is the latest signed DIGITAL PASS for package `studio.guitarlab.app`, version `0.5.0-rc11` / code `31`.
+RC14 (`0.5.0-rc14` / 34) is the active source candidate and remains pending exact-source qualification. RC13 is the latest signed DIGITAL PASS: Android CI #828 / run `35926732265`, U4 run `35926732269` and U7 run `35926732284`, producer `bf78580dd79f4c2a4554aca34e6c8a65ccaa12e3`.
 
-Signed APK SHA-256: `3cd9bfe06c9aa1af7f452f0dd8d9e9bead50774bde4a3b22c72f09f51e5ea769`.
 Signer SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
 
-Same-producer supporting evidence:
-- U4 Cloud Integration Smoke #123 / run `35885021902`: PASS, real six-stem Cloud Run contract;
-- U7 Cloud Backend #81 / run `35885021969`: PASS, Email/Password Firebase configuration, allowlisted password-backed user verification and source/container/security verification;
-- exact-source materialization tail U12w: PASS;
-- full API 36 grouped regression: PASS;
-- signed artifact `GuitarLabStudio-0.5.0-rc11-homologacao` / id `10762204176`;
-- artifact ZIP SHA-256 `9f9ad8e16222c4eac1d8dcc27d7946e75e54be6a9a9bfcd243beb0284e14e7b2`.
-
-Rc9 remains historical orphan-reconciliation evidence. Rc10 identified and hardened the pre-upload Firebase failure boundary. Rc11 restores the original stable Firebase Email/Password identity contract required by `GBW_ALLOWED_UIDS`, without weakening the backend allowlist.
-
-Remaining release work is U12 target-device acceptance on rc11.
+RC13 same-producer supporting evidence is listed above. Older RC9–RC11 evidence remains historical. Remaining work is RC14 exact-source digital qualification followed by the focused target-device checklist.
 
 ## Repository audits
 - `REPOSITORY_SANITIZATION_2026-09-20.md` records the branch audit supporting a single-branch (`main`) repository cleanup.

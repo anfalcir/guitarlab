@@ -167,6 +167,7 @@ fun StudioPlaceholderScreen(
     val state by viewModel.state.collectAsState()
     var pendingTrackId by remember { mutableStateOf<String?>(null) }
     var settingsTrackId by remember { mutableStateOf<String?>(null) }
+    var focusTakeManagement by remember { mutableStateOf(false) }
     var fadeClipId by remember { mutableStateOf<String?>(null) }
     var pendingDiscardRecoveryId by remember { mutableStateOf<String?>(null) }
     val audioPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -206,6 +207,10 @@ fun StudioPlaceholderScreen(
                 selectedTrackId = selectedTrackId,
                 onSelectTrack = onSelectTrack,
                 onOpenTrackSettings = { settingsTrackId = it },
+                onOpenTakeManagement = {
+                    focusTakeManagement = true
+                    settingsTrackId = it
+                },
                 onAddTrack = viewModel::addTrack,
                 onImportWav = { trackId ->
                     if (!state.importing && !state.editingClip && state.trimControls == null && TransportPolicy.timelineEditingEnabled(state.transport)) {
@@ -260,6 +265,7 @@ fun StudioPlaceholderScreen(
             clips = project.clips.filter { it.trackId == settingsTrack.id },
             sampleRate = project.sampleRate.fixedHz ?: clipSampleRate(project),
             takes = project.takes.filter { it.trackId == settingsTrack.id },
+            focusTakeManagement = focusTakeManagement,
             levelAnalysis = state.trackLevelAnalysis[settingsTrack.id],
             availableRoles = TrackRoleAssignmentPolicy.availableForTrack(project, settingsTrack.id),
             onActivateTake = viewModel::activateTake,
@@ -270,14 +276,16 @@ fun StudioPlaceholderScreen(
             onAnalyzeLevel = { viewModel.analyzeTrackLevel(settingsTrack.id) },
             onApplyLevel = { viewModel.applyTrackLevelSuggestion(settingsTrack.id) },
             onClearTrack = { viewModel.clearTrackContents(settingsTrack.id) },
-            onDismiss = { settingsTrackId = null },
+            onDismiss = { settingsTrackId = null; focusTakeManagement = false },
             onSave = { name, colorIndex, roleId ->
                 viewModel.updateTrackConfiguration(settingsTrack.id, name, colorIndex, roleId)
                 settingsTrackId = null
+                focusTakeManagement = false
             },
             onDelete = {
                 viewModel.deleteTrack(settingsTrack.id)
                 settingsTrackId = null
+                focusTakeManagement = false
             },
         )
     }
@@ -824,6 +832,7 @@ private fun ProjectWorkspace(
     selectedTrackId: String?,
     onSelectTrack: (String) -> Unit,
     onOpenTrackSettings: (String) -> Unit,
+    onOpenTakeManagement: (String) -> Unit,
     onAddTrack: () -> Unit,
     onImportWav: (String) -> Unit,
     onPlayheadFrameChanged: (Long) -> Unit,
@@ -1113,6 +1122,7 @@ private fun ProjectWorkspace(
                                 track = track,
                                 auditionMode = auditionMode,
                                 clips = ActiveTakePolicy.audibleClips(project).filter { it.trackId == track.id },
+                                hasTakes = project.takes.any { it.trackId == track.id },
                                 liveWaveform = if (recordingTrackId == track.id && recordingPhase == RecordingSessionPhase.CAPTURING) liveRecordingWaveform else emptyList(),
                                 liveStartFrame = recordingStartFrame,
                                 liveFrames = recordingFrames,
@@ -1130,6 +1140,7 @@ private fun ProjectWorkspace(
                                 onTrimEndFrameChanged = onTrimEndFrameChanged,
                                 onSelect = { onSelectTrack(track.id) },
                                 onSettings = { onOpenTrackSettings(track.id) },
+                                onManageTakes = { onOpenTakeManagement(track.id) },
                                 onImportWav = { onImportWav(track.id) },
                                 onBeginTrim = onBeginTrim,
                                 onRemove = { pendingDeleteClipId = it },
@@ -1569,6 +1580,7 @@ private fun StudioTrackLane(
     track: AudioTrack,
     auditionMode: GuitarAuditionMode,
     clips: List<AudioClip>,
+    hasTakes: Boolean,
     liveWaveform: List<LiveWaveformPoint>,
     liveStartFrame: Long,
     liveFrames: Long,
@@ -1586,6 +1598,7 @@ private fun StudioTrackLane(
     onTrimEndFrameChanged: (Long) -> Unit,
     onSelect: () -> Unit,
     onSettings: () -> Unit,
+    onManageTakes: () -> Unit,
     onImportWav: () -> Unit,
     onBeginTrim: (String) -> Unit,
     onRemove: (String) -> Unit,
@@ -1705,6 +1718,12 @@ private fun StudioTrackLane(
                                     onClick = { clipMenuExpanded = true },
                                 )
                                 DropdownMenu(expanded = clipMenuExpanded, onDismissRequest = { clipMenuExpanded = false }) {
+                                    if (hasTakes) {
+                                        ClipMenuItem(Icons.Default.Edit, "Gerenciar takes e sincronização…") {
+                                            clipMenuExpanded = false
+                                            onManageTakes()
+                                        }
+                                    }
                                     clips.sortedBy { it.startFrame }.forEach { clip ->
                                         val suffix = if (clips.size > 1) " · ${clip.name}" else ""
                                         ClipMenuItem(Icons.Default.ContentCopy, "Duplicar$suffix") { clipMenuExpanded = false; onDuplicate(clip.id) }
@@ -2109,6 +2128,7 @@ private fun TrackSettingsDialog(
     clips: List<AudioClip>,
     sampleRate: Int,
     takes: List<studio.guitarlab.core.model.RecordingTake>,
+    focusTakeManagement: Boolean,
     levelAnalysis: studio.guitarlab.core.project.LevelAnalysis?,
     availableRoles: List<TrackRoleDefinition>,
     onActivateTake: (String) -> Unit,
@@ -2134,6 +2154,13 @@ private fun TrackSettingsDialog(
     var confirmClearTrack by remember(track.id) { mutableStateOf(false) }
     var editingTakeId by remember(track.id) { mutableStateOf<String?>(null) }
     var deleteTakeId by remember(track.id) { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(track.id, focusTakeManagement, takes.size) {
+        if (focusTakeManagement && takes.isNotEmpty()) {
+            delay(120L)
+            scrollState.animateScrollTo(scrollState.maxValue)
+        }
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,

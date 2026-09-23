@@ -19,30 +19,26 @@ Read first:
 - `docs/DOCUMENTATION_MAP.md`
 - `docs/H37_DRIVE_V3_BACKUP.md`
 - `docs/H35_TAKE_SYNC_QUIET_CALIBRATION.md`
-- `docs/RELEASE_NOTES_0.5.0-rc11.md`
+- `docs/RELEASE_NOTES_0.5.0-rc14.md`
+- `docs/RC14_FINAL_PHYSICAL_HOMOLOGATION.md`
 - `docs/RELEASE_NOTES_0.5.0-rc9.md` — historical corrective evidence
 
 ## Active source/release state
 
-**U11 is CLOSED / DIGITAL PASS. U12 final physical homologation is active on rc11.**
+**U11 is CLOSED / DIGITAL PASS. U12 is active with RC14 as the next source candidate.**
 
-Current signed U12 candidate:
-- `0.5.0-rc11`
-- versionCode `31`
+Active source candidate:
+- `0.5.0-rc14`
+- versionCode `34`
 - package `studio.guitarlab.app`
-- exact producer `34cb60624b2fabf21cfe2c60003b04eac1597418`
-- Android CI #806 / run `35885021871` — PASS, including full API 36 regression and signed homologation
-- U4 Cloud Integration Smoke #123 / run `35885021902` — PASS, real six-stem Cloud Run contract
-- U7 Cloud Backend #81 / run `35885021969` — PASS, stable Email/Password Firebase identity + allowlisted UID verification + backend source/container/security gate
-- signed artifact `GuitarLabStudio-0.5.0-rc11-homologacao` / id `10762204176`
-- signed APK SHA-256 `3cd9bfe06c9aa1af7f452f0dd8d9e9bead50774bde4a3b22c72f09f51e5ea769`
-- signed APK size `79,965,840` bytes
-- signed artifact ZIP digest `9f9ad8e16222c4eac1d8dcc27d7946e75e54be6a9a9bfcd243beb0284e14e7b2`
+- exact producer and signed artifact pending source seal and exact-source qualification
+
+Latest signed authority is RC13 at producer `bf78580dd79f4c2a4554aca34e6c8a65ccaa12e3`: Android CI #828 / run `35926732265`, U4 `35926732269`, U7 `35926732284`; artifact `GuitarLabStudio-0.5.0-rc13-homologacao` / id `10779803277`.
 
 Locked homologation certificate SHA-256:
 `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
 
-Rc11 supersedes rc9/rc10 for U12. Target-device bugreports proved the remote worker was executing but retrying before Storage/Functions/Cloud Run. The migration had replaced GBW's stable Firebase Email/Password identity with anonymous auth while the backend still enforced `GBW_ALLOWED_UIDS`. Rc11 restores the stable account contract, adds backend authorization preflight and typed pipeline failures, and hardens Activity cleanup without weakening the UID allowlist.
+RC14 preserves RC13's Prepared References v2/cloud identity contract and adds the post-homologation Android foreground, notification, take-management and backup-lifecycle corrections.
 
 ## Product model
 

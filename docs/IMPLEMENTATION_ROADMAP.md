@@ -15,7 +15,7 @@ Updated: 2026-09-23
 
 ## Current signed authority
 
-**Android CI #806** / run `35885021871` / producer `34cb60624b2fabf21cfe2c60003b04eac1597418` is the latest signed DIGITAL PASS (`0.5.0-rc11` / versionCode `31`).
+**Android CI #828** / run `35926732265` / producer `bf78580dd79f4c2a4554aca34e6c8a65ccaa12e3` is the latest signed DIGITAL PASS (`0.5.0-rc13` / versionCode `33`), with U4 `35926732269` and U7 `35926732284` green on the same producer. RC14 (`0.5.0-rc14` / 34) is the active source candidate pending qualification.
 
 Signed APK SHA-256: `3cd9bfe06c9aa1af7f452f0dd8d9e9bead50774bde4a3b22c72f09f51e5ea769`.
 
@@ -23,7 +23,7 @@ The same producer passed U4 Cloud Integration Smoke #123 and U7 Cloud Backend #8
 
 ## Current release closure
 
-U10/C8 and U11 are digitally closed. U12 is active on rc11. Rc9 remains the historical orphan-reconciliation corrective; rc10 hardened Firebase failure observability; rc11 restores the stable account identity contract inherited from GBW and required by `GBW_ALLOWED_UIDS`.
+U10/C8 and U11 are digitally closed. U12 is active on RC14; RC13 remains the latest signed authority until RC14 qualification. RC9–RC11 remain historical corrective evidence.
 
 The next required evidence is physical: install rc11 on the target tablet, authenticate once with the existing allowlisted Firebase Email/Password account, prove a fresh Prepare separation crosses the full Storage → Function → Cloud Run → import path, then complete the remaining USB/audio/10-minute/ergonomics acceptance residuals.
 

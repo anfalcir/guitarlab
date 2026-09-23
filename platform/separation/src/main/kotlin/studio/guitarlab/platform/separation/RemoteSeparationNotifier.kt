@@ -6,6 +6,8 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ServiceInfo
+import androidx.work.ForegroundInfo
 import studio.guitarlab.core.separation.DurableRemoteJob
 import studio.guitarlab.core.separation.RemoteJobIdentity
 import studio.guitarlab.core.separation.RemoteJobState
@@ -68,18 +70,32 @@ internal class RemoteSeparationNotifier(context: Context) {
         state: RemoteJobState,
         errorCode: String? = null,
     ) {
-        val copy = RemoteSeparationNotificationPolicy.copy(state, errorCode)
         manager.notify(
             notificationId(identity.jobId),
-            Notification.Builder(appContext, CHANNEL_ID)
-                .setSmallIcon(
-                    when (state) {
-                        RemoteJobState.IMPORTED -> android.R.drawable.stat_sys_download_done
-                        RemoteJobState.IMPORT_FAILED, RemoteJobState.FAILED, RemoteJobState.EXPIRED ->
-                            android.R.drawable.stat_notify_error
-                        else -> android.R.drawable.stat_sys_upload
-                    },
-                )
+            notification(identity, projectName, state, errorCode),
+        )
+    }
+
+    fun foregroundInfo(
+        identity: RemoteJobIdentity,
+        projectName: String,
+        state: RemoteJobState,
+        errorCode: String? = null,
+    ): ForegroundInfo = ForegroundInfo(
+        notificationId(identity.jobId),
+        notification(identity, projectName, state, errorCode),
+        ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC,
+    )
+
+    private fun notification(
+        identity: RemoteJobIdentity,
+        projectName: String,
+        state: RemoteJobState,
+        errorCode: String?,
+    ): Notification {
+        val copy = RemoteSeparationNotificationPolicy.copy(state, errorCode)
+        return Notification.Builder(appContext, CHANNEL_ID)
+                .setSmallIcon(R.drawable.ic_notification_guitarlab)
                 .setContentTitle(projectName.ifBlank { "GuitarLab" })
                 .setContentText(copy.text)
                 .setSubText("GuitarLab · Separação")
@@ -89,8 +105,7 @@ internal class RemoteSeparationNotifier(context: Context) {
                 .setAutoCancel(!copy.ongoing)
                 .setOnlyAlertOnce(copy.ongoing)
                 .setShowWhen(true)
-                .build(),
-        )
+                .build()
     }
 
     fun showRetry(identity: RemoteJobIdentity, projectName: String, errorCode: String?) =

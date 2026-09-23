@@ -307,6 +307,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     fun deleteProject(projectId: String) {
         viewModelScope.launch {
+            val deletedProjectName = repository.load(projectId)?.name ?: "Projeto"
             val hadActiveOperations = hasActiveProjectOperations(projectId)
             stopPrepareObservation(projectId)
             sourceSearchJobs.remove(projectId)?.cancelAndJoin()
@@ -315,6 +316,8 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             separation.closeProject(projectId)
             runCatching { withContext(Dispatchers.IO) { repository.delete(projectId) } }
                 .onSuccess {
+                    studio.guitarlab.app.backup.DeletedProjectBackupStore(getApplication())
+                        .record(projectId, deletedProjectName)
                     activityStore.terminalizeProject(projectId)
                     _state.update { current ->
                         current.copy(

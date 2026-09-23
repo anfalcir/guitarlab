@@ -6,7 +6,7 @@ Updated: 2026-09-21
 - `main` is canonical.
 - Product behavior is promoted only after exact-source automated gates and, where required, residual physical validation.
 - `.github/workflows/android-ci.yml` supports manual dispatch plus explicit `[run ci]` / `[run ci signed]` commit-message gates on `main`; ordinary `[skip ci]` commits remain inert.
-- Active U12 signed authority is Android CI #794 / run `35856278980` at exact producer `635124acfbf133553a96c8b2013f2245f58a6877`, package `studio.guitarlab.app`, `0.5.0-rc9` / 29. U4 #111 and U7 #69 are green on the same producer boundary; U10/C8 technical authority remains preserved as #781 evidence.
+- Active source candidate is RC14 (`0.5.0-rc14` / 34). Latest signed authority remains RC13 at exact producer `bf78580dd79f4c2a4554aca34e6c8a65ccaa12e3`: Android CI #828 / run `35926732265`, U4 `35926732269`, U7 `35926732284`. U10/C8 technical authority remains preserved as #781 evidence.
 
 ## Module boundaries
 - `core:model`: immutable project/track/clip/take metadata contracts.
@@ -93,11 +93,10 @@ No Firebase/Cloud Run/Functions hop, service account, client secret or refresh-t
 
 ## Current milestone boundary
 
-U10/C8 and U11 remain CLOSED / DIGITAL PASS historical authorities. The current U12 signed candidate is `0.5.0-rc9` / versionCode `29`, exact producer `635124acfbf133553a96c8b2013f2245f58a6877`, Android CI #794.
+U10/C8 and U11 remain CLOSED / DIGITAL PASS historical authorities. RC13 is the current signed U12 authority; RC14 is an unqualified corrective source candidate and cannot supersede it until exact-source gates and signing pass.
 
 Remote separation recovery now treats the local durable store as recovery intent, not proof that a cloud job exists. When reconciliation finds no remote job, replayable pre-dispatch states are idempotently re-enqueued, cancellation requests terminalize locally, and states that require an already-created remote job expire safely. Cancellation/worker retry exhaustion must also end in a terminal local state. Restoration of `SOURCE_READY` is source-generation-aware and may not overwrite a newer active separation. Per-project observation prefers active work over a late terminal completion from an older generation.
 
 The exact rc9 producer also passed U4 Cloud Integration Smoke #111. U7 Cloud Backend #69 passed source/container/security verification; its controlled deploy step was skipped. Drive provider-real acceptance remains closed by U8m and is unaffected by U12k.
 
 U12 remains the only release boundary: first validate the rc8→rc9 orphan-recovery correction on the target tablet, then complete the residual real MK-300 routing/capture/isolation, monitoring, timing/listening, USB reconnect, continuous 10-minute quality and ergonomics checks. External-controller physical acceptance remains a separate 1.1 boundary unless explicitly promoted.
-

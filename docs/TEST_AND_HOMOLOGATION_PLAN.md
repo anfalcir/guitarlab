@@ -18,7 +18,7 @@ U10 evidence:
 - deterministic visual review PASS;
 - signed homologation intentionally skipped because U11 owns final freeze/signing.
 
-The latest signed authority is Android CI #794 / run `35856278980`, producer `635124acfbf133553a96c8b2013f2245f58a6877`, package `studio.guitarlab.app`, `0.5.0-rc9` / versionCode `29`, signed APK SHA-256 `4fcf529b935a584217b3b882ca8dfa05e3c360f99cfe9d70071080175439dd6c`.
+The latest signed authority is RC13: Android CI #828 / run `35926732265`, producer `bf78580dd79f4c2a4554aca34e6c8a65ccaa12e3`, package `studio.guitarlab.app`, `0.5.0-rc13` / versionCode `33`; U4 `35926732269` and U7 `35926732284` passed on the same producer. RC14 (`0.5.0-rc14` / 34) is the active source candidate and must pass the complete exact-source campaign before promotion.
 
 Rc8 is CLOSED / DIGITAL PASS but withdrawn from final U12 approval after physical testing exposed the second orphan class: a durable local `CANCEL_REQUESTED` job can exist with no Firestore/Cloud Run counterpart. Treating local durability as proof of remote existence left the UI indefinitely active.
 

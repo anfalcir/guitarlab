@@ -10,6 +10,7 @@ import androidx.work.ForegroundInfo
 import androidx.work.WorkerParameters
 import kotlinx.coroutines.CancellationException
 import studio.guitarlab.app.activity.AppNotificationDeepLink
+import studio.guitarlab.app.R
 import studio.guitarlab.app.activity.UnifiedActivityStore
 import studio.guitarlab.app.ui.AppScreen
 import studio.guitarlab.core.project.BackupRetentionPolicy
@@ -33,6 +34,11 @@ class AutomaticBackupWorker(
         return try {
             BackupOperationLock.withLock {
                 val report = try {
+                    val deletedStore = DeletedProjectBackupStore(applicationContext)
+                    DeletedProjectRetentionPolicy.expired(deletedStore.all().values, System.currentTimeMillis()).forEach { tombstone ->
+                        unifiedDrive.deleteProjectBackups(tombstone.projectId)
+                        deletedStore.remove(tombstone.projectId)
+                    }
                     unifiedDrive.backupAll(
                         retentionPolicy = BackupRetentionPolicy(
                             settings.retentionDays,
@@ -123,7 +129,7 @@ class AutomaticBackupWorker(
             },
         )
         val notification = Notification.Builder(applicationContext, CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.stat_sys_upload)
+            .setSmallIcon(R.drawable.ic_notification_guitarlab)
             .setContentTitle("GuitarLab")
             .setContentText("Protegendo projetos no Google Drive…")
             .setContentIntent(AppNotificationDeepLink.pendingIntent(applicationContext, AppScreen.Activity(operationId)))

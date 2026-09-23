@@ -16,6 +16,7 @@ import studio.guitarlab.app.backup.BackupBusyFeedback
 import studio.guitarlab.app.backup.BackupScreenContent
 import studio.guitarlab.app.backup.BackupSettingsSnapshot
 import studio.guitarlab.app.backup.BackupUiState
+import studio.guitarlab.app.backup.DeletedProjectBackup
 import studio.guitarlab.app.ui.theme.GuitarLabTheme
 import studio.guitarlab.core.model.ProjectFactory
 import studio.guitarlab.core.model.ProjectTemplate
@@ -276,6 +277,36 @@ class BackupScreenInstrumentedTest {
         compose.onNodeWithTag("conflict-use-cloud-remote-b").assertDoesNotExist()
     }
 
+    @Test fun catalogGroupsVersionsAndExposesDeletedProjectActions() {
+        val first = version("remote-a")
+        val second = version("remote-b").copy(backupCreatedAtEpochMs = 30)
+        var deletedId: String? = null
+        compose.setContent {
+            GuitarLabTheme {
+                BackupScreenContent(
+                    state = configuredState(
+                        versions = listOf(first, second),
+                        deletedProjects = mapOf("p" to DeletedProjectBackup("p", "Projeto", 1L)),
+                    ),
+                    projectId = null,
+                    onBack = {}, onConnectDrive = {}, onDisconnectDrive = {}, onRefresh = {},
+                    onAutomaticEnabled = {}, onCadence = {}, onUnmeteredOnly = {}, onChargingOnly = {},
+                    onRetentionDays = {}, onMaximumVersions = {}, onBackupAll = {}, onBackupProject = {},
+                    onKeepLocal = { _, _ -> }, onUseCloud = {}, onRestoreVersion = {}, onRestoreAll = {},
+                    onDeleteCloudProject = { deletedId = it },
+                )
+            }
+        }
+
+        compose.onNode(hasScrollAction()).performScrollToNode(hasText("2 versões", substring = true))
+        compose.onNodeWithText("EXCLUÍDO").assertIsDisplayed()
+        compose.onNodeWithText("Ver versões").performClick()
+        compose.onNodeWithText("Excluído do aparelho", substring = true).assertIsDisplayed()
+        compose.onNodeWithText("Excluir definitivamente da nuvem").performClick()
+        compose.onNodeWithText("Excluir definitivamente").performClick()
+        assertEquals("p", deletedId)
+    }
+
     private fun scrollToAndClick(tag: String) {
         compose.onNode(hasScrollAction()).performScrollToNode(hasTestTag(tag))
         compose.onNodeWithTag(tag).assertIsDisplayed().performClick()
@@ -286,6 +317,7 @@ class BackupScreenInstrumentedTest {
         versions: List<BackupVersionDescriptor> = emptyList(),
         reconciliations: Map<String, DriveReconciliation> = emptyMap(),
         remoteTips: Map<String, List<BackupVersionDescriptor>> = emptyMap(),
+        deletedProjects: Map<String, DeletedProjectBackup> = emptyMap(),
     ) = BackupUiState(
         loading = false,
         settings = BackupSettingsSnapshot(driveConnected = true, driveAccountLabel = "conta@example.com"),
@@ -293,6 +325,7 @@ class BackupScreenInstrumentedTest {
         versions = versions,
         reconciliations = reconciliations,
         remoteTips = remoteTips,
+        deletedProjects = deletedProjects,
     )
 
     private fun version(id: String) = BackupVersionDescriptor(
