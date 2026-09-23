@@ -1,12 +1,21 @@
 # U12 — Final Physical Homologation — GuitarLab
 
 Updated: 2026-09-22  
-Status: **PAUSED — RC6 SOURCE-SEARCH FINDING UNDER CORRECTION; RC7 DIGITAL GATE PENDING**
-Target candidate: pending `0.5.0-rc7` / versionCode `27` exact-source Android gate and signing
+Status: **READY — RC7 DIGITAL PASS; FINAL PHYSICAL HOMOLOGATION PENDING**
+Target candidate: `0.5.0-rc7` / versionCode `27` / producer `74274dd51ad75a7d4b9e15a82fe4b64ba448c498`
 Package: `studio.guitarlab.app`  
 Target device: Samsung SM-X230 / Android 16 / API 36  
 Audio hardware: M-VAVE MK-300 over USB  
 Hardware loopback baseline: **OFF**
+
+Exact rc7 candidate binding:
+- producer SHA: `74274dd51ad75a7d4b9e15a82fe4b64ba448c498`;
+- Android CI: #792 / run `35810108338`;
+- signed artifact: `GuitarLabStudio-0.5.0-rc7-homologacao` / artifact id `10729009613`;
+- signed APK SHA-256: `142b892b375d495df90030806843e66a2f884a0e1023aefad183d9fe46304e44`;
+- signed APK size: `79,937,168` bytes;
+- signer SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`;
+- Android digital gate: exact-source materialization/unit/performance/Lint/build/API36/signing PASS.
 
 Exact rc6 candidate binding:
 - producer SHA: `d0926e9dbd231b6d91c19448279fe8749d182ba1`;

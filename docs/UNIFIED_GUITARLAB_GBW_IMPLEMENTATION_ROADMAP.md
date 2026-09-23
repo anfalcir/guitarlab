@@ -2095,7 +2095,7 @@ Signed candidate frozen. No source change after freeze except through a new cand
 
 ## U12 — Consolidated physical homologation and cutover
 
-**Status:** PAUSED — rc6 passed its digital gate but is withdrawn from final approval after target-device Prepare source search reproduced a provider/runtime failure that was falsely reported as an empty successful search. U12g prepares rc7 with native-runtime extraction, one controlled yt-dlp refresh/retry and fail-closed provider semantics. Previously passed U4/U7 evidence remains applicable because this corrective does not change the cloud boundary.
+**Status:** READY — rc7 passed exact-source software, API36 and signing gates on Android CI #792 / run `35810108338`. The target-device source-search corrective now uses AGP-supported native-library packaging, one controlled yt-dlp runtime refresh/retry and fail-closed provider semantics. Final U12 physical homologation remains pending; previously passed U4/U7 evidence remains applicable because this corrective does not change the cloud boundary.
 
 ### Objective
 Validate only what digital systems cannot prove, ideally in one manual campaign.

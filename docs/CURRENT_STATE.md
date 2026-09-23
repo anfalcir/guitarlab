@@ -30,14 +30,27 @@ Updated: 2026-09-22
 
 ## Active line
 - Repository/branch: `anfalcir/guitarlab` / `main`.
-- **rc6 is withdrawn from final U12 approval after the target-device source-search failure was reproduced.** The search dispatch starts correctly, but the yt-dlp provider path can fail immediately and be misreported as “Pesquisa concluída sem fontes compatíveis”.
-- Replacement candidate: `0.5.0-rc7` / versionCode `27`, pending exact-source Android CI/API36/signing after the U12g source-discovery corrective.
-- Latest signed authority remains `0.5.0-rc6` / versionCode `26` / Android CI #789 / producer `d0926e9dbd231b6d91c19448279fe8749d182ba1`, but it is **not approvable** for final U12.
-- rc7 corrective scope: require native-library extraction for the embedded yt-dlp runtime, refresh/retry the runtime once when all online discovery calls fail, surface provider failure instead of false empty success, and add deterministic regressions.
-- The corrective changes no `cloud/`, U4/U7 workflow or cloud-smoke source; existing U4/U7 cloud evidence remains applicable to that unchanged boundary.
-- Signed rc6 APK SHA-256: `4bc76565c74366d89df23db2e6410e77976a1cc827a79486ceec629fd16112b6`.
+- **rc7 is CLOSED / DIGITAL PASS and is the active U12 physical-homologation candidate.** Android CI #792 / run `35810108338` passed on exact producer `74274dd51ad75a7d4b9e15a82fe4b64ba448c498`, including exact-source materialization, unit tests, performance evidence, Android Lint, debug/release assembly, API 36 regression and signed homologation.
+- Version: `0.5.0-rc7` / versionCode `27` / package `studio.guitarlab.app`.
+- rc7 corrects the target-device source-search defect by hardening the embedded yt-dlp runtime path, performing one controlled runtime refresh/retry, distinguishing provider failure from genuine zero-result search, and using AGP-supported legacy JNI packaging for the native runtime.
+- Signed rc7 APK SHA-256: `142b892b375d495df90030806843e66a2f884a0e1023aefad183d9fe46304e44`.
+- Signed rc7 APK size: `79,937,168` bytes.
 - Locked signer SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
+- rc6 remains historical digital evidence only and is withdrawn from final approval.
+- The rc7 corrective changes no `cloud/`, U4/U7 workflow or cloud-smoke source; existing U4/U7 cloud evidence remains applicable to that unchanged boundary.
+- U12 is **READY / PHYSICAL PASS PENDING** on rc7.
 - CI supports manual dispatch and controlled `[run ci]` / `[run ci signed]` triggers on `main`; ordinary commits remain `[skip ci]`.
+
+## U12 rc7 replacement-candidate evidence
+- exact producer: `74274dd51ad75a7d4b9e15a82fe4b64ba448c498`;
+- Android CI #792 / run `35810108338`: PASS;
+- exact source snapshot, unit, performance evidence, Android Lint, debug/release assembly and API 36 regression: PASS;
+- signed homologation job: PASS;
+- signed artifact: `GuitarLabStudio-0.5.0-rc7-homologacao` / artifact id `10729009613`;
+- signed APK SHA-256: `142b892b375d495df90030806843e66a2f884a0e1023aefad183d9fe46304e44`;
+- signed APK size: `79,937,168` bytes;
+- signer SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`;
+- final physical acceptance remains pending under `docs/U12_FINAL_PHYSICAL_HOMOLOGATION.md`.
 
 ## U12 rc6 replacement-candidate evidence
 - exact producer: `d0926e9dbd231b6d91c19448279fe8749d182ba1`;

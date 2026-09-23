@@ -18,15 +18,15 @@ U10 evidence:
 - deterministic visual review PASS;
 - signed homologation intentionally skipped because U11 owns final freeze/signing.
 
-The latest signed authority remains Android CI #789 / run `35807008698`, producer `d0926e9dbd231b6d91c19448279fe8749d182ba1`, package `studio.guitarlab.app`, `0.5.0-rc6` / versionCode `26`, signed APK SHA-256 `4bc76565c74366d89df23db2e6410e77976a1cc827a79486ceec629fd16112b6`; however rc6 is withdrawn from final U12 approval after the physical source-search failure.
+The latest signed authority is Android CI #792 / run `35810108338`, producer `74274dd51ad75a7d4b9e15a82fe4b64ba448c498`, package `studio.guitarlab.app`, `0.5.0-rc7` / versionCode `27`, signed APK SHA-256 `142b892b375d495df90030806843e66a2f884a0e1023aefad183d9fe46304e44`.
 
-Replacement `0.5.0-rc7` / versionCode `27` is pending the U12g exact-source Android/API36/signing gate. The corrective is restricted to source discovery/runtime/error semantics and does not alter cloud backend contracts.
+Rc7 is CLOSED / DIGITAL PASS and is the active U12 candidate. Rc6 remains historical evidence only and is withdrawn from final approval. The rc7 corrective changes only Android source-discovery/runtime packaging/error semantics; cloud backend contracts remain unchanged.
 
 Drive provider-real acceptance remains closed by U8m:
 `U8m PASS · r_1790095960 · cleanup 8/8/14`;
 sanitized report SHA-256 `84efb70615be8ef5939da538eee5f714f7311aa6d44dd5bb2cdd0b5e9e66b702`.
 
-The rc5→rc6 corrective delta contains no cloud/backend/workflow/cloud-smoke source change, so the U11 U4 real-cloud separation smoke and U7 backend/security verification remain applicable. U12 resumes on rc6; only evidence affected by the corrective delta plus adjacent-risk smoke must be repeated.
+The rc5→rc6 corrective delta contains no cloud/backend/workflow/cloud-smoke source change, so the U11 U4 real-cloud separation smoke and U7 backend/security verification remain applicable. U12 resumes on rc7; the Prepare source-search flow and adjacent navigation/background-operation smoke must be repeated, while unaffected physical evidence may be reused according to the U12 invalidation rule.
 
 ## H29-H36c digital closure
 CI #663 digitally closes H29-H36c on exact source. The H34/H35 take-synchronization, silent-verification and quieter calibration code is therefore covered by the canonical unit/Lint/build/API36/signing pipeline.
