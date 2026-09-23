@@ -71,6 +71,7 @@ PROJECT_ROLES=(
   roles/artifactregistry.admin
   roles/cloudbuild.builds.editor
   roles/cloudfunctions.admin
+  roles/cloudscheduler.admin
   roles/datastore.indexAdmin
   roles/firebase.viewer
   roles/firebaseauth.admin
