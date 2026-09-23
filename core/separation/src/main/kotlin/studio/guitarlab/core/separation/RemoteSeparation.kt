@@ -40,19 +40,24 @@ data class RemoteResultManifest(
  val schemaVersion:Int = 1,
  val deliverables:List<RemoteReference> = emptyList(),
  val referenceRecipe:RemoteReferenceRecipe? = null,
+ val uid:String? = null,
 ) {
- fun validateFor(i:RemoteJobIdentity) {
+ fun validateFor(i:RemoteJobIdentity,expectedUid:String?=null) {
   require(jobId==i.jobId && projectId==i.projectId && inputSha256==i.inputSha256){"remote result ownership mismatch"}
   require(engine=="demucs.cpp" && model=="htdemucs_6s" && modelSha256==MODEL_SHA256)
   require(sampleRate==44100 && channels==2 && frames>0 && durationSeconds>0)
   when(schemaVersion) {
    1 -> {
+    if(uid!=null&&expectedUid!=null) require(uid==expectedUid) { "remote result uid mismatch" }
     require(stems.map{it.name}.toSet()==STEMS.toSet() && stems.size==STEMS.size) { "invalid stem set" }
     require(stems.map{it.name}.distinct().size==STEMS.size) { "duplicate stem" }
     require(stems.all{it.bytes>44 && it.sha256.matches(RemoteJobIdentity.SHA)})
     require(stems.all{safePath(it.path)}) { "unsafe stem path" }
    }
    2 -> {
+    val manifestUid=requireNotNull(uid) { "missing result uid" }
+    if(expectedUid!=null) require(manifestUid==expectedUid) { "remote result uid mismatch" }
+    val expectedPrefix="remote/v1/users/$manifestUid/jobs/${i.jobId}/output/prepared/"
     require(stems.isEmpty()) { "v2 result must not expose intermediate stems" }
     require(deliverables.size==2 && deliverables.map{it.name}.toSet()==DELIVERABLES.keys) { "invalid prepared reference set" }
     require(deliverables.map{it.name}.distinct().size==2) { "duplicate prepared reference" }
@@ -61,7 +66,7 @@ data class RemoteResultManifest(
      require(artifact.bytes>44 && artifact.sha256.matches(RemoteJobIdentity.SHA))
      require(artifact.sampleRate==sampleRate && artifact.channels==channels && artifact.frames==frames)
      require(artifact.encoding=="FLOAT32_LE")
-     require(safePath(artifact.path) && artifact.path.contains("/output/prepared/")) { "unsafe prepared reference path" }
+     require(safePath(artifact.path) && artifact.path=="$expectedPrefix${artifact.name}.wav") { "unsafe prepared reference path" }
     }
     val recipe=requireNotNull(referenceRecipe) { "missing reference recipe" }
     require(recipe.version=="prepared-reference-v2")
@@ -133,7 +138,7 @@ interface RemoteStemPublisher {
   throw UnsupportedOperationException("prepared reference publisher is not implemented")
 }
 
-class RemoteSeparationCoordinator(private val store:RemoteJobStore,private val backend:RemoteSeparationBackend,private val transport:RemoteResultTransport,private val decodeManifest:(ByteArray)->RemoteResultManifest,private val publisher:RemoteStemPublisher,private val nowMs:()->Long=System::currentTimeMillis) {
+class RemoteSeparationCoordinator(private val store:RemoteJobStore,private val backend:RemoteSeparationBackend,private val transport:RemoteResultTransport,private val decodeManifest:(ByteArray)->RemoteResultManifest,private val publisher:RemoteStemPublisher,private val nowMs:()->Long=System::currentTimeMillis,private val expectedResultUid:suspend()->String?={null}) {
  suspend fun start(identity:RemoteJobIdentity):DurableRemoteJob {
   store.load(identity.jobId)?.let{require(it.identity==identity);return it}
   val initial=store.save(DurableRemoteJob(identity,RemoteJobState.UPLOADING,nowMs()))
@@ -165,7 +170,7 @@ class RemoteSeparationCoordinator(private val store:RemoteJobStore,private val b
  private suspend fun importCompleted(identity:RemoteJobIdentity,accepted:DurableRemoteJob,acknowledgeRemote:Boolean):DurableRemoteJob {
   store.save(accepted.copy(state=RemoteJobState.IMPORTING,updatedAtMs=nowMs(),errorCode=null))
   val manifestBytes=transport.downloadManifest(identity);val manifestSha=sha256(manifestBytes);accepted.resultManifestSha256?.let{require(it==manifestSha){"manifest checksum mismatch"}}
-  val manifest=decodeManifest(manifestBytes);manifest.validateFor(identity)
+  val manifest=decodeManifest(manifestBytes);manifest.validateFor(identity,expectedResultUid())
   if(manifest.schemaVersion==1) {
    val stems=linkedMapOf<String,RemoteStemPayload>()
    manifest.stems.forEach { stem -> stems[stem.name]=transport.downloadStem(identity,stem) }
