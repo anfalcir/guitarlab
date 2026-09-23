@@ -3,8 +3,11 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PREVIOUS="$ROOT/scripts/materialize_ci_sources_u12f.sh"
-PATCH="$ROOT/.source-parts/U12gSourceDiscoveryRuntimeCorrective.patch"
+PATCH_B64="$ROOT/.source-parts/U12gSourceDiscoveryRuntimeCorrective.patch.b64"
+PATCH_B64_BLOB="53a849a3714d4b2b44fdb7b231f4a6609d4b94b2"
 PATCH_BLOB="f69ffa8ba03ba1f7d5c9897ecccc291b6710ae4d"
+TMP_PATCH="$(mktemp)"
+trap 'rm -f "$TMP_PATCH"' EXIT
 
 declare -a FILES=(
   "app/build.gradle.kts"
@@ -46,25 +49,31 @@ verify_semantics() {
   grep -q 'ytDlpSearchSurfacesPersistentRuntimeFailure' "$ROOT/platform/source-android/src/test/kotlin/studio/guitarlab/platform/source/android/SourceDiscoveryTest.kt"
 }
 
-[[ -f "$PATCH" ]] || { echo "Missing U12g source-discovery runtime corrective patch" >&2; exit 1; }
-[[ "$(git -C "$ROOT" hash-object "$PATCH")" == "$PATCH_BLOB" ]] || {
-  echo "U12g patch blob mismatch" >&2
+[[ -f "$PATCH_B64" ]] || { echo "Missing U12g source-discovery runtime corrective payload" >&2; exit 1; }
+[[ "$(git -C "$ROOT" hash-object "$PATCH_B64")" == "$PATCH_B64_BLOB" ]] || {
+  echo "U12g base64 payload blob mismatch" >&2
+  exit 1
+}
+
+base64 -d "$PATCH_B64" > "$TMP_PATCH"
+[[ "$(git -C "$ROOT" hash-object "$TMP_PATCH")" == "$PATCH_BLOB" ]] || {
+  echo "U12g decoded patch blob mismatch" >&2
   exit 1
 }
 
 if ready; then
   verify_semantics
-  git -C "$ROOT" apply --check --reverse "$PATCH"
+  git -C "$ROOT" apply --check --reverse "$TMP_PATCH"
   echo "Source patch chain already materialized through U12g source-discovery runtime corrective"
   exit 0
 fi
 
 [[ -f "$PREVIOUS" ]] || { echo "Missing U12f materializer" >&2; exit 1; }
 bash "$PREVIOUS"
-git -C "$ROOT" apply --check "$PATCH"
-git -C "$ROOT" apply "$PATCH"
+git -C "$ROOT" apply --check "$TMP_PATCH"
+git -C "$ROOT" apply "$TMP_PATCH"
 git -C "$ROOT" diff --check
 ready || { echo "U12g final blob mismatch" >&2; exit 1; }
 verify_semantics
-git -C "$ROOT" apply --check --reverse "$PATCH"
+git -C "$ROOT" apply --check --reverse "$TMP_PATCH"
 echo "Source patch chain materialized through U12g source-discovery runtime corrective"
