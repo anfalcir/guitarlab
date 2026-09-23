@@ -30,14 +30,28 @@ Updated: 2026-09-22
 
 ## Active line
 - Repository/branch: `anfalcir/guitarlab` / `main`.
-- **U11 rc5 remains CLOSED / DIGITAL PASS evidence, but its U12 promotion is withdrawn after target-device findings.** The physical campaign found source-search dispatch/feedback, duplicate backup initiation/history, stale post-backup catalog, backup-progress feedback and shell/Home cohesion defects. U12 is paused while `0.5.0-rc6` / versionCode `26` is digitally gated and signed; no rc6 PASS is claimed before exact-source CI evidence.
-- Latest signed version is `0.5.0-rc5`, versionCode `25`, package `studio.guitarlab.app`.
-- Latest signed DIGITAL PASS: **Android CI #783** / run `35793456972` / producer `4218e4343746932a4de61c5abaa29ba5769a30ed`.
+- **The rc6 replacement candidate is CLOSED / DIGITAL PASS and is the active U12 physical-homologation candidate.** Android CI #789 / run `35807008698` passed on exact producer `d0926e9dbd231b6d91c19448279fe8749d182ba1`, including deterministic source materialization, unit tests, performance evidence, Android Lint, debug/release assembly, all API 36 regression groups and signed homologation.
+- Latest signed version is `0.5.0-rc6`, versionCode `26`, package `studio.guitarlab.app`.
+- Latest signed DIGITAL PASS: **Android CI #789** / run `35807008698` / producer `d0926e9dbd231b6d91c19448279fe8749d182ba1`.
+- U12 is now **READY / PHYSICAL PASS PENDING**. Rc5 remains historical U11 evidence only and is not eligible for final approval.
+- The rc5→rc6 corrective delta contains no `cloud/`, U4/U7 workflow or cloud-smoke script changes. U4 Cloud Integration Smoke #104 / run `35793456955` and U7 Cloud Backend #62 / run `35793456941` therefore remain applicable cloud evidence for the unchanged cloud source.
 - #663 scope: H28 → H29 → H30 → H31 → H32 → H33 → H33a → H33b → H34 → H35 → H35a → H36 → H36a → H36b → H36c.
-- Signed APK SHA-256: `795839766f2b7546af53b2c56a0638b11c25b79622fe73cce5860b5602f050e0`.
+- Signed APK SHA-256: `4bc76565c74366d89df23db2e6410e77976a1cc827a79486ceec629fd16112b6`.
 - Signed APK size: `82,894,480` bytes.
 - Locked signer SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
 - CI supports manual dispatch and controlled `[run ci]` / `[run ci signed]` triggers on `main`; ordinary commits remain `[skip ci]`.
+
+## U12 rc6 replacement-candidate evidence
+- exact producer: `d0926e9dbd231b6d91c19448279fe8749d182ba1`;
+- Android CI #789 / run `35807008698`: PASS;
+- unit, performance evidence, Android Lint, debug/release assembly and exact unsigned provenance: PASS;
+- API 36 grouped instrumentation: PASS across all configured groups/classes;
+- signed homologation job: PASS;
+- signed artifact: `GuitarLabStudio-0.5.0-rc6-homologacao` / artifact id `10728840806`;
+- signed APK SHA-256: `4bc76565c74366d89df23db2e6410e77976a1cc827a79486ceec629fd16112b6`;
+- signed APK size: `82,894,480` bytes;
+- signer SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`;
+- physical acceptance remains pending under `docs/U12_FINAL_PHYSICAL_HOMOLOGATION.md`.
 
 ## U11 closure evidence
 - exact frozen producer: `4218e4343746932a4de61c5abaa29ba5769a30ed`;

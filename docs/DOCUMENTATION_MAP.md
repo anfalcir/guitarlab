@@ -7,7 +7,7 @@ Repository documentation is split into **live authority**, **normative contracts
 
 A historical document may intentionally contain an old statement such as “current”, “latest”, “pending”, an old branch name or an old hardware target because it preserves contemporaneous evidence. Such statements apply only to that document's dated context and **never override the live authority set below**.
 
-## Live authority — unified line through U11 signed closure / U12 rc6 corrective gate
+## Live authority — unified line through U11 closure / U12 rc6 signed physical candidate
 Use these first for current status, release identity and remaining work:
 - `README.md` — repository entry point;
 - `CURRENT_STATE.md` — current unified source candidate, latest signed authority and remaining digital/physical residual;

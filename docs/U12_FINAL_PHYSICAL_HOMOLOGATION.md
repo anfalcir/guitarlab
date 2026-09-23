@@ -1,21 +1,33 @@
 # U12 — Final Physical Homologation — GuitarLab
 
 Updated: 2026-09-22  
-Status: **PAUSED — RC5 FINDINGS UNDER CORRECTION; RC6 SIGNED CANDIDATE PENDING**
-Target candidate: pending `0.5.0-rc6` / versionCode `26` exact-source digital gate
+Status: **READY — RC6 DIGITAL PASS; FINAL PHYSICAL HOMOLOGATION PENDING**
+Target candidate: `0.5.0-rc6` / versionCode `26` / producer `d0926e9dbd231b6d91c19448279fe8749d182ba1`
 Package: `studio.guitarlab.app`  
 Target device: Samsung SM-X230 / Android 16 / API 36  
 Audio hardware: M-VAVE MK-300 over USB  
 Hardware loopback baseline: **OFF**
 
-Exact U11 candidate binding:
+Exact rc6 candidate binding:
+- producer SHA: `d0926e9dbd231b6d91c19448279fe8749d182ba1`;
+- Android CI: #789 / run `35807008698`;
+- signed artifact: `GuitarLabStudio-0.5.0-rc6-homologacao` / artifact id `10728840806`;
+- signed APK SHA-256: `4bc76565c74366d89df23db2e6410e77976a1cc827a79486ceec629fd16112b6`;
+- signed APK size: `82,894,480` bytes;
+- signer SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`;
+- Android digital gate: unit/performance/Lint/build/API36/signing PASS.
+
+Cloud-source continuity:
+- the rc5→rc6 corrective delta changes no `cloud/` source, U4/U7 workflow or cloud-smoke script;
+- U4 Cloud Integration Smoke #104 / run `35793456955` remains applicable for the unchanged real six-stem Cloud Run contract;
+- U7 Cloud Backend #62 / run `35793456941` remains applicable for the unchanged backend tests/security/container contract.
+
+Historical U11 rc5 binding:
 - producer SHA: `4218e4343746932a4de61c5abaa29ba5769a30ed`;
 - Android CI: #783 / run `35793456972`;
-- signed APK SHA-256: `795839766f2b7546af53b2c56a0638b11c25b79622fe73cce5860b5602f050e0`;
-- signed APK size: `82,894,480` bytes;
-- signer SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
+- signed APK SHA-256: `795839766f2b7546af53b2c56a0638b11c25b79622fe73cce5860b5602f050e0`.
 
-A later docs-only commit never changes the APK producer identity. The rc5 identity above remains historical evidence, but rc5 is no longer eligible for final U12 approval.
+A later docs-only commit never changes the APK producer identity. Rc5 remains historical evidence only and is no longer eligible for final U12 approval.
 
 ## Target-device findings that superseded rc5
 

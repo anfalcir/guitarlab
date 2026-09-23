@@ -2095,7 +2095,7 @@ Signed candidate frozen. No source change after freeze except through a new cand
 
 ## U12 — Consolidated physical homologation and cutover
 
-**Status:** PAUSED — rc5 target-device findings require a new signed rc6 candidate. Rc5 remains valid U11 digital evidence but is withdrawn from final U12 approval; U12 resumes only after rc6 passes exact-source software, API36, cloud and signing gates.
+**Status:** READY — rc6 is digitally closed and signed; final U12 target-device homologation is pending. Rc5 remains valid U11 historical digital evidence but is withdrawn from final approval. The rc5→rc6 delta contains no cloud-source changes, so previously passed U4/U7 evidence remains applicable to the unchanged cloud boundary.
 
 ### Objective
 Validate only what digital systems cannot prove, ideally in one manual campaign.
