@@ -48,103 +48,103 @@ jobs:
           PATCH_B64_BLOB="$(git hash-object "$PATCH_B64")"
 
           python3 - "$PATCH_BLOB" "$PATCH_B64_BLOB" "${FILES[@]}" <<'PY'
-from pathlib import Path
-import subprocess, sys
-patch_blob, b64_blob, *files = sys.argv[1:]
-
-def q(value):
-    return '"' + value.replace('\\', '\\\\').replace('"', '\\"') + '"'
-
-hashes=[]
-for path in files:
-    p=Path(path)
-    hashes.append(
-        subprocess.check_output(["git","hash-object",path], text=True).strip()
-        if p.is_file() else "__MISSING__"
-    )
-
-lines = [
-    "#!/usr/bin/env bash",
-    "set -euo pipefail",
-    "",
-    'ROOT="$(cd "$(dirname "$0")/.." && pwd)"',
-    'PREVIOUS="$ROOT/scripts/materialize_ci_sources_u12z.sh"',
-    'PATCH_B64="$ROOT/.source-parts/U12abRemotePreparedReferencesV2Rc13.patch.b64"',
-    f'PATCH_B64_BLOB="{b64_blob}"',
-    f'PATCH_BLOB="{patch_blob}"',
-    'TMP_PATCH="$(mktemp)"',
-    "trap 'rm -f \"$TMP_PATCH\"' EXIT",
-    "",
-    "declare -a FILES=(",
-    *["  "+q(x) for x in files],
-    ")",
-    "declare -a HASHES=(",
-    *["  "+q(x) for x in hashes],
-    ")",
-    "",
-    "ready() {",
-    '  for i in "${!FILES[@]}"; do',
-    '    if [[ "${HASHES[$i]}" == "__MISSING__" ]]; then',
-    '      [[ ! -e "$ROOT/${FILES[$i]}" ]] || return 1',
-    "    else",
-    '      [[ -f "$ROOT/${FILES[$i]}" ]] || return 1',
-    '      [[ "$(git -C "$ROOT" hash-object "$ROOT/${FILES[$i]}")" == "${HASHES[$i]}" ]] || return 1',
-    "    fi",
-    "  done",
-    "}",
-    "",
-    "verify_semantics() {",
-    '  git -C "$ROOT" diff --check',
-    '  grep -q \'versionName = "0.5.0-rc13"\' "$ROOT/app/build.gradle.kts"',
-    '  grep -q \'versionCode = 33\' "$ROOT/app/build.gradle.kts"',
-    '  grep -q \'REFERENCE_DELIVERABLES = ("backing", "guitar")\' "$ROOT/cloud/remote-separation/worker/gbw_worker.py"',
-    '  grep -q \'"phase": "SEPARATING"\' "$ROOT/cloud/remote-separation/worker/gbw_worker.py"',
-    '  grep -q \'"phase": "PREPARING_REFERENCES"\' "$ROOT/cloud/remote-separation/worker/gbw_worker.py"',
-    '  grep -q \'"phase": "PUBLISHING_RESULTS"\' "$ROOT/cloud/remote-separation/worker/gbw_worker.py"',
-    '  grep -q \'"schemaVersion": 2\' "$ROOT/cloud/remote-separation/worker/gbw_worker.py"',
-    '  grep -q \'expectedResultUid\' "$ROOT/core/separation/src/main/kotlin/studio/guitarlab/core/separation/RemoteSeparation.kt"',
-    '  grep -q \'uid = root\\["uid"\\]\' "$ROOT/platform/separation/src/main/kotlin/studio/guitarlab/platform/separation/RemoteManifestCodec.kt"',
-    '  grep -q \'cachedManifest\' "$ROOT/platform/separation/src/main/kotlin/studio/guitarlab/platform/separation/RemoteStemStaging.kt"',
-    '  grep -q \'staging.cachedManifest\' "$ROOT/platform/separation/src/main/kotlin/studio/guitarlab/platform/separation/FirebaseRemoteRuntime.kt"',
-    '  ! grep -q \'deleteTree(storage.reference.child(prefix(identity)))\' "$ROOT/platform/separation/src/main/kotlin/studio/guitarlab/platform/separation/FirebaseRemoteRuntime.kt"',
-    '  grep -q \'acknowledgeRemoteImport\' "$ROOT/scripts/u4_cloud_integration_smoke.sh"',
-    '  grep -q \'Firestore IMPORTED/PURGED PASS\' "$ROOT/scripts/u4_cloud_integration_smoke.sh"',
-    '  grep -q \'roles/iam.serviceAccountTokenCreator\' "$ROOT/scripts/bootstrap_u4_github_wif.sh"',
-    '  grep -q \'remote_storage_lifecycle=PASS age_days=3 prefix=remote/v1/users/\' "$ROOT/cloud/remote-separation/scripts/ensure-remote-storage-lifecycle.sh"',
-    '  ! grep -Rqi --include=\'*.kt\' --include=\'*.java\' \'tuner\\|afinador\' "$ROOT/app/src/main" "$ROOT/core" "$ROOT/platform"',
-    "}",
-    "",
-    '[[ -f "$PATCH_B64" ]] || { echo "Missing U12ab rc13 payload" >&2; exit 1; }',
-    '[[ "$(git -C "$ROOT" hash-object "$PATCH_B64")" == "$PATCH_B64_BLOB" ]] || { echo "U12ab base64 payload blob mismatch" >&2; exit 1; }',
-    'base64 -d "$PATCH_B64" > "$TMP_PATCH"',
-    '[[ "$(git -C "$ROOT" hash-object "$TMP_PATCH")" == "$PATCH_BLOB" ]] || { echo "U12ab decoded patch blob mismatch" >&2; exit 1; }',
-    "",
-    "if ready; then",
-    "  verify_semantics",
-    '  git -C "$ROOT" apply --check --reverse "$TMP_PATCH"',
-    '  echo "Source patch chain already materialized through U12ab rc13 prepared references v2"',
-    "  exit 0",
-    "fi",
-    "",
-    '[[ -f "$PREVIOUS" ]] || { echo "Missing U12z materializer" >&2; exit 1; }',
-    'bash "$PREVIOUS"',
-    'git -C "$ROOT" apply --check "$TMP_PATCH"',
-    'git -C "$ROOT" apply "$TMP_PATCH"',
-    'git -C "$ROOT" diff --check',
-    'ready || { echo "U12ab final blob mismatch" >&2; exit 1; }',
-    "verify_semantics",
-    'git -C "$ROOT" apply --check --reverse "$TMP_PATCH"',
-    'echo "Source patch chain materialized through U12ab rc13 prepared references v2"',
-]
-Path("scripts/materialize_ci_sources_u12ab.sh").write_text("\n".join(lines)+"\n")
-PY
+          from pathlib import Path
+          import subprocess, sys
+          patch_blob, b64_blob, *files = sys.argv[1:]
+          
+          def q(value):
+              return '"' + value.replace('\\', '\\\\').replace('"', '\\"') + '"'
+          
+          hashes=[]
+          for path in files:
+              p=Path(path)
+              hashes.append(
+                  subprocess.check_output(["git","hash-object",path], text=True).strip()
+                  if p.is_file() else "__MISSING__"
+              )
+          
+          lines = [
+              "#!/usr/bin/env bash",
+              "set -euo pipefail",
+              "",
+              'ROOT="$(cd "$(dirname "$0")/.." && pwd)!Ë
+              'PREVIOUS="$ROOT/scripts/materialize_ci_sources_u12z.sh"',
+              'PATCH_B64="$ROOT/.source-parts/U12abRemotePreparedReferencesV2Rc13.patch.b64"',
+              f'PATCH_B64_BLOB="{b64_blob}"',
+              f'PATCH_BLOB="{patch_blob}"',
+              'TMP_PATCH="$(mktemp)"',
+              "trap 'rm -f \"$TMP_PATCH\"' EXIT",
+              "",
+              "declare -a FILES=(",
+              *["  "+q(x) for x in files],
+              ")",
+              "declare -a HASHES=(",
+              *["  "+q(x) for x in hashes],
+              ")",
+              "",
+              "ready() {",
+               '  for i in "${!FILES[@]}"; do',
+              '    if [[ "${HASHES[$i]}" == "__MISSING__" ]]; then',
+              '      [[ ! -e "$ROOT/${FILES[$i]}" ]] || return 1',
+              "    else",
+              '      [[ -f "$ROOT/${FILES[$i]}" ]] || return 1',
+              '      [[ "$(git -C "$ROOT" hash-object "$ROOT/${FILES[$i]}")" == "${HASHES[$i]}" ]] || return 1',
+              "    fi",
+              "  done",
+              "}",
+              "",
+              "verify_semantics() {",
+              '  git -C "$ROOT" diff --check',
+              '  grep -q \'versionName = "0.5.0-rc13"\' "$ROOT/app/build.gradle.kts"',
+              '  grep -q \'versionCode = 33\' "$ROOT/app/build.gradle.kts!Ë
+              '  grep -q \'REFERENCE_DELIVERABLES = ("backing", "guitar")\' "$ROOT/cloud/remote-separation/worker/gbw_worker.py"',
+              '  grep -q \'"phase": "SEPARATING"\' "$ROOT/cloud/remote-separation/worker/gbw_worker.py"',
+              '  grep -q \'"phase": "PREPARING_REFERENCES"\' "$ROOT/cloud/remote-separation/worker/gbw_worker.py"',
+              '  grep -q \'"phase": "PUBLISHING_RESULTS"\' "$ROOT/cloud/remote-separation/worker/gbw_worker.py"',
+              '  grep -q \'"schemaVersion": 2\' "$ROOT/cloud/remote-separation/worker/gbw_worker.py"',
+              '  grep -q \'expectedResultUid\' "$ROOT/core/separation/src/main/kotlin/studio/guitarlab/core/separation/RemoteSeparation.kt!Ë
+              '  grep -q \'uid = root\\["uid"\\]\' "$ROOT/platform/separation/src/main/kotlin/studio/guitarlab/platform/separation/RemoteManifestCodec.kt!Ë
+              '  grep -q \'cachedManifest\' "$ROOT/platform/separation/src/main/kotlin/studio/guitarlab/platform/separation/RemoteStemStaging.kt!Ë
+              '  grep -q \'staging.cachedManifest\' "$ROOT/platform/separation/src/main/kotlin/studio/guitarlab/platform/separation/FirebaseRemoteRuntime.kt!Ë
+              '  ! grep -q \'deleteTree(storage.reference.child(prefix(identity)))\' "$ROOT/platform/separation/src/main/kotlin/studio/guitarlab/platform/separation/FirebaseRemoteRuntime.kt!Ë
+              '  grep -q \'acknowledgeRemoteImport\' "$ROOT/scripts/u4_cloud_integration_smoke.sh"',
+              '  grep -q \'Firestore IMPORTED/PURGED PASS\' "$ROOT/scripts/u4_cloud_integration_smoke.sh"',
+              '  grep -q \'roles/iam.serviceAccountTokenCreator\' "$ROOT/scripts/bootstrap_u4_github_wif.sh"',
+              '  grep -q \'remote_storage_lifecycle=PASS age_days=3 prefix=remote/v1/users/\' "$ROOT/cloud/remote-separation/scripts/ensure-remote-storage-lifecycle.sh"',
+              '  ! grep -Rqi --include=\'*.kt\' --include=\'*.java\' \'tuner\\|afinador\' "$ROOT/app/src/main" "$ROOT/core" "$ROOT/platform!Ë
+              "}",
+              "",
+              '[[ -f "$PATCH_B64" ]] || { echo "Missing U12ab rc13 payload" >&2; exit 1; }',
+              '[[ "$(git -C "$ROOT" hash-object "$PATCH_B64")" == "$PATCH_B64_BLOB" ]] || { echo "U12ab base64 payload blob mismatch" >&2; exit 1; }',
+              'base64 -d "$PATCH_B64" > "$TMP_PATCH"',
+              '[[ "$(git -C "$ROOT" hash-object "$TMP_PATCH")" == "$PATCH_BLOB" ]] || { echo "U12ab decoded patch blob mismatch" >&2; exit 1; }',
+              "",
+              "if ready; then",
+              "  verify_semantics",
+              '  git -C "$ROOT" apply --check --reverse "$TMP_PATCH"',
+              '  echo "Source patch chain already materialized through U12ab rc13 prepared references v2"',
+              "  exit 0",
+              "fi",
+              "",
+              '[[ -f "$PREVIOUS" ]] || { echo "Missing U12z materializer" >&2; exit 1; }',
+              'bash "$PREVIOUS"',
+              'git -C "$ROOT" apply --check "$TMP_PATCH"',
+              'git -C "$ROOT" apply "$TMP_PATCH"',
+              'git -C "$ROOT" diff --check',
+              'ready || { echo "U12ab final blob mismatch" >&2; exit 1; }',
+              "verify_semantics",
+              'git -C "$ROOT" apply --check --reverse "$TMP_PATCH"',
+              'echo "Source patch chain materialized through U12ab rc13 prepared references v2"',
+          ]
+          Path("scripts/materialize_ci_sources_u12ab.sh").write_text("\n".join(lines)+"\n")
+          PY
           chmod +x "$MATERIALIZER"
           cat > "$ROOT_MATERIALIZER" <<'EOF2'
-#!/usr/bin/env bash
-set -euo pipefail
-ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-bash "$ROOT/scripts/materialize_ci_sources_u12ab.sh"
-EOF2
+          #!/usr/bin/env bash
+          set -euo pipefail
+          ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+          bash "$ROOT/scripts/materialize_ci_sources_u12ab.sh"
+          EOF2
           chmod +x "$ROOT_MATERIALIZER"
 
           rm "$PATCH"
