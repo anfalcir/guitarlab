@@ -2,6 +2,7 @@ package studio.guitarlab.platform.separation
 
 import android.content.Context
 import android.net.Uri
+import android.util.Log
 import androidx.work.*
 import com.google.firebase.FirebaseApp
 import com.google.firebase.FirebaseOptions
@@ -31,18 +32,62 @@ internal object GuitarLabFirebase {
     const val NAME = "guitarlab-separation"
 }
 
-internal class FirebaseResultTransport(private val context:Context,private val auth:FirebaseAuth,private val storage:FirebaseStorage):RemoteResultTransport {
-    private suspend fun uid():String { auth.currentUser?.uid?.let{return it};return requireNotNull(auth.signInAnonymously().await().user?.uid){"AUTH_REQUIRED"} }
-    override suspend fun uploadSource(identity:RemoteJobIdentity):String {
-        val project=requireNotNull(FileProjectRepository(context.filesDir).load(identity.projectId));val source=project.assets.singleOrNull{it.assetId==identity.sourceAssetId}?:error("INPUT_MISSING");require(source.sha256==identity.inputSha256){"INPUT_HASH_MISMATCH"}
-        val file=ProjectManagedMediaStore(context.filesDir).resolve(identity.projectId,source.relativePath);val path="remote/v1/users/${uid()}/jobs/${identity.jobId}/input/source.${source.format.lowercase()}"
-        val metadata=StorageMetadata.Builder().setContentType("audio/${source.format.lowercase()}").setCustomMetadata("sha256",identity.inputSha256).setCustomMetadata("projectId",identity.projectId).setCustomMetadata("jobId",identity.jobId).build()
-        storage.reference.child(path).putFile(Uri.fromFile(file),metadata).await();return path
+internal class FirebaseResultTransport(
+    private val context: Context,
+    private val auth: FirebaseAuth,
+    private val storage: FirebaseStorage,
+) : RemoteResultTransport {
+    private suspend fun uid(): String = staged(RemotePipelineStage.AUTHENTICATING) {
+        auth.currentUser?.uid ?: requireNotNull(auth.signInAnonymously().await().user?.uid) { "AUTH_REQUIRED" }
     }
-    override suspend fun downloadManifest(identity:RemoteJobIdentity)=storage.reference.child(prefix(identity)+"/result-manifest.json").getBytes(65536).await()
-    override suspend fun downloadStem(identity:RemoteJobIdentity,stem:RemoteStem):ByteArray { require(stem.path.startsWith(prefix(identity)+"/")&&!stem.path.contains(".."));return storage.reference.child(stem.path).getBytes(stem.bytes).await() }
-    override suspend fun cleanup(identity:RemoteJobIdentity) { runCatching{storage.reference.child(prefix(identity)).listAll().await().items.forEach{runCatching{it.delete().await()}}} }
-    private suspend fun prefix(identity:RemoteJobIdentity)="remote/v1/users/${uid()}/jobs/${identity.jobId}/output"
+
+    override suspend fun uploadSource(identity: RemoteJobIdentity): String = staged(RemotePipelineStage.UPLOADING) {
+        val project = requireNotNull(FileProjectRepository(context.filesDir).load(identity.projectId))
+        val source = project.assets.singleOrNull { it.assetId == identity.sourceAssetId } ?: error("INPUT_MISSING")
+        require(source.sha256 == identity.inputSha256) { "INPUT_HASH_MISMATCH" }
+        val file = ProjectManagedMediaStore(context.filesDir).resolve(identity.projectId, source.relativePath)
+        require(file.isFile && file.length() > 0L) { "INPUT_MISSING" }
+        val path = "remote/v1/users/${uid()}/jobs/${identity.jobId}/input/source.${source.format.lowercase()}"
+        val metadata = StorageMetadata.Builder()
+            .setContentType("audio/${source.format.lowercase()}")
+            .setCustomMetadata("sha256", identity.inputSha256)
+            .setCustomMetadata("projectId", identity.projectId)
+            .setCustomMetadata("jobId", identity.jobId)
+            .build()
+        storage.reference.child(path).putFile(Uri.fromFile(file), metadata).await()
+        path
+    }
+
+    override suspend fun downloadManifest(identity: RemoteJobIdentity): ByteArray =
+        staged(RemotePipelineStage.DOWNLOADING_RESULTS) {
+            storage.reference.child(prefix(identity) + "/result-manifest.json").getBytes(65536).await()
+        }
+
+    override suspend fun downloadStem(identity: RemoteJobIdentity, stem: RemoteStem): ByteArray =
+        staged(RemotePipelineStage.DOWNLOADING_RESULTS) {
+            require(stem.path.startsWith(prefix(identity) + "/") && !stem.path.contains(".."))
+            storage.reference.child(stem.path).getBytes(stem.bytes).await()
+        }
+
+    override suspend fun cleanup(identity: RemoteJobIdentity) {
+        runCatching {
+            storage.reference.child(prefix(identity)).listAll().await().items.forEach { item ->
+                runCatching { item.delete().await() }
+            }
+        }
+    }
+
+    private suspend fun prefix(identity: RemoteJobIdentity) =
+        "remote/v1/users/${uid()}/jobs/${identity.jobId}/output"
+
+    private suspend fun <T> staged(stage: RemotePipelineStage, block: suspend () -> T): T =
+        try {
+            block()
+        } catch (error: RemotePipelineException) {
+            throw error
+        } catch (error: Throwable) {
+            throw RemotePipelineException(stage, error)
+        }
 }
 
 class RemoteSeparationWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
@@ -61,7 +106,13 @@ class RemoteSeparationWorker(context: Context, params: WorkerParameters) : Corou
             ManagedStemSetPublisher(StemSetProjectPublisher(repository, mediaStore)),
         )
         return try {
-            val current = store.load(id.jobId)
+            val current = store.load(id.jobId)?.let { stored ->
+                if (stored.errorCode?.startsWith("RETRY:") == true) {
+                    store.save(stored.copy(errorCode = null, updatedAtMs = System.currentTimeMillis()))
+                } else {
+                    stored
+                }
+            }
             val next = if (current == null) coordinator.start(id) else coordinator.reconcile(id)
             when (next.state) {
                 RemoteJobState.IMPORTED -> prepareReferencesOrRetry(id, next, store, repository, mediaStore)
@@ -78,11 +129,25 @@ class RemoteSeparationWorker(context: Context, params: WorkerParameters) : Corou
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (error: Throwable) {
-            val code = sanitizeRemoteFailure(error)
-            if (RemoteFailurePolicy.shouldRetry(code, runAttemptCount, MAX_WORKER_ATTEMPTS)) {
+            val failure = RemoteFirebaseFailureClassifier.classify(error)
+            Log.w(
+                REMOTE_LOG_TAG,
+                "job=${id.jobId} project=${id.projectId} stage=${failure.stage} code=${failure.code} retryable=${failure.retryable} attempt=${runAttemptCount + 1}",
+                error,
+            )
+            val current = store.load(id.jobId)
+            if (failure.retryable && runAttemptCount < MAX_WORKER_ATTEMPTS) {
+                if (current != null && current.state !in RemoteRecoveryPolicy.terminalStates) {
+                    store.save(
+                        current.copy(
+                            updatedAtMs = System.currentTimeMillis(),
+                            errorCode = failure.durableCode(runAttemptCount),
+                        ),
+                    )
+                }
                 Result.retry()
             } else {
-                terminalizeExhaustedWorker(id, code, store, repository)
+                terminalizeExhaustedWorker(id, failure.durableCode(runAttemptCount), store, repository)
                 Result.failure()
             }
         }
@@ -120,7 +185,8 @@ class RemoteSeparationWorker(context: Context, params: WorkerParameters) : Corou
     }
 
     private companion object {
-        const val MAX_WORKER_ATTEMPTS = 20
+        const val MAX_WORKER_ATTEMPTS = 5
+        const val REMOTE_LOG_TAG = "GuitarLabRemote"
     }
 }
 
@@ -299,29 +365,41 @@ class RemoteCancelWorker(context: Context, params: WorkerParameters) : Coroutine
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (error: Throwable) {
-            val code = sanitizeRemoteFailure(error)
-            when (RemoteRecoveryPolicy.cancellationFailureAction(code, runAttemptCount, MAX_CANCEL_ATTEMPTS)) {
-                CancellationFailureAction.RETRY -> Result.retry()
-                CancellationFailureAction.TERMINAL_FAILURE -> {
-                    val current = store.load(id.jobId)
-                    if (current != null && current.state !in RemoteRecoveryPolicy.terminalStates) {
-                        store.save(
-                            current.copy(
-                                state = RemoteJobState.FAILED,
-                                updatedAtMs = System.currentTimeMillis(),
-                                errorCode = "CANCEL_UNCONFIRMED_${code.take(40)}",
-                            ),
-                        )
-                    }
-                    restoreSourceReadyAfterTerminal(id, store, repository)
-                    Result.failure()
+            val failure = RemoteFirebaseFailureClassifier.classify(error)
+            Log.w(
+                "GuitarLabRemote",
+                "cancel job=${id.jobId} stage=${failure.stage} code=${failure.code} retryable=${failure.retryable} attempt=${runAttemptCount + 1}",
+                error,
+            )
+            if (failure.retryable && runAttemptCount < MAX_CANCEL_ATTEMPTS) {
+                store.load(id.jobId)?.takeIf { it.state !in RemoteRecoveryPolicy.terminalStates }?.let { current ->
+                    store.save(
+                        current.copy(
+                            updatedAtMs = System.currentTimeMillis(),
+                            errorCode = failure.durableCode(runAttemptCount),
+                        ),
+                    )
                 }
+                Result.retry()
+            } else {
+                val current = store.load(id.jobId)
+                if (current != null && current.state !in RemoteRecoveryPolicy.terminalStates) {
+                    store.save(
+                        current.copy(
+                            state = RemoteJobState.FAILED,
+                            updatedAtMs = System.currentTimeMillis(),
+                            errorCode = "CANCEL_UNCONFIRMED:${failure.stage?.name ?: "UNKNOWN"}:${failure.code}",
+                        ),
+                    )
+                }
+                restoreSourceReadyAfterTerminal(id, store, repository)
+                Result.failure()
             }
         }
     }
 
     private companion object {
-        const val MAX_CANCEL_ATTEMPTS = 8
+        const val MAX_CANCEL_ATTEMPTS = 5
     }
 }
 
@@ -395,12 +473,3 @@ private fun terminalizeExhaustedWorker(
     restoreSourceReadyAfterTerminal(id, store, repository)
 }
 
-private fun sanitizeRemoteFailure(error: Throwable): String =
-    error.message
-        ?.substringBefore(':')
-        ?.take(48)
-        ?.uppercase()
-        ?.replace(Regex("[^A-Z0-9_]"), "_")
-        ?.trim('_')
-        ?.ifBlank { null }
-        ?: "BACKEND_UNAVAILABLE"

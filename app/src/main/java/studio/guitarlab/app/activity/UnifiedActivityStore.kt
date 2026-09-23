@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import org.json.JSONArray
 import org.json.JSONObject
+import studio.guitarlab.core.project.UnifiedActivityPolicy
 import studio.guitarlab.core.project.UnifiedOperationKind
 import studio.guitarlab.core.project.UnifiedOperationRecord
 import studio.guitarlab.core.project.UnifiedOperationState
@@ -71,6 +72,32 @@ class UnifiedActivityStore(context: Context) {
             val next = _records.value.filterNot { it.operationId == operationId }
             write(next)
             _records.value = next
+        }
+    }
+
+    fun clearResolved(): Int = synchronized(lock) {
+        val before = _records.value
+        val next = UnifiedActivityPolicy.clearResolved(before).let(::bounded)
+        write(next)
+        _records.value = next
+        before.size - next.size
+    }
+
+    fun terminalizeProject(projectId: String, nowEpochMs: Long = System.currentTimeMillis()) {
+        synchronized(lock) {
+            val next = UnifiedActivityPolicy.terminalizeProject(_records.value, projectId, nowEpochMs).let(::bounded)
+            write(next)
+            _records.value = next
+        }
+    }
+
+    fun reconcileMissingProjects(existingProjectIds: Set<String>, nowEpochMs: Long = System.currentTimeMillis()) {
+        synchronized(lock) {
+            val next = UnifiedActivityPolicy.terminalizeMissingProjects(_records.value, existingProjectIds, nowEpochMs).let(::bounded)
+            if (next != _records.value) {
+                write(next)
+                _records.value = next
+            }
         }
     }
 

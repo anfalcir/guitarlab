@@ -112,6 +112,32 @@ class PrepareJourneyPolicyTest {
         assertFalse(message.contains("FAILED"))
     }
 
+    @Test fun retryCopyExposesPipelineStageWithoutRawCode() {
+        val retrying = DurableRemoteJob(
+            identity(),
+            RemoteJobState.UPLOADING,
+            1,
+            errorCode = "RETRY:UPLOADING:NETWORK_UNAVAILABLE:ATTEMPT_2",
+        )
+        val message = PrepareJourneyPolicy.separationMessage(retrying)
+        assertTrue(message.contains("envio", ignoreCase = true))
+        assertTrue(message.contains("nova tentativa", ignoreCase = true))
+        assertFalse(message.contains("NETWORK_UNAVAILABLE"))
+    }
+
+    @Test fun disabledAnonymousAuthFailsActionablyWithoutLeakingTechnicalCode() {
+        val failed = DurableRemoteJob(
+            identity(),
+            RemoteJobState.FAILED,
+            1,
+            errorCode = "TERMINAL:AUTHENTICATING:AUTH_PROVIDER_DISABLED",
+        )
+        val message = PrepareJourneyPolicy.separationMessage(failed)
+        assertTrue(message.contains("autenticação", ignoreCase = true))
+        assertTrue(message.contains("desativada", ignoreCase = true))
+        assertFalse(message.contains("AUTH_PROVIDER_DISABLED"))
+    }
+
     private fun project(
         assets: List<ManagedAsset> = emptyList(),
         preparation: PreparationState? = null,

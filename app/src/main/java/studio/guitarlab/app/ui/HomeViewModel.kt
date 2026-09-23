@@ -111,6 +111,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 }
             }
                 .onSuccess { projects ->
+                    activityStore.reconcileMissingProjects(projects.map { it.id }.toSet())
                     projectLibraryIndex = ProjectLibraryPolicy.index(projects)
                     _state.update { current ->
                         current.copy(
@@ -226,11 +227,12 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             )
         }
         job?.let { current ->
-            val state = when (current.state) {
-                RemoteJobState.IMPORTED -> UnifiedOperationState.SUCCEEDED
-                RemoteJobState.CANCELLED -> UnifiedOperationState.CANCELLED
-                RemoteJobState.FAILED, RemoteJobState.EXPIRED -> UnifiedOperationState.FAILED
-                RemoteJobState.QUEUED, RemoteJobState.READY -> UnifiedOperationState.QUEUED
+            val state = when {
+                current.state == RemoteJobState.IMPORTED -> UnifiedOperationState.SUCCEEDED
+                current.state == RemoteJobState.CANCELLED -> UnifiedOperationState.CANCELLED
+                current.state == RemoteJobState.FAILED || current.state == RemoteJobState.EXPIRED -> UnifiedOperationState.FAILED
+                current.errorCode?.startsWith("RETRY:") == true -> UnifiedOperationState.RETRYING
+                current.state == RemoteJobState.QUEUED || current.state == RemoteJobState.READY -> UnifiedOperationState.QUEUED
                 else -> UnifiedOperationState.RUNNING
             }
             activityStore.record(
@@ -239,7 +241,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 kind = UnifiedOperationKind.SEPARATION,
                 state = state,
                 progressPercent = null,
-                summary = separationActivitySummary(current.state),
+                summary = separationActivitySummary(current),
                 technicalDetail = current.errorCode,
                 updatedAtEpochMs = current.updatedAtMs,
             )
@@ -301,6 +303,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             separation.closeProject(projectId)
             runCatching { withContext(Dispatchers.IO) { repository.delete(projectId) } }
                 .onSuccess {
+                    activityStore.terminalizeProject(projectId)
                     _state.update { current ->
                         current.copy(
                             sourceCandidatesByProject = current.sourceCandidatesByProject - projectId,
@@ -690,13 +693,27 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             SourceOperationState.IDLE -> "Aquisição de fonte aguardando"
         }
 
-        fun separationActivitySummary(state: RemoteJobState): String = when (state) {
-            RemoteJobState.IMPORTED -> "Separação e referências concluídas"
-            RemoteJobState.FAILED, RemoteJobState.EXPIRED -> "Não foi possível concluir a separação"
-            RemoteJobState.CANCEL_REQUESTED -> "Cancelamento da separação solicitado"
-            RemoteJobState.CANCELLED -> "Separação cancelada"
-            RemoteJobState.QUEUED, RemoteJobState.READY -> "Separação aguardando processamento"
-            else -> "Separando fonte"
+        fun separationActivitySummary(job: DurableRemoteJob): String {
+            if (job.errorCode?.startsWith("RETRY:") == true) {
+                return when {
+                    job.errorCode.contains(":AUTHENTICATING:") -> "Autenticação da nuvem falhou temporariamente; nova tentativa agendada"
+                    job.errorCode.contains(":CHECKING_REMOTE:") -> "Consulta do processamento falhou temporariamente; nova tentativa agendada"
+                    job.errorCode.contains(":UPLOADING:") -> "Envio da fonte foi interrompido; nova tentativa agendada"
+                    job.errorCode.contains(":ENQUEUEING:") -> "Solicitação de separação não foi confirmada; nova tentativa agendada"
+                    else -> "Falha temporária na separação; nova tentativa agendada"
+                }
+            }
+            return when (job.state) {
+                RemoteJobState.IMPORTED -> "Separação e referências concluídas"
+                RemoteJobState.FAILED, RemoteJobState.EXPIRED -> "Não foi possível concluir a separação"
+                RemoteJobState.CANCEL_REQUESTED -> "Cancelamento da separação solicitado"
+                RemoteJobState.CANCELLED -> "Separação cancelada"
+                RemoteJobState.UPLOADING -> "Enviando fonte para processamento"
+                RemoteJobState.READY -> "Fonte enviada; preparando processamento"
+                RemoteJobState.QUEUED -> "Separação aguardando processamento"
+                RemoteJobState.RUNNING -> "Separando fonte"
+                RemoteJobState.COMPLETED, RemoteJobState.IMPORTING -> "Importando faixas separadas"
+            }
         }
 
         val TERMINAL_SEPARATION_STATES = setOf(RemoteJobState.IMPORTED, RemoteJobState.CANCELLED, RemoteJobState.FAILED, RemoteJobState.EXPIRED)

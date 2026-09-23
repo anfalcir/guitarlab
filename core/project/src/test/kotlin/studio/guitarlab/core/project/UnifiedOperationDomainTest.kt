@@ -17,6 +17,42 @@ class UnifiedOperationDomainTest {
         assertEquals("queued", UnifiedActivityPolicy.compactActive(records)?.operationId)
     }
 
+    @Test fun clearResolvedNeverRemovesOpenOrFailedOperations() {
+        val records = listOf(
+            record("running", UnifiedOperationState.RUNNING, 1),
+            record("failed", UnifiedOperationState.FAILED, 2),
+            record("done", UnifiedOperationState.SUCCEEDED, 3),
+            record("cancelled", UnifiedOperationState.CANCELLED, 4),
+        )
+        assertEquals(
+            listOf("running", "failed"),
+            UnifiedActivityPolicy.clearResolved(records).map { it.operationId },
+        )
+    }
+
+    @Test fun missingProjectActiveHistoryIsTerminalizedButFailureEvidenceIsPreserved() {
+        val records = listOf(
+            record("orphan", UnifiedOperationState.RUNNING, 1),
+            record("failure", UnifiedOperationState.FAILED, 2),
+            UnifiedOperationRecord("global", null, UnifiedOperationKind.BACKUP, UnifiedOperationState.RUNNING, null, 3, "global"),
+        )
+        val reconciled = UnifiedActivityPolicy.terminalizeMissingProjects(records, emptySet(), 10)
+        assertEquals(UnifiedOperationState.CANCELLED, reconciled.single { it.operationId == "orphan" }.state)
+        assertEquals("PROJECT_REMOVED", reconciled.single { it.operationId == "orphan" }.technicalDetail)
+        assertEquals(UnifiedOperationState.FAILED, reconciled.single { it.operationId == "failure" }.state)
+        assertEquals(UnifiedOperationState.RUNNING, reconciled.single { it.operationId == "global" }.state)
+    }
+
+    @Test fun deletingProjectTerminalizesOnlyItsActiveOperations() {
+        val records = listOf(
+            record("target-running", UnifiedOperationState.RETRYING, 1),
+            UnifiedOperationRecord("other", "other-project", UnifiedOperationKind.SEPARATION, UnifiedOperationState.RUNNING, null, 2, "other"),
+        )
+        val result = UnifiedActivityPolicy.terminalizeProject(records, "project", 20)
+        assertEquals(UnifiedOperationState.CANCELLED, result.single { it.operationId == "target-running" }.state)
+        assertEquals(UnifiedOperationState.RUNNING, result.single { it.operationId == "other" }.state)
+    }
+
     @Test fun invalidProgressFailsClosed() {
         assertFailsWith<IllegalArgumentException> { record("bad", UnifiedOperationState.RUNNING, 1, 101) }
     }

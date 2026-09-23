@@ -149,16 +149,43 @@ object PrepareJourneyPolicy {
         SourceOperationState.IDLE, null -> "Aguardando fonte"
     }
 
-    fun separationMessage(job: DurableRemoteJob?): String = when (job?.state) {
-        null -> "A fonte está pronta. Inicie a separação em seis faixas quando quiser continuar."
-        RemoteJobState.UPLOADING, RemoteJobState.READY, RemoteJobState.QUEUED -> "Preparando o processamento em nuvem…"
-        RemoteJobState.RUNNING -> "Separando a música em seis faixas…"
-        RemoteJobState.COMPLETED, RemoteJobState.IMPORTING -> "Validando e trazendo as faixas separadas…"
-        RemoteJobState.IMPORTED -> "Seis faixas separadas validadas"
-        RemoteJobState.CANCEL_REQUESTED -> "Cancelamento solicitado…"
-        RemoteJobState.CANCELLED -> "Separação cancelada. Você pode iniciar novamente quando quiser."
-        RemoteJobState.FAILED -> "Não foi possível concluir a separação. As mídias válidas do projeto foram preservadas."
-        RemoteJobState.EXPIRED -> "O processamento expirou. Você pode iniciar uma nova separação."
+    fun separationMessage(job: DurableRemoteJob?): String {
+        if (job == null) return "A fonte está pronta. Inicie a separação em seis faixas quando quiser continuar."
+        if (job.errorCode?.startsWith("RETRY:") == true) {
+            return when {
+                job.errorCode.contains(":AUTHENTICATING:") -> "Não foi possível autenticar na nuvem. Nova tentativa agendada…"
+                job.errorCode.contains(":CHECKING_REMOTE:") -> "Não foi possível consultar o processamento. Nova tentativa agendada…"
+                job.errorCode.contains(":UPLOADING:") -> "O envio da fonte foi interrompido. Nova tentativa agendada…"
+                job.errorCode.contains(":ENQUEUEING:") -> "A solicitação de separação não foi confirmada. Nova tentativa agendada…"
+                else -> "Falha temporária na nuvem. Nova tentativa agendada…"
+            }
+        }
+        return when (job.state) {
+            RemoteJobState.UPLOADING -> "Enviando a fonte para a nuvem…"
+            RemoteJobState.READY -> "Fonte enviada. Preparando o processamento…"
+            RemoteJobState.QUEUED -> "Aguardando início do processamento em nuvem…"
+            RemoteJobState.RUNNING -> "Separando a música em seis faixas…"
+            RemoteJobState.COMPLETED, RemoteJobState.IMPORTING -> "Validando e trazendo as faixas separadas…"
+            RemoteJobState.IMPORTED -> "Seis faixas separadas validadas"
+            RemoteJobState.CANCEL_REQUESTED -> "Cancelamento solicitado…"
+            RemoteJobState.CANCELLED -> "Separação cancelada. Você pode iniciar novamente quando quiser."
+            RemoteJobState.FAILED -> failureMessage(job.errorCode)
+            RemoteJobState.EXPIRED -> "O processamento expirou. Você pode iniciar uma nova separação."
+        }
+    }
+
+    private fun failureMessage(errorCode: String?): String = when {
+        errorCode?.contains("AUTH_PROVIDER_DISABLED") == true ->
+            "A autenticação anônima do serviço está desativada. A fonte foi preservada; tente novamente após a configuração do serviço."
+        errorCode?.contains("AUTH_") == true ->
+            "Não foi possível autenticar no serviço de separação. A fonte foi preservada."
+        errorCode?.contains("FIRESTORE_PERMISSION_DENIED") == true ||
+            errorCode?.contains("FUNCTIONS_PERMISSION_DENIED") == true ||
+            errorCode?.contains("STORAGE_NOT_AUTHORIZED") == true ->
+            "O serviço recusou a autorização da separação. A fonte foi preservada."
+        errorCode?.contains("STORAGE_") == true ->
+            "Não foi possível enviar a fonte para a nuvem. A fonte local foi preservada."
+        else -> "Não foi possível concluir a separação. As mídias válidas do projeto foram preservadas."
     }
 
     fun separationIsActive(job: DurableRemoteJob?): Boolean = job != null && job.state !in terminalSeparationStates

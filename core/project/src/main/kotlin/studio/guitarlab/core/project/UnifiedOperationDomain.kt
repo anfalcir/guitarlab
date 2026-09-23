@@ -40,6 +40,48 @@ object UnifiedActivityPolicy {
 
     fun compactActive(records: Collection<UnifiedOperationRecord>): UnifiedOperationRecord? =
         ordered(records).firstOrNull { it.state.isActive }
+
+    fun isClearable(record: UnifiedOperationRecord): Boolean =
+        record.state == UnifiedOperationState.SUCCEEDED || record.state == UnifiedOperationState.CANCELLED
+
+    fun clearResolved(records: Collection<UnifiedOperationRecord>): List<UnifiedOperationRecord> =
+        records.filterNot(::isClearable)
+
+    fun terminalizeMissingProjects(
+        records: Collection<UnifiedOperationRecord>,
+        existingProjectIds: Set<String>,
+        nowEpochMs: Long,
+    ): List<UnifiedOperationRecord> = records.map { record ->
+        if (record.projectId != null && record.projectId !in existingProjectIds && record.state.isActive) {
+            record.copy(
+                state = UnifiedOperationState.CANCELLED,
+                progressPercent = null,
+                updatedAtEpochMs = nowEpochMs,
+                summary = "Operação encerrada porque o projeto não existe mais",
+                technicalDetail = "PROJECT_REMOVED",
+            )
+        } else {
+            record
+        }
+    }
+
+    fun terminalizeProject(
+        records: Collection<UnifiedOperationRecord>,
+        projectId: String,
+        nowEpochMs: Long,
+    ): List<UnifiedOperationRecord> = records.map { record ->
+        if (record.projectId == projectId && record.state.isActive) {
+            record.copy(
+                state = UnifiedOperationState.CANCELLED,
+                progressPercent = null,
+                updatedAtEpochMs = nowEpochMs,
+                summary = "Operação encerrada porque o projeto foi excluído",
+                technicalDetail = "PROJECT_DELETED",
+            )
+        } else {
+            record
+        }
+    }
 }
 
 enum class ProjectSyncState { NOT_CONNECTED, LOCAL_ONLY, PENDING, SYNCING, SYNCED, ERROR, CONFLICT }

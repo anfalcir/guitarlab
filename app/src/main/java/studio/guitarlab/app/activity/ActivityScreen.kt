@@ -21,6 +21,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -67,6 +68,16 @@ fun ActivityScreen(
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        if (state.clearableCount > 0) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                TextButton(
+                    onClick = viewModel::clearResolved,
+                    modifier = Modifier.testTag("activity-clear-resolved"),
+                ) {
+                    Text("Limpar resolvidos (${state.clearableCount})")
+                }
+            }
+        }
         if (state.records.isEmpty()) {
             ActivityEmptyState(Modifier.fillMaxWidth().weight(1f))
         } else {
