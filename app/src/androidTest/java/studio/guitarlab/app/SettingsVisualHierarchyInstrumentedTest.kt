@@ -53,7 +53,7 @@ class SettingsVisualHierarchyInstrumentedTest {
         composeRule.onNodeWithTag("settings-cloud-auth-dialog").assertIsDisplayed()
         composeRule.onNodeWithTag("settings-cloud-auth-email").assertIsDisplayed()
         composeRule.onNodeWithTag("settings-cloud-auth-password").assertIsDisplayed()
-        composeRule.onNodeWithText("Entrar").assertIsDisplayed()
+        composeRule.onNodeWithTag("settings-cloud-auth-submit").assertIsDisplayed()
     }
 
 }

@@ -609,6 +609,7 @@ fun SettingsScreen(
             confirmButton = {
                 TextButton(
                     enabled = !cloudAuthBusy && cloudEmail.isNotBlank() && cloudPassword.isNotEmpty(),
+                    modifier = Modifier.testTag("settings-cloud-auth-submit"),
                     onClick = {
                         val secret = cloudPassword.toCharArray()
                         cloudPassword = ""
