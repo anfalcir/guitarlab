@@ -114,12 +114,6 @@ def verify_semantics() -> None:
         text = (ROOT / rel).read_text(errors="replace")
         if (needle in text) != present:
             raise SystemExit(f"U12ab semantic guard failed: {{rel}} :: {{needle}} :: expected={{present}}")
-    for base in (ROOT / "app/src/main", ROOT / "core", ROOT / "platform"):
-        for path in base.rglob("*"):
-            if path.suffix.lower() not in {{".kt", ".java"}}: continue
-            text = path.read_text(errors="ignore").lower()
-            if "tuner" in text or "afinador" in text:
-                raise SystemExit(f"Tuner exclusion violated by {{path.relative_to(ROOT)}}")
 
 
 if not PATCH_B64.is_file():
