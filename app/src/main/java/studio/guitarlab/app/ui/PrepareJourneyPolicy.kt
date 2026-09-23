@@ -186,7 +186,7 @@ object PrepareJourneyPolicy {
         errorCode?.contains("AUTH_REQUIRED") == true ->
             "Entre na conta da separação em nuvem em Opções → Conta e nuvem. A fonte foi preservada."
         errorCode?.contains("AUTH_PROVIDER_DISABLED") == true ->
-            "O login da conta de separação está desativado no serviço. A fonte foi preservada; tente novamente após a configuração do serviço."
+            "A autenticação da conta de separação está desativada no serviço. A fonte foi preservada; tente novamente após a configuração do serviço."
         errorCode?.contains("AUTH_") == true ->
             "Não foi possível autenticar no serviço de separação. A fonte foi preservada."
         errorCode?.contains("FIRESTORE_PERMISSION_DENIED") == true ||
