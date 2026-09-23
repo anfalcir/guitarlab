@@ -109,6 +109,7 @@ class UnifiedProjectShellInstrumentedTest {
             updatedAtEpochMs = 2,
         )
         var request: Pair<String, String>? = null
+        val searchBusy = androidx.compose.runtime.mutableStateOf(false)
         composeRule.setContent {
             GuitarLabTheme(darkTheme = true) {
                 UnifiedPrepareScreen(
@@ -117,6 +118,7 @@ class UnifiedProjectShellInstrumentedTest {
                     onBack = {},
                     onStudio = {},
                     onExport = {},
+                    searchBusy = searchBusy.value,
                     onSearch = { artist, song -> request = artist to song },
                 )
             }
@@ -124,20 +126,11 @@ class UnifiedProjectShellInstrumentedTest {
         composeRule.onNodeWithTag("prepare-search-artist").performScrollTo().performTextInput("Banda")
         composeRule.onNodeWithTag("prepare-search-song").performTextInput("Música")
         composeRule.onNodeWithTag("prepare-search-action").performClick()
-        composeRule.runOnIdle { check(request == ("Banda" to "Música")) }
-
-        composeRule.setContent {
-            GuitarLabTheme(darkTheme = true) {
-                UnifiedPrepareScreen(
-                    project = project,
-                    projectId = project.id,
-                    onBack = {},
-                    onStudio = {},
-                    onExport = {},
-                    searchBusy = true,
-                )
-            }
+        composeRule.runOnIdle {
+            check(request == ("Banda" to "Música"))
+            searchBusy.value = true
         }
+
         composeRule.onNodeWithTag("prepare-search-progress").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithTag("prepare-search-action").assertIsNotEnabled()
     }

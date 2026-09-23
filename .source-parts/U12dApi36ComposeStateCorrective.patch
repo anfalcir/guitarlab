@@ -1,0 +1,68 @@
+diff --git a/app/src/androidTest/java/studio/guitarlab/app/UnifiedProjectShellInstrumentedTest.kt b/app/src/androidTest/java/studio/guitarlab/app/UnifiedProjectShellInstrumentedTest.kt
+index 45515ef..5a22a48 100644
+--- a/app/src/androidTest/java/studio/guitarlab/app/UnifiedProjectShellInstrumentedTest.kt
++++ b/app/src/androidTest/java/studio/guitarlab/app/UnifiedProjectShellInstrumentedTest.kt
+@@ -108,38 +108,31 @@
+             createdAtEpochMs = 1,
+             updatedAtEpochMs = 2,
+         )
+-        var request: Pair<String, String>? = null
+-        composeRule.setContent {
+-            GuitarLabTheme(darkTheme = true) {
+-                UnifiedPrepareScreen(
+-                    project = project,
+-                    projectId = project.id,
+-                    onBack = {},
+-                    onStudio = {},
+-                    onExport = {},
+-                    onSearch = { artist, song -> request = artist to song },
+-                )
+-            }
+-        }
+-        composeRule.onNodeWithTag("prepare-search-artist").performScrollTo().performTextInput("Banda")
+-        composeRule.onNodeWithTag("prepare-search-song").performTextInput("Música")
+-        composeRule.onNodeWithTag("prepare-search-action").performClick()
+-        composeRule.runOnIdle { check(request == ("Banda" to "Música")) }
+-
+-        composeRule.setContent {
+-            GuitarLabTheme(darkTheme = true) {
+-                UnifiedPrepareScreen(
+-                    project = project,
+-                    projectId = project.id,
+-                    onBack = {},
+-                    onStudio = {},
+-                    onExport = {},
+-                    searchBusy = true,
+-                )
+-            }
+-        }
+-        composeRule.onNodeWithTag("prepare-search-progress").performScrollTo().assertIsDisplayed()
+-        composeRule.onNodeWithTag("prepare-search-action").assertIsNotEnabled()
++        var request: Pair<String, String>? = null
++        val searchBusy = androidx.compose.runtime.mutableStateOf(false)
++        composeRule.setContent {
++            GuitarLabTheme(darkTheme = true) {
++                UnifiedPrepareScreen(
++                    project = project,
++                    projectId = project.id,
++                    onBack = {},
++                    onStudio = {},
++                    onExport = {},
++                    searchBusy = searchBusy.value,
++                    onSearch = { artist, song -> request = artist to song },
++                )
++            }
++        }
++        composeRule.onNodeWithTag("prepare-search-artist").performScrollTo().performTextInput("Banda")
++        composeRule.onNodeWithTag("prepare-search-song").performTextInput("Música")
++        composeRule.onNodeWithTag("prepare-search-action").performClick()
++        composeRule.runOnIdle {
++            check(request == ("Banda" to "Música"))
++            searchBusy.value = true
++        }
++
++        composeRule.onNodeWithTag("prepare-search-progress").performScrollTo().assertIsDisplayed()
++        composeRule.onNodeWithTag("prepare-search-action").assertIsNotEnabled()
+     }
+ 
+     @Test fun preparedReferencesAreVisibleAndStudioHandoffRemainsAvailable() {
