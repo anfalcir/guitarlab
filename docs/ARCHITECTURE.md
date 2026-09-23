@@ -6,7 +6,7 @@ Updated: 2026-09-21
 - `main` is canonical.
 - Product behavior is promoted only after exact-source automated gates and, where required, residual physical validation.
 - `.github/workflows/android-ci.yml` supports manual dispatch plus explicit `[run ci]` / `[run ci signed]` commit-message gates on `main`; ordinary `[skip ci]` commits remain inert.
-- U11 signed authority is Android CI #783 / run `35793456972` at exact producer `4218e4343746932a4de61c5abaa29ba5769a30ed`, package `studio.guitarlab.app`, `0.5.0-rc5` / 25. U10/C8 technical authority remains preserved as #781 evidence.
+- Active U12 signed authority is Android CI #794 / run `35856278980` at exact producer `635124acfbf133553a96c8b2013f2245f58a6877`, package `studio.guitarlab.app`, `0.5.0-rc9` / 29. U4 #111 and U7 #69 are green on the same producer boundary; U10/C8 technical authority remains preserved as #781 evidence.
 
 ## Module boundaries
 - `core:model`: immutable project/track/clip/take metadata contracts.
@@ -82,7 +82,7 @@ Durable creative state belongs in project persistence, not transient Composable 
 ## Build/release architecture
 `scripts/build_local.sh` is the local software gate when its environment is available. The GitHub workflow is the canonical full software/API36/geometry/signing executor.
 
-Large deltas are materialized from `.source-parts` serially. The current canonical tail ends at U10zb and composes the accepted H-series, Drive v3, unified-domain/shell/cloud/backup and U10 cohesion-hardening blocks. Each protected block verifies patch/archive identity and exact terminal Git blobs; the current tail additionally preserves `git diff --check`, semantic guards and reverse-apply/idempotence checks. Unexplained drift blocks the build.
+Large deltas are materialized from `.source-parts` serially. The current canonical tail ends at U12k and composes the accepted H-series, Drive v3, unified-domain/shell/cloud/backup, cohesion hardening and U12 physical-corrective blocks. Each protected block verifies patch/archive identity and exact terminal Git blobs; the current tail additionally preserves `git diff --check`, semantic guards and reverse-apply/idempotence checks. Unexplained drift blocks the build.
 
 ## Backup transport boundary — direct Drive v3 production path
 The protected backup domain remains transport-agnostic: project/revision identity, deduplication, retention and restore semantics are separated from transport. H37 introduced the direct Drive API v3 edge; U8 production cutover and U8m provider-real acceptance made that path the current unified backup authority.

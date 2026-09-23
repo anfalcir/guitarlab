@@ -27,7 +27,7 @@ Use these first for current status, release identity and remaining work:
 - `CANDIDATE_IDENTITY_POLICY.md` — candidate identity/provenance rules;
 - `CI_PIPELINE.md` — manual CI, source materialization and signing provenance;
 - `TEST_AND_HOMOLOGATION_PLAN.md` — current automated/physical evidence boundary;
-- `U12_FINAL_PHYSICAL_HOMOLOGATION.md` — current target-device checklist recording rc5 findings and the pending rc6 replacement binding;
+- `U12_FINAL_PHYSICAL_HOMOLOGATION.md` — current target-device checklist, rc7/rc8 physical findings, exact rc9 binding and remaining focused physical acceptance;
 - `RELEASE_NOTES_0.5.0-rc3.md` — historical signed RC3 behavior delta;
 - `RELEASE_NOTES_0.5.0-rc4.md` — H37/H37a/H37b RC4 delta and historical source-pre-gate narrative; its signed gate was later closed by CI #669;
 - `RELEASE_NOTES_0.5.0-rc5.md` — historical U11 rc5/25 freeze evidence;

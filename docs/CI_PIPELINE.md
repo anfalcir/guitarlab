@@ -5,7 +5,7 @@ Updated: 2026-09-22
 ## Contract
 `.github/workflows/android-ci.yml` supports manual `workflow_dispatch` and controlled `main` commit triggers. A commit containing `[run ci]` runs the software and API 36 gates; `[run ci signed]` additionally produces the signed homologation APK. Ordinary commits retain `[skip ci]` and do not consume hosted CI. This workstream is authorized to use and monitor the controlled triggers while executing the unified roadmap.
 
-Current release phase: **U11 CLOSED / U12 ACTIVE**. The frozen signed candidate is `0.5.0-rc5` / versionCode `25`, producer `4218e4343746932a4de61c5abaa29ba5769a30ed`, Android CI #783 / run `35793456972`. Signed APK SHA-256: `795839766f2b7546af53b2c56a0638b11c25b79622fe73cce5860b5602f050e0`.
+Current release phase: **U11 CLOSED / U12 ACTIVE**. The active signed candidate is `0.5.0-rc9` / versionCode `29`, producer `635124acfbf133553a96c8b2013f2245f58a6877`, Android CI #794 / run `35856278980`. Signed APK SHA-256: `4fcf529b935a584217b3b882ca8dfa05e3c360f99cfe9d70071080175439dd6c`. U4 Cloud Integration Smoke #111 and U7 Cloud Backend #69 are green on the same producer boundary.
 
 Authority layers:
 1. **software gate** — deterministic source materialization, JVM/unit/audio/DSP/persistence/migration tests, performance evidence, Lint, debug/release assembly and unsigned provenance;
@@ -15,22 +15,14 @@ Authority layers:
 ## Current source materialization
 `.source-parts/` + `scripts/materialize_ci_sources.sh` are source-of-truth build inputs. Unexpected drift fails closed by exact SHA-256/Git blob checks.
 
-Canonical source tail continues through the historical H-series and unified
-U-series to **U10zb**. The canonical entrypoint is
-`scripts/materialize_ci_sources.sh`, which delegates to
-`scripts/materialize_ci_sources_u10zb.sh`; U10zb invokes U10za and the complete
-preceding fail-closed chain through U8m/U10. The current tail verifies the
-U10zb patch blob, exact terminal test blob, semantic assertions, `git diff --check`
-and reverse-apply ready state. Android CI #781 / run `35791192802` validated
-this exact tail at technical source `2aa97aa8b2c3af91d35e7d48a0eeb89c2c330e63` with the software and API36 gates
-fully green. The API36 gate proved 23/23 classified instrumented classes,
-76 observed tests and 24/24 required C8 screenshots. Signed homologation was
-intentionally skipped because U11 owns candidate freeze and signing.
+The canonical entrypoint currently delegates through **U12k**. U12k composes the accepted chain through U12j and seals the rc9 remote-orphan reconciliation delta. It verifies the payload/blob identity, exact terminal blobs for every touched source/test file, rc9 version identity, semantic guards for authoritative missing-remote terminalization and bounded cancellation, `git diff --check`, and reverse-apply/idempotent ready state. Android CI #794 validated this exact tail at producer `635124acfbf133553a96c8b2013f2245f58a6877`.
+
+Historical U10/C8 source authority remains Android CI #781 and historical materializers remain preserved as evidence; they do not override the current `scripts/materialize_ci_sources.sh` tail.
 
 U8m then completed the separate provider-real acceptance gate through the same
 production vNext Drive transport/store. Result: `U8m PASS · r_1790095960 · cleanup 8/8/14`; sanitized report
 SHA-256 `84efb70615be8ef5939da538eee5f714f7311aa6d44dd5bb2cdd0b5e9e66b702`. This provider gate authorizes closure of U8 but is not a
-signed release promotion. CI #783 is now the latest signed authority for the U12 physical campaign.
+signed release promotion. CI #794 is now the latest signed authority for the U12 physical campaign.
 
 U10/C8 closure is recorded in `docs/U10_FINAL_DIGITAL_COHESION_GATE.md`. The
 #781 integration artifact digest is

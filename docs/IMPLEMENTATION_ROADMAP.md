@@ -112,7 +112,7 @@ A separate successor program is now approved to absorb GBW Android into GuitarLa
 
 Authoritative plan: `UNIFIED_GUITARLAB_GBW_IMPLEMENTATION_ROADMAP.md`.
 
-Current successor status: U0-U8 are closed (U9 retired); U10/C8 is **CLOSED / DIGITAL PASS** on Android CI #781; U11 is **CLOSED / DIGITAL PASS** on signed Android CI #783 at exact producer `4218e4343746932a4de61c5abaa29ba5769a30ed`; **U12 is active** as the consolidated final physical campaign.
+Current successor status: U0-U8 are closed (U9 retired); U10/C8 is **CLOSED / DIGITAL PASS** on Android CI #781; U11 is **CLOSED / DIGITAL PASS** historical release evidence; **U12 is active on signed rc9** at exact producer `635124acfbf133553a96c8b2013f2245f58a6877`, Android CI #794, with U4 #111 and U7 #69 green.
 
 This successor program uses U0-U12 milestone numbering and is intentionally separate from the H29-H37/1.1 closure numbering. It does not retroactively alter the signed #663 evidence, H37b pre-gate state or historical 1.0/1.1 acceptance rules. Known physical residuals may be carried into the final unified-candidate campaign rather than forcing duplicate manual homologation, provided digital prerequisites remain objectively green.
 
@@ -127,7 +127,7 @@ Do not add to this line:
 - per-track independent physical output routing.
 
 ## Canonical materialization tail
-Current source chain is the fail-closed U-series tail ending at **U10zb**, reached through `scripts/materialize_ci_sources.sh`. Historical intermediate H/U blocks remain traceable; the entrypoint, not an old enumerated list, defines the active chain.
+Current source chain is the fail-closed U-series tail ending at **U12k**, reached through `scripts/materialize_ci_sources.sh`. U12k seals the rc9 remote-orphan reconciliation corrective; historical intermediate H/U blocks remain traceable, but the entrypoint defines the active chain.
 
 H28 is frozen in `materialize_ci_sources_through_h28.sh`; the existing H29-H36c tail remains independently verified by `materialize_ci_sources_h29_h33.sh`; H37/H37a/H37b and U1/U1a/U1b are layered by their correspondingly named materializers. Each verifies its patch SHA-256 and terminal Git blobs. Future blocks must extend this chain deterministically and preserve the same fail-closed guarantees.
 
