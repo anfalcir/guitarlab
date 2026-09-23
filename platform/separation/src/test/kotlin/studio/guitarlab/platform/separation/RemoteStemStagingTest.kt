@@ -42,6 +42,13 @@ class RemoteStemStagingTest {
         assertNotNull(staging.cached(id, stem))
     }
 
+    @Test fun manifestIsCachedFileBackedForRemoteMissingRecovery() {
+        val id = identity()
+        val bytes = """{"schemaVersion":2}""".toByteArray()
+        RemoteStemStaging(temp.root).commitManifest(id, bytes)
+        assertEquals(bytes.toList(), RemoteStemStaging(temp.root).cachedManifest(id)?.toList())
+    }
+
     @Test fun clearRemovesWholeJobStagingDirectory() {
         val staging = RemoteStemStaging(temp.root)
         val bytes = ByteArray(64) { 1 }
