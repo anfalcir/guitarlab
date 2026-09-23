@@ -24,53 +24,37 @@ jobs:
           from pathlib import Path
           path = Path("platform/separation/src/main/kotlin/studio/guitarlab/platform/separation/FirebaseRemoteRuntime.kt")
           text = path.read_text()
-          replacements = [
-              (
-                  '''    override suspend fun downloadManifest(identity: RemoteJobIdentity): ByteArray =
-                      staged(RemotePipelineStage.DOWNLOADING_RESULTS) {
-                          storage.reference.child(prefix(identity) + "/result-manifest.json").getBytes(65536).await()
-                      }''',
-                  '''    override suspend fun downloadManifest(identity: RemoteJobIdentity): ByteArray =
-                      staged(RemotePipelineStage.DOWNLOADING_RESULTS) {
-                          staging.cachedManifest(identity)?.let { return@staged it }
-                          val bytes = storage.reference.child(prefix(identity) + "/result-manifest.json").getBytes(65536).await()
-                          staging.commitManifest(identity, bytes)
-                      }''',
-              ),
-              (
-                  '''    override suspend fun cleanup(identity: RemoteJobIdentity) {
-                      try {
-                          runCatching { deleteTree(storage.reference.child(prefix(identity))) }
-                      } finally {
-                          staging.clear(identity)
-                      }
-                  }
 
-                  private suspend fun deleteTree(reference: com.google.firebase.storage.StorageReference) {
-                      val listed = reference.listAll().await()
-                      listed.items.forEach { item -> runCatching { item.delete().await() } }
-                      listed.prefixes.forEach { child -> deleteTree(child) }
-                  }''',
-                  '''    override suspend fun cleanup(identity: RemoteJobIdentity) {
-                      // Remote object ownership belongs to acknowledgeRemoteImport/cancel/janitor.
-                      // Client cleanup is deliberately local-only so backend purge failures remain observable.
-                      staging.clear(identity)
-                  }''',
-              ),
-              (
-                  '''            ),
+          manifest_old = '            storage.reference.child(prefix(identity) + "/result-manifest.json").getBytes(65536).await()'
+          manifest_new = '''            staging.cachedManifest(identity)?.let { return@staged it }
+                      val bytes = storage.reference.child(prefix(identity) + "/result-manifest.json").getBytes(65536).await()
+                      staging.commitManifest(identity, bytes)'''
+          if text.count(manifest_old) != 1:
+              raise SystemExit("manifest cache anchor mismatch")
+          text = text.replace(manifest_old, manifest_new)
+
+          cleanup_start = text.find("    override suspend fun cleanup(identity: RemoteJobIdentity) {")
+          cleanup_end = text.find("\n    private suspend fun prefix(identity: RemoteJobIdentity)", cleanup_start)
+          if cleanup_start < 0 or cleanup_end < 0:
+              raise SystemExit("cleanup anchor mismatch")
+          cleanup_new = '''    override suspend fun cleanup(identity: RemoteJobIdentity) {
+                  // Remote object ownership belongs to acknowledgeRemoteImport/cancel/janitor.
+                  // Client cleanup is deliberately local-only so backend purge failures remain observable.
+                  staging.clear(identity)
+              }
+          '''
+          text = text[:cleanup_start] + cleanup_new + text[cleanup_end:]
+
+          coordinator_old = '''            ),
                   )
-                  val previousRetryCode = store.load(id.jobId)?.errorCode''',
-                  '''            ),
+                  val previousRetryCode = store.load(id.jobId)?.errorCode'''
+          coordinator_new = '''            ),
                       expectedResultUid = { requireStableRemoteUid(auth) },
                   )
-                  val previousRetryCode = store.load(id.jobId)?.errorCode''',
-              ),
-          ]
-          for old, new in replacements:
-              if text.count(old) != 1:
-                  raise SystemExit("runtime patch anchor mismatch")
-              text = text.replace(old, new)
+                  val previousRetryCode = store.load(id.jobId)?.errorCode'''
+          if text.count(coordinator_old) != 1:
+              raise SystemExit("coordinator uid anchor mismatch")
+          text = text.replace(coordinator_old, coordinator_new)
           path.write_text(text)
 
       - name: Commit exact runtime patch and remove maintenance workflow
