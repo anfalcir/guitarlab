@@ -45,7 +45,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -85,9 +84,6 @@ fun SettingsScreen(
     val remoteCloudAuth = remember(context) { RemoteCloudAuthClient(context) }
     var remoteCloudSession by remember { mutableStateOf(remoteCloudAuth.currentSession()) }
     var cloudLoginDialogVisible by remember { mutableStateOf(false) }
-    var cloudEmail by remember { mutableStateOf(remoteCloudSession?.email.orEmpty()) }
-    var cloudPassword by remember { mutableStateOf("") }
-    var cloudAuthBusy by remember { mutableStateOf(false) }
     var cloudAuthMessage by remember { mutableStateOf<String?>(null) }
     var calibrating by remember { mutableStateOf(false) }
     var digitalVerifying by remember { mutableStateOf(false) }
@@ -375,8 +371,6 @@ fun SettingsScreen(
                                 runCatching { remoteCloudAuth.signOut() }
                                     .onSuccess {
                                         remoteCloudSession = null
-                                        cloudEmail = ""
-                                        cloudPassword = ""
                                         cloudAuthMessage = "Sessão da separação em nuvem encerrada."
                                     }
                                     .onFailure { error ->
@@ -560,88 +554,20 @@ fun SettingsScreen(
         }
     }
 
-    if (cloudLoginDialogVisible) {
-        AlertDialog(
-            modifier = Modifier.widthIn(max = 560.dp).testTag("settings-cloud-auth-dialog"),
-            onDismissRequest = {
-                if (!cloudAuthBusy) {
-                    cloudPassword = ""
-                    cloudLoginDialogVisible = false
-                }
-            },
-            title = { Text("Conta da separação em nuvem") },
-            text = {
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    Text(
-                        "Entre com a conta pessoal do Firebase usada pelo backend. A senha é utilizada apenas para autenticar e não é armazenada pelo GuitarLab.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    OutlinedTextField(
-                        value = cloudEmail,
-                        onValueChange = { cloudEmail = it },
-                        label = { Text("E-mail") },
-                        singleLine = true,
-                        enabled = !cloudAuthBusy,
-                        modifier = Modifier.fillMaxWidth().testTag("settings-cloud-auth-email"),
-                    )
-                    OutlinedTextField(
-                        value = cloudPassword,
-                        onValueChange = { cloudPassword = it },
-                        label = { Text("Senha") },
-                        singleLine = true,
-                        enabled = !cloudAuthBusy,
-                        visualTransformation = PasswordVisualTransformation(),
-                        modifier = Modifier.fillMaxWidth().testTag("settings-cloud-auth-password"),
-                    )
-                    cloudAuthMessage?.let { message ->
-                        Text(
-                            message,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(
-                    enabled = !cloudAuthBusy && cloudEmail.isNotBlank() && cloudPassword.isNotEmpty(),
-                    modifier = Modifier.testTag("settings-cloud-auth-submit"),
-                    onClick = {
-                        val secret = cloudPassword.toCharArray()
-                        cloudPassword = ""
-                        cloudAuthBusy = true
-                        cloudAuthMessage = "Autenticando e validando autorização no backend…"
-                        scope.launch {
-                            runCatching { remoteCloudAuth.signInAndValidate(cloudEmail, secret) }
-                                .onSuccess { session ->
-                                    remoteCloudSession = session
-                                    cloudEmail = session.email
-                                    cloudAuthMessage = "Conta autenticada e autorizada para separação em nuvem."
-                                    cloudLoginDialogVisible = false
-                                }
-                                .onFailure { error ->
-                                    cloudAuthMessage = error.message ?: "Não foi possível autenticar a conta."
-                                }
-                            cloudAuthBusy = false
-                        }
-                    },
-                ) { Text(if (cloudAuthBusy) "Validando…" else "Entrar") }
-            },
-            dismissButton = {
-                TextButton(
-                    enabled = !cloudAuthBusy,
-                    onClick = {
-                        cloudPassword = ""
-                        cloudLoginDialogVisible = false
-                    },
-                ) { Text("Cancelar") }
-            },
-        )
-    }
+    CloudSeparationLoginDialog(
+        visible = cloudLoginDialogVisible,
+        authClient = remoteCloudAuth,
+        initialEmail = remoteCloudSession?.email.orEmpty(),
+        onDismiss = {
+            cloudLoginDialogVisible = false
+        },
+        onAuthenticated = { session ->
+            remoteCloudSession = session
+            cloudAuthMessage = "Conta autenticada e autorizada para separação em nuvem."
+            cloudLoginDialogVisible = false
+        },
+        testTagPrefix = "settings-cloud-auth",
+    )
 
     if (calibrationDialogVisible) {
         val selectedInputLabel = inputChoices.firstOrNull { it.signature == selectedInput }?.label ?: "Não selecionada"

@@ -50,6 +50,7 @@ import studio.guitarlab.core.source.SourceProvider
 import studio.guitarlab.core.separation.DurableRemoteJob
 import studio.guitarlab.core.separation.RemoteJobIdentity
 import studio.guitarlab.core.separation.RemoteJobState
+import studio.guitarlab.platform.separation.RemoteCloudAuthSession
 import studio.guitarlab.platform.source.android.SourceOperationSnapshot
 import studio.guitarlab.platform.source.android.SourceOperationState
 
@@ -417,6 +418,37 @@ class UnifiedProjectShellInstrumentedTest {
         composeRule.captureCohesionScreenshot("prepare-separating-dark")
     }
 
+    @Test fun prepareSeparationOffersCloudLoginInlineWhenSessionIsMissing() {
+        val source = asset("source-login", AssetRole.SOURCE_ORIGINAL)
+        val project = GuitarProject(
+            id = "separation-login",
+            name = "Song",
+            template = ProjectTemplate.GUITAR,
+            createdAtEpochMs = 1,
+            updatedAtEpochMs = 2,
+            assets = listOf(source),
+            preparation = PreparationState(status = PreparationStatus.SOURCE_READY, sourceAssetId = source.assetId),
+        )
+        composeRule.setContent {
+            GuitarLabTheme(darkTheme = true) {
+                UnifiedPrepareScreen(
+                    project = project,
+                    projectId = project.id,
+                    onBack = {},
+                    onStudio = {},
+                    onExport = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag("prepare-cloud-auth-required").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithTag("prepare-cloud-auth-action").assertIsDisplayed().assertIsEnabled().performClick()
+        composeRule.onNodeWithTag("prepare-cloud-auth-dialog").assertIsDisplayed()
+        composeRule.onNodeWithTag("prepare-cloud-auth-email").assertIsDisplayed()
+        composeRule.onNodeWithTag("prepare-cloud-auth-password").assertIsDisplayed()
+        composeRule.onNodeWithTag("prepare-cloud-auth-submit").assertIsDisplayed()
+    }
+
     @Test fun recoveredOrphanExposesRetryAndPreservesAcceptedSource() {
         val source = asset("source-orphan", AssetRole.SOURCE_ORIGINAL)
         val project = GuitarProject(
@@ -443,6 +475,7 @@ class UnifiedProjectShellInstrumentedTest {
                     onExport = {},
                     separationJob = job,
                     onStartSeparation = { retried = true },
+                    initialCloudSession = RemoteCloudAuthSession("test-uid", "test@example.com"),
                 )
             }
         }

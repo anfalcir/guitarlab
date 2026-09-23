@@ -14,9 +14,11 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -25,6 +27,7 @@ import studio.guitarlab.app.activity.ActivityScreen
 import studio.guitarlab.app.activity.UnifiedActivityViewModel
 import studio.guitarlab.core.model.GuitarProject
 import studio.guitarlab.core.model.ProjectTemplate
+import studio.guitarlab.platform.separation.RemoteCloudAuthClient
 
 @Composable
 fun GuitarLabApp(
@@ -35,6 +38,8 @@ fun GuitarLabApp(
 ) {
     val persistedRoute by navigationViewModel.persistedRoute.collectAsState()
     val homeState by homeViewModel.state.collectAsState()
+    val context = LocalContext.current
+    val remoteCloudAuth = remember(context) { RemoteCloudAuthClient(context) }
     val screen = AppRouteCodec.decode(persistedRoute)
     val workspaceStateHolder = rememberSaveableStateHolder()
 
@@ -107,6 +112,7 @@ fun GuitarLabApp(
                     onStartSeparation = { homeViewModel.startSeparation(current.projectId) },
                     onCancelSeparation = { homeViewModel.cancelSeparation(current.projectId) },
                     onPrepareReferences = { homeViewModel.prepareReferences(current.projectId) },
+                    initialCloudSession = remoteCloudAuth.currentSession(),
                 )
                 }
             }

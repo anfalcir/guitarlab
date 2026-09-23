@@ -21,10 +21,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -39,6 +41,8 @@ import studio.guitarlab.core.source.RankedSourceCandidate
 import studio.guitarlab.core.source.SourceSearchRules
 import studio.guitarlab.platform.codec.android.AndroidMasterAudioEncoder
 import studio.guitarlab.platform.codec.android.MasterExportFormat
+import studio.guitarlab.platform.separation.RemoteCloudAuthClient
+import studio.guitarlab.platform.separation.RemoteCloudAuthSession
 import studio.guitarlab.platform.source.android.SourceOperationSnapshot
 import studio.guitarlab.platform.source.android.SourceOperationState
 
@@ -66,10 +70,20 @@ fun UnifiedPrepareScreen(
     onStartSeparation: () -> Unit = {},
     onCancelSeparation: () -> Unit = {},
     onPrepareReferences: () -> Unit = {},
+    initialCloudSession: RemoteCloudAuthSession? = null,
 ) {
+    val context = LocalContext.current
+    val remoteCloudAuth = remember(context) { RemoteCloudAuthClient(context) }
+    var remoteCloudSession by remember(projectId, initialCloudSession) {
+        mutableStateOf(initialCloudSession)
+    }
+    var cloudLoginDialogVisible by rememberSaveable(projectId) { mutableStateOf(false) }
+    var startAfterCloudLogin by rememberSaveable(projectId) { mutableStateOf(false) }
+    var cloudAuthMessage by rememberSaveable(projectId) { mutableStateOf<String?>(null) }
     var artist by rememberSaveable(projectId) { mutableStateOf("") }
     var song by rememberSaveable(projectId) { mutableStateOf("") }
     var detailsExpanded by rememberSaveable(projectId) { mutableStateOf(false) }
+
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) onImport(uri)
     }
@@ -159,6 +173,12 @@ fun UnifiedPrepareScreen(
 
                 PrepareStage.SEPARATION -> SeparationStep(
                     job = separationJob,
+                    cloudSession = remoteCloudSession,
+                    cloudAuthMessage = cloudAuthMessage,
+                    onLogin = {
+                        startAfterCloudLogin = true
+                        cloudLoginDialogVisible = true
+                    },
                     onStart = onStartSeparation,
                     onCancel = onCancelSeparation,
                 )
@@ -183,6 +203,26 @@ fun UnifiedPrepareScreen(
             }
         }
     }
+
+    CloudSeparationLoginDialog(
+        visible = cloudLoginDialogVisible,
+        authClient = remoteCloudAuth,
+        initialEmail = remoteCloudSession?.email.orEmpty(),
+        onDismiss = {
+            startAfterCloudLogin = false
+            cloudLoginDialogVisible = false
+        },
+        onAuthenticated = { session ->
+            remoteCloudSession = session
+            cloudAuthMessage = "Conta autenticada e autorizada. Iniciando a separação…"
+            cloudLoginDialogVisible = false
+            if (startAfterCloudLogin) {
+                startAfterCloudLogin = false
+                onStartSeparation()
+            }
+        },
+        testTagPrefix = "prepare-cloud-auth",
+    )
 }
 
 @Composable
@@ -313,7 +353,14 @@ private fun SourceSelectionStep(
 }
 
 @Composable
-private fun SeparationStep(job: DurableRemoteJob?, onStart: () -> Unit, onCancel: () -> Unit) {
+private fun SeparationStep(
+    job: DurableRemoteJob?,
+    cloudSession: RemoteCloudAuthSession?,
+    cloudAuthMessage: String?,
+    onLogin: () -> Unit,
+    onStart: () -> Unit,
+    onCancel: () -> Unit,
+) {
     Surface(Modifier.fillMaxWidth().testTag("prepare-separation-activity"), tonalElevation = 2.dp, shape = MaterialTheme.shapes.medium) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Separação em seis faixas", style = MaterialTheme.typography.titleMedium)
@@ -323,7 +370,31 @@ private fun SeparationStep(job: DurableRemoteJob?, onStart: () -> Unit, onCancel
                 if (job?.state != RemoteJobState.CANCEL_REQUESTED) {
                     OutlinedButton(onClick = onCancel, modifier = Modifier.testTag("prepare-cancel-separation")) { Text("Cancelar separação") }
                 }
+            } else if (cloudSession == null) {
+                Text(
+                    "Entre na conta da separação em nuvem aqui mesmo para continuar. A mesma sessão também aparece em Opções → Conta e nuvem.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.testTag("prepare-cloud-auth-required"),
+                )
+                Button(onClick = onLogin, modifier = Modifier.testTag("prepare-cloud-auth-action")) {
+                    Text(if (job == null) "Entrar e iniciar separação" else "Entrar e tentar novamente")
+                }
             } else {
+                Text(
+                    "Conta autorizada: ${cloudSession.email}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.testTag("prepare-cloud-auth-session"),
+                )
+                cloudAuthMessage?.let { message ->
+                    Text(
+                        message,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.testTag("prepare-cloud-auth-message"),
+                    )
+                }
                 Button(onClick = onStart, modifier = Modifier.testTag("prepare-start-separation")) {
                     Text(if (job == null) "Iniciar separação" else "Tentar separação novamente")
                 }

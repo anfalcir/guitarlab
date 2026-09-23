@@ -75,9 +75,9 @@ class UnifiedActivityStore(context: Context) {
         }
     }
 
-    fun clearResolved(): Int = synchronized(lock) {
+    fun clearHistory(): Int = synchronized(lock) {
         val before = _records.value
-        val next = UnifiedActivityPolicy.clearResolved(before).let(::bounded)
+        val next = UnifiedActivityPolicy.clearHistory(before).let(::bounded)
         write(next)
         _records.value = next
         before.size - next.size

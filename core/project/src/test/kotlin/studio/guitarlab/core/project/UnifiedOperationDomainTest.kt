@@ -17,16 +17,18 @@ class UnifiedOperationDomainTest {
         assertEquals("queued", UnifiedActivityPolicy.compactActive(records)?.operationId)
     }
 
-    @Test fun clearResolvedNeverRemovesOpenOrFailedOperations() {
+    @Test fun clearHistoryRemovesEveryTerminalOperationAndPreservesAllActiveWork() {
         val records = listOf(
-            record("running", UnifiedOperationState.RUNNING, 1),
-            record("failed", UnifiedOperationState.FAILED, 2),
-            record("done", UnifiedOperationState.SUCCEEDED, 3),
-            record("cancelled", UnifiedOperationState.CANCELLED, 4),
+            record("queued", UnifiedOperationState.QUEUED, 1),
+            record("running", UnifiedOperationState.RUNNING, 2),
+            record("retrying", UnifiedOperationState.RETRYING, 3),
+            record("failed", UnifiedOperationState.FAILED, 4),
+            record("done", UnifiedOperationState.SUCCEEDED, 5),
+            record("cancelled", UnifiedOperationState.CANCELLED, 6),
         )
         assertEquals(
-            listOf("running", "failed"),
-            UnifiedActivityPolicy.clearResolved(records).map { it.operationId },
+            listOf("queued", "running", "retrying"),
+            UnifiedActivityPolicy.clearHistory(records).map { it.operationId },
         )
     }
 

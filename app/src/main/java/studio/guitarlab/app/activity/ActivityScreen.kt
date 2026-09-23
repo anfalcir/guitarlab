@@ -68,13 +68,13 @@ fun ActivityScreen(
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        if (state.clearableCount > 0) {
+        if (state.historyCount > 0) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                 TextButton(
-                    onClick = viewModel::clearResolved,
-                    modifier = Modifier.testTag("activity-clear-resolved"),
+                    onClick = viewModel::clearHistory,
+                    modifier = Modifier.testTag("activity-clear-history"),
                 ) {
-                    Text("Limpar resolvidos (${state.clearableCount})")
+                    Text("Limpar histórico (${state.historyCount})")
                 }
             }
         }

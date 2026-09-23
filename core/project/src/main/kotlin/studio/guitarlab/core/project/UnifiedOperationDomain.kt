@@ -41,11 +41,10 @@ object UnifiedActivityPolicy {
     fun compactActive(records: Collection<UnifiedOperationRecord>): UnifiedOperationRecord? =
         ordered(records).firstOrNull { it.state.isActive }
 
-    fun isClearable(record: UnifiedOperationRecord): Boolean =
-        record.state == UnifiedOperationState.SUCCEEDED || record.state == UnifiedOperationState.CANCELLED
+    fun isHistorical(record: UnifiedOperationRecord): Boolean = !record.state.isActive
 
-    fun clearResolved(records: Collection<UnifiedOperationRecord>): List<UnifiedOperationRecord> =
-        records.filterNot(::isClearable)
+    fun clearHistory(records: Collection<UnifiedOperationRecord>): List<UnifiedOperationRecord> =
+        records.filter { it.state.isActive }
 
     fun terminalizeMissingProjects(
         records: Collection<UnifiedOperationRecord>,
