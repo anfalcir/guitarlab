@@ -2,10 +2,7 @@ diff --git a/app/src/androidTest/java/studio/guitarlab/app/UnifiedProjectShellIn
 index 45515ef..5a22a48 100644
 --- a/app/src/androidTest/java/studio/guitarlab/app/UnifiedProjectShellInstrumentedTest.kt
 +++ b/app/src/androidTest/java/studio/guitarlab/app/UnifiedProjectShellInstrumentedTest.kt
-@@ -108,38 +108,31 @@
-             createdAtEpochMs = 1,
-             updatedAtEpochMs = 2,
-         )
+@@ -111,32 +111,25 @@
 -        var request: Pair<String, String>? = null
 -        composeRule.setContent {
 -            GuitarLabTheme(darkTheme = true) {
@@ -63,6 +60,3 @@ index 45515ef..5a22a48 100644
 +
 +        composeRule.onNodeWithTag("prepare-search-progress").performScrollTo().assertIsDisplayed()
 +        composeRule.onNodeWithTag("prepare-search-action").assertIsNotEnabled()
-     }
- 
-     @Test fun preparedReferencesAreVisibleAndStudioHandoffRemainsAvailable() {
