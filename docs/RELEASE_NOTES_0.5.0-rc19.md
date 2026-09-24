@@ -1,12 +1,12 @@
 # GuitarLab 0.5.0-rc19 — authoritative remote recovery corrective
 
-Status: **SOURCE CANDIDATE / DIGITAL QUALIFICATION PENDING**.
+Status: **DIGITAL PASS / SIGNED · PHYSICAL ACCEPTANCE BLOCKED BY AUDIO-QUALITY INCIDENT**.
 
 ## Identity
 - versionName: `0.5.0-rc19`
 - versionCode: `39`
 - package: `studio.guitarlab.app`
-- signer identity: unchanged; signed homologation remains intentionally deferred until the corrective gates pass.
+- signer identity: unchanged; signed homologation produced by Android CI #852 / run `36026458960` on frozen source `e0a8a2218accbe9c8eec413a40f4fedf7d9da9bc`.
 
 ## Corrective scope
 RC19 closes the local ↔ remote reconciliation gap found during RC18 physical homologation.
@@ -43,4 +43,22 @@ Canonical candidate source stage: **U12an**. U12aj contains the production/test/
 - Production recovery gate: same-generation COMPLETED job adoption returned the existing remote job, did not increment quota, did not dispatch a second Cloud Run execution, and cleaned the rejected retry upload before normal ACK/purge.
 - Production real-cloud smoke: `gbw-demucs-lcslf` PASS; prepared-reference v2 manifest/integrity, source cleanup, ACK, Firestore IMPORTED/PURGED and whole-prefix purge idempotency all passed.
 - U7 deploy evidence artifact id `10819698734`, digest `sha256:783af8ec21c201ac7b388c61bf08711454cd00c29edefdcff28866522984d2a4`.
-- Signed homologation APK remains pending until the final `[run ci signed]` gate after these production qualifications.
+- Signed homologation APK: `GuitarLabStudio-0.5.0-rc19-homologacao`, artifact id `10820021943`, APK SHA-256 `20c6a49efa69828653862c29c7907cd734bd2e3f62235295cd53b7f7c571c50b`. Android CI #852 passed unit, Lint, build, API 36 and signing.
+
+## Physical audio-quality finding
+
+RC19 is not approved for final physical acceptance.
+
+A target-device Prepare run for project `WATG - Deadbolt` completed under processing/job `c3ba40ec-6153-483a-801f-9e838b3e3b60`, but the resulting references remained unusable by listening.
+
+Supplied active-reference evidence:
+- backing SHA-256 `d9f206f25f9eb28d02c7fb4a4a3e1d667077429e91520eb64763cd0251fe2a8e`;
+- guitar SHA-256 `8bbb4b5eb6b4ef8758669c1734b8d095893aadc9792d12a6330d9318eae725fa`;
+- both are 44.1 kHz stereo float32 WAV, same duration, no NaN/Inf;
+- their recombination peaks at approximately -1 dBFS, consistent with the v2 shared-gain ceiling;
+- a notable backing mean/DC component is recorded as diagnostic evidence but is not yet established as the root cause.
+
+The incident does not invalidate RC19's recovery/idempotency digital proof. It does block product acceptance because numerical integrity alone did not prove useful musical separation.
+
+The authoritative follow-up is `U12_RC19_AUDIO_FORENSICS_AND_DIAGNOSTICS_PLAN.md`. Read-only Cloud Run/Firebase lineage forensics must precede any audio-algorithm change. Any source fix requires a new candidate; planned target is `0.5.0-rc20` / versionCode `40`.
+
