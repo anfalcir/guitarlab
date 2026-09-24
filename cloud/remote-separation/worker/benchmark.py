@@ -26,16 +26,6 @@ STRATEGIES = {
         "blas_threads": 8,
         "mt_threads": 0,
     },
-    "mt2_omp4": {
-        "binary": "/usr/local/bin/demucs_mt.cpp.main",
-        "blas_threads": 4,
-        "mt_threads": 2,
-    },
-    "mt4_omp2": {
-        "binary": "/usr/local/bin/demucs_mt.cpp.main",
-        "blas_threads": 2,
-        "mt_threads": 4,
-    },
 }
 
 

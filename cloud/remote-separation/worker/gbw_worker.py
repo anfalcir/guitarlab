@@ -72,10 +72,10 @@ class Config:
                 raise WorkerError("CONFIG_INVALID", f"missing {name}")
             return value
 
-        threads = int(os.environ.get("OPENBLAS_NUM_THREADS", "2"))
+        threads = int(os.environ.get("OPENBLAS_NUM_THREADS", "8"))
         if threads not in (1, 2, 4, 8):
             raise WorkerError("CONFIG_INVALID", "OPENBLAS_NUM_THREADS must be 1, 2, 4, or 8")
-        demucs_threads = int(os.environ.get("GBW_DEMUCS_MT_THREADS", "4"))
+        demucs_threads = int(os.environ.get("GBW_DEMUCS_MT_THREADS", "0"))
         if demucs_threads not in (0, 2, 4):
             raise WorkerError("CONFIG_INVALID", "GBW_DEMUCS_MT_THREADS must be 0, 2, or 4")
         config = cls(
@@ -86,7 +86,7 @@ class Config:
             model_path=Path(os.environ.get("GBW_MODEL_PATH", f"/model/{MODEL_NAME}")),
             demucs_binary=Path(os.environ.get(
                 "GBW_DEMUCS_BINARY",
-                "/usr/local/bin/demucs_mt.cpp.main",
+                "/usr/local/bin/demucs.cpp.main",
             )),
             blas_threads=threads,
             demucs_threads=demucs_threads,
@@ -96,11 +96,10 @@ class Config:
             raise WorkerError("CONFIG_INVALID", "input path is outside the job namespace")
         if len(config.expected_input_sha256) != 64:
             raise WorkerError("CONFIG_INVALID", "invalid input SHA-256")
-        is_mt_binary = config.demucs_binary.name == "demucs_mt.cpp.main"
-        if is_mt_binary != (config.demucs_threads > 0):
+        if config.demucs_binary.name != "demucs.cpp.main" or config.demucs_threads != 0:
             raise WorkerError(
                 "CONFIG_INVALID",
-                "multithreaded Demucs binary and GBW_DEMUCS_MT_THREADS disagree",
+                "only the finite-safe sequential Demucs strategy is supported",
             )
         effective_threads = (
             config.blas_threads

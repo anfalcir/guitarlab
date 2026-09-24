@@ -21,17 +21,10 @@ spec.loader.exec_module(benchmark)
 class BenchmarkContractTest(unittest.TestCase):
     def test_strategy_matrix_uses_exactly_eight_cpu_threads(self):
         single = benchmark.strategy("single8")
-        mt2 = benchmark.strategy("mt2_omp4")
-        mt4 = benchmark.strategy("mt4_omp2")
-
         self.assertEqual((single["mt_threads"], single["blas_threads"]), (0, 8))
-        self.assertEqual(mt2["mt_threads"] * mt2["blas_threads"], 8)
-        self.assertEqual(mt4["mt_threads"] * mt4["blas_threads"], 8)
 
     def test_strategy_matrix_uses_expected_binaries(self):
         self.assertTrue(benchmark.strategy("single8")["binary"].endswith("demucs.cpp.main"))
-        self.assertTrue(benchmark.strategy("mt2_omp4")["binary"].endswith("demucs_mt.cpp.main"))
-        self.assertTrue(benchmark.strategy("mt4_omp2")["binary"].endswith("demucs_mt.cpp.main"))
 
     def test_unknown_strategy_is_rejected(self):
         with self.assertRaises(ValueError):

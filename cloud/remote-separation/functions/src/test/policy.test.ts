@@ -54,7 +54,7 @@ test("cancel requested still occupies the single active-job slot", () =>
   assert.equal(ACTIVE_STATES.has("CANCEL_REQUESTED"), true));
 
 test("backend policy revision is explicit", () =>
-  assert.equal(BACKEND_POLICY_REVISION, "rc13-q40-mt4-omp2-prepared-v2"));
+  assert.equal(BACKEND_POLICY_REVISION, "rc17-q40-single8-prepared-v2"));
 
 test("retention preserves recent results and expires abandoned imports after recovery window", () => {
   const now = Date.UTC(2026, 8, 23, 12);

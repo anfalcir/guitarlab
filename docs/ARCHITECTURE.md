@@ -6,7 +6,7 @@ Updated: 2026-09-23
 - `main` is canonical.
 - Product behavior is promoted only after exact-source automated gates and, where required, residual physical validation.
 - `.github/workflows/android-ci.yml` supports manual dispatch plus explicit `[run ci]` / `[run ci signed]` commit-message gates on `main`; ordinary `[skip ci]` commits remain inert.
-- Active source candidate is RC16 (`0.5.0-rc16` / 36), adding strict prepared-audio signal validation, canonical local WAV publication and recoverable Studio reference synchronization. It must qualify on its own Android/U7 SHA and controlled production deployment. Latest signed authority remains RC14 at `13c6f36e5e3c2bcf82cf21f885e8d7aa6c41ed34` / Android `35937621047`.
+- Active source candidate is RC17 (`0.5.0-rc17` / 37), retaining strict prepared-audio validation and Studio synchronization while replacing defective partitioned inference with pinned `single8`. It must qualify on its own Android/U7 SHA, isolated shadow and controlled production deployment. Latest signed authority remains RC14 at `13c6f36e5e3c2bcf82cf21f885e8d7aa6c41ed34` / Android `35937621047`.
 
 ## Module boundaries
 - `core:model`: immutable project/track/clip/take metadata contracts.
@@ -97,7 +97,7 @@ No Firebase/Cloud Run/Functions hop, service account, client secret or refresh-t
 
 ## Current milestone boundary
 
-U10/C8 and U11 remain CLOSED / DIGITAL PASS historical authorities. RC14 is the current signed U12 authority; RC16 is an unqualified physical-corrective source candidate and cannot supersede it until exact-source gates, production worker deployment/U4 and target-device acceptance pass.
+U10/C8 and U11 remain CLOSED / DIGITAL PASS historical authorities. RC14 is the current signed U12 authority; RC17 is an unqualified physical-corrective source candidate and cannot supersede it until exact-source gates, shadow, production worker deployment/U4 and target-device acceptance pass.
 
 Remote separation recovery now treats the local durable store as recovery intent, not proof that a cloud job exists. When reconciliation finds no remote job, replayable pre-dispatch states are idempotently re-enqueued, cancellation requests terminalize locally, and states that require an already-created remote job expire safely. Cancellation/worker retry exhaustion must also end in a terminal local state. Restoration of `SOURCE_READY` is source-generation-aware and may not overwrite a newer active separation. Per-project observation prefers active work over a late terminal completion from an older generation.
 

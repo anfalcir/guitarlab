@@ -45,9 +45,9 @@
     "completedAt": { "type": "string", "format": "date-time" },
     "wallTimeMs": { "type": "integer", "minimum": 0 },
     "vCPU": { "const": 8 },
-    "blasThreads": { "const": 2 },
-    "demucsThreads": { "const": 4 },
-    "inferenceStrategy": { "const": "mt4_omp2" },
+    "blasThreads": { "const": 8 },
+    "demucsThreads": { "const": 0 },
+    "inferenceStrategy": { "const": "single8" },
     "referenceRecipe": { "$ref": "#/$defs/referenceRecipe" },
     "deliverables": {
       "type": "array",

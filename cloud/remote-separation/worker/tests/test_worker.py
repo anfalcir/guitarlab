@@ -142,7 +142,7 @@ class WorkerContractTest(unittest.TestCase):
 
         self.assertEqual(updates, [])
 
-    def test_production_mt4_omp2_command_contract(self):
+    def test_production_single8_command_contract(self):
         env = {
             "GBW_BUCKET": "bucket",
             "GBW_UID": "user",
@@ -151,18 +151,18 @@ class WorkerContractTest(unittest.TestCase):
             "GBW_INPUT_PATH": "remote/v1/users/user/jobs/00000000-0000-4000-8000-000000000001/input/source.wav",
             "GBW_INPUT_SHA256": "a" * 64,
             "GBW_MODEL_PATH": "/model/" + worker.MODEL_NAME,
-            "GBW_DEMUCS_BINARY": "/usr/local/bin/demucs_mt.cpp.main",
-            "GBW_DEMUCS_MT_THREADS": "4",
+            "GBW_DEMUCS_BINARY": "/usr/local/bin/demucs.cpp.main",
+            "GBW_DEMUCS_MT_THREADS": "0",
             "GBW_VCPU": "8",
-            "OPENBLAS_NUM_THREADS": "2",
+            "OPENBLAS_NUM_THREADS": "8",
         }
         with mock.patch.dict(os.environ, env, clear=True):
             config = worker.Config.from_env()
         command = worker.demucs_command(config, Path("/tmp/input.wav"), Path("/tmp/raw"))
-        self.assertEqual(command[-1], "4")
-        self.assertEqual(config.blas_threads, 2)
-        self.assertEqual(config.demucs_threads, 4)
-        self.assertEqual(worker.inference_strategy(config), "mt4_omp2")
+        self.assertEqual(command[-1], "/tmp/raw")
+        self.assertEqual(config.blas_threads, 8)
+        self.assertEqual(config.demucs_threads, 0)
+        self.assertEqual(worker.inference_strategy(config), "single8")
 
     def test_thread_plan_rejects_oversubscription(self):
         env = {
@@ -172,16 +172,16 @@ class WorkerContractTest(unittest.TestCase):
             "GBW_PROJECT_ID": "00000000-0000-4000-8000-000000000002",
             "GBW_INPUT_PATH": "remote/v1/users/user/jobs/00000000-0000-4000-8000-000000000001/input/source.wav",
             "GBW_INPUT_SHA256": "a" * 64,
-            "GBW_DEMUCS_BINARY": "/usr/local/bin/demucs_mt.cpp.main",
-            "GBW_DEMUCS_MT_THREADS": "4",
-            "GBW_VCPU": "8",
-            "OPENBLAS_NUM_THREADS": "4",
+            "GBW_DEMUCS_BINARY": "/usr/local/bin/demucs.cpp.main",
+            "GBW_DEMUCS_MT_THREADS": "0",
+            "GBW_VCPU": "4",
+            "OPENBLAS_NUM_THREADS": "8",
         }
         with mock.patch.dict(os.environ, env, clear=True):
             with self.assertRaisesRegex(worker.WorkerError, "oversubscribes"):
                 worker.Config.from_env()
 
-    def test_mt_binary_requires_mt_thread_count(self):
+    def test_mt_binary_is_rejected_even_without_partition_threads(self):
         env = {
             "GBW_BUCKET": "bucket",
             "GBW_UID": "user",
@@ -195,7 +195,7 @@ class WorkerContractTest(unittest.TestCase):
             "OPENBLAS_NUM_THREADS": "2",
         }
         with mock.patch.dict(os.environ, env, clear=True):
-            with self.assertRaisesRegex(worker.WorkerError, "disagree"):
+            with self.assertRaisesRegex(worker.WorkerError, "finite-safe sequential"):
                 worker.Config.from_env()
 
 
@@ -211,8 +211,8 @@ class WorkerContractTest(unittest.TestCase):
                 job_id="00000000-0000-4000-8000-000000000001",
                 uid="u",
                 project_id="00000000-0000-4000-8000-000000000002",
-                blas_threads=2,
-                demucs_threads=4,
+                blas_threads=8,
+                demucs_threads=0,
             )
             with mock.patch.dict(os.environ, {"GBW_VCPU": "8"}, clear=False):
                 manifest = worker.build_manifest(
