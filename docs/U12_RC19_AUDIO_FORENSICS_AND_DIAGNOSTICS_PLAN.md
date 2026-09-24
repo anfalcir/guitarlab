@@ -440,6 +440,14 @@ Select the least costly configuration inside the best jointly satisfied quality/
 - record exact official CLI contract and defaults;
 - add representative legally usable quality fixtures plus the private local physical fixture outside Git.
 
+W0 evidence captured on 2026-09-24 (phase remains OPEN until fixture/adapter validation completes):
+- canonical `main` baseline before worker writes: `46ed4ce4d760fda039799262f7a2f5474303c2a9`;
+- `temporario/Guitar_Backing_Wizard_v5.23_Linux.zip` was inspected in-memory only; no loose extraction was retained or committed;
+- the currently versioned ZIP is 423,767 bytes and hashes to `f56eee55c71a88083bbfb2651fc65df2b9986aafc9bb217b24b6140f1c421ea6`, which does **not** match the handoff-declared `ca4e0b1b95e9f308deb9ae8bccce673a091631105cb4fbd020909f6fef64ce4a`; preserve the archive unchanged and keep this discrepancy visible rather than silently normalizing it;
+- the archive's GBW v5.23 Separador B invokes official Demucs with `htdemucs_6s`, `--float32`, `--clip-mode none`, configurable shifts/overlap, explicit `-d cpu|cuda`, output directory and the prepared WAV; its CPU defaults are `shifts=1` and `overlap=0.5`;
+- reconstruction baseline pins official `demucs==4.1.0` and the `htdemucs_6s` checkpoint `5c90dfd2-34c22ccb.th` (54,996,327 bytes, SHA-256 `34c22ccb381c6f9fdbf324f04e1e2fe21aaaf293f5ded163a162697ff9a02ddd`);
+- the first qualification target remains CPU, one song/task, `shifts=1`, `overlap=0.5`; accelerator use remains a later evidence/cost decision, not a W0 assumption.
+
 **W1 — worker adapter**
 - introduce an engine-neutral runner boundary;
 - implement official PyTorch Demucs runner;
