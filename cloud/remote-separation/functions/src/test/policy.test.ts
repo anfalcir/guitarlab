@@ -10,6 +10,8 @@ import {
   monthKey,
   requireAckable,
   retentionAction,
+  decideEnqueue,
+  sameGeneration,
 } from "../policy";
 
 test("month key is UTC stable", () =>
@@ -62,4 +64,47 @@ test("retention preserves recent results and expires abandoned imports after rec
   assert.equal(retentionAction("IMPORT_FAILED", now - RESULT_RECOVERY_WINDOW_MS - 1, now), "EXPIRE_AND_PURGE");
   assert.equal(retentionAction("IMPORTED", now - RESULT_RECOVERY_WINDOW_MS - 1, now), "PURGE_ONLY");
   assert.equal(retentionAction("RUNNING", now - RESULT_RECOVERY_WINDOW_MS - 1, now), null);
+});
+
+
+test("same generation recovery wins without quota consumption or new dispatch", () => {
+  const hash = "a".repeat(64);
+  const active = [{jobId: "job-good", projectId: "p", sourceAssetId: "source", inputSha256: hash}];
+  assert.equal(sameGeneration(active[0], "p", "source", hash), true);
+  assert.deepEqual(decideEnqueue(active, 40, "p", "source", hash), {
+    kind: "RECOVER_EXISTING",
+    jobId: "job-good",
+  });
+});
+
+test("different generation and different project are typed active conflicts", () => {
+  const hash = "a".repeat(64);
+  assert.deepEqual(
+    decideEnqueue(
+      [{jobId: "other-generation", projectId: "p", sourceAssetId: "source", inputSha256: "b".repeat(64)}],
+      10,
+      "p",
+      "source",
+      hash,
+    ),
+    {kind: "ACTIVE_JOB_CONFLICT", jobId: "other-generation"},
+  );
+  assert.deepEqual(
+    decideEnqueue(
+      [{jobId: "other-project", projectId: "other", sourceAssetId: "source", inputSha256: hash}],
+      10,
+      "p",
+      "source",
+      hash,
+    ),
+    {kind: "ACTIVE_JOB_CONFLICT", jobId: "other-project"},
+  );
+});
+
+test("quota is distinct from active-job conflict and only applies without active work", () => {
+  const hash = "a".repeat(64);
+  assert.deepEqual(decideEnqueue([], MAX_MONTHLY_JOBS, "p", "source", hash), {
+    kind: "MONTHLY_QUOTA_REACHED",
+  });
+  assert.deepEqual(decideEnqueue([], MAX_MONTHLY_JOBS - 1, "p", "source", hash), {kind: "CREATE"});
 });
