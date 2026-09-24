@@ -20,17 +20,17 @@ Read first:
 - `docs/H37_DRIVE_V3_BACKUP.md`
 - `docs/H35_TAKE_SYNC_QUIET_CALIBRATION.md`
 - `docs/RELEASE_NOTES_0.5.0-rc14.md`
-- `docs/RELEASE_NOTES_0.5.0-rc15.md`
+- `docs/RELEASE_NOTES_0.5.0-rc16.md`
 - `docs/RC14_FINAL_PHYSICAL_HOMOLOGATION.md`
 - `docs/RELEASE_NOTES_0.5.0-rc9.md` — historical corrective evidence
 
 ## Active source/release state
 
-**U11 is CLOSED / DIGITAL PASS. U12 is active with RC15 as the physical-corrective source candidate.**
+**U11 is CLOSED / DIGITAL PASS. U12 is active with RC16 as the physical-corrective source candidate.**
 
 Active source candidate:
-- `0.5.0-rc15`
-- versionCode `35`
+- `0.5.0-rc16`
+- versionCode `36`
 - package `studio.guitarlab.app`
 - parser/reentry implementation baseline `2601220351cb241af5b23235a123645b4120ba64`; the final documentation/UI-coherence commit must bind its own exact workflow SHA before it can become authority
 
@@ -39,7 +39,7 @@ Latest signed authority is RC14 at producer `13c6f36e5e3c2bcf82cf21f885e8d7aa6c4
 Locked homologation certificate SHA-256:
 `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
 
-RC15 preserves RC14 and corrects the physically observed Prepared References v2 import of standards-compliant extensible float32 WAV, plus repeated-tap client reentry. It remains pending signed CI completion and target-device import acceptance.
+RC16 adds end-to-end signal validation/canonicalization for Prepared References v2 and repairs/reinserts references after their Studio clips are removed. It remains pending exact-source Android/U7 gates, controlled worker deployment and target-device listening acceptance.
 
 ## Product model
 

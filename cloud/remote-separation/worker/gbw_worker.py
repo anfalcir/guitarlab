@@ -21,6 +21,7 @@ import subprocess
 import sys
 import tempfile
 import time
+from array import array
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -31,6 +32,8 @@ BACKING_STEMS = ("drums", "bass", "other", "vocals", "piano")
 REFERENCE_DELIVERABLES = ("backing", "guitar")
 REFERENCE_RECIPE = "prepared-reference-v2"
 TARGET_PEAK_DBFS = -1.0
+PEAK_TOLERANCE_DB = 0.05
+MIN_RECONSTRUCTION_SNR_DB = 6.0
 MODEL_NAME = "ggml-model-htdemucs-6s-f16.bin"
 MODEL_BYTES = 54_855_129
 MODEL_SHA256 = "09704f4ceae204e56e77d5eefd6ac71d7275be81fd507e6913371d59abcee856"
@@ -195,6 +198,82 @@ def wav_contract(path: Path) -> tuple[int, int, int, float]:
     return sample_rate, channels, frames, frames / sample_rate
 
 
+def float_data_span(path: Path) -> tuple[int, int]:
+    """Returns the bounded data chunk used by the already-validated float WAV."""
+    with path.open("rb") as handle:
+        raw_header = handle.read(12)
+    if len(raw_header) != 12 or raw_header[:4] != b"RIFF" or raw_header[8:] != b"WAVE":
+        raise WorkerError("OUTPUT_INVALID", f"invalid WAV: {path.name}")
+    with path.open("rb") as handle:
+        cursor = 12
+        while cursor + 8 <= path.stat().st_size:
+            handle.seek(cursor)
+            header = handle.read(8)
+            tag, size = header[:4], struct.unpack_from("<I", header, 4)[0]
+            body = cursor + 8
+            if body + size > path.stat().st_size:
+                raise WorkerError("OUTPUT_INVALID", f"truncated WAV: {path.name}")
+            if tag == b"data":
+                return body, size
+            cursor = body + size + (size & 1)
+    raise WorkerError("OUTPUT_INVALID", f"missing WAV data: {path.name}")
+
+
+def sampled_reconstruction_snr_db(source: Path, stems: list[Path], stride_frames: int = 97) -> float:
+    """Measures catastrophic stem corruption without retaining user audio.
+
+    The six normalized stems should reconstruct the canonical input. Sampling keeps this diagnostic
+    bounded for long songs while still detecting format/scaling/channel corruption reliably.
+    """
+    source_contract = wav_contract(source)
+    contracts = [wav_contract(path) for path in stems]
+    if any(contract[:2] != source_contract[:2] for contract in contracts):
+        raise WorkerError("OUTPUT_INVALID", "normalized stems do not match canonical rate/channels")
+    spans = [float_data_span(path) for path in [source, *stems]]
+    handles = [path.open("rb") for path in [source, *stems]]
+    try:
+        for handle, (offset, _) in zip(handles, spans):
+            handle.seek(offset)
+        source_energy = 0.0
+        error_energy = 0.0
+        samples_observed = 0
+        chunk_samples = 8192
+        stride_samples = max(1, stride_frames * source_contract[1])
+        remaining = min(size for _, size in spans)
+        while remaining > 0:
+            read_bytes = min(chunk_samples * 4, remaining)
+            chunks = [handle.read(read_bytes) for handle in handles]
+            if any(len(chunk) != len(chunks[0]) for chunk in chunks):
+                raise WorkerError("OUTPUT_INVALID", "stem reconstruction lengths differ")
+            decoded = []
+            for chunk in chunks:
+                values = array("f")
+                values.frombytes(chunk)
+                if sys.byteorder != "little":
+                    values.byteswap()
+                decoded.append(values)
+            for index in range(0, len(decoded[0]), stride_samples):
+                original = float(decoded[0][index])
+                reconstructed = sum(float(values[index]) for values in decoded[1:])
+                if not math.isfinite(original) or not math.isfinite(reconstructed):
+                    raise WorkerError("OUTPUT_INVALID", "non-finite sample in stem reconstruction")
+                source_energy += original * original
+                difference = original - reconstructed
+                error_energy += difference * difference
+                samples_observed += 1
+            remaining -= read_bytes
+        if samples_observed == 0:
+            raise WorkerError("OUTPUT_INVALID", "empty stem reconstruction")
+        if error_energy == 0.0:
+            return float("inf")
+        if source_energy == 0.0:
+            return float("-inf")
+        return 10.0 * math.log10(source_energy / error_energy)
+    finally:
+        for handle in handles:
+            handle.close()
+
+
 def canonicalize(source: Path, output: Path) -> None:
     command = ["ffmpeg", "-nostdin", "-v", "error", "-y", "-i", str(source),
                "-map_metadata", "-1", "-vn", "-ac", "2", "-ar", "44100",
@@ -294,12 +373,22 @@ def render_prepared_references(outputs: list[Path], final_dir: Path) -> tuple[li
     apply_gain(backing_raw, backing, shared_gain_db)
     apply_gain(by_name["guitar"], guitar, shared_gain_db)
 
+    recombined = final_dir / ".recombined-validation.wav"
+    mix_float([backing, guitar], recombined)
+    delivered_peaks = [peak_dbfs(backing), peak_dbfs(guitar), peak_dbfs(recombined)]
+    if any(math.isfinite(value) and value > TARGET_PEAK_DBFS + PEAK_TOLERANCE_DB for value in delivered_peaks):
+        raise WorkerError(
+            "REFERENCE_RENDER_FAILED",
+            f"prepared references exceed safe peak ceiling: {delivered_peaks}",
+        )
+
     backing_contract = wav_contract(backing)
     guitar_contract = wav_contract(guitar)
     if backing_contract != guitar_contract:
         raise WorkerError("REFERENCE_RENDER_FAILED", "prepared reference contracts differ")
     backing_raw.unlink(missing_ok=True)
     full_raw.unlink(missing_ok=True)
+    recombined.unlink(missing_ok=True)
     return [backing, guitar], shared_gain_db
 
 
@@ -467,6 +556,18 @@ def run(config: Config, storage_factory: Callable[[], object] | None = None) -> 
         if completed.returncode:
             raise WorkerError("DEMUCS_FAILED", f"Demucs exited {completed.returncode}")
         outputs = normalize_outputs(raw_dir, root / "final")
+        reconstruction_snr_db = sampled_reconstruction_snr_db(canonical, outputs)
+        print(json.dumps({
+            "event": "stem_reconstruction_validated",
+            "jobId": config.job_id,
+            "sampledSnrDb": None if math.isinf(reconstruction_snr_db) else round(reconstruction_snr_db, 6),
+            "perfect": math.isinf(reconstruction_snr_db) and reconstruction_snr_db > 0,
+        }, separators=(",", ":")))
+        if reconstruction_snr_db < MIN_RECONSTRUCTION_SNR_DB:
+            raise WorkerError(
+                "OUTPUT_INVALID",
+                f"stem reconstruction quality is unsafe: {reconstruction_snr_db:.3f} dB SNR",
+            )
         if job_document:
             from google.cloud import firestore
             job_document.update({

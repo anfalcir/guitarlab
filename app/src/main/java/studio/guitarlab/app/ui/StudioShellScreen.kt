@@ -215,7 +215,7 @@ fun StudioShellScreen(
                         horizontalArrangement = Arrangement.spacedBy(10.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Text("Nova base/referência preparada disponível", modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                        Text("Base/referência precisam ser sincronizadas com o Studio", modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
                         OutlinedButton(onClick = viewModel::keepCurrentPreparedReferences, modifier = Modifier.testTag("studio-keep-prepared-reference")) { Text("Manter atual") }
                         Button(onClick = viewModel::applyPreparedReferenceUpdate, modifier = Modifier.testTag("studio-update-prepared-reference")) { Text("Atualizar Studio") }
                     }

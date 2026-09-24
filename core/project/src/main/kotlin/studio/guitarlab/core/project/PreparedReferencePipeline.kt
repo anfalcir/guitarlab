@@ -302,7 +302,10 @@ object PreparedReferenceBindingPolicy {
     fun bindingDiffersFromDesired(project: GuitarProject): Boolean {
         val desired = desired(project)
         return desired.isNotEmpty() && desired.any { (kind, asset) ->
-            project.referenceBindings.none { it.kind == kind && it.assetId == asset.assetId }
+            val binding = project.referenceBindings.singleOrNull { it.kind == kind && it.assetId == asset.assetId }
+            binding == null || project.clips.none {
+                it.trackId == binding.trackId && it.sourceUri == "guitarlab://asset/${asset.assetId}"
+            }
         }
     }
 
@@ -325,9 +328,8 @@ object PreparedReferenceBindingPolicy {
         var next = project
         desired.forEach { (kind, asset) ->
             val track = targetTrack(next, kind) ?: return@forEach
-            val existingBinding = next.referenceBindings.firstOrNull { it.kind == kind }
             val existingClips = next.clips.filter { it.trackId == track.id }
-            if (existingBinding == null && existingClips.isEmpty()) next = bind(next, kind, asset, track.id, now, idFactory, replaceExisting = false)
+            if (existingClips.isEmpty()) next = bind(next, kind, asset, track.id, now, idFactory, replaceExisting = false)
         }
         return next
     }
@@ -386,8 +388,8 @@ object PreparedReferenceBindingPolicy {
 
     private fun bind(project: GuitarProject, kind: ReferenceBindingKind, asset: ManagedAsset, trackId: String, now: Long, idFactory: () -> String, replaceExisting: Boolean): GuitarProject {
         val oldBinding = project.referenceBindings.firstOrNull { it.kind == kind }
-        if (oldBinding?.assetId == asset.assetId) return project
         val existingBoundClip = oldBinding?.let { binding -> project.clips.firstOrNull { it.trackId == trackId && it.sourceUri == "guitarlab://asset/${binding.assetId}" } }
+        if (oldBinding?.assetId == asset.assetId && existingBoundClip != null) return project
         val safeSourceStart = (existingBoundClip?.sourceStartFrame ?: 0L).coerceIn(0L, asset.frameCount!! - 1L)
         val safeLength = min(existingBoundClip?.lengthFrames ?: asset.frameCount!!, asset.frameCount!! - safeSourceStart).coerceAtLeast(1L)
         val clip = AudioClip(

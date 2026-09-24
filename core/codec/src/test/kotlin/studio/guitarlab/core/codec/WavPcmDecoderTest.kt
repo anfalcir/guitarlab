@@ -4,6 +4,7 @@ import kotlin.math.abs
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import kotlin.test.assertFailsWith
 
 class WavPcmDecoderTest {
     @Test
@@ -72,6 +73,23 @@ class WavPcmDecoderTest {
         assertNear(-0.75f, floatOut[0])
         assertNear(0.25f, floatOut[1])
         assertNear(1f, floatOut[2])
+    }
+
+    @Test
+    fun strictFloatModePreservesOutOfRangeSamplesAndRejectsNonFiniteAudio() {
+        val strict = WavPcmDecoder(
+            ByteArraySeekableSource(GoldenWavFactory.float32(48_000, 1, floatArrayOf(1.25f))),
+            sanitizeFloatSamples = false,
+        )
+        val output = FloatArray(1)
+        assertEquals(1, strict.readInterleaved(output, frameCount = 1))
+        assertNear(1.25f, output[0])
+
+        val invalid = WavPcmDecoder(
+            ByteArraySeekableSource(GoldenWavFactory.float32(48_000, 1, floatArrayOf(Float.NaN))),
+            sanitizeFloatSamples = false,
+        )
+        assertFailsWith<AudioCodecException> { invalid.readInterleaved(FloatArray(1), frameCount = 1) }
     }
 
     private fun assertNear(expected: Float, actual: Float, tolerance: Float = 0.00001f) {

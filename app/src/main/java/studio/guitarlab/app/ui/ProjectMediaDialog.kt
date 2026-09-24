@@ -59,12 +59,13 @@ fun ProjectMediaDialog(
                         Modifier.fillMaxWidth().testTag("project-media-reference-update"),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        Text("Uma nova versão preparada está disponível.", style = MaterialTheme.typography.titleSmall)
+                        Text("As referências preparadas e o Studio precisam ser sincronizados.", style = MaterialTheme.typography.titleSmall)
+                        Text("Use esta ação também para reinserir Base/Guitarra removidas das pistas.", style = MaterialTheme.typography.bodySmall)
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                             if (referenceDecisionPending) {
                                 OutlinedButton(onClick = onKeepCurrent) { Text("Manter atual") }
                             }
-                            Button(onClick = onApplyUpdate) { Text("Usar nova versão") }
+                            Button(onClick = onApplyUpdate) { Text("Sincronizar Studio") }
                         }
                     }
                     HorizontalDivider()

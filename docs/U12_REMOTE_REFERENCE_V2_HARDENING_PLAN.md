@@ -1,10 +1,10 @@
 # U12 — Remote Prepared References v2 hardening plan
 
 Updated: 2026-09-23
-Status: RC14 signed DIGITAL PASS; RC15 physical corrective active
-Target release candidate: 0.5.0-rc15 / versionCode 35
+Status: RC14 signed DIGITAL PASS; RC16 physical corrective active
+Target release candidate: 0.5.0-rc16 / versionCode 36
 
-RC14 is the latest signed authority on producer `13c6f36e5e3c2bcf82cf21f885e8d7aa6c41ed34` (Android `35937621047`), with U4 `35935229248` and U7 `35935229232` passing on its cloud-identical predecessor. RC15 preserves that protocol and corrects the physical import findings documented in `RELEASE_NOTES_0.5.0-rc15.md`; `2601220` is the parser/reentry baseline, and the final source remains pending exact-source CI plus target-device acceptance.
+RC14 is the latest signed authority on producer `13c6f36e5e3c2bcf82cf21f885e8d7aa6c41ed34` (Android `35937621047`). RC16 preserves the v2 protocol and corrects RC15 physical audio/synchronization findings documented in `RELEASE_NOTES_0.5.0-rc16.md`; it remains pending exact-source Android/U7, controlled production deployment/U4 and target-device acceptance.
 
 ## 1. Problem statement
 

@@ -84,6 +84,30 @@ class WorkerContractTest(unittest.TestCase):
                 with self.assertRaisesRegex(worker.WorkerError, "piano"):
                     worker.normalize_outputs(raw, final)
 
+    def test_sampled_reconstruction_distinguishes_exact_from_corrupt_stems(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "source.wav"
+            float_wav(source)
+            source_raw = bytearray(source.read_bytes())
+            source_raw[44:] = struct.pack("<" + "f" * (441 * 2), *([0.6] * (441 * 2)))
+            source.write_bytes(source_raw)
+            stems = []
+            for index in range(6):
+                path = root / f"stem-{index}.wav"
+                float_wav(path)
+                raw = bytearray(path.read_bytes())
+                raw[44:] = struct.pack("<" + "f" * (441 * 2), *([0.1] * (441 * 2)))
+                path.write_bytes(raw)
+                stems.append(path)
+
+            self.assertGreater(worker.sampled_reconstruction_snr_db(source, stems), 100.0)
+
+            corrupt = bytearray(stems[0].read_bytes())
+            corrupt[44:] = struct.pack("<" + "f" * (441 * 2), *([1.0] * (441 * 2)))
+            stems[0].write_bytes(corrupt)
+            self.assertLess(worker.sampled_reconstruction_snr_db(source, stems), worker.MIN_RECONSTRUCTION_SNR_DB)
+
     def test_failure_reporting_releases_running_job(self):
         updates = []
         document = SimpleNamespace(
@@ -225,13 +249,34 @@ class WorkerContractTest(unittest.TestCase):
                 output.write_bytes(source.read_bytes())
 
             with mock.patch.object(worker, "mix_float", side_effect=fake_mix), \
-                 mock.patch.object(worker, "peak_dbfs", side_effect=[-0.2, -3.0, -0.1]), \
+                 mock.patch.object(worker, "peak_dbfs", side_effect=[-0.2, -3.0, -0.1, -1.1, -3.9, -1.0]), \
                  mock.patch.object(worker, "apply_gain", side_effect=fake_gain):
                 outputs, gain_db = worker.render_prepared_references(stems, root / "prepared")
 
             self.assertAlmostEqual(gain_db, -0.9, places=6)
             self.assertEqual([path.name for path in outputs], ["backing.wav", "guitar.wav"])
             self.assertEqual(worker.wav_contract(outputs[0]), worker.wav_contract(outputs[1]))
+
+    def test_reference_render_rejects_delivered_pair_that_would_clip(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            stems = []
+            for stem in worker.STEMS:
+                path = root / f"{stem}.wav"
+                float_wav(path)
+                stems.append(path)
+
+            def fake_mix(_inputs, output):
+                float_wav(output)
+
+            def fake_gain(source, output, _gain_db):
+                output.write_bytes(source.read_bytes())
+
+            with mock.patch.object(worker, "mix_float", side_effect=fake_mix), \
+                 mock.patch.object(worker, "peak_dbfs", side_effect=[-2.0, -3.0, -1.5, -0.4, -3.0, -0.2]), \
+                 mock.patch.object(worker, "apply_gain", side_effect=fake_gain):
+                with self.assertRaisesRegex(worker.WorkerError, "safe peak ceiling"):
+                    worker.render_prepared_references(stems, root / "prepared")
 
 
 if __name__ == "__main__":

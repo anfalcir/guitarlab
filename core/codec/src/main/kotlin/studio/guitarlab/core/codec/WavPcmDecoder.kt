@@ -6,6 +6,7 @@ import kotlin.math.min
 class WavPcmDecoder(
     private val source: SeekableByteSource,
     override val metadata: AudioMetadata = WavMetadataReader().read(source),
+    private val sanitizeFloatSamples: Boolean = true,
 ) : AudioFrameDecoder {
     private val dataOffset = metadata.dataOffsetBytes
         ?: throw AudioCodecException("WAV metadata is missing data offset")
@@ -82,7 +83,12 @@ class WavPcmDecoder(
                 ((bytes[offset + 2].toInt() and 0xFF) shl 16) or
                 (bytes[offset + 3].toInt() shl 24)
             val value = Float.fromBits(bits)
-            if (value.isFinite()) max(-1f, min(1f, value)) else 0f
+            if (sanitizeFloatSamples) {
+                if (value.isFinite()) max(-1f, min(1f, value)) else 0f
+            } else {
+                if (!value.isFinite()) throw AudioCodecException("WAV contains a non-finite float sample")
+                value
+            }
         }
         AudioSampleEncoding.COMPRESSED -> error("validated at construction")
     }

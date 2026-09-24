@@ -110,6 +110,38 @@ class PreparedReferencePipelineTest {
         assertFalse(PreparedReferenceBindingPolicy.updateAvailable(redone))
     }
 
+    @Test fun deletedPreparedClipsAreDetectedAndCanBeReinsertedWithoutNewSeparation() {
+        val fixture = fixture()
+        val prepared = fixture.service.prepare(fixture.projectId).project
+        val withoutReferenceClips = prepared.copy(clips = emptyList())
+
+        assertTrue(PreparedReferenceBindingPolicy.bindingDiffersFromDesired(withoutReferenceClips))
+        assertTrue(PreparedReferenceBindingPolicy.updateAvailable(withoutReferenceClips))
+
+        val repaired = PreparedReferenceBindingPolicy.applyUpdate(withoutReferenceClips, 999) {
+            "repair-${fixture.ids.incrementAndGet()}"
+        }
+        assertEquals(3, repaired.clips.size)
+        assertEquals(3, repaired.referenceBindings.size)
+        assertFalse(PreparedReferenceBindingPolicy.bindingDiffersFromDesired(repaired))
+    }
+
+    @Test fun newPreparationAutomaticallyFillsReferenceTracksThatUserCleared() {
+        val fixture = fixture()
+        val first = fixture.service.prepare(fixture.projectId).project
+        fixture.repo.save(first.copy(clips = emptyList()))
+        fixture.replaceStemSet(scale = 0.03f)
+
+        val second = fixture.service.prepare(fixture.projectId).project
+
+        assertEquals(3, second.clips.size)
+        assertFalse(PreparedReferenceBindingPolicy.bindingDiffersFromDesired(second))
+        assertNotEquals(
+            first.preparation!!.activeBackingAssetId,
+            second.preparation!!.activeBackingAssetId,
+        )
+    }
+
     @Test fun keepCurrentAcknowledgesExactPreparedRevisionDurablyWithoutChangingCreativeState() {
         val fixture = fixture()
         val first = fixture.service.prepare(fixture.projectId).project

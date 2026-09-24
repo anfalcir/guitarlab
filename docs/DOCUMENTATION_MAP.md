@@ -7,7 +7,7 @@ Repository documentation is split into **live authority**, **normative contracts
 
 A historical document may intentionally contain an old statement such as “current”, “latest”, “pending”, an old branch name or an old hardware target because it preserves contemporaneous evidence. Such statements apply only to that document's dated context and **never override the live authority set below**.
 
-## Live authority — unified line through U11 closure / U12 RC15 physical corrective
+## Live authority — unified line through U11 closure / U12 RC16 physical corrective
 Use these first for current status, release identity and remaining work:
 - `README.md` — repository entry point;
 - `CURRENT_STATE.md` — current unified source candidate, latest signed authority and remaining digital/physical residual;
@@ -32,7 +32,7 @@ Use these first for current status, release identity and remaining work:
 - `RELEASE_NOTES_0.5.0-rc4.md` — H37/H37a/H37b RC4 delta and historical source-pre-gate narrative; its signed gate was later closed by CI #669;
 - `RELEASE_NOTES_0.5.0-rc5.md` — historical U11 rc5/25 freeze evidence;
 - `RELEASE_NOTES_0.5.0-rc14.md` — latest signed authority: foreground separation, branded notifications, unified take entry and deleted-project backup lifecycle;
-- `RELEASE_NOTES_0.5.0-rc15.md` — active physical corrective for extensible float32 WAV import and repeated-tap reentry;
+- `RELEASE_NOTES_0.5.0-rc16.md` — active physical corrective for prepared-audio integrity/canonicalization and Studio reference reinsertion;
 - `RC14_FINAL_PHYSICAL_HOMOLOGATION.md` — focused RC14 target-device acceptance;
 - `RELEASE_NOTES_0.5.0-rc11.md` — historical signed U12 candidate identity, stable Firebase account corrective and Activity lifecycle hardening;
 - `RELEASE_NOTES_0.5.0-rc9.md` — historical remote-orphan corrective evidence;
@@ -50,7 +50,7 @@ Drive result `U8m PASS · r_1790095960 · cleanup 8/8/14`, report SHA-256
 **U10/C8 is CLOSED / DIGITAL PASS** on Android CI #781 / run `35791192802`,
 exact technical source `2aa97aa8b2c3af91d35e7d48a0eeb89c2c330e63`, with 23/23
 instrumented classes, 76 observed API36 tests and 24/24 retained visual artifacts.
-**U11 remains CLOSED / DIGITAL PASS historical evidence; U12 is active on RC15.** RC14 is the latest signed authority at producer `13c6f36e5e3c2bcf82cf21f885e8d7aa6c41ed34`, Android run `35937621047`. RC15 baseline `2601220` and the final copy/documentation source remain pending exact-source Android CI and physical resume-import acceptance.
+**U11 remains CLOSED / DIGITAL PASS historical evidence; U12 is active on RC16.** RC14 remains the latest signed authority at producer `13c6f36e5e3c2bcf82cf21f885e8d7aa6c41ed34`, Android run `35937621047`. RC16 remains pending exact-source Android/U7 gates, controlled worker deployment and physical listening/reinsertion acceptance.
 
 ## Normative subsystem contracts
 These define behavior and remain valid unless explicitly superseded:
@@ -76,7 +76,7 @@ These are preserved for traceability and must not be used as current-state autho
 - milestone-specific evidence such as `M2_HOMOLOGATION_EVIDENCE.md`, `H22_AUDIO_ROUTE_UX.md`, `H24_HOME_PROJECT_LIBRARY.md`, `H25_UI_SETTINGS_SAFETY.md`, `H26D_MATERIALIZER_RECOVERY.md`, `H26E_CI650_DIGITAL_PASS.md` and similar exact-source records.
 
 ## Current evidence boundary
-RC15 (`0.5.0-rc15` / 35) is the active physical-corrective source candidate and remains pending Android CI on the final exact SHA plus target-device resume-import acceptance. RC14 is the latest signed DIGITAL PASS: Android run `35937621047`, producer `13c6f36e5e3c2bcf82cf21f885e8d7aa6c41ed34`; U4 `35935229248` and U7 `35935229232` cover its cloud-identical predecessor.
+RC16 (`0.5.0-rc16` / 36) is the active physical-corrective source candidate and remains pending Android/U7 qualification, production worker deployment/U4 and target-device acceptance. RC14 is the latest signed DIGITAL PASS: Android run `35937621047`, producer `13c6f36e5e3c2bcf82cf21f885e8d7aa6c41ed34`.
 
 Signer SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
 

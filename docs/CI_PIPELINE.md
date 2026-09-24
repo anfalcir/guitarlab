@@ -5,7 +5,7 @@ Updated: 2026-09-23
 ## Contract
 `.github/workflows/android-ci.yml` supports manual `workflow_dispatch` and controlled `main` commit triggers. A commit containing `[run ci]` runs the software and API 36 gates; `[run ci signed]` additionally produces the signed homologation APK. Ordinary commits retain `[skip ci]` and do not consume hosted CI. This workstream is authorized to use and monitor the controlled triggers while executing the unified roadmap.
 
-Current release phase: **U12 ACTIVE**. RC15 (`0.5.0-rc15` / 35) is the active unqualified physical-corrective source; `2601220` is its parser/reentry baseline, not authority for later source changes. RC14 is the latest signed digital authority at producer `13c6f36e5e3c2bcf82cf21f885e8d7aa6c41ed34`, Android run `35937621047`, with U4 `35935229248` and U7 `35935229232` inherited from its cloud-identical predecessor. RC15 may replace this authority only after CI on the final exact SHA and affected physical acceptance pass.
+Current release phase: **U12 ACTIVE**. RC16 (`0.5.0-rc16` / 36) is the active unqualified physical-corrective source. RC14 is the latest signed digital authority at producer `13c6f36e5e3c2bcf82cf21f885e8d7aa6c41ed34`, Android run `35937621047`. RC16 may replace this authority only after exact-source Android/U7 qualification, controlled production worker deployment/U4 and affected physical acceptance pass.
 
 Authority layers:
 1. **software gate** — deterministic source materialization, JVM/unit/audio/DSP/persistence/migration tests, performance evidence, Lint, debug/release assembly and unsigned provenance;
@@ -15,7 +15,7 @@ Authority layers:
 ## Current source materialization
 `.source-parts/` + `scripts/materialize_ci_sources.sh` are source-of-truth build inputs. Unexpected drift fails closed by exact SHA-256/Git blob checks.
 
-The canonical entrypoint materializes the accepted source chain and the workflow additionally binds the checkout/source identity used for RC15. Historical tail labels describe their materialization block, not the current release version; qualification still requires exact source identity, `git diff --check`, semantic guards and the canonical software/API36/signing gates.
+The canonical entrypoint materializes the accepted source chain and the workflow additionally binds the exact candidate checkout/source identity. Historical tail labels describe their materialization block, not the current release version; qualification still requires exact source identity, `git diff --check`, semantic guards and the canonical software/API36/signing gates.
 
 Historical U10/C8 source authority remains Android CI #781 and historical materializers remain preserved as evidence; they do not override the current `scripts/materialize_ci_sources.sh` tail.
 

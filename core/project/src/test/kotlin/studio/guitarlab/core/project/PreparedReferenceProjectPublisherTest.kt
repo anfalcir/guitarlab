@@ -6,10 +6,14 @@ import java.security.MessageDigest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import org.junit.Assert.assertThrows
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import studio.guitarlab.core.codec.FloatWavFileWriter
+import studio.guitarlab.core.codec.FileSeekableByteSource
+import studio.guitarlab.core.codec.AudioSampleEncoding
+import studio.guitarlab.core.codec.WavMetadataReader
 import studio.guitarlab.core.model.AssetClassification
 import studio.guitarlab.core.model.AssetRole
 import studio.guitarlab.core.model.ManagedAsset
@@ -95,7 +99,28 @@ class PreparedReferenceProjectPublisherTest {
         assertEquals(1, jobAssets.count { it.role == AssetRole.REFERENCE_BACKING })
         assertEquals(3, jobAssets.count { it.role == AssetRole.REFERENCE_GUITAR })
         assertEquals(2, jobAssets.count { it.provenance?.kind == "GUITAR_CHANNEL_SPLIT" })
+        val canonicalBacking = saved.assets.single { it.assetId == prep.activeBackingAssetId }
+        val canonicalFile = media.resolveAsset("p", canonicalBacking.relativePath)
+        val canonicalMetadata = FileSeekableByteSource(canonicalFile).use { WavMetadataReader().read(it) }
+        assertEquals(AudioSampleEncoding.FLOAT32_LE, canonicalMetadata.sampleEncoding)
+        assertEquals(3, canonicalFile.readBytes()[20].toInt() and 0xff)
         assertTrue(publisher.publish(request))
+
+        val unsafeBacking = File(root, "unsafe-backing.wav").also { writeStereo(it, 0.8f, 0.8f) }
+        val unsafeGuitar = File(root, "unsafe-guitar.wav").also { writeStereo(it, 0.8f, 0.8f) }
+        val assetsBeforeUnsafePublication = repo.load("p")!!.assets
+        assertThrows(IllegalArgumentException::class.java) {
+            publisher.publish(
+                request.copy(
+                    jobId = "job-unsafe",
+                    references = listOf(
+                        reference("backing", AssetRole.REFERENCE_BACKING, unsafeBacking),
+                        reference("guitar", AssetRole.REFERENCE_GUITAR, unsafeGuitar),
+                    ),
+                ),
+            )
+        }
+        assertEquals(assetsBeforeUnsafePublication, repo.load("p")!!.assets)
     }
 
     private fun reference(name: String, role: AssetRole, file: File) =

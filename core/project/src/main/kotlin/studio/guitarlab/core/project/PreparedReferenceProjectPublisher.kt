@@ -1,12 +1,17 @@
 package studio.guitarlab.core.project
 
 import java.io.File
+import java.io.FileOutputStream
 import java.io.InputStream
 import java.security.MessageDigest
 import java.util.UUID
+import kotlin.math.abs
+import kotlin.math.pow
 import studio.guitarlab.core.codec.FileSeekableByteSource
+import studio.guitarlab.core.codec.FloatWavFileWriter
 import studio.guitarlab.core.codec.StereoWavChannelSplitter
 import studio.guitarlab.core.codec.WavMetadataReader
+import studio.guitarlab.core.codec.WavPcmDecoder
 import studio.guitarlab.core.model.AssetClassification
 import studio.guitarlab.core.model.AssetLifecycle
 import studio.guitarlab.core.model.AssetProvenance
@@ -83,15 +88,26 @@ class PreparedReferenceProjectPublisher(
         try {
             val backing = byName.getValue("backing")
             val guitar = byName.getValue("guitar")
-            val backingManaged = backing.openStream().use {
+            val downloadedBacking = File(work, "downloaded-backing.wav")
+            val downloadedGuitar = File(work, "downloaded-guitar.wav")
+            copyReference(backing, downloadedBacking)
+            copyReference(guitar, downloadedGuitar)
+            val canonicalBacking = File(work, "canonical-backing.wav")
+            val canonicalGuitar = File(work, "canonical-guitar.wav")
+            canonicalizeAndValidatePair(
+                downloadedBacking,
+                downloadedGuitar,
+                canonicalBacking,
+                canonicalGuitar,
+                backing,
+            )
+
+            val backingManaged = canonicalBacking.inputStream().buffered().use {
                 mediaStore.ingestReference(request.projectId, "${request.jobId}-backing.wav", it)
             }.also { published += it }
-            verifyManaged(backingManaged, backing)
-
-            val guitarManaged = guitar.openStream().use {
+            val guitarManaged = canonicalGuitar.inputStream().buffered().use {
                 mediaStore.ingestReference(request.projectId, "${request.jobId}-guitar.wav", it)
             }.also { published += it }
-            verifyManaged(guitarManaged, guitar)
 
             val leftTemp = File(work, "guitar-left.wav")
             val rightTemp = File(work, "guitar-right.wav")
@@ -119,6 +135,9 @@ class PreparedReferenceProjectPublisher(
                 "recipe" to request.recipeVersion,
                 "targetPeakDbfs" to request.targetPeakDbfs.toString(),
                 "sharedGainDb" to "%.9f".format(java.util.Locale.US, request.sharedGainDb),
+                "remoteBackingSha256" to backing.sha256,
+                "remoteGuitarSha256" to guitar.sha256,
+                "localAudioCanonicalization" to "FLOAT32_LE_V1",
             )
             val backingAsset = managedAsset(
                 backingManaged,
@@ -184,17 +203,75 @@ class PreparedReferenceProjectPublisher(
         }
     }
 
-    private fun verifyManaged(media: ManagedMediaAsset, reference: ValidatedPreparedReference) {
-        require(media.byteCount == reference.byteCount && sha256(media.file) == reference.sha256) {
+    private fun copyReference(reference: ValidatedPreparedReference, destination: File) {
+        reference.openStream().use { input ->
+            FileOutputStream(destination).use { output ->
+                input.copyTo(output)
+                output.fd.sync()
+            }
+        }
+        require(destination.length() == reference.byteCount && sha256(destination) == reference.sha256) {
             "managed prepared-reference integrity mismatch: ${reference.name}"
         }
-        FileSeekableByteSource(media.file).use { source ->
+        FileSeekableByteSource(destination).use { source ->
             val metadata = WavMetadataReader().read(source)
             require(
                 metadata.sampleRateHz == reference.sampleRate &&
                     metadata.channelCount == reference.channels &&
                     metadata.totalFrames == reference.frames,
             ) { "managed prepared-reference audio contract mismatch: ${reference.name}" }
+        }
+    }
+
+    /**
+     * Decodes remote WAV containers strictly and republishes only GuitarLab's canonical float WAV.
+     * This keeps WAVE_FORMAT_EXTENSIBLE/container quirks out of the real-time path and rejects a
+     * reference pair that would clip before it can become project state.
+     */
+    private fun canonicalizeAndValidatePair(
+        backingInput: File,
+        guitarInput: File,
+        backingOutput: File,
+        guitarOutput: File,
+        contract: ValidatedPreparedReference,
+    ) {
+        FileSeekableByteSource(backingInput).use { backingSource ->
+            FileSeekableByteSource(guitarInput).use { guitarSource ->
+                WavPcmDecoder(backingSource, sanitizeFloatSamples = false).use { backingDecoder ->
+                    WavPcmDecoder(guitarSource, sanitizeFloatSamples = false).use { guitarDecoder ->
+                        require(backingDecoder.metadata == guitarDecoder.metadata) { "prepared reference audio formats differ" }
+                        val metadata = backingDecoder.metadata
+                        require(metadata.sampleRateHz == contract.sampleRate && metadata.channelCount == 2 && metadata.totalFrames == contract.frames)
+                        FloatWavFileWriter(backingOutput, metadata.sampleRateHz, 2).use { backingWriter ->
+                            FloatWavFileWriter(guitarOutput, metadata.sampleRateHz, 2).use { guitarWriter ->
+                                val backingSamples = FloatArray(AUDIO_VALIDATION_FRAMES * 2)
+                                val guitarSamples = FloatArray(AUDIO_VALIDATION_FRAMES * 2)
+                                var observedPeak = 0f
+                                while (true) {
+                                    val backingFrames = backingDecoder.readInterleaved(backingSamples, frameCount = AUDIO_VALIDATION_FRAMES)
+                                    val guitarFrames = guitarDecoder.readInterleaved(guitarSamples, frameCount = AUDIO_VALIDATION_FRAMES)
+                                    require(backingFrames == guitarFrames) { "prepared references lost frame alignment" }
+                                    if (backingFrames == 0) break
+                                    repeat(backingFrames * 2) { index ->
+                                        observedPeak = maxOf(
+                                            observedPeak,
+                                            abs(backingSamples[index]),
+                                            abs(guitarSamples[index]),
+                                            abs(backingSamples[index] + guitarSamples[index]),
+                                        )
+                                    }
+                                    backingWriter.writeInterleaved(backingSamples, backingFrames)
+                                    guitarWriter.writeInterleaved(guitarSamples, guitarFrames)
+                                }
+                                val ceiling = 10.0.pow(TARGET_PEAK_DBFS / 20.0).toFloat() + PEAK_TOLERANCE
+                                require(observedPeak <= ceiling) {
+                                    "prepared references exceed the safe peak ceiling: $observedPeak"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -208,7 +285,7 @@ class PreparedReferenceProjectPublisher(
         assetId = idFactory(),
         role = role,
         relativePath = media.relativePath,
-        sha256 = reference.sha256,
+        sha256 = sha256(media.file),
         byteSize = media.byteCount,
         format = "wav",
         sampleRateHz = reference.sampleRate,
@@ -265,5 +342,8 @@ class PreparedReferenceProjectPublisher(
 
     private companion object {
         val SHA256 = Regex("[a-f0-9]{64}")
+        const val AUDIO_VALIDATION_FRAMES = 4096
+        const val TARGET_PEAK_DBFS = -1.0
+        const val PEAK_TOLERANCE = 0.002f
     }
 }
