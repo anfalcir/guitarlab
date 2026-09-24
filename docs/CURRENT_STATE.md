@@ -36,6 +36,7 @@ Updated: 2026-09-23
 - RC13 remains the latest signed DIGITAL PASS and completed all three gates on producer `bf78580dd79f4c2a4554aca34e6c8a65ccaa12e3`: Android CI #828 / run `35926732265`, U4 run `35926732269`, U7 run `35926732284`.
 - RC13 signed artifact: `GuitarLabStudio-0.5.0-rc13-homologacao` / artifact id `10779803277`.
 - RC14 release notes and physical checklist: `RELEASE_NOTES_0.5.0-rc14.md`, `RC14_FINAL_PHYSICAL_HOMOLOGATION.md`.
+- First RC14 qualification at `9b4ee9f`: software gate PASS, U4 `35935229248` PASS, U7 `35935229232` PASS; API 36 failed only because `singleVersionRestoreRequiresExplicitConfirmation` still targeted the superseded flat-list restore button. The test-only/navigation-expectation corrective is pending sealed Android requalification; U4/U7 do not require repetition for that delta.
 
 ## Superseded rc11 authority
 - **rc11 is CLOSED / DIGITAL PASS and historical.**

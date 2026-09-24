@@ -1,7 +1,7 @@
 # GuitarLab Studio 0.5.0-rc14 — Release Notes
 
 Updated: 2026-09-23  
-Status: source candidate; canonical digital gates pending  
+Status: source candidate; Android corrective qualification pending
 Package: `studio.guitarlab.app`  
 Version: `0.5.0-rc14` / versionCode `34`
 
@@ -45,3 +45,5 @@ RC14 incorporates the findings from physical RC13 homologation without changing 
 ## Candidate rule
 
 RC14 does not become the signed physical-homologation authority until Android CI, U4 and U7 pass on the exact sealed producer SHA and the signed artifact identity is recorded here and in `CURRENT_STATE.md`.
+
+The first sealed qualification (`9b4ee9f`, Android run `35935229131`) passed unit/Lint/build while U4 `35935229248` and U7 `35935229232` passed. API 36 found one stale test that still addressed the former flat backup list directly. Production behavior and the new grouped-catalog test passed; the corrective updates that legacy assertion to open the project-version modal before requesting restoration.

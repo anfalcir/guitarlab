@@ -143,7 +143,8 @@ class BackupScreenInstrumentedTest {
                 )
             }
         }
-        compose.onNode(hasScrollAction()).performScrollToNode(hasTestTag("restore-version-remote-1"))
+        compose.onNode(hasScrollAction()).performScrollToNode(hasText("Ver versões"))
+        compose.onNodeWithText("Ver versões").assertIsDisplayed().performClick()
         compose.onNodeWithTag("restore-version-remote-1").assertIsDisplayed()
         compose.captureCohesionScreenshot("backup-restore-version")
         compose.onNodeWithTag("restore-version-remote-1").performClick()
