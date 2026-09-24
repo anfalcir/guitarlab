@@ -1,0 +1,12 @@
+diff --git a/cloud/remote-separation/scripts/deploy-worker.sh b/cloud/remote-separation/scripts/deploy-worker.sh
+--- a/cloud/remote-separation/scripts/deploy-worker.sh
++++ b/cloud/remote-separation/scripts/deploy-worker.sh
+@@ -31,7 +31,7 @@ while true; do
+     *)
+       echo "Cloud Build $BUILD_ID finished with status: $BUILD_STATUS" >&2
+       echo "---- Cloud Build diagnostic log ($BUILD_ID) ----" >&2
+-      gcloud builds log "$BUILD_ID" --project "$GBW_GCP_PROJECT" --stream >&2 || \
++      gcloud beta builds log "$BUILD_ID" --project "$GBW_GCP_PROJECT" --stream >&2 || \
+         gcloud builds describe "$BUILD_ID" --project "$GBW_GCP_PROJECT" --format=json >&2 || true
+       echo "---- end Cloud Build diagnostic log ----" >&2
+       exit 1
