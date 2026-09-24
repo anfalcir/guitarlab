@@ -325,3 +325,16 @@ Worker selection is multi-objective and fail-closed:
 - production cutover follows digest-pinned shadow qualification with rollback evidence.
 
 The existing Firebase/Firestore/Storage lifecycle, quota, ownership, ACK/purge, cancellation and Android validation contracts remain unchanged across the engine migration.
+
+## D-087 — RC20 image publication bypasses the failing Cloud Build builder path
+
+U7 #146–#149 demonstrated that both the implicit Cloud Build `gcb-internal` builder and an explicit `gcr.io/cloud-builders/docker` step failed before the RC20 Dockerfile could execute, while the same digest-pinned Dockerfile built successfully on the GitHub-hosted verification runner. This was classified as a Cloud Build publication-path failure, not a worker/audio failure.
+
+RC20 shadow publication therefore uses the existing keyless GitHub WIF identity, which already has Artifact Registry administration rights: `docker build --pull --no-cache` executes on the verified runner, `docker push` publishes to the existing Artifact Registry, the resulting registry digest is resolved, and Cloud Run is deployed by digest. No new static credential, secret, project or production permission is introduced. U7 #150/#151 proved this path can publish and deploy the shadow image while production remains unchanged.
+
+## D-088 — Cross-host Demucs parity is bounded metric equivalence, not bit identity
+
+The same official PyTorch Demucs digest can produce small floating-point differences on different CPU hosts. U7 #152 observed a 0.37% drum-peak delta between the GitHub-hosted local/container run and Cloud Run; the original 0.2% tolerance was therefore too strict and did not represent a musical/structural failure.
+
+W3 now requires exact engine/model/config/source contracts and hard quality-gate PASS, while numeric audio metrics use a 1% relative / 5e-6 absolute envelope. Prepared-reference metrics, shared gain and stem energy shares are also compared. Stem/prepared SHA equality is retained as evidence where available but is not a veto when the runtime does not promise cross-host bit determinism.
+

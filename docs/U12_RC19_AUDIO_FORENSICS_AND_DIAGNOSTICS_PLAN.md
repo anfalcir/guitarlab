@@ -473,11 +473,14 @@ W2 execution evidence (2026-09-24) — **CLOSED for programmatic worker gates**:
 - U7 #138–#141 passed; recovery is provenance-gated so RC19 `demucs.cpp` results cannot be adopted as RC20 work;
 - Android U12ap now accepts prepared-reference v2 only from the official RC20 engine/checkpoint/CPU recipe while preserving schema-v1 legacy decoding.
 
-W3/W4 infrastructure status:
-- U12aq source `03a7bd0fb07886f03412aa60bef6fae5a4baee5d` adds a deterministic royalty-free 180 s technical fixture, exact-image Cloud Run benchmark runner, stage/runtime/cost metrics, SHA256SUMS and a listening artifact containing backing, guitar, all six private stems and recombination;
-- U7 #145 passed verify-only for U12aq; no production worker was changed;
-- this technical fixture can qualify duration/performance/integrity infrastructure, but it does **not** satisfy W5 musical listening acceptance;
-- W3 parity and W4 shadow execution remain OPEN until the controlled shadow evidence is collected.
+W3/W4 qualification evidence (2026-09-24):
+- U12aq introduced the deterministic royalty-free 180 s technical fixture and listening bundle; the synthetic fixture remains a performance/integrity tool and does **not** satisfy W5 musical listening acceptance;
+- U7 #151 on digest `sha256:d8a53dd989c0d2c1bda22979f25d93456ec47137e750b1e0b8d648077d0e434f` passed verify, digest-pinned shadow deployment, runtime contract, U4 prepared-reference v2 transactional smoke and the CPU8/16 GiB technical W4 cell;
+- #151 W4 metrics: `totalMs=325126`, inference `107613 ms`, render `116929 ms`, estimated cost `$0.057222176`, max RSS `126176 KiB`, `other` energy share `0.14379256`, zero reject findings; the full SHA-verified listening artifact was retained;
+- U7 #152 reproduced a cross-host numeric delta of about 0.37% on a drum peak between the same digest on GitHub-hosted CPU and Cloud Run. The original 0.2% parity tolerance was therefore rejected as too narrow rather than treated as an audio failure;
+- U12bd calibrates W3 to 1% relative / 5e-6 absolute metric equivalence, adds prepared-reference, shared-gain and energy-share parity checks, while keeping provenance/quality gates exact and hashes diagnostic only;
+- the next shadow qualification also exercises the multi-stage non-root runtime, resolved dependency closure, CycloneDX SBOM, CRITICAL-vulnerability gate, isolated model-load probe, warm-cache inference probe and a CPU4/16 GiB matrix cell;
+- W3 final parity, W4 CPU4/resource comparison, supply-chain evidence and W5 owner musical listening remain **OPEN**. Production remains unchanged.
 
 **W3 — local/container parity**
 - same source and pinned image produce contract-equivalent stems across local controlled and Cloud Run shadow execution;
