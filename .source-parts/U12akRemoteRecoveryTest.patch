@@ -1,0 +1,14 @@
+diff --git a/core/separation/src/test/kotlin/studio/guitarlab/core/separation/RemoteSeparationTest.kt b/core/separation/src/test/kotlin/studio/guitarlab/core/separation/RemoteSeparationTest.kt
+--- a/core/separation/src/test/kotlin/studio/guitarlab/core/separation/RemoteSeparationTest.kt
++++ b/core/separation/src/test/kotlin/studio/guitarlab/core/separation/RemoteSeparationTest.kt
+@@ -327,8 +327,9 @@ class RemoteSeparationTest {
+                 return DurableRemoteJob(adopted, RemoteJobState.COMPLETED, 2, manifestHash)
+             }
+             override suspend fun status(identity: RemoteJobIdentity): DurableRemoteJob? {
+-                assertEquals(adopted, identity)
+                 events += "status:${identity.jobId}"
++                if (identity.jobId == requested.jobId) return null
++                assertEquals(adopted, identity)
+                 return DurableRemoteJob(adopted, RemoteJobState.COMPLETED, 3, manifestHash)
+             }
+             override suspend fun cancel(identity: RemoteJobIdentity) = error("unused")
