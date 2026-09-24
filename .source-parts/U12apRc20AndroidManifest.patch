@@ -1,0 +1,144 @@
+diff --git a/core/separation/src/main/kotlin/studio/guitarlab/core/separation/RemoteSeparation.kt b/core/separation/src/main/kotlin/studio/guitarlab/core/separation/RemoteSeparation.kt
+--- a/core/separation/src/main/kotlin/studio/guitarlab/core/separation/RemoteSeparation.kt
++++ b/core/separation/src/main/kotlin/studio/guitarlab/core/separation/RemoteSeparation.kt
+@@ -53,20 +53,30 @@ data class RemoteResultManifest(
+  val deliverables:List<RemoteReference> = emptyList(),
+  val referenceRecipe:RemoteReferenceRecipe? = null,
+  val uid:String? = null,
++ val device:String? = null,
++ val shifts:Int? = null,
++ val overlap:Double? = null,
++ val demucsVersion:String? = null,
++ val pytorchVersion:String? = null,
++ val modelBytes:Long? = null,
+ ) {
+  fun validateFor(i:RemoteJobIdentity,expectedUid:String?=null) {
+   require(jobId==i.jobId && projectId==i.projectId && inputSha256==i.inputSha256){"remote result ownership mismatch"}
+-  require(engine=="demucs.cpp" && model=="htdemucs_6s" && modelSha256==MODEL_SHA256)
++  require(model=="htdemucs_6s")
+   require(sampleRate==44100 && channels==2 && frames>0 && durationSeconds>0)
+   when(schemaVersion) {
+    1 -> {
++    require(engine=="demucs.cpp" && modelSha256==MODEL_SHA256)
+     if(uid!=null&&expectedUid!=null) require(uid==expectedUid) { "remote result uid mismatch" }
+     require(stems.map{it.name}.toSet()==STEMS.toSet() && stems.size==STEMS.size) { "invalid stem set" }
+     require(stems.map{it.name}.distinct().size==STEMS.size) { "duplicate stem" }
+     require(stems.all{it.bytes>44 && it.sha256.matches(RemoteJobIdentity.SHA)})
+     require(stems.all{safePath(it.path)}) { "unsafe stem path" }
+    }
+    2 -> {
++    require(engine==OFFICIAL_ENGINE && modelSha256==OFFICIAL_MODEL_SHA256)
++    require(device=="cpu" && shifts==1 && overlap!=null && kotlin.math.abs(overlap-0.5)<0.000000001)
++    require(demucsVersion==OFFICIAL_DEMUCS_VERSION && pytorchVersion==OFFICIAL_PYTORCH_VERSION && modelBytes==OFFICIAL_MODEL_BYTES)
+     val manifestUid=requireNotNull(uid) { "missing result uid" }
+     if(expectedUid!=null) require(manifestUid==expectedUid) { "remote result uid mismatch" }
+     val expectedPrefix="remote/v1/users/$manifestUid/jobs/${i.jobId}/output/prepared/"
+@@ -92,6 +102,11 @@ data class RemoteResultManifest(
+  private fun safePath(path:String)=path.startsWith("remote/v1/")&&!path.contains("..")
+  companion object {
+   const val MODEL_SHA256="09704f4ceae204e56e77d5eefd6ac71d7275be81fd507e6913371d59abcee856"
++  const val OFFICIAL_ENGINE="demucs-pytorch"
++  const val OFFICIAL_MODEL_SHA256="34c22ccb381c6f9fdbf324f04e1e2fe21aaaf293f5ded163a162697ff9a02ddd"
++  const val OFFICIAL_DEMUCS_VERSION="4.1.0"
++  const val OFFICIAL_PYTORCH_VERSION="2.14.0+cpu"
++  const val OFFICIAL_MODEL_BYTES=54996327L
+   val STEMS=listOf("drums","bass","other","vocals","guitar","piano")
+   val BACKING_STEMS=listOf("drums","bass","other","vocals","piano")
+   val DELIVERABLES=mapOf("backing" to "REFERENCE_BACKING","guitar" to "REFERENCE_GUITAR")
+diff --git a/core/separation/src/test/kotlin/studio/guitarlab/core/separation/RemoteSeparationTest.kt b/core/separation/src/test/kotlin/studio/guitarlab/core/separation/RemoteSeparationTest.kt
+--- a/core/separation/src/test/kotlin/studio/guitarlab/core/separation/RemoteSeparationTest.kt
++++ b/core/separation/src/test/kotlin/studio/guitarlab/core/separation/RemoteSeparationTest.kt
+@@ -181,10 +181,10 @@ class RemoteSeparationTest {
+             jobId = i.jobId,
+             projectId = i.projectId,
+             inputSha256 = i.inputSha256,
+-            engine = "demucs.cpp",
+-            engineRevision = "rc13",
++            engine = RemoteResultManifest.OFFICIAL_ENGINE,
++            engineRevision = "rc20-official-demucs-pytorch",
+             model = "htdemucs_6s",
+-            modelSha256 = RemoteResultManifest.MODEL_SHA256,
++            modelSha256 = RemoteResultManifest.OFFICIAL_MODEL_SHA256,
+             sampleRate = 44100,
+             channels = 2,
+             frames = 1,
+@@ -199,6 +199,12 @@ class RemoteSeparationTest {
+                 "guitar",
+             ),
+             uid = "u",
++            device = "cpu",
++            shifts = 1,
++            overlap = 0.5,
++            demucsVersion = RemoteResultManifest.OFFICIAL_DEMUCS_VERSION,
++            pytorchVersion = RemoteResultManifest.OFFICIAL_PYTORCH_VERSION,
++            modelBytes = RemoteResultManifest.OFFICIAL_MODEL_BYTES,
+         )
+         val events = mutableListOf<String>()
+         val store = MemoryStore(DurableRemoteJob(i, RemoteJobState.RUNNING, 1))
+diff --git a/platform/separation/src/main/kotlin/studio/guitarlab/platform/separation/RemoteManifestCodec.kt b/platform/separation/src/main/kotlin/studio/guitarlab/platform/separation/RemoteManifestCodec.kt
+--- a/platform/separation/src/main/kotlin/studio/guitarlab/platform/separation/RemoteManifestCodec.kt
++++ b/platform/separation/src/main/kotlin/studio/guitarlab/platform/separation/RemoteManifestCodec.kt
+@@ -21,6 +21,12 @@ object RemoteManifestCodec {
+             channels = root.reqInt("channels"),
+             frames = root.reqLong("frames"),
+             durationSeconds = root.req("duration").jsonPrimitive.double,
++            device = root["device"]?.jsonPrimitive?.contentOrNull,
++            shifts = root["shifts"]?.jsonPrimitive?.intOrNull,
++            overlap = root["overlap"]?.jsonPrimitive?.doubleOrNull,
++            demucsVersion = root["demucsVersion"]?.jsonPrimitive?.contentOrNull,
++            pytorchVersion = root["pytorchVersion"]?.jsonPrimitive?.contentOrNull,
++            modelBytes = root["modelBytes"]?.jsonPrimitive?.longOrNull,
+         )
+         return when (schemaVersion) {
+             1 -> {
+@@ -81,6 +87,12 @@ object RemoteManifestCodec {
+         val channels: Int,
+         val frames: Long,
+         val durationSeconds: Double,
++        val device: String?,
++        val shifts: Int?,
++        val overlap: Double?,
++        val demucsVersion: String?,
++        val pytorchVersion: String?,
++        val modelBytes: Long?,
+     ) {
+         fun manifest(
+             schemaVersion: Int,
+@@ -104,6 +116,12 @@ object RemoteManifestCodec {
+             deliverables = deliverables,
+             referenceRecipe = referenceRecipe,
+             uid = uid,
++            device = device,
++            shifts = shifts,
++            overlap = overlap,
++            demucsVersion = demucsVersion,
++            pytorchVersion = pytorchVersion,
++            modelBytes = modelBytes,
+         )
+     }
+
+diff --git a/platform/separation/src/test/kotlin/studio/guitarlab/platform/separation/RemoteManifestCodecTest.kt b/platform/separation/src/test/kotlin/studio/guitarlab/platform/separation/RemoteManifestCodecTest.kt
+--- a/platform/separation/src/test/kotlin/studio/guitarlab/platform/separation/RemoteManifestCodecTest.kt
++++ b/platform/separation/src/test/kotlin/studio/guitarlab/platform/separation/RemoteManifestCodecTest.kt
+@@ -19,13 +19,20 @@ class RemoteManifestCodecTest {
+     @Test fun preparedReferenceV2ManifestParsesAndValidates() {
+         val job = UUID.randomUUID().toString()
+         val sha = "a".repeat(64)
+-        val json = """{"schemaVersion":2,"jobId":"$job","uid":"u","projectId":"p","inputSha256":"${"b".repeat(64)}","engine":"demucs.cpp","engineRevision":"rc13","model":"htdemucs_6s","modelSha256":"${RemoteResultManifest.MODEL_SHA256}","sampleRate":44100,"channels":2,"frames":441,"duration":0.01,"startedAt":"2026-09-23T00:00:00Z","completedAt":"2026-09-23T00:00:01Z","wallTimeMs":1000,"vCPU":8,"blasThreads":2,"demucsThreads":4,"inferenceStrategy":"mt4_omp2","referenceRecipe":{"version":"prepared-reference-v2","targetPeakDbfs":-1.0,"sharedGainDb":-0.5,"backingStems":["drums","bass","other","vocals","piano"],"guitarStem":"guitar"},"deliverables":[{"name":"backing","role":"REFERENCE_BACKING","path":"remote/v1/users/u/jobs/$job/output/prepared/backing.wav","bytes":128,"sha256":"$sha","sampleRate":44100,"channels":2,"frames":441,"encoding":"FLOAT32_LE"},{"name":"guitar","role":"REFERENCE_GUITAR","path":"remote/v1/users/u/jobs/$job/output/prepared/guitar.wav","bytes":128,"sha256":"$sha","sampleRate":44100,"channels":2,"frames":441,"encoding":"FLOAT32_LE"}]}"""
++        val json = """{"schemaVersion":2,"jobId":"$job","uid":"u","projectId":"p","inputSha256":"${"b".repeat(64)}","engine":"demucs-pytorch","engineRevision":"rc20-official-demucs-pytorch","model":"htdemucs_6s","modelSha256":"${RemoteResultManifest.OFFICIAL_MODEL_SHA256}","sampleRate":44100,"channels":2,"frames":441,"duration":0.01,"startedAt":"2026-09-23T00:00:00Z","completedAt":"2026-09-23T00:00:01Z","wallTimeMs":1000,"vCPU":8,"blasThreads":8,"demucsThreads":0,"inferenceStrategy":"pytorch-cpu-s1-o0.5-t8","device":"cpu","shifts":1,"overlap":0.5,"demucsVersion":"4.1.0","pytorchVersion":"2.14.0+cpu","modelBytes":54996327,"referenceRecipe":{"version":"prepared-reference-v2","targetPeakDbfs":-1.0,"sharedGainDb":-0.5,"backingStems":["drums","bass","other","vocals","piano"],"guitarStem":"guitar"},"deliverables":[{"name":"backing","role":"REFERENCE_BACKING","path":"remote/v1/users/u/jobs/$job/output/prepared/backing.wav","bytes":128,"sha256":"$sha","sampleRate":44100,"channels":2,"frames":441,"encoding":"FLOAT32_LE"},{"name":"guitar","role":"REFERENCE_GUITAR","path":"remote/v1/users/u/jobs/$job/output/prepared/guitar.wav","bytes":128,"sha256":"$sha","sampleRate":44100,"channels":2,"frames":441,"encoding":"FLOAT32_LE"}]}"""
+         val manifest = RemoteManifestCodec.decode(json.toByteArray())
+         manifest.validateFor(RemoteJobIdentity(job, "p", "source", "b".repeat(64)), "u")
+         assertEquals("u", manifest.uid)
+         assertEquals(2, manifest.schemaVersion)
+         assertEquals(listOf("backing", "guitar"), manifest.deliverables.map { it.name })
+         assertTrue(manifest.stems.isEmpty())
++        assertEquals("cpu", manifest.device)
++        assertEquals(1, manifest.shifts)
++        assertEquals(RemoteResultManifest.OFFICIAL_MODEL_BYTES, manifest.modelBytes)
++        val legacyEngine = manifest.copy(engine = "demucs.cpp", modelSha256 = RemoteResultManifest.MODEL_SHA256)
++        assertThrows(IllegalArgumentException::class.java) {
++            legacyEngine.validateFor(RemoteJobIdentity(job, "p", "source", "b".repeat(64)), "u")
++        }
+         assertThrows(IllegalArgumentException::class.java) {
+             manifest.validateFor(RemoteJobIdentity(job, "p", "source", "b".repeat(64)), "foreign")
+         }
