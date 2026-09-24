@@ -38,6 +38,21 @@ class DemucsEngineContractTest(unittest.TestCase):
         )
         self.assertEqual(config.strategy, "pytorch-cpu-s1-o0.5-t8")
 
+    def test_runtime_packages_require_exact_versions(self):
+        runner = engine.DemucsPyTorchRunner(engine.DemucsEngineConfig())
+        versions = {
+            "demucs": engine.DEMUCS_VERSION,
+            "torch": engine.PYTORCH_VERSION,
+            "numpy": engine.NUMPY_VERSION,
+        }
+        with mock.patch.object(engine.metadata, "version", side_effect=lambda name: versions[name]):
+            runner.validate_runtime_packages()
+
+        versions["numpy"] = "2.0.0"
+        with mock.patch.object(engine.metadata, "version", side_effect=lambda name: versions[name]):
+            with self.assertRaisesRegex(engine.EngineError, "unexpected numpy version"):
+                runner.validate_runtime_packages()
+
     def test_model_assets_fail_closed(self):
         with tempfile.TemporaryDirectory() as tmp:
             repo = Path(tmp)
@@ -82,8 +97,9 @@ class DemucsEngineContractTest(unittest.TestCase):
                  mock.patch.object(engine, "MODEL_SHA256", hashlib.sha256(b"x").hexdigest()), \
                  mock.patch.object(subprocess, "Popen", return_value=process):
                 runner = engine.DemucsPyTorchRunner(engine.DemucsEngineConfig(model_repo=repo))
-                with self.assertRaisesRegex(engine.EngineError, "piano"):
-                    runner.run(source, output)
+                with mock.patch.object(runner, "validate_runtime_packages"):
+                    with self.assertRaisesRegex(engine.EngineError, "piano"):
+                        runner.run(source, output)
 
     def test_cpu_thread_environment_is_explicit(self):
         runner = engine.DemucsPyTorchRunner(engine.DemucsEngineConfig(cpu_threads=4))

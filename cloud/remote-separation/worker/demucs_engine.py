@@ -9,6 +9,7 @@ exact CLI arguments, bounded execution, cancellation, and discovery of the six p
 from __future__ import annotations
 
 import hashlib
+import importlib.metadata as metadata
 import os
 import signal
 import subprocess
@@ -20,6 +21,7 @@ STEMS = ("drums", "bass", "other", "vocals", "guitar", "piano")
 ENGINE_NAME = "demucs-pytorch"
 DEMUCS_VERSION = "4.1.0"
 PYTORCH_VERSION = "2.14.0+cpu"
+NUMPY_VERSION = "1.26.4"
 ENGINE_REVISION = f"demucs={DEMUCS_VERSION};torch={PYTORCH_VERSION}"
 MODEL_NAME = "htdemucs_6s"
 MODEL_SIGNATURE = "5c90dfd2"
@@ -78,6 +80,23 @@ class DemucsPyTorchRunner:
         self.config = config
         self._process: subprocess.Popen[str] | None = None
 
+    def validate_runtime_packages(self) -> None:
+        expected = {
+            "demucs": DEMUCS_VERSION,
+            "torch": PYTORCH_VERSION,
+            "numpy": NUMPY_VERSION,
+        }
+        for package, version in expected.items():
+            try:
+                actual = metadata.version(package)
+            except metadata.PackageNotFoundError as error:
+                raise EngineError("RUNTIME_INVALID", f"required package missing: {package}") from error
+            if actual != version:
+                raise EngineError(
+                    "RUNTIME_INVALID",
+                    f"unexpected {package} version: {actual}; expected {version}",
+                )
+
     def validate_assets(self) -> None:
         repo = self.config.model_repo
         checkpoint = repo / MODEL_FILE
@@ -134,6 +153,7 @@ class DemucsPyTorchRunner:
             return
 
     def run(self, source: Path, output_root: Path, timeout_seconds: int = 1_700) -> list[Path]:
+        self.validate_runtime_packages()
         self.validate_assets()
         if not source.is_file():
             raise EngineError("INPUT_UNSUPPORTED", f"canonical input missing: {source}")
