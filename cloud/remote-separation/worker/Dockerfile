@@ -47,7 +47,7 @@ assert tuple(model.sources) == ("drums", "bass", "other", "vocals", "guitar", "p
 PY
 
 WORKDIR /app
-COPY demucs_engine.py gbw_worker.py benchmark.py /app/
+COPY audio_quality.py demucs_engine.py gbw_worker.py benchmark.py /app/
 RUN useradd --uid 65532 --create-home --shell /usr/sbin/nologin worker \
     && chown -R worker:worker /app /opt/demucs \
     && chmod -R a-w /opt/demucs/models

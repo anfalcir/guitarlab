@@ -264,11 +264,15 @@ class WorkerContractTest(unittest.TestCase):
             with mock.patch.object(worker, "mix_float", side_effect=fake_mix), \
                  mock.patch.object(worker, "peak_dbfs", side_effect=[-0.2, -3.0, -0.1, -1.1, -3.9, -1.0]), \
                  mock.patch.object(worker, "apply_gain", side_effect=fake_gain):
-                outputs, gain_db = worker.render_prepared_references(stems, root / "prepared")
+                outputs, gain_db, stage_metrics = worker.render_prepared_references(stems, root / "prepared")
 
             self.assertAlmostEqual(gain_db, -0.9, places=6)
             self.assertEqual([path.name for path in outputs], ["backing.wav", "guitar.wav"])
             self.assertEqual(worker.wav_contract(outputs[0]), worker.wav_contract(outputs[1]))
+            self.assertEqual(
+                set(stage_metrics),
+                {"backingRaw", "guitarRaw", "fullRaw", "backingFinal", "guitarFinal", "recombinedFinal"},
+            )
 
     def test_reference_render_rejects_delivered_pair_that_would_clip(self):
         with tempfile.TemporaryDirectory() as tmp:

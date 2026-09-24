@@ -27,6 +27,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable
 
+from audio_quality import evaluate_stems, measure_float32_stereo
 from demucs_engine import (
     DEMUCS_VERSION,
     ENGINE_NAME,
@@ -232,6 +233,15 @@ def float_data_span(path: Path) -> tuple[int, int]:
     raise WorkerError("OUTPUT_INVALID", f"missing WAV data: {path.name}")
 
 
+def measure_wav(path: Path):
+    contract = wav_contract(path)
+    offset, data_bytes = float_data_span(path)
+    measured = measure_float32_stereo(path, offset, data_bytes)
+    if measured.frames != contract[2]:
+        raise WorkerError("OUTPUT_INVALID", f"metric frame mismatch: {path.name}")
+    return measured
+
+
 def sampled_reconstruction_snr_db(source: Path, stems: list[Path], stride_frames: int = 97) -> float:
     """Samples stem finiteness and reports a diagnostic reconstruction score.
 
@@ -365,7 +375,7 @@ def apply_gain(source: Path, output: Path, gain_db: float) -> None:
     )
 
 
-def render_prepared_references(outputs: list[Path], final_dir: Path) -> tuple[list[Path], float]:
+def render_prepared_references(outputs: list[Path], final_dir: Path) -> tuple[list[Path], float, dict]:
     by_name = dict(zip(STEMS, outputs))
     if set(by_name) != set(STEMS):
         raise WorkerError("REFERENCE_RENDER_FAILED", "six-stem set is incomplete")
@@ -399,10 +409,18 @@ def render_prepared_references(outputs: list[Path], final_dir: Path) -> tuple[li
     guitar_contract = wav_contract(guitar)
     if backing_contract != guitar_contract:
         raise WorkerError("REFERENCE_RENDER_FAILED", "prepared reference contracts differ")
+    stage_metrics = {
+        "backingRaw": measure_wav(backing_raw).as_dict(),
+        "guitarRaw": measure_wav(by_name["guitar"]).as_dict(),
+        "fullRaw": measure_wav(full_raw).as_dict(),
+        "backingFinal": measure_wav(backing).as_dict(),
+        "guitarFinal": measure_wav(guitar).as_dict(),
+        "recombinedFinal": measure_wav(recombined).as_dict(),
+    }
     backing_raw.unlink(missing_ok=True)
     full_raw.unlink(missing_ok=True)
     recombined.unlink(missing_ok=True)
-    return [backing, guitar], shared_gain_db
+    return [backing, guitar], shared_gain_db, stage_metrics
 
 
 def inference_strategy(config: Config) -> str:
@@ -557,6 +575,9 @@ def run(config: Config, storage_factory: Callable[[], object] | None = None) -> 
             raise WorkerError("INPUT_HASH_MISMATCH", "downloaded input digest differs")
         canonical = root / "input.wav"
         canonicalize(source, canonical)
+        canonical_metrics = measure_wav(canonical)
+        if canonical_metrics.non_finite_samples:
+            raise WorkerError("INPUT_UNSUPPORTED", "canonical input contains non-finite samples")
         raw_dir = root / "raw"
         try:
             raw_outputs = runner.run(canonical, raw_dir, timeout_seconds=1_700)
@@ -565,6 +586,20 @@ def run(config: Config, storage_factory: Callable[[], object] | None = None) -> 
         if cancelled:
             raise WorkerError("JOB_CANCELLED", "worker terminated")
         outputs = normalize_outputs(raw_outputs, root / "final")
+        stem_metrics = {name: measure_wav(path) for name, path in zip(STEMS, outputs)}
+        quality_summary, quality_findings = evaluate_stems(stem_metrics)
+        print(json.dumps({
+            "event": "stem_quality_evaluated",
+            "jobId": config.job_id,
+            "canonicalInput": canonical_metrics.as_dict(),
+            "stems": {name: stem_metrics[name].as_dict() for name in STEMS},
+            "summary": quality_summary,
+            "findings": quality_findings,
+        }, separators=(",", ":")))
+        rejected = [row for row in quality_findings if row["severity"] == "reject"]
+        if rejected:
+            codes = ",".join(sorted({str(row["code"]) for row in rejected}))
+            raise WorkerError("OUTPUT_QUALITY_INVALID", f"stem quality gate rejected: {codes}")
         reconstruction_snr_db = sampled_reconstruction_snr_db(canonical, outputs)
         print(json.dumps({
             "event": "stem_reconstruction_diagnosed",
@@ -580,7 +615,13 @@ def run(config: Config, storage_factory: Callable[[], object] | None = None) -> 
                 "progress": 85,
                 "updatedAt": firestore.SERVER_TIMESTAMP,
             })
-        prepared, shared_gain_db = render_prepared_references(outputs, root / "prepared")
+        prepared, shared_gain_db, prepared_metrics = render_prepared_references(outputs, root / "prepared")
+        print(json.dumps({
+            "event": "prepared_reference_metrics",
+            "jobId": config.job_id,
+            "sharedGainDb": round(shared_gain_db, 9),
+            "metrics": prepared_metrics,
+        }, separators=(",", ":")))
         manifest = build_manifest(config, actual_input_sha, prepared, shared_gain_db, started, started_monotonic)
         if job_document:
             from google.cloud import firestore
@@ -619,6 +660,12 @@ def run(config: Config, storage_factory: Callable[[], object] | None = None) -> 
                 "resultManifestSha256": manifest_sha,
                 "completedAt": firestore.SERVER_TIMESTAMP,
                 "wallTimeMs": manifest["wallTimeMs"],
+                "engine": ENGINE_NAME,
+                "engineRevision": ENGINE_REVISION,
+                "model": MODEL_NAME,
+                "modelSha256": MODEL_SHA256,
+                "qualityGate": "PASS",
+                "otherEnergyShare": quality_summary["energyShareByStem"]["other"],
                 "blasThreads": config.cpu_threads,
                 "demucsThreads": 0,
                 "inferenceStrategy": inference_strategy(config),
