@@ -42,6 +42,15 @@ provenance stores both local asset hashes and `remoteBackingSha256` /
 `remoteGuitarSha256`. Hash inequality alone therefore does not prove stale local
 assets.
 
+The size relationship further explains the hash change without invoking stale
+audio. Each remote file has `63,316,082` bytes, while each supplied local file
+has `63,316,012` bytes. For `7,914,496` stereo float32 frames, the PCM payload is
+exactly `63,315,968` bytes. The remaining sizes are therefore a 114-byte remote
+WAVE_FORMAT_EXTENSIBLE container and a 44-byte local canonical WAV container:
+an exact 70-byte header delta. The production publisher decodes and rewrites
+that container while preserving frame samples. This is consistent with the
+observed local hashes and strongly rejects a historical local-reference mix-up.
+
 Firestore records source asset `2c7f0a12-f52a-4904-8320-c0155b4b41c5`, while
 the incident handoff identifies `f8c3e5d7-c759-41e1-945b-4968c3a54b0e`.
 The input SHA and project ID match the incident. This asset-ID difference must be
@@ -63,14 +72,24 @@ and was reported physically unusable:
 - shared gain: `-1.242556 dB`;
 - Firestore terminal state: `IMPORTED`, cleanup `PURGED`.
 
+## Same-source deterministic reproduction
+
+The preserved RC18 job `0860b0a7-6dda-439d-87af-b0f200c1a8b5` was a separate
+successful execution (`gbw-demucs-f6hjk`) of the same input. It produced exactly
+the same remote backing SHA, guitar SHA, shared gain (`-4.378385 dB`) and sampled
+reconstruction diagnostic (`1.467621 dB`) as the later physical RC19 job. The
+manifest hashes differ because timestamps/job identity differ; the audio hashes
+do not. The bad result is therefore a deterministic result of the pinned
+worker/model/strategy for that input, not remote-result reuse.
+
 ## F1 conclusion
 
 Case A (no fresh execution/reused result) is rejected for both reproductions.
-The primary incident is provisionally in Case B: a fresh worker execution produced
-the references that Android accepted. Case C is not established because Android
-canonicalization legitimately changes file hashes; local provenance/audio is
-needed to prove or reject exact sample equivalence. Case D cannot be separated
-from Case B without stage-level audio evidence.
+The primary incident is Case B: a fresh worker execution deterministically
+produced the exact same remote audio as the earlier independent same-source
+execution. Case C is strongly rejected by the exact frame/payload/container-size
+relationship and the fail-closed publication path. Case D cannot yet be separated
+from the wider Case B worker boundary without stage-level audio evidence.
 
 The defect reproducing across two independent inputs on the same immutable
 worker/model/runtime makes a source-specific failure substantially less likely.
