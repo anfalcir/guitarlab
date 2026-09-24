@@ -10,8 +10,6 @@ import tempfile
 import time
 from pathlib import Path
 
-from google.cloud import storage
-
 import gbw_worker as worker
 from demucs_engine import (
     DEMUCS_VERSION,
@@ -44,6 +42,8 @@ def strategy(name: str) -> dict:
 
 
 def run(args: argparse.Namespace) -> dict:
+    from google.cloud import storage
+
     selected = strategy(args.strategy)
     config = DemucsEngineConfig(
         model_repo=Path(args.model_repo),
