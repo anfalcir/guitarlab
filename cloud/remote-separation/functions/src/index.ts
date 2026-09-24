@@ -5,7 +5,7 @@ import {FieldValue, getFirestore} from "firebase-admin/firestore";
 import {HttpsError, onCall} from "firebase-functions/v2/https";
 import {onSchedule} from "firebase-functions/v2/scheduler";
 import {logger} from "firebase-functions";
-import {ACTIVE_STATES, BACKEND_POLICY_REVISION, JOB_ID, MAX_INPUT_BYTES, MAX_MONTHLY_JOBS, RESULT_RECOVERY_WINDOW_MS, SHA256, decideEnqueue, isIdempotentJob, monthKey, requireAckable, retentionAction, sameGeneration} from "./policy";
+import {ACTIVE_STATES, BACKEND_POLICY_REVISION, JOB_ID, MAX_INPUT_BYTES, MAX_MONTHLY_JOBS, RESULT_RECOVERY_WINDOW_MS, SHA256, WORKER_CONTRACT, decideEnqueue, isIdempotentJob, monthKey, requireAckable, retentionAction, sameGeneration} from "./policy";
 
 initializeApp();
 const db = getFirestore();
@@ -46,7 +46,8 @@ export const findRecoverableRemoteSeparation = onCall({region, enforceAppCheck: 
   const inputSha256 = text(data.inputSha256, "inputSha256", SHA256);
   const activeSnapshot = await db.collection(`users/${uid}/jobs`).where("state", "in", [...ACTIVE_STATES]).limit(10).get();
   const matches = activeSnapshot.docs.filter(document =>
-    sameGeneration({...(document.data() || {}), jobId: document.id}, projectId, sourceAssetId, inputSha256),
+    sameGeneration({...(document.data() || {}), jobId: document.id}, projectId, sourceAssetId, inputSha256) &&
+    document.data()?.workerContract === WORKER_CONTRACT,
   );
   if (matches.length === 0) return {found: false};
   if (matches.length !== 1) {
@@ -126,7 +127,7 @@ export const enqueueRemoteSeparation = onCall({region, enforceAppCheck: false, t
       };
     }
     if (selected.kind !== "CREATE") return selected;
-    transaction.create(jobRef, {schemaVersion: 2, resultContract: "prepared-reference-v2", uid, projectId, sourceAssetId, inputPath, inputSha256, state: "QUEUED", progress: 0,
+    transaction.create(jobRef, {schemaVersion: 2, resultContract: "prepared-reference-v2", workerContract: WORKER_CONTRACT, uid, projectId, sourceAssetId, inputPath, inputSha256, state: "QUEUED", progress: 0,
       phase: "QUEUED", createdAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp(), remoteCleanupState: "NONE"});
     transaction.set(usageRef, {acceptedJobs: FieldValue.increment(1), updatedAt: FieldValue.serverTimestamp()}, {merge: true});
     return {kind: "CREATE" as const};
@@ -241,6 +242,7 @@ export const remoteBackendStatus = onCall({region, enforceAppCheck: false, ...ru
   return {
     schemaVersion: 2,
     resultContract: "prepared-reference-v2",
+    workerContract: WORKER_CONTRACT,
     available: true,
     region,
     acceptedJobs: Number(usage.data()?.acceptedJobs || 0),

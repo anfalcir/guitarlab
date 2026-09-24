@@ -2,7 +2,8 @@ export const ACTIVE_STATES = new Set(["UPLOADING", "READY", "QUEUED", "RUNNING",
 export const JOB_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 export const SHA256 = /^[a-f0-9]{64}$/;
 export const MAX_MONTHLY_JOBS = 40;
-export const BACKEND_POLICY_REVISION = "rc19-q40-single8-prepared-v2-recovery";
+export const BACKEND_POLICY_REVISION = "rc20-q40-official-demucs-prepared-v2-recovery";
+export const WORKER_CONTRACT = "official-demucs-pytorch-v1";
 export const RESULT_RECOVERY_WINDOW_MS = 72 * 60 * 60 * 1000;
 export const MAX_INPUT_BYTES = 1_073_741_824;
 
@@ -46,6 +47,8 @@ export type ActiveJobRecord = {
   projectId?: unknown;
   sourceAssetId?: unknown;
   inputSha256?: unknown;
+  state?: unknown;
+  workerContract?: unknown;
 };
 
 export function sameGeneration(
@@ -66,15 +69,27 @@ export function decideEnqueue(
   sourceAssetId: string,
   inputSha256: string,
 ): EnqueueDecision {
-  const recoverable = activeJobs.filter(job => sameGeneration(job, projectId, sourceAssetId, inputSha256));
+  const sameGenerationJobs = activeJobs.filter(job =>
+    sameGeneration(job, projectId, sourceAssetId, inputSha256),
+  );
+  const recoverable = sameGenerationJobs.filter(job => job.workerContract === WORKER_CONTRACT);
   if (recoverable.length === 1) {
-    // Adoption is non-destructive and does not dispatch or consume quota. Prefer the
-    // exact same generation even if an unrelated active record also exists; this is
-    // required for safe reconciliation of preserved completed results.
+    // Adoption is non-destructive and does not dispatch or consume quota. Only the
+    // current qualified worker contract may be adopted after the RC20 engine cutover.
     return {kind: "RECOVER_EXISTING", jobId: recoverable[0].jobId};
   }
-  if (activeJobs.length > 0) {
-    return {kind: "ACTIVE_JOB_CONFLICT", jobId: activeJobs[0].jobId};
+  if (recoverable.length > 1) {
+    return {kind: "ACTIVE_JOB_CONFLICT", jobId: recoverable[0].jobId};
+  }
+  const blocking = activeJobs.filter(job => {
+    const supersededCompletedSameGeneration =
+      sameGeneration(job, projectId, sourceAssetId, inputSha256) &&
+      String(job.state) === "COMPLETED" &&
+      job.workerContract !== WORKER_CONTRACT;
+    return !supersededCompletedSameGeneration;
+  });
+  if (blocking.length > 0) {
+    return {kind: "ACTIVE_JOB_CONFLICT", jobId: blocking[0].jobId};
   }
   if (acceptedJobs >= MAX_MONTHLY_JOBS) return {kind: "MONTHLY_QUOTA_REACHED"};
   return {kind: "CREATE"};

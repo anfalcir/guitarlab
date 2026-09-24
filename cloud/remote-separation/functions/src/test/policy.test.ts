@@ -5,6 +5,7 @@ import {
   BACKEND_POLICY_REVISION,
   MAX_MONTHLY_JOBS,
   RESULT_RECOVERY_WINDOW_MS,
+  WORKER_CONTRACT,
   inputPath,
   isIdempotentJob,
   monthKey,
@@ -56,7 +57,7 @@ test("cancel requested still occupies the single active-job slot", () =>
   assert.equal(ACTIVE_STATES.has("CANCEL_REQUESTED"), true));
 
 test("backend policy revision is explicit", () =>
-  assert.equal(BACKEND_POLICY_REVISION, "rc19-q40-single8-prepared-v2-recovery"));
+  assert.equal(BACKEND_POLICY_REVISION, "rc20-q40-official-demucs-prepared-v2-recovery"));
 
 test("retention preserves recent results and expires abandoned imports after recovery window", () => {
   const now = Date.UTC(2026, 8, 23, 12);
@@ -69,7 +70,7 @@ test("retention preserves recent results and expires abandoned imports after rec
 
 test("same generation recovery wins without quota consumption or new dispatch", () => {
   const hash = "a".repeat(64);
-  const active = [{jobId: "job-good", projectId: "p", sourceAssetId: "source", inputSha256: hash}];
+  const active = [{jobId: "job-good", projectId: "p", sourceAssetId: "source", inputSha256: hash, state: "COMPLETED", workerContract: WORKER_CONTRACT}];
   assert.equal(sameGeneration(active[0], "p", "source", hash), true);
   assert.deepEqual(decideEnqueue(active, 40, "p", "source", hash), {
     kind: "RECOVER_EXISTING",
@@ -82,8 +83,8 @@ test("same generation adoption wins safely even when unrelated active work is pr
   assert.deepEqual(
     decideEnqueue(
       [
-        {jobId: "preserved-other", projectId: "other", sourceAssetId: "other-source", inputSha256: "b".repeat(64)},
-        {jobId: "job-good", projectId: "p", sourceAssetId: "source", inputSha256: hash},
+        {jobId: "preserved-other", projectId: "other", sourceAssetId: "other-source", inputSha256: "b".repeat(64), state: "RUNNING", workerContract: WORKER_CONTRACT},
+        {jobId: "job-good", projectId: "p", sourceAssetId: "source", inputSha256: hash, state: "COMPLETED", workerContract: WORKER_CONTRACT},
       ],
       10,
       "p",
@@ -124,4 +125,34 @@ test("quota is distinct from active-job conflict and only applies without active
     kind: "MONTHLY_QUOTA_REACHED",
   });
   assert.deepEqual(decideEnqueue([], MAX_MONTHLY_JOBS - 1, "p", "source", hash), {kind: "CREATE"});
+});
+
+
+test("superseded RC19 completed same-generation result is not adopted", () => {
+  const hash = "a".repeat(64);
+  const legacy = [{
+    jobId: "legacy-completed",
+    projectId: "p",
+    sourceAssetId: "source",
+    inputSha256: hash,
+    state: "COMPLETED",
+    workerContract: "demucs-cpp-single8-v1",
+  }];
+  assert.deepEqual(decideEnqueue(legacy, 10, "p", "source", hash), {kind: "CREATE"});
+});
+
+test("superseded same-generation running work still blocks concurrent inference", () => {
+  const hash = "a".repeat(64);
+  const legacy = [{
+    jobId: "legacy-running",
+    projectId: "p",
+    sourceAssetId: "source",
+    inputSha256: hash,
+    state: "RUNNING",
+    workerContract: "demucs-cpp-single8-v1",
+  }];
+  assert.deepEqual(decideEnqueue(legacy, 10, "p", "source", hash), {
+    kind: "ACTIVE_JOB_CONFLICT",
+    jobId: "legacy-running",
+  });
 });
