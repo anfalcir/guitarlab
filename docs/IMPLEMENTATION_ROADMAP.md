@@ -2,7 +2,7 @@
 
 Updated: 2026-09-24
 
-> **Current unified-line authority (2026-09-24):** historical H29-H37 remains architecture/evidence context. U10/C8 and U11 are CLOSED / DIGITAL PASS. RC18 is digitally qualified at `ee947c6fbbd8b24430d3a3faa04e27ef9a46856c` and remains pending only target-device physical acceptance; RC14 remains the previous physically tested fallback.
+> **Current unified-line authority (2026-09-24):** historical H29-H37 remains architecture/evidence context. U10/C8 and U11 are CLOSED / DIGITAL PASS. RC19 is digitally qualified and signed at frozen source `e0a8a2218accbe9c8eec413a40f4fedf7d9da9bc`, but physical acceptance is blocked by a real Prepare audio-quality incident. `U12_RC19_AUDIO_FORENSICS_AND_DIAGNOSTICS_PLAN.md` is the active corrective authority; RC14 remains the previous physically tested fallback.
 
 ## Milestones
 - **M1 — Foundation:** CLOSED.
@@ -15,17 +15,18 @@ Updated: 2026-09-24
 
 ## Current signed authority
 
-**Android CI run `35990311091`** / producer `ee947c6fbbd8b24430d3a3faa04e27ef9a46856c` is the latest signed digital candidate (`0.5.0-rc18` / versionCode `38`). Backend qualification also passed U7 verify `35990311054`, isolated shadow `35991484767`, production deploy `35992709966`, and U4 production smoke `35994148711`. RC18 remains pending physical audio/synchronization acceptance on the target tablet.
+**Android CI #852 / run `36026458960`** on frozen source `e0a8a2218accbe9c8eec413a40f4fedf7d9da9bc` is the latest signed digital candidate (`0.5.0-rc19` / versionCode `39`). U7 production #130 / run `36024185442` and independent post-cutover U4 #160 / run `36026359099` also passed.
 
-Signed APK SHA-256: `3cd9bfe06c9aa1af7f452f0dd8d9e9bead50774bde4a3b22c72f09f51e5ea769`.
+Signed artifact: `GuitarLabStudio-0.5.0-rc19-homologacao` / artifact id `10820021943`.
+Signed APK SHA-256: `20c6a49efa69828653862c29c7907cd734bd2e3f62235295cd53b7f7c571c50b`.
 
-The same producer passed U4 Cloud Integration Smoke #123 and U7 Cloud Backend #81. The U7 gate proves Email/Password Firebase authentication is enabled, anonymous auth is disabled, allowlisted users are backed by the password provider and backend source/container/security verification passes. The locked signer remains `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
+RC19 is **not physically accepted**. A target-device Prepare run for job `c3ba40ec-6153-483a-801f-9e838b3e3b60` completed but produced unusable audio despite valid v2 WAV/hash/container properties. The locked signer remains `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
 
 ## Current release closure
 
-U10/C8 and U11 are digitally closed. U12 is active on RC18; RC18 is digitally qualified and RC14 remains the previous physically tested fallback until RC18 target-device acceptance. RC9–RC17 remain historical corrective evidence.
+U10/C8 and U11 are digitally closed. U12 remains open. RC19 is the latest digitally qualified/signed candidate but is physically rejected pending resolution of the Prepare audio-quality incident. RC14 remains the previous physically tested fallback; RC9–RC18 are retained as corrective/history evidence as applicable.
 
-The next required evidence is physical: install rc11 on the target tablet, authenticate once with the existing allowlisted Firebase Email/Password account, prove a fresh Prepare separation crosses the full Storage → Function → Cloud Run → import path, then complete the remaining USB/audio/10-minute/ergonomics acceptance residuals.
+The next required work is **not another speculative audio build**. Execute `U12_RC19_AUDIO_FORENSICS_AND_DIAGNOSTICS_PLAN.md` in order: read-only production forensics for job `c3ba40ec-6153-483a-801f-9e838b3e3b60`, local audio forensics, controlled diagnostic replay only if necessary, root-cause correction, Studio reference reinsertion, de-duplicated diagnostics, persistent audit journal/export, representative audio-quality gate, then full Android/U7/U4 qualification. Any source fix after RC19 freeze targets `0.5.0-rc20` / versionCode `40` before focused physical acceptance resumes.
 
 ## Approved post-H28 implementation path
 Detailed authority: `POST_H28_HARDENING_AND_EXTERNAL_CONTROL_PLAN.md`.
