@@ -5,7 +5,7 @@ import {FieldValue, getFirestore} from "firebase-admin/firestore";
 import {HttpsError, onCall} from "firebase-functions/v2/https";
 import {onSchedule} from "firebase-functions/v2/scheduler";
 import {logger} from "firebase-functions";
-import {ACTIVE_STATES, BACKEND_POLICY_REVISION, JOB_ID, MAX_INPUT_BYTES, MAX_MONTHLY_JOBS, RESULT_RECOVERY_WINDOW_MS, SHA256, isIdempotentJob, monthKey, requireAckable, retentionAction} from "./policy";
+import {ACTIVE_STATES, BACKEND_POLICY_REVISION, JOB_ID, MAX_INPUT_BYTES, MAX_MONTHLY_JOBS, RESULT_RECOVERY_WINDOW_MS, SHA256, decideEnqueue, isIdempotentJob, monthKey, requireAckable, retentionAction, sameGeneration} from "./policy";
 
 initializeApp();
 const db = getFirestore();
@@ -33,6 +33,39 @@ function text(value: unknown, key: string, regex: RegExp): string {
 }
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
+async function cleanupUnregisteredUpload(uid: string, jobId: string): Promise<void> {
+  await storage.bucket(bucketName).deleteFiles({prefix: `remote/v1/users/${uid}/jobs/${jobId}/`})
+    .catch(error => logger.warn("unregistered upload cleanup failed", {jobId, error: String(error)}));
+}
+
+export const findRecoverableRemoteSeparation = onCall({region, enforceAppCheck: false, timeoutSeconds: 60, ...runtimeIdentity}, async request => {
+  const {uid} = caller(request);
+  const data = request.data || {};
+  const projectId = text(data.projectId, "projectId", uuid);
+  const sourceAssetId = text(data.sourceAssetId, "sourceAssetId", /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/);
+  const inputSha256 = text(data.inputSha256, "inputSha256", SHA256);
+  const activeSnapshot = await db.collection(`users/${uid}/jobs`).where("state", "in", [...ACTIVE_STATES]).limit(10).get();
+  const matches = activeSnapshot.docs.filter(document =>
+    sameGeneration({jobId: document.id, ...(document.data() || {})}, projectId, sourceAssetId, inputSha256),
+  );
+  if (matches.length === 0) return {found: false};
+  if (matches.length !== 1) {
+    throw new HttpsError("failed-precondition", "Remote state is ambiguous.", {reason: "REMOTE_STATE_AMBIGUOUS"});
+  }
+  const document = matches[0];
+  const job = document.data() || {};
+  return {
+    found: true,
+    disposition: "EXISTING_SAME_GENERATION",
+    jobId: document.id,
+    projectId,
+    sourceAssetId,
+    inputSha256,
+    state: String(job.state || "QUEUED"),
+    resultManifestSha256: typeof job.resultManifestSha256 === "string" ? job.resultManifestSha256 : null,
+  };
+});
+
 export const enqueueRemoteSeparation = onCall({region, enforceAppCheck: false, timeoutSeconds: 60, ...runtimeIdentity}, async request => {
   const {uid} = caller(request);
   const data = request.data || {};
@@ -51,25 +84,80 @@ export const enqueueRemoteSeparation = onCall({region, enforceAppCheck: false, t
   }
   const jobRef = db.doc(`users/${uid}/jobs/${jobId}`);
   const usageRef = db.doc(`users/${uid}/usage/${monthKey()}`);
-  let shouldExecute = false;
-  await db.runTransaction(async transaction => {
+  const decision = await db.runTransaction(async transaction => {
     const [jobSnapshot, usageSnapshot, activeSnapshot] = await Promise.all([
-      transaction.get(jobRef), transaction.get(usageRef),
-      transaction.get(db.collection(`users/${uid}/jobs`).where("state", "in", [...ACTIVE_STATES]).limit(2)),
+      transaction.get(jobRef),
+      transaction.get(usageRef),
+      transaction.get(db.collection(`users/${uid}/jobs`).where("state", "in", [...ACTIVE_STATES]).limit(10)),
     ]);
     if (jobSnapshot.exists) {
-      if (!isIdempotentJob(jobSnapshot.data() || {}, projectId, sourceAssetId, inputSha256)) throw new HttpsError("already-exists", "jobId conflict.");
-      return;
+      const existing = jobSnapshot.data() || {};
+      if (!isIdempotentJob(existing, projectId, sourceAssetId, inputSha256)) throw new HttpsError("already-exists", "jobId conflict.");
+      return {
+        kind: "IDEMPOTENT" as const,
+        effectiveJobId: jobId,
+        state: String(existing.state || "QUEUED"),
+        resultManifestSha256: typeof existing.resultManifestSha256 === "string" ? existing.resultManifestSha256 : null,
+      };
     }
-    if (!activeSnapshot.empty) throw new HttpsError("resource-exhausted", "One remote job is already active.");
-    const accepted = Number(usageSnapshot.data()?.acceptedJobs || 0);
-    if (accepted >= MAX_MONTHLY_JOBS) throw new HttpsError("resource-exhausted", "Monthly remote quota reached.");
+    const activeJobs = activeSnapshot.docs.map(document => ({jobId: document.id, ...(document.data() || {})}));
+    const selected = decideEnqueue(
+      activeJobs,
+      Number(usageSnapshot.data()?.acceptedJobs || 0),
+      projectId,
+      sourceAssetId,
+      inputSha256,
+    );
+    if (selected.kind === "RECOVER_EXISTING") {
+      const existingDocument = activeSnapshot.docs.find(document => document.id === selected.jobId);
+      const existing = existingDocument?.data() || {};
+      return {
+        kind: "RECOVER_EXISTING" as const,
+        effectiveJobId: selected.jobId,
+        state: String(existing.state || "QUEUED"),
+        resultManifestSha256: typeof existing.resultManifestSha256 === "string" ? existing.resultManifestSha256 : null,
+      };
+    }
+    if (selected.kind !== "CREATE") return selected;
     transaction.create(jobRef, {schemaVersion: 2, resultContract: "prepared-reference-v2", uid, projectId, sourceAssetId, inputPath, inputSha256, state: "QUEUED", progress: 0,
       phase: "QUEUED", createdAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp(), remoteCleanupState: "NONE"});
     transaction.set(usageRef, {acceptedJobs: FieldValue.increment(1), updatedAt: FieldValue.serverTimestamp()}, {merge: true});
-    shouldExecute = true;
+    return {kind: "CREATE" as const};
   });
-  if (!shouldExecute) return {jobId, idempotent: true};
+
+  if (decision.kind === "RECOVER_EXISTING") {
+    await cleanupUnregisteredUpload(uid, jobId);
+    return {
+      requestedJobId: jobId,
+      effectiveJobId: decision.effectiveJobId,
+      disposition: "EXISTING_SAME_GENERATION",
+      state: decision.state,
+      resultManifestSha256: decision.resultManifestSha256,
+    };
+  }
+  if (decision.kind === "ACTIVE_JOB_CONFLICT") {
+    await cleanupUnregisteredUpload(uid, jobId);
+    throw new HttpsError("resource-exhausted", "Another remote separation is active.", {
+      reason: "ACTIVE_JOB_CONFLICT",
+      activeJobId: decision.jobId,
+    });
+  }
+  if (decision.kind === "MONTHLY_QUOTA_REACHED") {
+    await cleanupUnregisteredUpload(uid, jobId);
+    throw new HttpsError("resource-exhausted", "Monthly remote quota reached.", {
+      reason: "MONTHLY_QUOTA_REACHED",
+    });
+  }
+  if (decision.kind === "IDEMPOTENT") {
+    return {
+      requestedJobId: jobId,
+      effectiveJobId: jobId,
+      disposition: "IDEMPOTENT",
+      state: decision.state,
+      resultManifestSha256: decision.resultManifestSha256,
+    };
+  }
+
   try {
     const [operation] = await jobsClient.runJob({name: runJobName, overrides: {taskCount: 1, containerOverrides: [{env: [
       {name: "GBW_BUCKET", value: bucketName}, {name: "GBW_UID", value: uid}, {name: "GBW_JOB_ID", value: jobId},
@@ -83,7 +171,15 @@ export const enqueueRemoteSeparation = onCall({region, enforceAppCheck: false, t
       dispatchedAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
     });
-    return {jobId, executionName, state: "QUEUED", phase: "STARTING", idempotent: false};
+    return {
+      requestedJobId: jobId,
+      effectiveJobId: jobId,
+      disposition: "CREATED",
+      state: "QUEUED",
+      resultManifestSha256: null,
+      executionName,
+      phase: "STARTING",
+    };
   } catch (error) {
     await jobRef.update({state: "FAILED", errorCode: "JOB_START_FAILED", updatedAt: FieldValue.serverTimestamp()});
     throw new HttpsError("internal", "Could not start separation.");
