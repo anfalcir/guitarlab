@@ -136,3 +136,17 @@ Actual counts and hashes are always taken from the new run; prior counts are his
 
 ## Artifact identity discipline
 The signed authority SHA is always the exact workflow producer SHA. A later source/docs HEAD never changes an earlier APK producer identity.
+
+
+## U12aj / RC19 — authoritative remote recovery gate
+RC19 adds a release-critical recovery boundary before any signed homologation build.
+
+Required exact-source evidence:
+- canonical materialization through U12aj with terminal-blob and reverse-apply checks;
+- Android unit/JVM, Lint, debug/release build and API 36 regression;
+- U7 backend policy/tests/security verification;
+- controlled shadow/production deploy whenever Functions source changes;
+- U4 real-cloud fresh-job smoke plus the same-generation recovery/idempotency sub-gate;
+- only after those gates pass may `[run ci signed]` produce the RC19 physical candidate.
+
+The recovery sub-gate must leave a completed job unacknowledged, prove discovery/adoption by the same project/source/hash, prove no second Cloud Run execution and no quota increment, prove the rejected retry prefix has no Firestore document and no Storage residue, then ACK the original and prove IMPORTED/PURGED.
