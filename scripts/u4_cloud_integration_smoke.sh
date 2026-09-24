@@ -189,6 +189,62 @@ for artifact in "${DELIVERABLES[@]}"; do
 done
 gcloud storage objects describe "$MANIFEST_URI" >/dev/null
 
+# Prove authoritative same-generation discovery/adoption before ACK.
+FIND_URL="https://${GBW_REGION}-${GBW_GCP_PROJECT}.cloudfunctions.net/findRecoverableRemoteSeparation"
+FIND_PAYLOAD="{\"data\":{\"projectId\":\"${PROJECT_ID}\",\"sourceAssetId\":\"${SOURCE_ASSET_ID}\",\"inputSha256\":\"${INPUT_SHA}\"}}"
+FIND_RESPONSE="$(
+  curl --fail-with-body --show-error --silent     -H "Authorization: Bearer ${FIREBASE_ID_TOKEN}"     -H "Content-Type: application/json"     -X POST "$FIND_URL"     --data "$FIND_PAYLOAD"
+)"
+python3 - "$FIND_RESPONSE" "$JOB_ID" <<'PY'
+import json,sys
+payload=json.loads(sys.argv[1])
+result=payload.get("result") or {}
+assert result.get("found") is True, payload
+assert result.get("disposition")=="EXISTING_SAME_GENERATION", payload
+assert result.get("jobId")==sys.argv[2], payload
+assert result.get("state")=="COMPLETED", payload
+PY
+
+RECOVERY_INPUT_PATH="${RECOVERY_PREFIX}/input/source.wav"
+gcloud storage cp "$TMP/source.wav" "gs://${GBW_BUCKET}/${RECOVERY_INPUT_PATH}" --content-type="audio/wav" --custom-metadata="sha256=${INPUT_SHA},projectId=${PROJECT_ID},jobId=${RECOVERY_JOB_ID}" >/dev/null
+MONTH_KEY="$(date -u +%Y-%m)"
+USAGE_URL="https://firestore.googleapis.com/v1/projects/${GBW_GCP_PROJECT}/databases/(default)/documents/users/${TEST_UID}/usage/${MONTH_KEY}"
+USAGE_BEFORE="$(curl --silent -H "X-Goog-User-Project: ${GBW_GCP_PROJECT}" "$USAGE_URL" || true)"
+EXECUTIONS_BEFORE="$(gcloud run jobs executions list --job "$GBW_JOB_NAME" --region "$GBW_REGION" --project "$GBW_GCP_PROJECT" --format='value(name)' | sort)"
+
+ENQUEUE_URL="https://${GBW_REGION}-${GBW_GCP_PROJECT}.cloudfunctions.net/enqueueRemoteSeparation"
+ENQUEUE_PAYLOAD="{\"data\":{\"jobId\":\"${RECOVERY_JOB_ID}\",\"projectId\":\"${PROJECT_ID}\",\"sourceAssetId\":\"${SOURCE_ASSET_ID}\",\"inputSha256\":\"${INPUT_SHA}\",\"inputPath\":\"${RECOVERY_INPUT_PATH}\"}}"
+ENQUEUE_RESPONSE="$(
+  curl --fail-with-body --show-error --silent     -H "Authorization: Bearer ${FIREBASE_ID_TOKEN}"     -H "Content-Type: application/json"     -X POST "$ENQUEUE_URL"     --data "$ENQUEUE_PAYLOAD"
+)"
+python3 - "$ENQUEUE_RESPONSE" "$JOB_ID" "$RECOVERY_JOB_ID" <<'PY'
+import json,sys
+payload=json.loads(sys.argv[1])
+result=payload.get("result") or {}
+assert result.get("requestedJobId")==sys.argv[3], payload
+assert result.get("effectiveJobId")==sys.argv[2], payload
+assert result.get("disposition")=="EXISTING_SAME_GENERATION", payload
+assert result.get("state")=="COMPLETED", payload
+PY
+
+! gcloud storage ls "gs://${GBW_BUCKET}/${RECOVERY_PREFIX}/**" --recursive >/dev/null 2>&1
+RECOVERY_DOC_STATUS="$(curl --silent -o /dev/null -w '%{http_code}' "https://firestore.googleapis.com/v1/projects/${GBW_GCP_PROJECT}/databases/(default)/documents/users/${TEST_UID}/jobs/${RECOVERY_JOB_ID}")"
+test "$RECOVERY_DOC_STATUS" = "404"
+USAGE_AFTER="$(curl --silent -H "X-Goog-User-Project: ${GBW_GCP_PROJECT}" "$USAGE_URL" || true)"
+python3 - "$USAGE_BEFORE" "$USAGE_AFTER" <<'PY'
+import json,sys
+def accepted(raw):
+    try:
+        payload=json.loads(raw)
+        return int(payload.get("fields",{}).get("acceptedJobs",{}).get("integerValue","0"))
+    except Exception:
+        return 0
+assert accepted(sys.argv[1]) == accepted(sys.argv[2]), (accepted(sys.argv[1]), accepted(sys.argv[2]))
+PY
+EXECUTIONS_AFTER="$(gcloud run jobs executions list --job "$GBW_JOB_NAME" --region "$GBW_REGION" --project "$GBW_GCP_PROJECT" --format='value(name)' | sort)"
+test "$EXECUTIONS_BEFORE" = "$EXECUTIONS_AFTER"
+echo "U4 same-generation recovery PASS: completed original adopted; quota unchanged; no second Cloud Run execution; retry upload cleaned."
+
 # Call the production callable with a real Firebase-authenticated allowlisted identity.
 ACK_URL="https://${GBW_REGION}-${GBW_GCP_PROJECT}.cloudfunctions.net/acknowledgeRemoteImport"
 ACK_PAYLOAD="{\"data\":{\"jobId\":\"${JOB_ID}\",\"projectId\":\"${PROJECT_ID}\",\"resultManifestSha256\":\"${MANIFEST_SHA}\"}}"
