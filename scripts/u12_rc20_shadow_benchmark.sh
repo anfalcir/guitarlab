@@ -43,14 +43,15 @@ EXECUTION="$(gcloud run jobs execute "$BENCH_JOB"   --project "$GBW_GCP_PROJECT"
 ENDED="$(date +%s)"
 test -n "$EXECUTION"
 
-gcloud storage cp --recursive "gs://${GBW_BUCKET}/${BUNDLE_PREFIX}/**" "$ARTIFACT_DIR/" >/dev/null
-BUNDLE_DIR="$ARTIFACT_DIR"
-if [[ -d "$ARTIFACT_DIR/bundle" ]]; then
-  BUNDLE_DIR="$ARTIFACT_DIR/bundle"
-fi
-METRICS="$(find "$ARTIFACT_DIR" -name benchmark.json -type f -print -quit)"
-SUMS="$(find "$ARTIFACT_DIR" -name SHA256SUMS -type f -print -quit)"
-test -n "$METRICS" && test -n "$SUMS"
+mkdir -p "$ARTIFACT_DIR/stems" "$ARTIFACT_DIR/prepared"
+gcloud storage cp "gs://${GBW_BUCKET}/${BUNDLE_PREFIX}/SHA256SUMS" "$ARTIFACT_DIR/SHA256SUMS" >/dev/null
+gcloud storage cp "gs://${GBW_BUCKET}/${BUNDLE_PREFIX}/benchmark.json" "$ARTIFACT_DIR/benchmark.json" >/dev/null
+gcloud storage cp "gs://${GBW_BUCKET}/${BUNDLE_PREFIX}/recombined.wav" "$ARTIFACT_DIR/recombined.wav" >/dev/null
+gcloud storage cp "gs://${GBW_BUCKET}/${BUNDLE_PREFIX}/stems/*.wav" "$ARTIFACT_DIR/stems/" >/dev/null
+gcloud storage cp "gs://${GBW_BUCKET}/${BUNDLE_PREFIX}/prepared/*.wav" "$ARTIFACT_DIR/prepared/" >/dev/null
+METRICS="$ARTIFACT_DIR/benchmark.json"
+SUMS="$ARTIFACT_DIR/SHA256SUMS"
+test -s "$METRICS" && test -s "$SUMS"
 (
   cd "$(dirname "$SUMS")"
   sha256sum -c "$(basename "$SUMS")"
