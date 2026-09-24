@@ -18,7 +18,7 @@ U10 evidence:
 - deterministic visual review PASS;
 - signed homologation intentionally skipped because U11 owns final freeze/signing.
 
-The latest signed authority is RC14: Android CI run `35937621047`, producer `13c6f36e5e3c2bcf82cf21f885e8d7aa6c41ed34`, package `studio.guitarlab.app`, `0.5.0-rc14` / versionCode `34`. RC18 (`0.5.0-rc18` / 38) is the active physical corrective and must pass Android/U7 on its own exact SHA, isolated shadow, controlled production worker deployment/U4, and physical acceptance.
+The latest digitally qualified physical-corrective candidate is RC18: Android CI signed run `35990311091`, producer `ee947c6fbbd8b24430d3a3faa04e27ef9a46856c`, package `studio.guitarlab.app`, `0.5.0-rc18` / versionCode `38`, signed artifact `GuitarLabStudio-0.5.0-rc18-homologacao` / artifact id `10804182567`. U7 verify `35990311054`, isolated shadow `35991484767`, controlled production deploy `35992709966`, and U4 production smoke `35994148711` passed. RC18 now requires target-tablet physical acceptance.
 
 RC18 physical acceptance is deliberately end-to-end: install over RC15/RC16/RC17, run a new separation, confirm clean Base plus correctly panned Guitar L/R with no clipping/distortion, delete the three prepared clips, and verify **Sincronizar Studio** reinserts them without network or Demucs. Then run another separation with the lanes empty and confirm automatic population. Recordings, takes and mixer state must remain unchanged.
 

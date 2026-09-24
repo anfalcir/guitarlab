@@ -26,20 +26,21 @@ Read first:
 
 ## Active source/release state
 
-**U11 is CLOSED / DIGITAL PASS. U12 is active with RC18 as the physical-corrective source candidate.**
+**U11 is CLOSED / DIGITAL PASS. U12 RC18 is digitally qualified and awaits target-tablet physical acceptance.**
 
-Active source candidate:
+Active signed RC18 candidate:
 - `0.5.0-rc18`
 - versionCode `38`
 - package `studio.guitarlab.app`
-- parser/reentry implementation baseline `2601220351cb241af5b23235a123645b4120ba64`; the final documentation/UI-coherence commit must bind its own exact workflow SHA before it can become authority
+- producer `ee947c6fbbd8b24430d3a3faa04e27ef9a46856c`
+- signed homologation artifact `GuitarLabStudio-0.5.0-rc18-homologacao` / artifact id `10804182567`
 
-Latest signed authority is RC14 at producer `13c6f36e5e3c2bcf82cf21f885e8d7aa6c41ed34`: Android CI run `35937621047` passed unit, Lint, build, API 36 and signing. RC14's cloud-identical predecessor `9b4ee9f` passed U4 `35935229248` and U7 `35935229232`.
+RC18 digital evidence on producer `ee947c6fbbd8b24430d3a3faa04e27ef9a46856c`: Android CI signed run `35990311091`, U7 verify run `35990311054`, isolated shadow run `35991484767`, production deploy run `35992709966`, and U4 production smoke run `35994148711` all passed. RC14 remains the previous physically tested fallback at producer `13c6f36e5e3c2bcf82cf21f885e8d7aa6c41ed34`.
 
 Locked homologation certificate SHA-256:
 `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
 
-RC18 retains end-to-end signal validation/canonicalization and Studio reinsertion, removes the partitioned Demucs path proven to emit non-finite stem samples, and keeps stem reconstruction SNR as a diagnostic instead of a publication veto. It remains pending exact-source Android/U7 gates, shadow acceptance, controlled production deployment and target-device listening acceptance.
+RC18 retains end-to-end signal validation/canonicalization and Studio reinsertion, removes the partitioned Demucs path proven to emit non-finite stem samples, and keeps stem reconstruction SNR as a diagnostic instead of a publication veto. It remains pending only target-device listening/reinsertion acceptance.
 
 ## Product model
 

@@ -2,7 +2,7 @@
 
 Updated: 2026-09-24
 
-> **Current unified-line authority (2026-09-24):** historical H29-H37 remains architecture/evidence context. U10/C8 and U11 are CLOSED / DIGITAL PASS. RC14 is the latest signed U12 authority at `13c6f36e5e3c2bcf82cf21f885e8d7aa6c41ed34` / Android `35937621047`; RC18 is the active physical corrective and remains pending exact-source Android/U7, isolated shadow, production worker deployment/U4 and target-device acceptance.
+> **Current unified-line authority (2026-09-24):** historical H29-H37 remains architecture/evidence context. U10/C8 and U11 are CLOSED / DIGITAL PASS. RC18 is digitally qualified at `ee947c6fbbd8b24430d3a3faa04e27ef9a46856c` and remains pending only target-device physical acceptance; RC14 remains the previous physically tested fallback.
 
 ## Milestones
 - **M1 — Foundation:** CLOSED.
@@ -15,7 +15,7 @@ Updated: 2026-09-24
 
 ## Current signed authority
 
-**Android CI run `35937621047`** / producer `13c6f36e5e3c2bcf82cf21f885e8d7aa6c41ed34` is the latest signed DIGITAL PASS (`0.5.0-rc14` / versionCode `34`). RC18 (`0.5.0-rc18` / 38) is the active source candidate pending exact-source Android/U7, isolated shadow, production worker deployment/U4 and physical audio/synchronization acceptance.
+**Android CI run `35990311091`** / producer `ee947c6fbbd8b24430d3a3faa04e27ef9a46856c` is the latest signed digital candidate (`0.5.0-rc18` / versionCode `38`). Backend qualification also passed U7 verify `35990311054`, isolated shadow `35991484767`, production deploy `35992709966`, and U4 production smoke `35994148711`. RC18 remains pending physical audio/synchronization acceptance on the target tablet.
 
 Signed APK SHA-256: `3cd9bfe06c9aa1af7f452f0dd8d9e9bead50774bde4a3b22c72f09f51e5ea769`.
 
@@ -23,7 +23,7 @@ The same producer passed U4 Cloud Integration Smoke #123 and U7 Cloud Backend #8
 
 ## Current release closure
 
-U10/C8 and U11 are digitally closed. U12 is active on RC18; RC14 remains the latest signed authority until RC18 qualification. RC9–RC17 remain historical corrective evidence.
+U10/C8 and U11 are digitally closed. U12 is active on RC18; RC18 is digitally qualified and RC14 remains the previous physically tested fallback until RC18 target-device acceptance. RC9–RC17 remain historical corrective evidence.
 
 The next required evidence is physical: install rc11 on the target tablet, authenticate once with the existing allowlisted Firebase Email/Password account, prove a fresh Prepare separation crosses the full Storage → Function → Cloud Run → import path, then complete the remaining USB/audio/10-minute/ergonomics acceptance residuals.
 

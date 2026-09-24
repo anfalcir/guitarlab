@@ -20,3 +20,11 @@ and Android evidence cannot be confused with the failed RC17 shadow.
 Required promotion gates remain unchanged: exact-source Android CI with signed homologation APK,
 U7 verification, isolated shadow, controlled production deployment, U4 cloud integration smoke and
 target-tablet physical acceptance of clean backing/guitar audio plus Studio resynchronization.
+
+Digital evidence on producer `ee947c6fbbd8b24430d3a3faa04e27ef9a46856c`:
+
+- Android CI signed homologation: run `35990311091` PASS; artifact `GuitarLabStudio-0.5.0-rc18-homologacao` / id `10804182567`.
+- U7 backend verify: run `35990311054` PASS.
+- Isolated shadow deploy and real prepared-reference contract: run `35991484767` PASS.
+- Controlled production deploy and real prepared-reference contract: run `35992709966` PASS.
+- U4 production Cloud Run prepared-reference v2 smoke: run `35994148711` PASS.

@@ -52,7 +52,7 @@ Drive result `U8m PASS · r_1790095960 · cleanup 8/8/14`, report SHA-256
 **U10/C8 is CLOSED / DIGITAL PASS** on Android CI #781 / run `35791192802`,
 exact technical source `2aa97aa8b2c3af91d35e7d48a0eeb89c2c330e63`, with 23/23
 instrumented classes, 76 observed API36 tests and 24/24 retained visual artifacts.
-**U11 remains CLOSED / DIGITAL PASS historical evidence; U12 is active on RC18.** RC14 remains the latest signed authority at producer `13c6f36e5e3c2bcf82cf21f885e8d7aa6c41ed34`, Android run `35937621047`. RC18 remains pending exact-source Android/U7 gates, isolated shadow, controlled worker deployment and physical listening/reinsertion acceptance.
+**U11 remains CLOSED / DIGITAL PASS historical evidence; U12 is active on RC18.** RC18 is digitally qualified at producer `ee947c6fbbd8b24430d3a3faa04e27ef9a46856c`: Android CI signed `35990311091`, U7 verify `35990311054`, isolated shadow `35991484767`, production deploy `35992709966`, and U4 production smoke `35994148711` passed. RC18 remains pending physical listening/reinsertion acceptance.
 
 ## Normative subsystem contracts
 These define behavior and remain valid unless explicitly superseded:
@@ -78,7 +78,7 @@ These are preserved for traceability and must not be used as current-state autho
 - milestone-specific evidence such as `M2_HOMOLOGATION_EVIDENCE.md`, `H22_AUDIO_ROUTE_UX.md`, `H24_HOME_PROJECT_LIBRARY.md`, `H25_UI_SETTINGS_SAFETY.md`, `H26D_MATERIALIZER_RECOVERY.md`, `H26E_CI650_DIGITAL_PASS.md` and similar exact-source records.
 
 ## Current evidence boundary
-RC18 (`0.5.0-rc18` / 38) is the active physical-corrective source candidate and remains pending Android/U7 qualification, isolated shadow, production worker deployment/U4 and target-device acceptance. RC14 is the latest signed DIGITAL PASS: Android run `35937621047`, producer `13c6f36e5e3c2bcf82cf21f885e8d7aa6c41ed34`.
+RC18 (`0.5.0-rc18` / 38) is the active digitally qualified physical-corrective candidate and remains pending target-device acceptance. Producer: `ee947c6fbbd8b24430d3a3faa04e27ef9a46856c`; signed artifact: `GuitarLabStudio-0.5.0-rc18-homologacao` / artifact id `10804182567`. RC14 is the previous physically tested fallback: Android run `35937621047`, producer `13c6f36e5e3c2bcf82cf21f885e8d7aa6c41ed34`.
 
 Signer SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
 
