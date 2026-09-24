@@ -1,0 +1,2040 @@
+diff --git a/.github/workflows/u7-cloud-backend.yml b/.github/workflows/u7-cloud-backend.yml
+--- a/.github/workflows/u7-cloud-backend.yml
++++ b/.github/workflows/u7-cloud-backend.yml
+@@ -345,7 +345,7 @@ jobs:
+         shell: bash
+         env:
+           GBW_JOB_NAME: ${{ steps.deploy_mode.outputs.mode == 'shadow' && 'guitarlab-demucs-shadow' || 'gbw-demucs' }}
+-          MODEL_SHA256: 09704f4ceae204e56e77d5eefd6ac71d7275be81fd507e6913371d59abcee856
++          MODEL_SHA256: 34c22ccb381c6f9fdbf324f04e1e2fe21aaaf293f5ded163a162697ff9a02ddd
+           GBW_RECOVERY_GATE_REQUIRED: ${{ steps.deploy_mode.outputs.mode == 'production' && '1' || '0' }}
+         run: |
+           set -euo pipefail
+diff --git a/cloud/remote-separation/functions/src/index.ts b/cloud/remote-separation/functions/src/index.ts
+--- a/cloud/remote-separation/functions/src/index.ts
++++ b/cloud/remote-separation/functions/src/index.ts
+@@ -5,7 +5,7 @@ import {FieldValue, getFirestore} from "firebase-admin/firestore";
+ import {HttpsError, onCall} from "firebase-functions/v2/https";
+ import {onSchedule} from "firebase-functions/v2/scheduler";
+ import {logger} from "firebase-functions";
+-import {ACTIVE_STATES, BACKEND_POLICY_REVISION, JOB_ID, MAX_INPUT_BYTES, MAX_MONTHLY_JOBS, RESULT_RECOVERY_WINDOW_MS, SHA256, decideEnqueue, isIdempotentJob, monthKey, requireAckable, retentionAction, sameGeneration} from "./policy";
++import {ACTIVE_STATES, BACKEND_POLICY_REVISION, JOB_ID, MAX_INPUT_BYTES, MAX_MONTHLY_JOBS, RESULT_RECOVERY_WINDOW_MS, SHA256, WORKER_CONTRACT, decideEnqueue, isIdempotentJob, monthKey, requireAckable, retentionAction, sameGeneration} from "./policy";
+ 
+ initializeApp();
+ const db = getFirestore();
+@@ -46,7 +46,8 @@ export const findRecoverableRemoteSeparation = onCall({region, enforceAppCheck:
+   const inputSha256 = text(data.inputSha256, "inputSha256", SHA256);
+   const activeSnapshot = await db.collection(`users/${uid}/jobs`).where("state", "in", [...ACTIVE_STATES]).limit(10).get();
+   const matches = activeSnapshot.docs.filter(document =>
+-    sameGeneration({...(document.data() || {}), jobId: document.id}, projectId, sourceAssetId, inputSha256),
++    sameGeneration({...(document.data() || {}), jobId: document.id}, projectId, sourceAssetId, inputSha256) &&
++    document.data()?.workerContract === WORKER_CONTRACT,
+   );
+   if (matches.length === 0) return {found: false};
+   if (matches.length !== 1) {
+@@ -126,7 +127,7 @@ export const enqueueRemoteSeparation = onCall({region, enforceAppCheck: false, t
+       };
+     }
+     if (selected.kind !== "CREATE") return selected;
+-    transaction.create(jobRef, {schemaVersion: 2, resultContract: "prepared-reference-v2", uid, projectId, sourceAssetId, inputPath, inputSha256, state: "QUEUED", progress: 0,
++    transaction.create(jobRef, {schemaVersion: 2, resultContract: "prepared-reference-v2", workerContract: WORKER_CONTRACT, uid, projectId, sourceAssetId, inputPath, inputSha256, state: "QUEUED", progress: 0,
+       phase: "QUEUED", createdAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp(), remoteCleanupState: "NONE"});
+     transaction.set(usageRef, {acceptedJobs: FieldValue.increment(1), updatedAt: FieldValue.serverTimestamp()}, {merge: true});
+     return {kind: "CREATE" as const};
+@@ -241,6 +242,7 @@ export const remoteBackendStatus = onCall({region, enforceAppCheck: false, ...ru
+   return {
+     schemaVersion: 2,
+     resultContract: "prepared-reference-v2",
++    workerContract: WORKER_CONTRACT,
+     available: true,
+     region,
+     acceptedJobs: Number(usage.data()?.acceptedJobs || 0),
+diff --git a/cloud/remote-separation/functions/src/policy.ts b/cloud/remote-separation/functions/src/policy.ts
+--- a/cloud/remote-separation/functions/src/policy.ts
++++ b/cloud/remote-separation/functions/src/policy.ts
+@@ -2,7 +2,8 @@ export const ACTIVE_STATES = new Set(["UPLOADING", "READY", "QUEUED", "RUNNING",
+ export const JOB_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+ export const SHA256 = /^[a-f0-9]{64}$/;
+ export const MAX_MONTHLY_JOBS = 40;
+-export const BACKEND_POLICY_REVISION = "rc19-q40-single8-prepared-v2-recovery";
++export const BACKEND_POLICY_REVISION = "rc20-q40-official-demucs-prepared-v2-recovery";
++export const WORKER_CONTRACT = "official-demucs-pytorch-v1";
+ export const RESULT_RECOVERY_WINDOW_MS = 72 * 60 * 60 * 1000;
+ export const MAX_INPUT_BYTES = 1_073_741_824;
+ 
+@@ -46,6 +47,8 @@ export type ActiveJobRecord = {
+   projectId?: unknown;
+   sourceAssetId?: unknown;
+   inputSha256?: unknown;
++  state?: unknown;
++  workerContract?: unknown;
+ };
+ 
+ export function sameGeneration(
+@@ -66,15 +69,27 @@ export function decideEnqueue(
+   sourceAssetId: string,
+   inputSha256: string,
+ ): EnqueueDecision {
+-  const recoverable = activeJobs.filter(job => sameGeneration(job, projectId, sourceAssetId, inputSha256));
++  const sameGenerationJobs = activeJobs.filter(job =>
++    sameGeneration(job, projectId, sourceAssetId, inputSha256),
++  );
++  const recoverable = sameGenerationJobs.filter(job => job.workerContract === WORKER_CONTRACT);
+   if (recoverable.length === 1) {
+-    // Adoption is non-destructive and does not dispatch or consume quota. Prefer the
+-    // exact same generation even if an unrelated active record also exists; this is
+-    // required for safe reconciliation of preserved completed results.
++    // Adoption is non-destructive and does not dispatch or consume quota. Only the
++    // current qualified worker contract may be adopted after the RC20 engine cutover.
+     return {kind: "RECOVER_EXISTING", jobId: recoverable[0].jobId};
+   }
+-  if (activeJobs.length > 0) {
+-    return {kind: "ACTIVE_JOB_CONFLICT", jobId: activeJobs[0].jobId};
++  if (recoverable.length > 1) {
++    return {kind: "ACTIVE_JOB_CONFLICT", jobId: recoverable[0].jobId};
++  }
++  const blocking = activeJobs.filter(job => {
++    const supersededCompletedSameGeneration =
++      sameGeneration(job, projectId, sourceAssetId, inputSha256) &&
++      String(job.state) === "COMPLETED" &&
++      job.workerContract !== WORKER_CONTRACT;
++    return !supersededCompletedSameGeneration;
++  });
++  if (blocking.length > 0) {
++    return {kind: "ACTIVE_JOB_CONFLICT", jobId: blocking[0].jobId};
+   }
+   if (acceptedJobs >= MAX_MONTHLY_JOBS) return {kind: "MONTHLY_QUOTA_REACHED"};
+   return {kind: "CREATE"};
+diff --git a/cloud/remote-separation/functions/src/test/policy.test.ts b/cloud/remote-separation/functions/src/test/policy.test.ts
+--- a/cloud/remote-separation/functions/src/test/policy.test.ts
++++ b/cloud/remote-separation/functions/src/test/policy.test.ts
+@@ -5,6 +5,7 @@ import {
+   BACKEND_POLICY_REVISION,
+   MAX_MONTHLY_JOBS,
+   RESULT_RECOVERY_WINDOW_MS,
++  WORKER_CONTRACT,
+   inputPath,
+   isIdempotentJob,
+   monthKey,
+@@ -56,7 +57,7 @@ test("cancel requested still occupies the single active-job slot", () =>
+   assert.equal(ACTIVE_STATES.has("CANCEL_REQUESTED"), true));
+ 
+ test("backend policy revision is explicit", () =>
+-  assert.equal(BACKEND_POLICY_REVISION, "rc19-q40-single8-prepared-v2-recovery"));
++  assert.equal(BACKEND_POLICY_REVISION, "rc20-q40-official-demucs-prepared-v2-recovery"));
+ 
+ test("retention preserves recent results and expires abandoned imports after recovery window", () => {
+   const now = Date.UTC(2026, 8, 23, 12);
+@@ -69,7 +70,7 @@ test("retention preserves recent results and expires abandoned imports after rec
+ 
+ test("same generation recovery wins without quota consumption or new dispatch", () => {
+   const hash = "a".repeat(64);
+-  const active = [{jobId: "job-good", projectId: "p", sourceAssetId: "source", inputSha256: hash}];
++  const active = [{jobId: "job-good", projectId: "p", sourceAssetId: "source", inputSha256: hash, state: "COMPLETED", workerContract: WORKER_CONTRACT}];
+   assert.equal(sameGeneration(active[0], "p", "source", hash), true);
+   assert.deepEqual(decideEnqueue(active, 40, "p", "source", hash), {
+     kind: "RECOVER_EXISTING",
+@@ -82,8 +83,8 @@ test("same generation adoption wins safely even when unrelated active work is pr
+   assert.deepEqual(
+     decideEnqueue(
+       [
+-        {jobId: "preserved-other", projectId: "other", sourceAssetId: "other-source", inputSha256: "b".repeat(64)},
+-        {jobId: "job-good", projectId: "p", sourceAssetId: "source", inputSha256: hash},
++        {jobId: "preserved-other", projectId: "other", sourceAssetId: "other-source", inputSha256: "b".repeat(64), state: "RUNNING", workerContract: WORKER_CONTRACT},
++        {jobId: "job-good", projectId: "p", sourceAssetId: "source", inputSha256: hash, state: "COMPLETED", workerContract: WORKER_CONTRACT},
+       ],
+       10,
+       "p",
+@@ -125,3 +126,33 @@ test("quota is distinct from active-job conflict and only applies without active
+   });
+   assert.deepEqual(decideEnqueue([], MAX_MONTHLY_JOBS - 1, "p", "source", hash), {kind: "CREATE"});
+ });
++
++
++test("superseded RC19 completed same-generation result is not adopted", () => {
++  const hash = "a".repeat(64);
++  const legacy = [{
++    jobId: "legacy-completed",
++    projectId: "p",
++    sourceAssetId: "source",
++    inputSha256: hash,
++    state: "COMPLETED",
++    workerContract: "demucs-cpp-single8-v1",
++  }];
++  assert.deepEqual(decideEnqueue(legacy, 10, "p", "source", hash), {kind: "CREATE"});
++});
++
++test("superseded same-generation running work still blocks concurrent inference", () => {
++  const hash = "a".repeat(64);
++  const legacy = [{
++    jobId: "legacy-running",
++    projectId: "p",
++    sourceAssetId: "source",
++    inputSha256: hash,
++    state: "RUNNING",
++    workerContract: "demucs-cpp-single8-v1",
++  }];
++  assert.deepEqual(decideEnqueue(legacy, 10, "p", "source", hash), {
++    kind: "ACTIVE_JOB_CONFLICT",
++    jobId: "legacy-running",
++  });
++});
+diff --git a/cloud/remote-separation/schemas/remote-job.schema.json b/cloud/remote-separation/schemas/remote-job.schema.json
+--- a/cloud/remote-separation/schemas/remote-job.schema.json
++++ b/cloud/remote-separation/schemas/remote-job.schema.json
+@@ -2,9 +2,9 @@
+   "$schema": "https://json-schema.org/draft/2020-12/schema",
+   "$id": "https://gbw.local/schemas/remote-job.schema.json",
+   "type": "object",
+-  "required": ["schemaVersion", "resultContract", "projectId", "sourceAssetId", "inputPath", "inputSha256", "state", "createdAt"],
++  "required": ["schemaVersion", "resultContract", "workerContract", "projectId", "sourceAssetId", "inputPath", "inputSha256", "state", "createdAt"],
+   "properties": {
+-    "schemaVersion": {"const": 2}, "resultContract": {"const": "prepared-reference-v2"}, "projectId": {"type": "string", "format": "uuid"},
++    "schemaVersion": {"const": 2}, "resultContract": {"const": "prepared-reference-v2"}, "workerContract": {"const": "official-demucs-pytorch-v1"}, "projectId": {"type": "string", "format": "uuid"},
+     "sourceAssetId": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"},
+     "inputPath": {"type": "string"}, "inputSha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+     "state": {"enum": ["UPLOADING", "READY", "QUEUED", "RUNNING", "COMPLETED", "IMPORTING", "IMPORT_FAILED", "IMPORTED", "CANCEL_REQUESTED", "CANCELLED", "FAILED", "EXPIRED"]},
+diff --git a/cloud/remote-separation/schemas/result-manifest.schema.json b/cloud/remote-separation/schemas/result-manifest.schema.json
+--- a/cloud/remote-separation/schemas/result-manifest.schema.json
++++ b/cloud/remote-separation/schemas/result-manifest.schema.json
+@@ -24,36 +24,113 @@
+     "blasThreads",
+     "demucsThreads",
+     "inferenceStrategy",
++    "device",
++    "shifts",
++    "overlap",
++    "demucsVersion",
++    "pytorchVersion",
++    "modelBytes",
+     "referenceRecipe",
+     "deliverables"
+   ],
+   "properties": {
+-    "schemaVersion": { "const": 2 },
+-    "jobId": { "type": "string", "format": "uuid" },
+-    "uid": { "type": "string", "minLength": 1 },
+-    "projectId": { "type": "string", "format": "uuid" },
+-    "inputSha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+-    "engine": { "const": "demucs.cpp" },
+-    "engineRevision": { "type": "string" },
+-    "model": { "const": "htdemucs_6s" },
+-    "modelSha256": { "const": "09704f4ceae204e56e77d5eefd6ac71d7275be81fd507e6913371d59abcee856" },
+-    "sampleRate": { "const": 44100 },
+-    "channels": { "const": 2 },
+-    "frames": { "type": "integer", "minimum": 1 },
+-    "duration": { "type": "number", "exclusiveMinimum": 0 },
+-    "startedAt": { "type": "string", "format": "date-time" },
+-    "completedAt": { "type": "string", "format": "date-time" },
+-    "wallTimeMs": { "type": "integer", "minimum": 0 },
+-    "vCPU": { "const": 8 },
+-    "blasThreads": { "const": 8 },
+-    "demucsThreads": { "const": 0 },
+-    "inferenceStrategy": { "const": "single8" },
+-    "referenceRecipe": { "$ref": "#/$defs/referenceRecipe" },
++    "schemaVersion": {
++      "const": 2
++    },
++    "jobId": {
++      "type": "string",
++      "format": "uuid"
++    },
++    "uid": {
++      "type": "string",
++      "minLength": 1
++    },
++    "projectId": {
++      "type": "string",
++      "format": "uuid"
++    },
++    "inputSha256": {
++      "type": "string",
++      "pattern": "^[a-f0-9]{64}$"
++    },
++    "engine": {
++      "const": "demucs-pytorch"
++    },
++    "engineRevision": {
++      "type": "string"
++    },
++    "model": {
++      "const": "htdemucs_6s"
++    },
++    "modelSha256": {
++      "const": "34c22ccb381c6f9fdbf324f04e1e2fe21aaaf293f5ded163a162697ff9a02ddd"
++    },
++    "sampleRate": {
++      "const": 44100
++    },
++    "channels": {
++      "const": 2
++    },
++    "frames": {
++      "type": "integer",
++      "minimum": 1
++    },
++    "duration": {
++      "type": "number",
++      "exclusiveMinimum": 0
++    },
++    "startedAt": {
++      "type": "string",
++      "format": "date-time"
++    },
++    "completedAt": {
++      "type": "string",
++      "format": "date-time"
++    },
++    "wallTimeMs": {
++      "type": "integer",
++      "minimum": 0
++    },
++    "vCPU": {
++      "const": 8
++    },
++    "blasThreads": {
++      "const": 8
++    },
++    "demucsThreads": {
++      "const": 0
++    },
++    "inferenceStrategy": {
++      "const": "pytorch-cpu-s1-o0.5-t8"
++    },
++    "referenceRecipe": {
++      "$ref": "#/$defs/referenceRecipe"
++    },
+     "deliverables": {
+       "type": "array",
+       "minItems": 2,
+       "maxItems": 2,
+-      "items": { "$ref": "#/$defs/deliverable" }
++      "items": {
++        "$ref": "#/$defs/deliverable"
++      }
++    },
++    "device": {
++      "const": "cpu"
++    },
++    "shifts": {
++      "const": 1
++    },
++    "overlap": {
++      "const": 0.5
++    },
++    "demucsVersion": {
++      "const": "4.1.0"
++    },
++    "pytorchVersion": {
++      "const": "2.14.0+cpu"
++    },
++    "modelBytes": {
++      "const": 54996327
+     }
+   },
+   "$defs": {
+@@ -68,19 +145,34 @@
+         "guitarStem"
+       ],
+       "properties": {
+-        "version": { "const": "prepared-reference-v2" },
+-        "targetPeakDbfs": { "const": -1.0 },
+-        "sharedGainDb": { "type": "number", "maximum": 0.0 },
++        "version": {
++          "const": "prepared-reference-v2"
++        },
++        "targetPeakDbfs": {
++          "const": -1
++        },
++        "sharedGainDb": {
++          "type": "number",
++          "maximum": 0
++        },
+         "backingStems": {
+           "type": "array",
+           "minItems": 5,
+           "maxItems": 5,
+           "uniqueItems": true,
+           "items": {
+-            "enum": ["drums", "bass", "other", "vocals", "piano"]
++            "enum": [
++              "drums",
++              "bass",
++              "other",
++              "vocals",
++              "piano"
++            ]
+           }
+         },
+-        "guitarStem": { "const": "guitar" }
++        "guitarStem": {
++          "const": "guitar"
++        }
+       }
+     },
+     "deliverable": {
+@@ -98,15 +190,42 @@
+         "encoding"
+       ],
+       "properties": {
+-        "name": { "enum": ["backing", "guitar"] },
+-        "role": { "enum": ["REFERENCE_BACKING", "REFERENCE_GUITAR"] },
+-        "path": { "type": "string" },
+-        "bytes": { "type": "integer", "minimum": 45 },
+-        "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+-        "sampleRate": { "const": 44100 },
+-        "channels": { "const": 2 },
+-        "frames": { "type": "integer", "minimum": 1 },
+-        "encoding": { "const": "FLOAT32_LE" }
++        "name": {
++          "enum": [
++            "backing",
++            "guitar"
++          ]
++        },
++        "role": {
++          "enum": [
++            "REFERENCE_BACKING",
++            "REFERENCE_GUITAR"
++          ]
++        },
++        "path": {
++          "type": "string"
++        },
++        "bytes": {
++          "type": "integer",
++          "minimum": 45
++        },
++        "sha256": {
++          "type": "string",
++          "pattern": "^[a-f0-9]{64}$"
++        },
++        "sampleRate": {
++          "const": 44100
++        },
++        "channels": {
++          "const": 2
++        },
++        "frames": {
++          "type": "integer",
++          "minimum": 1
++        },
++        "encoding": {
++          "const": "FLOAT32_LE"
++        }
+       }
+     }
+   }
+diff --git a/cloud/remote-separation/scripts/deploy-worker.sh b/cloud/remote-separation/scripts/deploy-worker.sh
+--- a/cloud/remote-separation/scripts/deploy-worker.sh
++++ b/cloud/remote-separation/scripts/deploy-worker.sh
+@@ -60,15 +60,15 @@ fi
+   --task-timeout 30m \
+   --max-retries 0 \
+   "${DELAY_ARGS[@]}" \
+-  --set-env-vars "GBW_BUCKET=${GBW_BUCKET},GBW_VCPU=8,GBW_DEMUCS_BINARY=/usr/local/bin/demucs.cpp.main,GBW_DEMUCS_MT_THREADS=0,OPENBLAS_NUM_THREADS=8,OMP_NUM_THREADS=8" \
+-  --add-volume "name=model,type=cloud-storage,bucket=${GBW_BUCKET}" \
+-  --add-volume-mount "volume=model,mount-path=/model" \
++  --set-env-vars "GBW_BUCKET=${GBW_BUCKET},GBW_VCPU=8,GBW_MODEL_REPO=/opt/demucs/models,GBW_DEMUCS_DEVICE=cpu,GBW_DEMUCS_SHIFTS=1,GBW_DEMUCS_OVERLAP=0.5,GBW_DEMUCS_CPU_THREADS=8,OMP_NUM_THREADS=8,MKL_NUM_THREADS=8,OPENBLAS_NUM_THREADS=8,NUMEXPR_NUM_THREADS=8" \
++  --clear-volumes \
++  --clear-volume-mounts \
+   --quiet
+ 
+ JOB_JSON="$(gcloud run jobs describe "$GBW_JOB_NAME" \
+   --project "$GBW_GCP_PROJECT" \
+   --region "$GBW_REGION" \
+   --format=json)"
+-python3 -c 'import json,sys; d=json.load(sys.stdin); delay=str(d["spec"].get("delayExecution", "false")).lower(); assert delay not in ("true","1"), f"delayExecution unexpectedly enabled: {delay}"; c=d["spec"]["template"]["spec"]["template"]["spec"]["containers"][0]; env={row["name"]:row.get("value","") for row in c.get("env",[])}; expected={"GBW_VCPU":"8","GBW_DEMUCS_BINARY":"/usr/local/bin/demucs.cpp.main","GBW_DEMUCS_MT_THREADS":"0","OPENBLAS_NUM_THREADS":"8","OMP_NUM_THREADS":"8"}; missing={k:(env.get(k),v) for k,v in expected.items() if env.get(k)!=v}; assert not missing, f"unexpected production inference contract: {missing}"' <<<"$JOB_JSON"
++python3 -c 'import json,sys; d=json.load(sys.stdin); delay=str(d["spec"].get("delayExecution", "false")).lower(); assert delay not in ("true","1"), f"delayExecution unexpectedly enabled: {delay}"; c=d["spec"]["template"]["spec"]["template"]["spec"]["containers"][0]; env={row["name"]:row.get("value","") for row in c.get("env",[])}; expected={"GBW_VCPU":"8","GBW_MODEL_REPO":"/opt/demucs/models","GBW_DEMUCS_DEVICE":"cpu","GBW_DEMUCS_SHIFTS":"1","GBW_DEMUCS_OVERLAP":"0.5","GBW_DEMUCS_CPU_THREADS":"8","OMP_NUM_THREADS":"8","MKL_NUM_THREADS":"8","OPENBLAS_NUM_THREADS":"8","NUMEXPR_NUM_THREADS":"8"}; missing={k:(env.get(k),v) for k,v in expected.items() if env.get(k)!=v}; assert not missing, f"unexpected official Demucs inference contract: {missing}"; assert not d["spec"]["template"]["spec"]["template"]["spec"].get("volumes"), "worker must not depend on runtime model volumes"' <<<"$JOB_JSON"
+ 
+ printf '%s\n' "$GBW_PINNED_IMAGE"
+diff --git a/cloud/remote-separation/worker/Dockerfile b/cloud/remote-separation/worker/Dockerfile
+--- a/cloud/remote-separation/worker/Dockerfile
++++ b/cloud/remote-separation/worker/Dockerfile
+@@ -1,17 +1,66 @@
+-FROM debian:bookworm-slim AS build
+-ARG DEMUCS_CPP_COMMIT=f1206e9adeea103aef4a636b9e62297cf1f8e34e
+-RUN apt-get update && apt-get install -y --no-install-recommends build-essential cmake git libopenblas-openmp-dev ca-certificates && rm -rf /var/lib/apt/lists/*
+-RUN git clone --recurse-submodules https://github.com/sevagh/demucs.cpp.git /src && cd /src && git checkout "$DEMUCS_CPP_COMMIT" && git submodule update --init --recursive
+-RUN cmake -S /src -B /src/build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF && cmake --build /src/build --target demucs.cpp.main -j2
+-
+-FROM python:3.12-slim-bookworm
+-RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg libopenblas0-openmp && rm -rf /var/lib/apt/lists/* && useradd --create-home --uid 65532 worker
+-COPY --from=build /src/build/demucs.cpp.main /usr/local/bin/demucs.cpp.main
++FROM python:3.12.14-slim-bookworm@sha256:782412e85d0f0984994c290652577d4018aff08145c85b262bb63dc0c7522254
++
++ARG TORCH_VERSION=2.14.0+cpu
++ARG DEMUCS_VERSION=4.1.0
++ARG MODEL_URL=https://dl.fbaipublicfiles.com/demucs/hybrid_transformer/5c90dfd2-34c22ccb.th
++ARG MODEL_SHA256=34c22ccb381c6f9fdbf324f04e1e2fe21aaaf293f5ded163a162697ff9a02ddd
++ARG MODEL_BYTES=54996327
++
++ENV DEBIAN_FRONTEND=noninteractive \
++    PYTHONDONTWRITEBYTECODE=1 \
++    PYTHONUNBUFFERED=1 \
++    PYTHONHASHSEED=0 \
++    PIP_DISABLE_PIP_VERSION_CHECK=1 \
++    PIP_NO_CACHE_DIR=1
++
++RUN apt-get update \
++    && apt-get install -y --no-install-recommends ca-certificates curl ffmpeg libgomp1 libsndfile1 \
++    && rm -rf /var/lib/apt/lists/*
++
++RUN python -m pip install --upgrade "pip==26.2" \
++    && python -m pip install --index-url https://download.pytorch.org/whl/cpu "torch==${TORCH_VERSION}"
++
+ COPY requirements.txt /tmp/requirements.txt
+-RUN pip install --no-cache-dir --require-hashes -r /tmp/requirements.txt || pip install --no-cache-dir -r /tmp/requirements.txt
+-COPY gbw_worker.py /app/gbw_worker.py
+-COPY benchmark.py /app/benchmark.py
+-USER 65532:65532
++RUN python -m pip install -r /tmp/requirements.txt \
++    && python -m pip check \
++    && python - <<'PY'
++import importlib.metadata as metadata
++import torch
++assert metadata.version("demucs") == "4.1.0"
++assert metadata.version("numpy") == "1.26.4"
++assert metadata.version("torch") == "2.14.0+cpu"
++assert torch.__version__ == "2.14.0+cpu"
++assert not torch.cuda.is_available()
++PY
++
++RUN mkdir -p /opt/demucs/models \
++    && curl --fail --location --retry 4 --output /opt/demucs/models/5c90dfd2-34c22ccb.th "${MODEL_URL}" \
++    && echo "${MODEL_SHA256}  /opt/demucs/models/5c90dfd2-34c22ccb.th" | sha256sum -c - \
++    && test "$(stat -c %s /opt/demucs/models/5c90dfd2-34c22ccb.th)" = "${MODEL_BYTES}" \
++    && printf "models: ['5c90dfd2']\n" > /opt/demucs/models/htdemucs_6s.yaml
++
++RUN python - <<'PY'
++from pathlib import Path
++from demucs.pretrained import get_model
++model = get_model("htdemucs_6s", Path("/opt/demucs/models"))
++assert tuple(model.sources) == ("drums", "bass", "other", "vocals", "guitar", "piano")
++PY
++
+ WORKDIR /app
+-ENV PYTHONUNBUFFERED=1 OPENBLAS_NUM_THREADS=8 OMP_NUM_THREADS=8 GBW_DEMUCS_BINARY=/usr/local/bin/demucs.cpp.main GBW_DEMUCS_MT_THREADS=0 GBW_MODEL_PATH=/model/ggml-model-htdemucs-6s-f16.bin
+-ENTRYPOINT ["python", "/app/gbw_worker.py"]
++COPY audio_quality.py demucs_engine.py gbw_worker.py benchmark.py /app/
++RUN useradd --uid 65532 --create-home --shell /usr/sbin/nologin worker \
++    && chown -R worker:worker /app /opt/demucs \
++    && chmod -R a-w /opt/demucs/models
++
++USER 65532:65532
++ENV HOME=/home/worker \
++    GBW_MODEL_REPO=/opt/demucs/models \
++    GBW_DEMUCS_DEVICE=cpu \
++    GBW_DEMUCS_SHIFTS=1 \
++    GBW_DEMUCS_OVERLAP=0.5 \
++    GBW_DEMUCS_CPU_THREADS=8 \
++    OMP_NUM_THREADS=8 \
++    MKL_NUM_THREADS=8 \
++    OPENBLAS_NUM_THREADS=8 \
++    NUMEXPR_NUM_THREADS=8
++ENTRYPOINT ["python3", "/app/gbw_worker.py"]
+diff --git a/cloud/remote-separation/worker/audio_quality.py b/cloud/remote-separation/worker/audio_quality.py
+new file mode 100644
+--- /dev/null
++++ b/cloud/remote-separation/worker/audio_quality.py
+@@ -0,0 +1,218 @@
++#!/usr/bin/env python3
++"""Stage-level audio metrics and conservative W2 quality gates.
++
++Measurements and policy are deliberately separate. Energy distribution is always
++reported, but a high other-stem share remains diagnostic until an accepted
++official-Demucs baseline calibrates a safe hard threshold. The known RC19 failure
++signature is still fail-closed through systematic same-polarity DC detection.
++"""
++
++from __future__ import annotations
++
++import math
++import sys
++from array import array
++from dataclasses import dataclass
++from pathlib import Path
++
++STEMS = ("drums", "bass", "other", "vocals", "guitar", "piano")
++GROSS_DC_ABS = 0.005
++SYSTEMATIC_DC_MIN_STEMS = 4
++ABSURD_PEAK = 4.0
++SILENT_ENERGY = 1e-12
++OTHER_SHARE_DIAGNOSTIC = 0.40
++OTHER_TO_GUITAR_DIAGNOSTIC = 5.0
++
++
++class QualityError(RuntimeError):
++    def __init__(self, code: str, message: str):
++        super().__init__(message)
++        self.code = code
++
++
++@dataclass(frozen=True)
++class AudioMetrics:
++    frames: int
++    finite_samples: int
++    non_finite_samples: int
++    peak_per_channel: tuple[float, float]
++    rms_per_channel: tuple[float | None, float | None]
++    mean_dc_per_channel: tuple[float | None, float | None]
++
++    @property
++    def energy(self) -> float:
++        values = [value * value for value in self.rms_per_channel if value is not None]
++        return sum(values) / len(values) if values else 0.0
++
++    def as_dict(self) -> dict:
++        return {
++            "frames": self.frames,
++            "finiteSamples": self.finite_samples,
++            "nonFiniteSamples": self.non_finite_samples,
++            "peakPerChannel": list(self.peak_per_channel),
++            "rmsPerChannel": list(self.rms_per_channel),
++            "meanDcPerChannel": list(self.mean_dc_per_channel),
++            "energy": self.energy,
++        }
++
++
++def measure_float32_stereo(path: Path, data_offset: int, data_bytes: int) -> AudioMetrics:
++    """Measure a validated stereo float32 PCM data chunk without loading it all."""
++
++    if data_offset < 0 or data_bytes <= 0 or data_bytes % 8:
++        raise QualityError("FORMAT_INVALID", "float32 stereo data span is invalid")
++    count = [0, 0]
++    sums = [0.0, 0.0]
++    sums_sq = [0.0, 0.0]
++    peaks = [0.0, 0.0]
++    finite_samples = 0
++    non_finite_samples = 0
++    sample_index = 0
++    remaining = data_bytes
++    with path.open("rb") as handle:
++        handle.seek(data_offset)
++        while remaining:
++            block = handle.read(min(1024 * 1024, remaining))
++            if not block or len(block) % 4:
++                raise QualityError("FORMAT_INVALID", f"truncated float payload: {path.name}")
++            values = array("f")
++            values.frombytes(block)
++            if sys.byteorder != "little":
++                values.byteswap()
++            for value in values:
++                channel = sample_index & 1
++                sample_index += 1
++                numeric = float(value)
++                if not math.isfinite(numeric):
++                    non_finite_samples += 1
++                    continue
++                finite_samples += 1
++                count[channel] += 1
++                sums[channel] += numeric
++                sums_sq[channel] += numeric * numeric
++                peaks[channel] = max(peaks[channel], abs(numeric))
++            remaining -= len(block)
++    if sample_index * 4 != data_bytes:
++        raise QualityError("FORMAT_INVALID", f"float payload length mismatch: {path.name}")
++
++    rms = tuple(
++        math.sqrt(sums_sq[channel] / count[channel]) if count[channel] else None
++        for channel in range(2)
++    )
++    mean = tuple(
++        sums[channel] / count[channel] if count[channel] else None
++        for channel in range(2)
++    )
++    return AudioMetrics(
++        frames=data_bytes // 8,
++        finite_samples=finite_samples,
++        non_finite_samples=non_finite_samples,
++        peak_per_channel=(peaks[0], peaks[1]),
++        rms_per_channel=(rms[0], rms[1]),
++        mean_dc_per_channel=(mean[0], mean[1]),
++    )
++
++
++def _signed_gross_dc(metrics: AudioMetrics) -> int:
++    left, right = metrics.mean_dc_per_channel
++    if left is None or right is None:
++        return 0
++    if min(abs(left), abs(right)) < GROSS_DC_ABS:
++        return 0
++    if left > 0 and right > 0:
++        return 1
++    if left < 0 and right < 0:
++        return -1
++    return 0
++
++
++def summarize_stems(stems: dict[str, AudioMetrics]) -> dict:
++    if set(stems) != set(STEMS) or len(stems) != len(STEMS):
++        raise QualityError("OUTPUT_MISSING", "quality metrics require exactly six named stems")
++    energies = {name: stems[name].energy for name in STEMS}
++    total_energy = sum(energies.values())
++    shares = {
++        name: (energies[name] / total_energy if total_energy > 0.0 else 0.0)
++        for name in STEMS
++    }
++    guitar_energy = energies["guitar"]
++    other_to_guitar = energies["other"] / guitar_energy if guitar_energy > SILENT_ENERGY else None
++    polarities = {name: _signed_gross_dc(stems[name]) for name in STEMS}
++    positive = sorted(name for name, polarity in polarities.items() if polarity > 0)
++    negative = sorted(name for name, polarity in polarities.items() if polarity < 0)
++    dominant_polarity = 1 if len(positive) >= len(negative) else -1
++    affected = positive if dominant_polarity > 0 else negative
++    systematic_dc = len(affected) >= SYSTEMATIC_DC_MIN_STEMS
++    other_concentration = (
++        shares["other"] >= OTHER_SHARE_DIAGNOSTIC
++        and other_to_guitar is not None
++        and other_to_guitar >= OTHER_TO_GUITAR_DIAGNOSTIC
++    )
++    return {
++        "energyByStem": energies,
++        "energyShareByStem": shares,
++        "otherToGuitarEnergyRatio": other_to_guitar,
++        "systematicDc": {
++            "detected": systematic_dc,
++            "polarity": "positive" if dominant_polarity > 0 else "negative",
++            "affectedStems": affected,
++            "thresholdAbsMean": GROSS_DC_ABS,
++        },
++        "otherConcentrationDiagnostic": {
++            "detected": other_concentration,
++            "minimumShare": OTHER_SHARE_DIAGNOSTIC,
++            "minimumOtherToGuitarRatio": OTHER_TO_GUITAR_DIAGNOSTIC,
++        },
++    }
++
++
++def evaluate_stems(stems: dict[str, AudioMetrics]) -> tuple[dict, list[dict]]:
++    summary = summarize_stems(stems)
++    findings: list[dict] = []
++    for name in STEMS:
++        metrics = stems[name]
++        if metrics.non_finite_samples:
++            findings.append({
++                "severity": "reject",
++                "code": "NON_FINITE_STEM",
++                "stem": name,
++                "count": metrics.non_finite_samples,
++            })
++        if max(metrics.peak_per_channel) > ABSURD_PEAK:
++            findings.append({
++                "severity": "reject",
++                "code": "AMPLITUDE_EXPLOSION",
++                "stem": name,
++                "peak": max(metrics.peak_per_channel),
++                "limit": ABSURD_PEAK,
++            })
++        if metrics.energy <= SILENT_ENERGY:
++            findings.append({
++                "severity": "reject",
++                "code": "SILENT_STEM",
++                "stem": name,
++                "energy": metrics.energy,
++            })
++    if summary["systematicDc"]["detected"]:
++        findings.append({
++            "severity": "reject",
++            "code": "SYSTEMATIC_STEM_DC",
++            **summary["systematicDc"],
++        })
++    if summary["otherConcentrationDiagnostic"]["detected"]:
++        findings.append({
++            "severity": "diagnostic",
++            "code": "OTHER_CONCENTRATION",
++            "otherShare": summary["energyShareByStem"]["other"],
++            "otherToGuitarEnergyRatio": summary["otherToGuitarEnergyRatio"],
++        })
++    return summary, findings
++
++
++def require_safe_stems(stems: dict[str, AudioMetrics]) -> tuple[dict, list[dict]]:
++    summary, findings = evaluate_stems(stems)
++    rejected = [finding for finding in findings if finding["severity"] == "reject"]
++    if rejected:
++        codes = ",".join(sorted({str(finding["code"]) for finding in rejected}))
++        raise QualityError("OUTPUT_QUALITY_INVALID", f"stem quality gate rejected: {codes}")
++    return summary, findings
+diff --git a/cloud/remote-separation/worker/benchmark.py b/cloud/remote-separation/worker/benchmark.py
+--- a/cloud/remote-separation/worker/benchmark.py
++++ b/cloud/remote-separation/worker/benchmark.py
+@@ -1,142 +1,182 @@
+ #!/usr/bin/env python3
+-"""Isolated Cloud Run benchmark for GBW Demucs execution strategies.
+-
+-This program never mutates Firestore and never publishes stems. It downloads one
+-existing real GBW input object, runs one inference strategy inside a temporary
+-working directory, validates all six output WAV contracts, writes a small JSON
+-result to Cloud Storage, and deletes local audio on exit.
+-"""
++"""Isolated official-Demucs benchmark harness for Phase W shadow qualification."""
+ 
+ from __future__ import annotations
+ 
++import argparse
+ import json
+-import os
+ import resource
+-import subprocess
+ import tempfile
+ import time
+ from pathlib import Path
+ 
+ import gbw_worker as worker
+-
++from demucs_engine import (
++    DEMUCS_VERSION,
++    ENGINE_NAME,
++    ENGINE_REVISION,
++    MODEL_BYTES,
++    MODEL_NAME,
++    MODEL_SHA256,
++    PYTORCH_VERSION,
++    DemucsEngineConfig,
++    DemucsPyTorchRunner,
++    EngineError,
++)
+ 
+ STRATEGIES = {
+-    "single8": {
+-        "binary": "/usr/local/bin/demucs.cpp.main",
+-        "blas_threads": 8,
+-        "mt_threads": 0,
++    "cpu8_s1_o05": {
++        "device": "cpu",
++        "cpu_threads": 8,
++        "shifts": 1,
++        "overlap": 0.5,
+     },
+ }
+ 
+ 
+ def strategy(name: str) -> dict:
+     try:
+-        return STRATEGIES[name]
++        return dict(STRATEGIES[name])
+     except KeyError as error:
+         raise ValueError(f"unknown benchmark strategy: {name}") from error
+ 
+ 
+-def run() -> dict:
+-    bucket_name = os.environ["GBW_BUCKET"].strip()
+-    input_path = os.environ["GBW_BENCH_INPUT_PATH"].strip()
+-    strategy_name = os.environ["GBW_BENCH_STRATEGY"].strip()
+-    result_path = os.environ["GBW_BENCH_RESULT_PATH"].strip()
+-    config = strategy(strategy_name)
+-    model_path = Path(os.environ.get("GBW_MODEL_PATH", f"/model/{worker.MODEL_NAME}"))
+-
+-    if not input_path or ".." in input_path:
+-        raise ValueError("invalid benchmark input path")
+-    if not result_path.startswith("benchmarks/") or ".." in result_path:
+-        raise ValueError("invalid benchmark result path")
+-
+-    binary = Path(config["binary"])
+-    if not binary.is_file():
+-        raise RuntimeError(f"benchmark binary missing: {binary}")
+-
++def run(args: argparse.Namespace) -> dict:
+     from google.cloud import storage
+ 
+-    started_wall = time.monotonic()
+-    storage_client = storage.Client()
+-    bucket = storage_client.bucket(bucket_name)
+-
++    started_total = time.monotonic()
++    selected = strategy(args.strategy)
++    config = DemucsEngineConfig(
++        model_repo=Path(args.model_repo),
++        device=selected["device"],
++        shifts=selected["shifts"],
++        overlap=selected["overlap"],
++        cpu_threads=selected["cpu_threads"],
++    )
++    runner = DemucsPyTorchRunner(config)
++    client = storage.Client(project=args.project)
++    bucket = client.bucket(args.bucket)
+     with tempfile.TemporaryDirectory(prefix="gbw-benchmark-") as tmp:
+         root = Path(tmp)
+         source = root / "source"
+         canonical = root / "input.wav"
+-        raw_dir = root / "raw"
+-        raw_dir.mkdir()
+-
+-        worker.validate_model(model_path)
+-
+-        input_blob = bucket.blob(input_path)
+-        input_blob.reload()
+-        input_bytes = int(input_blob.size or 0)
+-        if input_bytes <= 0 or input_bytes > worker.MAX_INPUT_BYTES:
+-            raise RuntimeError(f"benchmark input size outside contract: {input_bytes}")
+         download_started = time.monotonic()
+-        input_blob.download_to_filename(str(source))
++        bucket.blob(args.input_path).download_to_filename(str(source))
+         download_ms = round((time.monotonic() - download_started) * 1000)
+ 
+         canonical_started = time.monotonic()
+         worker.canonicalize(source, canonical)
+         canonical_ms = round((time.monotonic() - canonical_started) * 1000)
+-        sample_rate, channels, frames, duration = worker.wav_contract(canonical)
++        canonical_metrics = worker.measure_wav(canonical)
++        if canonical_metrics.non_finite_samples:
++            raise worker.WorkerError("INPUT_UNSUPPORTED", "canonical benchmark input contains non-finite samples")
+ 
+-        env = os.environ.copy()
+-        env["OPENBLAS_NUM_THREADS"] = str(config["blas_threads"])
+-        env["OMP_NUM_THREADS"] = str(config["blas_threads"])
++        asset_started = time.monotonic()
++        try:
++            runner.validate_assets()
++        except EngineError as error:
++            raise worker.WorkerError(error.code, str(error)) from error
++        asset_validation_ms = round((time.monotonic() - asset_started) * 1000)
+ 
+-        command = [str(binary), str(model_path), str(canonical), str(raw_dir)]
+-        if config["mt_threads"]:
+-            command.append(str(config["mt_threads"]))
+-
+-        before = resource.getrusage(resource.RUSAGE_CHILDREN)
+         inference_started = time.monotonic()
+-        completed = subprocess.run(command, env=env, timeout=1_700)
++        try:
++            raw_outputs = runner.run(canonical, root / "raw", timeout_seconds=args.timeout_seconds)
++        except EngineError as error:
++            raise worker.WorkerError(error.code, str(error)) from error
+         inference_ms = round((time.monotonic() - inference_started) * 1000)
+-        after = resource.getrusage(resource.RUSAGE_CHILDREN)
+-        if completed.returncode:
+-            raise RuntimeError(f"Demucs benchmark exited {completed.returncode}")
+ 
+         normalize_started = time.monotonic()
+-        outputs = worker.normalize_outputs(raw_dir, root / "final")
+-        contracts = [worker.wav_contract(path) for path in outputs]
+-        if any(contract != contracts[0] for contract in contracts[1:]):
+-            raise RuntimeError("benchmark stem contracts differ")
++        outputs = worker.normalize_outputs(raw_outputs, root / "final")
+         normalize_ms = round((time.monotonic() - normalize_started) * 1000)
+ 
+-        total_ms = round((time.monotonic() - started_wall) * 1000)
+-        result = {
+-            "schemaVersion": 1,
+-            "strategy": strategy_name,
+-            "binary": binary.name,
+-            "vCPU": int(os.environ.get("GBW_VCPU", "8")),
+-            "memoryGiB": int(os.environ.get("GBW_MEMORY_GIB", "16")),
+-            "blasThreads": config["blas_threads"],
+-            "mtThreads": config["mt_threads"],
+-            "sourceObject": input_path,
+-            "sourceBytes": input_bytes,
+-            "sourceSampleRate": sample_rate,
+-            "sourceChannels": channels,
+-            "sourceFrames": frames,
+-            "sourceDurationSeconds": duration,
++        quality_started = time.monotonic()
++        stem_metrics = {name: worker.measure_wav(path) for name, path in zip(worker.STEMS, outputs)}
++        quality_summary, quality_findings = worker.evaluate_stems(stem_metrics)
++        quality_ms = round((time.monotonic() - quality_started) * 1000)
++        rejected = [row for row in quality_findings if row["severity"] == "reject"]
++        if rejected:
++            codes = ",".join(sorted({str(row["code"]) for row in rejected}))
++            raise worker.WorkerError("OUTPUT_QUALITY_INVALID", f"benchmark quality gate rejected: {codes}")
++
++        reconstruction_started = time.monotonic()
++        reconstruction_snr_db = worker.sampled_reconstruction_snr_db(canonical, outputs)
++        reconstruction_ms = round((time.monotonic() - reconstruction_started) * 1000)
++
++        render_started = time.monotonic()
++        prepared, shared_gain_db, prepared_metrics = worker.render_prepared_references(outputs, root / "prepared")
++        render_ms = round((time.monotonic() - render_started) * 1000)
++
++        contracts = [worker.wav_contract(path) for path in outputs]
++        source_contract = worker.wav_contract(canonical)
++        total_ms = round((time.monotonic() - started_total) * 1000)
++        cpu_seconds = time.process_time()
++        cost = None
++        if args.vcpu_price_per_second is not None and args.memory_price_per_gib_second is not None:
++            elapsed_seconds = total_ms / 1000.0
++            cost = (
++                elapsed_seconds * selected["cpu_threads"] * args.vcpu_price_per_second
++                + elapsed_seconds * args.memory_gib * args.memory_price_per_gib_second
++            )
++        return {
++            "engine": ENGINE_NAME,
++            "engineRevision": ENGINE_REVISION,
++            "demucsVersion": DEMUCS_VERSION,
++            "pytorchVersion": PYTORCH_VERSION,
++            "model": MODEL_NAME,
++            "modelSha256": MODEL_SHA256,
++            "modelBytes": MODEL_BYTES,
++            "strategy": config.strategy,
++            "device": config.device,
++            "shifts": config.shifts,
++            "overlap": config.overlap,
++            "cpuThreads": config.cpu_threads,
++            "sourceContract": source_contract,
++            "canonicalInputMetrics": canonical_metrics.as_dict(),
++            "stemContracts": contracts,
++            "stemSha256": {path.stem: worker.sha256_file(path) for path in outputs},
++            "stemMetrics": {name: stem_metrics[name].as_dict() for name in worker.STEMS},
++            "qualitySummary": quality_summary,
++            "qualityFindings": quality_findings,
++            "sampledReconstructionSnrDb": reconstruction_snr_db,
++            "preparedSha256": {path.stem: worker.sha256_file(path) for path in prepared},
++            "preparedMetrics": prepared_metrics,
++            "sharedGainDb": shared_gain_db,
+             "downloadMs": download_ms,
+             "canonicalizeMs": canonical_ms,
++            "assetValidationMs": asset_validation_ms,
+             "inferenceMs": inference_ms,
+             "normalizeMs": normalize_ms,
++            "qualityMs": quality_ms,
++            "reconstructionDiagnosticMs": reconstruction_ms,
++            "renderMs": render_ms,
+             "totalMs": total_ms,
+-            "childUserCpuSeconds": max(0.0, after.ru_utime - before.ru_utime),
+-            "childSystemCpuSeconds": max(0.0, after.ru_stime - before.ru_stime),
+-            "childMaxRssKiB": after.ru_maxrss,
+-            "stemBytes": {name: path.stat().st_size for name, path in zip(worker.STEMS, outputs)},
+-            "stemSha256": {name: worker.sha256_file(path) for name, path in zip(worker.STEMS, outputs)},
++            "processCpuSeconds": cpu_seconds,
++            "memoryGiB": args.memory_gib,
++            "estimatedCostUsd": cost,
++            "maxRssKiB": resource.getrusage(resource.RUSAGE_SELF).ru_maxrss,
+         }
+ 
+-        payload = json.dumps(result, sort_keys=True, separators=(",", ":"))
+-        bucket.blob(result_path).upload_from_string(payload, content_type="application/json")
+-        print(json.dumps({"event": "benchmark_result", **result}, separators=(",", ":")))
+-        return result
++
++def main() -> int:
++    parser = argparse.ArgumentParser()
++    parser.add_argument("--project", required=True)
++    parser.add_argument("--bucket", required=True)
++    parser.add_argument("--input-path", required=True)
++    parser.add_argument("--strategy", choices=sorted(STRATEGIES), required=True)
++    parser.add_argument("--model-repo", default="/opt/demucs/models")
++    parser.add_argument("--timeout-seconds", type=int, default=1_700)
++    parser.add_argument("--memory-gib", type=float, default=16.0)
++    parser.add_argument("--vcpu-price-per-second", type=float)
++    parser.add_argument("--memory-price-per-gib-second", type=float)
++    parser.add_argument("--json-out")
++    args = parser.parse_args()
++    result = run(args)
++    encoded = json.dumps(result, sort_keys=True, indent=2, allow_nan=False)
++    print(encoded)
++    if args.json_out:
++        Path(args.json_out).write_text(encoded + "\n", encoding="utf-8")
++    return 0
+ 
+ 
+ if __name__ == "__main__":
+-    run()
++    raise SystemExit(main())
+diff --git a/cloud/remote-separation/worker/demucs_engine.py b/cloud/remote-separation/worker/demucs_engine.py
+new file mode 100644
+--- /dev/null
++++ b/cloud/remote-separation/worker/demucs_engine.py
+@@ -0,0 +1,176 @@
++#!/usr/bin/env python3
++"""Engine-neutral boundary for the official PyTorch Demucs worker.
++
++The production worker is responsible for Cloud/Firebase lifecycle and prepared-reference
++rendering. This module owns only the inference engine contract: immutable model assets,
++exact CLI arguments, bounded execution, cancellation, and discovery of the six private stems.
++"""
++
++from __future__ import annotations
++
++import hashlib
++import os
++import signal
++import subprocess
++import sys
++from dataclasses import dataclass
++from pathlib import Path
++
++STEMS = ("drums", "bass", "other", "vocals", "guitar", "piano")
++ENGINE_NAME = "demucs-pytorch"
++DEMUCS_VERSION = "4.1.0"
++PYTORCH_VERSION = "2.14.0+cpu"
++ENGINE_REVISION = f"demucs={DEMUCS_VERSION};torch={PYTORCH_VERSION}"
++MODEL_NAME = "htdemucs_6s"
++MODEL_SIGNATURE = "5c90dfd2"
++MODEL_FILE = "5c90dfd2-34c22ccb.th"
++MODEL_BYTES = 54_996_327
++MODEL_SHA256 = "34c22ccb381c6f9fdbf324f04e1e2fe21aaaf293f5ded163a162697ff9a02ddd"
++MODEL_BAG_FILE = "htdemucs_6s.yaml"
++MODEL_BAG_CONTENT = "models: ['5c90dfd2']\n"
++DEFAULT_MODEL_REPO = Path("/opt/demucs/models")
++
++
++class EngineError(RuntimeError):
++    def __init__(self, code: str, message: str):
++        super().__init__(message)
++        self.code = code
++
++
++def sha256_file(path: Path) -> str:
++    digest = hashlib.sha256()
++    with path.open("rb") as handle:
++        for block in iter(lambda: handle.read(1024 * 1024), b""):
++            digest.update(block)
++    return digest.hexdigest()
++
++
++@dataclass(frozen=True)
++class DemucsEngineConfig:
++    model_repo: Path = DEFAULT_MODEL_REPO
++    device: str = "cpu"
++    shifts: int = 1
++    overlap: float = 0.5
++    cpu_threads: int = 8
++    python_executable: str = sys.executable
++
++    def validate(self) -> None:
++        if self.device not in {"cpu", "cuda"}:
++            raise EngineError("CONFIG_INVALID", f"unsupported Demucs device: {self.device}")
++        if self.shifts < 1:
++            raise EngineError("CONFIG_INVALID", "Demucs shifts must be >= 1")
++        if not 0.0 <= self.overlap < 1.0:
++            raise EngineError("CONFIG_INVALID", "Demucs overlap must be >= 0 and < 1")
++        if self.cpu_threads < 1:
++            raise EngineError("CONFIG_INVALID", "Demucs CPU threads must be >= 1")
++        if not self.python_executable.strip():
++            raise EngineError("CONFIG_INVALID", "Python executable must be explicit")
++
++    @property
++    def strategy(self) -> str:
++        overlap = format(self.overlap, ".3f").rstrip("0").rstrip(".")
++        return f"pytorch-{self.device}-s{self.shifts}-o{overlap}-t{self.cpu_threads}"
++
++
++class DemucsPyTorchRunner:
++    def __init__(self, config: DemucsEngineConfig):
++        config.validate()
++        self.config = config
++        self._process: subprocess.Popen[str] | None = None
++
++    def validate_assets(self) -> None:
++        repo = self.config.model_repo
++        checkpoint = repo / MODEL_FILE
++        bag = repo / MODEL_BAG_FILE
++        if not repo.is_dir():
++            raise EngineError("MODEL_INVALID", f"Demucs model repo missing: {repo}")
++        if not checkpoint.is_file():
++            raise EngineError("MODEL_INVALID", f"Demucs checkpoint missing: {checkpoint.name}")
++        if checkpoint.stat().st_size != MODEL_BYTES:
++            raise EngineError("MODEL_INVALID", "htdemucs_6s checkpoint size mismatch")
++        if sha256_file(checkpoint) != MODEL_SHA256:
++            raise EngineError("MODEL_INVALID", "htdemucs_6s checkpoint SHA-256 mismatch")
++        if not bag.is_file() or bag.read_text(encoding="utf-8") != MODEL_BAG_CONTENT:
++            raise EngineError("MODEL_INVALID", "htdemucs_6s local bag definition mismatch")
++
++    def command(self, source: Path, output_root: Path) -> list[str]:
++        return [
++            self.config.python_executable,
++            "-m",
++            "demucs.separate",
++            "--repo",
++            str(self.config.model_repo),
++            "-n",
++            MODEL_NAME,
++            "--float32",
++            "--clip-mode",
++            "none",
++            "--shifts",
++            str(self.config.shifts),
++            "--overlap",
++            format(self.config.overlap, ".6g"),
++            "-d",
++            self.config.device,
++            "-o",
++            str(output_root),
++            str(source),
++        ]
++
++    def environment(self) -> dict[str, str]:
++        env = os.environ.copy()
++        threads = str(self.config.cpu_threads)
++        for name in ("OMP_NUM_THREADS", "MKL_NUM_THREADS", "OPENBLAS_NUM_THREADS", "NUMEXPR_NUM_THREADS"):
++            env[name] = threads
++        env.setdefault("PYTHONUNBUFFERED", "1")
++        return env
++
++    def cancel(self) -> None:
++        process = self._process
++        if process is None or process.poll() is not None:
++            return
++        try:
++            os.killpg(process.pid, signal.SIGTERM)
++        except ProcessLookupError:
++            return
++
++    def run(self, source: Path, output_root: Path, timeout_seconds: int = 1_700) -> list[Path]:
++        self.validate_assets()
++        if not source.is_file():
++            raise EngineError("INPUT_UNSUPPORTED", f"canonical input missing: {source}")
++        output_root.mkdir(parents=True, exist_ok=True)
++        command = self.command(source, output_root)
++        process = subprocess.Popen(
++            command,
++            env=self.environment(),
++            stdout=subprocess.PIPE,
++            stderr=subprocess.STDOUT,
++            text=True,
++            start_new_session=True,
++        )
++        self._process = process
++        try:
++            stdout, _ = process.communicate(timeout=timeout_seconds)
++        except subprocess.TimeoutExpired:
++            self.cancel()
++            try:
++                process.wait(timeout=10)
++            except subprocess.TimeoutExpired:
++                try:
++                    os.killpg(process.pid, signal.SIGKILL)
++                except ProcessLookupError:
++                    pass
++                process.wait(timeout=10)
++            raise
++        finally:
++            self._process = None
++
++        if process.returncode:
++            tail = (stdout or "")[-2_000:]
++            raise EngineError("DEMUCS_FAILED", f"Demucs exited {process.returncode}: {tail}")
++
++        track_dir = output_root / MODEL_NAME / source.stem
++        outputs = [track_dir / f"{stem}.wav" for stem in STEMS]
++        missing = [path.name for path in outputs if not path.is_file()]
++        if missing:
++            raise EngineError("OUTPUT_MISSING", f"official Demucs missing stems: {', '.join(missing)}")
++        return outputs
+diff --git a/cloud/remote-separation/worker/gbw_worker.py b/cloud/remote-separation/worker/gbw_worker.py
+--- a/cloud/remote-separation/worker/gbw_worker.py
++++ b/cloud/remote-separation/worker/gbw_worker.py
+@@ -27,17 +27,27 @@
+ from pathlib import Path
+ from typing import Callable
+ 
+-STEMS = ("drums", "bass", "other", "vocals", "guitar", "piano")
++from audio_quality import evaluate_stems, measure_float32_stereo
++from demucs_engine import (
++    DEMUCS_VERSION,
++    ENGINE_NAME,
++    ENGINE_REVISION,
++    MODEL_BYTES,
++    MODEL_NAME,
++    MODEL_SHA256,
++    PYTORCH_VERSION,
++    STEMS,
++    DemucsEngineConfig,
++    DemucsPyTorchRunner,
++    EngineError,
++)
++
+ BACKING_STEMS = ("drums", "bass", "other", "vocals", "piano")
+ REFERENCE_DELIVERABLES = ("backing", "guitar")
+ REFERENCE_RECIPE = "prepared-reference-v2"
+ TARGET_PEAK_DBFS = -1.0
+ PEAK_TOLERANCE_DB = 0.05
+ CORRUPT_RECONSTRUCTION_SNR_DB = 6.0
+-MODEL_NAME = "ggml-model-htdemucs-6s-f16.bin"
+-MODEL_BYTES = 54_855_129
+-MODEL_SHA256 = "09704f4ceae204e56e77d5eefd6ac71d7275be81fd507e6913371d59abcee856"
+-ENGINE_REVISION = "f1206e9adeea103aef4a636b9e62297cf1f8e34e"
+ MAX_INPUT_BYTES = 1_073_741_824
+ 
+ 
+@@ -55,15 +65,33 @@ class Config:
+     project_id: str
+     input_path: str
+     expected_input_sha256: str
+-    model_path: Path
+-    demucs_binary: Path
+-    blas_threads: int
+-    demucs_threads: int
++    model_repo: Path
++    device: str
++    shifts: int
++    overlap: float
++    cpu_threads: int
+ 
+     @property
+     def prefix(self) -> str:
+         return f"remote/v1/users/{self.uid}/jobs/{self.job_id}"
+ 
++    @property
++    def blas_threads(self) -> int:
++        return self.cpu_threads
++
++    @property
++    def demucs_threads(self) -> int:
++        return 0
++
++    def engine_config(self) -> DemucsEngineConfig:
++        return DemucsEngineConfig(
++            model_repo=self.model_repo,
++            device=self.device,
++            shifts=self.shifts,
++            overlap=self.overlap,
++            cpu_threads=self.cpu_threads,
++        )
++
+     @classmethod
+     def from_env(cls) -> "Config":
+         def required(name: str) -> str:
+@@ -72,42 +100,34 @@ def required(name: str) -> str:
+                 raise WorkerError("CONFIG_INVALID", f"missing {name}")
+             return value
+ 
+-        threads = int(os.environ.get("OPENBLAS_NUM_THREADS", "8"))
+-        if threads not in (1, 2, 4, 8):
+-            raise WorkerError("CONFIG_INVALID", "OPENBLAS_NUM_THREADS must be 1, 2, 4, or 8")
+-        demucs_threads = int(os.environ.get("GBW_DEMUCS_MT_THREADS", "0"))
+-        if demucs_threads not in (0, 2, 4):
+-            raise WorkerError("CONFIG_INVALID", "GBW_DEMUCS_MT_THREADS must be 0, 2, or 4")
++        cpu_threads = int(os.environ.get(
++            "GBW_DEMUCS_CPU_THREADS",
++            os.environ.get("OMP_NUM_THREADS", "8"),
++        ))
+         config = cls(
+             bucket=required("GBW_BUCKET"), uid=required("GBW_UID"),
+             job_id=required("GBW_JOB_ID"), project_id=required("GBW_PROJECT_ID"),
+             input_path=required("GBW_INPUT_PATH"),
+             expected_input_sha256=required("GBW_INPUT_SHA256").lower(),
+-            model_path=Path(os.environ.get("GBW_MODEL_PATH", f"/model/{MODEL_NAME}")),
+-            demucs_binary=Path(os.environ.get(
+-                "GBW_DEMUCS_BINARY",
+-                "/usr/local/bin/demucs.cpp.main",
+-            )),
+-            blas_threads=threads,
+-            demucs_threads=demucs_threads,
++            model_repo=Path(os.environ.get("GBW_MODEL_REPO", "/opt/demucs/models")),
++            device=os.environ.get("GBW_DEMUCS_DEVICE", "cpu").strip().lower(),
++            shifts=int(os.environ.get("GBW_DEMUCS_SHIFTS", "1")),
++            overlap=float(os.environ.get("GBW_DEMUCS_OVERLAP", "0.5")),
++            cpu_threads=cpu_threads,
+         )
+         expected_prefix = f"remote/v1/users/{config.uid}/jobs/{config.job_id}/input/"
+         if not config.input_path.startswith(expected_prefix) or ".." in config.input_path:
+             raise WorkerError("CONFIG_INVALID", "input path is outside the job namespace")
+         if len(config.expected_input_sha256) != 64:
+             raise WorkerError("CONFIG_INVALID", "invalid input SHA-256")
+-        if config.demucs_binary.name != "demucs.cpp.main" or config.demucs_threads != 0:
+-            raise WorkerError(
+-                "CONFIG_INVALID",
+-                "only the finite-safe sequential Demucs strategy is supported",
+-            )
+-        effective_threads = (
+-            config.blas_threads
+-            if config.demucs_threads == 0
+-            else config.blas_threads * config.demucs_threads
+-        )
+-        if effective_threads > int(os.environ.get("GBW_VCPU", "8")):
++        if config.device != "cpu":
++            raise WorkerError("CONFIG_INVALID", "this RC20 worker image is CPU-qualified only")
++        if config.cpu_threads > int(os.environ.get("GBW_VCPU", "8")):
+             raise WorkerError("CONFIG_INVALID", "Demucs thread plan oversubscribes configured vCPU")
++        try:
++            config.engine_config().validate()
++        except EngineError as error:
++            raise WorkerError(error.code, str(error)) from error
+         return config
+ 
+ 
+@@ -119,11 +139,6 @@ def sha256_file(path: Path) -> str:
+     return digest.hexdigest()
+ 
+ 
+-def validate_model(path: Path) -> None:
+-    if not path.is_file() or path.stat().st_size != MODEL_BYTES or sha256_file(path) != MODEL_SHA256:
+-        raise WorkerError("MODEL_INVALID", "controlled htdemucs_6s checkpoint failed integrity validation")
+-
+-
+ IEEE_FLOAT_FORMAT = 0x0003
+ WAVE_FORMAT_EXTENSIBLE = 0xFFFE
+ IEEE_FLOAT_SUBFORMAT_GUID = bytes.fromhex("0300000000001000800000aa00389b71")
+@@ -218,6 +233,15 @@ def float_data_span(path: Path) -> tuple[int, int]:
+     raise WorkerError("OUTPUT_INVALID", f"missing WAV data: {path.name}")
+ 
+ 
++def measure_wav(path: Path):
++    contract = wav_contract(path)
++    offset, data_bytes = float_data_span(path)
++    measured = measure_float32_stereo(path, offset, data_bytes)
++    if measured.frames != contract[2]:
++        raise WorkerError("OUTPUT_INVALID", f"metric frame mismatch: {path.name}")
++    return measured
++
++
+ def sampled_reconstruction_snr_db(source: Path, stems: list[Path], stride_frames: int = 97) -> float:
+     """Samples stem finiteness and reports a diagnostic reconstruction score.
+ 
+@@ -284,20 +308,18 @@ def canonicalize(source: Path, output: Path) -> None:
+         raise WorkerError("INPUT_UNSUPPORTED", completed.stderr[-2000:])
+ 
+ 
+-def normalize_outputs(raw_dir: Path, final_dir: Path) -> list[Path]:
++def normalize_outputs(raw_outputs: list[Path], final_dir: Path) -> list[Path]:
+     final_dir.mkdir(parents=True, exist_ok=True)
++    by_name = {path.stem: path for path in raw_outputs}
++    if set(by_name) != set(STEMS) or len(raw_outputs) != len(STEMS):
++        missing = sorted(set(STEMS) - set(by_name))
++        raise WorkerError("OUTPUT_MISSING", f"incomplete official Demucs stem set: {missing}")
+     outputs = []
+-    for index, stem in enumerate(STEMS):
+-        candidates = [raw_dir / f"target_{index}_{stem}.wav", raw_dir / f"{stem}.wav"]
+-        source = next((candidate for candidate in candidates if candidate.is_file()), None)
+-        if source is None:
+-            raise WorkerError("OUTPUT_MISSING", f"missing {stem}")
++    for stem in STEMS:
+         destination = final_dir / f"{stem}.wav"
+-        canonicalize(source, destination)
++        canonicalize(by_name[stem], destination)
+         outputs.append(destination)
+     return outputs
+-
+-
+ def run_ffmpeg(command: list[str], code: str, label: str, timeout: int = 600) -> None:
+     completed = subprocess.run(command, capture_output=True, text=True, timeout=timeout)
+     if completed.returncode:
+@@ -353,7 +375,7 @@ def apply_gain(source: Path, output: Path, gain_db: float) -> None:
+     )
+ 
+ 
+-def render_prepared_references(outputs: list[Path], final_dir: Path) -> tuple[list[Path], float]:
++def render_prepared_references(outputs: list[Path], final_dir: Path) -> tuple[list[Path], float, dict]:
+     by_name = dict(zip(STEMS, outputs))
+     if set(by_name) != set(STEMS):
+         raise WorkerError("REFERENCE_RENDER_FAILED", "six-stem set is incomplete")
+@@ -387,30 +409,23 @@ def render_prepared_references(outputs: list[Path], final_dir: Path) -> tuple[li
+     guitar_contract = wav_contract(guitar)
+     if backing_contract != guitar_contract:
+         raise WorkerError("REFERENCE_RENDER_FAILED", "prepared reference contracts differ")
++    stage_metrics = {
++        "backingRaw": measure_wav(backing_raw).as_dict(),
++        "guitarRaw": measure_wav(by_name["guitar"]).as_dict(),
++        "fullRaw": measure_wav(full_raw).as_dict(),
++        "backingFinal": measure_wav(backing).as_dict(),
++        "guitarFinal": measure_wav(guitar).as_dict(),
++        "recombinedFinal": measure_wav(recombined).as_dict(),
++    }
+     backing_raw.unlink(missing_ok=True)
+     full_raw.unlink(missing_ok=True)
+     recombined.unlink(missing_ok=True)
+-    return [backing, guitar], shared_gain_db
+-
+-
+-def demucs_command(config: Config, canonical: Path, raw_dir: Path) -> list[str]:
+-    command = [
+-        str(config.demucs_binary),
+-        str(config.model_path),
+-        str(canonical),
+-        str(raw_dir),
+-    ]
+-    if config.demucs_threads > 0:
+-        command.append(str(config.demucs_threads))
+-    return command
++    return [backing, guitar], shared_gain_db, stage_metrics
+ 
+ 
+ def inference_strategy(config: Config) -> str:
+-    return (
+-        f"mt{config.demucs_threads}_omp{config.blas_threads}"
+-        if config.demucs_threads > 0
+-        else f"single{config.blas_threads}"
+-    )
++    overlap = format(config.overlap, ".3f").rstrip("0").rstrip(".")
++    return f"pytorch-{config.device}-s{config.shifts}-o{overlap}-t{config.cpu_threads}"
+ 
+ 
+ def build_manifest(config: Config, input_sha256: str, outputs: list[Path], shared_gain_db: float,
+@@ -439,16 +454,22 @@ def build_manifest(config: Config, input_sha256: str, outputs: list[Path], share
+     return {
+         "schemaVersion": 2, "jobId": config.job_id, "uid": config.uid,
+         "projectId": config.project_id, "inputSha256": input_sha256,
+-        "engine": "demucs.cpp", "engineRevision": ENGINE_REVISION,
+-        "model": "htdemucs_6s", "modelSha256": MODEL_SHA256,
++        "engine": ENGINE_NAME, "engineRevision": ENGINE_REVISION,
++        "model": MODEL_NAME, "modelSha256": MODEL_SHA256,
+         "sampleRate": sample_rate, "channels": channels, "frames": frames,
+         "duration": duration, "startedAt": started,
+         "completedAt": datetime.now(timezone.utc).isoformat(),
+         "wallTimeMs": round((time.monotonic() - started_monotonic) * 1000),
+         "vCPU": int(os.environ.get("GBW_VCPU", "8")),
+-        "blasThreads": config.blas_threads,
+-        "demucsThreads": config.demucs_threads,
++        "blasThreads": config.cpu_threads,
++        "demucsThreads": 0,
+         "inferenceStrategy": inference_strategy(config),
++        "device": config.device,
++        "shifts": config.shifts,
++        "overlap": config.overlap,
++        "demucsVersion": DEMUCS_VERSION,
++        "pytorchVersion": PYTORCH_VERSION,
++        "modelBytes": MODEL_BYTES,
+         "referenceRecipe": {
+             "version": REFERENCE_RECIPE,
+             "targetPeakDbfs": TARGET_PEAK_DBFS,
+@@ -491,8 +512,7 @@ def report_terminal_failure(config: Config, code: str, message: str = "",
+ 
+ 
+ def run(config: Config, storage_factory: Callable[[], object] | None = None) -> dict:
+-    if not config.demucs_binary.is_file():
+-        raise WorkerError("CONFIG_INVALID", "Demucs binary is missing")
++    runner = DemucsPyTorchRunner(config.engine_config())
+     if storage_factory is None:
+         from google.cloud import storage
+         storage_factory = storage.Client
+@@ -519,16 +539,26 @@ def run(config: Config, storage_factory: Callable[[], object] | None = None) ->
+     print(json.dumps({
+         "event": "worker_started",
+         "jobId": config.job_id,
++        "engine": ENGINE_NAME,
++        "engineRevision": ENGINE_REVISION,
++        "model": MODEL_NAME,
++        "modelSha256": MODEL_SHA256,
++        "device": config.device,
++        "shifts": config.shifts,
++        "overlap": config.overlap,
+         "inferenceStrategy": inference_strategy(config),
+-        "blasThreads": config.blas_threads,
+-        "demucsThreads": config.demucs_threads,
++        "cpuThreads": config.cpu_threads,
+     }, separators=(",", ":")))
+-    validate_model(config.model_path)
++    try:
++        runner.validate_assets()
++    except EngineError as error:
++        raise WorkerError(error.code, str(error)) from error
+     started, started_monotonic = datetime.now(timezone.utc).isoformat(), time.monotonic()
+     cancelled = False
+     def terminate(_signum: int, _frame: object) -> None:
+         nonlocal cancelled
+         cancelled = True
++        runner.cancel()
+         raise WorkerError("JOB_CANCELLED", "worker terminated")
+     signal.signal(signal.SIGTERM, terminate)
+ 
+@@ -545,18 +575,31 @@ def terminate(_signum: int, _frame: object) -> None:
+             raise WorkerError("INPUT_HASH_MISMATCH", "downloaded input digest differs")
+         canonical = root / "input.wav"
+         canonicalize(source, canonical)
++        canonical_metrics = measure_wav(canonical)
++        if canonical_metrics.non_finite_samples:
++            raise WorkerError("INPUT_UNSUPPORTED", "canonical input contains non-finite samples")
+         raw_dir = root / "raw"
+-        raw_dir.mkdir()
+-        env = os.environ.copy()
+-        env["OPENBLAS_NUM_THREADS"] = str(config.blas_threads)
+-        env["OMP_NUM_THREADS"] = str(config.blas_threads)
+-        command = demucs_command(config, canonical, raw_dir)
+-        completed = subprocess.run(command, env=env, timeout=1_700)
++        try:
++            raw_outputs = runner.run(canonical, raw_dir, timeout_seconds=1_700)
++        except EngineError as error:
++            raise WorkerError(error.code, str(error)) from error
+         if cancelled:
+             raise WorkerError("JOB_CANCELLED", "worker terminated")
+-        if completed.returncode:
+-            raise WorkerError("DEMUCS_FAILED", f"Demucs exited {completed.returncode}")
+-        outputs = normalize_outputs(raw_dir, root / "final")
++        outputs = normalize_outputs(raw_outputs, root / "final")
++        stem_metrics = {name: measure_wav(path) for name, path in zip(STEMS, outputs)}
++        quality_summary, quality_findings = evaluate_stems(stem_metrics)
++        print(json.dumps({
++            "event": "stem_quality_evaluated",
++            "jobId": config.job_id,
++            "canonicalInput": canonical_metrics.as_dict(),
++            "stems": {name: stem_metrics[name].as_dict() for name in STEMS},
++            "summary": quality_summary,
++            "findings": quality_findings,
++        }, separators=(",", ":")))
++        rejected = [row for row in quality_findings if row["severity"] == "reject"]
++        if rejected:
++            codes = ",".join(sorted({str(row["code"]) for row in rejected}))
++            raise WorkerError("OUTPUT_QUALITY_INVALID", f"stem quality gate rejected: {codes}")
+         reconstruction_snr_db = sampled_reconstruction_snr_db(canonical, outputs)
+         print(json.dumps({
+             "event": "stem_reconstruction_diagnosed",
+@@ -572,7 +615,13 @@ def terminate(_signum: int, _frame: object) -> None:
+                 "progress": 85,
+                 "updatedAt": firestore.SERVER_TIMESTAMP,
+             })
+-        prepared, shared_gain_db = render_prepared_references(outputs, root / "prepared")
++        prepared, shared_gain_db, prepared_metrics = render_prepared_references(outputs, root / "prepared")
++        print(json.dumps({
++            "event": "prepared_reference_metrics",
++            "jobId": config.job_id,
++            "sharedGainDb": round(shared_gain_db, 9),
++            "metrics": prepared_metrics,
++        }, separators=(",", ":")))
+         manifest = build_manifest(config, actual_input_sha, prepared, shared_gain_db, started, started_monotonic)
+         if job_document:
+             from google.cloud import firestore
+@@ -611,9 +660,20 @@ def terminate(_signum: int, _frame: object) -> None:
+                 "resultManifestSha256": manifest_sha,
+                 "completedAt": firestore.SERVER_TIMESTAMP,
+                 "wallTimeMs": manifest["wallTimeMs"],
+-                "blasThreads": config.blas_threads,
+-                "demucsThreads": config.demucs_threads,
++                "engine": ENGINE_NAME,
++                "engineRevision": ENGINE_REVISION,
++                "model": MODEL_NAME,
++                "modelSha256": MODEL_SHA256,
++                "qualityGate": "PASS",
++                "otherEnergyShare": quality_summary["energyShareByStem"]["other"],
++                "blasThreads": config.cpu_threads,
++                "demucsThreads": 0,
+                 "inferenceStrategy": inference_strategy(config),
++                "engine": ENGINE_NAME,
++                "modelSha256": MODEL_SHA256,
++                "device": config.device,
++                "shifts": config.shifts,
++                "overlap": config.overlap,
+             })
+         input_blob.delete()
+         manifest["resultManifestSha256"] = manifest_sha
+diff --git a/cloud/remote-separation/worker/requirements.txt b/cloud/remote-separation/worker/requirements.txt
+--- a/cloud/remote-separation/worker/requirements.txt
++++ b/cloud/remote-separation/worker/requirements.txt
+@@ -1,2 +1,4 @@
++demucs==4.1.0
++numpy==1.26.4
+ google-cloud-storage==3.3.1
+ google-cloud-firestore==2.21.0
+diff --git a/cloud/remote-separation/worker/tests/test_audio_quality.py b/cloud/remote-separation/worker/tests/test_audio_quality.py
+new file mode 100644
+--- /dev/null
++++ b/cloud/remote-separation/worker/tests/test_audio_quality.py
+@@ -0,0 +1,95 @@
++import importlib.util
++import math
++import struct
++import sys
++import tempfile
++import unittest
++from pathlib import Path
++
++MODULE = Path(__file__).parents[1] / "audio_quality.py"
++spec = importlib.util.spec_from_file_location("audio_quality", MODULE)
++quality = importlib.util.module_from_spec(spec)
++sys.modules[spec.name] = quality
++spec.loader.exec_module(quality)
++
++
++def metrics(rms, dc, peak=0.9, non_finite=0):
++    return quality.AudioMetrics(
++        frames=100,
++        finite_samples=200 - non_finite,
++        non_finite_samples=non_finite,
++        peak_per_channel=(peak, peak),
++        rms_per_channel=(rms, rms),
++        mean_dc_per_channel=(dc, dc),
++    )
++
++
++class AudioQualityTest(unittest.TestCase):
++    def test_measure_float32_stereo_reports_peak_rms_dc_and_finiteness(self):
++        with tempfile.TemporaryDirectory() as tmp:
++            path = Path(tmp) / "pcm.bin"
++            values = [0.5, -0.5, 0.5, -0.5, float("nan"), 0.0]
++            path.write_bytes(struct.pack("<" + "f" * len(values), *values))
++            measured = quality.measure_float32_stereo(path, 0, len(values) * 4)
++            self.assertEqual(measured.frames, 3)
++            self.assertEqual(measured.non_finite_samples, 1)
++            self.assertEqual(measured.finite_samples, 5)
++            self.assertAlmostEqual(measured.peak_per_channel[0], 0.5)
++            self.assertAlmostEqual(measured.peak_per_channel[1], 0.5)
++            self.assertAlmostEqual(measured.mean_dc_per_channel[0], 0.5)
++            self.assertAlmostEqual(measured.mean_dc_per_channel[1], -1.0 / 3.0)
++            self.assertTrue(math.isfinite(measured.energy))
++
++    def test_known_rc19_f3_signature_is_rejected_and_other_collapse_is_visible(self):
++        evidence = {
++            "drums": quality.AudioMetrics(1, 2, 0, (0.990866, 0.977934), (0.1470643, 0.1473445), (-0.0153398, -0.0156896)),
++            "bass": quality.AudioMetrics(1, 2, 0, (0.567860, 0.621570), (0.0467919, 0.0476618), (-0.0153052, -0.0147431)),
++            "other": quality.AudioMetrics(1, 2, 0, (0.932966, 0.925337), (0.2548659, 0.2539341), (-0.0133531, -0.0138187)),
++            "vocals": quality.AudioMetrics(1, 2, 0, (0.947759, 0.930906), (0.2302305, 0.2308942), (-0.0147668, -0.0148184)),
++            "guitar": quality.AudioMetrics(1, 2, 0, (0.783335, 0.751910), (0.0866346, 0.0866124), (-0.0146805, -0.0147581)),
++            "piano": quality.AudioMetrics(1, 2, 0, (0.331459, 0.376721), (0.0251797, 0.0254132), (-0.0145588, -0.0144452)),
++        }
++        summary, findings = quality.evaluate_stems(evidence)
++        self.assertTrue(summary["systematicDc"]["detected"])
++        self.assertEqual(len(summary["systematicDc"]["affectedStems"]), 6)
++        self.assertGreater(summary["energyShareByStem"]["other"], 0.40)
++        self.assertGreater(summary["otherToGuitarEnergyRatio"], 5.0)
++        self.assertTrue(summary["otherConcentrationDiagnostic"]["detected"])
++        self.assertIn("SYSTEMATIC_STEM_DC", {row["code"] for row in findings})
++        self.assertIn("OTHER_CONCENTRATION", {row["code"] for row in findings})
++        with self.assertRaisesRegex(quality.QualityError, "SYSTEMATIC_STEM_DC"):
++            quality.require_safe_stems(evidence)
++
++    def test_other_concentration_is_diagnostic_not_universal_veto(self):
++        clean = {
++            "drums": metrics(0.10, 0.0001),
++            "bass": metrics(0.04, -0.0001),
++            "other": metrics(0.25, 0.0002),
++            "vocals": metrics(0.12, -0.0001),
++            "guitar": metrics(0.08, 0.0001),
++            "piano": metrics(0.02, 0.0001),
++        }
++        summary, findings = quality.require_safe_stems(clean)
++        self.assertTrue(summary["otherConcentrationDiagnostic"]["detected"])
++        diagnostic = [row for row in findings if row["code"] == "OTHER_CONCENTRATION"]
++        self.assertEqual(diagnostic[0]["severity"], "diagnostic")
++
++    def test_non_finite_amplitude_explosion_and_silence_are_hard_failures(self):
++        base = {name: metrics(0.1, 0.0) for name in quality.STEMS}
++        base["drums"] = metrics(0.1, 0.0, non_finite=1)
++        base["bass"] = metrics(0.1, 0.0, peak=5.0)
++        base["piano"] = metrics(0.0, 0.0, peak=0.0)
++        _, findings = quality.evaluate_stems(base)
++        codes = {row["code"] for row in findings if row["severity"] == "reject"}
++        self.assertEqual(codes, {"NON_FINITE_STEM", "AMPLITUDE_EXPLOSION", "SILENT_STEM"})
++        with self.assertRaises(quality.QualityError):
++            quality.require_safe_stems(base)
++
++    def test_missing_or_extra_stems_fail_closed(self):
++        incomplete = {name: metrics(0.1, 0.0) for name in quality.STEMS[:-1]}
++        with self.assertRaisesRegex(quality.QualityError, "exactly six"):
++            quality.summarize_stems(incomplete)
++
++
++if __name__ == "__main__":
++    unittest.main()
+diff --git a/cloud/remote-separation/worker/tests/test_benchmark.py b/cloud/remote-separation/worker/tests/test_benchmark.py
+--- a/cloud/remote-separation/worker/tests/test_benchmark.py
++++ b/cloud/remote-separation/worker/tests/test_benchmark.py
+@@ -4,6 +4,7 @@
+ from pathlib import Path
+ 
+ ROOT = Path(__file__).parents[1]
++sys.path.insert(0, str(ROOT))
+ WORKER = ROOT / "gbw_worker.py"
+ BENCH = ROOT / "benchmark.py"
+ 
+@@ -19,16 +20,16 @@
+ 
+ 
+ class BenchmarkContractTest(unittest.TestCase):
+-    def test_strategy_matrix_uses_exactly_eight_cpu_threads(self):
+-        single = benchmark.strategy("single8")
+-        self.assertEqual((single["mt_threads"], single["blas_threads"]), (0, 8))
+-
+-    def test_strategy_matrix_uses_expected_binaries(self):
+-        self.assertTrue(benchmark.strategy("single8")["binary"].endswith("demucs.cpp.main"))
++    def test_cpu_baseline_is_official_phase_w_contract(self):
++        selected = benchmark.strategy("cpu8_s1_o05")
++        self.assertEqual(selected["device"], "cpu")
++        self.assertEqual(selected["cpu_threads"], 8)
++        self.assertEqual(selected["shifts"], 1)
++        self.assertEqual(selected["overlap"], 0.5)
+ 
+     def test_unknown_strategy_is_rejected(self):
+         with self.assertRaises(ValueError):
+-            benchmark.strategy("oversubscribed")
++            benchmark.strategy("single8")
+ 
+ 
+ if __name__ == "__main__":
+diff --git a/cloud/remote-separation/worker/tests/test_demucs_engine.py b/cloud/remote-separation/worker/tests/test_demucs_engine.py
+new file mode 100644
+--- /dev/null
++++ b/cloud/remote-separation/worker/tests/test_demucs_engine.py
+@@ -0,0 +1,112 @@
++import hashlib
++import importlib.util
++import os
++import subprocess
++import sys
++import tempfile
++import unittest
++from pathlib import Path
++from unittest import mock
++
++MODULE = Path(__file__).parents[1] / "demucs_engine.py"
++spec = importlib.util.spec_from_file_location("demucs_engine", MODULE)
++engine = importlib.util.module_from_spec(spec)
++sys.modules[spec.name] = engine
++spec.loader.exec_module(engine)
++
++
++class DemucsEngineContractTest(unittest.TestCase):
++    def test_command_matches_rc20_official_baseline(self):
++        config = engine.DemucsEngineConfig(
++            model_repo=Path("/models"),
++            device="cpu",
++            shifts=1,
++            overlap=0.5,
++            cpu_threads=8,
++            python_executable="/usr/local/bin/python",
++        )
++        runner = engine.DemucsPyTorchRunner(config)
++        self.assertEqual(
++            runner.command(Path("/tmp/input.wav"), Path("/tmp/out")),
++            [
++                "/usr/local/bin/python", "-m", "demucs.separate",
++                "--repo", "/models", "-n", "htdemucs_6s",
++                "--float32", "--clip-mode", "none",
++                "--shifts", "1", "--overlap", "0.5",
++                "-d", "cpu", "-o", "/tmp/out", "/tmp/input.wav",
++            ],
++        )
++        self.assertEqual(config.strategy, "pytorch-cpu-s1-o0.5-t8")
++
++    def test_model_assets_fail_closed(self):
++        with tempfile.TemporaryDirectory() as tmp:
++            repo = Path(tmp)
++            checkpoint = repo / engine.MODEL_FILE
++            checkpoint.write_bytes(b"wrong")
++            (repo / engine.MODEL_BAG_FILE).write_text(engine.MODEL_BAG_CONTENT, encoding="utf-8")
++            runner = engine.DemucsPyTorchRunner(engine.DemucsEngineConfig(model_repo=repo))
++            with self.assertRaisesRegex(engine.EngineError, "size mismatch"):
++                runner.validate_assets()
++
++    def test_model_assets_accept_exact_checkpoint_contract(self):
++        with tempfile.TemporaryDirectory() as tmp:
++            repo = Path(tmp)
++            checkpoint = repo / engine.MODEL_FILE
++            checkpoint.write_bytes(b"x")
++            (repo / engine.MODEL_BAG_FILE).write_text(engine.MODEL_BAG_CONTENT, encoding="utf-8")
++            runner = engine.DemucsPyTorchRunner(engine.DemucsEngineConfig(model_repo=repo))
++            with mock.patch.object(engine, "MODEL_BYTES", 1), \
++                 mock.patch.object(engine, "MODEL_SHA256", hashlib.sha256(b"x").hexdigest()):
++                runner.validate_assets()
++
++    def test_run_requires_all_six_private_stems(self):
++        with tempfile.TemporaryDirectory() as tmp:
++            root = Path(tmp)
++            source = root / "input.wav"
++            source.write_bytes(b"audio")
++            repo = root / "models"
++            repo.mkdir()
++            checkpoint = repo / engine.MODEL_FILE
++            checkpoint.write_bytes(b"x")
++            (repo / engine.MODEL_BAG_FILE).write_text(engine.MODEL_BAG_CONTENT, encoding="utf-8")
++            output = root / "out"
++            track = output / engine.MODEL_NAME / source.stem
++            track.mkdir(parents=True)
++            for stem in engine.STEMS[:-1]:
++                (track / f"{stem}.wav").write_bytes(b"wav")
++
++            process = mock.Mock()
++            process.communicate.return_value = ("ok", None)
++            process.returncode = 0
++            with mock.patch.object(engine, "MODEL_BYTES", 1), \
++                 mock.patch.object(engine, "MODEL_SHA256", hashlib.sha256(b"x").hexdigest()), \
++                 mock.patch.object(subprocess, "Popen", return_value=process):
++                runner = engine.DemucsPyTorchRunner(engine.DemucsEngineConfig(model_repo=repo))
++                with self.assertRaisesRegex(engine.EngineError, "piano"):
++                    runner.run(source, output)
++
++    def test_cpu_thread_environment_is_explicit(self):
++        runner = engine.DemucsPyTorchRunner(engine.DemucsEngineConfig(cpu_threads=4))
++        env = runner.environment()
++        self.assertEqual(env["OMP_NUM_THREADS"], "4")
++        self.assertEqual(env["MKL_NUM_THREADS"], "4")
++        self.assertEqual(env["OPENBLAS_NUM_THREADS"], "4")
++        self.assertEqual(env["NUMEXPR_NUM_THREADS"], "4")
++
++    def test_invalid_device_is_rejected(self):
++        with self.assertRaisesRegex(engine.EngineError, "unsupported Demucs device"):
++            engine.DemucsPyTorchRunner(engine.DemucsEngineConfig(device="auto"))
++
++    def test_cancel_terminates_whole_process_group(self):
++        process = mock.Mock()
++        process.poll.return_value = None
++        process.pid = 123
++        runner = engine.DemucsPyTorchRunner(engine.DemucsEngineConfig())
++        runner._process = process
++        with mock.patch.object(os, "killpg") as killpg:
++            runner.cancel()
++        killpg.assert_called_once_with(123, engine.signal.SIGTERM)
++
++
++if __name__ == "__main__":
++    unittest.main()
+diff --git a/cloud/remote-separation/worker/tests/test_worker.py b/cloud/remote-separation/worker/tests/test_worker.py
+--- a/cloud/remote-separation/worker/tests/test_worker.py
++++ b/cloud/remote-separation/worker/tests/test_worker.py
+@@ -10,6 +10,7 @@
+ from types import SimpleNamespace
+ 
+ MODULE = Path(__file__).parents[1] / "gbw_worker.py"
++sys.path.insert(0, str(MODULE.parent))
+ spec = importlib.util.spec_from_file_location("gbw_worker", MODULE)
+ worker = importlib.util.module_from_spec(spec)
+ sys.modules[spec.name] = worker
+@@ -76,13 +77,19 @@ def test_rejects_pcm16(self):
+ 
+     def test_normalize_requires_six_stems(self):
+         with tempfile.TemporaryDirectory() as tmp:
+-            raw, final = Path(tmp) / "raw", Path(tmp) / "final"
+-            raw.mkdir()
+-            for index, stem in enumerate(worker.STEMS[:-1]):
+-                float_wav(raw / f"target_{index}_{stem}.wav")
+-            with mock.patch.object(worker, "canonicalize", side_effect=lambda source, destination: destination.write_bytes(source.read_bytes())):
++            root, final = Path(tmp), Path(tmp) / "final"
++            raw_outputs = []
++            for stem in worker.STEMS[:-1]:
++                path = root / f"{stem}.wav"
++                float_wav(path)
++                raw_outputs.append(path)
++            with mock.patch.object(
++                worker,
++                "canonicalize",
++                side_effect=lambda source, destination: destination.write_bytes(source.read_bytes()),
++            ):
+                 with self.assertRaisesRegex(worker.WorkerError, "piano"):
+-                    worker.normalize_outputs(raw, final)
++                    worker.normalize_outputs(raw_outputs, final)
+ 
+     def test_sampled_reconstruction_distinguishes_exact_from_corrupt_stems(self):
+         with tempfile.TemporaryDirectory() as tmp:
+@@ -142,27 +149,28 @@ def test_failure_reporting_preserves_cancelled_job(self):
+ 
+         self.assertEqual(updates, [])
+ 
+-    def test_production_single8_command_contract(self):
++    def test_production_official_demucs_contract(self):
+         env = {
+             "GBW_BUCKET": "bucket",
+             "GBW_UID": "user",
+             "GBW_JOB_ID": "00000000-0000-4000-8000-000000000001",
+             "GBW_PROJECT_ID": "00000000-0000-4000-8000-000000000002",
+             "GBW_INPUT_PATH": "remote/v1/users/user/jobs/00000000-0000-4000-8000-000000000001/input/source.wav",
+             "GBW_INPUT_SHA256": "a" * 64,
+-            "GBW_MODEL_PATH": "/model/" + worker.MODEL_NAME,
+-            "GBW_DEMUCS_BINARY": "/usr/local/bin/demucs.cpp.main",
+-            "GBW_DEMUCS_MT_THREADS": "0",
++            "GBW_MODEL_REPO": "/opt/demucs/models",
++            "GBW_DEMUCS_DEVICE": "cpu",
++            "GBW_DEMUCS_SHIFTS": "1",
++            "GBW_DEMUCS_OVERLAP": "0.5",
++            "GBW_DEMUCS_CPU_THREADS": "8",
+             "GBW_VCPU": "8",
+-            "OPENBLAS_NUM_THREADS": "8",
+         }
+         with mock.patch.dict(os.environ, env, clear=True):
+             config = worker.Config.from_env()
+-        command = worker.demucs_command(config, Path("/tmp/input.wav"), Path("/tmp/raw"))
+-        self.assertEqual(command[-1], "/tmp/raw")
+-        self.assertEqual(config.blas_threads, 8)
+-        self.assertEqual(config.demucs_threads, 0)
+-        self.assertEqual(worker.inference_strategy(config), "single8")
++        self.assertEqual(config.device, "cpu")
++        self.assertEqual(config.shifts, 1)
++        self.assertEqual(config.overlap, 0.5)
++        self.assertEqual(config.cpu_threads, 8)
++        self.assertEqual(worker.inference_strategy(config), "pytorch-cpu-s1-o0.5-t8")
+ 
+     def test_thread_plan_rejects_oversubscription(self):
+         env = {
+@@ -172,30 +180,26 @@ def test_thread_plan_rejects_oversubscription(self):
+             "GBW_PROJECT_ID": "00000000-0000-4000-8000-000000000002",
+             "GBW_INPUT_PATH": "remote/v1/users/user/jobs/00000000-0000-4000-8000-000000000001/input/source.wav",
+             "GBW_INPUT_SHA256": "a" * 64,
+-            "GBW_DEMUCS_BINARY": "/usr/local/bin/demucs.cpp.main",
+-            "GBW_DEMUCS_MT_THREADS": "0",
+-            "GBW_VCPU": "4",
+-            "OPENBLAS_NUM_THREADS": "8",
++            "GBW_DEMUCS_CPU_THREADS": "9",
++            "GBW_VCPU": "8",
+         }
+         with mock.patch.dict(os.environ, env, clear=True):
+             with self.assertRaisesRegex(worker.WorkerError, "oversubscribes"):
+                 worker.Config.from_env()
+ 
+-    def test_mt_binary_is_rejected_even_without_partition_threads(self):
++    def test_unqualified_accelerator_is_rejected(self):
+         env = {
+             "GBW_BUCKET": "bucket",
+             "GBW_UID": "user",
+             "GBW_JOB_ID": "00000000-0000-4000-8000-000000000001",
+             "GBW_PROJECT_ID": "00000000-0000-4000-8000-000000000002",
+             "GBW_INPUT_PATH": "remote/v1/users/user/jobs/00000000-0000-4000-8000-000000000001/input/source.wav",
+             "GBW_INPUT_SHA256": "a" * 64,
+-            "GBW_DEMUCS_BINARY": "/usr/local/bin/demucs_mt.cpp.main",
+-            "GBW_DEMUCS_MT_THREADS": "0",
++            "GBW_DEMUCS_DEVICE": "cuda",
+             "GBW_VCPU": "8",
+-            "OPENBLAS_NUM_THREADS": "2",
+         }
+         with mock.patch.dict(os.environ, env, clear=True):
+-            with self.assertRaisesRegex(worker.WorkerError, "finite-safe sequential"):
++            with self.assertRaisesRegex(worker.WorkerError, "CPU-qualified only"):
+                 worker.Config.from_env()
+ 
+ 
+@@ -211,8 +215,11 @@ def test_manifest_v2_exposes_only_prepared_deliverables(self):
+                 job_id="00000000-0000-4000-8000-000000000001",
+                 uid="u",
+                 project_id="00000000-0000-4000-8000-000000000002",
+-                blas_threads=8,
+-                demucs_threads=0,
++                model_repo=Path("/opt/demucs/models"),
++                device="cpu",
++                shifts=1,
++                overlap=0.5,
++                cpu_threads=8,
+             )
+             with mock.patch.dict(os.environ, {"GBW_VCPU": "8"}, clear=False):
+                 manifest = worker.build_manifest(
+@@ -224,6 +231,12 @@ def test_manifest_v2_exposes_only_prepared_deliverables(self):
+                     0.0,
+                 )
+             self.assertEqual(manifest["schemaVersion"], 2)
++            self.assertEqual(manifest["engine"], "demucs-pytorch")
++            self.assertEqual(manifest["model"], "htdemucs_6s")
++            self.assertEqual(manifest["modelSha256"], worker.MODEL_SHA256)
++            self.assertEqual(manifest["device"], "cpu")
++            self.assertEqual(manifest["shifts"], 1)
++            self.assertEqual(manifest["overlap"], 0.5)
+             self.assertNotIn("stems", manifest)
+             self.assertEqual([row["name"] for row in manifest["deliverables"]], ["backing", "guitar"])
+             self.assertEqual(
+@@ -251,11 +264,15 @@ def fake_gain(source, output, _gain_db):
+             with mock.patch.object(worker, "mix_float", side_effect=fake_mix), \
+                  mock.patch.object(worker, "peak_dbfs", side_effect=[-0.2, -3.0, -0.1, -1.1, -3.9, -1.0]), \
+                  mock.patch.object(worker, "apply_gain", side_effect=fake_gain):
+-                outputs, gain_db = worker.render_prepared_references(stems, root / "prepared")
++                outputs, gain_db, stage_metrics = worker.render_prepared_references(stems, root / "prepared")
+ 
+             self.assertAlmostEqual(gain_db, -0.9, places=6)
+             self.assertEqual([path.name for path in outputs], ["backing.wav", "guitar.wav"])
+             self.assertEqual(worker.wav_contract(outputs[0]), worker.wav_contract(outputs[1]))
++            self.assertEqual(
++                set(stage_metrics),
++                {"backingRaw", "guitarRaw", "fullRaw", "backingFinal", "guitarFinal", "recombinedFinal"},
++            )
+ 
+     def test_reference_render_rejects_delivered_pair_that_would_clip(self):
+         with tempfile.TemporaryDirectory() as tmp:
+diff --git a/scripts/u4_cloud_integration_smoke.sh b/scripts/u4_cloud_integration_smoke.sh
+--- a/scripts/u4_cloud_integration_smoke.sh
++++ b/scripts/u4_cloud_integration_smoke.sh
+@@ -131,7 +131,7 @@ DOC_URL="https://firestore.googleapis.com/v1/projects/${GBW_GCP_PROJECT}/databas
+ curl --fail-with-body --show-error -X POST "$DOC_URL" \
+   -H "Authorization: Bearer ${ACCESS_TOKEN}" -H "Content-Type: application/json" \
+   -H "X-Goog-User-Project: ${GBW_GCP_PROJECT}" \
+-  --data "{\"fields\":{\"schemaVersion\":{\"integerValue\":\"2\"},\"resultContract\":{\"stringValue\":\"prepared-reference-v2\"},\"uid\":{\"stringValue\":\"${TEST_UID}\"},\"projectId\":{\"stringValue\":\"${PROJECT_ID}\"},\"sourceAssetId\":{\"stringValue\":\"${SOURCE_ASSET_ID}\"},\"inputPath\":{\"stringValue\":\"${INPUT_PATH}\"},\"inputSha256\":{\"stringValue\":\"${INPUT_SHA}\"},\"state\":{\"stringValue\":\"QUEUED\"},\"phase\":{\"stringValue\":\"STARTING\"},\"progress\":{\"integerValue\":\"0\"},\"remoteCleanupState\":{\"stringValue\":\"NONE\"}}}" >/dev/null
++  --data "{\"fields\":{\"schemaVersion\":{\"integerValue\":\"2\"},\"resultContract\":{\"stringValue\":\"prepared-reference-v2\"},\"workerContract\":{\"stringValue\":\"official-demucs-pytorch-v1\"},\"uid\":{\"stringValue\":\"${TEST_UID}\"},\"projectId\":{\"stringValue\":\"${PROJECT_ID}\"},\"sourceAssetId\":{\"stringValue\":\"${SOURCE_ASSET_ID}\"},\"inputPath\":{\"stringValue\":\"${INPUT_PATH}\"},\"inputSha256\":{\"stringValue\":\"${INPUT_SHA}\"},\"state\":{\"stringValue\":\"QUEUED\"},\"phase\":{\"stringValue\":\"STARTING\"},\"progress\":{\"integerValue\":\"0\"},\"remoteCleanupState\":{\"stringValue\":\"NONE\"}}}" >/dev/null
+ 
+ echo "Executing ${GBW_JOB_NAME} for GuitarLab cloud smoke..."
+ EXECUTION="$(gcloud beta run jobs execute "$GBW_JOB_NAME"   --project "$GBW_GCP_PROJECT" --region "$GBW_REGION"   --update-env-vars "GBW_BUCKET=${GBW_BUCKET},GBW_UID=${TEST_UID},GBW_JOB_ID=${JOB_ID},GBW_PROJECT_ID=${PROJECT_ID},GBW_INPUT_PATH=${INPUT_PATH},GBW_INPUT_SHA256=${INPUT_SHA}"   --task-timeout 30m --wait --format='value(metadata.name)')"
+@@ -149,7 +149,10 @@ root=pathlib.Path(sys.argv[1]); job,project,input_sha,model_sha,uid,prefix=sys.a
+ raw=(root/"result-manifest.json").read_bytes(); m=json.loads(raw)
+ assert m["schemaVersion"]==2
+ assert m["jobId"]==job and m["uid"]==uid and m["projectId"]==project and m["inputSha256"]==input_sha
+-assert m["engine"]=="demucs.cpp" and m["model"]=="htdemucs_6s" and m["modelSha256"]==model_sha
++assert m["engine"]=="demucs-pytorch" and m["model"]=="htdemucs_6s" and m["modelSha256"]==model_sha
++assert m["device"]=="cpu" and int(m["shifts"])==1 and abs(float(m["overlap"])-0.5)<1e-12
++assert m["demucsVersion"]=="4.1.0" and m["pytorchVersion"]=="2.14.0+cpu"
++assert int(m["modelBytes"])==54996327
+ assert m["sampleRate"]==44100 and m["channels"]==2 and int(m["frames"])>0 and float(m["duration"])>0
+ assert "stems" not in m
+ recipe=m["referenceRecipe"]
