@@ -149,7 +149,10 @@ root=pathlib.Path(sys.argv[1]); job,project,input_sha,model_sha,uid,prefix=sys.a
 raw=(root/"result-manifest.json").read_bytes(); m=json.loads(raw)
 assert m["schemaVersion"]==2
 assert m["jobId"]==job and m["uid"]==uid and m["projectId"]==project and m["inputSha256"]==input_sha
-assert m["engine"]=="demucs.cpp" and m["model"]=="htdemucs_6s" and m["modelSha256"]==model_sha
+assert m["engine"]=="demucs-pytorch" and m["model"]=="htdemucs_6s" and m["modelSha256"]==model_sha
+assert m["device"]=="cpu" and int(m["shifts"])==1 and abs(float(m["overlap"])-0.5)<1e-12
+assert m["demucsVersion"]=="4.1.0" and m["pytorchVersion"]=="2.14.0+cpu"
+assert int(m["modelBytes"])==54996327
 assert m["sampleRate"]==44100 and m["channels"]==2 and int(m["frames"])>0 and float(m["duration"])>0
 assert "stems" not in m
 recipe=m["referenceRecipe"]
