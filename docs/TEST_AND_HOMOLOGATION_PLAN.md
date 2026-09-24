@@ -349,3 +349,20 @@ Evidence:
 This does **not** close U8. Production vNext backup/restore cutover, fault
 recovery and real Google Drive acceptance remain mandatory before U8 DIGITAL
 PASS.
+
+
+## RC19 same-generation remote recovery regression
+The RC19 corrective must prove all of the following before physical acceptance:
+- local FAILED or missing history + remote COMPLETED same-generation recovers the remote identity and imports;
+- local failed retry cannot hide an older authoritative COMPLETED result for the same generation;
+- RUNNING/QUEUED same-generation resumes monitoring without new Demucs work;
+- process death after adoption resumes the adopted jobId;
+- manifest jobId mismatch remains fail-closed;
+- project/source/hash mismatch is never adopted;
+- another active project and monthly quota are surfaced as distinct product states;
+- synchronous rejection cleans only an unregistered attempted prefix;
+- repeated recovery/import is idempotent and does not duplicate managed references;
+- ACK remains after durable publication and is independently retryable;
+- reopen/reboot performs authoritative remote reconciliation before restoring a stale SEPARATING project to SOURCE_READY.
+
+The physical acceptance fixture is production RC18 job `0860b0a7-6dda-439d-87af-b0f200c1a8b5`. It must remain untouched manually until the RC19 app consumes it.
