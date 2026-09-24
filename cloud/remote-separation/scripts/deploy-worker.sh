@@ -9,38 +9,19 @@ GBW_IMAGE="${GBW_REGION}-docker.pkg.dev/${GBW_GCP_PROJECT}/${GBW_REPOSITORY}/rem
 GBW_WORKER_SA="gbw-worker@${GBW_GCP_PROJECT}.iam.gserviceaccount.com"
 
 GBW_TAG="$(git rev-parse --short=12 HEAD)"
-CLOUD_BUILD_CONFIG="cloud/remote-separation/worker/cloudbuild.yaml"
-test -f "$CLOUD_BUILD_CONFIG"
-BUILD_ID="$(gcloud builds submit cloud/remote-separation/worker \
-  --project "$GBW_GCP_PROJECT" \
-  --config "$CLOUD_BUILD_CONFIG" \
-  --substitutions "_IMAGE=${GBW_IMAGE},_TAG=${GBW_TAG}" \
-  --async \
-  --format='value(id)')"
-test -n "$BUILD_ID"
-echo "Cloud Build submitted: $BUILD_ID"
+GBW_TAGGED_IMAGE="${GBW_IMAGE}:${GBW_TAG}"
+REGISTRY_HOST="${GBW_REGION}-docker.pkg.dev"
 
-while true; do
-  BUILD_STATUS="$(gcloud builds describe "$BUILD_ID" \
-    --project "$GBW_GCP_PROJECT" \
-    --format='value(status)')"
-  case "$BUILD_STATUS" in
-    SUCCESS)
-      break
-      ;;
-    QUEUED|PENDING|WORKING)
-      sleep 10
-      ;;
-    *)
-      echo "Cloud Build $BUILD_ID finished with status: $BUILD_STATUS" >&2
-      echo "---- Cloud Build diagnostic log ($BUILD_ID) ----" >&2
-      gcloud beta builds log "$BUILD_ID" --project "$GBW_GCP_PROJECT" --stream >&2 || \
-        gcloud builds describe "$BUILD_ID" --project "$GBW_GCP_PROJECT" --format=json >&2 || true
-      echo "---- end Cloud Build diagnostic log ----" >&2
-      exit 1
-      ;;
-  esac
-done
+echo "Configuring Docker authentication for ${REGISTRY_HOST}"
+gcloud auth configure-docker "${REGISTRY_HOST}" --quiet >/dev/null
+
+echo "Building RC20 worker locally on the authenticated GitHub runner"
+docker build --pull --no-cache \
+  --tag "${GBW_TAGGED_IMAGE}" \
+  cloud/remote-separation/worker
+
+echo "Pushing RC20 worker to Artifact Registry"
+docker push "${GBW_TAGGED_IMAGE}"
 
 GBW_DIGEST="$(gcloud artifacts docker images describe "${GBW_IMAGE}:${GBW_TAG}" --project "$GBW_GCP_PROJECT" --format='value(image_summary.digest)')"
 GBW_PINNED_IMAGE="${GBW_IMAGE}@${GBW_DIGEST}"
