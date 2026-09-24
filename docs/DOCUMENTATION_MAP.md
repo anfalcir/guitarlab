@@ -90,3 +90,5 @@ RC13 same-producer supporting evidence is listed above. Older RC9–RC11 evidenc
 
 ## Producer identity rule
 A later docs-only commit never retroactively changes an already-produced APK identity. Every promoted candidate remains bound to its exact workflow producer SHA and signed APK hash.
+
+- `scripts/materialize_ci_sources_u12al.py` — current fail-closed RC19 source tail; U12al rebuilds the recovery callable from clean RC18 source and chains U12aj → U12ak → U12al.
