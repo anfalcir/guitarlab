@@ -307,6 +307,23 @@ Target-device evidence on 2026-09-24:
 
 The two supplied references are structurally valid 44.1 kHz stereo float32 WAVs with matching duration and no NaN/Inf, but listening remains unusable. Therefore container/hash validity is insufficient for final Prepare acceptance.
 
+### Prepare search reliability corrective
+
+A target-device recording also demonstrated a silent search terminal state:
+- artist typed: `memphys may fire`;
+- song: `misery`;
+- busy state remained visible for roughly 15 seconds;
+- the UI then returned to the idle search button with no persistent success/empty/error/suggestion state.
+
+Acceptance now additionally requires:
+- [ ] every source search ends visibly as results, no-exact-match, spelling suggestion, provider failure, timeout or explicit cancellation;
+- [ ] provider failure is never shown as a successful empty search;
+- [ ] a high-confidence typo such as `Memphys May Fire` can suggest `Memphis May Fire` using the existing local similarity/ranking primitives;
+- [ ] accepting a suggestion is explicit and never auto-acquires media;
+- [ ] rejecting a suggestion preserves the user's query;
+- [ ] terminal search evidence is recorded in Activity and the diagnostics journal;
+- [ ] no return from busy state to an indistinguishable idle form without a visible terminal outcome.
+
 The incident also exposed:
 - no explicit local action to reinsert already-active backing/guitar references after their Studio clips are deleted;
 - ambiguous flat technical details that mix active, historical and derived L/R assets;
