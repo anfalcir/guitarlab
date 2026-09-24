@@ -1,133 +1,18 @@
 --- a/scripts/u4_cloud_integration_smoke.sh
 +++ b/scripts/u4_cloud_integration_smoke.sh
-@@ -189,68 +189,71 @@ for artifact in "${DELIVERABLES[@]}"; do
+@@ -189,6 +189,7 @@ for artifact in "${DELIVERABLES[@]}"; do
  done
  gcloud storage objects describe "$MANIFEST_URI" >/dev/null
  
--# Prove authoritative same-generation discovery/adoption before ACK.
--FIND_URL="https://${GBW_REGION}-${GBW_GCP_PROJECT}.cloudfunctions.net/findRecoverableRemoteSeparation"
--FIND_PAYLOAD="{\"data\":{\"projectId\":\"${PROJECT_ID}\",\"sourceAssetId\":\"${SOURCE_ASSET_ID}\",\"inputSha256\":\"${INPUT_SHA}\"}}"
--FIND_RESPONSE="$(
--  curl --fail-with-body --show-error --silent     -H "Authorization: Bearer ${FIREBASE_ID_TOKEN}"     -H "Content-Type: application/json"     -X POST "$FIND_URL"     --data "$FIND_PAYLOAD"
--)"
--python3 - "$FIND_RESPONSE" "$JOB_ID" <<'PY'
--import json,sys
--payload=json.loads(sys.argv[1])
--result=payload.get("result") or {}
--assert result.get("found") is True, payload
--assert result.get("disposition")=="EXISTING_SAME_GENERATION", payload
--assert result.get("jobId")==sys.argv[2], payload
--assert result.get("state")=="COMPLETED", payload
--PY
--
--RECOVERY_INPUT_PATH="${RECOVERY_PREFIX}/input/source.wav"
--gcloud storage cp "$TMP/source.wav" "gs://${GBW_BUCKET}/${RECOVERY_INPUT_PATH}" --content-type="audio/wav" --custom-metadata="sha256=${INPUT_SHA},projectId=${PROJECT_ID},jobId=${RECOVERY_JOB_ID}" >/dev/null
--STATUS_URL="https://${GBW_REGION}-${GBW_GCP_PROJECT}.cloudfunctions.net/remoteBackendStatus"
--STATUS_PAYLOAD='{"data":{}}'
--STATUS_BEFORE="$(
--  curl --fail-with-body --show-error --silent     -H "Authorization: Bearer ${FIREBASE_ID_TOKEN}"     -H "Content-Type: application/json"     -X POST "$STATUS_URL"     --data "$STATUS_PAYLOAD"
--)"
--EXECUTIONS_BEFORE="$(gcloud run jobs executions list --job "$GBW_JOB_NAME" --region "$GBW_REGION" --project "$GBW_GCP_PROJECT" --format='value(name)' | sort)"
--
--ENQUEUE_URL="https://${GBW_REGION}-${GBW_GCP_PROJECT}.cloudfunctions.net/enqueueRemoteSeparation"
--ENQUEUE_PAYLOAD="{\"data\":{\"jobId\":\"${RECOVERY_JOB_ID}\",\"projectId\":\"${PROJECT_ID}\",\"sourceAssetId\":\"${SOURCE_ASSET_ID}\",\"inputSha256\":\"${INPUT_SHA}\",\"inputPath\":\"${RECOVERY_INPUT_PATH}\"}}"
--ENQUEUE_RESPONSE="$(
--  curl --fail-with-body --show-error --silent     -H "Authorization: Bearer ${FIREBASE_ID_TOKEN}"     -H "Content-Type: application/json"     -X POST "$ENQUEUE_URL"     --data "$ENQUEUE_PAYLOAD"
--)"
--python3 - "$ENQUEUE_RESPONSE" "$JOB_ID" "$RECOVERY_JOB_ID" <<'PY'
--import json,sys
--payload=json.loads(sys.argv[1])
--result=payload.get("result") or {}
--assert result.get("requestedJobId")==sys.argv[3], payload
--assert result.get("effectiveJobId")==sys.argv[2], payload
--assert result.get("disposition")=="EXISTING_SAME_GENERATION", payload
--assert result.get("state")=="COMPLETED", payload
--PY
--
--! gcloud storage ls "gs://${GBW_BUCKET}/${RECOVERY_PREFIX}/**" --recursive >/dev/null 2>&1
--RECOVERY_DOC="$(
--  curl --fail-with-body --show-error --silent     -H "Authorization: Bearer ${ACCESS_TOKEN}"     -H "X-Goog-User-Project: ${GBW_GCP_PROJECT}"     "https://firestore.googleapis.com/v1/projects/${GBW_GCP_PROJECT}/databases/(default)/documents/users/${TEST_UID}/jobs/${RECOVERY_JOB_ID}"
--)" || true
--python3 - "$RECOVERY_DOC" <<'PY'
--import json,sys
--payload=json.loads(sys.argv[1])
--assert "error" in payload and int(payload["error"].get("code",0))==404, payload
--PY
--STATUS_AFTER="$(
--  curl --fail-with-body --show-error --silent     -H "Authorization: Bearer ${FIREBASE_ID_TOKEN}"     -H "Content-Type: application/json"     -X POST "$STATUS_URL"     --data "$STATUS_PAYLOAD"
--)"
--python3 - "$STATUS_BEFORE" "$STATUS_AFTER" <<'PY'
--import json,sys
--before=(json.loads(sys.argv[1]).get("result") or {})
--after=(json.loads(sys.argv[2]).get("result") or {})
--assert int(before.get("acceptedJobs",-1)) == int(after.get("acceptedJobs",-2)), (before,after)
--PY
--EXECUTIONS_AFTER="$(gcloud run jobs executions list --job "$GBW_JOB_NAME" --region "$GBW_REGION" --project "$GBW_GCP_PROJECT" --format='value(name)' | sort)"
--test "$EXECUTIONS_BEFORE" = "$EXECUTIONS_AFTER"
--echo "U4 same-generation recovery PASS: completed original adopted; quota unchanged; no second Cloud Run execution; retry upload cleaned."
--
 +if [[ "${GBW_RECOVERY_GATE_REQUIRED:-1}" == "1" ]]; then
-+  # Prove authoritative same-generation discovery/adoption before ACK.
-+  FIND_URL="https://${GBW_REGION}-${GBW_GCP_PROJECT}.cloudfunctions.net/findRecoverableRemoteSeparation"
-+  FIND_PAYLOAD="{\"data\":{\"projectId\":\"${PROJECT_ID}\",\"sourceAssetId\":\"${SOURCE_ASSET_ID}\",\"inputSha256\":\"${INPUT_SHA}\"}}"
-+  FIND_RESPONSE="$(
-+    curl --fail-with-body --show-error --silent     -H "Authorization: Bearer ${FIREBASE_ID_TOKEN}"     -H "Content-Type: application/json"     -X POST "$FIND_URL"     --data "$FIND_PAYLOAD"
-+  )"
-+  python3 - "$FIND_RESPONSE" "$JOB_ID" <<'PY'
-+  import json,sys
-+  payload=json.loads(sys.argv[1])
-+  result=payload.get("result") or {}
-+  assert result.get("found") is True, payload
-+  assert result.get("disposition")=="EXISTING_SAME_GENERATION", payload
-+  assert result.get("jobId")==sys.argv[2], payload
-+  assert result.get("state")=="COMPLETED", payload
-+  PY
-+  
-+  RECOVERY_INPUT_PATH="${RECOVERY_PREFIX}/input/source.wav"
-+  gcloud storage cp "$TMP/source.wav" "gs://${GBW_BUCKET}/${RECOVERY_INPUT_PATH}" --content-type="audio/wav" --custom-metadata="sha256=${INPUT_SHA},projectId=${PROJECT_ID},jobId=${RECOVERY_JOB_ID}" >/dev/null
-+  STATUS_URL="https://${GBW_REGION}-${GBW_GCP_PROJECT}.cloudfunctions.net/remoteBackendStatus"
-+  STATUS_PAYLOAD='{"data":{}}'
-+  STATUS_BEFORE="$(
-+    curl --fail-with-body --show-error --silent     -H "Authorization: Bearer ${FIREBASE_ID_TOKEN}"     -H "Content-Type: application/json"     -X POST "$STATUS_URL"     --data "$STATUS_PAYLOAD"
-+  )"
-+  EXECUTIONS_BEFORE="$(gcloud run jobs executions list --job "$GBW_JOB_NAME" --region "$GBW_REGION" --project "$GBW_GCP_PROJECT" --format='value(name)' | sort)"
-+  
-+  ENQUEUE_URL="https://${GBW_REGION}-${GBW_GCP_PROJECT}.cloudfunctions.net/enqueueRemoteSeparation"
-+  ENQUEUE_PAYLOAD="{\"data\":{\"jobId\":\"${RECOVERY_JOB_ID}\",\"projectId\":\"${PROJECT_ID}\",\"sourceAssetId\":\"${SOURCE_ASSET_ID}\",\"inputSha256\":\"${INPUT_SHA}\",\"inputPath\":\"${RECOVERY_INPUT_PATH}\"}}"
-+  ENQUEUE_RESPONSE="$(
-+    curl --fail-with-body --show-error --silent     -H "Authorization: Bearer ${FIREBASE_ID_TOKEN}"     -H "Content-Type: application/json"     -X POST "$ENQUEUE_URL"     --data "$ENQUEUE_PAYLOAD"
-+  )"
-+  python3 - "$ENQUEUE_RESPONSE" "$JOB_ID" "$RECOVERY_JOB_ID" <<'PY'
-+  import json,sys
-+  payload=json.loads(sys.argv[1])
-+  result=payload.get("result") or {}
-+  assert result.get("requestedJobId")==sys.argv[3], payload
-+  assert result.get("effectiveJobId")==sys.argv[2], payload
-+  assert result.get("disposition")=="EXISTING_SAME_GENERATION", payload
-+  assert result.get("state")=="COMPLETED", payload
-+  PY
-+  
-+  ! gcloud storage ls "gs://${GBW_BUCKET}/${RECOVERY_PREFIX}/**" --recursive >/dev/null 2>&1
-+  RECOVERY_DOC="$(
-+    curl --fail-with-body --show-error --silent     -H "Authorization: Bearer ${ACCESS_TOKEN}"     -H "X-Goog-User-Project: ${GBW_GCP_PROJECT}"     "https://firestore.googleapis.com/v1/projects/${GBW_GCP_PROJECT}/databases/(default)/documents/users/${TEST_UID}/jobs/${RECOVERY_JOB_ID}"
-+  )" || true
-+  python3 - "$RECOVERY_DOC" <<'PY'
-+  import json,sys
-+  payload=json.loads(sys.argv[1])
-+  assert "error" in payload and int(payload["error"].get("code",0))==404, payload
-+  PY
-+  STATUS_AFTER="$(
-+    curl --fail-with-body --show-error --silent     -H "Authorization: Bearer ${FIREBASE_ID_TOKEN}"     -H "Content-Type: application/json"     -X POST "$STATUS_URL"     --data "$STATUS_PAYLOAD"
-+  )"
-+  python3 - "$STATUS_BEFORE" "$STATUS_AFTER" <<'PY'
-+  import json,sys
-+  before=(json.loads(sys.argv[1]).get("result") or {})
-+  after=(json.loads(sys.argv[2]).get("result") or {})
-+  assert int(before.get("acceptedJobs",-1)) == int(after.get("acceptedJobs",-2)), (before,after)
-+  PY
-+  EXECUTIONS_AFTER="$(gcloud run jobs executions list --job "$GBW_JOB_NAME" --region "$GBW_REGION" --project "$GBW_GCP_PROJECT" --format='value(name)' | sort)"
-+  test "$EXECUTIONS_BEFORE" = "$EXECUTIONS_AFTER"
-+  echo "U4 same-generation recovery PASS: completed original adopted; quota unchanged; no second Cloud Run execution; retry upload cleaned."
+ # Prove authoritative same-generation discovery/adoption before ACK.
+ FIND_URL="https://${GBW_REGION}-${GBW_GCP_PROJECT}.cloudfunctions.net/findRecoverableRemoteSeparation"
+ FIND_PAYLOAD="{\"data\":{\"projectId\":\"${PROJECT_ID}\",\"sourceAssetId\":\"${SOURCE_ASSET_ID}\",\"inputSha256\":\"${INPUT_SHA}\"}}"
+@@ -250,7 +251,9 @@ PY
+ EXECUTIONS_AFTER="$(gcloud run jobs executions list --job "$GBW_JOB_NAME" --region "$GBW_REGION" --project "$GBW_GCP_PROJECT" --format='value(name)' | sort)"
+ test "$EXECUTIONS_BEFORE" = "$EXECUTIONS_AFTER"
+ echo "U4 same-generation recovery PASS: completed original adopted; quota unchanged; no second Cloud Run execution; retry upload cleaned."
+-
 +else
 +  echo "U4 same-generation recovery gate skipped for worker-only shadow stage; production callable contract is unchanged until controlled production deploy."
 +fi
