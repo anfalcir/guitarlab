@@ -454,11 +454,30 @@ W0 evidence captured on 2026-09-24 (phase remains OPEN until fixture/adapter val
 - preserve cancellation and typed failures;
 - retain six stems only inside worker/diagnostic scope.
 
+W1 execution evidence (2026-09-24) — **CLOSED**:
+- official engine boundary is `DemucsPyTorchRunner`, pinned to Demucs `4.1.0`, PyTorch `2.14.0+cpu`, checkpoint SHA-256 `34c22ccb381c6f9fdbf324f04e1e2fe21aaaf293f5ded163a162697ff9a02ddd`;
+- the image contains the checkpoint at build time, validates size/SHA, runs non-root and performs no model download during a production task;
+- prepared-reference v2, six-stem-private boundary, cancellation and typed failures remain intact;
+- U7 verification #136/#137 and subsequent W2 backend gates passed on canonical `main`.
+
 **W2 — stage metrics and fail-closed quality checks**
 - canonical input plus per-stem peak/RMS/DC/finiteness/energy;
 - stem energy-distribution sanity so pathological `other` concentration is detected;
 - backing/guitar raw and final metrics;
 - no summed-stem SNR veto unless separately validated.
+
+W2 execution evidence (2026-09-24) — **CLOSED for programmatic worker gates**:
+- `audio_quality.py` measures canonical/stem finiteness, peak, RMS, mean/DC and energy distribution;
+- hard rejects cover non-finite stems, gross amplitude explosion, silent stems and systematic same-polarity DC; `other` concentration is recorded diagnostically pending an accepted musical baseline rather than promoted to an unvalidated universal veto;
+- backing/guitar raw/final and recombined metrics are retained; sampled summed-stem SNR remains diagnostic only;
+- U7 #138–#141 passed; recovery is provenance-gated so RC19 `demucs.cpp` results cannot be adopted as RC20 work;
+- Android U12ap now accepts prepared-reference v2 only from the official RC20 engine/checkpoint/CPU recipe while preserving schema-v1 legacy decoding.
+
+W3/W4 infrastructure status:
+- U12aq source `03a7bd0fb07886f03412aa60bef6fae5a4baee5d` adds a deterministic royalty-free 180 s technical fixture, exact-image Cloud Run benchmark runner, stage/runtime/cost metrics, SHA256SUMS and a listening artifact containing backing, guitar, all six private stems and recombination;
+- U7 #145 passed verify-only for U12aq; no production worker was changed;
+- this technical fixture can qualify duration/performance/integrity infrastructure, but it does **not** satisfy W5 musical listening acceptance;
+- W3 parity and W4 shadow execution remain OPEN until the controlled shadow evidence is collected.
 
 **W3 — local/container parity**
 - same source and pinned image produce contract-equivalent stems across local controlled and Cloud Run shadow execution;
