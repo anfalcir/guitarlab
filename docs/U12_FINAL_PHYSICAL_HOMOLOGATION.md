@@ -277,3 +277,17 @@ U12 PASS requires:
 - explicit user approval of the exact signed candidate.
 
 Record any accepted lower-severity issue with reproducible steps and rationale. A source fix after U11 freeze creates a new candidate and invalidates only the physical evidence materially affected by that change.
+
+
+## RC19 corrective acceptance — install over RC18
+RC19 must be installed **over the existing RC18 installation without clearing app data**.
+
+Critical acceptance fixture:
+- project: `18cf294d-7a76-4f03-8abd-bc55d3344beb`
+- source asset: `f8c3e5d7-c759-41e1-945b-4968c3a54b0e`
+- source SHA-256: `b0e24e05bf4adfe73a72b1cef961ad0f5322ddd4b995d8af7a84296f8feb324a`
+- preserved completed remote job: `0860b0a7-6dda-439d-87af-b0f200c1a8b5`
+
+The app must adopt that exact remote job without another Demucs execution or accepted-job increment, download only the prepared backing/guitar references, validate and publish them atomically, then ACK so Firestore reaches IMPORTED and remoteCleanupState reaches PURGED. Reopen/reboot must remain consistent and creative/recording state must remain intact.
+
+Do not manually cancel, ACK, mutate or purge the fixture before this acceptance.
