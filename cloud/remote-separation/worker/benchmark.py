@@ -32,6 +32,12 @@ STRATEGIES = {
         "shifts": 1,
         "overlap": 0.5,
     },
+    "cpu4_s1_o05": {
+        "device": "cpu",
+        "cpu_threads": 4,
+        "shifts": 1,
+        "overlap": 0.5,
+    },
 }
 BUNDLE_PREFIX_ROOT = "diagnostics/u12-rc20/w4/"
 
@@ -92,6 +98,10 @@ def upload_listening_bundle(bucket, prefix: str, root: Path, stems: list[Path],
 def env_float(name: str) -> float | None:
     value = os.environ.get(name, "").strip()
     return float(value) if value else None
+
+
+def env_flag(name: str) -> bool:
+    return os.environ.get(name, "").strip().lower() in {"1", "true", "yes", "on"}
 
 
 def run(args: argparse.Namespace) -> dict:
@@ -173,6 +183,37 @@ def run(args: argparse.Namespace) -> dict:
         recombined = root / "recombined.wav"
         worker.mix_float(prepared, recombined)
         worker.wav_contract(recombined)
+        warm_probe = None
+        if args.warm_probe:
+            warm_started = time.monotonic()
+            try:
+                warm_raw = runner.run(canonical, root / "warm-raw", timeout_seconds=args.timeout_seconds)
+            except EngineError as error:
+                raise worker.WorkerError(error.code, str(error)) from error
+            warm_inference_ms = round((time.monotonic() - warm_started) * 1000)
+            warm_outputs = worker.normalize_outputs(warm_raw, root / "warm-final")
+            warm_metrics = {
+                name: worker.measure_wav(path)
+                for name, path in zip(worker.STEMS, warm_outputs)
+            }
+            warm_summary, warm_findings = worker.evaluate_stems(warm_metrics)
+            rejected_warm = [row for row in warm_findings if row["severity"] == "reject"]
+            if rejected_warm:
+                codes = ",".join(sorted({str(row["code"]) for row in rejected_warm}))
+                raise worker.WorkerError(
+                    "OUTPUT_QUALITY_INVALID",
+                    f"warm-cache quality gate rejected: {codes}",
+                )
+            warm_probe = {
+                "inferenceMs": warm_inference_ms,
+                "qualityFindings": warm_findings,
+                "qualitySummary": warm_summary,
+                "stemHashEquality": {
+                    warm.stem: worker.sha256_file(warm) == worker.sha256_file(cold)
+                    for warm, cold in zip(warm_outputs, outputs)
+                },
+            }
+
         result = {
             "engine": ENGINE_NAME,
             "engineRevision": ENGINE_REVISION,
@@ -212,6 +253,8 @@ def run(args: argparse.Namespace) -> dict:
             "maxRssKiB": resource.getrusage(resource.RUSAGE_SELF).ru_maxrss,
             "imageIdentity": args.image_identity,
             "pricingBasis": args.pricing_basis,
+            "warmProbe": warm_probe,
+            "wallMsIncludingWarmProbe": round((time.monotonic() - started_total) * 1000),
         }
         bundle_prefix = validate_bundle_prefix(args.bundle_prefix)
         if bundle_prefix is not None:
@@ -234,6 +277,7 @@ def main() -> int:
     parser.add_argument("--bundle-prefix", default=os.environ.get("GBW_BENCH_BUNDLE_PREFIX"))
     parser.add_argument("--image-identity", default=os.environ.get("GBW_BENCH_IMAGE_IDENTITY"))
     parser.add_argument("--pricing-basis", default=os.environ.get("GBW_BENCH_PRICING_BASIS"))
+    parser.add_argument("--warm-probe", action="store_true", default=env_flag("GBW_BENCH_WARM_PROBE"))
     parser.add_argument("--json-out")
     args = parser.parse_args()
     result = run(args)

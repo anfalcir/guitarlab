@@ -27,6 +27,13 @@ class BenchmarkContractTest(unittest.TestCase):
         self.assertEqual(selected["shifts"], 1)
         self.assertEqual(selected["overlap"], 0.5)
 
+    def test_cpu4_matrix_keeps_official_quality_recipe(self):
+        selected = benchmark.strategy("cpu4_s1_o05")
+        self.assertEqual(selected["device"], "cpu")
+        self.assertEqual(selected["cpu_threads"], 4)
+        self.assertEqual(selected["shifts"], 1)
+        self.assertEqual(selected["overlap"], 0.5)
+
     def test_unknown_strategy_is_rejected(self):
         with self.assertRaises(ValueError):
             benchmark.strategy("single8")
