@@ -10,6 +10,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 MODULE = Path(__file__).parents[1] / "gbw_worker.py"
+sys.path.insert(0, str(MODULE.parent))
 spec = importlib.util.spec_from_file_location("gbw_worker", MODULE)
 worker = importlib.util.module_from_spec(spec)
 sys.modules[spec.name] = worker
@@ -76,13 +77,19 @@ class WorkerContractTest(unittest.TestCase):
 
     def test_normalize_requires_six_stems(self):
         with tempfile.TemporaryDirectory() as tmp:
-            raw, final = Path(tmp) / "raw", Path(tmp) / "final"
-            raw.mkdir()
-            for index, stem in enumerate(worker.STEMS[:-1]):
-                float_wav(raw / f"target_{index}_{stem}.wav")
-            with mock.patch.object(worker, "canonicalize", side_effect=lambda source, destination: destination.write_bytes(source.read_bytes())):
+            root, final = Path(tmp), Path(tmp) / "final"
+            raw_outputs = []
+            for stem in worker.STEMS[:-1]:
+                path = root / f"{stem}.wav"
+                float_wav(path)
+                raw_outputs.append(path)
+            with mock.patch.object(
+                worker,
+                "canonicalize",
+                side_effect=lambda source, destination: destination.write_bytes(source.read_bytes()),
+            ):
                 with self.assertRaisesRegex(worker.WorkerError, "piano"):
-                    worker.normalize_outputs(raw, final)
+                    worker.normalize_outputs(raw_outputs, final)
 
     def test_sampled_reconstruction_distinguishes_exact_from_corrupt_stems(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -142,7 +149,7 @@ class WorkerContractTest(unittest.TestCase):
 
         self.assertEqual(updates, [])
 
-    def test_production_single8_command_contract(self):
+    def test_production_official_demucs_contract(self):
         env = {
             "GBW_BUCKET": "bucket",
             "GBW_UID": "user",
@@ -150,19 +157,20 @@ class WorkerContractTest(unittest.TestCase):
             "GBW_PROJECT_ID": "00000000-0000-4000-8000-000000000002",
             "GBW_INPUT_PATH": "remote/v1/users/user/jobs/00000000-0000-4000-8000-000000000001/input/source.wav",
             "GBW_INPUT_SHA256": "a" * 64,
-            "GBW_MODEL_PATH": "/model/" + worker.MODEL_NAME,
-            "GBW_DEMUCS_BINARY": "/usr/local/bin/demucs.cpp.main",
-            "GBW_DEMUCS_MT_THREADS": "0",
+            "GBW_MODEL_REPO": "/opt/demucs/models",
+            "GBW_DEMUCS_DEVICE": "cpu",
+            "GBW_DEMUCS_SHIFTS": "1",
+            "GBW_DEMUCS_OVERLAP": "0.5",
+            "GBW_DEMUCS_CPU_THREADS": "8",
             "GBW_VCPU": "8",
-            "OPENBLAS_NUM_THREADS": "8",
         }
         with mock.patch.dict(os.environ, env, clear=True):
             config = worker.Config.from_env()
-        command = worker.demucs_command(config, Path("/tmp/input.wav"), Path("/tmp/raw"))
-        self.assertEqual(command[-1], "/tmp/raw")
-        self.assertEqual(config.blas_threads, 8)
-        self.assertEqual(config.demucs_threads, 0)
-        self.assertEqual(worker.inference_strategy(config), "single8")
+        self.assertEqual(config.device, "cpu")
+        self.assertEqual(config.shifts, 1)
+        self.assertEqual(config.overlap, 0.5)
+        self.assertEqual(config.cpu_threads, 8)
+        self.assertEqual(worker.inference_strategy(config), "pytorch-cpu-s1-o0.5-t8")
 
     def test_thread_plan_rejects_oversubscription(self):
         env = {
@@ -172,16 +180,14 @@ class WorkerContractTest(unittest.TestCase):
             "GBW_PROJECT_ID": "00000000-0000-4000-8000-000000000002",
             "GBW_INPUT_PATH": "remote/v1/users/user/jobs/00000000-0000-4000-8000-000000000001/input/source.wav",
             "GBW_INPUT_SHA256": "a" * 64,
-            "GBW_DEMUCS_BINARY": "/usr/local/bin/demucs.cpp.main",
-            "GBW_DEMUCS_MT_THREADS": "0",
-            "GBW_VCPU": "4",
-            "OPENBLAS_NUM_THREADS": "8",
+            "GBW_DEMUCS_CPU_THREADS": "9",
+            "GBW_VCPU": "8",
         }
         with mock.patch.dict(os.environ, env, clear=True):
             with self.assertRaisesRegex(worker.WorkerError, "oversubscribes"):
                 worker.Config.from_env()
 
-    def test_mt_binary_is_rejected_even_without_partition_threads(self):
+    def test_unqualified_accelerator_is_rejected(self):
         env = {
             "GBW_BUCKET": "bucket",
             "GBW_UID": "user",
@@ -189,13 +195,11 @@ class WorkerContractTest(unittest.TestCase):
             "GBW_PROJECT_ID": "00000000-0000-4000-8000-000000000002",
             "GBW_INPUT_PATH": "remote/v1/users/user/jobs/00000000-0000-4000-8000-000000000001/input/source.wav",
             "GBW_INPUT_SHA256": "a" * 64,
-            "GBW_DEMUCS_BINARY": "/usr/local/bin/demucs_mt.cpp.main",
-            "GBW_DEMUCS_MT_THREADS": "0",
+            "GBW_DEMUCS_DEVICE": "cuda",
             "GBW_VCPU": "8",
-            "OPENBLAS_NUM_THREADS": "2",
         }
         with mock.patch.dict(os.environ, env, clear=True):
-            with self.assertRaisesRegex(worker.WorkerError, "finite-safe sequential"):
+            with self.assertRaisesRegex(worker.WorkerError, "CPU-qualified only"):
                 worker.Config.from_env()
 
 
@@ -211,8 +215,11 @@ class WorkerContractTest(unittest.TestCase):
                 job_id="00000000-0000-4000-8000-000000000001",
                 uid="u",
                 project_id="00000000-0000-4000-8000-000000000002",
-                blas_threads=8,
-                demucs_threads=0,
+                model_repo=Path("/opt/demucs/models"),
+                device="cpu",
+                shifts=1,
+                overlap=0.5,
+                cpu_threads=8,
             )
             with mock.patch.dict(os.environ, {"GBW_VCPU": "8"}, clear=False):
                 manifest = worker.build_manifest(
@@ -224,6 +231,12 @@ class WorkerContractTest(unittest.TestCase):
                     0.0,
                 )
             self.assertEqual(manifest["schemaVersion"], 2)
+            self.assertEqual(manifest["engine"], "demucs-pytorch")
+            self.assertEqual(manifest["model"], "htdemucs_6s")
+            self.assertEqual(manifest["modelSha256"], worker.MODEL_SHA256)
+            self.assertEqual(manifest["device"], "cpu")
+            self.assertEqual(manifest["shifts"], 1)
+            self.assertEqual(manifest["overlap"], 0.5)
             self.assertNotIn("stems", manifest)
             self.assertEqual([row["name"] for row in manifest["deliverables"]], ["backing", "guitar"])
             self.assertEqual(

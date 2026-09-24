@@ -24,36 +24,113 @@
     "blasThreads",
     "demucsThreads",
     "inferenceStrategy",
+    "device",
+    "shifts",
+    "overlap",
+    "demucsVersion",
+    "pytorchVersion",
+    "modelBytes",
     "referenceRecipe",
     "deliverables"
   ],
   "properties": {
-    "schemaVersion": { "const": 2 },
-    "jobId": { "type": "string", "format": "uuid" },
-    "uid": { "type": "string", "minLength": 1 },
-    "projectId": { "type": "string", "format": "uuid" },
-    "inputSha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
-    "engine": { "const": "demucs.cpp" },
-    "engineRevision": { "type": "string" },
-    "model": { "const": "htdemucs_6s" },
-    "modelSha256": { "const": "09704f4ceae204e56e77d5eefd6ac71d7275be81fd507e6913371d59abcee856" },
-    "sampleRate": { "const": 44100 },
-    "channels": { "const": 2 },
-    "frames": { "type": "integer", "minimum": 1 },
-    "duration": { "type": "number", "exclusiveMinimum": 0 },
-    "startedAt": { "type": "string", "format": "date-time" },
-    "completedAt": { "type": "string", "format": "date-time" },
-    "wallTimeMs": { "type": "integer", "minimum": 0 },
-    "vCPU": { "const": 8 },
-    "blasThreads": { "const": 8 },
-    "demucsThreads": { "const": 0 },
-    "inferenceStrategy": { "const": "single8" },
-    "referenceRecipe": { "$ref": "#/$defs/referenceRecipe" },
+    "schemaVersion": {
+      "const": 2
+    },
+    "jobId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "uid": {
+      "type": "string",
+      "minLength": 1
+    },
+    "projectId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "inputSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "engine": {
+      "const": "demucs-pytorch"
+    },
+    "engineRevision": {
+      "type": "string"
+    },
+    "model": {
+      "const": "htdemucs_6s"
+    },
+    "modelSha256": {
+      "const": "34c22ccb381c6f9fdbf324f04e1e2fe21aaaf293f5ded163a162697ff9a02ddd"
+    },
+    "sampleRate": {
+      "const": 44100
+    },
+    "channels": {
+      "const": 2
+    },
+    "frames": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "duration": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "startedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "completedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "wallTimeMs": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "vCPU": {
+      "const": 8
+    },
+    "blasThreads": {
+      "const": 8
+    },
+    "demucsThreads": {
+      "const": 0
+    },
+    "inferenceStrategy": {
+      "const": "pytorch-cpu-s1-o0.5-t8"
+    },
+    "referenceRecipe": {
+      "$ref": "#/$defs/referenceRecipe"
+    },
     "deliverables": {
       "type": "array",
       "minItems": 2,
       "maxItems": 2,
-      "items": { "$ref": "#/$defs/deliverable" }
+      "items": {
+        "$ref": "#/$defs/deliverable"
+      }
+    },
+    "device": {
+      "const": "cpu"
+    },
+    "shifts": {
+      "const": 1
+    },
+    "overlap": {
+      "const": 0.5
+    },
+    "demucsVersion": {
+      "const": "4.1.0"
+    },
+    "pytorchVersion": {
+      "const": "2.14.0+cpu"
+    },
+    "modelBytes": {
+      "const": 54996327
     }
   },
   "$defs": {
@@ -68,19 +145,34 @@
         "guitarStem"
       ],
       "properties": {
-        "version": { "const": "prepared-reference-v2" },
-        "targetPeakDbfs": { "const": -1.0 },
-        "sharedGainDb": { "type": "number", "maximum": 0.0 },
+        "version": {
+          "const": "prepared-reference-v2"
+        },
+        "targetPeakDbfs": {
+          "const": -1
+        },
+        "sharedGainDb": {
+          "type": "number",
+          "maximum": 0
+        },
         "backingStems": {
           "type": "array",
           "minItems": 5,
           "maxItems": 5,
           "uniqueItems": true,
           "items": {
-            "enum": ["drums", "bass", "other", "vocals", "piano"]
+            "enum": [
+              "drums",
+              "bass",
+              "other",
+              "vocals",
+              "piano"
+            ]
           }
         },
-        "guitarStem": { "const": "guitar" }
+        "guitarStem": {
+          "const": "guitar"
+        }
       }
     },
     "deliverable": {
@@ -98,15 +190,42 @@
         "encoding"
       ],
       "properties": {
-        "name": { "enum": ["backing", "guitar"] },
-        "role": { "enum": ["REFERENCE_BACKING", "REFERENCE_GUITAR"] },
-        "path": { "type": "string" },
-        "bytes": { "type": "integer", "minimum": 45 },
-        "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
-        "sampleRate": { "const": 44100 },
-        "channels": { "const": 2 },
-        "frames": { "type": "integer", "minimum": 1 },
-        "encoding": { "const": "FLOAT32_LE" }
+        "name": {
+          "enum": [
+            "backing",
+            "guitar"
+          ]
+        },
+        "role": {
+          "enum": [
+            "REFERENCE_BACKING",
+            "REFERENCE_GUITAR"
+          ]
+        },
+        "path": {
+          "type": "string"
+        },
+        "bytes": {
+          "type": "integer",
+          "minimum": 45
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "sampleRate": {
+          "const": 44100
+        },
+        "channels": {
+          "const": 2
+        },
+        "frames": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "encoding": {
+          "const": "FLOAT32_LE"
+        }
       }
     }
   }

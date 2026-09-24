@@ -1,17 +1,65 @@
-FROM debian:bookworm-slim AS build
-ARG DEMUCS_CPP_COMMIT=f1206e9adeea103aef4a636b9e62297cf1f8e34e
-RUN apt-get update && apt-get install -y --no-install-recommends build-essential cmake git libopenblas-openmp-dev ca-certificates && rm -rf /var/lib/apt/lists/*
-RUN git clone --recurse-submodules https://github.com/sevagh/demucs.cpp.git /src && cd /src && git checkout "$DEMUCS_CPP_COMMIT" && git submodule update --init --recursive
-RUN cmake -S /src -B /src/build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF && cmake --build /src/build --target demucs.cpp.main -j2
+FROM python:3.12.14-slim-bookworm@sha256:782412e85d0f0984994c290652577d4018aff08145c85b262bb63dc0c7522254
 
-FROM python:3.12-slim-bookworm
-RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg libopenblas0-openmp && rm -rf /var/lib/apt/lists/* && useradd --create-home --uid 65532 worker
-COPY --from=build /src/build/demucs.cpp.main /usr/local/bin/demucs.cpp.main
+ARG TORCH_VERSION=2.14.0+cpu
+ARG DEMUCS_VERSION=4.1.0
+ARG MODEL_URL=https://dl.fbaipublicfiles.com/demucs/hybrid_transformer/5c90dfd2-34c22ccb.th
+ARG MODEL_SHA256=34c22ccb381c6f9fdbf324f04e1e2fe21aaaf293f5ded163a162697ff9a02ddd
+ARG MODEL_BYTES=54996327
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PYTHONHASHSEED=0 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_NO_CACHE_DIR=1
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates curl ffmpeg libgomp1 libsndfile1 \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN python -m pip install --upgrade "pip==26.2" \
+    && python -m pip install --index-url https://download.pytorch.org/whl/cpu "torch==${TORCH_VERSION}"
+
 COPY requirements.txt /tmp/requirements.txt
-RUN pip install --no-cache-dir --require-hashes -r /tmp/requirements.txt || pip install --no-cache-dir -r /tmp/requirements.txt
-COPY gbw_worker.py /app/gbw_worker.py
-COPY benchmark.py /app/benchmark.py
-USER 65532:65532
+RUN python -m pip install -r /tmp/requirements.txt \
+    && python -m pip check \
+    && python - <<'PY'
+import importlib.metadata as metadata
+import torch
+assert metadata.version("demucs") == "4.1.0"
+assert metadata.version("torch") == "2.14.0+cpu"
+assert torch.__version__ == "2.14.0+cpu"
+assert not torch.cuda.is_available()
+PY
+
+RUN mkdir -p /opt/demucs/models \
+    && curl --fail --location --retry 4 --output /opt/demucs/models/5c90dfd2-34c22ccb.th "${MODEL_URL}" \
+    && echo "${MODEL_SHA256}  /opt/demucs/models/5c90dfd2-34c22ccb.th" | sha256sum -c - \
+    && test "$(stat -c %s /opt/demucs/models/5c90dfd2-34c22ccb.th)" = "${MODEL_BYTES}" \
+    && printf "models: ['5c90dfd2']\n" > /opt/demucs/models/htdemucs_6s.yaml
+
+RUN python - <<'PY'
+from pathlib import Path
+from demucs.pretrained import get_model
+model = get_model("htdemucs_6s", Path("/opt/demucs/models"))
+assert tuple(model.sources) == ("drums", "bass", "other", "vocals", "guitar", "piano")
+PY
+
 WORKDIR /app
-ENV PYTHONUNBUFFERED=1 OPENBLAS_NUM_THREADS=8 OMP_NUM_THREADS=8 GBW_DEMUCS_BINARY=/usr/local/bin/demucs.cpp.main GBW_DEMUCS_MT_THREADS=0 GBW_MODEL_PATH=/model/ggml-model-htdemucs-6s-f16.bin
-ENTRYPOINT ["python", "/app/gbw_worker.py"]
+COPY demucs_engine.py gbw_worker.py benchmark.py /app/
+RUN useradd --uid 65532 --create-home --shell /usr/sbin/nologin worker \
+    && chown -R worker:worker /app /opt/demucs \
+    && chmod -R a-w /opt/demucs/models
+
+USER 65532:65532
+ENV HOME=/home/worker \
+    GBW_MODEL_REPO=/opt/demucs/models \
+    GBW_DEMUCS_DEVICE=cpu \
+    GBW_DEMUCS_SHIFTS=1 \
+    GBW_DEMUCS_OVERLAP=0.5 \
+    GBW_DEMUCS_CPU_THREADS=8 \
+    OMP_NUM_THREADS=8 \
+    MKL_NUM_THREADS=8 \
+    OPENBLAS_NUM_THREADS=8 \
+    NUMEXPR_NUM_THREADS=8
+ENTRYPOINT ["python3", "/app/gbw_worker.py"]

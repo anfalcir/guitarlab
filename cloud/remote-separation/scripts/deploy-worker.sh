@@ -60,15 +60,15 @@ fi
   --task-timeout 30m \
   --max-retries 0 \
   "${DELAY_ARGS[@]}" \
-  --set-env-vars "GBW_BUCKET=${GBW_BUCKET},GBW_VCPU=8,GBW_DEMUCS_BINARY=/usr/local/bin/demucs.cpp.main,GBW_DEMUCS_MT_THREADS=0,OPENBLAS_NUM_THREADS=8,OMP_NUM_THREADS=8" \
-  --add-volume "name=model,type=cloud-storage,bucket=${GBW_BUCKET}" \
-  --add-volume-mount "volume=model,mount-path=/model" \
+  --set-env-vars "GBW_BUCKET=${GBW_BUCKET},GBW_VCPU=8,GBW_MODEL_REPO=/opt/demucs/models,GBW_DEMUCS_DEVICE=cpu,GBW_DEMUCS_SHIFTS=1,GBW_DEMUCS_OVERLAP=0.5,GBW_DEMUCS_CPU_THREADS=8,OMP_NUM_THREADS=8,MKL_NUM_THREADS=8,OPENBLAS_NUM_THREADS=8,NUMEXPR_NUM_THREADS=8" \
+  --clear-volumes \
+  --clear-volume-mounts \
   --quiet
 
 JOB_JSON="$(gcloud run jobs describe "$GBW_JOB_NAME" \
   --project "$GBW_GCP_PROJECT" \
   --region "$GBW_REGION" \
   --format=json)"
-python3 -c 'import json,sys; d=json.load(sys.stdin); delay=str(d["spec"].get("delayExecution", "false")).lower(); assert delay not in ("true","1"), f"delayExecution unexpectedly enabled: {delay}"; c=d["spec"]["template"]["spec"]["template"]["spec"]["containers"][0]; env={row["name"]:row.get("value","") for row in c.get("env",[])}; expected={"GBW_VCPU":"8","GBW_DEMUCS_BINARY":"/usr/local/bin/demucs.cpp.main","GBW_DEMUCS_MT_THREADS":"0","OPENBLAS_NUM_THREADS":"8","OMP_NUM_THREADS":"8"}; missing={k:(env.get(k),v) for k,v in expected.items() if env.get(k)!=v}; assert not missing, f"unexpected production inference contract: {missing}"' <<<"$JOB_JSON"
+python3 -c 'import json,sys; d=json.load(sys.stdin); delay=str(d["spec"].get("delayExecution", "false")).lower(); assert delay not in ("true","1"), f"delayExecution unexpectedly enabled: {delay}"; c=d["spec"]["template"]["spec"]["template"]["spec"]["containers"][0]; env={row["name"]:row.get("value","") for row in c.get("env",[])}; expected={"GBW_VCPU":"8","GBW_MODEL_REPO":"/opt/demucs/models","GBW_DEMUCS_DEVICE":"cpu","GBW_DEMUCS_SHIFTS":"1","GBW_DEMUCS_OVERLAP":"0.5","GBW_DEMUCS_CPU_THREADS":"8","OMP_NUM_THREADS":"8","MKL_NUM_THREADS":"8","OPENBLAS_NUM_THREADS":"8","NUMEXPR_NUM_THREADS":"8"}; missing={k:(env.get(k),v) for k,v in expected.items() if env.get(k)!=v}; assert not missing, f"unexpected official Demucs inference contract: {missing}"; assert not d["spec"]["template"]["spec"]["template"]["spec"].get("volumes"), "worker must not depend on runtime model volumes"' <<<"$JOB_JSON"
 
 printf '%s\n' "$GBW_PINNED_IMAGE"

@@ -27,17 +27,26 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable
 
-STEMS = ("drums", "bass", "other", "vocals", "guitar", "piano")
+from demucs_engine import (
+    DEMUCS_VERSION,
+    ENGINE_NAME,
+    ENGINE_REVISION,
+    MODEL_BYTES,
+    MODEL_NAME,
+    MODEL_SHA256,
+    PYTORCH_VERSION,
+    STEMS,
+    DemucsEngineConfig,
+    DemucsPyTorchRunner,
+    EngineError,
+)
+
 BACKING_STEMS = ("drums", "bass", "other", "vocals", "piano")
 REFERENCE_DELIVERABLES = ("backing", "guitar")
 REFERENCE_RECIPE = "prepared-reference-v2"
 TARGET_PEAK_DBFS = -1.0
 PEAK_TOLERANCE_DB = 0.05
 CORRUPT_RECONSTRUCTION_SNR_DB = 6.0
-MODEL_NAME = "ggml-model-htdemucs-6s-f16.bin"
-MODEL_BYTES = 54_855_129
-MODEL_SHA256 = "09704f4ceae204e56e77d5eefd6ac71d7275be81fd507e6913371d59abcee856"
-ENGINE_REVISION = "f1206e9adeea103aef4a636b9e62297cf1f8e34e"
 MAX_INPUT_BYTES = 1_073_741_824
 
 
@@ -55,14 +64,32 @@ class Config:
     project_id: str
     input_path: str
     expected_input_sha256: str
-    model_path: Path
-    demucs_binary: Path
-    blas_threads: int
-    demucs_threads: int
+    model_repo: Path
+    device: str
+    shifts: int
+    overlap: float
+    cpu_threads: int
 
     @property
     def prefix(self) -> str:
         return f"remote/v1/users/{self.uid}/jobs/{self.job_id}"
+
+    @property
+    def blas_threads(self) -> int:
+        return self.cpu_threads
+
+    @property
+    def demucs_threads(self) -> int:
+        return 0
+
+    def engine_config(self) -> DemucsEngineConfig:
+        return DemucsEngineConfig(
+            model_repo=self.model_repo,
+            device=self.device,
+            shifts=self.shifts,
+            overlap=self.overlap,
+            cpu_threads=self.cpu_threads,
+        )
 
     @classmethod
     def from_env(cls) -> "Config":
@@ -72,42 +99,34 @@ class Config:
                 raise WorkerError("CONFIG_INVALID", f"missing {name}")
             return value
 
-        threads = int(os.environ.get("OPENBLAS_NUM_THREADS", "8"))
-        if threads not in (1, 2, 4, 8):
-            raise WorkerError("CONFIG_INVALID", "OPENBLAS_NUM_THREADS must be 1, 2, 4, or 8")
-        demucs_threads = int(os.environ.get("GBW_DEMUCS_MT_THREADS", "0"))
-        if demucs_threads not in (0, 2, 4):
-            raise WorkerError("CONFIG_INVALID", "GBW_DEMUCS_MT_THREADS must be 0, 2, or 4")
+        cpu_threads = int(os.environ.get(
+            "GBW_DEMUCS_CPU_THREADS",
+            os.environ.get("OMP_NUM_THREADS", "8"),
+        ))
         config = cls(
             bucket=required("GBW_BUCKET"), uid=required("GBW_UID"),
             job_id=required("GBW_JOB_ID"), project_id=required("GBW_PROJECT_ID"),
             input_path=required("GBW_INPUT_PATH"),
             expected_input_sha256=required("GBW_INPUT_SHA256").lower(),
-            model_path=Path(os.environ.get("GBW_MODEL_PATH", f"/model/{MODEL_NAME}")),
-            demucs_binary=Path(os.environ.get(
-                "GBW_DEMUCS_BINARY",
-                "/usr/local/bin/demucs.cpp.main",
-            )),
-            blas_threads=threads,
-            demucs_threads=demucs_threads,
+            model_repo=Path(os.environ.get("GBW_MODEL_REPO", "/opt/demucs/models")),
+            device=os.environ.get("GBW_DEMUCS_DEVICE", "cpu").strip().lower(),
+            shifts=int(os.environ.get("GBW_DEMUCS_SHIFTS", "1")),
+            overlap=float(os.environ.get("GBW_DEMUCS_OVERLAP", "0.5")),
+            cpu_threads=cpu_threads,
         )
         expected_prefix = f"remote/v1/users/{config.uid}/jobs/{config.job_id}/input/"
         if not config.input_path.startswith(expected_prefix) or ".." in config.input_path:
             raise WorkerError("CONFIG_INVALID", "input path is outside the job namespace")
         if len(config.expected_input_sha256) != 64:
             raise WorkerError("CONFIG_INVALID", "invalid input SHA-256")
-        if config.demucs_binary.name != "demucs.cpp.main" or config.demucs_threads != 0:
-            raise WorkerError(
-                "CONFIG_INVALID",
-                "only the finite-safe sequential Demucs strategy is supported",
-            )
-        effective_threads = (
-            config.blas_threads
-            if config.demucs_threads == 0
-            else config.blas_threads * config.demucs_threads
-        )
-        if effective_threads > int(os.environ.get("GBW_VCPU", "8")):
+        if config.device != "cpu":
+            raise WorkerError("CONFIG_INVALID", "this RC20 worker image is CPU-qualified only")
+        if config.cpu_threads > int(os.environ.get("GBW_VCPU", "8")):
             raise WorkerError("CONFIG_INVALID", "Demucs thread plan oversubscribes configured vCPU")
+        try:
+            config.engine_config().validate()
+        except EngineError as error:
+            raise WorkerError(error.code, str(error)) from error
         return config
 
 
@@ -117,11 +136,6 @@ def sha256_file(path: Path) -> str:
         for block in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(block)
     return digest.hexdigest()
-
-
-def validate_model(path: Path) -> None:
-    if not path.is_file() or path.stat().st_size != MODEL_BYTES or sha256_file(path) != MODEL_SHA256:
-        raise WorkerError("MODEL_INVALID", "controlled htdemucs_6s checkpoint failed integrity validation")
 
 
 IEEE_FLOAT_FORMAT = 0x0003
@@ -284,20 +298,18 @@ def canonicalize(source: Path, output: Path) -> None:
         raise WorkerError("INPUT_UNSUPPORTED", completed.stderr[-2000:])
 
 
-def normalize_outputs(raw_dir: Path, final_dir: Path) -> list[Path]:
+def normalize_outputs(raw_outputs: list[Path], final_dir: Path) -> list[Path]:
     final_dir.mkdir(parents=True, exist_ok=True)
+    by_name = {path.stem: path for path in raw_outputs}
+    if set(by_name) != set(STEMS) or len(raw_outputs) != len(STEMS):
+        missing = sorted(set(STEMS) - set(by_name))
+        raise WorkerError("OUTPUT_MISSING", f"incomplete official Demucs stem set: {missing}")
     outputs = []
-    for index, stem in enumerate(STEMS):
-        candidates = [raw_dir / f"target_{index}_{stem}.wav", raw_dir / f"{stem}.wav"]
-        source = next((candidate for candidate in candidates if candidate.is_file()), None)
-        if source is None:
-            raise WorkerError("OUTPUT_MISSING", f"missing {stem}")
+    for stem in STEMS:
         destination = final_dir / f"{stem}.wav"
-        canonicalize(source, destination)
+        canonicalize(by_name[stem], destination)
         outputs.append(destination)
     return outputs
-
-
 def run_ffmpeg(command: list[str], code: str, label: str, timeout: int = 600) -> None:
     completed = subprocess.run(command, capture_output=True, text=True, timeout=timeout)
     if completed.returncode:
@@ -393,24 +405,9 @@ def render_prepared_references(outputs: list[Path], final_dir: Path) -> tuple[li
     return [backing, guitar], shared_gain_db
 
 
-def demucs_command(config: Config, canonical: Path, raw_dir: Path) -> list[str]:
-    command = [
-        str(config.demucs_binary),
-        str(config.model_path),
-        str(canonical),
-        str(raw_dir),
-    ]
-    if config.demucs_threads > 0:
-        command.append(str(config.demucs_threads))
-    return command
-
-
 def inference_strategy(config: Config) -> str:
-    return (
-        f"mt{config.demucs_threads}_omp{config.blas_threads}"
-        if config.demucs_threads > 0
-        else f"single{config.blas_threads}"
-    )
+    overlap = format(config.overlap, ".3f").rstrip("0").rstrip(".")
+    return f"pytorch-{config.device}-s{config.shifts}-o{overlap}-t{config.cpu_threads}"
 
 
 def build_manifest(config: Config, input_sha256: str, outputs: list[Path], shared_gain_db: float,
@@ -439,16 +436,22 @@ def build_manifest(config: Config, input_sha256: str, outputs: list[Path], share
     return {
         "schemaVersion": 2, "jobId": config.job_id, "uid": config.uid,
         "projectId": config.project_id, "inputSha256": input_sha256,
-        "engine": "demucs.cpp", "engineRevision": ENGINE_REVISION,
-        "model": "htdemucs_6s", "modelSha256": MODEL_SHA256,
+        "engine": ENGINE_NAME, "engineRevision": ENGINE_REVISION,
+        "model": MODEL_NAME, "modelSha256": MODEL_SHA256,
         "sampleRate": sample_rate, "channels": channels, "frames": frames,
         "duration": duration, "startedAt": started,
         "completedAt": datetime.now(timezone.utc).isoformat(),
         "wallTimeMs": round((time.monotonic() - started_monotonic) * 1000),
         "vCPU": int(os.environ.get("GBW_VCPU", "8")),
-        "blasThreads": config.blas_threads,
-        "demucsThreads": config.demucs_threads,
+        "blasThreads": config.cpu_threads,
+        "demucsThreads": 0,
         "inferenceStrategy": inference_strategy(config),
+        "device": config.device,
+        "shifts": config.shifts,
+        "overlap": config.overlap,
+        "demucsVersion": DEMUCS_VERSION,
+        "pytorchVersion": PYTORCH_VERSION,
+        "modelBytes": MODEL_BYTES,
         "referenceRecipe": {
             "version": REFERENCE_RECIPE,
             "targetPeakDbfs": TARGET_PEAK_DBFS,
@@ -491,8 +494,7 @@ def report_terminal_failure(config: Config, code: str, message: str = "",
 
 
 def run(config: Config, storage_factory: Callable[[], object] | None = None) -> dict:
-    if not config.demucs_binary.is_file():
-        raise WorkerError("CONFIG_INVALID", "Demucs binary is missing")
+    runner = DemucsPyTorchRunner(config.engine_config())
     if storage_factory is None:
         from google.cloud import storage
         storage_factory = storage.Client
@@ -519,16 +521,26 @@ def run(config: Config, storage_factory: Callable[[], object] | None = None) -> 
     print(json.dumps({
         "event": "worker_started",
         "jobId": config.job_id,
+        "engine": ENGINE_NAME,
+        "engineRevision": ENGINE_REVISION,
+        "model": MODEL_NAME,
+        "modelSha256": MODEL_SHA256,
+        "device": config.device,
+        "shifts": config.shifts,
+        "overlap": config.overlap,
         "inferenceStrategy": inference_strategy(config),
-        "blasThreads": config.blas_threads,
-        "demucsThreads": config.demucs_threads,
+        "cpuThreads": config.cpu_threads,
     }, separators=(",", ":")))
-    validate_model(config.model_path)
+    try:
+        runner.validate_assets()
+    except EngineError as error:
+        raise WorkerError(error.code, str(error)) from error
     started, started_monotonic = datetime.now(timezone.utc).isoformat(), time.monotonic()
     cancelled = False
     def terminate(_signum: int, _frame: object) -> None:
         nonlocal cancelled
         cancelled = True
+        runner.cancel()
         raise WorkerError("JOB_CANCELLED", "worker terminated")
     signal.signal(signal.SIGTERM, terminate)
 
@@ -546,17 +558,13 @@ def run(config: Config, storage_factory: Callable[[], object] | None = None) -> 
         canonical = root / "input.wav"
         canonicalize(source, canonical)
         raw_dir = root / "raw"
-        raw_dir.mkdir()
-        env = os.environ.copy()
-        env["OPENBLAS_NUM_THREADS"] = str(config.blas_threads)
-        env["OMP_NUM_THREADS"] = str(config.blas_threads)
-        command = demucs_command(config, canonical, raw_dir)
-        completed = subprocess.run(command, env=env, timeout=1_700)
+        try:
+            raw_outputs = runner.run(canonical, raw_dir, timeout_seconds=1_700)
+        except EngineError as error:
+            raise WorkerError(error.code, str(error)) from error
         if cancelled:
             raise WorkerError("JOB_CANCELLED", "worker terminated")
-        if completed.returncode:
-            raise WorkerError("DEMUCS_FAILED", f"Demucs exited {completed.returncode}")
-        outputs = normalize_outputs(raw_dir, root / "final")
+        outputs = normalize_outputs(raw_outputs, root / "final")
         reconstruction_snr_db = sampled_reconstruction_snr_db(canonical, outputs)
         print(json.dumps({
             "event": "stem_reconstruction_diagnosed",
@@ -611,9 +619,14 @@ def run(config: Config, storage_factory: Callable[[], object] | None = None) -> 
                 "resultManifestSha256": manifest_sha,
                 "completedAt": firestore.SERVER_TIMESTAMP,
                 "wallTimeMs": manifest["wallTimeMs"],
-                "blasThreads": config.blas_threads,
-                "demucsThreads": config.demucs_threads,
+                "blasThreads": config.cpu_threads,
+                "demucsThreads": 0,
                 "inferenceStrategy": inference_strategy(config),
+                "engine": ENGINE_NAME,
+                "modelSha256": MODEL_SHA256,
+                "device": config.device,
+                "shifts": config.shifts,
+                "overlap": config.overlap,
             })
         input_blob.delete()
         manifest["resultManifestSha256"] = manifest_sha

@@ -4,6 +4,7 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).parents[1]
+sys.path.insert(0, str(ROOT))
 WORKER = ROOT / "gbw_worker.py"
 BENCH = ROOT / "benchmark.py"
 
@@ -19,16 +20,16 @@ spec.loader.exec_module(benchmark)
 
 
 class BenchmarkContractTest(unittest.TestCase):
-    def test_strategy_matrix_uses_exactly_eight_cpu_threads(self):
-        single = benchmark.strategy("single8")
-        self.assertEqual((single["mt_threads"], single["blas_threads"]), (0, 8))
-
-    def test_strategy_matrix_uses_expected_binaries(self):
-        self.assertTrue(benchmark.strategy("single8")["binary"].endswith("demucs.cpp.main"))
+    def test_cpu_baseline_is_official_phase_w_contract(self):
+        selected = benchmark.strategy("cpu8_s1_o05")
+        self.assertEqual(selected["device"], "cpu")
+        self.assertEqual(selected["cpu_threads"], 8)
+        self.assertEqual(selected["shifts"], 1)
+        self.assertEqual(selected["overlap"], 0.5)
 
     def test_unknown_strategy_is_rejected(self):
         with self.assertRaises(ValueError):
-            benchmark.strategy("oversubscribed")
+            benchmark.strategy("single8")
 
 
 if __name__ == "__main__":
