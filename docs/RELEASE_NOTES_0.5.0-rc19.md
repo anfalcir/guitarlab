@@ -34,6 +34,4 @@ Project:
 RC19 acceptance must install over RC18 without clearing app data and recover that exact result through the normal app path. No manual ACK, cancellation, Firestore mutation or Storage purge is permitted before the app proves recovery.
 
 ## Materialization
-Canonical candidate source stage: **U12aj**.
-
-`.source-parts/U12ajRemoteSameGenerationRecovery.patch` is blob-locked and `scripts/materialize_ci_sources_u12aj.py` enforces terminal blobs, semantic guards, `git diff --check` and reverse-apply.
+Canonical candidate source stage: **U12al**. U12aj contains the production/test/version/U4 recovery delta, U12ak corrects the process-death test double, and U12al reconstructs `functions/src/index.ts` from the clean RC18 source plus the intended RC19 callable contract after branch preflight detected textual duplication. Each stage remains blob-locked with terminal/semantic guards, `git diff --check` and reverse-apply.
