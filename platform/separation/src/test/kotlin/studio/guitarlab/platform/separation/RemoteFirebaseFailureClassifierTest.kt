@@ -40,6 +40,21 @@ class RemoteFirebaseFailureClassifierTest {
         assertFalse(RemoteFirebaseFailureClassifier.classifyFunctions("PERMISSION_DENIED").retryable)
     }
 
+    @Test fun activeConflictAndMonthlyQuotaRemainDistinctProductFailures() {
+        val conflict = RemoteFirebaseFailureClassifier.classifyFunctions(
+            "RESOURCE_EXHAUSTED",
+            reason = "ACTIVE_JOB_CONFLICT",
+        )
+        val quota = RemoteFirebaseFailureClassifier.classifyFunctions(
+            "RESOURCE_EXHAUSTED",
+            reason = "MONTHLY_QUOTA_REACHED",
+        )
+        assertEquals("ACTIVE_JOB_CONFLICT", conflict.code)
+        assertEquals("MONTHLY_QUOTA_REACHED", quota.code)
+        assertFalse(conflict.retryable)
+        assertFalse(quota.retryable)
+    }
+
     @Test fun storageAuthAndRetryLimitAreTerminal() {
         assertFalse(RemoteFirebaseFailureClassifier.classifyStorage(StorageException.ERROR_NOT_AUTHENTICATED).retryable)
         assertFalse(RemoteFirebaseFailureClassifier.classifyStorage(StorageException.ERROR_NOT_AUTHORIZED).retryable)
