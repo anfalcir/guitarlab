@@ -338,3 +338,8 @@ The same official PyTorch Demucs digest can produce small floating-point differe
 
 W3 now requires exact engine/model/config/source contracts and hard quality-gate PASS, while numeric audio metrics use a 1% relative / 5e-6 absolute envelope. Prepared-reference metrics, shared gain and stem energy shares are also compared. Stem/prepared SHA equality is retained as evidence where available but is not a veto when the runtime does not promise cross-host bit determinism.
 
+## D-089 — RC20 CRITICAL gate permits only evidence-backed, non-applicable findings
+
+U7 #153 generated the complete RC20 SBOM and vulnerability report, then Trivy classified `CVE-2023-45853` as CRITICAL for Debian `zlib1g` by inheriting the NVD score. The vulnerable code is unsupported `contrib/minizip`, which Debian does not ship in `zlib1g`; Debian marks the finding `will_not_fix` and provides no fixed version.
+
+The gate retains this finding and rationale in its evidence but does not block on it only when CVE, package, `will_not_fix` status and absence of a fixed version all match. Any different CRITICAL finding, changed package/status, or newly available fixed version remains fail-closed. This is a scoped applicability decision, not a severity-wide waiver.

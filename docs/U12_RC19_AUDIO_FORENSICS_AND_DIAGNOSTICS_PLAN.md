@@ -479,6 +479,8 @@ W3/W4 qualification evidence (2026-09-24):
 - #151 W4 metrics: `totalMs=325126`, inference `107613 ms`, render `116929 ms`, estimated cost `$0.057222176`, max RSS `126176 KiB`, `other` energy share `0.14379256`, zero reject findings; the full SHA-verified listening artifact was retained;
 - U7 #152 reproduced a cross-host numeric delta of about 0.37% on a drum peak between the same digest on GitHub-hosted CPU and Cloud Run. The original 0.2% parity tolerance was therefore rejected as too narrow rather than treated as an audio failure;
 - U12bd calibrates W3 to 1% relative / 5e-6 absolute metric equivalence, adds prepared-reference, shared-gain and energy-share parity checks, while keeping provenance/quality gates exact and hashes diagnostic only;
+- U7 #153 / run `36070537579` passed source/container verification, authentication, hardened image publication, dependency-closure capture, SBOM generation and the Trivy scan, then stopped before runtime/W3/W4 because Trivy inherited NVD's CRITICAL rating for `CVE-2023-45853` in Debian `zlib1g`; Debian marks it `will_not_fix`, supplies no fixed version and does not ship the affected unsupported `contrib/minizip` component;
+- U12be keeps the complete scan as evidence and permits only that exact CVE/package/status/no-fix tuple. Any other CRITICAL, a changed package/status, or an available fixed version remains blocking;
 - the next shadow qualification also exercises the multi-stage non-root runtime, resolved dependency closure, CycloneDX SBOM, CRITICAL-vulnerability gate, isolated model-load probe, warm-cache inference probe and a CPU4/16 GiB matrix cell;
 - W3 final parity, W4 CPU4/resource comparison, supply-chain evidence and W5 owner musical listening remain **OPEN**. Production remains unchanged.
 
