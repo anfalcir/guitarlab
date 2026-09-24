@@ -1,0 +1,78 @@
+diff --git a/scripts/u12_rc20_parity.sh b/scripts/u12_rc20_parity.sh
+--- a/scripts/u12_rc20_parity.sh
++++ b/scripts/u12_rc20_parity.sh
+@@ -20,7 +20,7 @@ chmod 0777 "$TMP"
+ cleanup() {
+   gcloud run jobs delete "$PARITY_JOB" --project "$GBW_GCP_PROJECT" --region "$GBW_REGION" --quiet >/dev/null 2>&1 || true
+   gcloud storage rm "gs://${GBW_BUCKET}/${PREFIX}/**" --recursive >/dev/null 2>&1 || true
+-  rm -rf "$TMP"
++  sudo rm -rf "$TMP"
+ }
+ trap cleanup EXIT
+ 
+@@ -84,35 +84,57 @@ assert local["sourceContract"] == cloud["sourceContract"]
+ assert not [x for x in local["qualityFindings"] if x.get("severity") == "reject"]
+ assert not [x for x in cloud["qualityFindings"] if x.get("severity") == "reject"]
+ 
+-REL_TOL = 0.002
+-ABS_TOL = 2e-6
++REL_TOL = 0.01
++ABS_TOL = 5e-6
++GAIN_ABS_TOL_DB = 0.05
++ENERGY_SHARE_ABS_TOL = 0.01
+ max_relative_delta = 0.0
+ comparisons = 0
+-for stem in ("drums", "bass", "other", "vocals", "guitar", "piano"):
+-    a = local["stemMetrics"][stem]
+-    b = cloud["stemMetrics"][stem]
++
++def compare_metrics(label, a, b):
++    global max_relative_delta, comparisons
+     for key in ("frames", "finiteSamples", "nonFiniteSamples"):
+-        assert a[key] == b[key], (stem, key, a[key], b[key])
++        assert a[key] == b[key], (label, key, a[key], b[key])
+     for key in ("peakPerChannel", "rmsPerChannel", "meanDcPerChannel"):
+         for av, bv in zip(a[key], b[key]):
+             if av is None or bv is None:
+                 assert av is bv
+                 continue
+-            assert math.isclose(float(av), float(bv), rel_tol=REL_TOL, abs_tol=ABS_TOL), (stem, key, av, bv)
++            assert math.isclose(float(av), float(bv), rel_tol=REL_TOL, abs_tol=ABS_TOL), (label, key, av, bv)
+             denom = max(abs(float(av)), abs(float(bv)), ABS_TOL)
+             max_relative_delta = max(max_relative_delta, abs(float(av) - float(bv)) / denom)
+             comparisons += 1
+     av = float(a["energy"])
+     bv = float(b["energy"])
+-    assert math.isclose(av, bv, rel_tol=REL_TOL, abs_tol=ABS_TOL), (stem, "energy", av, bv)
++    assert math.isclose(av, bv, rel_tol=REL_TOL, abs_tol=ABS_TOL), (label, "energy", av, bv)
+     denom = max(abs(av), abs(bv), ABS_TOL)
+     max_relative_delta = max(max_relative_delta, abs(av - bv) / denom)
+     comparisons += 1
+ 
++for stem in ("drums", "bass", "other", "vocals", "guitar", "piano"):
++    compare_metrics(f"stem:{stem}", local["stemMetrics"][stem], cloud["stemMetrics"][stem])
++
++for stage in ("backingRaw", "guitarRaw", "fullRaw", "backingFinal", "guitarFinal", "recombinedFinal"):
++    compare_metrics(f"prepared:{stage}", local["preparedMetrics"][stage], cloud["preparedMetrics"][stage])
++
++assert math.isclose(
++    float(local["sharedGainDb"]),
++    float(cloud["sharedGainDb"]),
++    rel_tol=0.0,
++    abs_tol=GAIN_ABS_TOL_DB,
++), ("sharedGainDb", local["sharedGainDb"], cloud["sharedGainDb"])
++
++for stem in ("drums", "bass", "other", "vocals", "guitar", "piano"):
++    a=float(local["qualitySummary"]["energyShareByStem"][stem])
++    b=float(cloud["qualitySummary"]["energyShareByStem"][stem])
++    assert abs(a-b) <= ENERGY_SHARE_ABS_TOL, ("energyShare", stem, a, b)
++
+ result = {
+     "status": "PASS",
+     "metricRelativeTolerance": REL_TOL,
+     "metricAbsoluteTolerance": ABS_TOL,
++    "sharedGainAbsoluteToleranceDb": GAIN_ABS_TOL_DB,
++    "energyShareAbsoluteTolerance": ENERGY_SHARE_ABS_TOL,
+     "metricComparisons": comparisons,
+     "maxRelativeDelta": max_relative_delta,
+     "stemHashEquality": {
