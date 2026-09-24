@@ -4,6 +4,7 @@ import studio.guitarlab.core.model.PreparationStatus
 import studio.guitarlab.core.separation.DurableRemoteJob
 import studio.guitarlab.core.separation.RemoteFailurePolicy
 import studio.guitarlab.core.separation.RemoteJobState
+import studio.guitarlab.core.separation.RemoteSourceGeneration
 
 enum class CancellationFailureAction { RETRY, TERMINAL_FAILURE }
 
@@ -21,6 +22,11 @@ object RemoteRecoveryPolicy {
 
     fun shouldRestoreSourceReady(status: PreparationStatus?, hasActiveJob: Boolean): Boolean =
         status == PreparationStatus.SEPARATING && !hasActiveJob
+
+    fun sameGeneration(job: DurableRemoteJob, generation: RemoteSourceGeneration): Boolean =
+        job.identity.projectId == generation.projectId &&
+            job.identity.sourceAssetId == generation.sourceAssetId &&
+            job.identity.inputSha256 == generation.inputSha256
 
     fun shouldRestoreAfterTerminalJob(
         status: PreparationStatus?,
