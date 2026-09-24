@@ -164,11 +164,12 @@ internal data class WavStructure(val sampleRate: Int, val channels: Int, val fra
                     require(readFully(input, chunk)) { "truncated WAV" }
                     val buffer = ByteBuffer.wrap(chunk).order(ByteOrder.LITTLE_ENDIAN)
                     val format = buffer.short.toInt() and 0xffff
-                    require(format == 1 || format == 3)
                     channels = buffer.short.toInt() and 0xffff
                     rate = buffer.int
                     buffer.int
                     alignment = buffer.short.toInt() and 0xffff
+                    buffer.short // bits per sample
+                    require(supportedWaveFormat(format, chunk)) { "unsupported WAV encoding" }
                 } else if (id == "data") {
                     dataBytes = size.toLong()
                     skipFully(input, dataBytes)
@@ -194,6 +195,17 @@ internal data class WavStructure(val sampleRate: Int, val channels: Int, val fra
             return true
         }
 
+        private fun supportedWaveFormat(format: Int, fmt: ByteArray): Boolean {
+            if (format == WAVE_FORMAT_PCM || format == WAVE_FORMAT_IEEE_FLOAT) return true
+            if (format != WAVE_FORMAT_EXTENSIBLE || fmt.size < 40) return false
+            val extensionSize = ByteBuffer.wrap(fmt, 16, 2).order(ByteOrder.LITTLE_ENDIAN).short.toInt() and 0xffff
+            if (extensionSize < 22) return false
+            val subFormat = fmt.copyOfRange(24, 40)
+            val subtype = ByteBuffer.wrap(subFormat, 0, 4).order(ByteOrder.LITTLE_ENDIAN).int
+            return subtype in setOf(WAVE_FORMAT_PCM, WAVE_FORMAT_IEEE_FLOAT) &&
+                subFormat.copyOfRange(4, 16).contentEquals(KSDATAFORMAT_SUBTYPE_TAIL)
+        }
+
         private fun skipFully(input: InputStream, count: Long) {
             var remaining = count
             val buffer = ByteArray(8192)
@@ -208,5 +220,12 @@ internal data class WavStructure(val sampleRate: Int, val channels: Int, val fra
                 remaining -= read
             }
         }
+
+        private const val WAVE_FORMAT_PCM = 0x0001
+        private const val WAVE_FORMAT_IEEE_FLOAT = 0x0003
+        private const val WAVE_FORMAT_EXTENSIBLE = 0xfffe
+        private val KSDATAFORMAT_SUBTYPE_TAIL = byteArrayOf(
+            0x00, 0x00, 0x10, 0x00, 0x80.toByte(), 0x00, 0x00, 0xaa.toByte(), 0x00, 0x38, 0x9b.toByte(), 0x71,
+        )
     }
 }

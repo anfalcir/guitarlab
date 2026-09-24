@@ -32,6 +32,7 @@ Use these first for current status, release identity and remaining work:
 - `RELEASE_NOTES_0.5.0-rc4.md` — H37/H37a/H37b RC4 delta and historical source-pre-gate narrative; its signed gate was later closed by CI #669;
 - `RELEASE_NOTES_0.5.0-rc5.md` — historical U11 rc5/25 freeze evidence;
 - `RELEASE_NOTES_0.5.0-rc14.md` — active source candidate: foreground separation, branded notifications, unified take entry and deleted-project backup lifecycle;
+- `RELEASE_NOTES_0.5.0-rc15.md` — physical corrective for extensible float32 WAV import and repeated-tap reentry;
 - `RC14_FINAL_PHYSICAL_HOMOLOGATION.md` — focused RC14 target-device acceptance;
 - `RELEASE_NOTES_0.5.0-rc11.md` — historical signed U12 candidate identity, stable Firebase account corrective and Activity lifecycle hardening;
 - `RELEASE_NOTES_0.5.0-rc9.md` — historical remote-orphan corrective evidence;

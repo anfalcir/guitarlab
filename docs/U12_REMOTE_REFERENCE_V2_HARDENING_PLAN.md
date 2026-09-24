@@ -210,6 +210,14 @@ other nested output paths remain denied. Existing completed jobs remain recovera
 Retomar importação and must not rerun Demucs. The Android copy also distinguishes authorization,
 session and integrity failures while retaining the invariant that remote results are preserved.
 
+The subsequent Android bug reports captured the post-download failure precisely at
+`WavStructure.read`: valid float32 deliverables used the standard `WAVE_FORMAT_EXTENSIBLE`
+container and IEEE-float subtype, while RC14 recognized only the legacy top-level tags 1 and 3.
+RC15 validates and accepts classic PCM/float plus extensible PCM/float with the complete canonical
+subtype GUID. Unknown and malformed subtypes remain fail-closed. Client enqueue/resume is also
+serialized across the durable check/save boundary to make rapid repeated taps idempotent locally;
+the backend continues to enforce the single active job authoritatively.
+
 ### Gates
 - unit/integration/lint/build;
 - complete API 36 regression;

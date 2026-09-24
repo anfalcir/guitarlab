@@ -106,6 +106,21 @@ class ManagedStemSetPublisherTest {
         assertEquals(1, maxOpen.get())
     }
 
+    @Test fun waveFormatExtensibleFloat32IsAcceptedAndStrictlyValidated() {
+        val valid = extensibleWav(44_100, 2, 8, 3)
+        assertEquals(WavStructure(44_100, 2, 8), ByteArrayInputStream(valid).use(WavStructure::read))
+
+        val unsupportedSubtype = extensibleWav(44_100, 2, 8, 6)
+        assertThrows(IllegalArgumentException::class.java) {
+            ByteArrayInputStream(unsupportedSubtype).use(WavStructure::read)
+        }
+
+        val invalidGuid = valid.copyOf().also { it[50] = 0x01 }
+        assertThrows(IllegalArgumentException::class.java) {
+            ByteArrayInputStream(invalidGuid).use(WavStructure::read)
+        }
+    }
+
     private fun publisherNoMutation() = ManagedStemSetPublisher(
         StemSetProjectPublisher(
             object : studio.guitarlab.core.project.ProjectRepository {
@@ -125,6 +140,19 @@ class ManagedStemSetPublisherTest {
             .put("RIFF".toByteArray()).putInt(36 + data).put("WAVEfmt ".toByteArray()).putInt(16)
             .putShort(1).putShort(channels.toShort()).putInt(rate).putInt(rate * channels * 2)
             .putShort((channels * 2).toShort()).putShort(16).put("data".toByteArray()).putInt(data)
+            .apply { repeat(data) { put(0) } }.array()
+    }
+
+    private fun extensibleWav(rate: Int, channels: Int, frames: Int, subtype: Int): ByteArray {
+        val bytesPerSample = 4
+        val data = frames * channels * bytesPerSample
+        return ByteBuffer.allocate(68 + data).order(ByteOrder.LITTLE_ENDIAN)
+            .put("RIFF".toByteArray()).putInt(60 + data).put("WAVEfmt ".toByteArray()).putInt(40)
+            .putShort(0xfffe.toShort()).putShort(channels.toShort()).putInt(rate)
+            .putInt(rate * channels * bytesPerSample).putShort((channels * bytesPerSample).toShort())
+            .putShort(32).putShort(22).putShort(32).putInt(3)
+            .putInt(subtype).putShort(0).putShort(0x0010).put(byteArrayOf(0x80.toByte(), 0, 0, 0xaa.toByte(), 0, 0x38, 0x9b.toByte(), 0x71))
+            .put("data".toByteArray()).putInt(data)
             .apply { repeat(data) { put(0) } }.array()
     }
 

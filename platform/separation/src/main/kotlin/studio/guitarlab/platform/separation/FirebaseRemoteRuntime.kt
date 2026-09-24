@@ -265,6 +265,7 @@ class RemoteSeparationClient(private val context: Context) {
     private val notifier = RemoteSeparationNotifier(context)
     private val staging = RemoteStemStaging(File(context.cacheDir, "remote-separation"))
 
+    @Synchronized
     fun enqueue(projectId: String): String {
         val repo = FileProjectRepository(context.filesDir)
         val store = FileRemoteJobStore(context)
@@ -298,6 +299,7 @@ class RemoteSeparationClient(private val context: Context) {
         return jobId
     }
 
+    @Synchronized
     fun resumeImport(projectId: String): String {
         val store = FileRemoteJobStore(context)
         val job = requireNotNull(store.latestForProject(projectId)) { "Nenhum resultado remoto disponível para retomar." }

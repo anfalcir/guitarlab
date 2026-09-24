@@ -20,6 +20,7 @@ Read first:
 - `docs/H37_DRIVE_V3_BACKUP.md`
 - `docs/H35_TAKE_SYNC_QUIET_CALIBRATION.md`
 - `docs/RELEASE_NOTES_0.5.0-rc14.md`
+- `docs/RELEASE_NOTES_0.5.0-rc15.md`
 - `docs/RC14_FINAL_PHYSICAL_HOMOLOGATION.md`
 - `docs/RELEASE_NOTES_0.5.0-rc9.md` — historical corrective evidence
 
