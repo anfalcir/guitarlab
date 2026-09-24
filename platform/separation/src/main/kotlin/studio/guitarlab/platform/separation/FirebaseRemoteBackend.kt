@@ -5,30 +5,76 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.functions.FirebaseFunctions
 import kotlinx.coroutines.tasks.await
 import studio.guitarlab.core.separation.DurableRemoteJob
+import studio.guitarlab.core.separation.RemoteEnqueueDisposition
+import studio.guitarlab.core.separation.RemoteEnqueueResult
 import studio.guitarlab.core.separation.RemoteJobIdentity
 import studio.guitarlab.core.separation.RemoteJobState
 import studio.guitarlab.core.separation.RemoteSeparationBackend
+import studio.guitarlab.core.separation.RemoteSourceGeneration
 
 class FirebaseRemoteBackend(
     private val auth: FirebaseAuth,
     private val db: FirebaseFirestore,
     private val functions: FirebaseFunctions,
 ) : RemoteSeparationBackend {
-    override suspend fun enqueue(i: RemoteJobIdentity, inputPath: String) = staged(RemotePipelineStage.ENQUEUEING) {
-        user()
-        functions.getHttpsCallable("enqueueRemoteSeparation")
-            .call(
-                mapOf(
-                    "jobId" to i.jobId,
-                    "projectId" to i.projectId,
-                    "inputSha256" to i.inputSha256,
-                    "inputPath" to inputPath,
-                    "sourceAssetId" to i.sourceAssetId,
+    override suspend fun enqueue(i: RemoteJobIdentity, inputPath: String): RemoteEnqueueResult =
+        staged(RemotePipelineStage.ENQUEUEING) {
+            user()
+            val result = functions.getHttpsCallable("enqueueRemoteSeparation")
+                .call(
+                    mapOf(
+                        "jobId" to i.jobId,
+                        "projectId" to i.projectId,
+                        "inputSha256" to i.inputSha256,
+                        "inputPath" to inputPath,
+                        "sourceAssetId" to i.sourceAssetId,
+                    ),
+                )
+                .await()
+            val payload = result.data.asMap()
+            val effectiveJobId = payload.string("effectiveJobId")
+            RemoteEnqueueResult(
+                requestedIdentity = i,
+                effectiveIdentity = RemoteJobIdentity(
+                    effectiveJobId,
+                    i.projectId,
+                    i.sourceAssetId,
+                    i.inputSha256,
                 ),
+                disposition = RemoteEnqueueDisposition.valueOf(payload.string("disposition")),
+                state = RemoteJobState.valueOf(payload.string("state")),
+                resultManifestSha256 = payload.optionalString("resultManifestSha256"),
             )
-            .await()
-        Unit
-    }
+        }
+
+    override suspend fun findRecoverable(generation: RemoteSourceGeneration): DurableRemoteJob? =
+        staged(RemotePipelineStage.CHECKING_REMOTE) {
+            user()
+            val result = functions.getHttpsCallable("findRecoverableRemoteSeparation")
+                .call(
+                    mapOf(
+                        "projectId" to generation.projectId,
+                        "sourceAssetId" to generation.sourceAssetId,
+                        "inputSha256" to generation.inputSha256,
+                    ),
+                )
+                .await()
+            val payload = result.data.asMap()
+            if (payload["found"] != true) return@staged null
+            val identity = RemoteJobIdentity(
+                payload.string("jobId"),
+                generation.projectId,
+                generation.sourceAssetId,
+                generation.inputSha256,
+            )
+            DurableRemoteJob(
+                identity,
+                RemoteJobState.valueOf(payload.string("state")),
+                System.currentTimeMillis(),
+                payload.optionalString("resultManifestSha256"),
+                null,
+            )
+        }
 
     override suspend fun cancel(i: RemoteJobIdentity) = staged(RemotePipelineStage.CANCELLING) {
         user()
@@ -76,6 +122,15 @@ class FirebaseRemoteBackend(
     private suspend fun user(): String = staged(RemotePipelineStage.AUTHENTICATING) {
         requireStableRemoteUid(auth)
     }
+
+    private fun Any?.asMap(): Map<*, *> =
+        this as? Map<*, *> ?: error("Invalid callable response.")
+
+    private fun Map<*, *>.string(key: String): String =
+        (this[key] as? String)?.takeIf { it.isNotBlank() } ?: error("Missing callable response field: $key")
+
+    private fun Map<*, *>.optionalString(key: String): String? =
+        (this[key] as? String)?.takeIf { it.isNotBlank() }
 
     private suspend fun <T> staged(stage: RemotePipelineStage, block: suspend () -> T): T =
         try {
