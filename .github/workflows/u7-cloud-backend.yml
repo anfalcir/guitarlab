@@ -334,6 +334,84 @@ jobs:
           echo "pinned_image=$pinned" >> "$GITHUB_OUTPUT"
           echo "deployed_image=$pinned" >> u7-deploy-evidence.txt
 
+      - name: Capture RC20 resolved dependency closure
+        if: steps.deploy_mode.outputs.mode == 'shadow'
+        shell: bash
+        env:
+          GBW_PINNED_IMAGE: ${{ steps.worker.outputs.pinned_image }}
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/u12-rc20-supply-chain
+          docker run --rm --entrypoint cat "$GBW_PINNED_IMAGE" /opt/rc20/python-resolved.txt \
+            > artifacts/u12-rc20-supply-chain/python-resolved.txt
+          printf 'source_sha=%s\nimage=%s\ntrivy_action_commit=%s\n' \
+            "$GITHUB_SHA" "$GBW_PINNED_IMAGE" "ed142fd0673e97e23eac54620cfb913e5ce36c25" \
+            > artifacts/u12-rc20-supply-chain/identity.txt
+
+      - name: Generate RC20 CycloneDX SBOM
+        if: steps.deploy_mode.outputs.mode == 'shadow'
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ steps.worker.outputs.pinned_image }}
+          format: cyclonedx
+          output: artifacts/u12-rc20-supply-chain/sbom.cdx.json
+          scanners: vuln
+          list-all-pkgs: true
+          timeout: 15m
+
+      - name: Scan RC20 high and critical vulnerabilities
+        if: steps.deploy_mode.outputs.mode == 'shadow'
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ steps.worker.outputs.pinned_image }}
+          format: json
+          output: artifacts/u12-rc20-supply-chain/vulnerabilities.json
+          scanners: vuln
+          severity: HIGH,CRITICAL
+          ignore-unfixed: false
+          exit-code: '0'
+          timeout: 15m
+
+      - name: Enforce RC20 critical-vulnerability gate
+        if: steps.deploy_mode.outputs.mode == 'shadow'
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          src = Path("artifacts/u12-rc20-supply-chain/vulnerabilities.json")
+          data = json.loads(src.read_text(encoding="utf-8"))
+          vulnerabilities = [
+              vulnerability
+              for result in data.get("Results", [])
+              for vulnerability in (result.get("Vulnerabilities") or [])
+          ]
+          high = [v for v in vulnerabilities if v.get("Severity") == "HIGH"]
+          critical = [v for v in vulnerabilities if v.get("Severity") == "CRITICAL"]
+          summary = {
+              "high": len(high),
+              "critical": len(critical),
+              "criticalIds": sorted({str(v.get("VulnerabilityID")) for v in critical}),
+          }
+          Path("artifacts/u12-rc20-supply-chain/vulnerability-summary.json").write_text(
+              json.dumps(summary, sort_keys=True, indent=2) + "\n",
+              encoding="utf-8",
+          )
+          print(json.dumps(summary, sort_keys=True))
+          if critical:
+              raise SystemExit("RC20 worker image contains CRITICAL vulnerabilities")
+          PY
+
+      - name: Upload RC20 supply-chain evidence
+        if: always() && steps.deploy_mode.outputs.mode == 'shadow' && steps.worker.outcome == 'success'
+        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4
+        with:
+          name: u12-rc20-supply-chain-${{ github.sha }}
+          path: artifacts/u12-rc20-supply-chain/
+          if-no-files-found: warn
+          retention-days: 14
+
       - name: Deploy production rules and Functions
         if: steps.deploy_mode.outputs.mode == 'production'
         run: bash cloud/remote-separation/scripts/deploy-functions.sh
