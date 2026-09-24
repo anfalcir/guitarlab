@@ -1,0 +1,32 @@
+diff --git a/.github/workflows/u7-cloud-backend.yml b/.github/workflows/u7-cloud-backend.yml
+--- a/.github/workflows/u7-cloud-backend.yml
++++ b/.github/workflows/u7-cloud-backend.yml
+@@ -370,12 +370,12 @@ jobs:
+           bash scripts/u12_rc20_shadow_benchmark.sh | tee -a u7-deploy-evidence.txt
+ 
+       - name: Upload W4 benchmark and listening bundle
+-        if: always() && steps.deploy_mode.outputs.mode == 'shadow'
++        if: always() && steps.deploy_mode.outputs.mode == 'shadow' && steps.worker.outcome == 'success'
+         uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4
+         with:
+           name: u12-rc20-w4-shadow-${{ github.sha }}
+           path: artifacts/u12-rc20-w4/
+-          if-no-files-found: error
++          if-no-files-found: warn
+           retention-days: 14
+ 
+       - name: Restore prior production image after failed cutover
+diff --git a/cloud/remote-separation/scripts/deploy-worker.sh b/cloud/remote-separation/scripts/deploy-worker.sh
+--- a/cloud/remote-separation/scripts/deploy-worker.sh
++++ b/cloud/remote-separation/scripts/deploy-worker.sh
+@@ -30,6 +30,10 @@ while true; do
+       ;;
+     *)
+       echo "Cloud Build $BUILD_ID finished with status: $BUILD_STATUS" >&2
++      echo "---- Cloud Build diagnostic log ($BUILD_ID) ----" >&2
++      gcloud builds log "$BUILD_ID" --project "$GBW_GCP_PROJECT" --stream >&2 || \
++        gcloud builds describe "$BUILD_ID" --project "$GBW_GCP_PROJECT" --format=json >&2 || true
++      echo "---- end Cloud Build diagnostic log ----" >&2
+       exit 1
+       ;;
+   esac
