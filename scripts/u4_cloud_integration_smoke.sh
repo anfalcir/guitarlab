@@ -20,11 +20,19 @@ import uuid
 print(uuid.uuid4())
 PY
 )"
+SOURCE_ASSET_ID="u4-source-${RUN_TOKEN//[^A-Za-z0-9._:-]/-}"
+RECOVERY_JOB_ID="$(python3 - <<'PY'
+import uuid
+print(uuid.uuid4())
+PY
+)"
 PREFIX="remote/v1/users/${TEST_UID}/jobs/${JOB_ID}"
+RECOVERY_PREFIX="remote/v1/users/${TEST_UID}/jobs/${RECOVERY_JOB_ID}"
 INPUT_PATH="${PREFIX}/input/source.wav"
 TMP="$(mktemp -d)"
 cleanup() {
   gcloud storage rm "gs://${GBW_BUCKET}/${PREFIX}/**" --recursive >/dev/null 2>&1 || true
+  gcloud storage rm "gs://${GBW_BUCKET}/${RECOVERY_PREFIX}/**" --recursive >/dev/null 2>&1 || true
   TOKEN="$(gcloud auth print-access-token 2>/dev/null || true)"
   if [[ -n "$TOKEN" ]]; then
     curl --silent -X DELETE -H "Authorization: Bearer ${TOKEN}" "https://firestore.googleapis.com/v1/projects/${GBW_GCP_PROJECT}/databases/(default)/documents/users/${TEST_UID}/jobs/${JOB_ID}" >/dev/null 2>&1 || true
@@ -123,7 +131,7 @@ DOC_URL="https://firestore.googleapis.com/v1/projects/${GBW_GCP_PROJECT}/databas
 curl --fail-with-body --show-error -X POST "$DOC_URL" \
   -H "Authorization: Bearer ${ACCESS_TOKEN}" -H "Content-Type: application/json" \
   -H "X-Goog-User-Project: ${GBW_GCP_PROJECT}" \
-  --data "{\"fields\":{\"schemaVersion\":{\"integerValue\":\"2\"},\"resultContract\":{\"stringValue\":\"prepared-reference-v2\"},\"uid\":{\"stringValue\":\"${TEST_UID}\"},\"projectId\":{\"stringValue\":\"${PROJECT_ID}\"},\"inputPath\":{\"stringValue\":\"${INPUT_PATH}\"},\"inputSha256\":{\"stringValue\":\"${INPUT_SHA}\"},\"state\":{\"stringValue\":\"QUEUED\"},\"phase\":{\"stringValue\":\"STARTING\"},\"progress\":{\"integerValue\":\"0\"}}}" >/dev/null
+  --data "{\"fields\":{\"schemaVersion\":{\"integerValue\":\"2\"},\"resultContract\":{\"stringValue\":\"prepared-reference-v2\"},\"uid\":{\"stringValue\":\"${TEST_UID}\"},\"projectId\":{\"stringValue\":\"${PROJECT_ID}\"},\"sourceAssetId\":{\"stringValue\":\"${SOURCE_ASSET_ID}\"},\"inputPath\":{\"stringValue\":\"${INPUT_PATH}\"},\"inputSha256\":{\"stringValue\":\"${INPUT_SHA}\"},\"state\":{\"stringValue\":\"QUEUED\"},\"phase\":{\"stringValue\":\"STARTING\"},\"progress\":{\"integerValue\":\"0\"},\"remoteCleanupState\":{\"stringValue\":\"NONE\"}}}" >/dev/null
 
 echo "Executing ${GBW_JOB_NAME} for GuitarLab cloud smoke..."
 EXECUTION="$(gcloud beta run jobs execute "$GBW_JOB_NAME"   --project "$GBW_GCP_PROJECT" --region "$GBW_REGION"   --update-env-vars "GBW_BUCKET=${GBW_BUCKET},GBW_UID=${TEST_UID},GBW_JOB_ID=${JOB_ID},GBW_PROJECT_ID=${PROJECT_ID},GBW_INPUT_PATH=${INPUT_PATH},GBW_INPUT_SHA256=${INPUT_SHA}"   --task-timeout 30m --wait --format='value(metadata.name)')"
