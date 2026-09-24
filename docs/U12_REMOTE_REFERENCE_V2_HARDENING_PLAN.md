@@ -243,3 +243,11 @@ The final physical candidate is not accepted until the target tablet proves:
 - remaining MK-300 recording/routing/10-minute acceptance.
 
 No rc12 physical campaign is required if rc13 closes these digital gates first.
+
+
+## RC19 authoritative recovery addendum
+RC18 physical testing proved a new v2 lifecycle gap outside the audio/render contract: a valid remote COMPLETED result can outlive or diverge from the local durable job record. RC19 therefore treats backend existence/state as authoritative for recoverable same-generation work.
+
+Generation identity is strict: authenticated uid, projectId, sourceAssetId and inputSha256. The effective remote jobId is adopted durably; manifests remain bound to that real jobId and `validateFor()` is not relaxed. Same-generation QUEUED/RUNNING/COMPLETED/IMPORTING work is reused; another project/generation remains a typed conflict. Recovery never increments quota and never dispatches another Cloud Run job.
+
+Rejected retry uploads are cleaned synchronously only when the backend confirms that requested jobId has no Firestore document. Storage lifecycle remains a safety net, not the primary rejection cleanup path.
