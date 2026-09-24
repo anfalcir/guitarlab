@@ -1,0 +1,11 @@
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - --pull
+      - --no-cache
+      - -t
+      - ${_IMAGE}:${_TAG}
+      - .
+images:
+  - ${_IMAGE}:${_TAG}

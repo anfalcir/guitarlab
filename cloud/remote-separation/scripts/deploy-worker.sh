@@ -9,9 +9,12 @@ GBW_IMAGE="${GBW_REGION}-docker.pkg.dev/${GBW_GCP_PROJECT}/${GBW_REPOSITORY}/rem
 GBW_WORKER_SA="gbw-worker@${GBW_GCP_PROJECT}.iam.gserviceaccount.com"
 
 GBW_TAG="$(git rev-parse --short=12 HEAD)"
+CLOUD_BUILD_CONFIG="cloud/remote-separation/worker/cloudbuild.yaml"
+test -f "$CLOUD_BUILD_CONFIG"
 BUILD_ID="$(gcloud builds submit cloud/remote-separation/worker \
   --project "$GBW_GCP_PROJECT" \
-  --tag "${GBW_IMAGE}:${GBW_TAG}" \
+  --config "$CLOUD_BUILD_CONFIG" \
+  --substitutions "_IMAGE=${GBW_IMAGE},_TAG=${GBW_TAG}" \
   --async \
   --format='value(id)')"
 test -n "$BUILD_ID"
