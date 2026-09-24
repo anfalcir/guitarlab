@@ -207,9 +207,11 @@ PY
 
 RECOVERY_INPUT_PATH="${RECOVERY_PREFIX}/input/source.wav"
 gcloud storage cp "$TMP/source.wav" "gs://${GBW_BUCKET}/${RECOVERY_INPUT_PATH}" --content-type="audio/wav" --custom-metadata="sha256=${INPUT_SHA},projectId=${PROJECT_ID},jobId=${RECOVERY_JOB_ID}" >/dev/null
-MONTH_KEY="$(date -u +%Y-%m)"
-USAGE_URL="https://firestore.googleapis.com/v1/projects/${GBW_GCP_PROJECT}/databases/(default)/documents/users/${TEST_UID}/usage/${MONTH_KEY}"
-USAGE_BEFORE="$(curl --silent -H "X-Goog-User-Project: ${GBW_GCP_PROJECT}" "$USAGE_URL" || true)"
+STATUS_URL="https://${GBW_REGION}-${GBW_GCP_PROJECT}.cloudfunctions.net/remoteBackendStatus"
+STATUS_PAYLOAD='{"data":{}}'
+STATUS_BEFORE="$(
+  curl --fail-with-body --show-error --silent     -H "Authorization: Bearer ${FIREBASE_ID_TOKEN}"     -H "Content-Type: application/json"     -X POST "$STATUS_URL"     --data "$STATUS_PAYLOAD"
+)"
 EXECUTIONS_BEFORE="$(gcloud run jobs executions list --job "$GBW_JOB_NAME" --region "$GBW_REGION" --project "$GBW_GCP_PROJECT" --format='value(name)' | sort)"
 
 ENQUEUE_URL="https://${GBW_REGION}-${GBW_GCP_PROJECT}.cloudfunctions.net/enqueueRemoteSeparation"
@@ -228,18 +230,22 @@ assert result.get("state")=="COMPLETED", payload
 PY
 
 ! gcloud storage ls "gs://${GBW_BUCKET}/${RECOVERY_PREFIX}/**" --recursive >/dev/null 2>&1
-RECOVERY_DOC_STATUS="$(curl --silent -o /dev/null -w '%{http_code}' "https://firestore.googleapis.com/v1/projects/${GBW_GCP_PROJECT}/databases/(default)/documents/users/${TEST_UID}/jobs/${RECOVERY_JOB_ID}")"
-test "$RECOVERY_DOC_STATUS" = "404"
-USAGE_AFTER="$(curl --silent -H "X-Goog-User-Project: ${GBW_GCP_PROJECT}" "$USAGE_URL" || true)"
-python3 - "$USAGE_BEFORE" "$USAGE_AFTER" <<'PY'
+RECOVERY_DOC="$(
+  curl --fail-with-body --show-error --silent     -H "Authorization: Bearer ${ACCESS_TOKEN}"     -H "X-Goog-User-Project: ${GBW_GCP_PROJECT}"     "https://firestore.googleapis.com/v1/projects/${GBW_GCP_PROJECT}/databases/(default)/documents/users/${TEST_UID}/jobs/${RECOVERY_JOB_ID}"
+)" || true
+python3 - "$RECOVERY_DOC" <<'PY'
 import json,sys
-def accepted(raw):
-    try:
-        payload=json.loads(raw)
-        return int(payload.get("fields",{}).get("acceptedJobs",{}).get("integerValue","0"))
-    except Exception:
-        return 0
-assert accepted(sys.argv[1]) == accepted(sys.argv[2]), (accepted(sys.argv[1]), accepted(sys.argv[2]))
+payload=json.loads(sys.argv[1])
+assert "error" in payload and int(payload["error"].get("code",0))==404, payload
+PY
+STATUS_AFTER="$(
+  curl --fail-with-body --show-error --silent     -H "Authorization: Bearer ${FIREBASE_ID_TOKEN}"     -H "Content-Type: application/json"     -X POST "$STATUS_URL"     --data "$STATUS_PAYLOAD"
+)"
+python3 - "$STATUS_BEFORE" "$STATUS_AFTER" <<'PY'
+import json,sys
+before=(json.loads(sys.argv[1]).get("result") or {})
+after=(json.loads(sys.argv[2]).get("result") or {})
+assert int(before.get("acceptedJobs",-1)) == int(after.get("acceptedJobs",-2)), (before,after)
 PY
 EXECUTIONS_AFTER="$(gcloud run jobs executions list --job "$GBW_JOB_NAME" --region "$GBW_REGION" --project "$GBW_GCP_PROJECT" --format='value(name)' | sort)"
 test "$EXECUTIONS_BEFORE" = "$EXECUTIONS_AFTER"
