@@ -127,7 +127,7 @@ Do not add to this line:
 - per-track independent physical output routing.
 
 ## Canonical materialization tail
-Current source chain is the fail-closed U-series tail ending at **U12w**, reached through `scripts/materialize_ci_sources.sh`. U12w seals the rc11 cloud-auth UI instrumentation corrective after the stable Firebase account migration; historical intermediate H/U blocks remain traceable, but the entrypoint defines the active chain.
+Current source chain is the fail-closed U-series tail ending at **U12aj**, reached through `scripts/materialize_ci_sources.sh`. U12aj seals the RC19 authoritative same-generation remote-recovery corrective on top of U12ai; historical intermediate H/U blocks remain traceable, but the entrypoint defines the active chain.
 
 H28 is frozen in `materialize_ci_sources_through_h28.sh`; the existing H29-H36c tail remains independently verified by `materialize_ci_sources_h29_h33.sh`; H37/H37a/H37b and U1/U1a/U1b are layered by their correspondingly named materializers. Each verifies its patch SHA-256 and terminal Git blobs. Future blocks must extend this chain deterministically and preserve the same fail-closed guarantees.
 
