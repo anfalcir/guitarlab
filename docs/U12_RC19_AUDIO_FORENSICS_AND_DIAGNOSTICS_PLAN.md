@@ -331,7 +331,164 @@ U4 remains a transactional real-cloud smoke. A separate quality gate must own mu
 
 ---
 
-## 11. Phase S — explicit Studio reference reinsertion
+## 11. Phase SEARCH — source-search reliability, terminal UX and spelling suggestions
+
+A target-device screen recording on 2026-09-24 exposed a separate release-blocking Prepare search defect:
+
+- project title shown: `MMF - Misery`;
+- artist entered: `memphys may fire`;
+- song entered: `misery`;
+- the UI entered `Pesquisando fontes compatíveis…` and showed progress for roughly 15 seconds;
+- the operation then returned to the idle `Pesquisar fontes` button;
+- no candidate, zero-result message, provider error, retry guidance or spelling suggestion remained visible.
+
+This is unacceptable even if an Activity record exists in the background. **A search operation may never fail or complete silently in the active Prepare surface.**
+
+### 11.1 Explicit terminal-state contract
+
+Every search attempt must finish visibly in exactly one user-facing terminal class:
+
+1. **RESULTS**
+   - one or more compatible ranked candidates are shown;
+   - count/status remains visible.
+
+2. **NO_EXACT_MATCH**
+   - providers were reached successfully;
+   - no exact compatible candidate survived ranking;
+   - show a persistent message such as `Nenhuma fonte compatível encontrada para esta busca.`;
+   - if a high-confidence correction exists, show it in the same surface.
+
+3. **DID_YOU_MEAN**
+   - no exact match;
+   - provider evidence contains a plausible artist/title correction;
+   - show `Você quis dizer …?` with an explicit action to apply/research;
+   - never silently rewrite the user's text and never auto-acquire a source.
+
+4. **PROVIDER_FAILURE**
+   - all/critical providers failed or validation failed;
+   - show typed failure/retry copy;
+   - never report this as an empty successful search.
+
+5. **TIMEOUT**
+   - show a persistent timeout message and explicit retry action.
+
+6. **CANCELLED/REPLACED**
+   - user cancellation is explicit;
+   - an old search replaced by a new query may close quietly only because the replacement search itself is visibly active and later reaches one of the states above.
+
+Returning directly from busy state to an indistinguishable idle form is forbidden.
+
+### 11.2 Reuse existing matching intelligence
+
+Do not introduce an LLM, remote spelling service or heavyweight dependency.
+
+Reuse the existing core search machinery:
+- `SourceSearchRules.normalize()`;
+- `meaningfulTokens()`;
+- `textSimilarity()`;
+- existing Levenshtein implementation;
+- provider candidate metadata (`title`, `uploader`, provider);
+- existing ranking/official/duration signals.
+
+The current exact ranking remains authoritative for source selection. Fuzzy logic is **suggestion-only** unless a later explicit contract changes it.
+
+### 11.3 Candidate-derived correction strategy
+
+When exact ranking is empty and providers were otherwise healthy:
+
+1. retain a bounded sanitized pool of raw provider drafts before strict artist/title rejection;
+2. compare requested artist/title to candidate uploader/title metadata;
+3. derive at most a small number of high-confidence corrections;
+4. prefer corrections supported by multiple candidates/providers or strong official/uploader evidence;
+5. avoid suggestions based only on generic song titles;
+6. require a calibrated minimum similarity and a meaningful improvement over the typed text;
+7. expose the correction for user confirmation.
+
+For the reproduced typo, a provider candidate containing `Memphis May Fire` should be able to yield:
+`Você quis dizer “Memphis May Fire”?`
+
+If the first exact provider query yields no usable metadata, one **bounded fallback discovery pass** may reuse the existing providers with a relaxed query solely to obtain suggestion metadata. It must:
+- be rate/budget bounded;
+- remain cancellable;
+- not download media;
+- not create a source operation;
+- not turn a distant fuzzy match into an automatic candidate;
+- preserve provider-failure typing.
+
+No new external spelling API is required.
+
+### 11.4 Search result model
+
+Replace ad-hoc `candidates + warnings + global message/error` ambiguity with an explicit search outcome model carrying:
+- operation id;
+- normalized request;
+- terminal state;
+- candidates;
+- provider warnings;
+- zero-result reason;
+- optional correction suggestions;
+- typed provider/timeout error;
+- start/end timestamps.
+
+The active Prepare screen must render this outcome locally and persistently until:
+- the user starts another search;
+- applies a suggestion;
+- imports/selects a source;
+- explicitly dismisses/clears the result.
+
+Activity and the new audit journal must record the same terminal state.
+
+### 11.5 Suggestion UX
+
+Recommended presentation directly below the search fields:
+
+`Nenhuma correspondência exata foi encontrada.`
+
+`Você quis dizer Memphis May Fire?`
+
+Actions:
+- **Usar “Memphis May Fire” e pesquisar novamente**
+- **Manter minha busca** / edit fields
+
+Requirements:
+- preserve the song field unless its own correction is accepted;
+- show artist/song corrections separately if both exist;
+- never auto-submit an acquisition;
+- accessible semantics and ≥48 dp touch targets;
+- no raw provider exception text in primary copy.
+
+### 11.6 Mandatory automated coverage
+
+Core:
+- `Memphys May Fire` vs candidate `Memphis May Fire` produces a high-confidence artist suggestion;
+- exact `Memphis May Fire` produces no redundant suggestion;
+- one-character and transposition typos are handled deterministically;
+- distant/unrelated artists do not produce misleading suggestions;
+- generic title collisions alone cannot suggest an unrelated artist;
+- normalization remains accent/case/punctuation insensitive;
+- suggestion ordering is deterministic.
+
+Platform:
+- healthy providers + raw near-match + zero strict ranking -> DID_YOU_MEAN;
+- healthy providers + truly empty pool -> NO_EXACT_MATCH;
+- provider exceptions -> PROVIDER_FAILURE, never NO_EXACT_MATCH;
+- timeout -> TIMEOUT;
+- bounded fallback suggestion pass executes at most once;
+- cancellation stops both primary and fallback discovery.
+
+Android/API 36:
+- reproduced `memphys may fire` + `misery` flow never returns silently to idle;
+- visible terminal message remains after busy indicator disappears;
+- accepting suggestion updates the artist field and runs/arms the corrected search explicitly;
+- rejecting suggestion preserves typed text;
+- Activity receives the same terminal classification;
+- navigation/recomposition does not erase the terminal result unexpectedly.
+
+The diagnostics journal/export package must include search lifecycle events and provider warning codes without credentials or raw sensitive headers.
+
+---
+
+## 12. Phase S — explicit Studio reference reinsertion
 
 Add a secondary action beside `Abrir Studio` in the Ready state:
 
@@ -365,7 +522,7 @@ Automated tests:
 
 ---
 
-## 12. Phase P — Prepare technical-detail redesign
+## 13. Phase P — Prepare technical-detail redesign
 
 The current `PrepareDiagnostics` must stop presenting every historical asset as an undifferentiated flat list.
 
@@ -403,7 +560,7 @@ Tests must assert ordering/grouping and that active references are unambiguous.
 
 ---
 
-## 13. Phase D — consolidated Diagnostics in Settings
+## 14. Phase D — consolidated Diagnostics in Settings
 
 Create one dedicated surface:
 
@@ -451,7 +608,7 @@ No raw token/session/security data is ever shown.
 
 ---
 
-## 14. Phase J — persistent audit journal
+## 15. Phase J — persistent audit journal
 
 Implement a structured local event journal instead of relying only on Logcat.
 
@@ -499,7 +656,7 @@ Never persist:
 
 ---
 
-## 15. Phase X — exportable diagnostic ZIP
+## 16. Phase X — exportable diagnostic ZIP
 
 Expose:
 **Exportar pacote de diagnóstico**
@@ -545,7 +702,7 @@ Tests:
 
 ---
 
-## 16. Phase C — cloud structured observability
+## 17. Phase C — cloud structured observability
 
 Extend worker/backend logs so one job id reconstructs the complete lifecycle.
 
@@ -570,7 +727,7 @@ Cloud logs must remain free of secrets and authentication material.
 
 ---
 
-## 17. Test and qualification matrix
+## 18. Test and qualification matrix
 
 ### Unit/core
 - reference-binding repair semantics;
@@ -613,22 +770,23 @@ On SM-X230 / Android 16:
 
 ---
 
-## 18. Release gates
+## 19. Release gates
 
 No successor APK may be signed until:
 
 1. F1 forensic report is complete;
 2. root-cause boundary is identified;
 3. required source fix is implemented;
-4. Studio reinsertion action is green;
-5. Prepare diagnostics are de-duplicated;
-6. local audit journal + diagnostic ZIP are green;
-7. worker/backend observability is green where required;
-8. unit/Lint/build/API 36 pass;
-9. U7 verify/shadow/production gates pass when backend changes exist;
-10. U4 passes;
-11. representative audio-quality gate passes;
-12. physical listening acceptance passes.
+4. source search has explicit non-silent terminal states and typo suggestions are green;
+5. Studio reinsertion action is green;
+6. Prepare diagnostics are de-duplicated;
+7. local audit journal + diagnostic ZIP are green;
+8. worker/backend observability is green where required;
+9. unit/Lint/build/API 36 pass;
+10. U7 verify/shadow/production gates pass when backend changes exist;
+11. U4 passes;
+12. representative audio-quality gate passes;
+13. physical listening acceptance passes.
 
 Any source change after RC19 freeze creates a new candidate identity:
 - target: `0.5.0-rc20`;
@@ -637,7 +795,7 @@ Any source change after RC19 freeze creates a new candidate identity:
 
 ---
 
-## 19. Execution order
+## 20. Execution order
 
 Mandatory order:
 
@@ -646,6 +804,7 @@ Mandatory order:
 → if necessary **F3 controlled diagnostic replay**
 → root-cause decision
 → source correction
+→ **SEARCH explicit terminal UX + typo suggestions**
 → **S Studio reinsertion**
 → **P Prepare diagnostics cleanup**
 → **D/J/X diagnostics + audit export**
@@ -660,7 +819,7 @@ UI/diagnostic improvements may be designed in parallel after F1, but no audio-al
 
 ---
 
-## 20. Exit criteria
+## 21. Exit criteria
 
 This plan closes only when all of the following are true:
 
@@ -669,6 +828,7 @@ This plan closes only when all of the following are true:
 - the exact worker image/model/strategy and output lineage are proven;
 - the bad-audio boundary is identified and corrected;
 - a representative real-source gate prevents recurrence;
+- source search never terminates silently and high-confidence spelling corrections can be suggested from existing provider evidence;
 - prepared references can be reinserted into Studio without restart;
 - Prepare details show active vs historical data without ambiguity;
 - Settings owns one coherent Diagnostics surface;
