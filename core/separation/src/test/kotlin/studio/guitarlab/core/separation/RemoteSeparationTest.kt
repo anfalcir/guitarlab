@@ -301,6 +301,82 @@ class RemoteSeparationTest {
         assertEquals(RemoteJobState.FAILED, store.load(requested.jobId)?.state)
     }
 
+    @Test fun processDeathAfterCompletedAdoptionResumesExactRemoteIdentityAndAcksAfterPublish() = runBlocking {
+        val requested = id()
+        val adopted = requested.copy(jobId = UUID.randomUUID().toString())
+        val manifestBytes = "adopted-manifest".toByteArray()
+        val manifestHash = sha(manifestBytes)
+        val stemBytes = wav()
+        val manifest = RemoteResultManifest(
+            adopted.jobId, adopted.projectId, adopted.inputSha256,
+            "demucs.cpp", "rc19", "htdemucs_6s", RemoteResultManifest.MODEL_SHA256,
+            44100, 2, 1, 1.0,
+            RemoteResultManifest.STEMS.map {
+                RemoteStem(it, "remote/v1/output/$it.wav", stemBytes.size.toLong(), sha(stemBytes))
+            },
+        )
+        val store = MemoryStore(DurableRemoteJob(requested, RemoteJobState.READY, 1))
+        val events = mutableListOf<String>()
+        var recoveryOffered = false
+        val backend = object : RemoteSeparationBackend {
+            override suspend fun enqueue(identity: RemoteJobIdentity, inputPath: String) = error("must not enqueue")
+            override suspend fun findRecoverable(generation: RemoteSourceGeneration): DurableRemoteJob? {
+                events += "findRecoverable"
+                if (recoveryOffered) return null
+                recoveryOffered = true
+                return DurableRemoteJob(adopted, RemoteJobState.COMPLETED, 2, manifestHash)
+            }
+            override suspend fun status(identity: RemoteJobIdentity): DurableRemoteJob? {
+                assertEquals(adopted, identity)
+                events += "status:${identity.jobId}"
+                return DurableRemoteJob(adopted, RemoteJobState.COMPLETED, 3, manifestHash)
+            }
+            override suspend fun cancel(identity: RemoteJobIdentity) = error("unused")
+            override suspend fun acknowledge(identity: RemoteJobIdentity, resultManifestSha256: String) {
+                assertEquals(adopted, identity)
+                assertEquals(manifestHash, resultManifestSha256)
+                events += "ack:${identity.jobId}"
+            }
+        }
+        val transport = object : RemoteResultTransport {
+            override suspend fun uploadSource(identity: RemoteJobIdentity) = error("recovery must not upload")
+            override suspend fun downloadManifest(identity: RemoteJobIdentity): ByteArray {
+                assertEquals(adopted, identity)
+                events += "manifest:${identity.jobId}"
+                return manifestBytes
+            }
+            override suspend fun downloadStem(identity: RemoteJobIdentity, stem: RemoteStem): RemoteStemPayload {
+                assertEquals(adopted, identity)
+                return BytesPayload(stem.name, stemBytes)
+            }
+            override suspend fun cleanup(identity: RemoteJobIdentity) { events += "cleanup:${identity.jobId}" }
+        }
+        val publisher = object : RemoteStemPublisher {
+            override fun publish(
+                identity: RemoteJobIdentity,
+                manifest: RemoteResultManifest,
+                manifestSha256: String,
+                stems: Map<String, RemoteStemPayload>,
+            ): Boolean {
+                assertEquals(adopted, identity)
+                assertEquals(adopted.jobId, manifest.jobId)
+                events += "publish:${identity.jobId}"
+                return true
+            }
+        }
+
+        val firstCoordinator = RemoteSeparationCoordinator(store, backend, transport, { manifest }, publisher)
+        val recovered = firstCoordinator.reconcile(requested)
+        assertEquals(adopted, recovered.identity)
+        assertEquals(RemoteJobState.COMPLETED, recovered.state)
+
+        val afterProcessDeath = RemoteSeparationCoordinator(store, backend, transport, { manifest }, publisher)
+            .reconcile(adopted)
+        assertEquals(RemoteJobState.IMPORTED, afterProcessDeath.state)
+        assertEquals(RemoteJobState.IMPORTED, store.load(adopted.jobId)?.state)
+        assertTrue(events.indexOf("publish:${adopted.jobId}") < events.indexOf("ack:${adopted.jobId}"))
+        assertTrue(events.none { it.startsWith("enqueue") })
+    }
     @Test fun enqueueRaceAdoptsExistingJobAndNeverQueuesRequestedIdentity() = runBlocking {
         val requested = id()
         val existing = requested.copy(jobId = UUID.randomUUID().toString())
