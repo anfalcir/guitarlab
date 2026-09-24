@@ -3,8 +3,20 @@ package studio.guitarlab.core.separation
 enum class RemoteJobState { UPLOADING, READY, QUEUED, RUNNING, COMPLETED, IMPORTING, IMPORT_FAILED, IMPORTED, CANCEL_REQUESTED, CANCELLED, FAILED, EXPIRED }
 data class RemoteJobIdentity(val jobId:String,val projectId:String,val sourceAssetId:String,val inputSha256:String) {
  init { require(jobId.matches(UUID)); require(projectId.isNotBlank()); require(sourceAssetId.isNotBlank()); require(inputSha256.matches(SHA)) }
+ fun generation()=RemoteSourceGeneration(projectId,sourceAssetId,inputSha256)
  companion object { val UUID=Regex("[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}",RegexOption.IGNORE_CASE); val SHA=Regex("[a-f0-9]{64}") }
 }
+data class RemoteSourceGeneration(val projectId:String,val sourceAssetId:String,val inputSha256:String) {
+ init { require(projectId.isNotBlank()); require(sourceAssetId.isNotBlank()); require(inputSha256.matches(RemoteJobIdentity.SHA)) }
+}
+enum class RemoteEnqueueDisposition { CREATED, IDEMPOTENT, EXISTING_SAME_GENERATION }
+data class RemoteEnqueueResult(
+ val requestedIdentity:RemoteJobIdentity,
+ val effectiveIdentity:RemoteJobIdentity,
+ val disposition:RemoteEnqueueDisposition,
+ val state:RemoteJobState,
+ val resultManifestSha256:String?=null,
+)
 data class RemoteStem(val name:String,val path:String,val bytes:Long,val sha256:String)
 data class RemoteReference(
  val name:String,
@@ -117,8 +129,19 @@ object RemoteMissingPolicy {
   else->RemoteJobState.FAILED
  }
 }
-interface RemoteJobStore { fun load(jobId:String):DurableRemoteJob?; fun save(job:DurableRemoteJob):DurableRemoteJob; fun active():List<DurableRemoteJob> = emptyList() }
-interface RemoteSeparationBackend { suspend fun enqueue(identity:RemoteJobIdentity,inputPath:String); suspend fun status(identity:RemoteJobIdentity):DurableRemoteJob?; suspend fun cancel(identity:RemoteJobIdentity); suspend fun acknowledge(identity:RemoteJobIdentity,resultManifestSha256:String) }
+interface RemoteJobStore {
+ fun load(jobId:String):DurableRemoteJob?
+ fun save(job:DurableRemoteJob):DurableRemoteJob
+ fun active():List<DurableRemoteJob> = emptyList()
+ fun adopt(job:DurableRemoteJob,attemptedJobId:String?=null):DurableRemoteJob = save(job)
+}
+interface RemoteSeparationBackend {
+ suspend fun enqueue(identity:RemoteJobIdentity,inputPath:String):RemoteEnqueueResult
+ suspend fun findRecoverable(generation:RemoteSourceGeneration):DurableRemoteJob? = null
+ suspend fun status(identity:RemoteJobIdentity):DurableRemoteJob?
+ suspend fun cancel(identity:RemoteJobIdentity)
+ suspend fun acknowledge(identity:RemoteJobIdentity,resultManifestSha256:String)
+}
 interface RemoteStemPayload {
  val name:String
  val byteCount:Long
@@ -140,20 +163,22 @@ interface RemoteStemPublisher {
 
 class RemoteSeparationCoordinator(private val store:RemoteJobStore,private val backend:RemoteSeparationBackend,private val transport:RemoteResultTransport,private val decodeManifest:(ByteArray)->RemoteResultManifest,private val publisher:RemoteStemPublisher,private val nowMs:()->Long=System::currentTimeMillis,private val expectedResultUid:suspend()->String?={null}) {
  suspend fun start(identity:RemoteJobIdentity):DurableRemoteJob {
-  store.load(identity.jobId)?.let{require(it.identity==identity);return it}
+  store.load(identity.jobId)?.let{require(it.identity==identity);return reconcile(identity)}
+  backend.findRecoverable(identity.generation())?.let{return adoptRecovered(identity,it)}
   val initial=store.save(DurableRemoteJob(identity,RemoteJobState.UPLOADING,nowMs()))
-  val path=transport.uploadSource(identity);store.save(initial.copy(state=RemoteJobState.READY,updatedAtMs=nowMs()));backend.enqueue(identity,path)
-  return store.save(initial.copy(state=RemoteJobState.QUEUED,updatedAtMs=nowMs()))
+  val path=transport.uploadSource(identity)
+  store.save(initial.copy(state=RemoteJobState.READY,updatedAtMs=nowMs()))
+  return enqueueOrAdopt(identity,path)
  }
  suspend fun reconcile(identity:RemoteJobIdentity):DurableRemoteJob {
   val local=requireNotNull(store.load(identity.jobId)){"local job missing"};require(local.identity==identity){"local job ownership mismatch"}
   val remote=backend.status(identity)
   if(remote==null){
    if(RemoteMissingPolicy.shouldReplay(local.state)){
+    backend.findRecoverable(identity.generation())?.let{return adoptRecovered(identity,it)}
     val path=transport.uploadSource(identity)
     store.save(local.copy(state=RemoteJobState.READY,updatedAtMs=nowMs()))
-    backend.enqueue(identity,path)
-    return store.save(local.copy(state=RemoteJobState.QUEUED,updatedAtMs=nowMs(),errorCode=null))
+    return enqueueOrAdopt(identity,path)
    }
    if(local.state in setOf(RemoteJobState.COMPLETED,RemoteJobState.IMPORTING,RemoteJobState.IMPORT_FAILED) && local.resultManifestSha256!=null){
     return importCompleted(identity,local,false)
@@ -166,6 +191,29 @@ class RemoteSeparationCoordinator(private val store:RemoteJobStore,private val b
   val accepted=store.save(remote)
   if(accepted.state!=RemoteJobState.COMPLETED&&accepted.state!=RemoteJobState.IMPORTING)return accepted
   return importCompleted(identity,accepted,true)
+ }
+ private suspend fun enqueueOrAdopt(identity:RemoteJobIdentity,inputPath:String):DurableRemoteJob {
+  val result=backend.enqueue(identity,inputPath)
+  require(result.requestedIdentity==identity){"enqueue requested identity mismatch"}
+  require(result.effectiveIdentity.generation()==identity.generation()){"enqueue generation mismatch"}
+  result.resultManifestSha256?.let{require(it.matches(RemoteJobIdentity.SHA)){"invalid manifest checksum"}}
+  val durable=DurableRemoteJob(
+   result.effectiveIdentity,
+   result.state,
+   nowMs(),
+   result.resultManifestSha256,
+   if(result.disposition==RemoteEnqueueDisposition.EXISTING_SAME_GENERATION) RECOVERY_MARKER else null,
+  )
+  return if(result.disposition==RemoteEnqueueDisposition.EXISTING_SAME_GENERATION || result.effectiveIdentity.jobId!=identity.jobId) {
+   store.adopt(durable,identity.jobId)
+  } else {
+   store.save(durable)
+  }
+ }
+ private fun adoptRecovered(requested:RemoteJobIdentity,remote:DurableRemoteJob):DurableRemoteJob {
+  require(remote.identity.generation()==requested.generation()){"recoverable generation mismatch"}
+  val marked=remote.copy(errorCode=remote.errorCode?:RECOVERY_MARKER,updatedAtMs=nowMs())
+  return store.adopt(marked,requested.jobId.takeIf{it!=remote.identity.jobId})
  }
  private suspend fun importCompleted(identity:RemoteJobIdentity,accepted:DurableRemoteJob,acknowledgeRemote:Boolean):DurableRemoteJob {
   store.save(accepted.copy(state=RemoteJobState.IMPORTING,updatedAtMs=nowMs(),errorCode=null))
@@ -188,7 +236,9 @@ class RemoteSeparationCoordinator(private val store:RemoteJobStore,private val b
  }
  suspend fun cancel(identity:RemoteJobIdentity):DurableRemoteJob { val current=requireNotNull(store.load(identity.jobId));require(current.identity==identity);if(current.state in setOf(RemoteJobState.IMPORTED,RemoteJobState.CANCELLED,RemoteJobState.FAILED,RemoteJobState.EXPIRED))return current;val requesting=store.save(current.copy(state=RemoteJobState.CANCEL_REQUESTED,updatedAtMs=nowMs()));backend.cancel(identity);return requesting }
  private fun sha256(bytes:ByteArray)=java.security.MessageDigest.getInstance("SHA-256").digest(bytes).joinToString(""){"%02x".format(it)}
+ companion object { const val RECOVERY_MARKER="RECOVERY:EXISTING_SAME_GENERATION" }
 }
+
 object RemoteFailurePolicy {
  private val terminal=setOf("AUTH_REQUIRED","APP_CHECK_REJECTED","QUOTA_EXCEEDED","REMOTE_JOB_NOT_FOUND","CONFIG_INVALID","INPUT_MISSING","INPUT_HASH_MISMATCH","RESULT_INVALID")
  fun shouldRetry(code:String,attempt:Int,maxAttempts:Int=5)=attempt<maxAttempts && code !in terminal
