@@ -1,0 +1,174 @@
+diff --git a/cloud/remote-separation/worker/Dockerfile b/cloud/remote-separation/worker/Dockerfile
+--- a/cloud/remote-separation/worker/Dockerfile
++++ b/cloud/remote-separation/worker/Dockerfile
+@@ -1,4 +1,6 @@
+-FROM python:3.12.14-slim-bookworm@sha256:782412e85d0f0984994c290652577d4018aff08145c85b262bb63dc0c7522254
++ARG PYTHON_BASE=python:3.12.14-slim-bookworm@sha256:782412e85d0f0984994c290652577d4018aff08145c85b262bb63dc0c7522254
++
++FROM ${PYTHON_BASE} AS builder
+ 
+ ARG TORCH_VERSION=2.14.0+cpu
+ ARG DEMUCS_VERSION=4.1.0
+@@ -11,13 +13,16 @@ ENV DEBIAN_FRONTEND=noninteractive \
+     PYTHONUNBUFFERED=1 \
+     PYTHONHASHSEED=0 \
+     PIP_DISABLE_PIP_VERSION_CHECK=1 \
+-    PIP_NO_CACHE_DIR=1
++    PIP_NO_CACHE_DIR=1 \
++    VIRTUAL_ENV=/opt/venv \
++    PATH=/opt/venv/bin:$PATH
+ 
+ RUN apt-get update \
+-    && apt-get install -y --no-install-recommends ca-certificates curl ffmpeg libgomp1 libsndfile1 \
++    && apt-get install -y --no-install-recommends ca-certificates curl libgomp1 libsndfile1 \
+     && rm -rf /var/lib/apt/lists/*
+ 
+-RUN python -m pip install --upgrade "pip==26.2" \
++RUN python -m venv "$VIRTUAL_ENV" \
++    && python -m pip install --upgrade "pip==26.2" \
+     && python -m pip install --index-url https://download.pytorch.org/whl/cpu "torch==${TORCH_VERSION}"
+ 
+ COPY requirements.txt /tmp/requirements.txt
+@@ -33,11 +38,12 @@ assert torch.__version__ == "2.14.0+cpu"
+ assert not torch.cuda.is_available()
+ PY
+ 
+-RUN mkdir -p /opt/demucs/models \
++RUN mkdir -p /opt/demucs/models /opt/rc20 \
+     && curl --fail --location --retry 4 --output /opt/demucs/models/5c90dfd2-34c22ccb.th "${MODEL_URL}" \
+     && echo "${MODEL_SHA256}  /opt/demucs/models/5c90dfd2-34c22ccb.th" | sha256sum -c - \
+     && test "$(stat -c %s /opt/demucs/models/5c90dfd2-34c22ccb.th)" = "${MODEL_BYTES}" \
+-    && printf "models: ['5c90dfd2']\n" > /opt/demucs/models/htdemucs_6s.yaml
++    && printf "models: ['5c90dfd2']\n" > /opt/demucs/models/htdemucs_6s.yaml \
++    && python -m pip freeze --all | LC_ALL=C sort > /opt/rc20/python-resolved.txt
+ 
+ RUN python - <<'PY'
+ from pathlib import Path
+@@ -46,11 +52,31 @@ model = get_model("htdemucs_6s", Path("/opt/demucs/models"))
+ assert tuple(model.sources) == ("drums", "bass", "other", "vocals", "guitar", "piano")
+ PY
+ 
++
++FROM ${PYTHON_BASE} AS runtime
++
++ENV DEBIAN_FRONTEND=noninteractive \
++    PYTHONDONTWRITEBYTECODE=1 \
++    PYTHONUNBUFFERED=1 \
++    PYTHONHASHSEED=0 \
++    PIP_DISABLE_PIP_VERSION_CHECK=1 \
++    PIP_NO_CACHE_DIR=1 \
++    VIRTUAL_ENV=/opt/venv \
++    PATH=/opt/venv/bin:$PATH
++
++RUN apt-get update \
++    && apt-get install -y --no-install-recommends ca-certificates ffmpeg libgomp1 libsndfile1 \
++    && rm -rf /var/lib/apt/lists/*
++
++COPY --from=builder /opt/venv /opt/venv
++COPY --from=builder /opt/demucs /opt/demucs
++COPY --from=builder /opt/rc20 /opt/rc20
++
+ WORKDIR /app
+ COPY audio_quality.py demucs_engine.py gbw_worker.py benchmark.py /app/
+ RUN useradd --uid 65532 --create-home --shell /usr/sbin/nologin worker \
+-    && chown -R worker:worker /app /opt/demucs \
+-    && chmod -R a-w /opt/demucs/models
++    && chown -R worker:worker /app \
++    && chmod -R a-w /opt/venv /opt/demucs/models /opt/rc20
+ 
+ USER 65532:65532
+ ENV HOME=/home/worker \
+@@ -63,4 +89,4 @@ ENV HOME=/home/worker \
+     MKL_NUM_THREADS=8 \
+     OPENBLAS_NUM_THREADS=8 \
+     NUMEXPR_NUM_THREADS=8
+-ENTRYPOINT ["python3", "/app/gbw_worker.py"]
++ENTRYPOINT ["/opt/venv/bin/python3", "/app/gbw_worker.py"]
+diff --git a/cloud/remote-separation/worker/demucs_engine.py b/cloud/remote-separation/worker/demucs_engine.py
+--- a/cloud/remote-separation/worker/demucs_engine.py
++++ b/cloud/remote-separation/worker/demucs_engine.py
+@@ -9,6 +9,7 @@
+ from __future__ import annotations
+ 
+ import hashlib
++import importlib.metadata as metadata
+ import os
+ import signal
+ import subprocess
+@@ -20,6 +21,7 @@
+ ENGINE_NAME = "demucs-pytorch"
+ DEMUCS_VERSION = "4.1.0"
+ PYTORCH_VERSION = "2.14.0+cpu"
++NUMPY_VERSION = "1.26.4"
+ ENGINE_REVISION = f"demucs={DEMUCS_VERSION};torch={PYTORCH_VERSION}"
+ MODEL_NAME = "htdemucs_6s"
+ MODEL_SIGNATURE = "5c90dfd2"
+@@ -78,6 +80,23 @@ def __init__(self, config: DemucsEngineConfig):
+         self.config = config
+         self._process: subprocess.Popen[str] | None = None
+ 
++    def validate_runtime_packages(self) -> None:
++        expected = {
++            "demucs": DEMUCS_VERSION,
++            "torch": PYTORCH_VERSION,
++            "numpy": NUMPY_VERSION,
++        }
++        for package, version in expected.items():
++            try:
++                actual = metadata.version(package)
++            except metadata.PackageNotFoundError as error:
++                raise EngineError("RUNTIME_INVALID", f"required package missing: {package}") from error
++            if actual != version:
++                raise EngineError(
++                    "RUNTIME_INVALID",
++                    f"unexpected {package} version: {actual}; expected {version}",
++                )
++
+     def validate_assets(self) -> None:
+         repo = self.config.model_repo
+         checkpoint = repo / MODEL_FILE
+@@ -134,6 +153,7 @@ def cancel(self) -> None:
+             return
+ 
+     def run(self, source: Path, output_root: Path, timeout_seconds: int = 1_700) -> list[Path]:
++        self.validate_runtime_packages()
+         self.validate_assets()
+         if not source.is_file():
+             raise EngineError("INPUT_UNSUPPORTED", f"canonical input missing: {source}")
+diff --git a/cloud/remote-separation/worker/tests/test_demucs_engine.py b/cloud/remote-separation/worker/tests/test_demucs_engine.py
+--- a/cloud/remote-separation/worker/tests/test_demucs_engine.py
++++ b/cloud/remote-separation/worker/tests/test_demucs_engine.py
+@@ -38,6 +38,21 @@ def test_command_matches_rc20_official_baseline(self):
+         )
+         self.assertEqual(config.strategy, "pytorch-cpu-s1-o0.5-t8")
+ 
++    def test_runtime_packages_require_exact_versions(self):
++        runner = engine.DemucsPyTorchRunner(engine.DemucsEngineConfig())
++        versions = {
++            "demucs": engine.DEMUCS_VERSION,
++            "torch": engine.PYTORCH_VERSION,
++            "numpy": engine.NUMPY_VERSION,
++        }
++        with mock.patch.object(engine.metadata, "version", side_effect=lambda name: versions[name]):
++            runner.validate_runtime_packages()
++
++        versions["numpy"] = "2.0.0"
++        with mock.patch.object(engine.metadata, "version", side_effect=lambda name: versions[name]):
++            with self.assertRaisesRegex(engine.EngineError, "unexpected numpy version"):
++                runner.validate_runtime_packages()
++
+     def test_model_assets_fail_closed(self):
+         with tempfile.TemporaryDirectory() as tmp:
+             repo = Path(tmp)
+@@ -82,8 +97,9 @@ def test_run_requires_all_six_private_stems(self):
+                  mock.patch.object(engine, "MODEL_SHA256", hashlib.sha256(b"x").hexdigest()), \
+                  mock.patch.object(subprocess, "Popen", return_value=process):
+                 runner = engine.DemucsPyTorchRunner(engine.DemucsEngineConfig(model_repo=repo))
+-                with self.assertRaisesRegex(engine.EngineError, "piano"):
+-                    runner.run(source, output)
++                with mock.patch.object(runner, "validate_runtime_packages"):
++                    with self.assertRaisesRegex(engine.EngineError, "piano"):
++                        runner.run(source, output)
+ 
+     def test_cpu_thread_environment_is_explicit(self):
+         runner = engine.DemucsPyTorchRunner(engine.DemucsEngineConfig(cpu_threads=4))
