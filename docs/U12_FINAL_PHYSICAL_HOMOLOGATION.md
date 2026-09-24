@@ -291,3 +291,37 @@ Critical acceptance fixture:
 The app must adopt that exact remote job without another Demucs execution or accepted-job increment, download only the prepared backing/guitar references, validate and publish them atomically, then ACK so Firestore reaches IMPORTED and remoteCleanupState reaches PURGED. Reopen/reboot must remain consistent and creative/recording state must remain intact.
 
 Do not manually cancel, ACK, mutate or purge the fixture before this acceptance.
+
+## RC19 physical audio-quality incident — acceptance blocked
+
+RC19 is digitally qualified and signed, but it is **not physically accepted**.
+
+Target-device evidence on 2026-09-24:
+- project: `18cf294d-7a76-4f03-8abd-bc55d3344beb`;
+- source asset: `f8c3e5d7-c759-41e1-945b-4968c3a54b0e`;
+- source SHA-256: `b0e24e05bf4adfe73a72b1cef961ad0f5322ddd4b995d8af7a84296f8feb324a`;
+- source operation: `5db9b4a8-b5ab-4a5e-a517-3c25e2678a7f`;
+- processing/job: `c3ba40ec-6153-483a-801f-9e838b3e3b60`;
+- active backing SHA-256: `d9f206f25f9eb28d02c7fb4a4a3e1d667077429e91520eb64763cd0251fe2a8e`;
+- active guitar SHA-256: `8bbb4b5eb6b4ef8758669c1734b8d095893aadc9792d12a6330d9318eae725fa`.
+
+The two supplied references are structurally valid 44.1 kHz stereo float32 WAVs with matching duration and no NaN/Inf, but listening remains unusable. Therefore container/hash validity is insufficient for final Prepare acceptance.
+
+The incident also exposed:
+- no explicit local action to reinsert already-active backing/guitar references after their Studio clips are deleted;
+- ambiguous flat technical details that mix active, historical and derived L/R assets;
+- no persistent/exportable application audit trail suitable for correlating Android actions to Firebase/Cloud Run evidence.
+
+The authoritative corrective/investigation plan is:
+`U12_RC19_AUDIO_FORENSICS_AND_DIAGNOSTICS_PLAN.md`.
+
+Until that plan reaches its forensic decision point:
+- do not alter the separation algorithm speculatively;
+- do not apply a DC/high-pass corrective merely from the observed mean offset;
+- do not declare RC19 physical PASS;
+- do not sign a successor candidate.
+
+Any source fix after RC19 freeze must use a new candidate identity. The planned successor is `0.5.0-rc20` / versionCode `40` after the forensic/root-cause and quality gates close.
+
+Existing U12 evidence remains reusable only where the corrective cannot materially affect it. Prepare audio quality, reference reinsertion, diagnostics/observability and adjacent Studio handoff must be repeated on the successor candidate.
+
