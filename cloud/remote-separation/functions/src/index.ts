@@ -73,17 +73,96 @@ export const enqueueRemoteSeparation = onCall({region, enforceAppCheck: false, t
   const projectId = text(data.projectId, "projectId", uuid);
   const sourceAssetId = text(data.sourceAssetId, "sourceAssetId", /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/);
   const inputSha256 = text(data.inputSha256, "inputSha256", SHA256);
-  const inputPath = text(data.inputPath, "inputPath", new RegExp(`^remote/v1/users/${uid}/jobs/${jobId}/input/source\\.[a-z0-9]{1,8}$`));
+  const inputPath = text(data.inputPath, "inputPath", new RegExp(`^remote/v1/users/${uid}/jobs/${jobId}/input/source\\.[a-z0-9]{1,8}import {ExecutionsClient, JobsClient} from "@google-cloud/run";
+import {Storage} from "@google-cloud/storage";
+import {initializeApp} from "firebase-admin/app";
+import {FieldValue, getFirestore} from "firebase-admin/firestore";
+import {HttpsError, onCall} from "firebase-functions/v2/https";
+import {onSchedule} from "firebase-functions/v2/scheduler";
+import {logger} from "firebase-functions";
+import {ACTIVE_STATES, BACKEND_POLICY_REVISION, JOB_ID, MAX_INPUT_BYTES, MAX_MONTHLY_JOBS, RESULT_RECOVERY_WINDOW_MS, SHA256, decideEnqueue, isIdempotentJob, monthKey, requireAckable, retentionAction, sameGeneration} from "./policy";
+
+initializeApp();
+const db = getFirestore();
+const storage = new Storage();
+const jobsClient = new JobsClient();
+const executionsClient = new ExecutionsClient();
+const region = process.env.GBW_REGION || "us-central1";
+const project = process.env.GCLOUD_PROJECT || process.env.GOOGLE_CLOUD_PROJECT || "";
+const bucketName = process.env.GBW_BUCKET || "";
+const runJobName = process.env.GBW_RUN_JOB || `projects/${project}/locations/${region}/jobs/gbw-demucs`;
+const allowedUids = new Set((process.env.GBW_ALLOWED_UIDS || "").split(",").map(v => v.trim()).filter(Boolean));
+const runtimeServiceAccount = process.env.GBW_ORCHESTRATOR_SA;
+const runtimeIdentity = runtimeServiceAccount ? {serviceAccount: runtimeServiceAccount} : {};
+
+type Caller = {uid: string};
+function caller(request: {auth?: {uid: string}; app?: unknown}): Caller {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Authentication required.");
+  if (!request.app && process.env.GBW_REQUIRE_APP_CHECK === "true") throw new HttpsError("failed-precondition", "App Check required.");
+  if (!allowedUids.has(request.auth.uid)) throw new HttpsError("permission-denied", "Account is not authorized.");
+  return {uid: request.auth.uid};
+}
+function text(value: unknown, key: string, regex: RegExp): string {
+  if (typeof value !== "string" || !regex.test(value)) throw new HttpsError("invalid-argument", `Invalid ${key}.`);
+  return value;
+}
+const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+async function cleanupUnregisteredUpload(uid: string, jobId: string): Promise<void> {
+  await storage.bucket(bucketName).deleteFiles({prefix: `remote/v1/users/${uid}/jobs/${jobId}/`})
+    .catch(error => logger.warn("unregistered upload cleanup failed", {jobId, error: String(error)}));
+}
+
+export const findRecoverableRemoteSeparation = onCall({region, enforceAppCheck: false, timeoutSeconds: 60, ...runtimeIdentity}, async request => {
+  const {uid} = caller(request);
+  const data = request.data || {};
+  const projectId = text(data.projectId, "projectId", uuid);
+  const sourceAssetId = text(data.sourceAssetId, "sourceAssetId", /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/);
+  const inputSha256 = text(data.inputSha256, "inputSha256", SHA256);
+  const activeSnapshot = await db.collection(`users/${uid}/jobs`).where("state", "in", [...ACTIVE_STATES]).limit(10).get();
+  const matches = activeSnapshot.docs.filter(document =>
+    sameGeneration({jobId: document.id, ...(document.data() || {})}, projectId, sourceAssetId, inputSha256),
+  );
+  if (matches.length === 0) return {found: false};
+  if (matches.length !== 1) {
+    throw new HttpsError("failed-precondition", "Remote state is ambiguous.", {reason: "REMOTE_STATE_AMBIGUOUS"});
+  }
+  const document = matches[0];
+  const job = document.data() || {};
+  return {
+    found: true,
+    disposition: "EXISTING_SAME_GENERATION",
+    jobId: document.id,
+    projectId,
+    sourceAssetId,
+    inputSha256,
+    state: String(job.state || "QUEUED"),
+    resultManifestSha256: typeof job.resultManifestSha256 === "string" ? job.resultManifestSha256 : null,
+  };
+});
+
+export const enqueueRemoteSeparation = onCall({region, enforceAppCheck: false, timeoutSeconds: 60, ...runtimeIdentity}, async request => {
+  const {uid} = caller(request);
+  const data = request.data || {};
+  const jobId = text(data.jobId, "jobId", JOB_ID);
+  const projectId = text(data.projectId, "projectId", uuid);
+  const sourceAssetId = text(data.sourceAssetId, "sourceAssetId", /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/);
+  const inputSha256 = text(data.inputSha256, "inputSha256", SHA256);
+));
+  const jobRef = db.doc(`users/${uid}/jobs/${jobId}`);
+  const usageRef = db.doc(`users/${uid}/usage/${monthKey()}`);
   const [metadata] = await storage.bucket(bucketName).file(inputPath).getMetadata();
   const size = Number(metadata.size || 0);
   if (size <= 0 || size > MAX_INPUT_BYTES || !String(metadata.contentType || "").match(/^(audio\/|application\/octet-stream)/)) {
+    const registered = await jobRef.get();
+    if (!registered.exists) await cleanupUnregisteredUpload(uid, jobId);
     throw new HttpsError("invalid-argument", "Invalid input object.");
   }
   if (metadata.metadata?.sha256 !== inputSha256 || metadata.metadata?.projectId !== projectId || metadata.metadata?.jobId !== jobId) {
+    const registered = await jobRef.get();
+    if (!registered.exists) await cleanupUnregisteredUpload(uid, jobId);
     throw new HttpsError("failed-precondition", "Input metadata mismatch.");
   }
-  const jobRef = db.doc(`users/${uid}/jobs/${jobId}`);
-  const usageRef = db.doc(`users/${uid}/usage/${monthKey()}`);
   const decision = await db.runTransaction(async transaction => {
     const [jobSnapshot, usageSnapshot, activeSnapshot] = await Promise.all([
       transaction.get(jobRef),
