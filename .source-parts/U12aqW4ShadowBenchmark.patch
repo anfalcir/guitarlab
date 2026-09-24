@@ -1,0 +1,408 @@
+diff --git a/.github/workflows/u7-cloud-backend.yml b/.github/workflows/u7-cloud-backend.yml
+--- a/.github/workflows/u7-cloud-backend.yml
++++ b/.github/workflows/u7-cloud-backend.yml
+@@ -114,6 +114,15 @@ jobs:
+           grep -q 'allowlisted_password_users=PASS' cloud/remote-separation/scripts/verify-allowlisted-auth-users.sh
+           grep -q 'Anonymous Firebase Authentication is intentionally disabled' cloud/remote-separation/scripts/ensure-anonymous-auth.sh
+           find cloud/remote-separation scripts -type f -name '*.sh' -print0 | xargs -0 -n1 bash -n
++          python3 scripts/u12_generate_benchmark_fixture.py /tmp/u12-w4-fixture.wav --seconds 1
++          python3 - <<'PY'
++          import wave
++          with wave.open("/tmp/u12-w4-fixture.wav", "rb") as wav:
++              assert wav.getframerate() == 44100
++              assert wav.getnchannels() == 2
++              assert wav.getsampwidth() == 2
++              assert wav.getnframes() == 44100
++          PY
+           ! grep -RIE --exclude-dir=node_modules --exclude-dir=lib '(BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY|"private_key"[[:space:]]*:|AIza[0-9A-Za-z_-]{30,})' cloud/remote-separation .github/workflows/u7-cloud-backend.yml
+ 
+       - name: Build worker container without publishing
+@@ -351,6 +360,24 @@ jobs:
+           set -euo pipefail
+           bash scripts/u4_cloud_integration_smoke.sh | tee -a u7-deploy-evidence.txt
+ 
++      - name: Run W4 representative shadow benchmark
++        if: steps.deploy_mode.outputs.mode == 'shadow'
++        shell: bash
++        env:
++          GBW_PINNED_IMAGE: ${{ steps.worker.outputs.pinned_image }}
++        run: |
++          set -euo pipefail
++          bash scripts/u12_rc20_shadow_benchmark.sh | tee -a u7-deploy-evidence.txt
++
++      - name: Upload W4 benchmark and listening bundle
++        if: always() && steps.deploy_mode.outputs.mode == 'shadow'
++        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4
++        with:
++          name: u12-rc20-w4-shadow-${{ github.sha }}
++          path: artifacts/u12-rc20-w4/
++          if-no-files-found: error
++          retention-days: 14
++
+       - name: Restore prior production image after failed cutover
+         if: failure() && steps.deploy_mode.outputs.mode == 'production' && env.PREVIOUS_PRODUCTION_IMAGE != ''
+         shell: bash
+diff --git a/.gitignore b/.gitignore
+--- a/.gitignore
++++ b/.gitignore
+@@ -42,3 +42,6 @@ cloud/remote-separation/functions/node_modules
+ cloud/remote-separation/functions/lib/
+ **/__pycache__/
+ *.pyc
++
++# Local/cloud listening bundles are evidence, never source
++artifacts/u12-rc20-w4/
+diff --git a/cloud/remote-separation/worker/benchmark.py b/cloud/remote-separation/worker/benchmark.py
+--- a/cloud/remote-separation/worker/benchmark.py
++++ b/cloud/remote-separation/worker/benchmark.py
+@@ -5,6 +5,7 @@
+ 
+ import argparse
+ import json
++import os
+ import resource
+ import tempfile
+ import time
+@@ -32,6 +33,7 @@
+         "overlap": 0.5,
+     },
+ }
++BUNDLE_PREFIX_ROOT = "diagnostics/u12-rc20/w4/"
+ 
+ 
+ def strategy(name: str) -> dict:
+@@ -41,6 +43,57 @@ def strategy(name: str) -> dict:
+         raise ValueError(f"unknown benchmark strategy: {name}") from error
+ 
+ 
++def validate_bundle_prefix(prefix: str | None) -> str | None:
++    if prefix is None:
++        return None
++    normalized = prefix.strip("/")
++    if not normalized.startswith(BUNDLE_PREFIX_ROOT) or ".." in normalized.split("/"):
++        raise ValueError("W4 bundle prefix must stay inside the diagnostic namespace")
++    return normalized
++
++
++def upload_listening_bundle(bucket, prefix: str, root: Path, stems: list[Path],
++                            prepared: list[Path], recombined: Path, result: dict) -> None:
++    files: list[tuple[str, Path]] = []
++    for stem in stems:
++        files.append((f"stems/{stem.name}", stem))
++    for reference in prepared:
++        files.append((f"prepared/{reference.name}", reference))
++    files.append(("recombined.wav", recombined))
++    result["bundleFiles"] = [
++        {
++            "path": relative,
++            "bytes": path.stat().st_size,
++            "sha256": worker.sha256_file(path),
++        }
++        for relative, path in files
++    ]
++    metrics = root / "benchmark.json"
++    metrics.write_text(
++        json.dumps(result, sort_keys=True, indent=2, allow_nan=False) + "\n",
++        encoding="utf-8",
++    )
++    checksum_rows = [
++        f"{worker.sha256_file(path)}  {relative}"
++        for relative, path in files
++    ]
++    checksum_rows.append(f"{worker.sha256_file(metrics)}  benchmark.json")
++    sums = root / "SHA256SUMS"
++    sums.write_text("\n".join(checksum_rows) + "\n", encoding="utf-8")
++    upload_files = [*files, ("benchmark.json", metrics), ("SHA256SUMS", sums)]
++    for relative, path in upload_files:
++        content_type = "audio/wav" if relative.endswith(".wav") else "text/plain"
++        if relative.endswith(".json"):
++            content_type = "application/json"
++        blob = bucket.blob(f"{prefix}/{relative}")
++        blob.upload_from_filename(str(path), content_type=content_type)
++
++
++def env_float(name: str) -> float | None:
++    value = os.environ.get(name, "").strip()
++    return float(value) if value else None
++
++
+ def run(args: argparse.Namespace) -> dict:
+     from google.cloud import storage
+ 
+@@ -117,7 +170,10 @@ def run(args: argparse.Namespace) -> dict:
+                 elapsed_seconds * selected["cpu_threads"] * args.vcpu_price_per_second
+                 + elapsed_seconds * args.memory_gib * args.memory_price_per_gib_second
+             )
+-        return {
++        recombined = root / "recombined.wav"
++        worker.mix_float(prepared, recombined)
++        worker.wav_contract(recombined)
++        result = {
+             "engine": ENGINE_NAME,
+             "engineRevision": ENGINE_REVISION,
+             "demucsVersion": DEMUCS_VERSION,
+@@ -154,20 +210,30 @@ def run(args: argparse.Namespace) -> dict:
+             "memoryGiB": args.memory_gib,
+             "estimatedCostUsd": cost,
+             "maxRssKiB": resource.getrusage(resource.RUSAGE_SELF).ru_maxrss,
++            "imageIdentity": args.image_identity,
++            "pricingBasis": args.pricing_basis,
+         }
++        bundle_prefix = validate_bundle_prefix(args.bundle_prefix)
++        if bundle_prefix is not None:
++            result["bundlePrefix"] = bundle_prefix
++            upload_listening_bundle(bucket, bundle_prefix, root, outputs, prepared, recombined, result)
++        return result
+ 
+ 
+ def main() -> int:
+     parser = argparse.ArgumentParser()
+-    parser.add_argument("--project", required=True)
+-    parser.add_argument("--bucket", required=True)
+-    parser.add_argument("--input-path", required=True)
+-    parser.add_argument("--strategy", choices=sorted(STRATEGIES), required=True)
+-    parser.add_argument("--model-repo", default="/opt/demucs/models")
+-    parser.add_argument("--timeout-seconds", type=int, default=1_700)
+-    parser.add_argument("--memory-gib", type=float, default=16.0)
+-    parser.add_argument("--vcpu-price-per-second", type=float)
+-    parser.add_argument("--memory-price-per-gib-second", type=float)
++    parser.add_argument("--project", default=os.environ.get("GBW_BENCH_PROJECT"), required=not bool(os.environ.get("GBW_BENCH_PROJECT")))
++    parser.add_argument("--bucket", default=os.environ.get("GBW_BENCH_BUCKET"), required=not bool(os.environ.get("GBW_BENCH_BUCKET")))
++    parser.add_argument("--input-path", default=os.environ.get("GBW_BENCH_INPUT_PATH"), required=not bool(os.environ.get("GBW_BENCH_INPUT_PATH")))
++    parser.add_argument("--strategy", choices=sorted(STRATEGIES), default=os.environ.get("GBW_BENCH_STRATEGY"), required=not bool(os.environ.get("GBW_BENCH_STRATEGY")))
++    parser.add_argument("--model-repo", default=os.environ.get("GBW_MODEL_REPO", "/opt/demucs/models"))
++    parser.add_argument("--timeout-seconds", type=int, default=int(os.environ.get("GBW_BENCH_TIMEOUT_SECONDS", "1700")))
++    parser.add_argument("--memory-gib", type=float, default=float(os.environ.get("GBW_BENCH_MEMORY_GIB", "16")))
++    parser.add_argument("--vcpu-price-per-second", type=float, default=env_float("GBW_BENCH_VCPU_PRICE_PER_SECOND"))
++    parser.add_argument("--memory-price-per-gib-second", type=float, default=env_float("GBW_BENCH_MEMORY_PRICE_PER_GIB_SECOND"))
++    parser.add_argument("--bundle-prefix", default=os.environ.get("GBW_BENCH_BUNDLE_PREFIX"))
++    parser.add_argument("--image-identity", default=os.environ.get("GBW_BENCH_IMAGE_IDENTITY"))
++    parser.add_argument("--pricing-basis", default=os.environ.get("GBW_BENCH_PRICING_BASIS"))
+     parser.add_argument("--json-out")
+     args = parser.parse_args()
+     result = run(args)
+diff --git a/cloud/remote-separation/worker/tests/test_benchmark.py b/cloud/remote-separation/worker/tests/test_benchmark.py
+--- a/cloud/remote-separation/worker/tests/test_benchmark.py
++++ b/cloud/remote-separation/worker/tests/test_benchmark.py
+@@ -31,6 +31,16 @@ def test_unknown_strategy_is_rejected(self):
+         with self.assertRaises(ValueError):
+             benchmark.strategy("single8")
+ 
++    def test_w4_bundle_prefix_is_fail_closed(self):
++        self.assertEqual(
++            benchmark.validate_bundle_prefix("diagnostics/u12-rc20/w4/run-1"),
++            "diagnostics/u12-rc20/w4/run-1",
++        )
++        with self.assertRaises(ValueError):
++            benchmark.validate_bundle_prefix("remote/v1/users/u/jobs/job")
++        with self.assertRaises(ValueError):
++            benchmark.validate_bundle_prefix("diagnostics/u12-rc20/w4/../escape")
++
+ 
+ if __name__ == "__main__":
+     unittest.main()
+diff --git a/scripts/u12_generate_benchmark_fixture.py b/scripts/u12_generate_benchmark_fixture.py
+new file mode 100755
+--- /dev/null
++++ b/scripts/u12_generate_benchmark_fixture.py
+@@ -0,0 +1,94 @@
++#!/usr/bin/env python3
++"""Generate a deterministic, royalty-free technical W4 benchmark fixture."""
++
++from __future__ import annotations
++
++import argparse
++import math
++import random
++import struct
++import wave
++from pathlib import Path
++
++SAMPLE_RATE = 44_100
++MOTIF_SECONDS = 12
++
++
++def clamp(value: float) -> int:
++    return max(-32767, min(32767, int(round(value * 32767.0))))
++
++
++def motif_bytes() -> bytes:
++    frames = SAMPLE_RATE * MOTIF_SECONDS
++    out = bytearray()
++    rng = random.Random(0x4755495441524C4142)
++    roots = (55.0, 65.406, 73.416, 49.0)
++    chord_ratios = ((1.0, 1.25, 1.5), (1.0, 1.2, 1.5), (1.0, 1.25, 1.6), (1.0, 1.2, 1.5))
++    for index in range(frames):
++        t = index / SAMPLE_RATE
++        beat = (t * 2.0) % 1.0
++        eighth = (t * 4.0) % 1.0
++        bar = int(t // 2.0) % 4
++        root = roots[bar]
++        kick_env = math.exp(-10.0 * beat)
++        kick = 0.28 * kick_env * math.sin(2.0 * math.pi * (48.0 + 22.0 * kick_env) * t)
++        beat_number = int(t * 2.0) % 4
++        snare_phase = ((t - 0.5) * 2.0) % 2.0
++        snare_env = math.exp(-14.0 * (snare_phase % 1.0)) if beat_number in (1, 3) else 0.0
++        noise = rng.uniform(-1.0, 1.0)
++        snare = 0.12 * snare_env * noise
++        hat = 0.035 * math.exp(-24.0 * eighth) * rng.uniform(-1.0, 1.0)
++        bass = 0.15 * (
++            math.sin(2.0 * math.pi * root * t)
++            + 0.35 * math.sin(2.0 * math.pi * root * 2.0 * t)
++        )
++        chord_env = 0.55 + 0.45 * math.exp(-2.0 * (t % 2.0))
++        chord = 0.0
++        for ratio in chord_ratios[bar]:
++            chord += math.sin(2.0 * math.pi * root * ratio * 4.0 * t)
++        chord *= 0.035 * chord_env
++        pluck_phase = (t * 3.0) % 1.0
++        pluck_env = math.exp(-5.5 * pluck_phase)
++        guitar = 0.085 * pluck_env * (
++            math.sin(2.0 * math.pi * root * 6.0 * t)
++            + 0.45 * math.sin(2.0 * math.pi * root * 9.0 * t)
++        )
++        lead_freq = root * (8.0 if (int(t) % 4) < 2 else 10.0)
++        vibrato = 1.0 + 0.008 * math.sin(2.0 * math.pi * 5.2 * t)
++        lead = 0.065 * math.sin(2.0 * math.pi * lead_freq * vibrato * t)
++        left = kick + snare * 0.85 + hat * 0.65 + bass * 0.95 + chord * 1.1 + guitar * 1.15 + lead * 0.75
++        right = kick + snare * 1.15 + hat * 1.35 + bass * 1.05 + chord * 0.9 + guitar * 0.85 + lead * 1.25
++        out += struct.pack("<hh", clamp(left), clamp(right))
++    return bytes(out)
++
++
++def generate(path: Path, seconds: int) -> None:
++    if seconds < 1 or seconds > 600:
++        raise ValueError("fixture duration must be between 1 and 600 seconds")
++    motif = motif_bytes()
++    motif_frames = SAMPLE_RATE * MOTIF_SECONDS
++    total_frames = SAMPLE_RATE * seconds
++    path.parent.mkdir(parents=True, exist_ok=True)
++    with wave.open(str(path), "wb") as handle:
++        handle.setnchannels(2)
++        handle.setsampwidth(2)
++        handle.setframerate(SAMPLE_RATE)
++        full, remaining = divmod(total_frames, motif_frames)
++        for _ in range(full):
++            handle.writeframesraw(motif)
++        if remaining:
++            handle.writeframesraw(motif[: remaining * 4])
++        handle.writeframes(b"")
++
++
++def main() -> int:
++    parser = argparse.ArgumentParser()
++    parser.add_argument("output", type=Path)
++    parser.add_argument("--seconds", type=int, default=180)
++    args = parser.parse_args()
++    generate(args.output, args.seconds)
++    return 0
++
++
++if __name__ == "__main__":
++    raise SystemExit(main())
+diff --git a/scripts/u12_rc20_shadow_benchmark.sh b/scripts/u12_rc20_shadow_benchmark.sh
+new file mode 100755
+--- /dev/null
++++ b/scripts/u12_rc20_shadow_benchmark.sh
+@@ -0,0 +1,101 @@
++#!/usr/bin/env bash
++set -euo pipefail
++
++: "${GBW_GCP_PROJECT:?Set GBW_GCP_PROJECT}"
++: "${GBW_BUCKET:?Set GBW_BUCKET}"
++: "${GBW_PINNED_IMAGE:?Set GBW_PINNED_IMAGE to the exact digest-pinned shadow image}"
++GBW_REGION="${GBW_REGION:-us-central1}"
++RUN_TOKEN="${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
++BENCH_JOB="${GBW_BENCH_JOB_NAME:-guitarlab-demucs-w4-${GITHUB_RUN_ID:-local}}"
++BENCH_JOB="$(printf '%s' "$BENCH_JOB" | tr '[:upper:]_' '[:lower:]-' | cut -c1-63)"
++PREFIX="diagnostics/u12-rc20/w4/${RUN_TOKEN}"
++INPUT_PATH="${PREFIX}/input.wav"
++BUNDLE_PREFIX="${PREFIX}/bundle"
++ARTIFACT_DIR="artifacts/u12-rc20-w4/${RUN_TOKEN}"
++WORKER_SA="gbw-worker@${GBW_GCP_PROJECT}.iam.gserviceaccount.com"
++
++# Cloud Run Jobs default on-demand Tier-1 rates checked against the public
++# pricing table on 2026-09-24. Override these environment variables if pricing changes.
++VCPU_PRICE="${GBW_W4_VCPU_PRICE_PER_SECOND:-0.000018}"
++MEMORY_PRICE="${GBW_W4_MEMORY_PRICE_PER_GIB_SECOND:-0.000002}"
++PRICING_BASIS="${GBW_W4_PRICING_BASIS:-Cloud Run Jobs Tier-1 on-demand rates checked 2026-09-24}"
++
++mkdir -p "$ARTIFACT_DIR"
++TMP="$(mktemp -d)"
++cleanup() {
++  gcloud run jobs delete "$BENCH_JOB" --project "$GBW_GCP_PROJECT" --region "$GBW_REGION" --quiet >/dev/null 2>&1 || true
++  gcloud storage rm "gs://${GBW_BUCKET}/${PREFIX}/**" --recursive >/dev/null 2>&1 || true
++  rm -rf "$TMP"
++}
++trap cleanup EXIT
++
++python3 scripts/u12_generate_benchmark_fixture.py "$TMP/w4-fixture.wav" --seconds 180
++FIXTURE_SHA="$(sha256sum "$TMP/w4-fixture.wav" | awk '{print $1}')"
++gcloud storage cp "$TMP/w4-fixture.wav" "gs://${GBW_BUCKET}/${INPUT_PATH}" --content-type=audio/wav >/dev/null
++
++gcloud run jobs deploy "$BENCH_JOB"   --project "$GBW_GCP_PROJECT"   --region "$GBW_REGION"   --image "$GBW_PINNED_IMAGE"   --service-account "$WORKER_SA"   --tasks 1   --parallelism 1   --cpu 8   --memory 16Gi   --task-timeout 30m   --max-retries 0   --command python3   --args /app/benchmark.py   --set-env-vars "GBW_BENCH_PROJECT=${GBW_GCP_PROJECT},GBW_BENCH_BUCKET=${GBW_BUCKET},GBW_BENCH_INPUT_PATH=${INPUT_PATH},GBW_BENCH_STRATEGY=cpu8_s1_o05,GBW_BENCH_MEMORY_GIB=16,GBW_BENCH_VCPU_PRICE_PER_SECOND=${VCPU_PRICE},GBW_BENCH_MEMORY_PRICE_PER_GIB_SECOND=${MEMORY_PRICE},GBW_BENCH_BUNDLE_PREFIX=${BUNDLE_PREFIX},GBW_BENCH_IMAGE_IDENTITY=${GBW_PINNED_IMAGE},GBW_BENCH_PRICING_BASIS=${PRICING_BASIS},GBW_MODEL_REPO=/opt/demucs/models"   --clear-volumes   --clear-volume-mounts   --quiet
++
++ACTUAL_IMAGE="$(gcloud run jobs describe "$BENCH_JOB" --project "$GBW_GCP_PROJECT" --region "$GBW_REGION" --format='value(spec.template.spec.template.spec.containers[0].image)')"
++test "$ACTUAL_IMAGE" = "$GBW_PINNED_IMAGE"
++
++STARTED="$(date +%s)"
++EXECUTION="$(gcloud run jobs execute "$BENCH_JOB"   --project "$GBW_GCP_PROJECT"   --region "$GBW_REGION"   --task-timeout 30m   --wait   --format='value(metadata.name)')"
++ENDED="$(date +%s)"
++test -n "$EXECUTION"
++
++gcloud storage cp --recursive "gs://${GBW_BUCKET}/${BUNDLE_PREFIX}/**" "$ARTIFACT_DIR/" >/dev/null
++BUNDLE_DIR="$ARTIFACT_DIR"
++if [[ -d "$ARTIFACT_DIR/bundle" ]]; then
++  BUNDLE_DIR="$ARTIFACT_DIR/bundle"
++fi
++METRICS="$(find "$ARTIFACT_DIR" -name benchmark.json -type f -print -quit)"
++SUMS="$(find "$ARTIFACT_DIR" -name SHA256SUMS -type f -print -quit)"
++test -n "$METRICS" && test -n "$SUMS"
++(
++  cd "$(dirname "$SUMS")"
++  sha256sum -c "$(basename "$SUMS")"
++)
++
++python3 - "$METRICS" "$GBW_PINNED_IMAGE" <<'PY'
++import json, sys
++path, image = sys.argv[1:]
++with open(path, encoding="utf-8") as handle:
++    data = json.load(handle)
++assert data["engine"] == "demucs-pytorch"
++assert data["model"] == "htdemucs_6s"
++assert data["modelSha256"] == "34c22ccb381c6f9fdbf324f04e1e2fe21aaaf293f5ded163a162697ff9a02ddd"
++assert data["strategy"] == "pytorch-cpu-s1-o0.5-t8"
++assert data["device"] == "cpu" and data["shifts"] == 1 and abs(float(data["overlap"]) - 0.5) < 1e-12
++assert data.get("imageIdentity") == image
++assert not [row for row in data["qualityFindings"] if row.get("severity") == "reject"]
++assert set(data["stemMetrics"]) == {"drums","bass","other","vocals","guitar","piano"}
++assert set(data["preparedSha256"]) == {"backing","guitar"}
++assert int(data["totalMs"]) <= 900_000, f"W4 runtime exceeds 15-minute gate: {data['totalMs']} ms"
++bundle = {row["path"] for row in data["bundleFiles"]}
++expected = {f"stems/{name}.wav" for name in ("drums","bass","other","vocals","guitar","piano")}
++expected |= {"prepared/backing.wav","prepared/guitar.wav","recombined.wav"}
++assert expected <= bundle
++print(json.dumps({
++    "totalMs": data["totalMs"],
++    "inferenceMs": data["inferenceMs"],
++    "renderMs": data["renderMs"],
++    "maxRssKiB": data["maxRssKiB"],
++    "estimatedCostUsd": data["estimatedCostUsd"],
++    "otherEnergyShare": data["qualitySummary"]["energyShareByStem"]["other"],
++    "qualityFindings": data["qualityFindings"],
++}, sort_keys=True))
++PY
++
++cat > "$ARTIFACT_DIR/W4_IDENTITY.txt" <<EOF
++source_sha=${GITHUB_SHA:-local}
++image=${GBW_PINNED_IMAGE}
++execution=${EXECUTION}
++fixture_sha256=${FIXTURE_SHA}
++fixture_duration_seconds=180
++strategy=cpu8_s1_o05
++cloud_wall_seconds=$((ENDED-STARTED))
++pricing_basis=${PRICING_BASIS}
++owner_listening=REQUIRED_NOT_YET_PASSED
++EOF
++
++printf 'w4_shadow_benchmark=PASS execution=%s artifact_dir=%s\n' "$EXECUTION" "$ARTIFACT_DIR"
