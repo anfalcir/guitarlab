@@ -280,11 +280,87 @@ class RemoteSeparationTest {
         assertEquals(listOf("publish", "cleanup"), events)
     }
 
+
+    @Test fun completedSameGenerationIsAdoptedBeforeAnyNewUpload() = runBlocking {
+        val requested = id()
+        val existing = requested.copy(jobId = UUID.randomUUID().toString())
+        val recovered = DurableRemoteJob(existing, RemoteJobState.COMPLETED, 9, "b".repeat(64))
+        val events = mutableListOf<String>()
+        val store = MemoryStore(DurableRemoteJob(requested, RemoteJobState.READY, 1))
+        val result = RemoteSeparationCoordinator(
+            store,
+            backend(status = null, events = events, recoverable = recovered),
+            unusedTransport(events),
+            { error("unused") },
+            unusedPublisher(),
+        ).reconcile(requested)
+        assertEquals(existing.jobId, result.identity.jobId)
+        assertEquals(RemoteJobState.COMPLETED, result.state)
+        assertTrue(result.errorCode!!.contains("EXISTING_SAME_GENERATION"))
+        assertEquals(listOf("findRecoverable"), events)
+        assertEquals(RemoteJobState.FAILED, store.load(requested.jobId)?.state)
+    }
+
+    @Test fun enqueueRaceAdoptsExistingJobAndNeverQueuesRequestedIdentity() = runBlocking {
+        val requested = id()
+        val existing = requested.copy(jobId = UUID.randomUUID().toString())
+        val events = mutableListOf<String>()
+        val store = MemoryStore(DurableRemoteJob(requested, RemoteJobState.READY, 1))
+        val enqueueResult = RemoteEnqueueResult(
+            requested,
+            existing,
+            RemoteEnqueueDisposition.EXISTING_SAME_GENERATION,
+            RemoteJobState.RUNNING,
+        )
+        val result = RemoteSeparationCoordinator(
+            store,
+            backend(status = null, events = events, recoverable = null, enqueueResult = enqueueResult),
+            unusedTransport(events),
+            { error("unused") },
+            unusedPublisher(),
+        ).reconcile(requested)
+        assertEquals(existing.jobId, result.identity.jobId)
+        assertEquals(RemoteJobState.RUNNING, result.state)
+        assertEquals(listOf("findRecoverable", "upload", "enqueue:input"), events)
+        assertEquals(RemoteJobState.FAILED, store.load(requested.jobId)?.state)
+    }
+
+    @Test fun recoverableGenerationMismatchFailsClosed() {
+        val requested = id()
+        val foreign = RemoteJobIdentity(UUID.randomUUID().toString(), requested.projectId, "different-source", requested.inputSha256)
+        val store = MemoryStore(DurableRemoteJob(requested, RemoteJobState.UPLOADING, 1))
+        assertThrows(IllegalArgumentException::class.java) {
+            runBlocking {
+                RemoteSeparationCoordinator(
+                    store,
+                    backend(status = null, recoverable = DurableRemoteJob(foreign, RemoteJobState.COMPLETED, 2)),
+                    unusedTransport(),
+                    { error("unused") },
+                    unusedPublisher(),
+                ).reconcile(requested)
+            }
+        }
+    }
+
     private fun backend(
         status: DurableRemoteJob?,
         events: MutableList<String> = mutableListOf(),
+        recoverable: DurableRemoteJob? = null,
+        enqueueResult: RemoteEnqueueResult? = null,
     ) = object : RemoteSeparationBackend {
-        override suspend fun enqueue(identity: RemoteJobIdentity, inputPath: String) { events += "enqueue:$inputPath" }
+        override suspend fun enqueue(identity: RemoteJobIdentity, inputPath: String): RemoteEnqueueResult {
+            events += "enqueue:$inputPath"
+            return enqueueResult ?: RemoteEnqueueResult(
+                identity,
+                identity,
+                RemoteEnqueueDisposition.CREATED,
+                RemoteJobState.QUEUED,
+            )
+        }
+        override suspend fun findRecoverable(generation: RemoteSourceGeneration): DurableRemoteJob? {
+            events += "findRecoverable"
+            return recoverable
+        }
         override suspend fun status(identity: RemoteJobIdentity) = status
         override suspend fun cancel(identity: RemoteJobIdentity) { events += "cancel" }
         override suspend fun acknowledge(identity: RemoteJobIdentity, resultManifestSha256: String) { events += "ack" }
@@ -306,11 +382,28 @@ class RemoteSeparationTest {
         ) = true
     }
 
-    private class MemoryStore(var job: DurableRemoteJob) : RemoteJobStore {
-        override fun load(jobId: String) = job
+    private class MemoryStore(initial: DurableRemoteJob) : RemoteJobStore {
+        private val jobs = linkedMapOf(initial.identity.jobId to initial)
+        val job: DurableRemoteJob get() = jobs.values.maxByOrNull { it.updatedAtMs } ?: error("empty store")
+        override fun load(jobId: String) = jobs[jobId]
+        override fun active() = jobs.values.toList()
         override fun save(job: DurableRemoteJob): DurableRemoteJob {
-            if (RemoteStateMachine.accepts(this.job.state, job.state)) this.job = job
-            return this.job
+            val old = jobs[job.identity.jobId]
+            if (old == null || RemoteStateMachine.accepts(old.state, job.state)) jobs[job.identity.jobId] = job
+            return jobs[job.identity.jobId]!!
+        }
+        override fun adopt(job: DurableRemoteJob, attemptedJobId: String?): DurableRemoteJob {
+            attemptedJobId?.takeIf { it != job.identity.jobId }?.let { staleId ->
+                jobs[staleId]?.let { stale ->
+                    jobs[staleId] = stale.copy(
+                        state = RemoteJobState.FAILED,
+                        updatedAtMs = job.updatedAtMs,
+                        errorCode = "ADOPTED_REMOTE_JOB:${job.identity.jobId}",
+                    )
+                }
+            }
+            jobs[job.identity.jobId] = job
+            return job
         }
     }
 
