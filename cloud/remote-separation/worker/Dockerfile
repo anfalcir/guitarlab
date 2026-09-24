@@ -73,7 +73,7 @@ COPY --from=builder /opt/demucs /opt/demucs
 COPY --from=builder /opt/rc20 /opt/rc20
 
 WORKDIR /app
-COPY audio_quality.py demucs_engine.py gbw_worker.py benchmark.py /app/
+COPY audio_quality.py demucs_engine.py gbw_worker.py benchmark.py model_probe.py /app/
 RUN useradd --uid 65532 --create-home --shell /usr/sbin/nologin worker \
     && chown -R worker:worker /app \
     && chmod -R a-w /opt/venv /opt/demucs/models /opt/rc20
