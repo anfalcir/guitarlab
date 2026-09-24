@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import resource
 import tempfile
 import time
@@ -32,6 +33,7 @@ STRATEGIES = {
         "overlap": 0.5,
     },
 }
+BUNDLE_PREFIX_ROOT = "diagnostics/u12-rc20/w4/"
 
 
 def strategy(name: str) -> dict:
@@ -39,6 +41,57 @@ def strategy(name: str) -> dict:
         return dict(STRATEGIES[name])
     except KeyError as error:
         raise ValueError(f"unknown benchmark strategy: {name}") from error
+
+
+def validate_bundle_prefix(prefix: str | None) -> str | None:
+    if prefix is None:
+        return None
+    normalized = prefix.strip("/")
+    if not normalized.startswith(BUNDLE_PREFIX_ROOT) or ".." in normalized.split("/"):
+        raise ValueError("W4 bundle prefix must stay inside the diagnostic namespace")
+    return normalized
+
+
+def upload_listening_bundle(bucket, prefix: str, root: Path, stems: list[Path],
+                            prepared: list[Path], recombined: Path, result: dict) -> None:
+    files: list[tuple[str, Path]] = []
+    for stem in stems:
+        files.append((f"stems/{stem.name}", stem))
+    for reference in prepared:
+        files.append((f"prepared/{reference.name}", reference))
+    files.append(("recombined.wav", recombined))
+    result["bundleFiles"] = [
+        {
+            "path": relative,
+            "bytes": path.stat().st_size,
+            "sha256": worker.sha256_file(path),
+        }
+        for relative, path in files
+    ]
+    metrics = root / "benchmark.json"
+    metrics.write_text(
+        json.dumps(result, sort_keys=True, indent=2, allow_nan=False) + "\n",
+        encoding="utf-8",
+    )
+    checksum_rows = [
+        f"{worker.sha256_file(path)}  {relative}"
+        for relative, path in files
+    ]
+    checksum_rows.append(f"{worker.sha256_file(metrics)}  benchmark.json")
+    sums = root / "SHA256SUMS"
+    sums.write_text("\n".join(checksum_rows) + "\n", encoding="utf-8")
+    upload_files = [*files, ("benchmark.json", metrics), ("SHA256SUMS", sums)]
+    for relative, path in upload_files:
+        content_type = "audio/wav" if relative.endswith(".wav") else "text/plain"
+        if relative.endswith(".json"):
+            content_type = "application/json"
+        blob = bucket.blob(f"{prefix}/{relative}")
+        blob.upload_from_filename(str(path), content_type=content_type)
+
+
+def env_float(name: str) -> float | None:
+    value = os.environ.get(name, "").strip()
+    return float(value) if value else None
 
 
 def run(args: argparse.Namespace) -> dict:
@@ -117,7 +170,10 @@ def run(args: argparse.Namespace) -> dict:
                 elapsed_seconds * selected["cpu_threads"] * args.vcpu_price_per_second
                 + elapsed_seconds * args.memory_gib * args.memory_price_per_gib_second
             )
-        return {
+        recombined = root / "recombined.wav"
+        worker.mix_float(prepared, recombined)
+        worker.wav_contract(recombined)
+        result = {
             "engine": ENGINE_NAME,
             "engineRevision": ENGINE_REVISION,
             "demucsVersion": DEMUCS_VERSION,
@@ -154,20 +210,30 @@ def run(args: argparse.Namespace) -> dict:
             "memoryGiB": args.memory_gib,
             "estimatedCostUsd": cost,
             "maxRssKiB": resource.getrusage(resource.RUSAGE_SELF).ru_maxrss,
+            "imageIdentity": args.image_identity,
+            "pricingBasis": args.pricing_basis,
         }
+        bundle_prefix = validate_bundle_prefix(args.bundle_prefix)
+        if bundle_prefix is not None:
+            result["bundlePrefix"] = bundle_prefix
+            upload_listening_bundle(bucket, bundle_prefix, root, outputs, prepared, recombined, result)
+        return result
 
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--project", required=True)
-    parser.add_argument("--bucket", required=True)
-    parser.add_argument("--input-path", required=True)
-    parser.add_argument("--strategy", choices=sorted(STRATEGIES), required=True)
-    parser.add_argument("--model-repo", default="/opt/demucs/models")
-    parser.add_argument("--timeout-seconds", type=int, default=1_700)
-    parser.add_argument("--memory-gib", type=float, default=16.0)
-    parser.add_argument("--vcpu-price-per-second", type=float)
-    parser.add_argument("--memory-price-per-gib-second", type=float)
+    parser.add_argument("--project", default=os.environ.get("GBW_BENCH_PROJECT"), required=not bool(os.environ.get("GBW_BENCH_PROJECT")))
+    parser.add_argument("--bucket", default=os.environ.get("GBW_BENCH_BUCKET"), required=not bool(os.environ.get("GBW_BENCH_BUCKET")))
+    parser.add_argument("--input-path", default=os.environ.get("GBW_BENCH_INPUT_PATH"), required=not bool(os.environ.get("GBW_BENCH_INPUT_PATH")))
+    parser.add_argument("--strategy", choices=sorted(STRATEGIES), default=os.environ.get("GBW_BENCH_STRATEGY"), required=not bool(os.environ.get("GBW_BENCH_STRATEGY")))
+    parser.add_argument("--model-repo", default=os.environ.get("GBW_MODEL_REPO", "/opt/demucs/models"))
+    parser.add_argument("--timeout-seconds", type=int, default=int(os.environ.get("GBW_BENCH_TIMEOUT_SECONDS", "1700")))
+    parser.add_argument("--memory-gib", type=float, default=float(os.environ.get("GBW_BENCH_MEMORY_GIB", "16")))
+    parser.add_argument("--vcpu-price-per-second", type=float, default=env_float("GBW_BENCH_VCPU_PRICE_PER_SECOND"))
+    parser.add_argument("--memory-price-per-gib-second", type=float, default=env_float("GBW_BENCH_MEMORY_PRICE_PER_GIB_SECOND"))
+    parser.add_argument("--bundle-prefix", default=os.environ.get("GBW_BENCH_BUNDLE_PREFIX"))
+    parser.add_argument("--image-identity", default=os.environ.get("GBW_BENCH_IMAGE_IDENTITY"))
+    parser.add_argument("--pricing-basis", default=os.environ.get("GBW_BENCH_PRICING_BASIS"))
     parser.add_argument("--json-out")
     args = parser.parse_args()
     result = run(args)

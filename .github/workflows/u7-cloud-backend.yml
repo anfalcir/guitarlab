@@ -114,6 +114,15 @@ jobs:
           grep -q 'allowlisted_password_users=PASS' cloud/remote-separation/scripts/verify-allowlisted-auth-users.sh
           grep -q 'Anonymous Firebase Authentication is intentionally disabled' cloud/remote-separation/scripts/ensure-anonymous-auth.sh
           find cloud/remote-separation scripts -type f -name '*.sh' -print0 | xargs -0 -n1 bash -n
+          python3 scripts/u12_generate_benchmark_fixture.py /tmp/u12-w4-fixture.wav --seconds 1
+          python3 - <<'PY'
+          import wave
+          with wave.open("/tmp/u12-w4-fixture.wav", "rb") as wav:
+              assert wav.getframerate() == 44100
+              assert wav.getnchannels() == 2
+              assert wav.getsampwidth() == 2
+              assert wav.getnframes() == 44100
+          PY
           ! grep -RIE --exclude-dir=node_modules --exclude-dir=lib '(BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY|"private_key"[[:space:]]*:|AIza[0-9A-Za-z_-]{30,})' cloud/remote-separation .github/workflows/u7-cloud-backend.yml
 
       - name: Build worker container without publishing
@@ -350,6 +359,24 @@ jobs:
         run: |
           set -euo pipefail
           bash scripts/u4_cloud_integration_smoke.sh | tee -a u7-deploy-evidence.txt
+
+      - name: Run W4 representative shadow benchmark
+        if: steps.deploy_mode.outputs.mode == 'shadow'
+        shell: bash
+        env:
+          GBW_PINNED_IMAGE: ${{ steps.worker.outputs.pinned_image }}
+        run: |
+          set -euo pipefail
+          bash scripts/u12_rc20_shadow_benchmark.sh | tee -a u7-deploy-evidence.txt
+
+      - name: Upload W4 benchmark and listening bundle
+        if: always() && steps.deploy_mode.outputs.mode == 'shadow'
+        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4
+        with:
+          name: u12-rc20-w4-shadow-${{ github.sha }}
+          path: artifacts/u12-rc20-w4/
+          if-no-files-found: error
+          retention-days: 14
 
       - name: Restore prior production image after failed cutover
         if: failure() && steps.deploy_mode.outputs.mode == 'production' && env.PREVIOUS_PRODUCTION_IMAGE != ''

@@ -42,3 +42,6 @@ cloud/remote-separation/functions/node_modules
 cloud/remote-separation/functions/lib/
 **/__pycache__/
 *.pyc
+
+# Local/cloud listening bundles are evidence, never source
+artifacts/u12-rc20-w4/
