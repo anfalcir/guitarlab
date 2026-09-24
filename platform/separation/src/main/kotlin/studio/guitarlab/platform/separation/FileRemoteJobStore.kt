@@ -35,6 +35,28 @@ class FileRemoteJobStore(context: Context) : RemoteJobStore {
             .mapNotNull { runCatching { decode(it.readText()) }.getOrNull() }
     }
 
+    override fun adopt(job: DurableRemoteJob, attemptedJobId: String?): DurableRemoteJob = synchronized(this) {
+        attemptedJobId
+            ?.takeIf { it != job.identity.jobId }
+            ?.let { staleJobId ->
+                load(staleJobId)?.let { stale ->
+                    require(stale.identity.generation() == job.identity.generation()) { "adoption generation mismatch" }
+                    writeUnchecked(
+                        stale.copy(
+                            state = RemoteJobState.FAILED,
+                            updatedAtMs = job.updatedAtMs,
+                            errorCode = "ADOPTED_REMOTE_JOB:${job.identity.jobId}",
+                        ),
+                    )
+                }
+            }
+        load(job.identity.jobId)?.let { existing ->
+            require(existing.identity == job.identity) { "adopted remote identity mismatch" }
+            if (existing.state == RemoteJobState.IMPORTED && job.state != RemoteJobState.IMPORTED) return existing
+        }
+        writeUnchecked(job)
+    }
+
     fun latestForProject(projectId: String): DurableRemoteJob? =
         RemoteRecoveryPolicy.selectLatestForProject(active(), projectId)
 
