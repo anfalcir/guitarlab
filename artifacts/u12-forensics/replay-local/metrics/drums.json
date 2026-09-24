@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "files": [
+    {
+      "path": "artifacts/u12-forensics/replay-local/normalized/drums.wav",
+      "sha256": "441d661e9ec0d6b107e73d856fec213a4bf8b79988af4c813df5182c5070224c",
+      "bytes": 67800690,
+      "encoding": "FLOAT32_LE",
+      "sampleRate": 44100,
+      "channels": 2,
+      "frames": 8475072,
+      "durationSeconds": 192.17850340136056,
+      "finiteSamples": 16950144,
+      "nonFiniteSamples": 0,
+      "peakPerChannel": [
+        0.9908664226531982,
+        0.977933943271637
+      ],
+      "rmsPerChannel": [
+        0.14706429792607253,
+        0.14734452010628293
+      ],
+      "meanDcPerChannel": [
+        -0.015339776822394168,
+        -0.01568958490659089
+      ],
+      "crestFactorPerChannel": [
+        6.73764085931512,
+        6.637056760348
+      ],
+      "channelCorrelation": 0.7832970805825269,
+      "silentFrameFractionBelowMinus80Dbfs": 6.017647991663079e-06,
+      "longestSilenceSecondsBelowMinus80Dbfs": 2.2675736961451248e-05
+    }
+  ]
+}

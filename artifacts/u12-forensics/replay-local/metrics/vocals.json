@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "files": [
+    {
+      "path": "artifacts/u12-forensics/replay-local/normalized/vocals.wav",
+      "sha256": "a44c6861ce5f399763ef09ada64e6e210fbcdce21f3c55fa09d8b27c94e99322",
+      "bytes": 67800690,
+      "encoding": "FLOAT32_LE",
+      "sampleRate": 44100,
+      "channels": 2,
+      "frames": 8475072,
+      "durationSeconds": 192.17850340136056,
+      "finiteSamples": 16950144,
+      "nonFiniteSamples": 0,
+      "peakPerChannel": [
+        0.9477587938308716,
+        0.930906355381012
+      ],
+      "rmsPerChannel": [
+        0.23023054849603106,
+        0.23089419152630186
+      ],
+      "meanDcPerChannel": [
+        -0.014766761581200803,
+        -0.014818377009885647
+      ],
+      "crestFactorPerChannel": [
+        4.116564026894155,
+        4.031744364062833
+      ],
+      "channelCorrelation": 0.4104949589092081,
+      "silentFrameFractionBelowMinus80Dbfs": 4.7197239150298664e-07,
+      "longestSilenceSecondsBelowMinus80Dbfs": 2.2675736961451248e-05
+    }
+  ]
+}

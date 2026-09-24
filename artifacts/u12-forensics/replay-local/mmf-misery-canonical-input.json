@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "files": [
+    {
+      "path": "artifacts/u12-forensics/replay-local/mmf-misery-canonical-input.wav",
+      "sha256": "440c8e022c78d2290637293b42246c50ab306b5e0328f9efafbf3b0be6e3beb7",
+      "bytes": 67800690,
+      "encoding": "FLOAT32_LE",
+      "sampleRate": 44100,
+      "channels": 2,
+      "frames": 8475072,
+      "durationSeconds": 192.17850340136056,
+      "finiteSamples": 16950144,
+      "nonFiniteSamples": 0,
+      "peakPerChannel": [
+        1.3693758249282837,
+        1.2698593139648438
+      ],
+      "rmsPerChannel": [
+        0.355545539093141,
+        0.3633910791850096
+      ],
+      "meanDcPerChannel": [
+        -0.00030451415785481454,
+        -0.0005081244261172302
+      ],
+      "crestFactorPerChannel": [
+        3.851478008755309,
+        3.4944702462504127
+      ],
+      "channelCorrelation": 0.558939581019648,
+      "silentFrameFractionBelowMinus80Dbfs": 0.004107693716348369,
+      "longestSilenceSecondsBelowMinus80Dbfs": 0.4699546485260771
+    }
+  ]
+}

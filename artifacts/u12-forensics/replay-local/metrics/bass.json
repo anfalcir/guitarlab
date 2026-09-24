@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "files": [
+    {
+      "path": "artifacts/u12-forensics/replay-local/normalized/bass.wav",
+      "sha256": "454cf851f2a9766dbaef0eca1a1f7d205d3374a2d730861e9580caceaebf9ea2",
+      "bytes": 67800690,
+      "encoding": "FLOAT32_LE",
+      "sampleRate": 44100,
+      "channels": 2,
+      "frames": 8475072,
+      "durationSeconds": 192.17850340136056,
+      "finiteSamples": 16950144,
+      "nonFiniteSamples": 0,
+      "peakPerChannel": [
+        0.5678601264953613,
+        0.6215697526931763
+      ],
+      "rmsPerChannel": [
+        0.04679190054288083,
+        0.047661816210540234
+      ],
+      "meanDcPerChannel": [
+        -0.015305218642191266,
+        -0.014743087071464944
+      ],
+      "crestFactorPerChannel": [
+        12.135863683822063,
+        13.04125193105248
+      ],
+      "channelCorrelation": 0.7970738583804731,
+      "silentFrameFractionBelowMinus80Dbfs": 0.00011339136705859254,
+      "longestSilenceSecondsBelowMinus80Dbfs": 9.070294784580499e-05
+    }
+  ]
+}

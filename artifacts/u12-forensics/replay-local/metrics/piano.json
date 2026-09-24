@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "files": [
+    {
+      "path": "artifacts/u12-forensics/replay-local/normalized/piano.wav",
+      "sha256": "962800cd0fc0bcefdd158ffc1723f7ffb72e3ae45b9eef87f369d778525feb9a",
+      "bytes": 67800690,
+      "encoding": "FLOAT32_LE",
+      "sampleRate": 44100,
+      "channels": 2,
+      "frames": 8475072,
+      "durationSeconds": 192.17850340136056,
+      "finiteSamples": 16950144,
+      "nonFiniteSamples": 0,
+      "peakPerChannel": [
+        0.3314586877822876,
+        0.3767206072807312
+      ],
+      "rmsPerChannel": [
+        0.025179746118389624,
+        0.025413232362144156
+      ],
+      "meanDcPerChannel": [
+        -0.014558765240142789,
+        -0.014445222069304582
+      ],
+      "crestFactorPerChannel": [
+        13.163702533927141,
+        14.823797378955168
+      ],
+      "channelCorrelation": 0.5672406411896493,
+      "silentFrameFractionBelowMinus80Dbfs": 2.83183434901792e-06,
+      "longestSilenceSecondsBelowMinus80Dbfs": 4.5351473922902495e-05
+    }
+  ]
+}

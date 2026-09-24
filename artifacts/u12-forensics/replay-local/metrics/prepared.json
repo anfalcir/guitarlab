@@ -1,0 +1,74 @@
+{
+  "schemaVersion": 1,
+  "files": [
+    {
+      "path": "artifacts/u12-forensics/replay-local/prepared/backing.wav",
+      "sha256": "a3b35ead2ad3ac22c4ff9151de8645825f7f6ef3d4fbc3ddf8be5928b386a954",
+      "bytes": 67800690,
+      "encoding": "FLOAT32_LE",
+      "sampleRate": 44100,
+      "channels": 2,
+      "frames": 8475072,
+      "durationSeconds": 192.17850340136056,
+      "finiteSamples": 16950144,
+      "nonFiniteSamples": 0,
+      "peakPerChannel": [
+        0.8790133595466614,
+        0.8508795499801636
+      ],
+      "rmsPerChannel": [
+        0.3890558894489808,
+        0.3893585920610186
+      ],
+      "meanDcPerChannel": [
+        -0.06386502331518655,
+        -0.06403168973771106
+      ],
+      "crestFactorPerChannel": [
+        2.2593498347797962,
+        2.185336518390783
+      ],
+      "channelCorrelation": 0.4123125405073115,
+      "silentFrameFractionBelowMinus80Dbfs": 1.1799309787574666e-07,
+      "longestSilenceSecondsBelowMinus80Dbfs": 2.2675736961451248e-05
+    },
+    {
+      "path": "artifacts/u12-forensics/replay-local/prepared/guitar.wav",
+      "sha256": "202483fe15138abea9cfba7f33fa288a24037c97fb4c4cf7a5e8eaa58130d618",
+      "bytes": 67800690,
+      "encoding": "FLOAT32_LE",
+      "sampleRate": 44100,
+      "channels": 2,
+      "frames": 8475072,
+      "durationSeconds": 192.17850340136056,
+      "finiteSamples": 16950144,
+      "nonFiniteSamples": 0,
+      "peakPerChannel": [
+        0.6822863221168518,
+        0.6549150347709656
+      ],
+      "rmsPerChannel": [
+        0.07545885167225608,
+        0.07543953672542948
+      ],
+      "meanDcPerChannel": [
+        -0.012786742521534243,
+        -0.01285436285027363
+      ],
+      "crestFactorPerChannel": [
+        9.041832826720682,
+        8.681323655984277
+      ],
+      "channelCorrelation": 0.88788015340474,
+      "silentFrameFractionBelowMinus80Dbfs": 1.0855365004568693e-05,
+      "longestSilenceSecondsBelowMinus80Dbfs": 2.2675736961451248e-05
+    }
+  ],
+  "recombination": {
+    "peak": 0.8912509735673666,
+    "peakDbfs": -0.9999996546735572,
+    "rms": 0.405039348047434,
+    "finiteSamples": 16950144,
+    "nonFiniteSamples": 0
+  }
+}

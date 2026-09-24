@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "files": [
+    {
+      "path": "artifacts/u12-forensics/replay-local/normalized/guitar.wav",
+      "sha256": "a42e70a6cd44ea7df39178f7f019f2460ab5252366bb5038f557706f4c46debe",
+      "bytes": 67800690,
+      "encoding": "FLOAT32_LE",
+      "sampleRate": 44100,
+      "channels": 2,
+      "frames": 8475072,
+      "durationSeconds": 192.17850340136056,
+      "finiteSamples": 16950144,
+      "nonFiniteSamples": 0,
+      "peakPerChannel": [
+        0.7833353281021118,
+        0.7519102692604065
+      ],
+      "rmsPerChannel": [
+        0.08663457285175553,
+        0.08661239728899942
+      ],
+      "meanDcPerChannel": [
+        -0.014680504035534872,
+        -0.01475813917326389
+      ],
+      "crestFactorPerChannel": [
+        9.041832865529488,
+        8.681323838104943
+      ],
+      "channelCorrelation": 0.887880153393617,
+      "silentFrameFractionBelowMinus80Dbfs": 8.731489242805253e-06,
+      "longestSilenceSecondsBelowMinus80Dbfs": 2.2675736961451248e-05
+    }
+  ]
+}
