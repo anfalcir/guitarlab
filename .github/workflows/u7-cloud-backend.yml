@@ -114,6 +114,7 @@ jobs:
           grep -q 'allowlisted_password_users=PASS' cloud/remote-separation/scripts/verify-allowlisted-auth-users.sh
           grep -q 'Anonymous Firebase Authentication is intentionally disabled' cloud/remote-separation/scripts/ensure-anonymous-auth.sh
           find cloud/remote-separation scripts -type f -name '*.sh' -print0 | xargs -0 -n1 bash -n
+          python3 -m py_compile scripts/u12_rc20_local_parity.py
           python3 scripts/u12_generate_benchmark_fixture.py /tmp/u12-w4-fixture.wav --seconds 1
           python3 - <<'PY'
           import wave
@@ -359,6 +360,25 @@ jobs:
         run: |
           set -euo pipefail
           bash scripts/u4_cloud_integration_smoke.sh | tee -a u7-deploy-evidence.txt
+
+      - name: Run W3 local/container versus Cloud Run parity
+        id: w3
+        if: steps.deploy_mode.outputs.mode == 'shadow'
+        shell: bash
+        env:
+          GBW_PINNED_IMAGE: ${{ steps.worker.outputs.pinned_image }}
+        run: |
+          set -euo pipefail
+          bash scripts/u12_rc20_parity.sh | tee -a u7-deploy-evidence.txt
+
+      - name: Upload W3 parity evidence
+        if: always() && steps.deploy_mode.outputs.mode == 'shadow' && steps.w3.outcome != 'skipped'
+        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4
+        with:
+          name: u12-rc20-w3-parity-${{ github.sha }}
+          path: artifacts/u12-rc20-w3/
+          if-no-files-found: error
+          retention-days: 14
 
       - name: Run W4 representative shadow benchmark
         if: steps.deploy_mode.outputs.mode == 'shadow'
