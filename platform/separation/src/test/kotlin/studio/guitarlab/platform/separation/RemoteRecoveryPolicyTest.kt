@@ -9,6 +9,7 @@ import studio.guitarlab.core.model.PreparationStatus
 import studio.guitarlab.core.separation.DurableRemoteJob
 import studio.guitarlab.core.separation.RemoteJobIdentity
 import studio.guitarlab.core.separation.RemoteJobState
+import studio.guitarlab.core.separation.RemoteSourceGeneration
 
 class RemoteRecoveryPolicyTest {
     private fun job(state: RemoteJobState, updatedAtMs: Long, projectId: String = "project") =
@@ -91,6 +92,18 @@ class RemoteRecoveryPolicyTest {
                 "project",
             ),
         )
+    }
+
+    @Test fun sameGenerationRequiresProjectSourceAndHash() {
+        val current = job(RemoteJobState.FAILED, 1)
+        val generation = RemoteSourceGeneration(
+            current.identity.projectId,
+            current.identity.sourceAssetId,
+            current.identity.inputSha256,
+        )
+        assertTrue(RemoteRecoveryPolicy.sameGeneration(current, generation))
+        assertFalse(RemoteRecoveryPolicy.sameGeneration(current, generation.copy(sourceAssetId = "different-source")))
+        assertFalse(RemoteRecoveryPolicy.sameGeneration(current, generation.copy(inputSha256 = "b".repeat(64))))
     }
 
     @Test fun cancellationRetriesAreBoundedAndTerminalize() {
