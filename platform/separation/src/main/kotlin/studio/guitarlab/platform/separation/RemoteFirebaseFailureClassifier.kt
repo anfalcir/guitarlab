@@ -52,7 +52,8 @@ internal object RemoteFirebaseFailureClassifier {
             return classifyFirestore(it.code.name, stage ?: RemotePipelineStage.CHECKING_REMOTE)
         }
         chain.filterIsInstance<FirebaseFunctionsException>().firstOrNull()?.let {
-            return classifyFunctions(it.code.name, stage ?: RemotePipelineStage.ENQUEUEING)
+            val reason = (it.details as? Map<*, *>)?.get("reason")?.toString()
+            return classifyFunctions(it.code.name, stage ?: RemotePipelineStage.ENQUEUEING, reason)
         }
         chain.filterIsInstance<StorageException>().firstOrNull()?.let {
             return classifyStorage(it.errorCode, stage ?: RemotePipelineStage.UPLOADING)
@@ -89,7 +90,15 @@ internal object RemoteFirebaseFailureClassifier {
         return RemoteFailure("FIRESTORE_$normalized", retryable, stage)
     }
 
-    internal fun classifyFunctions(code: String, stage: RemotePipelineStage? = RemotePipelineStage.ENQUEUEING): RemoteFailure {
+    internal fun classifyFunctions(
+        code: String,
+        stage: RemotePipelineStage? = RemotePipelineStage.ENQUEUEING,
+        reason: String? = null,
+    ): RemoteFailure {
+        val typed = reason?.uppercase()
+        if (typed in setOf("ACTIVE_JOB_CONFLICT", "MONTHLY_QUOTA_REACHED", "REMOTE_STATE_AMBIGUOUS")) {
+            return RemoteFailure(requireNotNull(typed), false, stage)
+        }
         val normalized = code.uppercase()
         val retryable = normalized in setOf("UNAVAILABLE", "DEADLINE_EXCEEDED", "ABORTED", "INTERNAL")
         return RemoteFailure("FUNCTIONS_$normalized", retryable, stage)
