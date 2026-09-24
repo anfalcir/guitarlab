@@ -18,7 +18,9 @@ U10 evidence:
 - deterministic visual review PASS;
 - signed homologation intentionally skipped because U11 owns final freeze/signing.
 
-The latest signed authority is RC13: Android CI #828 / run `35926732265`, producer `bf78580dd79f4c2a4554aca34e6c8a65ccaa12e3`, package `studio.guitarlab.app`, `0.5.0-rc13` / versionCode `33`; U4 `35926732269` and U7 `35926732284` passed on the same producer. RC14 (`0.5.0-rc14` / 34) is the active source candidate and must pass the complete exact-source campaign before promotion.
+The latest signed authority is RC14: Android CI run `35937621047`, producer `13c6f36e5e3c2bcf82cf21f885e8d7aa6c41ed34`, package `studio.guitarlab.app`, `0.5.0-rc14` / versionCode `34`. The cloud-identical RC14 source `9b4ee9f` passed U4 `35935229248` and U7 `35935229232`. RC15 (`0.5.0-rc15` / 35) is the active physical corrective. Commit `2601220` is its parser/reentry baseline; any later documentation/UI-coherence commit must pass Android CI on its own exact SHA and must not inherit authority from an earlier run.
+
+RC15 physical acceptance is deliberately narrow but end-to-end: install over RC14, open project `18cf294d-7a76-4f03-8abd-bc55d3344beb`, resume completed job `66464e42-937f-4d78-a5bd-dabc7c9687f9`, verify that no new Demucs execution is created, both prepared references import, the project reaches READY and Studio/Export use only the final backing/guitar assets. Rapid repeated taps must not create multiple client jobs/uploads.
 
 Rc8 is CLOSED / DIGITAL PASS but withdrawn from final U12 approval after physical testing exposed the second orphan class: a durable local `CANCEL_REQUESTED` job can exist with no Firestore/Cloud Run counterpart. Treating local durability as proof of remote existence left the UI indefinitely active.
 

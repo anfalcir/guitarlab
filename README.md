@@ -26,20 +26,20 @@ Read first:
 
 ## Active source/release state
 
-**U11 is CLOSED / DIGITAL PASS. U12 is active with RC14 as the next source candidate.**
+**U11 is CLOSED / DIGITAL PASS. U12 is active with RC15 as the physical-corrective source candidate.**
 
 Active source candidate:
-- `0.5.0-rc14`
-- versionCode `34`
+- `0.5.0-rc15`
+- versionCode `35`
 - package `studio.guitarlab.app`
-- exact producer and signed artifact pending source seal and exact-source qualification
+- parser/reentry implementation baseline `2601220351cb241af5b23235a123645b4120ba64`; the final documentation/UI-coherence commit must bind its own exact workflow SHA before it can become authority
 
-Latest signed authority is RC13 at producer `bf78580dd79f4c2a4554aca34e6c8a65ccaa12e3`: Android CI #828 / run `35926732265`, U4 `35926732269`, U7 `35926732284`; artifact `GuitarLabStudio-0.5.0-rc13-homologacao` / id `10779803277`.
+Latest signed authority is RC14 at producer `13c6f36e5e3c2bcf82cf21f885e8d7aa6c41ed34`: Android CI run `35937621047` passed unit, Lint, build, API 36 and signing. RC14's cloud-identical predecessor `9b4ee9f` passed U4 `35935229248` and U7 `35935229232`.
 
 Locked homologation certificate SHA-256:
 `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
 
-RC14 preserves RC13's Prepared References v2/cloud identity contract and adds the post-homologation Android foreground, notification, take-management and backup-lifecycle corrections.
+RC15 preserves RC14 and corrects the physically observed Prepared References v2 import of standards-compliant extensible float32 WAV, plus repeated-tap client reentry. It remains pending signed CI completion and target-device import acceptance.
 
 ## Product model
 
@@ -49,8 +49,8 @@ GuitarLab is one application and one project model:
 
 The product includes:
 - source search/import and managed source publication;
-- cloud six-stem separation;
-- automatic managed backing/reference preparation;
+- cloud separation whose six intermediate stems remain ephemeral in v2;
+- import of only the two managed final references (backing and guitar) into the project;
 - Studio recording/editing/mixer/timing workflows;
 - canonical export workspace;
 - unified Activity/background-operation model;

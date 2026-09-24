@@ -410,7 +410,7 @@ private fun SeparationStep(
 ) {
     Surface(Modifier.fillMaxWidth().testTag("prepare-separation-activity"), tonalElevation = 2.dp, shape = MaterialTheme.shapes.medium) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("Separação em seis faixas", style = MaterialTheme.typography.titleMedium)
+            Text("Separação e referências", style = MaterialTheme.typography.titleMedium)
             Text(PrepareJourneyPolicy.separationMessage(job), style = MaterialTheme.typography.bodyMedium)
             if (PrepareJourneyPolicy.separationIsActive(job)) {
                 LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
@@ -456,7 +456,7 @@ private fun SeparationStep(
                         Text("Retomar importação")
                     }
                     Text(
-                        "O Demucs já terminou. Esta ação reaproveita os stems remotos e não inicia uma nova separação.",
+                        "O processamento já terminou. Esta ação baixa novamente apenas a base e a guitarra preparadas; não inicia outra separação.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.testTag("prepare-resume-import-note"),
@@ -477,7 +477,7 @@ private fun ReferencesStep(retryRequired: Boolean, busy: Boolean, onRetry: () ->
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Preparando referências de estudo", style = MaterialTheme.typography.titleMedium)
             if (retryRequired) {
-                Text("As seis faixas foram preservadas. Apenas a criação da base e da guitarra de referência precisa ser repetida.")
+                Text("Este projeto legado preservou as faixas separadas locais. Apenas a criação da base e da guitarra de referência precisa ser repetida.")
                 Button(
                     onClick = onRetry,
                     enabled = !busy,
@@ -637,7 +637,7 @@ fun UnifiedExportScreen(
         Button(enabled = !uiState.exportBusy, onClick = { projectLauncher.launch("$safeName.guitarlab") }, modifier = Modifier.testTag("export-project")) { Text("Salvar .guitarlab") }
 
         Text("Arquivos para estudo", style = MaterialTheme.typography.titleMedium)
-        Text("A base sem guitarra e a guitarra de referência já existem em WAV sem perdas dentro do projeto. WAV é publicado sem conversão; FLAC/MP3 só são gerados quando você pedir.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("As duas referências finais — base sem guitarra e guitarra — ficam em WAV sem perdas dentro do projeto; os seis stems intermediários não são armazenados no fluxo v2. WAV é publicado sem conversão; FLAC/MP3 só são gerados quando você pedir.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         StudyExportRow(
             label = "Base sem guitarra", ready = backing != null, busy = uiState.exportBusy,
             flacSupported = codecSupported(backing, MasterExportFormat.FLAC), mp3Supported = codecSupported(backing, MasterExportFormat.MP3),

@@ -1,12 +1,12 @@
 # GuitarLab Architecture
 
-Updated: 2026-09-21
+Updated: 2026-09-23
 
 ## Repository and release boundary
 - `main` is canonical.
 - Product behavior is promoted only after exact-source automated gates and, where required, residual physical validation.
 - `.github/workflows/android-ci.yml` supports manual dispatch plus explicit `[run ci]` / `[run ci signed]` commit-message gates on `main`; ordinary `[skip ci]` commits remain inert.
-- Active source candidate is RC14 (`0.5.0-rc14` / 34). Latest signed authority remains RC13 at exact producer `bf78580dd79f4c2a4554aca34e6c8a65ccaa12e3`: Android CI #828 / run `35926732265`, U4 `35926732269`, U7 `35926732284`. U10/C8 technical authority remains preserved as #781 evidence.
+- Active source candidate is RC15 (`0.5.0-rc15` / 35); `2601220` is its parser/reentry implementation baseline, while the final copy/documentation source must qualify on its own exact workflow SHA. Latest signed authority is RC14 at `13c6f36e5e3c2bcf82cf21f885e8d7aa6c41ed34` / Android `35937621047`; its cloud-identical predecessor passed U4 `35935229248` and U7 `35935229232`. U10/C8 technical authority remains preserved as #781 evidence.
 
 ## Module boundaries
 - `core:model`: immutable project/track/clip/take metadata contracts.
@@ -23,6 +23,8 @@ Imported external media is copied into project-controlled immutable source stora
 The unified project schema uses explicit `ManagedAsset`, role, content hash, media facts, authoritative/derived classification, lifecycle and provenance. Preparation and Studio reference bindings are optional, so Studio-only projects remain valid. `UnifiedProjectRevision` provides deterministic canonical state/revision hashing and `ProjectAssetReachability` is the single cleanup authority for the graph. This domain is digitally closed in the unified line; historical U1/U1a compile-corrective context remains evidence only.
 
 `.guitarlab` is a versioned portable package containing project metadata and referenced managed media. Import validates staging, traversal/resource bounds, manifest/media consistency and only publishes after successful validation. Duplication follows equivalent transactional invariants.
+
+Prepared References v2 keeps Demucs' six source stems ephemeral inside the Cloud Run execution. The committed remote result and Android import contain exactly two aligned float32 WAV deliverables: backing without guitar and isolated guitar. Those two final references become project-managed canonical WAV assets; intermediate stems are neither uploaded nor stored locally for new v2 jobs. `activeStemAssetIds` and legacy media presentation remain only for backward-compatible recovery of older projects. Exporting WAV may therefore publish a final canonical reference directly without conversion; this does not imply that six stems are stored on the device.
 
 ## Timeline/editing
 Track/clip drag, trim, split, duplicate and deletion are deterministic project transactions. Split take lineage must remain valid when segments move or are deleted. Failed/stale drag is a no-op and may not partially mutate project/history/media state.
@@ -93,7 +95,7 @@ No Firebase/Cloud Run/Functions hop, service account, client secret or refresh-t
 
 ## Current milestone boundary
 
-U10/C8 and U11 remain CLOSED / DIGITAL PASS historical authorities. RC13 is the current signed U12 authority; RC14 is an unqualified corrective source candidate and cannot supersede it until exact-source gates and signing pass.
+U10/C8 and U11 remain CLOSED / DIGITAL PASS historical authorities. RC14 is the current signed U12 authority; RC15 is an unqualified physical-corrective source candidate and cannot supersede it until exact-source gates and target-device resume-import acceptance pass.
 
 Remote separation recovery now treats the local durable store as recovery intent, not proof that a cloud job exists. When reconciliation finds no remote job, replayable pre-dispatch states are idempotently re-enqueued, cancellation requests terminalize locally, and states that require an already-created remote job expire safely. Cancellation/worker retry exhaustion must also end in a terminal local state. Restoration of `SOURCE_READY` is source-generation-aware and may not overwrite a newer active separation. Per-project observation prefers active work over a late terminal completion from an older generation.
 

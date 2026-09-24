@@ -597,7 +597,7 @@ class UnifiedProjectShellInstrumentedTest {
         composeRule.onNodeWithTag("export-backing-wav").assertTextEquals("WAV")
         composeRule.onNodeWithTag("export-guitar-wav").assertTextEquals("WAV")
         composeRule.onAllNodesWithText("WAV • sem conversão").assertCountEquals(0)
-        composeRule.onNodeWithText("A base sem guitarra e a guitarra de referência já existem em WAV sem perdas dentro do projeto. WAV é publicado sem conversão; FLAC/MP3 só são gerados quando você pedir.").assertIsDisplayed()
+        composeRule.onNodeWithText("As duas referências finais — base sem guitarra e guitarra — ficam em WAV sem perdas dentro do projeto; os seis stems intermediários não são armazenados no fluxo v2. WAV é publicado sem conversão; FLAC/MP3 só são gerados quando você pedir.").assertIsDisplayed()
         composeRule.onNodeWithText("Base sem guitarra").assertIsDisplayed()
         composeRule.onNodeWithText("Mix final do Studio").performScrollTo().assertIsDisplayed()
         composeRule.captureCohesionScreenshot("export-ready-dark")

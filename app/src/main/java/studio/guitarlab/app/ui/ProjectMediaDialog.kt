@@ -50,7 +50,7 @@ fun ProjectMediaDialog(
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 Text(
-                    "Arquivos gerenciados pelo GuitarLab. Atualizar referências não adiciona stems à timeline nem altera suas gravações.",
+                    "Arquivos gerenciados pelo GuitarLab. O fluxo atual mantém no projeto apenas as referências finais; faixas separadas aparecem somente em projetos legados. Atualizar referências não altera suas gravações.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -70,7 +70,7 @@ fun ProjectMediaDialog(
                     HorizontalDivider()
                 }
                 MediaGroup("Fonte", project.assets.filter { it.role == AssetRole.SOURCE_ORIGINAL }, activePreparationIds, boundIds)
-                MediaGroup("Faixas separadas", project.assets.filter { it.role.name.startsWith("STEM_") }, activePreparationIds, boundIds)
+                MediaGroup("Faixas separadas legadas", project.assets.filter { it.role.name.startsWith("STEM_") }, activePreparationIds, boundIds)
                 MediaGroup("Referências", project.assets.filter { it.role in setOf(AssetRole.REFERENCE_BACKING, AssetRole.REFERENCE_GUITAR) }, activePreparationIds, boundIds)
                 MediaGroup("Gravações", project.assets.filter { it.role == AssetRole.RECORDING_TAKE }, activePreparationIds, boundIds)
             }

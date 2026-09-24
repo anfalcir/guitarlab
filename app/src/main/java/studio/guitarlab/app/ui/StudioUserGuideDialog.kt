@@ -48,7 +48,7 @@ private object GuitarLabGuideContent {
         GuideSectionContent(
             GuideArea.PREPARE,
             "Preparar",
-            "O fluxo é Fonte → Separação → Referências de estudo → Pronto para o Studio. Trocar a fonte é uma ação explícita. Depois de seis stems válidos, o GuitarLab cria automaticamente a base sem guitarra e a guitarra de referência. Falhas de preparação preservam as mídias já validadas e oferecem a próxima ação segura. Você pode sair da tela enquanto uma operação persistente continua e acompanhar o progresso em Atividade.",
+            "O fluxo é Fonte → Separação → Referências de estudo → Pronto para o Studio. Trocar a fonte é uma ação explícita. No fluxo atual, o processamento usa stems intermediários somente na nuvem e entrega ao projeto as duas referências finais: base sem guitarra e guitarra. Falhas de importação preservam o resultado remoto para retomada; mídias locais já validadas também permanecem seguras. Você pode sair da tela enquanto uma operação persistente continua e acompanhar o progresso em Atividade.",
         ),
         GuideSectionContent(
             GuideArea.STUDIO,

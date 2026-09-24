@@ -1,11 +1,11 @@
 # Android CI / release pipeline
 
-Updated: 2026-09-22
+Updated: 2026-09-23
 
 ## Contract
 `.github/workflows/android-ci.yml` supports manual `workflow_dispatch` and controlled `main` commit triggers. A commit containing `[run ci]` runs the software and API 36 gates; `[run ci signed]` additionally produces the signed homologation APK. Ordinary commits retain `[skip ci]` and do not consume hosted CI. This workstream is authorized to use and monitor the controlled triggers while executing the unified roadmap.
 
-Current release phase: **U12 ACTIVE**. RC14 (`0.5.0-rc14` / 34) is the active unqualified source candidate. RC13 is the latest signed digital authority at producer `bf78580dd79f4c2a4554aca34e6c8a65ccaa12e3`: Android CI #828 / run `35926732265`, U4 run `35926732269`, U7 run `35926732284`. RC14 must replace this authority only after the same exact-source triplet passes.
+Current release phase: **U12 ACTIVE**. RC15 (`0.5.0-rc15` / 35) is the active unqualified physical-corrective source; `2601220` is its parser/reentry baseline, not authority for later source changes. RC14 is the latest signed digital authority at producer `13c6f36e5e3c2bcf82cf21f885e8d7aa6c41ed34`, Android run `35937621047`, with U4 `35935229248` and U7 `35935229232` inherited from its cloud-identical predecessor. RC15 may replace this authority only after CI on the final exact SHA and affected physical acceptance pass.
 
 Authority layers:
 1. **software gate** — deterministic source materialization, JVM/unit/audio/DSP/persistence/migration tests, performance evidence, Lint, debug/release assembly and unsigned provenance;
@@ -15,14 +15,14 @@ Authority layers:
 ## Current source materialization
 `.source-parts/` + `scripts/materialize_ci_sources.sh` are source-of-truth build inputs. Unexpected drift fails closed by exact SHA-256/Git blob checks.
 
-The canonical entrypoint currently delegates through **U12ag**, the RC13 tail. RC14 must add the next fail-closed materializer with payload/blob identity, exact terminal blobs, semantic guards, `git diff --check` and reverse-apply/idempotent ready-state proof before qualification.
+The canonical entrypoint materializes the accepted source chain and the workflow additionally binds the checkout/source identity used for RC15. Historical tail labels describe their materialization block, not the current release version; qualification still requires exact source identity, `git diff --check`, semantic guards and the canonical software/API36/signing gates.
 
 Historical U10/C8 source authority remains Android CI #781 and historical materializers remain preserved as evidence; they do not override the current `scripts/materialize_ci_sources.sh` tail.
 
 U8m then completed the separate provider-real acceptance gate through the same
 production vNext Drive transport/store. Result: `U8m PASS · r_1790095960 · cleanup 8/8/14`; sanitized report
 SHA-256 `84efb70615be8ef5939da538eee5f714f7311aa6d44dd5bb2cdd0b5e9e66b702`. This provider gate authorizes closure of U8 but is not a
-signed release promotion. RC13/CI #828 is the latest signed authority for the U12 physical campaign.
+signed release promotion. RC14/Android run `35937621047` is the latest signed authority for the U12 physical campaign.
 
 U10/C8 closure is recorded in `docs/U10_FINAL_DIGITAL_COHESION_GATE.md`. The
 #781 integration artifact digest is

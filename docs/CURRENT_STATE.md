@@ -30,13 +30,14 @@ Updated: 2026-09-23
 
 ## Active line
 - Repository/branch: `anfalcir/guitarlab` / `main`.
-- **rc14 is the active source candidate; exact-source digital qualification and signing are pending.**
-- RC14 identity: `0.5.0-rc14` / versionCode `34` / `studio.guitarlab.app`.
-- RC14 scope: foreground remote separation, branded notification icon, one consolidated take-management flow, grouped backup history and explicit ten-day deleted-project lifecycle.
-- RC13 remains the latest signed DIGITAL PASS and completed all three gates on producer `bf78580dd79f4c2a4554aca34e6c8a65ccaa12e3`: Android CI #828 / run `35926732265`, U4 run `35926732269`, U7 run `35926732284`.
+- **rc15 is the active physical-corrective source candidate; no in-progress run is authority.**
+- RC15 identity: `0.5.0-rc15` / versionCode `35` / `studio.guitarlab.app`. Parser/reentry baseline: `2601220351cb241af5b23235a123645b4120ba64`; the final copy/documentation corrective must qualify on its own workflow SHA.
+- RC15 scope: accept validated `WAVE_FORMAT_EXTENSIBLE` PCM/IEEE-float prepared references, retain strict subtype-GUID validation, and serialize rapid enqueue/resume taps.
+- RC14 is the latest signed DIGITAL PASS at producer `13c6f36e5e3c2bcf82cf21f885e8d7aa6c41ed34`: Android CI run `35937621047` passed unit, Lint, build, API 36 and signing. Its cloud-identical predecessor `9b4ee9f` passed U4 `35935229248` and U7 `35935229232`.
 - RC13 signed artifact: `GuitarLabStudio-0.5.0-rc13-homologacao` / artifact id `10779803277`.
 - RC14 release notes and physical checklist: `RELEASE_NOTES_0.5.0-rc14.md`, `RC14_FINAL_PHYSICAL_HOMOLOGATION.md`.
-- First RC14 qualification at `9b4ee9f`: software gate PASS, U4 `35935229248` PASS, U7 `35935229232` PASS; API 36 failed only because `singleVersionRestoreRequiresExplicitConfirmation` still targeted the superseded flat-list restore button. The test-only/navigation-expectation corrective is pending sealed Android requalification; U4/U7 do not require repetition for that delta.
+- First RC14 qualification at `9b4ee9f`: software gate PASS, U4 `35935229248` PASS and U7 `35935229232` PASS; its only API 36 failure was a superseded test target. The test-only correction was subsequently sealed by signed Android run `35937621047` on `13c6f36`.
+- RC14 physical evidence then exposed two v2 integration defects: Storage rules omitted `output/prepared/*`, corrected by production ruleset `525c392a-2aeb-48f3-8685-e55f13c9d528`; and Android rejected valid extensible float32 WAV at `WavStructure.read`, corrected in RC15. Job `66464e42-937f-4d78-a5bd-dabc7c9687f9` remains the direct resume-import acceptance fixture.
 
 ## Superseded rc11 authority
 - **rc11 is CLOSED / DIGITAL PASS and historical.**

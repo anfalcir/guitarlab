@@ -2,7 +2,7 @@
 
 Updated: 2026-09-23
 
-> **Current unified-line authority (2026-09-23):** historical H29-H37 remains architecture/evidence context. U10/C8 and U11 are CLOSED / DIGITAL PASS. U12 is active on the exact signed rc11 candidate produced by `34cb60624b2fabf21cfe2c60003b04eac1597418`; Android CI #806, U4 #123 and U7 #81 are green. Rc11 restores the stable Firebase Email/Password identity required by the backend UID allowlist and includes the rc9 orphan-reconciliation hardening.
+> **Current unified-line authority (2026-09-23):** historical H29-H37 remains architecture/evidence context. U10/C8 and U11 are CLOSED / DIGITAL PASS. RC14 is the latest signed U12 authority at `13c6f36e5e3c2bcf82cf21f885e8d7aa6c41ed34` / Android `35937621047`; RC15 is the active physical corrective and remains pending exact-source CI/target-device acceptance. `2601220` is the parser/reentry baseline, not authority for later copy/documentation commits.
 
 ## Milestones
 - **M1 — Foundation:** CLOSED.
@@ -15,7 +15,7 @@ Updated: 2026-09-23
 
 ## Current signed authority
 
-**Android CI #828** / run `35926732265` / producer `bf78580dd79f4c2a4554aca34e6c8a65ccaa12e3` is the latest signed DIGITAL PASS (`0.5.0-rc13` / versionCode `33`), with U4 `35926732269` and U7 `35926732284` green on the same producer. RC14 (`0.5.0-rc14` / 34) is the active source candidate pending qualification.
+**Android CI run `35937621047`** / producer `13c6f36e5e3c2bcf82cf21f885e8d7aa6c41ed34` is the latest signed DIGITAL PASS (`0.5.0-rc14` / versionCode `34`). U4 `35935229248` and U7 `35935229232` passed on the cloud-identical RC14 source `9b4ee9f`. RC15 (`0.5.0-rc15` / 35) is the active source candidate pending exact-source Android CI and physical resume-import acceptance.
 
 Signed APK SHA-256: `3cd9bfe06c9aa1af7f452f0dd8d9e9bead50774bde4a3b22c72f09f51e5ea769`.
 
@@ -23,7 +23,7 @@ The same producer passed U4 Cloud Integration Smoke #123 and U7 Cloud Backend #8
 
 ## Current release closure
 
-U10/C8 and U11 are digitally closed. U12 is active on RC14; RC13 remains the latest signed authority until RC14 qualification. RC9–RC11 remain historical corrective evidence.
+U10/C8 and U11 are digitally closed. U12 is active on RC15; RC14 remains the latest signed authority until RC15 qualification. RC9–RC13 remain historical corrective evidence.
 
 The next required evidence is physical: install rc11 on the target tablet, authenticate once with the existing allowlisted Firebase Email/Password account, prove a fresh Prepare separation crosses the full Storage → Function → Cloud Run → import path, then complete the remaining USB/audio/10-minute/ergonomics acceptance residuals.
 
