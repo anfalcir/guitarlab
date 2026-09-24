@@ -77,6 +77,23 @@ test("same generation recovery wins without quota consumption or new dispatch", 
   });
 });
 
+test("same generation adoption wins safely even when unrelated active work is present", () => {
+  const hash = "a".repeat(64);
+  assert.deepEqual(
+    decideEnqueue(
+      [
+        {jobId: "preserved-other", projectId: "other", sourceAssetId: "other-source", inputSha256: "b".repeat(64)},
+        {jobId: "job-good", projectId: "p", sourceAssetId: "source", inputSha256: hash},
+      ],
+      10,
+      "p",
+      "source",
+      hash,
+    ),
+    {kind: "RECOVER_EXISTING", jobId: "job-good"},
+  );
+});
+
 test("different generation and different project are typed active conflicts", () => {
   const hash = "a".repeat(64);
   assert.deepEqual(
