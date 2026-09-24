@@ -35,3 +35,12 @@ RC19 acceptance must install over RC18 without clearing app data and recover tha
 
 ## Materialization
 Canonical candidate source stage: **U12an**. U12aj contains the production/test/version/U4 recovery delta, U12ak corrects the process-death test double, U12al reconstructs `functions/src/index.ts` from the clean RC18 source plus the intended RC19 callable contract, U12am isolates the callable-recovery proof from the worker-only shadow while leaving it mandatory by default and for production/U4, and U12an makes exact same-generation adoption win safely over unrelated preserved active work without dispatching or consuming quota. Each source stage remains blob-locked with terminal/semantic guards, `git diff --check` and reverse-apply. The U7 workflow additionally accepts explicit push markers on canonical `main`: `[run u7 shadow]` for shadow and `[run u7 production] [confirm production]` for production, while preserving the existing manual `workflow_dispatch` confirmations.
+
+## Production qualification
+
+- Shadow: U7 #129 / run `36021641467` PASS on `96c27a03b838878a14fc767a05811e95300ab074`, including real `guitarlab-demucs-shadow-7v74l` prepared-reference v2 smoke; production Functions/rules were not mutated in shadow.
+- Production: U7 #130 / run `36024185442` PASS on `f0f743c3c311a4332175b15737cf6a661be07f55`.
+- Production recovery gate: same-generation COMPLETED job adoption returned the existing remote job, did not increment quota, did not dispatch a second Cloud Run execution, and cleaned the rejected retry upload before normal ACK/purge.
+- Production real-cloud smoke: `gbw-demucs-lcslf` PASS; prepared-reference v2 manifest/integrity, source cleanup, ACK, Firestore IMPORTED/PURGED and whole-prefix purge idempotency all passed.
+- U7 deploy evidence artifact id `10819698734`, digest `sha256:783af8ec21c201ac7b388c61bf08711454cd00c29edefdcff28866522984d2a4`.
+- Signed homologation APK remains pending until the final `[run ci signed]` gate after these production qualifications.
