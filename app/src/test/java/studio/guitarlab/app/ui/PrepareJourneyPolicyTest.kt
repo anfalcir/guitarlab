@@ -178,6 +178,46 @@ class PrepareJourneyPolicyTest {
         assertFalse(message.contains("AUTH_PROVIDER_DISABLED"))
     }
 
+    @Test fun sameGenerationRecoveryUsesProductCopyAndRemainsActive() {
+        val recovered = DurableRemoteJob(
+            identity(),
+            RemoteJobState.RUNNING,
+            1,
+            errorCode = "RECOVERY:EXISTING_SAME_GENERATION",
+        )
+        val message = PrepareJourneyPolicy.separationMessage(recovered)
+        assertTrue(message.contains("já está em andamento", ignoreCase = true))
+        assertTrue(message.contains("retomou", ignoreCase = true))
+        assertTrue(PrepareJourneyPolicy.separationIsActive(recovered))
+    }
+
+    @Test fun completedSameGenerationRecoveryExplainsImportResume() {
+        val recovered = DurableRemoteJob(
+            identity(),
+            RemoteJobState.COMPLETED,
+            1,
+            resultManifestSha256 = "b".repeat(64),
+            errorCode = "RECOVERY:EXISTING_SAME_GENERATION",
+        )
+        val message = PrepareJourneyPolicy.separationMessage(recovered)
+        assertTrue(message.contains("já terminou", ignoreCase = true))
+        assertTrue(message.contains("importação", ignoreCase = true))
+        assertFalse(message.contains("Demucs", ignoreCase = true))
+    }
+
+    @Test fun activeConflictAndMonthlyQuotaHaveDistinctUserCopy() {
+        val conflict = PrepareJourneyPolicy.separationMessage(
+            DurableRemoteJob(identity(), RemoteJobState.FAILED, 1, errorCode = "TERMINAL:ENQUEUEING:ACTIVE_JOB_CONFLICT"),
+        )
+        val quota = PrepareJourneyPolicy.separationMessage(
+            DurableRemoteJob(identity(), RemoteJobState.FAILED, 1, errorCode = "TERMINAL:ENQUEUEING:MONTHLY_QUOTA_REACHED"),
+        )
+        assertTrue(conflict.contains("outra separação", ignoreCase = true))
+        assertTrue(quota.contains("limite mensal", ignoreCase = true))
+        assertFalse(conflict.contains("RESOURCE_EXHAUSTED"))
+        assertFalse(quota.contains("RESOURCE_EXHAUSTED"))
+    }
+
     @Test fun preparedReferencesV2AdvanceDirectlyToReadyWithoutLocalStemSet() {
         val p = project(
             preparation = PreparationState(
