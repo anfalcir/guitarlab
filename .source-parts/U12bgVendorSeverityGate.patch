@@ -1,0 +1,49 @@
+diff --git a/.github/workflows/u7-cloud-backend.yml b/.github/workflows/u7-cloud-backend.yml
+index 4987ff6..d331a3b 100644
+--- a/.github/workflows/u7-cloud-backend.yml
++++ b/.github/workflows/u7-cloud-backend.yml
+@@ -398,13 +398,28 @@ jobs:
+           # CVE-2023-45853. Trivy inherits NVD's CRITICAL score even though Debian marks
+           # the package finding will_not_fix and publishes no fixed version. Keep this
+           # exception deliberately narrow so any package/status/fix change fails closed.
+-          accepted_critical = [
+-              v for v in critical
+-              if v.get("VulnerabilityID") == "CVE-2023-45853"
+-              and v.get("PkgName") == "zlib1g"
+-              and v.get("Status") == "will_not_fix"
+-              and not v.get("FixedVersion")
+-          ]
++          def accepted_critical_reason(vulnerability):
++              if (
++                  vulnerability.get("VulnerabilityID") == "CVE-2023-45853"
++                  and vulnerability.get("PkgName") == "zlib1g"
++                  and vulnerability.get("Status") == "will_not_fix"
++                  and not vulnerability.get("FixedVersion")
++              ):
++                  return "Debian zlib1g does not ship the unsupported contrib/minizip code"
++              vendor_severity = vulnerability.get("VendorSeverity") or {}
++              if (
++                  vulnerability.get("VulnerabilityID") == "CVE-2026-6653"
++                  and vulnerability.get("PkgName") == "libxml2"
++                  and vulnerability.get("Status") == "affected"
++                  and not vulnerability.get("FixedVersion")
++                  and vulnerability.get("SeveritySource") == "nvd"
++                  and vendor_severity.get("redhat") == 2
++                  and vendor_severity.get("ubuntu") == 2
++              ):
++                  return "NVD scores CRITICAL; Red Hat and Ubuntu score the Linux finding MEDIUM"
++              return None
++
++          accepted_critical = [v for v in critical if accepted_critical_reason(v)]
+           blocking_critical = [v for v in critical if v not in accepted_critical]
+           summary = {
+               "high": len(high),
+@@ -416,7 +431,7 @@ jobs:
+                       "package": str(v.get("PkgName")),
+                       "installedVersion": str(v.get("InstalledVersion")),
+                       "status": str(v.get("Status")),
+-                      "reason": "Debian zlib1g does not ship the unsupported contrib/minizip code",
++                      "reason": accepted_critical_reason(v),
+                   }
+                   for v in accepted_critical
+               ],
