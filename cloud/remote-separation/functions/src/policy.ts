@@ -67,7 +67,10 @@ export function decideEnqueue(
   inputSha256: string,
 ): EnqueueDecision {
   const recoverable = activeJobs.filter(job => sameGeneration(job, projectId, sourceAssetId, inputSha256));
-  if (recoverable.length === 1 && activeJobs.length === 1) {
+  if (recoverable.length === 1) {
+    // Adoption is non-destructive and does not dispatch or consume quota. Prefer the
+    // exact same generation even if an unrelated active record also exists; this is
+    // required for safe reconciliation of preserved completed results.
     return {kind: "RECOVER_EXISTING", jobId: recoverable[0].jobId};
   }
   if (activeJobs.length > 0) {
