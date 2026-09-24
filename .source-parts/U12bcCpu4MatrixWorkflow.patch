@@ -1,0 +1,65 @@
+diff --git a/.github/workflows/u7-cloud-backend.yml b/.github/workflows/u7-cloud-backend.yml
+--- a/.github/workflows/u7-cloud-backend.yml
++++ b/.github/workflows/u7-cloud-backend.yml
+@@ -19,6 +19,11 @@ on:
+         required: false
+         default: ""
+         type: string
++      run_matrix:
++        description: Run the additional CPU4 qualification cell during shadow
++        required: false
++        default: false
++        type: boolean
+   push:
+     branches: [main, u12-rc19-remote-recovery, u12-rc19-controlled-deploy]
+ 
+@@ -242,7 +247,7 @@ jobs:
+       contents: read
+       id-token: write
+     runs-on: ubuntu-latest
+-    timeout-minutes: 60
++    timeout-minutes: 90
+     env:
+       GBW_GCP_PROJECT: gbwapp-ef048
+       GBW_BUCKET: gbwapp-ef048.firebasestorage.app
+@@ -459,10 +464,40 @@ jobs:
+           retention-days: 14
+ 
+       - name: Run W4 representative shadow benchmark
++        id: w4_baseline
+         if: steps.deploy_mode.outputs.mode == 'shadow'
+         shell: bash
+         env:
+           GBW_PINNED_IMAGE: ${{ steps.worker.outputs.pinned_image }}
++          GBW_W4_VARIANT: cpu8-baseline
++          GBW_W4_STRATEGY: cpu8_s1_o05
++          GBW_W4_VCPU: '8'
++          GBW_W4_MEMORY_GIB: '16'
++          GBW_W4_MEMORY_RESOURCE: 16Gi
++          GBW_W4_WARM_PROBE: '1'
++          GBW_W4_MODEL_PROBE: '1'
++        run: |
++          set -euo pipefail
++          bash scripts/u12_rc20_shadow_benchmark.sh | tee -a u7-deploy-evidence.txt
++
++      - name: Run W4 CPU4 matrix cell
++        id: w4_cpu4
++        if: >-
++          steps.deploy_mode.outputs.mode == 'shadow' &&
++          (
++            (github.event_name == 'workflow_dispatch' && inputs.run_matrix == true) ||
++            (github.event_name == 'push' && contains(github.event.head_commit.message, '[run u7 matrix]'))
++          )
++        shell: bash
++        env:
++          GBW_PINNED_IMAGE: ${{ steps.worker.outputs.pinned_image }}
++          GBW_W4_VARIANT: cpu4-matrix
++          GBW_W4_STRATEGY: cpu4_s1_o05
++          GBW_W4_VCPU: '4'
++          GBW_W4_MEMORY_GIB: '16'
++          GBW_W4_MEMORY_RESOURCE: 16Gi
++          GBW_W4_WARM_PROBE: '1'
++          GBW_W4_MODEL_PROBE: '0'
+         run: |
+           set -euo pipefail
+           bash scripts/u12_rc20_shadow_benchmark.sh | tee -a u7-deploy-evidence.txt

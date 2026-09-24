@@ -1,0 +1,58 @@
+diff --git a/cloud/remote-separation/worker/Dockerfile b/cloud/remote-separation/worker/Dockerfile
+--- a/cloud/remote-separation/worker/Dockerfile
++++ b/cloud/remote-separation/worker/Dockerfile
+@@ -73,7 +73,7 @@ COPY --from=builder /opt/demucs /opt/demucs
+ COPY --from=builder /opt/rc20 /opt/rc20
+ 
+ WORKDIR /app
+-COPY audio_quality.py demucs_engine.py gbw_worker.py benchmark.py /app/
++COPY audio_quality.py demucs_engine.py gbw_worker.py benchmark.py model_probe.py /app/
+ RUN useradd --uid 65532 --create-home --shell /usr/sbin/nologin worker \
+     && chown -R worker:worker /app \
+     && chmod -R a-w /opt/venv /opt/demucs/models /opt/rc20
+diff --git a/cloud/remote-separation/worker/model_probe.py b/cloud/remote-separation/worker/model_probe.py
+--- a/cloud/remote-separation/worker/model_probe.py
++++ b/cloud/remote-separation/worker/model_probe.py
+@@ -0,0 +1,42 @@
++#!/usr/bin/env python3
++from __future__ import annotations
++import json
++import os
++import time
++from pathlib import Path
++
++MODEL_NAME = "htdemucs_6s"
++EXPECTED_SOURCES = ("drums", "bass", "other", "vocals", "guitar", "piano")
++
++def main() -> int:
++    project = os.environ["GBW_PROBE_PROJECT"]
++    bucket_name = os.environ["GBW_PROBE_BUCKET"]
++    output_path = os.environ["GBW_PROBE_OUTPUT_PATH"]
++    model_repo = Path(os.environ.get("GBW_MODEL_REPO", "/opt/demucs/models"))
++    total_started = time.monotonic()
++    import_started = time.monotonic()
++    from demucs.pretrained import get_model
++    import_ms = round((time.monotonic() - import_started) * 1000)
++    load_started = time.monotonic()
++    model = get_model(MODEL_NAME, model_repo)
++    model_load_ms = round((time.monotonic() - load_started) * 1000)
++    if tuple(model.sources) != EXPECTED_SOURCES:
++        raise RuntimeError(f"unexpected model sources: {tuple(model.sources)}")
++    result = {
++        "model": MODEL_NAME,
++        "modelRepo": str(model_repo),
++        "importMs": import_ms,
++        "modelLoadMs": model_load_ms,
++        "totalProbeMs": round((time.monotonic() - total_started) * 1000),
++        "sources": list(model.sources),
++    }
++    from google.cloud import storage
++    storage.Client(project=project).bucket(bucket_name).blob(output_path).upload_from_string(
++        json.dumps(result, sort_keys=True, indent=2) + "\n",
++        content_type="application/json",
++    )
++    print(json.dumps(result, sort_keys=True))
++    return 0
++
++if __name__ == "__main__":
++    raise SystemExit(main())
