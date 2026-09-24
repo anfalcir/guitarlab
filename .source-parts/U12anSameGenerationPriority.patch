@@ -1,0 +1,40 @@
+--- a/cloud/remote-separation/functions/src/policy.ts
++++ b/cloud/remote-separation/functions/src/policy.ts
+@@ -67,7 +67,10 @@ export function decideEnqueue(
+   inputSha256: string,
+ ): EnqueueDecision {
+   const recoverable = activeJobs.filter(job => sameGeneration(job, projectId, sourceAssetId, inputSha256));
+-  if (recoverable.length === 1 && activeJobs.length === 1) {
++  if (recoverable.length === 1) {
++    // Adoption is non-destructive and does not dispatch or consume quota. Prefer the
++    // exact same generation even if an unrelated active record also exists; this is
++    // required for safe reconciliation of preserved completed results.
+     return {kind: "RECOVER_EXISTING", jobId: recoverable[0].jobId};
+   }
+   if (activeJobs.length > 0) {
+--- a/cloud/remote-separation/functions/src/test/policy.test.ts
++++ b/cloud/remote-separation/functions/src/test/policy.test.ts
+@@ -77,6 +77,23 @@ test("same generation recovery wins without quota consumption or new dispatch",
+   });
+ });
+ 
++test("same generation adoption wins safely even when unrelated active work is present", () => {
++  const hash = "a".repeat(64);
++  assert.deepEqual(
++    decideEnqueue(
++      [
++        {jobId: "preserved-other", projectId: "other", sourceAssetId: "other-source", inputSha256: "b".repeat(64)},
++        {jobId: "job-good", projectId: "p", sourceAssetId: "source", inputSha256: hash},
++      ],
++      10,
++      "p",
++      "source",
++      hash,
++    ),
++    {kind: "RECOVER_EXISTING", jobId: "job-good"},
++  );
++});
++
+ test("different generation and different project are typed active conflicts", () => {
+   const hash = "a".repeat(64);
+   assert.deepEqual(
