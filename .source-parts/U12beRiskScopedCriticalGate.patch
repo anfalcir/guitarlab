@@ -1,0 +1,51 @@
+diff --git a/.github/workflows/u7-cloud-backend.yml b/.github/workflows/u7-cloud-backend.yml
+index 6a09b30..4987ff6 100644
+--- a/.github/workflows/u7-cloud-backend.yml
++++ b/.github/workflows/u7-cloud-backend.yml
+@@ -394,18 +394,44 @@ jobs:
+           ]
+           high = [v for v in vulnerabilities if v.get("Severity") == "HIGH"]
+           critical = [v for v in vulnerabilities if v.get("Severity") == "CRITICAL"]
++          # Debian ships zlib without the unsupported contrib/minizip code affected by
++          # CVE-2023-45853. Trivy inherits NVD's CRITICAL score even though Debian marks
++          # the package finding will_not_fix and publishes no fixed version. Keep this
++          # exception deliberately narrow so any package/status/fix change fails closed.
++          accepted_critical = [
++              v for v in critical
++              if v.get("VulnerabilityID") == "CVE-2023-45853"
++              and v.get("PkgName") == "zlib1g"
++              and v.get("Status") == "will_not_fix"
++              and not v.get("FixedVersion")
++          ]
++          blocking_critical = [v for v in critical if v not in accepted_critical]
+           summary = {
+               "high": len(high),
+               "critical": len(critical),
+               "criticalIds": sorted({str(v.get("VulnerabilityID")) for v in critical}),
++              "acceptedCritical": [
++                  {
++                      "id": str(v.get("VulnerabilityID")),
++                      "package": str(v.get("PkgName")),
++                      "installedVersion": str(v.get("InstalledVersion")),
++                      "status": str(v.get("Status")),
++                      "reason": "Debian zlib1g does not ship the unsupported contrib/minizip code",
++                  }
++                  for v in accepted_critical
++              ],
++              "blockingCritical": len(blocking_critical),
++              "blockingCriticalIds": sorted({
++                  str(v.get("VulnerabilityID")) for v in blocking_critical
++              }),
+           }
+           Path("artifacts/u12-rc20-supply-chain/vulnerability-summary.json").write_text(
+               json.dumps(summary, sort_keys=True, indent=2) + "\n",
+               encoding="utf-8",
+           )
+           print(json.dumps(summary, sort_keys=True))
+-          if critical:
+-              raise SystemExit("RC20 worker image contains CRITICAL vulnerabilities")
++          if blocking_critical:
++              raise SystemExit("RC20 worker image contains blocking CRITICAL vulnerabilities")
+           PY
+ 
+       - name: Upload RC20 supply-chain evidence
