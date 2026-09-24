@@ -157,6 +157,24 @@ class RemoteSeparationWorker(context: Context, params: WorkerParameters) : Corou
             )
             current?.let { notifier.show(id, projectName, it.state, it.errorCode) }
             val next = if (current == null) coordinator.start(id) else coordinator.reconcile(id)
+            if (next.identity.jobId != id.jobId) {
+                notifier.show(next.identity, projectName, next.state, next.errorCode)
+                val manager = WorkManager.getInstance(applicationContext)
+                if (next.state == RemoteJobState.CANCEL_REQUESTED) {
+                    manager.enqueueUniqueWork(
+                        remoteCancelWorkName(next.identity.jobId),
+                        ExistingWorkPolicy.REPLACE,
+                        remoteCancelRequest(next.identity),
+                    )
+                } else {
+                    manager.enqueueUniqueWork(
+                        remoteWorkName(next.identity.jobId),
+                        ExistingWorkPolicy.KEEP,
+                        remoteSeparationRequest(next.identity),
+                    )
+                }
+                return Result.success()
+            }
             when (next.state) {
                 RemoteJobState.IMPORTED -> {
                     resultTransport.cleanup(id)
@@ -354,8 +372,8 @@ class RemoteSeparationClient(private val context: Context) {
     fun resumePending() {
         val store = FileRemoteJobStore(context)
         store.repairLegacyImportExpirations()
-        recoverProjectsWithoutLocalJob(store)
         val repository = FileProjectRepository(context.filesDir)
+        scheduleGenerationRecoveryProbes(store, repository)
         val jobs = store.active()
         notifier.reconcileExisting(jobs) { projectId ->
             repository.load(projectId)?.name ?: "Projeto"
@@ -387,27 +405,27 @@ class RemoteSeparationClient(private val context: Context) {
         )
     }
 
-    private fun recoverProjectsWithoutLocalJob(store: FileRemoteJobStore) {
-        val repository = FileProjectRepository(context.filesDir)
-        val activeProjectIds = store.active()
-            .filter { RemoteRecoveryPolicy.isUnresolved(it.state) }
-            .map { it.identity.projectId }
-            .toSet()
-        repository.list()
-            .filter { project ->
-                RemoteRecoveryPolicy.shouldRestoreSourceReady(
-                    project.preparation?.status,
-                    project.id in activeProjectIds,
+    private fun scheduleGenerationRecoveryProbes(
+        store: FileRemoteJobStore,
+        repository: FileProjectRepository,
+    ) {
+        repository.list().forEach { project ->
+            val preparation = project.preparation ?: return@forEach
+            val sourceId = preparation.sourceAssetId ?: return@forEach
+            if (preparation.activeBackingAssetId != null && preparation.activeGuitarAssetId != null) return@forEach
+            val source = project.assets.firstOrNull { it.assetId == sourceId } ?: return@forEach
+            val generation = RemoteSourceGeneration(project.id, sourceId, source.sha256)
+            val hasUnresolved = store.active().any {
+                RemoteRecoveryPolicy.isUnresolved(it.state) && RemoteRecoveryPolicy.sameGeneration(it, generation)
+            }
+            if (!hasUnresolved) {
+                WorkManager.getInstance(context).enqueueUniqueWork(
+                    remoteRecoveryWorkName(project.id),
+                    ExistingWorkPolicy.KEEP,
+                    remoteRecoveryRequest(project.id),
                 )
             }
-            .forEach { project ->
-                repository.save(
-                    project.copy(
-                        updatedAtEpochMs = System.currentTimeMillis(),
-                        preparation = requireNotNull(project.preparation).copy(status = PreparationStatus.SOURCE_READY),
-                    ),
-                )
-            }
+        }
     }
 
     private fun separationRequest(id: RemoteJobIdentity) =
@@ -431,6 +449,83 @@ class RemoteSeparationClient(private val context: Context) {
     private companion object {
         fun workName(jobId: String) = "guitarlab-separation:$jobId"
         fun cancelWorkName(jobId: String) = "guitarlab-separation-cancel:$jobId"
+    }
+}
+
+
+class RemoteRecoveryProbeWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
+    override suspend fun doWork(): Result {
+        val projectId = inputData.getString("projectId") ?: return Result.failure()
+        val repository = FileProjectRepository(applicationContext.filesDir)
+        val project = repository.load(projectId) ?: return Result.success()
+        val preparation = project.preparation ?: return Result.success()
+        val sourceId = preparation.sourceAssetId ?: return Result.success()
+        if (preparation.activeBackingAssetId != null && preparation.activeGuitarAssetId != null) return Result.success()
+        val source = project.assets.firstOrNull { it.assetId == sourceId } ?: return Result.success()
+        val generation = RemoteSourceGeneration(projectId, sourceId, source.sha256)
+        val app = GuitarLabFirebase.app(applicationContext)
+        val backend = FirebaseRemoteBackend(
+            FirebaseAuth.getInstance(app),
+            FirebaseFirestore.getInstance(app),
+            FirebaseFunctions.getInstance(app, "us-central1"),
+        )
+        val store = FileRemoteJobStore(applicationContext)
+        val notifier = RemoteSeparationNotifier(applicationContext)
+        return try {
+            val remote = backend.findRecoverable(generation)
+            if (remote == null) {
+                val hasUnresolved = store.active().any {
+                    RemoteRecoveryPolicy.isUnresolved(it.state) && RemoteRecoveryPolicy.sameGeneration(it, generation)
+                }
+                if (RemoteRecoveryPolicy.shouldRestoreSourceReady(preparation.status, hasUnresolved)) {
+                    repository.save(
+                        project.copy(
+                            updatedAtEpochMs = System.currentTimeMillis(),
+                            preparation = preparation.copy(status = PreparationStatus.SOURCE_READY),
+                        ),
+                    )
+                }
+                return Result.success()
+            }
+            val adopted = store.adopt(
+                remote.copy(
+                    updatedAtMs = System.currentTimeMillis(),
+                    errorCode = remote.errorCode ?: RemoteSeparationCoordinator.RECOVERY_MARKER,
+                ),
+            )
+            repository.save(
+                project.copy(
+                    updatedAtEpochMs = System.currentTimeMillis(),
+                    preparation = preparation.copy(status = PreparationStatus.SEPARATING),
+                ),
+            )
+            notifier.show(adopted.identity, project.name, adopted.state, adopted.errorCode)
+            val manager = WorkManager.getInstance(applicationContext)
+            if (adopted.state == RemoteJobState.CANCEL_REQUESTED) {
+                manager.enqueueUniqueWork(
+                    remoteCancelWorkName(adopted.identity.jobId),
+                    ExistingWorkPolicy.REPLACE,
+                    remoteCancelRequest(adopted.identity),
+                )
+            } else {
+                manager.enqueueUniqueWork(
+                    remoteWorkName(adopted.identity.jobId),
+                    ExistingWorkPolicy.KEEP,
+                    remoteSeparationRequest(adopted.identity),
+                )
+            }
+            Result.success()
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (error: Throwable) {
+            val failure = RemoteFirebaseFailureClassifier.classify(error)
+            Log.w(
+                "GuitarLabRemote",
+                "recovery project=${projectId} code=${failure.code} retryable=${failure.retryable} attempt=${runAttemptCount + 1}",
+                error,
+            )
+            if (failure.retryable && runAttemptCount < 5) Result.retry() else Result.success()
+        }
     }
 }
 
@@ -529,6 +624,38 @@ class RemoteCancelWorker(context: Context, params: WorkerParameters) : Coroutine
         const val MAX_CANCEL_ATTEMPTS = 5
     }
 }
+
+
+private fun remoteWorkName(jobId: String) = "guitarlab-separation:$jobId"
+private fun remoteCancelWorkName(jobId: String) = "guitarlab-separation-cancel:$jobId"
+private fun remoteRecoveryWorkName(projectId: String) = "guitarlab-separation-recovery:$projectId"
+
+private fun remoteSeparationRequest(id: RemoteJobIdentity) =
+    OneTimeWorkRequestBuilder<RemoteSeparationWorker>()
+        .setInputData(remoteWorkData(id))
+        .setConstraints(networkConstraints())
+        .setBackoffCriteria(BackoffPolicy.LINEAR, 30, TimeUnit.SECONDS)
+        .addTag("guitarlab-separation")
+        .addTag("guitarlab-separation:${id.projectId}")
+        .build()
+
+private fun remoteCancelRequest(id: RemoteJobIdentity) =
+    OneTimeWorkRequestBuilder<RemoteCancelWorker>()
+        .setInputData(remoteWorkData(id))
+        .setConstraints(networkConstraints())
+        .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
+        .addTag("guitarlab-separation-cancel")
+        .addTag("guitarlab-separation-cancel:${id.projectId}")
+        .build()
+
+private fun remoteRecoveryRequest(projectId: String) =
+    OneTimeWorkRequestBuilder<RemoteRecoveryProbeWorker>()
+        .setInputData(workDataOf("projectId" to projectId))
+        .setConstraints(networkConstraints())
+        .setBackoffCriteria(BackoffPolicy.LINEAR, 30, TimeUnit.SECONDS)
+        .addTag("guitarlab-separation-recovery")
+        .addTag("guitarlab-separation-recovery:$projectId")
+        .build()
 
 private fun remoteIdentityFrom(data: Data): RemoteJobIdentity? = runCatching {
     RemoteJobIdentity(
