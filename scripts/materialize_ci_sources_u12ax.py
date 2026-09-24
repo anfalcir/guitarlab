@@ -44,7 +44,7 @@ def verify() -> None:
             raise SystemExit(f"U12ax runtime hardening guard failed: {token}")
     if "validate_runtime_packages" not in engine or 'NUMPY_VERSION = "1.26.4"' not in engine:
         raise SystemExit("U12ax runtime package guard failed")
-    run("python3", "-m", "unittest", "cloud.remote-separation.worker.tests.test_demucs_engine")
+    run("python3", "-m", "unittest", "discover", "-s", "cloud/remote-separation/worker/tests", "-p", "test_demucs_engine.py", "-v")
 
 if not PATCH.is_file():
     raise SystemExit("Missing U12ax worker runtime hardening patch")
