@@ -30,7 +30,9 @@ Updated: 2026-09-24
 
 ## Active line
 - Repository/branch: `anfalcir/guitarlab` / `main`.
-- **rc18 is digitally qualified and awaits target-tablet physical acceptance.**
+- **RC19 authoritative remote-recovery corrective is SOURCE CANDIDATE / DIGITAL GATE PENDING.** RC18 remains the last digitally qualified signed authority until RC19 completes exact-source Android/U7/U4 qualification.
+- RC19 target identity: `0.5.0-rc19` / versionCode `39` / `studio.guitarlab.app`. Scope: authoritative same-generation discovery/adoption, explicit effective remote job identity, typed active-job conflict vs monthly quota, safe cleanup of unregistered rejected uploads, process/reboot recovery probe and U4 real-cloud recovery/idempotency proof.
+- RC19 canonical materialization candidate: U12aj via `scripts/materialize_ci_sources_u12aj.py`; no signed RC19 artifact exists yet.
 - RC18 identity: `0.5.0-rc18` / versionCode `38` / `studio.guitarlab.app`; producer `ee947c6fbbd8b24430d3a3faa04e27ef9a46856c`; signed homologation artifact `GuitarLabStudio-0.5.0-rc18-homologacao` / artifact id `10804182567`.
 - RC18 scope: retain RC16 signal validation, canonicalization and Studio synchronization; remove the partitioned Demucs executable proven to emit non-finite samples; pin and enforce continuous `single8` inference end to end; keep sampled reconstruction SNR diagnostic after the RC17 shadow proved it can falsely veto valid finite Demucs output.
 - RC18 exact-source digital evidence: Android CI signed run `35990311091` PASS; U7 verify run `35990311054` PASS; isolated shadow run `35991484767` PASS; controlled production deploy run `35992709966` PASS; U4 production smoke run `35994148711` PASS.
