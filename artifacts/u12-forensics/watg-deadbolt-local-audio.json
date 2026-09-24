@@ -1,0 +1,74 @@
+{
+  "schemaVersion": 1,
+  "files": [
+    {
+      "path": "temporario/WATG - Deadbolt-backing.wav",
+      "sha256": "d9f206f25f9eb28d02c7fb4a4a3e1d667077429e91520eb64763cd0251fe2a8e",
+      "bytes": 63316012,
+      "encoding": "FLOAT32_LE",
+      "sampleRate": 44100,
+      "channels": 2,
+      "frames": 7914496,
+      "durationSeconds": 179.46702947845804,
+      "finiteSamples": 15828992,
+      "nonFiniteSamples": 0,
+      "peakPerChannel": [
+        0.876299262046814,
+        0.8802490234375
+      ],
+      "rmsPerChannel": [
+        0.21881498288647694,
+        0.21973251197747984
+      ],
+      "meanDcPerChannel": [
+        -0.04729254761745116,
+        -0.04737954993092366
+      ],
+      "crestFactorPerChannel": [
+        4.0047498141452476,
+        4.006002641646931
+      ],
+      "channelCorrelation": 0.517149654592054,
+      "silentFrameFractionBelowMinus80Dbfs": 7.58102600595161e-07,
+      "longestSilenceSecondsBelowMinus80Dbfs": 2.2675736961451248e-05
+    },
+    {
+      "path": "temporario/WATG - Deadbolt-guitar.wav",
+      "sha256": "8bbb4b5eb6b4ef8758669c1734b8d095893aadc9792d12a6330d9318eae725fa",
+      "bytes": 63316012,
+      "encoding": "FLOAT32_LE",
+      "sampleRate": 44100,
+      "channels": 2,
+      "frames": 7914496,
+      "durationSeconds": 179.46702947845804,
+      "finiteSamples": 15828992,
+      "nonFiniteSamples": 0,
+      "peakPerChannel": [
+        0.6300318241119385,
+        0.591858446598053
+      ],
+      "rmsPerChannel": [
+        0.12903734074227544,
+        0.12725533906124561
+      ],
+      "meanDcPerChannel": [
+        -0.009031604620229339,
+        -0.009060883824778728
+      ],
+      "crestFactorPerChannel": [
+        4.882554309378497,
+        4.650951786888899
+      ],
+      "channelCorrelation": 0.1467508839363582,
+      "silentFrameFractionBelowMinus80Dbfs": 5.938470371328762e-06,
+      "longestSilenceSecondsBelowMinus80Dbfs": 2.2675736961451248e-05
+    }
+  ],
+  "recombination": {
+    "peak": 0.8912509363144636,
+    "peakDbfs": -1.0000000177302275,
+    "rms": 0.2720614702031448,
+    "finiteSamples": 15828992,
+    "nonFiniteSamples": 0
+  }
+}

@@ -1,0 +1,74 @@
+{
+  "schemaVersion": 1,
+  "files": [
+    {
+      "path": "temporario/MMF - Misery-backing.wav",
+      "sha256": "a80755bea5665d6daa1e8a7257918d4bc36972fb8d970075e2ae01b35c7fff2e",
+      "bytes": 67799892,
+      "encoding": "FLOAT32_LE",
+      "sampleRate": 44100,
+      "channels": 2,
+      "frames": 8474981,
+      "durationSeconds": 192.17643990929705,
+      "finiteSamples": 16949962,
+      "nonFiniteSamples": 0,
+      "peakPerChannel": [
+        0.8214352130889893,
+        0.8705033659934998
+      ],
+      "rmsPerChannel": [
+        0.3876863614950507,
+        0.38805340067015665
+      ],
+      "meanDcPerChannel": [
+        -0.06221448105456164,
+        -0.06223602436917057
+      ],
+      "crestFactorPerChannel": [
+        2.1188138007260693,
+        2.2432566355304875
+      ],
+      "channelCorrelation": 0.40943777094680034,
+      "silentFrameFractionBelowMinus80Dbfs": 2.3598872965024936e-07,
+      "longestSilenceSecondsBelowMinus80Dbfs": 2.2675736961451248e-05
+    },
+    {
+      "path": "temporario/MMF - Misery-guitar.wav",
+      "sha256": "c52dea43d70b58daf8e1df941ac286a4f6732d8c127041c36bc7940a3b7cad38",
+      "bytes": 67799892,
+      "encoding": "FLOAT32_LE",
+      "sampleRate": 44100,
+      "channels": 2,
+      "frames": 8474981,
+      "durationSeconds": 192.17643990929705,
+      "finiteSamples": 16949962,
+      "nonFiniteSamples": 0,
+      "peakPerChannel": [
+        0.8601472973823547,
+        0.7517046332359314
+      ],
+      "rmsPerChannel": [
+        0.07512787618562097,
+        0.07514007509171686
+      ],
+      "meanDcPerChannel": [
+        -0.012427268474620203,
+        -0.012514804526194068
+      ],
+      "crestFactorPerChannel": [
+        11.449109718703612,
+        10.004044211007134
+      ],
+      "channelCorrelation": 0.91282930468277,
+      "silentFrameFractionBelowMinus80Dbfs": 6.135706970906484e-06,
+      "longestSilenceSecondsBelowMinus80Dbfs": 2.2675736961451248e-05
+    }
+  ],
+  "recombination": {
+    "peak": 0.8912509232759476,
+    "peakDbfs": -1.0000001448000657,
+    "rms": 0.4041832065812271,
+    "finiteSamples": 16949962,
+    "nonFiniteSamples": 0
+  }
+}
