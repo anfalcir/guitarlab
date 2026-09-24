@@ -32,7 +32,7 @@ Use these first for current status, release identity and remaining work:
 - `RELEASE_NOTES_0.5.0-rc4.md` — H37/H37a/H37b RC4 delta and historical source-pre-gate narrative; its signed gate was later closed by CI #669;
 - `RELEASE_NOTES_0.5.0-rc5.md` — historical U11 rc5/25 freeze evidence;
 - `RELEASE_NOTES_0.5.0-rc14.md` — latest signed authority: foreground separation, branded notifications, unified take entry and deleted-project backup lifecycle;
-- `RELEASE_NOTES_0.5.0-rc18.md` — active physical corrective keeping reconstruction SNR diagnostic after the RC17 shadow false veto while retaining `single8` and RC16 audio/Studio safeguards;
+- `RELEASE_NOTES_0.5.0-rc18.md`, `RELEASE_NOTES_0.5.0-rc19.md` — active physical corrective keeping reconstruction SNR diagnostic after the RC17 shadow false veto while retaining `single8` and RC16 audio/Studio safeguards;
 - `RELEASE_NOTES_0.5.0-rc17.md` — historical corrective removing defective partitioned inference while retaining RC16 audio/Studio safeguards;
 - `RELEASE_NOTES_0.5.0-rc16.md` — historical prepared-audio integrity/canonicalization and Studio reference reinsertion corrective;
 - `RC14_FINAL_PHYSICAL_HOMOLOGATION.md` — focused RC14 target-device acceptance;
@@ -52,7 +52,7 @@ Drive result `U8m PASS · r_1790095960 · cleanup 8/8/14`, report SHA-256
 **U10/C8 is CLOSED / DIGITAL PASS** on Android CI #781 / run `35791192802`,
 exact technical source `2aa97aa8b2c3af91d35e7d48a0eeb89c2c330e63`, with 23/23
 instrumented classes, 76 observed API36 tests and 24/24 retained visual artifacts.
-**U11 remains CLOSED / DIGITAL PASS historical evidence; U12 is active on RC18.** RC18 is digitally qualified at producer `ee947c6fbbd8b24430d3a3faa04e27ef9a46856c`: Android CI signed `35990311091`, U7 verify `35990311054`, isolated shadow `35991484767`, production deploy `35992709966`, and U4 production smoke `35994148711` passed. RC18 remains pending physical listening/reinsertion acceptance.
+**U11 remains CLOSED / DIGITAL PASS historical evidence; U12 is active on the RC19 recovery corrective, with RC18 retained as the last digitally qualified signed authority.** RC18 is digitally qualified at producer `ee947c6fbbd8b24430d3a3faa04e27ef9a46856c`: Android CI signed `35990311091`, U7 verify `35990311054`, isolated shadow `35991484767`, production deploy `35992709966`, and U4 production smoke `35994148711` passed. RC18 remains pending physical listening/reinsertion acceptance.
 
 ## Normative subsystem contracts
 These define behavior and remain valid unless explicitly superseded:
