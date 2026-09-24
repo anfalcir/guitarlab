@@ -25,6 +25,32 @@ The forensic prerequisite is now satisfied. Do not patch around the defective en
 
 U12 remains open. RC19 is a digitally qualified but physically **not accepted** candidate.
 
+### Personal-use maintenance profile — authoritative scope
+
+GuitarLab is a private, single-owner application for continued music study. It is not a public upload service, commercial product or generally distributed application. Release engineering must therefore maximize dependable day-to-day use and minimize future maintenance, rather than pursue enterprise-style evidence for its own sake.
+
+Before the signed RC20 homologation APK, a finding is release-blocking only when it has a credible path to one or more of:
+
+- lost, overwritten or unrecoverable project/recording media;
+- musically unusable or structurally invalid prepared audio;
+- broken primary source acquisition for the owner's normal provider path;
+- unauthorized cross-user access, exposed secrets or an applicable remote-code/credential risk;
+- duplicate quota/cost, uncontrolled retries or an unbounded cloud resource;
+- inability to recover/cancel/adopt work safely after interruption;
+- failure to build, install, sign, launch or complete the representative owner workflow.
+
+The following remain evidence but are not automatic release vetoes when the representative workflow passes:
+
+- cross-host floating-point/hash differences inside the documented metric envelope;
+- scanner severity without contextual applicability, without an available fix, or contradicted by relevant vendor severity; accepted findings remain explicit and narrowly matched;
+- performance above the optimal target but inside the acceptable tier;
+- CPU/resource matrix cells that are not the selected production configuration;
+- p95 claims when the small personal-use sample cannot support a meaningful percentile;
+- synthetic-fixture cosmetic or diagnostic differences without structural or audible impact;
+- missing convenience diagnostics, consolidated support UI or export tooling that is not required to diagnose a current blocker.
+
+After RC20 is accepted, freeze the signed APK and digest-pinned worker. Do not rebuild, upgrade or rerun qualification merely because dependency/scanner databases changed. Reopen maintenance only for an observed functional regression, platform/provider deprecation, applicable known-exploited vulnerability, credential exposure, unacceptable cost, data-integrity risk, or an owner-requested feature. A rebuilt image must be requalified; an unchanged frozen digest does not require periodic requalification.
+
 ---
 
 ## 2. Physical incident evidence
@@ -389,7 +415,7 @@ Change only the worker inference implementation and the observability/quality ev
 
 ### 9A.3 Performance policy
 
-Performance and quality are co-equal release constraints for one representative song around three to four minutes:
+Musical quality is release-critical; performance is a bounded usability constraint for one representative song around three to four minutes:
 
 - **optimal:** wall time `<= 5 minutes`;
 - **acceptable:** wall time `> 5 and <= 15 minutes`;
@@ -398,11 +424,11 @@ Performance and quality are co-equal release constraints for one representative 
 - a high-quality result above 15 minutes is not production-ready without an explicit resource/architecture review;
 - the reported wall time must separate provisioning/cold start, model initialization, inference, render and publication.
 
-No single benchmark is sufficient. Record at least warm and cold executions and report p50/p95 when the sample count permits. Runtime claims must name song duration, device/resource shape, shifts, overlap and image digest.
+Record one cold and one warm execution for the selected production shape. Additional repetitions and p50/p95 are useful only when sample count makes them meaningful or observed variance requires investigation. Runtime claims must name song duration, device/resource shape, shifts, overlap and image digest.
 
 ### 9A.4 Resource/strategy qualification matrix
 
-Benchmark in isolated shadow jobs, never by mutating the production job in place:
+Benchmark in isolated shadow jobs, never by mutating the production job in place. The selected CPU8 baseline is blocking; alternative matrix cells are comparative evidence and do not block when the selected shape already meets quality, cost and the acceptable time tier:
 
 1. official Demucs CPU baseline using current `8 vCPU / 16 GiB` where viable;
 2. tuned CPU shapes/threads supported by Cloud Run Jobs and project quota;
@@ -491,9 +517,9 @@ W3/W4 qualification evidence (2026-09-24):
 - final hashes deterministic where the runtime promises determinism, otherwise bounded metric equivalence is documented.
 
 **W4 — shadow benchmark matrix**
-- run the resource/strategy matrix;
+- qualify the selected CPU8 shape; run alternative cells only when they can materially improve an unacceptable result or cost;
 - require quality before ranking time/cost;
-- retain downloadable listening bundles for every finalist.
+- retain a downloadable listening bundle for the selected finalist.
 
 **W5 — human listening acceptance**
 - owner listens to backing, guitar, individual stems and recombined reference;
@@ -523,7 +549,7 @@ Phase W closes only when:
 
 The current gates validate data integrity but are insufficient to establish useful musical output.
 
-Add a dedicated real-audio regression corpus with legally/project-appropriate fixtures and deterministic expected properties.
+Use the existing legal technical fixture plus the owner's private representative listening source. A larger permanent real-audio corpus is optional and must not become a maintenance burden for this personal-use release.
 
 The quality program must cover:
 - no non-finite samples;
@@ -544,7 +570,7 @@ U4 remains a transactional real-cloud smoke. A separate quality gate must own mu
 
 ---
 
-## 11. Phase SEARCH — source-search reliability, terminal UX and spelling suggestions
+## 11. Phase SEARCH — primary-flow reliability; spelling assistance is optional
 
 A target-device screen recording on 2026-09-24 exposed a separate release-blocking Prepare search defect:
 
@@ -649,7 +675,7 @@ The active Prepare screen must render this outcome locally and persistently unti
 - imports/selects a source;
 - explicitly dismisses/clears the result.
 
-Activity and the new audit journal must record the same terminal state.
+Activity must record the same terminal state. If the optional audit journal ships, it records that state too.
 
 ### 11.5 Suggestion UX
 
@@ -670,7 +696,9 @@ Requirements:
 - accessible semantics and ≥48 dp touch targets;
 - no raw provider exception text in primary copy.
 
-### 11.6 Mandatory automated coverage
+### 11.6 Proportional automated coverage
+
+Release-blocking coverage is limited to visible RESULTS/NO_EXACT_MATCH/PROVIDER_FAILURE/TIMEOUT behavior, cancellation/replacement correctness and one representative successful owner query. The deterministic typo-suggestion cases below are required only if DID_YOU_MEAN ships in RC20; otherwise they remain follow-up scope and the user can correct the query manually.
 
 Core:
 - `Memphys May Fire` vs candidate `Memphis May Fire` produces a high-confidence artist suggestion;
@@ -697,11 +725,11 @@ Android/API 36:
 - Activity receives the same terminal classification;
 - navigation/recomposition does not erase the terminal result unexpectedly.
 
-The diagnostics journal/export package must include search lifecycle events and provider warning codes without credentials or raw sensitive headers.
+If the optional diagnostics journal/export package ships, it includes search lifecycle events and provider warning codes without credentials or raw sensitive headers.
 
 ---
 
-## 12. Phase S — explicit Studio reference reinsertion
+## 12. Phase S — explicit Studio reference reinsertion — post-homologation convenience unless currently blocking
 
 Add a secondary action beside `Abrir Studio` in the Ready state:
 
@@ -735,7 +763,7 @@ Automated tests:
 
 ---
 
-## 13. Phase P — Prepare technical-detail redesign
+## 13. Phase P — Prepare technical-detail redesign — non-blocking polish
 
 The current `PrepareDiagnostics` must stop presenting every historical asset as an undifferentiated flat list.
 
@@ -773,7 +801,7 @@ Tests must assert ordering/grouping and that active references are unambiguous.
 
 ---
 
-## 14. Phase D — consolidated Diagnostics in Settings
+## 14. Phase D — consolidated Diagnostics in Settings — optional post-homologation
 
 Create one dedicated surface:
 
@@ -821,7 +849,7 @@ No raw token/session/security data is ever shown.
 
 ---
 
-## 15. Phase J — persistent audit journal
+## 15. Phase J — persistent audit journal — optional post-homologation
 
 Implement a structured local event journal instead of relying only on Logcat.
 
@@ -869,7 +897,7 @@ Never persist:
 
 ---
 
-## 16. Phase X — exportable diagnostic ZIP
+## 16. Phase X — exportable diagnostic ZIP — optional post-homologation
 
 Expose:
 **Exportar pacote de diagnóstico**
@@ -915,7 +943,7 @@ Tests:
 
 ---
 
-## 17. Phase C — cloud structured observability
+## 17. Phase C — cloud structured observability — extend only when needed
 
 Extend worker/backend logs so one job id reconstructs the complete lifecycle.
 
@@ -940,7 +968,9 @@ Cloud logs must remain free of secrets and authentication material.
 
 ---
 
-## 18. Test and qualification matrix
+## 18. Proportional test and qualification matrix
+
+Only tests covering changed code or the representative release path are mandatory for RC20. Existing broad regression remains valuable, but an unrelated flaky/cosmetic assertion may be quarantined with evidence rather than indefinitely block a personal-use candidate. No known data-loss, audio-integrity, primary-flow, quota/cost, credential or signing failure may be quarantined.
 
 ### Unit/core
 - reference-binding repair semantics;
@@ -977,35 +1007,34 @@ Cloud logs must remain free of secrets and authentication material.
 - separate representative-audio quality gate;
 - no mutation in forensic mode.
 
-### Physical
+### Physical release minimum
 On SM-X230 / Android 16:
 - reproduce/retest real source;
 - confirm audible quality;
-- verify reference reinsertion without restart;
-- export diagnostics ZIP after a real Prepare run;
-- verify logs identify the exact Cloud Run job/execution;
-- continue remaining U12 MK-300/recording/10-minute residuals only after Prepare audio is usable.
+- complete the owner's normal search/acquire → Prepare → Studio → save/reopen path;
+- confirm an interrupted/retried Prepare does not duplicate quota or lose project state;
+- verify logs identify the exact Cloud Run job/execution when troubleshooting is required.
+
+Reference reinsertion, diagnostics ZIP, MK-300 and exhaustive duration/hardware matrices are follow-up acceptance only when the owner uses that capability or a related defect is observed.
 
 ---
 
 ## 19. Release gates
 
-No successor APK may be signed until:
+The RC20 personal homologation APK may be signed when:
 
 1. F1 forensic report is complete;
 2. root-cause boundary is identified;
 3. Phase W official-Demucs worker reconstruction is implemented;
 4. exact finalist worker passes owner listening and the `<=15 min` performance ceiling;
-5. source search has explicit non-silent terminal states and typo suggestions are green;
-6. Studio reinsertion action is green;
-7. Prepare diagnostics are de-duplicated;
-8. local audit journal + diagnostic ZIP are green;
-9. worker/backend observability is green where required;
-10. unit/Lint/build/API 36 pass;
-11. U7 verify/shadow/production gates pass for the backend change;
-12. U4 passes;
-13. representative audio-quality gate passes;
-14. physical listening acceptance passes.
+5. the owner's primary search/acquisition path reaches a visible terminal state; typo suggestion is desirable but not blocking when the correct query works and errors do not disappear silently;
+6. relevant unit/Lint/build/API 36 tests pass, with unrelated quarantines explicitly justified;
+7. U7 verify/shadow and the controlled production cutover pass for the backend change;
+8. U4 transactional smoke passes;
+9. representative audio-quality evidence passes;
+10. physical listening and normal owner workflow acceptance pass.
+
+Studio reinsertion, Prepare diagnostics reorganization, consolidated Diagnostics, audit journal, diagnostic ZIP, extended structured observability and exhaustive matrices are not prerequisites for the signed personal homologation APK. They remain backlog items and become blocking only if needed to resolve an observed release-critical defect.
 
 Any source change after RC19 freeze creates a new candidate identity:
 - target: `0.5.0-rc20`;
@@ -1023,19 +1052,22 @@ Mandatory order:
 → **F3 controlled diagnostic replay**
 → **Case B / demucs.cpp root cause CLOSED**
 → **W official PyTorch Demucs worker reconstruction**
-→ **W shadow quality/performance/cost matrix**
+→ **W selected-shape shadow quality/performance/cost qualification**
 → **W owner listening acceptance**
 → controlled production cutover + rollback proof
-→ **SEARCH explicit terminal UX + typo suggestions**
+→ **SEARCH non-silent terminal UX + representative owner acquisition**
+→ relevant Android/U7/U4 qualification
+→ signed RC20
+→ focused physical acceptance.
+
+After homologation, and only as needed or explicitly desired:
+
+**DID_YOU_MEAN enhancement**
 → **S Studio reinsertion**
 → **P Prepare diagnostics cleanup**
 → **D/J/X diagnostics + audit export**
-→ **C cloud observability**
-→ quality-gate closure
-→ Android/U7/U4 digital qualification
-→ signed RC20
-→ focused physical acceptance
-→ remaining U12 final-homologation residuals.
+→ **C extended cloud observability**
+→ remaining optional U12 residuals.
 
 UI/diagnostic improvements may be designed in parallel after F1, but no audio-algorithm correction may bypass the forensic decision point.
 
@@ -1043,7 +1075,7 @@ UI/diagnostic improvements may be designed in parallel after F1, but no audio-al
 
 ## 21. Exit criteria
 
-This plan closes only when all of the following are true:
+The personal-use RC20 release line closes when all of the following are true:
 
 - the physical RC19 job lineage is concretely reconstructed;
 - it is known whether a fresh Cloud Run execution occurred;
@@ -1052,10 +1084,8 @@ This plan closes only when all of the following are true:
 - owner listening accepts the exact finalist stems/backing/guitar;
 - representative worker time is `<=15 minutes`, preferably `<=5 minutes`, with cold/warm/cost evidence;
 - a representative real-source gate prevents recurrence;
-- source search never terminates silently and high-confidence spelling corrections can be suggested from existing provider evidence;
-- prepared references can be reinserted into Studio without restart;
-- Prepare details show active vs historical data without ambiguity;
-- Settings owns one coherent Diagnostics surface;
-- the app can export a sanitized evidence ZIP suitable for future incident analysis;
+- source search never terminates silently and the owner's representative acquisition succeeds;
 - the successor signed candidate passes focused physical listening;
-- U12 can resume/complete its remaining hardware acceptance with no release-blocking Prepare audio defect.
+- normal Prepare → Studio → save/reopen use has no release-blocking defect.
+
+The broader improvement plan may remain open after signed homologation for spelling suggestions, reference reinsertion, diagnostics cleanup, journal/ZIP, extended observability and unused hardware residuals. Those items do not invalidate the frozen personal-use release unless the owner encounters the related problem.

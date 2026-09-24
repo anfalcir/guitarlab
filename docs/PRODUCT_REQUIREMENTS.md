@@ -151,7 +151,9 @@ Offline export respects current timeline/mix and never modifies authoritative so
 - The same in-app GuitarLab guide is reachable from Home and Studio and stays synchronized with visible workflows.
 
 ## Reliability and security
-- Mandatory promoted-RC gates: JVM/unit, Android Lint, debug/release assembly, API36 connected regression, isolated target geometry, exact artifact provenance and locked signing verification.
+- Deployment profile is private single-owner/personal use, not public distribution or commercial service. Release gates are risk-based: data/media integrity, musical validity, primary acquisition, quota/cost, credentials, recovery and exact signing remain strict; non-applicable scanner severity, alternative performance cells, unsupported percentile claims and convenience diagnostics do not block by default.
+- After owner acceptance, the signed APK and digest-pinned backend form a frozen appliance baseline. Do not perform maintenance-only rebuilds or upgrades without an observed regression, provider/platform deprecation, applicable known-exploited vulnerability, credential exposure, cost/integrity risk or owner-requested feature.
+- Mandatory promoted-RC gates: relevant JVM/unit tests, Android Lint, release assembly, representative API36 regression, exact artifact provenance and locked signing verification. Debug assembly and isolated geometry run when affected by the candidate or when prior evidence is invalidated; unrelated flaky/cosmetic coverage may be quarantined with an explicit reason.
 - Current regression scope retains prior editing/persistence/audio/routing/timing/waveform/Home/backup behavior through H35a, including global-vs-take synchronization and quiet/silent calibration contracts.
 - Source materialization must be deterministic, hash-verified, idempotent and fail closed on drift.
 - Signed homologation uses CI-only signing material and locked certificate verification.

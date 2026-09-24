@@ -347,3 +347,9 @@ The gate retains this finding and rationale in its evidence but does not block o
 U7 #154 proved the scoped waiver behaved correctly by still blocking ten other CRITICAL package findings. Rather than broadening waivers, RC20 moves its otherwise unchanged Python 3.12.14 runtime from digest-pinned Debian 12 to digest-pinned Debian 13; the replacement base reported zero CRITICAL findings under the same Trivy database. Full-image scanning remains authoritative because FFmpeg expands the runtime package closure.
 
 The full Debian 13 image in U7 #155 retained one finding: `CVE-2026-6653` in `libxml2`, rated CRITICAL only by the NVD source while Red Hat and Ubuntu rate the Linux issue MEDIUM; no fixed version exists. It is accepted only when CVE, package, affected status, absence of fix, NVD severity source and both vendor ratings match. The report remains retained and any metadata change reopens the block automatically.
+
+## D-090 — RC20 is a frozen personal-use appliance, not a continuously serviced distribution
+
+GuitarLab targets one owner, private projects and provider-mediated source acquisition. Release rigor protects the owner's actual risks: media/project loss, unusable audio, broken primary flow, quota/cost duplication, credentials, recovery and signed artifact identity. Evidence without a credible path to those harms does not automatically veto homologation.
+
+After physical acceptance, the exact signed APK and digest-pinned worker are frozen. Scanner-database churn, new optional matrix cells, percentile collection, convenience diagnostics and dependency freshness do not themselves authorize a rebuild. Maintenance reopens only for an observed regression, provider/platform deprecation, applicable known-exploited vulnerability, credential exposure, unacceptable cost/integrity risk or an owner-requested feature. Any rebuilt digest receives proportional requalification of the affected path.
