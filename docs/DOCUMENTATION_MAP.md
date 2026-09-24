@@ -7,7 +7,7 @@ Repository documentation is split into **live authority**, **normative contracts
 
 A historical document may intentionally contain an old statement such as “current”, “latest”, “pending”, an old branch name or an old hardware target because it preserves contemporaneous evidence. Such statements apply only to that document's dated context and **never override the live authority set below**.
 
-## Live authority — unified line through U11 closure / U12 RC18 physical corrective
+## Live authority — unified line through U11 closure / U12 RC19 physical audio-forensics corrective
 Use these first for current status, release identity and remaining work:
 - `README.md` — repository entry point;
 - `CURRENT_STATE.md` — current unified source candidate, latest signed authority and remaining digital/physical residual;
@@ -22,6 +22,7 @@ Use these first for current status, release identity and remaining work:
 - `U11_FINAL_DIGITAL_RELEASE_GATE.md` — exact rc5 freeze/signing/cloud/security gate and producer-identity contract;
 - `U11_SECURITY_DOCUMENTATION_AUDIT.md` — pre-freeze materialization, credential-hygiene, OAuth-scope, tuner-exclusion and live-doc consistency PASS;
 - `U12_FINAL_PHYSICAL_HOMOLOGATION.md` — consolidated final SM-X230 + MK-300 physical-only acceptance campaign;
+- `U12_RC19_AUDIO_FORENSICS_AND_DIAGNOSTICS_PLAN.md` — active release-blocking RC19 physical-audio investigation, Studio reinsertion, diagnostics/journal/export and quality-gate closure plan;
 - `U0_BASELINE_INVENTORY.md` — closed U0 baseline, schema/fixture freeze and GBW→GuitarLab ownership map; its machine-readable companion is `integration/u0/inventory.json`;
 - `POST_H28_HARDENING_AND_EXTERNAL_CONTROL_PLAN.md` — H29→1.1 implementation/closure plan;
 - `CANDIDATE_IDENTITY_POLICY.md` — candidate identity/provenance rules;
@@ -31,7 +32,7 @@ Use these first for current status, release identity and remaining work:
 - `RELEASE_NOTES_0.5.0-rc3.md` — historical signed RC3 behavior delta;
 - `RELEASE_NOTES_0.5.0-rc4.md` — H37/H37a/H37b RC4 delta and historical source-pre-gate narrative; its signed gate was later closed by CI #669;
 - `RELEASE_NOTES_0.5.0-rc5.md` — historical U11 rc5/25 freeze evidence;
-- `RELEASE_NOTES_0.5.0-rc14.md` — latest signed authority: foreground separation, branded notifications, unified take entry and deleted-project backup lifecycle;
+- `RELEASE_NOTES_0.5.0-rc14.md` — historical physically tested fallback with foreground separation, branded notifications, unified take entry and deleted-project backup lifecycle;
 - `RELEASE_NOTES_0.5.0-rc18.md`, `RELEASE_NOTES_0.5.0-rc19.md` — active physical corrective keeping reconstruction SNR diagnostic after the RC17 shadow false veto while retaining `single8` and RC16 audio/Studio safeguards;
 - `RELEASE_NOTES_0.5.0-rc17.md` — historical corrective removing defective partitioned inference while retaining RC16 audio/Studio safeguards;
 - `RELEASE_NOTES_0.5.0-rc16.md` — historical prepared-audio integrity/canonicalization and Studio reference reinsertion corrective;
@@ -52,7 +53,7 @@ Drive result `U8m PASS · r_1790095960 · cleanup 8/8/14`, report SHA-256
 **U10/C8 is CLOSED / DIGITAL PASS** on Android CI #781 / run `35791192802`,
 exact technical source `2aa97aa8b2c3af91d35e7d48a0eeb89c2c330e63`, with 23/23
 instrumented classes, 76 observed API36 tests and 24/24 retained visual artifacts.
-**U11 remains CLOSED / DIGITAL PASS historical evidence; U12 is active on the RC19 recovery corrective, with RC18 retained as the last digitally qualified signed authority.** RC18 is digitally qualified at producer `ee947c6fbbd8b24430d3a3faa04e27ef9a46856c`: Android CI signed `35990311091`, U7 verify `35990311054`, isolated shadow `35991484767`, production deploy `35992709966`, and U4 production smoke `35994148711` passed. RC18 remains pending physical listening/reinsertion acceptance.
+**U11 remains CLOSED / DIGITAL PASS historical evidence; U12 is active on the RC19 physical audio-forensics corrective.** RC19 is the latest signed digital authority: Android CI #852 / run `36026458960` PASS on frozen source `e0a8a2218accbe9c8eec413a40f4fedf7d9da9bc`, U7 production #130 / run `36024185442` PASS, and post-cutover U4 #160 / run `36026359099` PASS. RC19 is **not physically accepted** because a real Prepare run produced unusable audio; `U12_RC19_AUDIO_FORENSICS_AND_DIAGNOSTICS_PLAN.md` now governs the investigation and successor gate.
 
 ## Normative subsystem contracts
 These define behavior and remain valid unless explicitly superseded:
@@ -78,11 +79,15 @@ These are preserved for traceability and must not be used as current-state autho
 - milestone-specific evidence such as `M2_HOMOLOGATION_EVIDENCE.md`, `H22_AUDIO_ROUTE_UX.md`, `H24_HOME_PROJECT_LIBRARY.md`, `H25_UI_SETTINGS_SAFETY.md`, `H26D_MATERIALIZER_RECOVERY.md`, `H26E_CI650_DIGITAL_PASS.md` and similar exact-source records.
 
 ## Current evidence boundary
-RC18 (`0.5.0-rc18` / 38) is the active digitally qualified physical-corrective candidate and remains pending target-device acceptance. Producer: `ee947c6fbbd8b24430d3a3faa04e27ef9a46856c`; signed artifact: `GuitarLabStudio-0.5.0-rc18-homologacao` / artifact id `10804182567`. RC14 is the previous physically tested fallback: Android run `35937621047`, producer `13c6f36e5e3c2bcf82cf21f885e8d7aa6c41ed34`.
+RC19 (`0.5.0-rc19` / 39) is the latest signed digitally qualified candidate. Frozen producer source: `e0a8a2218accbe9c8eec413a40f4fedf7d9da9bc`; Android CI #852 / run `36026458960` PASS; signed artifact `GuitarLabStudio-0.5.0-rc19-homologacao` / artifact id `10820021943`; signed APK SHA-256 `20c6a49efa69828653862c29c7907cd734bd2e3f62235295cd53b7f7c571c50b`.
+
+RC19 physical acceptance is **BLOCKED**. A real target-device Prepare run for job `c3ba40ec-6153-483a-801f-9e838b3e3b60` completed but produced unusable audio despite valid v2 WAV/hash/container properties. The active authority for next work is `U12_RC19_AUDIO_FORENSICS_AND_DIAGNOSTICS_PLAN.md`. Read-only production forensics and local audio forensics must precede any separation-algorithm change.
+
+RC14 remains the previous physically tested fallback: Android run `35937621047`, producer `13c6f36e5e3c2bcf82cf21f885e8d7aa6c41ed34`.
 
 Signer SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
 
-RC13 same-producer supporting evidence is listed above. Older RC9–RC11 evidence remains historical. Remaining work is RC14 exact-source digital qualification followed by the focused target-device checklist.
+A source correction after RC19 freeze requires a new signed candidate identity; target `0.5.0-rc20` / versionCode `40` once the forensic decision point is closed.
 
 ## Repository audits
 - `REPOSITORY_SANITIZATION_2026-09-20.md` records the branch audit supporting a single-branch (`main`) repository cleanup.
@@ -91,4 +96,4 @@ RC13 same-producer supporting evidence is listed above. Older RC9–RC11 evidenc
 ## Producer identity rule
 A later docs-only commit never retroactively changes an already-produced APK identity. Every promoted candidate remains bound to its exact workflow producer SHA and signed APK hash.
 
-- `scripts/materialize_ci_sources_u12al.py` — current fail-closed RC19 source tail; U12al rebuilds the recovery callable from clean RC18 source and chains U12aj → U12ak → U12al.
+- `scripts/materialize_ci_sources_u12an.py` — current fail-closed RC19 source tail; U12an chains the authoritative recovery, shadow-gate and same-generation-priority correctives through the signed RC19 source.
