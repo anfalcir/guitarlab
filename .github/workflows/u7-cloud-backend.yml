@@ -207,10 +207,27 @@ jobs:
     name: Controlled shadow or production deploy
     needs: verify
     if: >-
-      github.event_name == 'workflow_dispatch' &&
-      (inputs.mode == 'shadow' || inputs.mode == 'production') &&
-      inputs.confirm == 'DEPLOY' &&
-      (inputs.mode != 'production' || inputs.production_confirm == 'PRODUCTION')
+      github.repository_id == '1361533070' &&
+      github.repository_owner_id == '216095257' &&
+      (
+        (
+          github.event_name == 'workflow_dispatch' &&
+          (inputs.mode == 'shadow' || inputs.mode == 'production') &&
+          inputs.confirm == 'DEPLOY' &&
+          (inputs.mode != 'production' || inputs.production_confirm == 'PRODUCTION')
+        ) ||
+        (
+          github.event_name == 'push' &&
+          github.ref == 'refs/heads/main' &&
+          (
+            contains(github.event.head_commit.message, '[run u7 shadow]') ||
+            (
+              contains(github.event.head_commit.message, '[run u7 production]') &&
+              contains(github.event.head_commit.message, '[confirm production]')
+            )
+          )
+        )
+      )
     permissions:
       contents: read
       id-token: write
@@ -225,9 +242,27 @@ jobs:
       - name: Checkout exact verified source
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
+      - name: Resolve controlled deploy mode
+        id: deploy_mode
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            mode="${{ inputs.mode }}"
+          elif [[ "${{ github.event.head_commit.message }}" == *"[run u7 shadow]"* ]]; then
+            mode="shadow"
+          elif [[ "${{ github.event.head_commit.message }}" == *"[run u7 production]"* ]] &&
+               [[ "${{ github.event.head_commit.message }}" == *"[confirm production]"* ]]; then
+            mode="production"
+          else
+            echo "::error::No controlled deploy mode was authorized." >&2
+            exit 1
+          fi
+          printf 'mode=%s\n' "$mode" >> "$GITHUB_OUTPUT"
+
       - name: Initialize deploy evidence
         shell: bash
-        run: printf 'source_sha=%s\nmode=%s\n' "$GITHUB_SHA" "${{ inputs.mode }}" > u7-deploy-evidence.txt
+        run: printf 'source_sha=%s\nmode=%s\n' "$GITHUB_SHA" "${{ steps.deploy_mode.outputs.mode }}" > u7-deploy-evidence.txt
 
       - name: Authenticate keylessly to Google Cloud
         uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
@@ -253,14 +288,14 @@ jobs:
         run: npm ci --prefix cloud/remote-separation/functions
 
       - name: Install pinned Firebase CLI for production
-        if: inputs.mode == 'production'
+        if: steps.deploy_mode.outputs.mode == 'production'
         run: npm install --global firebase-tools@15.30.2
 
       - name: Validate deployment inputs before mutation
         shell: bash
         run: |
           set -euo pipefail
-          if [[ "${{ inputs.mode }}" == production ]]; then
+          if [[ "${{ steps.deploy_mode.outputs.mode }}" == production ]]; then
             test -n "$GBW_ALLOWED_UIDS" || {
               echo "::error::Repository secret GBW_ALLOWED_UIDS is required for production." >&2
               exit 1
@@ -281,7 +316,7 @@ jobs:
         id: worker
         shell: bash
         env:
-          GBW_JOB_NAME: ${{ inputs.mode == 'shadow' && 'guitarlab-demucs-shadow' || 'gbw-demucs' }}
+          GBW_JOB_NAME: ${{ steps.deploy_mode.outputs.mode == 'shadow' && 'guitarlab-demucs-shadow' || 'gbw-demucs' }}
         run: |
           set -euo pipefail
           pinned="$(bash cloud/remote-separation/scripts/deploy-worker.sh | tail -1)"
@@ -290,13 +325,13 @@ jobs:
           echo "deployed_image=$pinned" >> u7-deploy-evidence.txt
 
       - name: Deploy production rules and Functions
-        if: inputs.mode == 'production'
+        if: steps.deploy_mode.outputs.mode == 'production'
         run: bash cloud/remote-separation/scripts/deploy-functions.sh
 
       - name: Verify deployed runtime contract
         shell: bash
         env:
-          GBW_JOB_NAME: ${{ inputs.mode == 'shadow' && 'guitarlab-demucs-shadow' || 'gbw-demucs' }}
+          GBW_JOB_NAME: ${{ steps.deploy_mode.outputs.mode == 'shadow' && 'guitarlab-demucs-shadow' || 'gbw-demucs' }}
           EXPECTED_IMAGE: ${{ steps.worker.outputs.pinned_image }}
         run: |
           set -euo pipefail
@@ -309,14 +344,15 @@ jobs:
       - name: Exercise real prepared-reference v2 job contract
         shell: bash
         env:
-          GBW_JOB_NAME: ${{ inputs.mode == 'shadow' && 'guitarlab-demucs-shadow' || 'gbw-demucs' }}
+          GBW_JOB_NAME: ${{ steps.deploy_mode.outputs.mode == 'shadow' && 'guitarlab-demucs-shadow' || 'gbw-demucs' }}
           MODEL_SHA256: 09704f4ceae204e56e77d5eefd6ac71d7275be81fd507e6913371d59abcee856
+          GBW_RECOVERY_GATE_REQUIRED: ${{ steps.deploy_mode.outputs.mode == 'production' && '1' || '0' }}
         run: |
           set -euo pipefail
           bash scripts/u4_cloud_integration_smoke.sh | tee -a u7-deploy-evidence.txt
 
       - name: Restore prior production image after failed cutover
-        if: failure() && inputs.mode == 'production' && env.PREVIOUS_PRODUCTION_IMAGE != ''
+        if: failure() && steps.deploy_mode.outputs.mode == 'production' && env.PREVIOUS_PRODUCTION_IMAGE != ''
         shell: bash
         run: |
           set -euo pipefail
@@ -329,6 +365,6 @@ jobs:
         if: always()
         uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4
         with:
-          name: u7-cloud-deploy-${{ github.sha }}-${{ inputs.mode }}
+          name: u7-cloud-deploy-${{ github.sha }}-${{ steps.deploy_mode.outputs.mode }}
           path: u7-deploy-evidence.txt
           if-no-files-found: error
