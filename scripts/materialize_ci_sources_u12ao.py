@@ -6,7 +6,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 PREVIOUS = ROOT / "scripts/materialize_ci_sources_u12an.py"
 PATCH = ROOT / ".source-parts/U12aoOfficialDemucsW0W2.patch"
-PATCH_BLOB = "9ce8198f597d2a0fc616a47dda9537e1d40b3cf1"
+PATCH_BLOB = "9484119a39962c26f80176a4b490909207a21f7b"
 TARGETS = {
     ".github/workflows/u7-cloud-backend.yml": ("0c1cd61420c42eff1ced6354d1e6cd6919aa8ee9", "e0789d3e80003b0ee45a79e2e4de8ad5c6d0e2b2"),
     "cloud/remote-separation/functions/src/index.ts": ("b0c77616fa8b6d5beaf0056e62b270af89091c88", "451f6618b4275236e86982ad37e04758eeaca33a"),

@@ -19,7 +19,7 @@ diff --git a/cloud/remote-separation/functions/src/index.ts b/cloud/remote-separ
  import {logger} from "firebase-functions";
 -import {ACTIVE_STATES, BACKEND_POLICY_REVISION, JOB_ID, MAX_INPUT_BYTES, MAX_MONTHLY_JOBS, RESULT_RECOVERY_WINDOW_MS, SHA256, decideEnqueue, isIdempotentJob, monthKey, requireAckable, retentionAction, sameGeneration} from "./policy";
 +import {ACTIVE_STATES, BACKEND_POLICY_REVISION, JOB_ID, MAX_INPUT_BYTES, MAX_MONTHLY_JOBS, RESULT_RECOVERY_WINDOW_MS, SHA256, WORKER_CONTRACT, decideEnqueue, isIdempotentJob, monthKey, requireAckable, retentionAction, sameGeneration} from "./policy";
- 
+
  initializeApp();
  const db = getFirestore();
 @@ -46,7 +46,8 @@ export const findRecoverableRemoteSeparation = onCall({region, enforceAppCheck:
@@ -61,7 +61,7 @@ diff --git a/cloud/remote-separation/functions/src/policy.ts b/cloud/remote-sepa
 +export const WORKER_CONTRACT = "official-demucs-pytorch-v1";
  export const RESULT_RECOVERY_WINDOW_MS = 72 * 60 * 60 * 1000;
  export const MAX_INPUT_BYTES = 1_073_741_824;
- 
+
 @@ -46,6 +47,8 @@ export type ActiveJobRecord = {
    projectId?: unknown;
    sourceAssetId?: unknown;
@@ -69,7 +69,7 @@ diff --git a/cloud/remote-separation/functions/src/policy.ts b/cloud/remote-sepa
 +  state?: unknown;
 +  workerContract?: unknown;
  };
- 
+
  export function sameGeneration(
 @@ -66,15 +69,27 @@ export function decideEnqueue(
    sourceAssetId: string,
@@ -118,15 +118,15 @@ diff --git a/cloud/remote-separation/functions/src/test/policy.test.ts b/cloud/r
    monthKey,
 @@ -56,7 +57,7 @@ test("cancel requested still occupies the single active-job slot", () =>
    assert.equal(ACTIVE_STATES.has("CANCEL_REQUESTED"), true));
- 
+
  test("backend policy revision is explicit", () =>
 -  assert.equal(BACKEND_POLICY_REVISION, "rc19-q40-single8-prepared-v2-recovery"));
 +  assert.equal(BACKEND_POLICY_REVISION, "rc20-q40-official-demucs-prepared-v2-recovery"));
- 
+
  test("retention preserves recent results and expires abandoned imports after recovery window", () => {
    const now = Date.UTC(2026, 8, 23, 12);
 @@ -69,7 +70,7 @@ test("retention preserves recent results and expires abandoned imports after rec
- 
+
  test("same generation recovery wins without quota consumption or new dispatch", () => {
    const hash = "a".repeat(64);
 -  const active = [{jobId: "job-good", projectId: "p", sourceAssetId: "source", inputSha256: hash}];
@@ -439,14 +439,14 @@ diff --git a/cloud/remote-separation/scripts/deploy-worker.sh b/cloud/remote-sep
 +  --clear-volumes \
 +  --clear-volume-mounts \
    --quiet
- 
+
  JOB_JSON="$(gcloud run jobs describe "$GBW_JOB_NAME" \
    --project "$GBW_GCP_PROJECT" \
    --region "$GBW_REGION" \
    --format=json)"
 -python3 -c 'import json,sys; d=json.load(sys.stdin); delay=str(d["spec"].get("delayExecution", "false")).lower(); assert delay not in ("true","1"), f"delayExecution unexpectedly enabled: {delay}"; c=d["spec"]["template"]["spec"]["template"]["spec"]["containers"][0]; env={row["name"]:row.get("value","") for row in c.get("env",[])}; expected={"GBW_VCPU":"8","GBW_DEMUCS_BINARY":"/usr/local/bin/demucs.cpp.main","GBW_DEMUCS_MT_THREADS":"0","OPENBLAS_NUM_THREADS":"8","OMP_NUM_THREADS":"8"}; missing={k:(env.get(k),v) for k,v in expected.items() if env.get(k)!=v}; assert not missing, f"unexpected production inference contract: {missing}"' <<<"$JOB_JSON"
 +python3 -c 'import json,sys; d=json.load(sys.stdin); delay=str(d["spec"].get("delayExecution", "false")).lower(); assert delay not in ("true","1"), f"delayExecution unexpectedly enabled: {delay}"; c=d["spec"]["template"]["spec"]["template"]["spec"]["containers"][0]; env={row["name"]:row.get("value","") for row in c.get("env",[])}; expected={"GBW_VCPU":"8","GBW_MODEL_REPO":"/opt/demucs/models","GBW_DEMUCS_DEVICE":"cpu","GBW_DEMUCS_SHIFTS":"1","GBW_DEMUCS_OVERLAP":"0.5","GBW_DEMUCS_CPU_THREADS":"8","OMP_NUM_THREADS":"8","MKL_NUM_THREADS":"8","OPENBLAS_NUM_THREADS":"8","NUMEXPR_NUM_THREADS":"8"}; missing={k:(env.get(k),v) for k,v in expected.items() if env.get(k)!=v}; assert not missing, f"unexpected official Demucs inference contract: {missing}"; assert not d["spec"]["template"]["spec"]["template"]["spec"].get("volumes"), "worker must not depend on runtime model volumes"' <<<"$JOB_JSON"
- 
+
  printf '%s\n' "$GBW_PINNED_IMAGE"
 diff --git a/cloud/remote-separation/worker/Dockerfile b/cloud/remote-separation/worker/Dockerfile
 --- a/cloud/remote-separation/worker/Dockerfile
@@ -769,9 +769,9 @@ diff --git a/cloud/remote-separation/worker/benchmark.py b/cloud/remote-separati
 -result to Cloud Storage, and deletes local audio on exit.
 -"""
 +"""Isolated official-Demucs benchmark harness for Phase W shadow qualification."""
- 
+
  from __future__ import annotations
- 
+
 +import argparse
  import json
 -import os
@@ -780,7 +780,7 @@ diff --git a/cloud/remote-separation/worker/benchmark.py b/cloud/remote-separati
  import tempfile
  import time
  from pathlib import Path
- 
+
  import gbw_worker as worker
 -
 +from demucs_engine import (
@@ -795,7 +795,7 @@ diff --git a/cloud/remote-separation/worker/benchmark.py b/cloud/remote-separati
 +    DemucsPyTorchRunner,
 +    EngineError,
 +)
- 
+
  STRATEGIES = {
 -    "single8": {
 -        "binary": "/usr/local/bin/demucs.cpp.main",
@@ -808,16 +808,16 @@ diff --git a/cloud/remote-separation/worker/benchmark.py b/cloud/remote-separati
 +        "overlap": 0.5,
      },
  }
- 
- 
+
+
  def strategy(name: str) -> dict:
      try:
 -        return STRATEGIES[name]
 +        return dict(STRATEGIES[name])
      except KeyError as error:
          raise ValueError(f"unknown benchmark strategy: {name}") from error
- 
- 
+
+
 -def run() -> dict:
 -    bucket_name = os.environ["GBW_BUCKET"].strip()
 -    input_path = os.environ["GBW_BENCH_INPUT_PATH"].strip()
@@ -837,7 +837,7 @@ diff --git a/cloud/remote-separation/worker/benchmark.py b/cloud/remote-separati
 -
 +def run(args: argparse.Namespace) -> dict:
      from google.cloud import storage
- 
+
 -    started_wall = time.monotonic()
 -    storage_client = storage.Client()
 -    bucket = storage_client.bucket(bucket_name)
@@ -872,7 +872,7 @@ diff --git a/cloud/remote-separation/worker/benchmark.py b/cloud/remote-separati
 -        input_blob.download_to_filename(str(source))
 +        bucket.blob(args.input_path).download_to_filename(str(source))
          download_ms = round((time.monotonic() - download_started) * 1000)
- 
+
          canonical_started = time.monotonic()
          worker.canonicalize(source, canonical)
          canonical_ms = round((time.monotonic() - canonical_started) * 1000)
@@ -880,7 +880,7 @@ diff --git a/cloud/remote-separation/worker/benchmark.py b/cloud/remote-separati
 +        canonical_metrics = worker.measure_wav(canonical)
 +        if canonical_metrics.non_finite_samples:
 +            raise worker.WorkerError("INPUT_UNSUPPORTED", "canonical benchmark input contains non-finite samples")
- 
+
 -        env = os.environ.copy()
 -        env["OPENBLAS_NUM_THREADS"] = str(config["blas_threads"])
 -        env["OMP_NUM_THREADS"] = str(config["blas_threads"])
@@ -890,7 +890,7 @@ diff --git a/cloud/remote-separation/worker/benchmark.py b/cloud/remote-separati
 +        except EngineError as error:
 +            raise worker.WorkerError(error.code, str(error)) from error
 +        asset_validation_ms = round((time.monotonic() - asset_started) * 1000)
- 
+
 -        command = [str(binary), str(model_path), str(canonical), str(raw_dir)]
 -        if config["mt_threads"]:
 -            command.append(str(config["mt_threads"]))
@@ -906,7 +906,7 @@ diff --git a/cloud/remote-separation/worker/benchmark.py b/cloud/remote-separati
 -        after = resource.getrusage(resource.RUSAGE_CHILDREN)
 -        if completed.returncode:
 -            raise RuntimeError(f"Demucs benchmark exited {completed.returncode}")
- 
+
          normalize_started = time.monotonic()
 -        outputs = worker.normalize_outputs(raw_dir, root / "final")
 -        contracts = [worker.wav_contract(path) for path in outputs]
@@ -914,7 +914,7 @@ diff --git a/cloud/remote-separation/worker/benchmark.py b/cloud/remote-separati
 -            raise RuntimeError("benchmark stem contracts differ")
 +        outputs = worker.normalize_outputs(raw_outputs, root / "final")
          normalize_ms = round((time.monotonic() - normalize_started) * 1000)
- 
+
 -        total_ms = round((time.monotonic() - started_wall) * 1000)
 -        result = {
 -            "schemaVersion": 1,
@@ -1001,7 +1001,7 @@ diff --git a/cloud/remote-separation/worker/benchmark.py b/cloud/remote-separati
 +            "estimatedCostUsd": cost,
 +            "maxRssKiB": resource.getrusage(resource.RUSAGE_SELF).ru_maxrss,
          }
- 
+
 -        payload = json.dumps(result, sort_keys=True, separators=(",", ":"))
 -        bucket.blob(result_path).upload_from_string(payload, content_type="application/json")
 -        print(json.dumps({"event": "benchmark_result", **result}, separators=(",", ":")))
@@ -1026,8 +1026,8 @@ diff --git a/cloud/remote-separation/worker/benchmark.py b/cloud/remote-separati
 +    if args.json_out:
 +        Path(args.json_out).write_text(encoded + "\n", encoding="utf-8")
 +    return 0
- 
- 
+
+
  if __name__ == "__main__":
 -    run()
 +    raise SystemExit(main())
@@ -1218,7 +1218,7 @@ diff --git a/cloud/remote-separation/worker/gbw_worker.py b/cloud/remote-separat
 @@ -27,17 +27,27 @@
  from pathlib import Path
  from typing import Callable
- 
+
 -STEMS = ("drums", "bass", "other", "vocals", "guitar", "piano")
 +from audio_quality import evaluate_stems, measure_float32_stereo
 +from demucs_engine import (
@@ -1246,8 +1246,8 @@ diff --git a/cloud/remote-separation/worker/gbw_worker.py b/cloud/remote-separat
 -MODEL_SHA256 = "09704f4ceae204e56e77d5eefd6ac71d7275be81fd507e6913371d59abcee856"
 -ENGINE_REVISION = "f1206e9adeea103aef4a636b9e62297cf1f8e34e"
  MAX_INPUT_BYTES = 1_073_741_824
- 
- 
+
+
 @@ -55,15 +65,33 @@ class Config:
      project_id: str
      input_path: str
@@ -1261,11 +1261,11 @@ diff --git a/cloud/remote-separation/worker/gbw_worker.py b/cloud/remote-separat
 +    shifts: int
 +    overlap: float
 +    cpu_threads: int
- 
+
      @property
      def prefix(self) -> str:
          return f"remote/v1/users/{self.uid}/jobs/{self.job_id}"
- 
+
 +    @property
 +    def blas_threads(self) -> int:
 +        return self.cpu_threads
@@ -1289,7 +1289,7 @@ diff --git a/cloud/remote-separation/worker/gbw_worker.py b/cloud/remote-separat
 @@ -72,42 +100,34 @@ def required(name: str) -> str:
                  raise WorkerError("CONFIG_INVALID", f"missing {name}")
              return value
- 
+
 -        threads = int(os.environ.get("OPENBLAS_NUM_THREADS", "8"))
 -        if threads not in (1, 2, 4, 8):
 -            raise WorkerError("CONFIG_INVALID", "OPENBLAS_NUM_THREADS must be 1, 2, 4, or 8")
@@ -1343,12 +1343,12 @@ diff --git a/cloud/remote-separation/worker/gbw_worker.py b/cloud/remote-separat
 +        except EngineError as error:
 +            raise WorkerError(error.code, str(error)) from error
          return config
- 
- 
+
+
 @@ -119,11 +139,6 @@ def sha256_file(path: Path) -> str:
      return digest.hexdigest()
- 
- 
+
+
 -def validate_model(path: Path) -> None:
 -    if not path.is_file() or path.stat().st_size != MODEL_BYTES or sha256_file(path) != MODEL_SHA256:
 -        raise WorkerError("MODEL_INVALID", "controlled htdemucs_6s checkpoint failed integrity validation")
@@ -1359,8 +1359,8 @@ diff --git a/cloud/remote-separation/worker/gbw_worker.py b/cloud/remote-separat
  IEEE_FLOAT_SUBFORMAT_GUID = bytes.fromhex("0300000000001000800000aa00389b71")
 @@ -218,6 +233,15 @@ def float_data_span(path: Path) -> tuple[int, int]:
      raise WorkerError("OUTPUT_INVALID", f"missing WAV data: {path.name}")
- 
- 
+
+
 +def measure_wav(path: Path):
 +    contract = wav_contract(path)
 +    offset, data_bytes = float_data_span(path)
@@ -1372,11 +1372,11 @@ diff --git a/cloud/remote-separation/worker/gbw_worker.py b/cloud/remote-separat
 +
  def sampled_reconstruction_snr_db(source: Path, stems: list[Path], stride_frames: int = 97) -> float:
      """Samples stem finiteness and reports a diagnostic reconstruction score.
- 
+
 @@ -284,20 +308,18 @@ def canonicalize(source: Path, output: Path) -> None:
          raise WorkerError("INPUT_UNSUPPORTED", completed.stderr[-2000:])
- 
- 
+
+
 -def normalize_outputs(raw_dir: Path, final_dir: Path) -> list[Path]:
 +def normalize_outputs(raw_outputs: list[Path], final_dir: Path) -> list[Path]:
      final_dir.mkdir(parents=True, exist_ok=True)
@@ -1403,8 +1403,8 @@ diff --git a/cloud/remote-separation/worker/gbw_worker.py b/cloud/remote-separat
      if completed.returncode:
 @@ -353,7 +375,7 @@ def apply_gain(source: Path, output: Path, gain_db: float) -> None:
      )
- 
- 
+
+
 -def render_prepared_references(outputs: list[Path], final_dir: Path) -> tuple[list[Path], float]:
 +def render_prepared_references(outputs: list[Path], final_dir: Path) -> tuple[list[Path], float, dict]:
      by_name = dict(zip(STEMS, outputs))
@@ -1439,8 +1439,8 @@ diff --git a/cloud/remote-separation/worker/gbw_worker.py b/cloud/remote-separat
 -        command.append(str(config.demucs_threads))
 -    return command
 +    return [backing, guitar], shared_gain_db, stage_metrics
- 
- 
+
+
  def inference_strategy(config: Config) -> str:
 -    return (
 -        f"mt{config.demucs_threads}_omp{config.blas_threads}"
@@ -1449,8 +1449,8 @@ diff --git a/cloud/remote-separation/worker/gbw_worker.py b/cloud/remote-separat
 -    )
 +    overlap = format(config.overlap, ".3f").rstrip("0").rstrip(".")
 +    return f"pytorch-{config.device}-s{config.shifts}-o{overlap}-t{config.cpu_threads}"
- 
- 
+
+
  def build_manifest(config: Config, input_sha256: str, outputs: list[Path], shared_gain_db: float,
 @@ -439,16 +454,22 @@ def build_manifest(config: Config, input_sha256: str, outputs: list[Path], share
      return {
@@ -1480,8 +1480,8 @@ diff --git a/cloud/remote-separation/worker/gbw_worker.py b/cloud/remote-separat
              "version": REFERENCE_RECIPE,
              "targetPeakDbfs": TARGET_PEAK_DBFS,
 @@ -491,8 +512,7 @@ def report_terminal_failure(config: Config, code: str, message: str = "",
- 
- 
+
+
  def run(config: Config, storage_factory: Callable[[], object] | None = None) -> dict:
 -    if not config.demucs_binary.is_file():
 -        raise WorkerError("CONFIG_INVALID", "Demucs binary is missing")
@@ -1518,7 +1518,7 @@ diff --git a/cloud/remote-separation/worker/gbw_worker.py b/cloud/remote-separat
 +        runner.cancel()
          raise WorkerError("JOB_CANCELLED", "worker terminated")
      signal.signal(signal.SIGTERM, terminate)
- 
+
 @@ -545,18 +575,31 @@ def terminate(_signum: int, _frame: object) -> None:
              raise WorkerError("INPUT_HASH_MISMATCH", "downloaded input digest differs")
          canonical = root / "input.wav"
@@ -1711,15 +1711,15 @@ diff --git a/cloud/remote-separation/worker/tests/test_benchmark.py b/cloud/remo
 +++ b/cloud/remote-separation/worker/tests/test_benchmark.py
 @@ -4,6 +4,7 @@
  from pathlib import Path
- 
+
  ROOT = Path(__file__).parents[1]
 +sys.path.insert(0, str(ROOT))
  WORKER = ROOT / "gbw_worker.py"
  BENCH = ROOT / "benchmark.py"
- 
+
 @@ -19,16 +20,16 @@
- 
- 
+
+
  class BenchmarkContractTest(unittest.TestCase):
 -    def test_strategy_matrix_uses_exactly_eight_cpu_threads(self):
 -        single = benchmark.strategy("single8")
@@ -1733,13 +1733,13 @@ diff --git a/cloud/remote-separation/worker/tests/test_benchmark.py b/cloud/remo
 +        self.assertEqual(selected["cpu_threads"], 8)
 +        self.assertEqual(selected["shifts"], 1)
 +        self.assertEqual(selected["overlap"], 0.5)
- 
+
      def test_unknown_strategy_is_rejected(self):
          with self.assertRaises(ValueError):
 -            benchmark.strategy("oversubscribed")
 +            benchmark.strategy("single8")
- 
- 
+
+
  if __name__ == "__main__":
 diff --git a/cloud/remote-separation/worker/tests/test_demucs_engine.py b/cloud/remote-separation/worker/tests/test_demucs_engine.py
 new file mode 100644
@@ -1863,14 +1863,14 @@ diff --git a/cloud/remote-separation/worker/tests/test_worker.py b/cloud/remote-
 +++ b/cloud/remote-separation/worker/tests/test_worker.py
 @@ -10,6 +10,7 @@
  from types import SimpleNamespace
- 
+
  MODULE = Path(__file__).parents[1] / "gbw_worker.py"
 +sys.path.insert(0, str(MODULE.parent))
  spec = importlib.util.spec_from_file_location("gbw_worker", MODULE)
  worker = importlib.util.module_from_spec(spec)
  sys.modules[spec.name] = worker
 @@ -76,13 +77,19 @@ def test_rejects_pcm16(self):
- 
+
      def test_normalize_requires_six_stems(self):
          with tempfile.TemporaryDirectory() as tmp:
 -            raw, final = Path(tmp) / "raw", Path(tmp) / "final"
@@ -1892,13 +1892,13 @@ diff --git a/cloud/remote-separation/worker/tests/test_worker.py b/cloud/remote-
                  with self.assertRaisesRegex(worker.WorkerError, "piano"):
 -                    worker.normalize_outputs(raw, final)
 +                    worker.normalize_outputs(raw_outputs, final)
- 
+
      def test_sampled_reconstruction_distinguishes_exact_from_corrupt_stems(self):
          with tempfile.TemporaryDirectory() as tmp:
 @@ -142,27 +149,28 @@ def test_failure_reporting_preserves_cancelled_job(self):
- 
+
          self.assertEqual(updates, [])
- 
+
 -    def test_production_single8_command_contract(self):
 +    def test_production_official_demucs_contract(self):
          env = {
@@ -1931,7 +1931,7 @@ diff --git a/cloud/remote-separation/worker/tests/test_worker.py b/cloud/remote-
 +        self.assertEqual(config.overlap, 0.5)
 +        self.assertEqual(config.cpu_threads, 8)
 +        self.assertEqual(worker.inference_strategy(config), "pytorch-cpu-s1-o0.5-t8")
- 
+
      def test_thread_plan_rejects_oversubscription(self):
          env = {
 @@ -172,30 +180,26 @@ def test_thread_plan_rejects_oversubscription(self):
@@ -1948,7 +1948,7 @@ diff --git a/cloud/remote-separation/worker/tests/test_worker.py b/cloud/remote-
          with mock.patch.dict(os.environ, env, clear=True):
              with self.assertRaisesRegex(worker.WorkerError, "oversubscribes"):
                  worker.Config.from_env()
- 
+
 -    def test_mt_binary_is_rejected_even_without_partition_threads(self):
 +    def test_unqualified_accelerator_is_rejected(self):
          env = {
@@ -1968,8 +1968,8 @@ diff --git a/cloud/remote-separation/worker/tests/test_worker.py b/cloud/remote-
 -            with self.assertRaisesRegex(worker.WorkerError, "finite-safe sequential"):
 +            with self.assertRaisesRegex(worker.WorkerError, "CPU-qualified only"):
                  worker.Config.from_env()
- 
- 
+
+
 @@ -211,8 +215,11 @@ def test_manifest_v2_exposes_only_prepared_deliverables(self):
                  job_id="00000000-0000-4000-8000-000000000001",
                  uid="u",
@@ -2003,7 +2003,7 @@ diff --git a/cloud/remote-separation/worker/tests/test_worker.py b/cloud/remote-
                   mock.patch.object(worker, "apply_gain", side_effect=fake_gain):
 -                outputs, gain_db = worker.render_prepared_references(stems, root / "prepared")
 +                outputs, gain_db, stage_metrics = worker.render_prepared_references(stems, root / "prepared")
- 
+
              self.assertAlmostEqual(gain_db, -0.9, places=6)
              self.assertEqual([path.name for path in outputs], ["backing.wav", "guitar.wav"])
              self.assertEqual(worker.wav_contract(outputs[0]), worker.wav_contract(outputs[1]))
@@ -2011,7 +2011,7 @@ diff --git a/cloud/remote-separation/worker/tests/test_worker.py b/cloud/remote-
 +                set(stage_metrics),
 +                {"backingRaw", "guitarRaw", "fullRaw", "backingFinal", "guitarFinal", "recombinedFinal"},
 +            )
- 
+
      def test_reference_render_rejects_delivered_pair_that_would_clip(self):
          with tempfile.TemporaryDirectory() as tmp:
 diff --git a/scripts/u4_cloud_integration_smoke.sh b/scripts/u4_cloud_integration_smoke.sh
@@ -2023,7 +2023,7 @@ diff --git a/scripts/u4_cloud_integration_smoke.sh b/scripts/u4_cloud_integratio
    -H "X-Goog-User-Project: ${GBW_GCP_PROJECT}" \
 -  --data "{\"fields\":{\"schemaVersion\":{\"integerValue\":\"2\"},\"resultContract\":{\"stringValue\":\"prepared-reference-v2\"},\"uid\":{\"stringValue\":\"${TEST_UID}\"},\"projectId\":{\"stringValue\":\"${PROJECT_ID}\"},\"sourceAssetId\":{\"stringValue\":\"${SOURCE_ASSET_ID}\"},\"inputPath\":{\"stringValue\":\"${INPUT_PATH}\"},\"inputSha256\":{\"stringValue\":\"${INPUT_SHA}\"},\"state\":{\"stringValue\":\"QUEUED\"},\"phase\":{\"stringValue\":\"STARTING\"},\"progress\":{\"integerValue\":\"0\"},\"remoteCleanupState\":{\"stringValue\":\"NONE\"}}}" >/dev/null
 +  --data "{\"fields\":{\"schemaVersion\":{\"integerValue\":\"2\"},\"resultContract\":{\"stringValue\":\"prepared-reference-v2\"},\"workerContract\":{\"stringValue\":\"official-demucs-pytorch-v1\"},\"uid\":{\"stringValue\":\"${TEST_UID}\"},\"projectId\":{\"stringValue\":\"${PROJECT_ID}\"},\"sourceAssetId\":{\"stringValue\":\"${SOURCE_ASSET_ID}\"},\"inputPath\":{\"stringValue\":\"${INPUT_PATH}\"},\"inputSha256\":{\"stringValue\":\"${INPUT_SHA}\"},\"state\":{\"stringValue\":\"QUEUED\"},\"phase\":{\"stringValue\":\"STARTING\"},\"progress\":{\"integerValue\":\"0\"},\"remoteCleanupState\":{\"stringValue\":\"NONE\"}}}" >/dev/null
- 
+
  echo "Executing ${GBW_JOB_NAME} for GuitarLab cloud smoke..."
  EXECUTION="$(gcloud beta run jobs execute "$GBW_JOB_NAME"   --project "$GBW_GCP_PROJECT" --region "$GBW_REGION"   --update-env-vars "GBW_BUCKET=${GBW_BUCKET},GBW_UID=${TEST_UID},GBW_JOB_ID=${JOB_ID},GBW_PROJECT_ID=${PROJECT_ID},GBW_INPUT_PATH=${INPUT_PATH},GBW_INPUT_SHA256=${INPUT_SHA}"   --task-timeout 30m --wait --format='value(metadata.name)')"
 @@ -149,7 +149,10 @@ root=pathlib.Path(sys.argv[1]); job,project,input_sha,model_sha,uid,prefix=sys.a
