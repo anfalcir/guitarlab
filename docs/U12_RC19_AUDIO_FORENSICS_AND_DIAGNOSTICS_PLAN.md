@@ -1,25 +1,27 @@
 # U12 — RC19 audio forensics, observability and diagnostics plan
 
-Updated: 2026-09-24
-Status: **ACTIVE / RELEASE-BLOCKING PHYSICAL INCIDENT**
+Updated: 2026-09-24 — F1/F2/F3 root cause closed; worker reconstruction active
+Status: **ACTIVE / RELEASE-BLOCKING WORKER RECONSTRUCTION**
 Current signed candidate under investigation: **0.5.0-rc19 / versionCode 39**
 Next signed candidate if source changes are required: **0.5.0-rc20 / versionCode 40**
 Repository authority: `anfalcir/guitarlab` / `main`
 
 ## 1. Purpose
 
-RC19 closed the authoritative same-generation remote recovery defect and passed its complete digital qualification, but target-device listening exposed a separate release-blocking audio-quality incident after a real Prepare run.
+RC19 closed the authoritative same-generation remote recovery defect and passed its complete digital qualification, but target-device listening exposed a separate release-blocking audio-quality incident after a real Prepare run. F1/F2/F3 subsequently proved that the incident originates in the substituted `demucs.cpp`/GGML inference engine, not in source canonicalization, Firebase transport, Android publication, Studio binding or the prepared-reference renderer.
 
 This plan owns the investigation and the related product/observability corrections. It intentionally separates:
 
-1. forensic proof of what actually executed in Firebase/Cloud Run;
-2. audio-content diagnosis;
-3. Studio reference reinsertion UX;
-4. Prepare technical-detail cleanup;
-5. durable application/cloud diagnostics;
-6. quality-gate hardening.
+1. completed forensic proof of what executed in Firebase/Cloud Run;
+2. completed audio-content diagnosis and root-cause localization;
+3. reconstruction of the worker on the consolidated GBW Linux Demucs baseline;
+4. balanced quality/performance/cost qualification;
+5. Studio reference reinsertion UX;
+6. Prepare technical-detail cleanup;
+7. durable application/cloud diagnostics;
+8. quality-gate hardening.
 
-Do **not** modify the separation algorithm merely to make the observed audio sound different before the evidence phases below identify the failing boundary.
+The forensic prerequisite is now satisfied. Do not patch around the defective engine with a DC blocker as the production solution: listening proved that DC was only one symptom of a structurally invalid separation dominated by the `other` stem.
 
 U12 remains open. RC19 is a digitally qualified but physically **not accepted** candidate.
 
@@ -44,20 +46,31 @@ User-exported references from that project:
 - no NaN/Inf was found in the supplied files;
 - neither file exceeds full-scale;
 - backing + guitar peaks at approximately `-1.000 dBFS`, consistent with the current prepared-reference-v2 shared-gain ceiling;
-- measured mean/DC component is approximately `-0.0473` per backing channel and approximately `-0.0090` per guitar channel. This is diagnostic evidence only; it is **not yet established as the root cause**.
+- measured mean/DC component is approximately `-0.0473` per backing channel and approximately `-0.0090` per guitar channel. It was initially diagnostic evidence; F3 later proved it is a symptom of invalid engine output, not the complete root cause.
 
 Observed physical result:
 - separation finished and references were imported;
 - audio remained subjectively unusable;
 - current digital integrity gates did not reject it.
 
-The incident must therefore be diagnosed as a content/lineage/runtime-quality problem, not merely a WAV-container or hash-transfer problem.
+The incident is now diagnosed as an engine/runtime-quality failure, not a WAV-container, transfer, Android publication or renderer failure.
+
+### Completed second-source reproduction
+
+Project `MMF - Misery` independently reproduced unusable audio. Local metrics found backing DC around `-0.0622` and guitar DC around `-0.0125`. The preserved M4A source had SHA-256 `85cdef6e6bd5671e320fc503db582f23eecd1a75097c5cc2b5994f8e693d9ec2`.
+
+An isolated replay retained canonical input and all six stems. The canonical input was physically accepted by listening and had only negligible mean (`-0.00030 / -0.00051`). Every `demucs.cpp` stem acquired a similar negative DC around `-0.013` to `-0.016`; listening found all six stems unusable and most musical content incorrectly concentrated in `other`. A 10 Hz per-stem DC blocker removed the measured offset but did **not** restore musical separation. This proves the defect is the inference output, not merely DC.
+
+Evidence:
+- `U12_RC19_F1_AUDIO_FORENSICS_REPORT.md`;
+- `U12_RC19_F2_LOCAL_AUDIO_FORENSICS_REPORT.md`;
+- `U12_RC19_F3_DIAGNOSTIC_REPLAY_REPORT.md`.
 
 ---
 
 ## 3. Current known architecture relevant to the incident
 
-The production v2 contract is intentionally narrow:
+The RC19 production v2 contract is intentionally narrow:
 
 - engine: `demucs.cpp`;
 - model: `htdemucs_6s`;
@@ -73,7 +86,16 @@ The production v2 contract is intentionally narrow:
 Important limitation:
 `sampled_reconstruction_snr_db` is currently diagnostic. It is logged but is not a publication veto because RC17 proved that summed-stem SNR is not, by itself, a reliable safety criterion for Demucs output.
 
-The current U4/U7 gates therefore prove transactional and numerical integrity, not representative musical separation quality.
+The current U4/U7 gates therefore prove transactional and numerical integrity, not representative musical separation quality. They permitted a broken engine to publish structurally valid audio.
+
+The consolidated GBW Linux reference does **not** use `demucs.cpp` for its Demucs path. Its known-good Separador B invokes the official PyTorch Demucs CLI:
+
+```text
+demucs -n htdemucs_6s --float32 --clip-mode none \
+  --shifts 1 --overlap 0.5 -d <cpu|cuda> -o <output> <prepared.wav>
+```
+
+The GBW defaults are `demucs_shifts=1` and `demucs_overlap=0.5`. This official PyTorch path, its six-stem naming and float32 output contract are the reconstruction baseline. GBW's separate BS-RoFormer mode remains excluded from GuitarLab.
 
 ---
 
@@ -93,14 +115,28 @@ The current U4/U7 gates therefore prove transactional and numerical integrity, n
 
 5. **Do not relax v2 ownership/hash validation.**
 
-6. **Do not reintroduce the rejected partitioned Demucs strategy.**
-   RC18/RC19 `single8` remains the production baseline unless new evidence justifies a separately qualified change.
+6. **Do not revert to the rejected partitioned `demucs.cpp` strategy.**
+   It produced non-finite samples. `single8` is also rejected for musical quality. Neither is an eligible RC20 engine.
 
 7. **No signed successor until forensic and quality gates are green.**
 
 ---
 
-## 5. Root-cause decision tree
+## 5. Root-cause decision — CLOSED
+
+The investigation resolved to **Case B**.
+
+- fresh Cloud Run execution was proven for the physical job;
+- the same source produced deterministic identical remote audio in separate executions;
+- Android's 70-byte container delta was explained by canonical WAV rewriting while preserving sample payload;
+- a second source reproduced the physical failure;
+- isolated replay proved the canonical source is good and all six `demucs.cpp` stems are bad;
+- per-stem DC correction removed DC but did not repair separation;
+- physical listening confirmed energy is incorrectly concentrated in `other`.
+
+Root cause: replacing the consolidated GBW official PyTorch Demucs path with the `demucs.cpp`/GGML engine broke separation quality. The corrective is worker reconstruction, not result reuse, Android rebinding, renderer changes, or a DC filter.
+
+The historical decision branches are retained below for traceability.
 
 ### Case A — no new Cloud Run execution exists for the physical job
 
@@ -149,7 +185,7 @@ Action:
 
 ---
 
-## 6. Phase F1 — read-only production forensics
+## 6. Phase F1 — read-only production forensics — COMPLETE
 
 Create a dedicated, fail-closed forensic script/workflow. It must use the repository's existing authenticated GCP/Firebase path and must be **read-only**.
 
@@ -249,7 +285,7 @@ Exit gate:
 
 ---
 
-## 8. Phase F2 — local audio forensics
+## 8. Phase F2 — local audio forensics — COMPLETE
 
 Analyze:
 - original managed source;
@@ -278,7 +314,7 @@ Exit:
 
 ---
 
-## 9. Phase F3 — controlled diagnostic replay
+## 9. Phase F3 — controlled diagnostic replay — COMPLETE
 
 If F1/F2 do not isolate the defect, run a **separate diagnostic job** on the same source without mutating the user's project state.
 
@@ -307,6 +343,146 @@ The replay must not:
 
 If needed, compare against a separately controlled known-good Demucs reference implementation/baseline using the exact same source and model family. Any comparison result is diagnostic evidence, not an automatic production-engine replacement decision.
 
+F3 exit result:
+- input canonicalization is good;
+- `demucs.cpp` corrupts separation semantics at inference;
+- all stems acquire systematic DC and `other` captures most content;
+- renderer behavior is deterministic and is not the originating defect;
+- a DC blocker is insufficient by listening.
+
+---
+
+## 9A. Phase W — reconstruct the Cloud Run worker from the consolidated GBW baseline
+
+This is the next mandatory source phase. Replace the rejected `demucs.cpp`/GGML inference boundary with the official PyTorch Demucs path proven by the consolidated GBW Linux application.
+
+### 9A.1 Required engine contract
+
+- engine family: official Demucs PyTorch CLI/library;
+- model: `htdemucs_6s`;
+- output: six float32 stems with clipping disabled;
+- baseline parameters: `shifts=1`, `overlap=0.5`;
+- device selected explicitly and recorded (`cpu` or qualified accelerator);
+- exact Demucs, PyTorch, model, CUDA/runtime and container digests pinned;
+- no runtime model/package download in a production job;
+- model and Python wheels baked into or immutably mounted by the image;
+- input canonicalization remains stereo float32 44.1 kHz;
+- existing prepared-reference-v2 renderer and manifest ownership/hash contract remain unchanged unless evidence requires a separately reviewed change;
+- BS-RoFormer remains excluded.
+
+### 9A.2 Cloud/Firebase integration invariants
+
+Preserve:
+- callable enqueue/adoption/recovery semantics;
+- stable uid/project/source/input generation identity;
+- one accepted job and quota accounting boundary;
+- immutable image digest dispatch;
+- source upload validation;
+- Firestore phase/state progression;
+- result manifest committed last;
+- ACK-before-purge and whole-prefix cleanup;
+- cancellation/process-death recovery;
+- only final backing/guitar/manifest exposed to Android;
+- Android remote-to-local validation and canonical publication.
+
+Change only the worker inference implementation and the observability/quality evidence needed to qualify it. Do not couple the engine migration to unrelated Android product changes.
+
+### 9A.3 Performance policy
+
+Performance and quality are co-equal release constraints for one representative song around three to four minutes:
+
+- **optimal:** wall time `<= 5 minutes`;
+- **acceptable:** wall time `> 5 and <= 15 minutes`;
+- **alert/review required:** wall time `> 15 minutes`;
+- a fast result that fails musical-quality gates is rejected regardless of time;
+- a high-quality result above 15 minutes is not production-ready without an explicit resource/architecture review;
+- the reported wall time must separate provisioning/cold start, model initialization, inference, render and publication.
+
+No single benchmark is sufficient. Record at least warm and cold executions and report p50/p95 when the sample count permits. Runtime claims must name song duration, device/resource shape, shifts, overlap and image digest.
+
+### 9A.4 Resource/strategy qualification matrix
+
+Benchmark in isolated shadow jobs, never by mutating the production job in place:
+
+1. official Demucs CPU baseline using current `8 vCPU / 16 GiB` where viable;
+2. tuned CPU shapes/threads supported by Cloud Run Jobs and project quota;
+3. accelerator-backed execution only if available, quota-approved and materially better in time/cost;
+4. `shifts=1`, `overlap=0.5` as the quality baseline;
+5. parameter reductions only if AB metrics and human listening remain accepted;
+6. concurrency/parallelism kept at one song per task until memory and interference are measured.
+
+For each cell collect:
+- provisioning/model-load/inference/render/publish durations;
+- peak memory and CPU/accelerator utilization where available;
+- estimated per-song cost;
+- stem and prepared-reference metrics;
+- hashes and determinism evidence;
+- human listening result.
+
+Select the least costly configuration inside the best jointly satisfied quality/time tier. Do not optimize cost by crossing a quality gate.
+
+### 9A.5 Container and supply-chain design
+
+- multi-stage, digest-pinned base image;
+- lock Python, Demucs, PyTorch and audio dependencies with hashes;
+- verify the exact `htdemucs_6s` checkpoint SHA during build and startup;
+- run as non-root with read-only root filesystem where Cloud Run permits;
+- no package manager/network model fetch at job runtime;
+- bounded temporary disk sized for canonical input, six stems and prepared references;
+- deterministic source materialization and semantic guards;
+- SBOM/vulnerability scan retained as CI evidence;
+- logs must expose versions/digests but no secrets.
+
+### 9A.6 Reconstruction stages
+
+**W0 — baseline freeze**
+- extract and hash the supplied GBW v5.23 reference;
+- record exact official CLI contract and defaults;
+- add representative legally usable quality fixtures plus the private local physical fixture outside Git.
+
+**W1 — worker adapter**
+- introduce an engine-neutral runner boundary;
+- implement official PyTorch Demucs runner;
+- preserve cancellation and typed failures;
+- retain six stems only inside worker/diagnostic scope.
+
+**W2 — stage metrics and fail-closed quality checks**
+- canonical input plus per-stem peak/RMS/DC/finiteness/energy;
+- stem energy-distribution sanity so pathological `other` concentration is detected;
+- backing/guitar raw and final metrics;
+- no summed-stem SNR veto unless separately validated.
+
+**W3 — local/container parity**
+- same source and pinned image produce contract-equivalent stems across local controlled and Cloud Run shadow execution;
+- final hashes deterministic where the runtime promises determinism, otherwise bounded metric equivalence is documented.
+
+**W4 — shadow benchmark matrix**
+- run the resource/strategy matrix;
+- require quality before ranking time/cost;
+- retain downloadable listening bundles for every finalist.
+
+**W5 — human listening acceptance**
+- owner listens to backing, guitar, individual stems and recombined reference;
+- programmatic PASS without listening PASS cannot promote a worker.
+
+**W6 — production cutover**
+- deploy digest-pinned winner only after U7 verify/shadow PASS;
+- verify runtime contract;
+- execute representative quality gate;
+- preserve automatic rollback to the last known production image;
+- then run U4 transactional smoke.
+
+### 9A.7 Phase W exit gate
+
+Phase W closes only when:
+- official Demucs stems are musically usable and correctly distributed;
+- no systematic DC/non-finite/pathological energy defect exists;
+- owner listening accepts the exact worker image;
+- representative wall time is `<= 15 minutes`, with `<= 5 minutes` preferred;
+- cost/resource evidence is recorded;
+- Firebase/Firestore/Storage lifecycle invariants remain green;
+- production remains untouched until shadow qualification and rollback evidence pass.
+
 ---
 
 ## 10. Phase Q — quality-gate redesign
@@ -323,7 +499,10 @@ The quality program must cover:
 - bounded pathological energy explosions;
 - reference recombination behavior;
 - stable deterministic output for the pinned worker/model/runtime;
+- plausible energy distribution across the six stems, including rejection of the observed failure where most content collapses into `other`;
 - representative listening/metric comparison against an accepted baseline.
+
+The quality program must also enforce the Phase W temporal tiers (`<=5 min` optimal, `>5–15 min` acceptable, `>15 min` alert) without allowing speed to override musical acceptance.
 
 Do **not** re-promote summed-stem SNR as a hard veto without evidence that the chosen metric is valid for the model/runtime.
 
@@ -752,6 +931,11 @@ Cloud logs must remain free of secrets and authentication material.
 - no secret leakage;
 - image/model/runtime evidence;
 - audio metric generation.
+- official PyTorch Demucs/GBW runner contract and dependency locks;
+- `demucs.cpp` is absent from the RC20 production path;
+- stem energy-distribution and systematic-DC rejection;
+- cold/warm performance breakdown and `<=15 min` release ceiling;
+- listening bundle generation for finalist images.
 
 ### Real cloud
 - forensic workflow against a known job;
@@ -776,17 +960,18 @@ No successor APK may be signed until:
 
 1. F1 forensic report is complete;
 2. root-cause boundary is identified;
-3. required source fix is implemented;
-4. source search has explicit non-silent terminal states and typo suggestions are green;
-5. Studio reinsertion action is green;
-6. Prepare diagnostics are de-duplicated;
-7. local audit journal + diagnostic ZIP are green;
-8. worker/backend observability is green where required;
-9. unit/Lint/build/API 36 pass;
-10. U7 verify/shadow/production gates pass when backend changes exist;
-11. U4 passes;
-12. representative audio-quality gate passes;
-13. physical listening acceptance passes.
+3. Phase W official-Demucs worker reconstruction is implemented;
+4. exact finalist worker passes owner listening and the `<=15 min` performance ceiling;
+5. source search has explicit non-silent terminal states and typo suggestions are green;
+6. Studio reinsertion action is green;
+7. Prepare diagnostics are de-duplicated;
+8. local audit journal + diagnostic ZIP are green;
+9. worker/backend observability is green where required;
+10. unit/Lint/build/API 36 pass;
+11. U7 verify/shadow/production gates pass for the backend change;
+12. U4 passes;
+13. representative audio-quality gate passes;
+14. physical listening acceptance passes.
 
 Any source change after RC19 freeze creates a new candidate identity:
 - target: `0.5.0-rc20`;
@@ -801,9 +986,12 @@ Mandatory order:
 
 **F1 production forensics (read-only)**
 → **F2 local audio forensics**
-→ if necessary **F3 controlled diagnostic replay**
-→ root-cause decision
-→ source correction
+→ **F3 controlled diagnostic replay**
+→ **Case B / demucs.cpp root cause CLOSED**
+→ **W official PyTorch Demucs worker reconstruction**
+→ **W shadow quality/performance/cost matrix**
+→ **W owner listening acceptance**
+→ controlled production cutover + rollback proof
 → **SEARCH explicit terminal UX + typo suggestions**
 → **S Studio reinsertion**
 → **P Prepare diagnostics cleanup**
@@ -826,7 +1014,9 @@ This plan closes only when all of the following are true:
 - the physical RC19 job lineage is concretely reconstructed;
 - it is known whether a fresh Cloud Run execution occurred;
 - the exact worker image/model/strategy and output lineage are proven;
-- the bad-audio boundary is identified and corrected;
+- the `demucs.cpp` bad-audio boundary is replaced by the qualified official PyTorch Demucs worker;
+- owner listening accepts the exact finalist stems/backing/guitar;
+- representative worker time is `<=15 minutes`, preferably `<=5 minutes`, with cold/warm/cost evidence;
 - a representative real-source gate prevents recurrence;
 - source search never terminates silently and high-confidence spelling corrections can be suggested from existing provider evidence;
 - prepared references can be reinserted into Studio without restart;

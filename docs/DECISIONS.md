@@ -309,3 +309,19 @@ Restoring a project from `SEPARATING` to `SOURCE_READY` is generation-safe: the 
 
 This decision is fail-safe for media: terminalizing an orphan does not delete or replace the accepted source. It restores the ability to retry preparation while preserving source/project identity. It supersedes the rc8 assumption that any local nonterminal durable job should block orphan recovery.
 
+## D-086 — Cloud separation uses the qualified official Demucs baseline and balances quality with latency
+
+RC19 physical forensics proved that the substituted `demucs.cpp`/GGML engine produces structurally valid but musically unusable six-stem output. Every stem acquired systematic negative DC, most musical content collapsed incorrectly into `other`, and a DC blocker removed only the offset rather than repairing separation. The canonical input, Firebase transport, Android publication and prepared-reference renderer were exonerated.
+
+The RC20 worker is therefore reconstructed from the consolidated GBW Linux Demucs path: official PyTorch `htdemucs_6s`, float32 output, clip mode none, baseline shifts 1 and overlap 0.5. This does not authorize BS-RoFormer. Neither rejected `demucs.cpp` strategy (`mt4_omp2` non-finite or `single8` musically invalid) is eligible for production.
+
+Worker selection is multi-objective and fail-closed:
+- musical/stem quality and owner listening are mandatory;
+- <=5 minutes for a representative three-to-four-minute song is optimal;
+- >5 and <=15 minutes is acceptable;
+- >15 minutes is an alert requiring resource/architecture review;
+- a faster bad result always loses to a slower result inside the acceptable tier;
+- cold start, model load, inference, render, publication and estimated cost are measured separately;
+- production cutover follows digest-pinned shadow qualification with rollback evidence.
+
+The existing Firebase/Firestore/Storage lifecycle, quota, ownership, ACK/purge, cancellation and Android validation contracts remain unchanged across the engine migration.
