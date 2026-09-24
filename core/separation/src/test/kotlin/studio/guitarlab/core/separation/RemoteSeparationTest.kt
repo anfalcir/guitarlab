@@ -106,7 +106,7 @@ class RemoteSeparationTest {
         }
         val result = RemoteSeparationCoordinator(store, backend, transport, { error("unused") }, unusedPublisher())
             .reconcile(i)
-        assertEquals(listOf("upload", "enqueue:owned/input"), events)
+        assertEquals(listOf("findRecoverable", "upload", "enqueue:owned/input"), events)
         assertEquals(RemoteJobState.QUEUED, result.state)
     }
 
