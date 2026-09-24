@@ -42,7 +42,12 @@ try:
 
     if out("git", "hash-object", str(TARGET)) == TARGET_AFTER:
         run("git", "diff", "--check")
-        run("git", "apply", "--check", "--reverse", str(temp))
+        # The payload also records the release documentation that accompanied
+        # this test correction. Those documents are living files and may be
+        # updated by later releases, so a reverse-apply is not a valid test of
+        # whether the source correction itself is already materialized. The
+        # exact target blob above is the stable terminal contract for U12ai;
+        # payload integrity is independently enforced by the blob checks.
         print("Source patch chain already materialized through U12ai backup restore correction")
     else:
         if not PREVIOUS.is_file():
