@@ -140,6 +140,18 @@ class PrepareJourneyPolicyTest {
         assertFalse(PrepareJourneyPolicy.separationIsActive(failedImport))
     }
 
+    @Test fun importFailureExplainsStorageAuthorizationWithoutDiscardingRemoteResults() {
+        val failedImport = DurableRemoteJob(
+            identity(),
+            RemoteJobState.IMPORT_FAILED,
+            1,
+            errorCode = "WORKER_RETRY_EXHAUSTED_TERMINAL:DOWNLOADING_RESULTS:STORAGE_NOT_AUTHORIZED",
+        )
+        val message = PrepareJourneyPolicy.separationMessage(failedImport)
+        assertTrue(message.contains("recusou o download"))
+        assertTrue(message.contains("resultados remotos foram preservados"))
+    }
+
     @Test fun missingCloudSessionPointsToSettingsWithoutLeakingTechnicalCode() {
         val failed = DurableRemoteJob(
             identity(),

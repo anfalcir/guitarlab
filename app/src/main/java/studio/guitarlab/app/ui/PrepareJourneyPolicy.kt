@@ -173,7 +173,7 @@ object PrepareJourneyPolicy {
             RemoteJobState.QUEUED -> "Aguardando início do processamento em nuvem…"
             RemoteJobState.RUNNING -> "Separando a música e preparando as referências na nuvem…"
             RemoteJobState.COMPLETED, RemoteJobState.IMPORTING -> "Baixando, validando e importando base e guitarra de referência…"
-            RemoteJobState.IMPORT_FAILED -> "O processamento em nuvem terminou, mas a importação precisa ser retomada. Os resultados remotos foram preservados."
+            RemoteJobState.IMPORT_FAILED -> importFailureMessage(errorCode)
             RemoteJobState.IMPORTED -> "Base e guitarra de referência validadas"
             RemoteJobState.CANCEL_REQUESTED -> "Cancelamento solicitado…"
             RemoteJobState.CANCELLED -> "Separação cancelada. Você pode iniciar novamente quando quiser."
@@ -196,6 +196,18 @@ object PrepareJourneyPolicy {
         errorCode?.contains("STORAGE_") == true ->
             "Não foi possível enviar a fonte para a nuvem. A fonte local foi preservada."
         else -> "Não foi possível concluir a separação. As mídias válidas do projeto foram preservadas."
+    }
+
+    private fun importFailureMessage(errorCode: String?): String = when {
+        errorCode?.contains("STORAGE_NOT_AUTHENTICATED") == true ||
+            errorCode?.contains("AUTH_REQUIRED") == true ->
+            "A sessão da nuvem expirou antes da importação. Entre novamente e retome; os resultados remotos foram preservados."
+        errorCode?.contains("STORAGE_NOT_AUTHORIZED") == true ->
+            "O serviço recusou o download das referências. Atualize o app ou a configuração do serviço e retome; os resultados remotos foram preservados."
+        errorCode?.contains("RESULT_INVALID") == true ->
+            "As referências recebidas não passaram na validação de integridade. Os resultados remotos foram preservados para diagnóstico."
+        else ->
+            "O processamento em nuvem terminou, mas a importação precisa ser retomada. Os resultados remotos foram preservados."
     }
 
     fun separationIsActive(job: DurableRemoteJob?): Boolean = job != null && job.state !in terminalSeparationStates

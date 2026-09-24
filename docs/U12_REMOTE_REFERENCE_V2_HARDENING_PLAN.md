@@ -191,6 +191,24 @@ This prevents indefinite accumulation of six-stem result sets.
 - authorized UID boundary;
 - v2 schema/revision exposure;
 - orphan-retention configuration verification.
+- Firebase Storage rules compile and explicitly authorize authenticated owners to read only
+  `output/prepared/backing.wav` and `output/prepared/guitar.wav`; the gate rejects a recursive
+  `output/{path=**}` grant so intermediate or future artifacts are not exposed accidentally.
+
+### RC14 physical-homologation corrective (2026-09-23)
+
+Physical evidence from job `99d3099f-618d-42ca-afe6-a24471553460` proved that Cloud Run had
+successfully committed both v2 references and the manifest, while Android deterministically
+cycled from `IMPORT_FAILED` to `IMPORTING` and back before transferring either 63 MB WAV. The
+root cause was a contract mismatch in Firebase Storage rules: the legacy direct-output matcher
+authorized `output/result-manifest.json`, but no matcher authorized the v2 nested
+`output/prepared/*.wav` paths.
+
+Production ruleset `525c392a-2aeb-48f3-8685-e55f13c9d528` corrects the boundary with an exact,
+owner-authenticated read grant for `backing.wav` and `guitar.wav` only. Client writes and all
+other nested output paths remain denied. Existing completed jobs remain recoverable through
+Retomar importação and must not rerun Demucs. The Android copy also distinguishes authorization,
+session and integrity failures while retaining the invariant that remote results are preserved.
 
 ### Gates
 - unit/integration/lint/build;

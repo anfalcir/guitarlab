@@ -86,6 +86,8 @@ jobs:
               result_schema = json.load(f)
           with open("cloud/remote-separation/firebase.json", encoding="utf-8") as f:
               config = json.load(f)
+          with open("cloud/remote-separation/firebase/storage.rules", encoding="utf-8") as f:
+              storage_rules = f.read()
           assert job_schema["properties"]["schemaVersion"]["const"] == 2
           assert job_schema["properties"]["resultContract"]["const"] == "prepared-reference-v2"
           assert result_schema["properties"]["schemaVersion"]["const"] == 2
@@ -93,6 +95,12 @@ jobs:
           providers = config.get("auth", {}).get("providers", {})
           assert providers.get("emailPassword") is True, "Firebase email/password auth must be declared enabled"
           assert providers.get("anonymous") is False, "Firebase anonymous auth must be declared disabled"
+          prepared_match = "match /remote/v1/users/{uid}/jobs/{jobId}/output/prepared/{fileName}"
+          prepared_allow = "allow read: if mine(uid) && fileName.matches('^(backing|guitar)\\\\.wav$');"
+          assert prepared_match in storage_rules, "prepared-reference v2 download path must be authorized"
+          assert prepared_allow in storage_rules, "only backing/guitar v2 artifacts may be downloaded"
+          assert "match /remote/v1/users/{uid}/jobs/{jobId}/output/{path=**}" not in storage_rules, \
+              "recursive output grants would expose unintended remote artifacts"
           PY
           grep -q '"schemaVersion": 2' cloud/remote-separation/worker/gbw_worker.py
           grep -q 'purgeStaleRemoteArtifacts' cloud/remote-separation/functions/src/index.ts

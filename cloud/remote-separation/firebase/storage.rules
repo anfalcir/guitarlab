@@ -16,6 +16,12 @@ service firebase.storage {
       allow read: if mine(uid) && (fileName.matches('^(drums|bass|other|vocals|guitar|piano)\\.wav$') || fileName == 'result-manifest.json');
       allow write: if false;
     }
+    // Schema v2 publishes only the two Studio-ready references in this
+    // dedicated subdirectory. No sibling path or client mutation is exposed.
+    match /remote/v1/users/{uid}/jobs/{jobId}/output/prepared/{fileName} {
+      allow read: if mine(uid) && fileName.matches('^(backing|guitar)\\.wav$');
+      allow write: if false;
+    }
     match /{path=**} { allow read, write: if false; }
   }
 }
