@@ -156,6 +156,15 @@ object PrepareJourneyPolicy {
     fun separationMessage(job: DurableRemoteJob?): String {
         if (job == null) return "A fonte está pronta. Inicie a separação para preparar base e guitarra de referência."
         val errorCode = job.errorCode
+        if (errorCode?.contains("RECOVERY:EXISTING_SAME_GENERATION") == true) {
+            return when (job.state) {
+                RemoteJobState.QUEUED, RemoteJobState.RUNNING ->
+                    "Essa separação já está em andamento na nuvem. O GuitarLab retomou o acompanhamento."
+                RemoteJobState.COMPLETED, RemoteJobState.IMPORTING ->
+                    "O processamento em nuvem já terminou. Retomando a importação das referências…"
+                else -> "Retomando o processamento remoto já existente…"
+            }
+        }
         if (errorCode?.startsWith("RETRY:") == true) {
             return when {
                 errorCode.contains(":AUTHENTICATING:") -> "Não foi possível autenticar na nuvem. Nova tentativa agendada…"
@@ -195,6 +204,12 @@ object PrepareJourneyPolicy {
             "O serviço recusou a autorização da separação. A fonte foi preservada."
         errorCode?.contains("STORAGE_") == true ->
             "Não foi possível enviar a fonte para a nuvem. A fonte local foi preservada."
+        errorCode?.contains("ACTIVE_JOB_CONFLICT") == true ->
+            "Já existe outra separação em andamento nesta conta. Aguarde ou cancele a operação ativa antes de iniciar outra."
+        errorCode?.contains("MONTHLY_QUOTA_REACHED") == true ->
+            "O limite mensal de separações em nuvem foi atingido."
+        errorCode?.contains("REMOTE_STATE_AMBIGUOUS") == true ->
+            "O GuitarLab encontrou mais de um estado remoto incompatível e preservou os dados para diagnóstico."
         else -> "Não foi possível concluir a separação. As mídias válidas do projeto foram preservadas."
     }
 
