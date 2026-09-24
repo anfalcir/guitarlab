@@ -27,16 +27,18 @@ job, records the previous production image digest and rolls back that image if
 post-deploy verification fails. No service-account key is stored in GitHub.
 
 
-Production RC17 inference contract after the RC16 shadow audio-integrity failure:
+Production RC18 inference contract after the RC16/RC17 shadow audio-integrity failures:
 
 - Cloud Run Job: 8 vCPU / 16 GiB;
 - binary: `demucs.cpp.main`;
 - strategy: `single8` (one continuous inference × 8 BLAS/OMP threads);
 - model: pinned `htdemucs_6s`;
 - monthly logical allowance: 40 accepted jobs per authorized user;
-- policy revision: `rc17-q40-single8-prepared-v2`.
+- policy revision: `rc18-q40-single8-prepared-v2`.
 
 The upstream partitioned `demucs_mt.cpp.main` path is deliberately absent from the runtime
 image. A controlled A/B reproduction with the same model and canonical input produced 154,350
 non-finite samples per stem in `mt4_omp2`, while `single8` produced zero. Output finiteness,
-peak and sampled reconstruction checks remain mandatory before any result is published.
+format, duration, peak and prepared-reference checks remain mandatory before any result is
+published. Sampled reconstruction SNR remains diagnostic because Demucs stems are not guaranteed
+to sum sample-perfectly back to the source.

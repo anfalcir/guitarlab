@@ -106,7 +106,7 @@ class WorkerContractTest(unittest.TestCase):
             corrupt = bytearray(stems[0].read_bytes())
             corrupt[44:] = struct.pack("<" + "f" * (441 * 2), *([1.0] * (441 * 2)))
             stems[0].write_bytes(corrupt)
-            self.assertLess(worker.sampled_reconstruction_snr_db(source, stems), worker.MIN_RECONSTRUCTION_SNR_DB)
+            self.assertLess(worker.sampled_reconstruction_snr_db(source, stems), worker.CORRUPT_RECONSTRUCTION_SNR_DB)
 
     def test_failure_reporting_releases_running_job(self):
         updates = []

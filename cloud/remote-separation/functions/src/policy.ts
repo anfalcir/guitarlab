@@ -2,7 +2,7 @@ export const ACTIVE_STATES = new Set(["UPLOADING", "READY", "QUEUED", "RUNNING",
 export const JOB_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 export const SHA256 = /^[a-f0-9]{64}$/;
 export const MAX_MONTHLY_JOBS = 40;
-export const BACKEND_POLICY_REVISION = "rc17-q40-single8-prepared-v2";
+export const BACKEND_POLICY_REVISION = "rc18-q40-single8-prepared-v2";
 export const RESULT_RECOVERY_WINDOW_MS = 72 * 60 * 60 * 1000;
 export const MAX_INPUT_BYTES = 1_073_741_824;
 

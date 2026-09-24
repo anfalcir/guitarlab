@@ -1,6 +1,6 @@
 # Test and Homologation Plan
 
-Updated: 2026-09-23
+Updated: 2026-09-24
 
 ## Current evidence boundary
 
@@ -18,9 +18,9 @@ U10 evidence:
 - deterministic visual review PASS;
 - signed homologation intentionally skipped because U11 owns final freeze/signing.
 
-The latest signed authority is RC14: Android CI run `35937621047`, producer `13c6f36e5e3c2bcf82cf21f885e8d7aa6c41ed34`, package `studio.guitarlab.app`, `0.5.0-rc14` / versionCode `34`. RC17 (`0.5.0-rc17` / 37) is the active physical corrective and must pass Android/U7 on its own exact SHA, isolated shadow, controlled production worker deployment/U4, and physical acceptance.
+The latest signed authority is RC14: Android CI run `35937621047`, producer `13c6f36e5e3c2bcf82cf21f885e8d7aa6c41ed34`, package `studio.guitarlab.app`, `0.5.0-rc14` / versionCode `34`. RC18 (`0.5.0-rc18` / 38) is the active physical corrective and must pass Android/U7 on its own exact SHA, isolated shadow, controlled production worker deployment/U4, and physical acceptance.
 
-RC17 physical acceptance is deliberately end-to-end: install over RC15/RC16, run a new separation, confirm clean Base plus correctly panned Guitar L/R with no clipping/distortion, delete the three prepared clips, and verify **Sincronizar Studio** reinserts them without network or Demucs. Then run another separation with the lanes empty and confirm automatic population. Recordings, takes and mixer state must remain unchanged.
+RC18 physical acceptance is deliberately end-to-end: install over RC15/RC16/RC17, run a new separation, confirm clean Base plus correctly panned Guitar L/R with no clipping/distortion, delete the three prepared clips, and verify **Sincronizar Studio** reinserts them without network or Demucs. Then run another separation with the lanes empty and confirm automatic population. Recordings, takes and mixer state must remain unchanged.
 
 Rc8 is CLOSED / DIGITAL PASS but withdrawn from final U12 approval after physical testing exposed the second orphan class: a durable local `CANCEL_REQUESTED` job can exist with no Firestore/Cloud Run counterpart. Treating local durability as proof of remote existence left the UI indefinitely active.
 

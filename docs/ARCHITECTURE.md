@@ -1,12 +1,12 @@
 # GuitarLab Architecture
 
-Updated: 2026-09-23
+Updated: 2026-09-24
 
 ## Repository and release boundary
 - `main` is canonical.
 - Product behavior is promoted only after exact-source automated gates and, where required, residual physical validation.
 - `.github/workflows/android-ci.yml` supports manual dispatch plus explicit `[run ci]` / `[run ci signed]` commit-message gates on `main`; ordinary `[skip ci]` commits remain inert.
-- Active source candidate is RC17 (`0.5.0-rc17` / 37), retaining strict prepared-audio validation and Studio synchronization while replacing defective partitioned inference with pinned `single8`. It must qualify on its own Android/U7 SHA, isolated shadow and controlled production deployment. Latest signed authority remains RC14 at `13c6f36e5e3c2bcf82cf21f885e8d7aa6c41ed34` / Android `35937621047`.
+- Active source candidate is RC18 (`0.5.0-rc18` / 38), retaining strict prepared-audio validation and Studio synchronization while replacing defective partitioned inference with pinned `single8`. It must qualify on its own Android/U7 SHA, isolated shadow and controlled production deployment. Latest signed authority remains RC14 at `13c6f36e5e3c2bcf82cf21f885e8d7aa6c41ed34` / Android `35937621047`.
 
 ## Module boundaries
 - `core:model`: immutable project/track/clip/take metadata contracts.
@@ -26,7 +26,7 @@ The unified project schema uses explicit `ManagedAsset`, role, content hash, med
 
 Prepared References v2 keeps Demucs' six source stems ephemeral inside the Cloud Run execution. The committed remote result and Android import contain exactly two aligned float32 WAV deliverables: backing without guitar and isolated guitar. Those two final references become project-managed canonical WAV assets; intermediate stems are neither uploaded nor stored locally for new v2 jobs. `activeStemAssetIds` and legacy media presentation remain only for backward-compatible recovery of older projects. Exporting WAV may therefore publish a final canonical reference directly without conversion; this does not imply that six stems are stored on the device.
 
-Before publication, Cloud Run verifies sampled source-versus-six-stem reconstruction SNR plus the post-render peak of each deliverable and their recombination; structured logs retain the numerical diagnostic without retaining user audio. Android independently verifies hash/container, performs strict float decoding, enforces the same recombination ceiling and rewrites accepted audio into GuitarLab's canonical float32 WAV. Reference bindings are healthy only when both the binding and matching timeline clip exist; empty prepared lanes can therefore be repaired automatically or via explicit Studio synchronization without new cloud work.
+Before publication, Cloud Run verifies output format, duration consistency, finite samples, and the post-render peak of each deliverable and their recombination; sampled source-versus-six-stem reconstruction SNR is logged as a diagnostic because Demucs stems are not guaranteed to sum sample-perfectly back to the input. Android independently verifies hash/container, performs strict float decoding, enforces the same recombination ceiling and rewrites accepted audio into GuitarLab's canonical float32 WAV. Reference bindings are healthy only when both the binding and matching timeline clip exist; empty prepared lanes can therefore be repaired automatically or via explicit Studio synchronization without new cloud work.
 
 ## Timeline/editing
 Track/clip drag, trim, split, duplicate and deletion are deterministic project transactions. Split take lineage must remain valid when segments move or are deleted. Failed/stale drag is a no-op and may not partially mutate project/history/media state.
@@ -97,7 +97,7 @@ No Firebase/Cloud Run/Functions hop, service account, client secret or refresh-t
 
 ## Current milestone boundary
 
-U10/C8 and U11 remain CLOSED / DIGITAL PASS historical authorities. RC14 is the current signed U12 authority; RC17 is an unqualified physical-corrective source candidate and cannot supersede it until exact-source gates, shadow, production worker deployment/U4 and target-device acceptance pass.
+U10/C8 and U11 remain CLOSED / DIGITAL PASS historical authorities. RC14 is the current signed U12 authority; RC18 is an unqualified physical-corrective source candidate and cannot supersede it until exact-source gates, shadow, production worker deployment/U4 and target-device acceptance pass.
 
 Remote separation recovery now treats the local durable store as recovery intent, not proof that a cloud job exists. When reconciliation finds no remote job, replayable pre-dispatch states are idempotently re-enqueued, cancellation requests terminalize locally, and states that require an already-created remote job expire safely. Cancellation/worker retry exhaustion must also end in a terminal local state. Restoration of `SOURCE_READY` is source-generation-aware and may not overwrite a newer active separation. Per-project observation prefers active work over a late terminal completion from an older generation.
 

@@ -1,11 +1,11 @@
 # Android CI / release pipeline
 
-Updated: 2026-09-23
+Updated: 2026-09-24
 
 ## Contract
 `.github/workflows/android-ci.yml` supports manual `workflow_dispatch` and controlled `main` commit triggers. A commit containing `[run ci]` runs the software and API 36 gates; `[run ci signed]` additionally produces the signed homologation APK. Ordinary commits retain `[skip ci]` and do not consume hosted CI. This workstream is authorized to use and monitor the controlled triggers while executing the unified roadmap.
 
-Current release phase: **U12 ACTIVE**. RC17 (`0.5.0-rc17` / 37) is the active unqualified physical-corrective source. RC14 is the latest signed digital authority at producer `13c6f36e5e3c2bcf82cf21f885e8d7aa6c41ed34`, Android run `35937621047`. RC17 may replace this authority only after exact-source Android/U7 qualification, isolated shadow acceptance, controlled production worker deployment/U4 and affected physical acceptance pass.
+Current release phase: **U12 ACTIVE**. RC18 (`0.5.0-rc18` / 38) is the active unqualified physical-corrective source. RC14 is the latest signed digital authority at producer `13c6f36e5e3c2bcf82cf21f885e8d7aa6c41ed34`, Android run `35937621047`. RC18 may replace this authority only after exact-source Android/U7 qualification, isolated shadow acceptance, controlled production worker deployment/U4 and affected physical acceptance pass.
 
 Authority layers:
 1. **software gate** — deterministic source materialization, JVM/unit/audio/DSP/persistence/migration tests, performance evidence, Lint, debug/release assembly and unsigned provenance;
