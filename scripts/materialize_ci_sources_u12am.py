@@ -7,10 +7,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 PREVIOUS = ROOT / "scripts/materialize_ci_sources_u12al.py"
 PATCH = ROOT / ".source-parts/U12amShadowRecoveryGate.patch"
-PATCH_BLOB = "7728421cb7b29b153cc1c6b3e45c2a55598f847c"
+PATCH_BLOB = "4ae380b150efc1de28dcb756ff8a1127c48d8e49"
 TARGET = ROOT / "scripts/u4_cloud_integration_smoke.sh"
 TARGET_BEFORE = "358785d3c2c97b94c9373ecd20bf987120d501ec"
-TARGET_AFTER = "2b78584d287805598fccd8ac3a547eedb52f6acc"
+TARGET_AFTER = "6fe143beb9e1a6aa1274afe29b65ff9831b1d5d4"
 
 
 def out(*args: str) -> str:
