@@ -19,13 +19,20 @@ class RemoteManifestCodecTest {
     @Test fun preparedReferenceV2ManifestParsesAndValidates() {
         val job = UUID.randomUUID().toString()
         val sha = "a".repeat(64)
-        val json = """{"schemaVersion":2,"jobId":"$job","uid":"u","projectId":"p","inputSha256":"${"b".repeat(64)}","engine":"demucs.cpp","engineRevision":"rc13","model":"htdemucs_6s","modelSha256":"${RemoteResultManifest.MODEL_SHA256}","sampleRate":44100,"channels":2,"frames":441,"duration":0.01,"startedAt":"2026-09-23T00:00:00Z","completedAt":"2026-09-23T00:00:01Z","wallTimeMs":1000,"vCPU":8,"blasThreads":2,"demucsThreads":4,"inferenceStrategy":"mt4_omp2","referenceRecipe":{"version":"prepared-reference-v2","targetPeakDbfs":-1.0,"sharedGainDb":-0.5,"backingStems":["drums","bass","other","vocals","piano"],"guitarStem":"guitar"},"deliverables":[{"name":"backing","role":"REFERENCE_BACKING","path":"remote/v1/users/u/jobs/$job/output/prepared/backing.wav","bytes":128,"sha256":"$sha","sampleRate":44100,"channels":2,"frames":441,"encoding":"FLOAT32_LE"},{"name":"guitar","role":"REFERENCE_GUITAR","path":"remote/v1/users/u/jobs/$job/output/prepared/guitar.wav","bytes":128,"sha256":"$sha","sampleRate":44100,"channels":2,"frames":441,"encoding":"FLOAT32_LE"}]}"""
+        val json = """{"schemaVersion":2,"jobId":"$job","uid":"u","projectId":"p","inputSha256":"${"b".repeat(64)}","engine":"demucs-pytorch","engineRevision":"rc20-official-demucs-pytorch","model":"htdemucs_6s","modelSha256":"${RemoteResultManifest.OFFICIAL_MODEL_SHA256}","sampleRate":44100,"channels":2,"frames":441,"duration":0.01,"startedAt":"2026-09-23T00:00:00Z","completedAt":"2026-09-23T00:00:01Z","wallTimeMs":1000,"vCPU":8,"blasThreads":8,"demucsThreads":0,"inferenceStrategy":"pytorch-cpu-s1-o0.5-t8","device":"cpu","shifts":1,"overlap":0.5,"demucsVersion":"4.1.0","pytorchVersion":"2.14.0+cpu","modelBytes":54996327,"referenceRecipe":{"version":"prepared-reference-v2","targetPeakDbfs":-1.0,"sharedGainDb":-0.5,"backingStems":["drums","bass","other","vocals","piano"],"guitarStem":"guitar"},"deliverables":[{"name":"backing","role":"REFERENCE_BACKING","path":"remote/v1/users/u/jobs/$job/output/prepared/backing.wav","bytes":128,"sha256":"$sha","sampleRate":44100,"channels":2,"frames":441,"encoding":"FLOAT32_LE"},{"name":"guitar","role":"REFERENCE_GUITAR","path":"remote/v1/users/u/jobs/$job/output/prepared/guitar.wav","bytes":128,"sha256":"$sha","sampleRate":44100,"channels":2,"frames":441,"encoding":"FLOAT32_LE"}]}"""
         val manifest = RemoteManifestCodec.decode(json.toByteArray())
         manifest.validateFor(RemoteJobIdentity(job, "p", "source", "b".repeat(64)), "u")
         assertEquals("u", manifest.uid)
         assertEquals(2, manifest.schemaVersion)
         assertEquals(listOf("backing", "guitar"), manifest.deliverables.map { it.name })
         assertTrue(manifest.stems.isEmpty())
+        assertEquals("cpu", manifest.device)
+        assertEquals(1, manifest.shifts)
+        assertEquals(RemoteResultManifest.OFFICIAL_MODEL_BYTES, manifest.modelBytes)
+        val legacyEngine = manifest.copy(engine = "demucs.cpp", modelSha256 = RemoteResultManifest.MODEL_SHA256)
+        assertThrows(IllegalArgumentException::class.java) {
+            legacyEngine.validateFor(RemoteJobIdentity(job, "p", "source", "b".repeat(64)), "u")
+        }
         assertThrows(IllegalArgumentException::class.java) {
             manifest.validateFor(RemoteJobIdentity(job, "p", "source", "b".repeat(64)), "foreign")
         }

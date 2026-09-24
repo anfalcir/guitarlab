@@ -181,10 +181,10 @@ class RemoteSeparationTest {
             jobId = i.jobId,
             projectId = i.projectId,
             inputSha256 = i.inputSha256,
-            engine = "demucs.cpp",
-            engineRevision = "rc13",
+            engine = RemoteResultManifest.OFFICIAL_ENGINE,
+            engineRevision = "rc20-official-demucs-pytorch",
             model = "htdemucs_6s",
-            modelSha256 = RemoteResultManifest.MODEL_SHA256,
+            modelSha256 = RemoteResultManifest.OFFICIAL_MODEL_SHA256,
             sampleRate = 44100,
             channels = 2,
             frames = 1,
@@ -199,6 +199,12 @@ class RemoteSeparationTest {
                 "guitar",
             ),
             uid = "u",
+            device = "cpu",
+            shifts = 1,
+            overlap = 0.5,
+            demucsVersion = RemoteResultManifest.OFFICIAL_DEMUCS_VERSION,
+            pytorchVersion = RemoteResultManifest.OFFICIAL_PYTORCH_VERSION,
+            modelBytes = RemoteResultManifest.OFFICIAL_MODEL_BYTES,
         )
         val events = mutableListOf<String>()
         val store = MemoryStore(DurableRemoteJob(i, RemoteJobState.RUNNING, 1))

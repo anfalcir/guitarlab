@@ -53,13 +53,20 @@ data class RemoteResultManifest(
  val deliverables:List<RemoteReference> = emptyList(),
  val referenceRecipe:RemoteReferenceRecipe? = null,
  val uid:String? = null,
+ val device:String? = null,
+ val shifts:Int? = null,
+ val overlap:Double? = null,
+ val demucsVersion:String? = null,
+ val pytorchVersion:String? = null,
+ val modelBytes:Long? = null,
 ) {
  fun validateFor(i:RemoteJobIdentity,expectedUid:String?=null) {
   require(jobId==i.jobId && projectId==i.projectId && inputSha256==i.inputSha256){"remote result ownership mismatch"}
-  require(engine=="demucs.cpp" && model=="htdemucs_6s" && modelSha256==MODEL_SHA256)
+  require(model=="htdemucs_6s")
   require(sampleRate==44100 && channels==2 && frames>0 && durationSeconds>0)
   when(schemaVersion) {
    1 -> {
+    require(engine=="demucs.cpp" && modelSha256==MODEL_SHA256)
     if(uid!=null&&expectedUid!=null) require(uid==expectedUid) { "remote result uid mismatch" }
     require(stems.map{it.name}.toSet()==STEMS.toSet() && stems.size==STEMS.size) { "invalid stem set" }
     require(stems.map{it.name}.distinct().size==STEMS.size) { "duplicate stem" }
@@ -67,6 +74,9 @@ data class RemoteResultManifest(
     require(stems.all{safePath(it.path)}) { "unsafe stem path" }
    }
    2 -> {
+    require(engine==OFFICIAL_ENGINE && modelSha256==OFFICIAL_MODEL_SHA256)
+    require(device=="cpu" && shifts==1 && overlap!=null && kotlin.math.abs(overlap-0.5)<0.000000001)
+    require(demucsVersion==OFFICIAL_DEMUCS_VERSION && pytorchVersion==OFFICIAL_PYTORCH_VERSION && modelBytes==OFFICIAL_MODEL_BYTES)
     val manifestUid=requireNotNull(uid) { "missing result uid" }
     if(expectedUid!=null) require(manifestUid==expectedUid) { "remote result uid mismatch" }
     val expectedPrefix="remote/v1/users/$manifestUid/jobs/${i.jobId}/output/prepared/"
@@ -92,6 +102,11 @@ data class RemoteResultManifest(
  private fun safePath(path:String)=path.startsWith("remote/v1/")&&!path.contains("..")
  companion object {
   const val MODEL_SHA256="09704f4ceae204e56e77d5eefd6ac71d7275be81fd507e6913371d59abcee856"
+  const val OFFICIAL_ENGINE="demucs-pytorch"
+  const val OFFICIAL_MODEL_SHA256="34c22ccb381c6f9fdbf324f04e1e2fe21aaaf293f5ded163a162697ff9a02ddd"
+  const val OFFICIAL_DEMUCS_VERSION="4.1.0"
+  const val OFFICIAL_PYTORCH_VERSION="2.14.0+cpu"
+  const val OFFICIAL_MODEL_BYTES=54996327L
   val STEMS=listOf("drums","bass","other","vocals","guitar","piano")
   val BACKING_STEMS=listOf("drums","bass","other","vocals","piano")
   val DELIVERABLES=mapOf("backing" to "REFERENCE_BACKING","guitar" to "REFERENCE_GUITAR")

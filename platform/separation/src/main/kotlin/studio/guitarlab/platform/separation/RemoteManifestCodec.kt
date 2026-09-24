@@ -21,6 +21,12 @@ object RemoteManifestCodec {
             channels = root.reqInt("channels"),
             frames = root.reqLong("frames"),
             durationSeconds = root.req("duration").jsonPrimitive.double,
+            device = root["device"]?.jsonPrimitive?.contentOrNull,
+            shifts = root["shifts"]?.jsonPrimitive?.intOrNull,
+            overlap = root["overlap"]?.jsonPrimitive?.doubleOrNull,
+            demucsVersion = root["demucsVersion"]?.jsonPrimitive?.contentOrNull,
+            pytorchVersion = root["pytorchVersion"]?.jsonPrimitive?.contentOrNull,
+            modelBytes = root["modelBytes"]?.jsonPrimitive?.longOrNull,
         )
         return when (schemaVersion) {
             1 -> {
@@ -81,6 +87,12 @@ object RemoteManifestCodec {
         val channels: Int,
         val frames: Long,
         val durationSeconds: Double,
+        val device: String?,
+        val shifts: Int?,
+        val overlap: Double?,
+        val demucsVersion: String?,
+        val pytorchVersion: String?,
+        val modelBytes: Long?,
     ) {
         fun manifest(
             schemaVersion: Int,
@@ -104,6 +116,12 @@ object RemoteManifestCodec {
             deliverables = deliverables,
             referenceRecipe = referenceRecipe,
             uid = uid,
+            device = device,
+            shifts = shifts,
+            overlap = overlap,
+            demucsVersion = demucsVersion,
+            pytorchVersion = pytorchVersion,
+            modelBytes = modelBytes,
         )
     }
 
