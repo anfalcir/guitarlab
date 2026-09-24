@@ -1,0 +1,1373 @@
+diff --git a/app/build.gradle.kts b/app/build.gradle.kts
+--- a/app/build.gradle.kts
++++ b/app/build.gradle.kts
+@@ -11,8 +11,8 @@ android {
+         applicationId = "studio.guitarlab.app"
+         minSdk = 26
+         targetSdk = 36
+-        versionCode = 38
+-        versionName = "0.5.0-rc18"
++        versionCode = 39
++        versionName = "0.5.0-rc19"
+         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+     }
+ 
+
+diff --git a/app/src/main/java/studio/guitarlab/app/ui/PrepareJourneyPolicy.kt b/app/src/main/java/studio/guitarlab/app/ui/PrepareJourneyPolicy.kt
+--- a/app/src/main/java/studio/guitarlab/app/ui/PrepareJourneyPolicy.kt
++++ b/app/src/main/java/studio/guitarlab/app/ui/PrepareJourneyPolicy.kt
+@@ -156,6 +156,15 @@ object PrepareJourneyPolicy {
+     fun separationMessage(job: DurableRemoteJob?): String {
+         if (job == null) return "A fonte está pronta. Inicie a separação para preparar base e guitarra de referência."
+         val errorCode = job.errorCode
++        if (errorCode?.contains("RECOVERY:EXISTING_SAME_GENERATION") == true) {
++            return when (job.state) {
++                RemoteJobState.QUEUED, RemoteJobState.RUNNING ->
++                    "Essa separação já está em andamento na nuvem. O GuitarLab retomou o acompanhamento."
++                RemoteJobState.COMPLETED, RemoteJobState.IMPORTING ->
++                    "O processamento em nuvem já terminou. Retomando a importação das referências…"
++                else -> "Retomando o processamento remoto já existente…"
++            }
++        }
+         if (errorCode?.startsWith("RETRY:") == true) {
+             return when {
+                 errorCode.contains(":AUTHENTICATING:") -> "Não foi possível autenticar na nuvem. Nova tentativa agendada…"
+@@ -195,6 +204,12 @@ object PrepareJourneyPolicy {
+             "O serviço recusou a autorização da separação. A fonte foi preservada."
+         errorCode?.contains("STORAGE_") == true ->
+             "Não foi possível enviar a fonte para a nuvem. A fonte local foi preservada."
++        errorCode?.contains("ACTIVE_JOB_CONFLICT") == true ->
++            "Já existe outra separação em andamento nesta conta. Aguarde ou cancele a operação ativa antes de iniciar outra."
++        errorCode?.contains("MONTHLY_QUOTA_REACHED") == true ->
++            "O limite mensal de separações em nuvem foi atingido."
++        errorCode?.contains("REMOTE_STATE_AMBIGUOUS") == true ->
++            "O GuitarLab encontrou mais de um estado remoto incompatível e preservou os dados para diagnóstico."
+         else -> "Não foi possível concluir a separação. As mídias válidas do projeto foram preservadas."
+     }
+ 
+
+diff --git a/app/src/test/java/studio/guitarlab/app/ui/PrepareJourneyPolicyTest.kt b/app/src/test/java/studio/guitarlab/app/ui/PrepareJourneyPolicyTest.kt
+--- a/app/src/test/java/studio/guitarlab/app/ui/PrepareJourneyPolicyTest.kt
++++ b/app/src/test/java/studio/guitarlab/app/ui/PrepareJourneyPolicyTest.kt
+@@ -178,6 +178,46 @@ class PrepareJourneyPolicyTest {
+         assertFalse(message.contains("AUTH_PROVIDER_DISABLED"))
+     }
+ 
++    @Test fun sameGenerationRecoveryUsesProductCopyAndRemainsActive() {
++        val recovered = DurableRemoteJob(
++            identity(),
++            RemoteJobState.RUNNING,
++            1,
++            errorCode = "RECOVERY:EXISTING_SAME_GENERATION",
++        )
++        val message = PrepareJourneyPolicy.separationMessage(recovered)
++        assertTrue(message.contains("já está em andamento", ignoreCase = true))
++        assertTrue(message.contains("retomou", ignoreCase = true))
++        assertTrue(PrepareJourneyPolicy.separationIsActive(recovered))
++    }
++
++    @Test fun completedSameGenerationRecoveryExplainsImportResume() {
++        val recovered = DurableRemoteJob(
++            identity(),
++            RemoteJobState.COMPLETED,
++            1,
++            resultManifestSha256 = "b".repeat(64),
++            errorCode = "RECOVERY:EXISTING_SAME_GENERATION",
++        )
++        val message = PrepareJourneyPolicy.separationMessage(recovered)
++        assertTrue(message.contains("já terminou", ignoreCase = true))
++        assertTrue(message.contains("importação", ignoreCase = true))
++        assertFalse(message.contains("Demucs", ignoreCase = true))
++    }
++
++    @Test fun activeConflictAndMonthlyQuotaHaveDistinctUserCopy() {
++        val conflict = PrepareJourneyPolicy.separationMessage(
++            DurableRemoteJob(identity(), RemoteJobState.FAILED, 1, errorCode = "TERMINAL:ENQUEUEING:ACTIVE_JOB_CONFLICT"),
++        )
++        val quota = PrepareJourneyPolicy.separationMessage(
++            DurableRemoteJob(identity(), RemoteJobState.FAILED, 1, errorCode = "TERMINAL:ENQUEUEING:MONTHLY_QUOTA_REACHED"),
++        )
++        assertTrue(conflict.contains("outra separação", ignoreCase = true))
++        assertTrue(quota.contains("limite mensal", ignoreCase = true))
++        assertFalse(conflict.contains("RESOURCE_EXHAUSTED"))
++        assertFalse(quota.contains("RESOURCE_EXHAUSTED"))
++    }
++
+     @Test fun preparedReferencesV2AdvanceDirectlyToReadyWithoutLocalStemSet() {
+         val p = project(
+             preparation = PreparationState(
+
+diff --git a/cloud/remote-separation/functions/src/index.ts b/cloud/remote-separation/functions/src/index.ts
+--- a/cloud/remote-separation/functions/src/index.ts
++++ b/cloud/remote-separation/functions/src/index.ts
+@@ -5,7 +5,7 @@ import {FieldValue, getFirestore} from "firebase-admin/firestore";
+ import {HttpsError, onCall} from "firebase-functions/v2/https";
+ import {onSchedule} from "firebase-functions/v2/scheduler";
+ import {logger} from "firebase-functions";
+-import {ACTIVE_STATES, BACKEND_POLICY_REVISION, JOB_ID, MAX_INPUT_BYTES, MAX_MONTHLY_JOBS, RESULT_RECOVERY_WINDOW_MS, SHA256, isIdempotentJob, monthKey, requireAckable, retentionAction} from "./policy";
++import {ACTIVE_STATES, BACKEND_POLICY_REVISION, JOB_ID, MAX_INPUT_BYTES, MAX_MONTHLY_JOBS, RESULT_RECOVERY_WINDOW_MS, SHA256, decideEnqueue, isIdempotentJob, monthKey, requireAckable, retentionAction, sameGeneration} from "./policy";
+ 
+ initializeApp();
+ const db = getFirestore();
+@@ -33,43 +33,210 @@ function text(value: unknown, key: string, regex: RegExp): string {
+ }
+ const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+ 
++async function cleanupUnregisteredUpload(uid: string, jobId: string): Promise<void> {
++  await storage.bucket(bucketName).deleteFiles({prefix: `remote/v1/users/${uid}/jobs/${jobId}/`})
++    .catch(error => logger.warn("unregistered upload cleanup failed", {jobId, error: String(error)}));
++}
++
++export const findRecoverableRemoteSeparation = onCall({region, enforceAppCheck: false, timeoutSeconds: 60, ...runtimeIdentity}, async request => {
++  const {uid} = caller(request);
++  const data = request.data || {};
++  const projectId = text(data.projectId, "projectId", uuid);
++  const sourceAssetId = text(data.sourceAssetId, "sourceAssetId", /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/);
++  const inputSha256 = text(data.inputSha256, "inputSha256", SHA256);
++  const activeSnapshot = await db.collection(`users/${uid}/jobs`).where("state", "in", [...ACTIVE_STATES]).limit(10).get();
++  const matches = activeSnapshot.docs.filter(document =>
++    sameGeneration({jobId: document.id, ...(document.data() || {})}, projectId, sourceAssetId, inputSha256),
++  );
++  if (matches.length === 0) return {found: false};
++  if (matches.length !== 1) {
++    throw new HttpsError("failed-precondition", "Remote state is ambiguous.", {reason: "REMOTE_STATE_AMBIGUOUS"});
++  }
++  const document = matches[0];
++  const job = document.data() || {};
++  return {
++    found: true,
++    disposition: "EXISTING_SAME_GENERATION",
++    jobId: document.id,
++    projectId,
++    sourceAssetId,
++    inputSha256,
++    state: String(job.state || "QUEUED"),
++    resultManifestSha256: typeof job.resultManifestSha256 === "string" ? job.resultManifestSha256 : null,
++  };
++});
++
++export const enqueueRemoteSeparation = onCall({region, enforceAppCheck: false, timeoutSeconds: 60, ...runtimeIdentity}, async request => {
++  const {uid} = caller(request);
++  const data = request.data || {};
++  const jobId = text(data.jobId, "jobId", JOB_ID);
++  const projectId = text(data.projectId, "projectId", uuid);
++  const sourceAssetId = text(data.sourceAssetId, "sourceAssetId", /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/);
++  const inputSha256 = text(data.inputSha256, "inputSha256", SHA256);
++  const inputPath = text(data.inputPath, "inputPath", new RegExp(`^remote/v1/users/${uid}/jobs/${jobId}/input/source\\.[a-z0-9]{1,8}import {ExecutionsClient, JobsClient} from "@google-cloud/run";
++import {Storage} from "@google-cloud/storage";
++import {initializeApp} from "firebase-admin/app";
++import {FieldValue, getFirestore} from "firebase-admin/firestore";
++import {HttpsError, onCall} from "firebase-functions/v2/https";
++import {onSchedule} from "firebase-functions/v2/scheduler";
++import {logger} from "firebase-functions";
++import {ACTIVE_STATES, BACKEND_POLICY_REVISION, JOB_ID, MAX_INPUT_BYTES, MAX_MONTHLY_JOBS, RESULT_RECOVERY_WINDOW_MS, SHA256, decideEnqueue, isIdempotentJob, monthKey, requireAckable, retentionAction, sameGeneration} from "./policy";
++
++initializeApp();
++const db = getFirestore();
++const storage = new Storage();
++const jobsClient = new JobsClient();
++const executionsClient = new ExecutionsClient();
++const region = process.env.GBW_REGION || "us-central1";
++const project = process.env.GCLOUD_PROJECT || process.env.GOOGLE_CLOUD_PROJECT || "";
++const bucketName = process.env.GBW_BUCKET || "";
++const runJobName = process.env.GBW_RUN_JOB || `projects/${project}/locations/${region}/jobs/gbw-demucs`;
++const allowedUids = new Set((process.env.GBW_ALLOWED_UIDS || "").split(",").map(v => v.trim()).filter(Boolean));
++const runtimeServiceAccount = process.env.GBW_ORCHESTRATOR_SA;
++const runtimeIdentity = runtimeServiceAccount ? {serviceAccount: runtimeServiceAccount} : {};
++
++type Caller = {uid: string};
++function caller(request: {auth?: {uid: string}; app?: unknown}): Caller {
++  if (!request.auth) throw new HttpsError("unauthenticated", "Authentication required.");
++  if (!request.app && process.env.GBW_REQUIRE_APP_CHECK === "true") throw new HttpsError("failed-precondition", "App Check required.");
++  if (!allowedUids.has(request.auth.uid)) throw new HttpsError("permission-denied", "Account is not authorized.");
++  return {uid: request.auth.uid};
++}
++function text(value: unknown, key: string, regex: RegExp): string {
++  if (typeof value !== "string" || !regex.test(value)) throw new HttpsError("invalid-argument", `Invalid ${key}.`);
++  return value;
++}
++const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
++
++async function cleanupUnregisteredUpload(uid: string, jobId: string): Promise<void> {
++  await storage.bucket(bucketName).deleteFiles({prefix: `remote/v1/users/${uid}/jobs/${jobId}/`})
++    .catch(error => logger.warn("unregistered upload cleanup failed", {jobId, error: String(error)}));
++}
++
++export const findRecoverableRemoteSeparation = onCall({region, enforceAppCheck: false, timeoutSeconds: 60, ...runtimeIdentity}, async request => {
++  const {uid} = caller(request);
++  const data = request.data || {};
++  const projectId = text(data.projectId, "projectId", uuid);
++  const sourceAssetId = text(data.sourceAssetId, "sourceAssetId", /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/);
++  const inputSha256 = text(data.inputSha256, "inputSha256", SHA256);
++  const activeSnapshot = await db.collection(`users/${uid}/jobs`).where("state", "in", [...ACTIVE_STATES]).limit(10).get();
++  const matches = activeSnapshot.docs.filter(document =>
++    sameGeneration({jobId: document.id, ...(document.data() || {})}, projectId, sourceAssetId, inputSha256),
++  );
++  if (matches.length === 0) return {found: false};
++  if (matches.length !== 1) {
++    throw new HttpsError("failed-precondition", "Remote state is ambiguous.", {reason: "REMOTE_STATE_AMBIGUOUS"});
++  }
++  const document = matches[0];
++  const job = document.data() || {};
++  return {
++    found: true,
++    disposition: "EXISTING_SAME_GENERATION",
++    jobId: document.id,
++    projectId,
++    sourceAssetId,
++    inputSha256,
++    state: String(job.state || "QUEUED"),
++    resultManifestSha256: typeof job.resultManifestSha256 === "string" ? job.resultManifestSha256 : null,
++  };
++});
++
+ export const enqueueRemoteSeparation = onCall({region, enforceAppCheck: false, timeoutSeconds: 60, ...runtimeIdentity}, async request => {
+   const {uid} = caller(request);
+   const data = request.data || {};
+   const jobId = text(data.jobId, "jobId", JOB_ID);
+   const projectId = text(data.projectId, "projectId", uuid);
+   const sourceAssetId = text(data.sourceAssetId, "sourceAssetId", /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/);
+   const inputSha256 = text(data.inputSha256, "inputSha256", SHA256);
+-  const inputPath = text(data.inputPath, "inputPath", new RegExp(`^remote/v1/users/${uid}/jobs/${jobId}/input/source\\.[a-z0-9]{1,8}$`));
++));
++  const jobRef = db.doc(`users/${uid}/jobs/${jobId}`);
++  const usageRef = db.doc(`users/${uid}/usage/${monthKey()}`);
+   const [metadata] = await storage.bucket(bucketName).file(inputPath).getMetadata();
+   const size = Number(metadata.size || 0);
+   if (size <= 0 || size > MAX_INPUT_BYTES || !String(metadata.contentType || "").match(/^(audio\/|application\/octet-stream)/)) {
++    const registered = await jobRef.get();
++    if (!registered.exists) await cleanupUnregisteredUpload(uid, jobId);
+     throw new HttpsError("invalid-argument", "Invalid input object.");
+   }
+   if (metadata.metadata?.sha256 !== inputSha256 || metadata.metadata?.projectId !== projectId || metadata.metadata?.jobId !== jobId) {
++    const registered = await jobRef.get();
++    if (!registered.exists) await cleanupUnregisteredUpload(uid, jobId);
+     throw new HttpsError("failed-precondition", "Input metadata mismatch.");
+   }
+-  const jobRef = db.doc(`users/${uid}/jobs/${jobId}`);
+-  const usageRef = db.doc(`users/${uid}/usage/${monthKey()}`);
+-  let shouldExecute = false;
+-  await db.runTransaction(async transaction => {
++  const decision = await db.runTransaction(async transaction => {
+     const [jobSnapshot, usageSnapshot, activeSnapshot] = await Promise.all([
+-      transaction.get(jobRef), transaction.get(usageRef),
+-      transaction.get(db.collection(`users/${uid}/jobs`).where("state", "in", [...ACTIVE_STATES]).limit(2)),
++      transaction.get(jobRef),
++      transaction.get(usageRef),
++      transaction.get(db.collection(`users/${uid}/jobs`).where("state", "in", [...ACTIVE_STATES]).limit(10)),
+     ]);
+     if (jobSnapshot.exists) {
+-      if (!isIdempotentJob(jobSnapshot.data() || {}, projectId, sourceAssetId, inputSha256)) throw new HttpsError("already-exists", "jobId conflict.");
+-      return;
++      const existing = jobSnapshot.data() || {};
++      if (!isIdempotentJob(existing, projectId, sourceAssetId, inputSha256)) throw new HttpsError("already-exists", "jobId conflict.");
++      return {
++        kind: "IDEMPOTENT" as const,
++        effectiveJobId: jobId,
++        state: String(existing.state || "QUEUED"),
++        resultManifestSha256: typeof existing.resultManifestSha256 === "string" ? existing.resultManifestSha256 : null,
++      };
+     }
+-    if (!activeSnapshot.empty) throw new HttpsError("resource-exhausted", "One remote job is already active.");
+-    const accepted = Number(usageSnapshot.data()?.acceptedJobs || 0);
+-    if (accepted >= MAX_MONTHLY_JOBS) throw new HttpsError("resource-exhausted", "Monthly remote quota reached.");
++    const activeJobs = activeSnapshot.docs.map(document => ({jobId: document.id, ...(document.data() || {})}));
++    const selected = decideEnqueue(
++      activeJobs,
++      Number(usageSnapshot.data()?.acceptedJobs || 0),
++      projectId,
++      sourceAssetId,
++      inputSha256,
++    );
++    if (selected.kind === "RECOVER_EXISTING") {
++      const existingDocument = activeSnapshot.docs.find(document => document.id === selected.jobId);
++      const existing = existingDocument?.data() || {};
++      return {
++        kind: "RECOVER_EXISTING" as const,
++        effectiveJobId: selected.jobId,
++        state: String(existing.state || "QUEUED"),
++        resultManifestSha256: typeof existing.resultManifestSha256 === "string" ? existing.resultManifestSha256 : null,
++      };
++    }
++    if (selected.kind !== "CREATE") return selected;
+     transaction.create(jobRef, {schemaVersion: 2, resultContract: "prepared-reference-v2", uid, projectId, sourceAssetId, inputPath, inputSha256, state: "QUEUED", progress: 0,
+       phase: "QUEUED", createdAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp(), remoteCleanupState: "NONE"});
+     transaction.set(usageRef, {acceptedJobs: FieldValue.increment(1), updatedAt: FieldValue.serverTimestamp()}, {merge: true});
+-    shouldExecute = true;
++    return {kind: "CREATE" as const};
+   });
+-  if (!shouldExecute) return {jobId, idempotent: true};
++
++  if (decision.kind === "RECOVER_EXISTING") {
++    await cleanupUnregisteredUpload(uid, jobId);
++    return {
++      requestedJobId: jobId,
++      effectiveJobId: decision.effectiveJobId,
++      disposition: "EXISTING_SAME_GENERATION",
++      state: decision.state,
++      resultManifestSha256: decision.resultManifestSha256,
++    };
++  }
++  if (decision.kind === "ACTIVE_JOB_CONFLICT") {
++    await cleanupUnregisteredUpload(uid, jobId);
++    throw new HttpsError("resource-exhausted", "Another remote separation is active.", {
++      reason: "ACTIVE_JOB_CONFLICT",
++      activeJobId: decision.jobId,
++    });
++  }
++  if (decision.kind === "MONTHLY_QUOTA_REACHED") {
++    await cleanupUnregisteredUpload(uid, jobId);
++    throw new HttpsError("resource-exhausted", "Monthly remote quota reached.", {
++      reason: "MONTHLY_QUOTA_REACHED",
++    });
++  }
++  if (decision.kind === "IDEMPOTENT") {
++    return {
++      requestedJobId: jobId,
++      effectiveJobId: jobId,
++      disposition: "IDEMPOTENT",
++      state: decision.state,
++      resultManifestSha256: decision.resultManifestSha256,
++    };
++  }
++
+   try {
+     const [operation] = await jobsClient.runJob({name: runJobName, overrides: {taskCount: 1, containerOverrides: [{env: [
+       {name: "GBW_BUCKET", value: bucketName}, {name: "GBW_UID", value: uid}, {name: "GBW_JOB_ID", value: jobId},
+@@ -83,7 +250,15 @@ export const enqueueRemoteSeparation = onCall({region, enforceAppCheck: false, t
+       dispatchedAt: FieldValue.serverTimestamp(),
+       updatedAt: FieldValue.serverTimestamp(),
+     });
+-    return {jobId, executionName, state: "QUEUED", phase: "STARTING", idempotent: false};
++    return {
++      requestedJobId: jobId,
++      effectiveJobId: jobId,
++      disposition: "CREATED",
++      state: "QUEUED",
++      resultManifestSha256: null,
++      executionName,
++      phase: "STARTING",
++    };
+   } catch (error) {
+     await jobRef.update({state: "FAILED", errorCode: "JOB_START_FAILED", updatedAt: FieldValue.serverTimestamp()});
+     throw new HttpsError("internal", "Could not start separation.");
+
+diff --git a/cloud/remote-separation/functions/src/policy.ts b/cloud/remote-separation/functions/src/policy.ts
+--- a/cloud/remote-separation/functions/src/policy.ts
++++ b/cloud/remote-separation/functions/src/policy.ts
+@@ -2,7 +2,7 @@ export const ACTIVE_STATES = new Set(["UPLOADING", "READY", "QUEUED", "RUNNING",
+ export const JOB_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+ export const SHA256 = /^[a-f0-9]{64}$/;
+ export const MAX_MONTHLY_JOBS = 40;
+-export const BACKEND_POLICY_REVISION = "rc18-q40-single8-prepared-v2";
++export const BACKEND_POLICY_REVISION = "rc19-q40-single8-prepared-v2-recovery";
+ export const RESULT_RECOVERY_WINDOW_MS = 72 * 60 * 60 * 1000;
+ export const MAX_INPUT_BYTES = 1_073_741_824;
+ 
+@@ -33,3 +33,46 @@ export function retentionAction(state: unknown, updatedAtMs: number, nowMs: numb
+   if (["IMPORTED", "CANCELLED", "FAILED", "EXPIRED"].includes(normalized)) return "PURGE_ONLY";
+   return null;
+ }
++
++
++export type EnqueueDecision =
++  | {kind: "CREATE"}
++  | {kind: "RECOVER_EXISTING"; jobId: string}
++  | {kind: "ACTIVE_JOB_CONFLICT"; jobId: string}
++  | {kind: "MONTHLY_QUOTA_REACHED"};
++
++export type ActiveJobRecord = {
++  jobId: string;
++  projectId?: unknown;
++  sourceAssetId?: unknown;
++  inputSha256?: unknown;
++};
++
++export function sameGeneration(
++  job: ActiveJobRecord,
++  projectId: string,
++  sourceAssetId: string,
++  inputSha256: string,
++): boolean {
++  return job.projectId === projectId &&
++    job.sourceAssetId === sourceAssetId &&
++    job.inputSha256 === inputSha256;
++}
++
++export function decideEnqueue(
++  activeJobs: ActiveJobRecord[],
++  acceptedJobs: number,
++  projectId: string,
++  sourceAssetId: string,
++  inputSha256: string,
++): EnqueueDecision {
++  const recoverable = activeJobs.filter(job => sameGeneration(job, projectId, sourceAssetId, inputSha256));
++  if (recoverable.length === 1 && activeJobs.length === 1) {
++    return {kind: "RECOVER_EXISTING", jobId: recoverable[0].jobId};
++  }
++  if (activeJobs.length > 0) {
++    return {kind: "ACTIVE_JOB_CONFLICT", jobId: activeJobs[0].jobId};
++  }
++  if (acceptedJobs >= MAX_MONTHLY_JOBS) return {kind: "MONTHLY_QUOTA_REACHED"};
++  return {kind: "CREATE"};
++}
+
+diff --git a/cloud/remote-separation/functions/src/test/policy.test.ts b/cloud/remote-separation/functions/src/test/policy.test.ts
+--- a/cloud/remote-separation/functions/src/test/policy.test.ts
++++ b/cloud/remote-separation/functions/src/test/policy.test.ts
+@@ -10,6 +10,8 @@ import {
+   monthKey,
+   requireAckable,
+   retentionAction,
++  decideEnqueue,
++  sameGeneration,
+ } from "../policy";
+ 
+ test("month key is UTC stable", () =>
+@@ -54,7 +56,7 @@ test("cancel requested still occupies the single active-job slot", () =>
+   assert.equal(ACTIVE_STATES.has("CANCEL_REQUESTED"), true));
+ 
+ test("backend policy revision is explicit", () =>
+-  assert.equal(BACKEND_POLICY_REVISION, "rc18-q40-single8-prepared-v2"));
++  assert.equal(BACKEND_POLICY_REVISION, "rc19-q40-single8-prepared-v2-recovery"));
+ 
+ test("retention preserves recent results and expires abandoned imports after recovery window", () => {
+   const now = Date.UTC(2026, 8, 23, 12);
+@@ -63,3 +65,46 @@ test("retention preserves recent results and expires abandoned imports after rec
+   assert.equal(retentionAction("IMPORTED", now - RESULT_RECOVERY_WINDOW_MS - 1, now), "PURGE_ONLY");
+   assert.equal(retentionAction("RUNNING", now - RESULT_RECOVERY_WINDOW_MS - 1, now), null);
+ });
++
++
++test("same generation recovery wins without quota consumption or new dispatch", () => {
++  const hash = "a".repeat(64);
++  const active = [{jobId: "job-good", projectId: "p", sourceAssetId: "source", inputSha256: hash}];
++  assert.equal(sameGeneration(active[0], "p", "source", hash), true);
++  assert.deepEqual(decideEnqueue(active, 40, "p", "source", hash), {
++    kind: "RECOVER_EXISTING",
++    jobId: "job-good",
++  });
++});
++
++test("different generation and different project are typed active conflicts", () => {
++  const hash = "a".repeat(64);
++  assert.deepEqual(
++    decideEnqueue(
++      [{jobId: "other-generation", projectId: "p", sourceAssetId: "source", inputSha256: "b".repeat(64)}],
++      10,
++      "p",
++      "source",
++      hash,
++    ),
++    {kind: "ACTIVE_JOB_CONFLICT", jobId: "other-generation"},
++  );
++  assert.deepEqual(
++    decideEnqueue(
++      [{jobId: "other-project", projectId: "other", sourceAssetId: "source", inputSha256: hash}],
++      10,
++      "p",
++      "source",
++      hash,
++    ),
++    {kind: "ACTIVE_JOB_CONFLICT", jobId: "other-project"},
++  );
++});
++
++test("quota is distinct from active-job conflict and only applies without active work", () => {
++  const hash = "a".repeat(64);
++  assert.deepEqual(decideEnqueue([], MAX_MONTHLY_JOBS, "p", "source", hash), {
++    kind: "MONTHLY_QUOTA_REACHED",
++  });
++  assert.deepEqual(decideEnqueue([], MAX_MONTHLY_JOBS - 1, "p", "source", hash), {kind: "CREATE"});
++});
+
+diff --git a/core/separation/src/main/kotlin/studio/guitarlab/core/separation/RemoteSeparation.kt b/core/separation/src/main/kotlin/studio/guitarlab/core/separation/RemoteSeparation.kt
+--- a/core/separation/src/main/kotlin/studio/guitarlab/core/separation/RemoteSeparation.kt
++++ b/core/separation/src/main/kotlin/studio/guitarlab/core/separation/RemoteSeparation.kt
+@@ -3,8 +3,20 @@ package studio.guitarlab.core.separation
+ enum class RemoteJobState { UPLOADING, READY, QUEUED, RUNNING, COMPLETED, IMPORTING, IMPORT_FAILED, IMPORTED, CANCEL_REQUESTED, CANCELLED, FAILED, EXPIRED }
+ data class RemoteJobIdentity(val jobId:String,val projectId:String,val sourceAssetId:String,val inputSha256:String) {
+  init { require(jobId.matches(UUID)); require(projectId.isNotBlank()); require(sourceAssetId.isNotBlank()); require(inputSha256.matches(SHA)) }
++ fun generation()=RemoteSourceGeneration(projectId,sourceAssetId,inputSha256)
+  companion object { val UUID=Regex("[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}",RegexOption.IGNORE_CASE); val SHA=Regex("[a-f0-9]{64}") }
+ }
++data class RemoteSourceGeneration(val projectId:String,val sourceAssetId:String,val inputSha256:String) {
++ init { require(projectId.isNotBlank()); require(sourceAssetId.isNotBlank()); require(inputSha256.matches(RemoteJobIdentity.SHA)) }
++}
++enum class RemoteEnqueueDisposition { CREATED, IDEMPOTENT, EXISTING_SAME_GENERATION }
++data class RemoteEnqueueResult(
++ val requestedIdentity:RemoteJobIdentity,
++ val effectiveIdentity:RemoteJobIdentity,
++ val disposition:RemoteEnqueueDisposition,
++ val state:RemoteJobState,
++ val resultManifestSha256:String?=null,
++)
+ data class RemoteStem(val name:String,val path:String,val bytes:Long,val sha256:String)
+ data class RemoteReference(
+  val name:String,
+@@ -117,8 +129,19 @@ object RemoteMissingPolicy {
+   else->RemoteJobState.FAILED
+  }
+ }
+-interface RemoteJobStore { fun load(jobId:String):DurableRemoteJob?; fun save(job:DurableRemoteJob):DurableRemoteJob; fun active():List<DurableRemoteJob> = emptyList() }
+-interface RemoteSeparationBackend { suspend fun enqueue(identity:RemoteJobIdentity,inputPath:String); suspend fun status(identity:RemoteJobIdentity):DurableRemoteJob?; suspend fun cancel(identity:RemoteJobIdentity); suspend fun acknowledge(identity:RemoteJobIdentity,resultManifestSha256:String) }
++interface RemoteJobStore {
++ fun load(jobId:String):DurableRemoteJob?
++ fun save(job:DurableRemoteJob):DurableRemoteJob
++ fun active():List<DurableRemoteJob> = emptyList()
++ fun adopt(job:DurableRemoteJob,attemptedJobId:String?=null):DurableRemoteJob = save(job)
++}
++interface RemoteSeparationBackend {
++ suspend fun enqueue(identity:RemoteJobIdentity,inputPath:String):RemoteEnqueueResult
++ suspend fun findRecoverable(generation:RemoteSourceGeneration):DurableRemoteJob? = null
++ suspend fun status(identity:RemoteJobIdentity):DurableRemoteJob?
++ suspend fun cancel(identity:RemoteJobIdentity)
++ suspend fun acknowledge(identity:RemoteJobIdentity,resultManifestSha256:String)
++}
+ interface RemoteStemPayload {
+  val name:String
+  val byteCount:Long
+@@ -140,20 +163,22 @@ interface RemoteStemPublisher {
+ 
+ class RemoteSeparationCoordinator(private val store:RemoteJobStore,private val backend:RemoteSeparationBackend,private val transport:RemoteResultTransport,private val decodeManifest:(ByteArray)->RemoteResultManifest,private val publisher:RemoteStemPublisher,private val nowMs:()->Long=System::currentTimeMillis,private val expectedResultUid:suspend()->String?={null}) {
+  suspend fun start(identity:RemoteJobIdentity):DurableRemoteJob {
+-  store.load(identity.jobId)?.let{require(it.identity==identity);return it}
++  store.load(identity.jobId)?.let{require(it.identity==identity);return reconcile(identity)}
++  backend.findRecoverable(identity.generation())?.let{return adoptRecovered(identity,it)}
+   val initial=store.save(DurableRemoteJob(identity,RemoteJobState.UPLOADING,nowMs()))
+-  val path=transport.uploadSource(identity);store.save(initial.copy(state=RemoteJobState.READY,updatedAtMs=nowMs()));backend.enqueue(identity,path)
+-  return store.save(initial.copy(state=RemoteJobState.QUEUED,updatedAtMs=nowMs()))
++  val path=transport.uploadSource(identity)
++  store.save(initial.copy(state=RemoteJobState.READY,updatedAtMs=nowMs()))
++  return enqueueOrAdopt(identity,path)
+  }
+  suspend fun reconcile(identity:RemoteJobIdentity):DurableRemoteJob {
+   val local=requireNotNull(store.load(identity.jobId)){"local job missing"};require(local.identity==identity){"local job ownership mismatch"}
+   val remote=backend.status(identity)
+   if(remote==null){
+    if(RemoteMissingPolicy.shouldReplay(local.state)){
++    backend.findRecoverable(identity.generation())?.let{return adoptRecovered(identity,it)}
+     val path=transport.uploadSource(identity)
+     store.save(local.copy(state=RemoteJobState.READY,updatedAtMs=nowMs()))
+-    backend.enqueue(identity,path)
+-    return store.save(local.copy(state=RemoteJobState.QUEUED,updatedAtMs=nowMs(),errorCode=null))
++    return enqueueOrAdopt(identity,path)
+    }
+    if(local.state in setOf(RemoteJobState.COMPLETED,RemoteJobState.IMPORTING,RemoteJobState.IMPORT_FAILED) && local.resultManifestSha256!=null){
+     return importCompleted(identity,local,false)
+@@ -167,6 +192,29 @@ class RemoteSeparationCoordinator(private val store:RemoteJobStore,private val b
+   if(accepted.state!=RemoteJobState.COMPLETED&&accepted.state!=RemoteJobState.IMPORTING)return accepted
+   return importCompleted(identity,accepted,true)
+  }
++ private suspend fun enqueueOrAdopt(identity:RemoteJobIdentity,inputPath:String):DurableRemoteJob {
++  val result=backend.enqueue(identity,inputPath)
++  require(result.requestedIdentity==identity){"enqueue requested identity mismatch"}
++  require(result.effectiveIdentity.generation()==identity.generation()){"enqueue generation mismatch"}
++  result.resultManifestSha256?.let{require(it.matches(RemoteJobIdentity.SHA)){"invalid manifest checksum"}}
++  val durable=DurableRemoteJob(
++   result.effectiveIdentity,
++   result.state,
++   nowMs(),
++   result.resultManifestSha256,
++   if(result.disposition==RemoteEnqueueDisposition.EXISTING_SAME_GENERATION) RECOVERY_MARKER else null,
++  )
++  return if(result.disposition==RemoteEnqueueDisposition.EXISTING_SAME_GENERATION || result.effectiveIdentity.jobId!=identity.jobId) {
++   store.adopt(durable,identity.jobId)
++  } else {
++   store.save(durable)
++  }
++ }
++ private fun adoptRecovered(requested:RemoteJobIdentity,remote:DurableRemoteJob):DurableRemoteJob {
++  require(remote.identity.generation()==requested.generation()){"recoverable generation mismatch"}
++  val marked=remote.copy(errorCode=remote.errorCode?:RECOVERY_MARKER,updatedAtMs=nowMs())
++  return store.adopt(marked,requested.jobId.takeIf{it!=remote.identity.jobId})
++ }
+  private suspend fun importCompleted(identity:RemoteJobIdentity,accepted:DurableRemoteJob,acknowledgeRemote:Boolean):DurableRemoteJob {
+   store.save(accepted.copy(state=RemoteJobState.IMPORTING,updatedAtMs=nowMs(),errorCode=null))
+   val manifestBytes=transport.downloadManifest(identity);val manifestSha=sha256(manifestBytes);accepted.resultManifestSha256?.let{require(it==manifestSha){"manifest checksum mismatch"}}
+@@ -188,7 +236,9 @@ class RemoteSeparationCoordinator(private val store:RemoteJobStore,private val b
+  }
+  suspend fun cancel(identity:RemoteJobIdentity):DurableRemoteJob { val current=requireNotNull(store.load(identity.jobId));require(current.identity==identity);if(current.state in setOf(RemoteJobState.IMPORTED,RemoteJobState.CANCELLED,RemoteJobState.FAILED,RemoteJobState.EXPIRED))return current;val requesting=store.save(current.copy(state=RemoteJobState.CANCEL_REQUESTED,updatedAtMs=nowMs()));backend.cancel(identity);return requesting }
+  private fun sha256(bytes:ByteArray)=java.security.MessageDigest.getInstance("SHA-256").digest(bytes).joinToString(""){"%02x".format(it)}
++ companion object { const val RECOVERY_MARKER="RECOVERY:EXISTING_SAME_GENERATION" }
+ }
++
+ object RemoteFailurePolicy {
+  private val terminal=setOf("AUTH_REQUIRED","APP_CHECK_REJECTED","QUOTA_EXCEEDED","REMOTE_JOB_NOT_FOUND","CONFIG_INVALID","INPUT_MISSING","INPUT_HASH_MISMATCH","RESULT_INVALID")
+  fun shouldRetry(code:String,attempt:Int,maxAttempts:Int=5)=attempt<maxAttempts && code !in terminal
+
+diff --git a/core/separation/src/test/kotlin/studio/guitarlab/core/separation/RemoteSeparationTest.kt b/core/separation/src/test/kotlin/studio/guitarlab/core/separation/RemoteSeparationTest.kt
+--- a/core/separation/src/test/kotlin/studio/guitarlab/core/separation/RemoteSeparationTest.kt
++++ b/core/separation/src/test/kotlin/studio/guitarlab/core/separation/RemoteSeparationTest.kt
+@@ -106,7 +106,7 @@ class RemoteSeparationTest {
+         }
+         val result = RemoteSeparationCoordinator(store, backend, transport, { error("unused") }, unusedPublisher())
+             .reconcile(i)
+-        assertEquals(listOf("upload", "enqueue:owned/input"), events)
++        assertEquals(listOf("findRecoverable", "upload", "enqueue:owned/input"), events)
+         assertEquals(RemoteJobState.QUEUED, result.state)
+     }
+ 
+@@ -280,11 +280,163 @@ class RemoteSeparationTest {
+         assertEquals(listOf("publish", "cleanup"), events)
+     }
+ 
++
++    @Test fun completedSameGenerationIsAdoptedBeforeAnyNewUpload() = runBlocking {
++        val requested = id()
++        val existing = requested.copy(jobId = UUID.randomUUID().toString())
++        val recovered = DurableRemoteJob(existing, RemoteJobState.COMPLETED, 9, "b".repeat(64))
++        val events = mutableListOf<String>()
++        val store = MemoryStore(DurableRemoteJob(requested, RemoteJobState.READY, 1))
++        val result = RemoteSeparationCoordinator(
++            store,
++            backend(status = null, events = events, recoverable = recovered),
++            unusedTransport(events),
++            { error("unused") },
++            unusedPublisher(),
++        ).reconcile(requested)
++        assertEquals(existing.jobId, result.identity.jobId)
++        assertEquals(RemoteJobState.COMPLETED, result.state)
++        assertTrue(result.errorCode!!.contains("EXISTING_SAME_GENERATION"))
++        assertEquals(listOf("findRecoverable"), events)
++        assertEquals(RemoteJobState.FAILED, store.load(requested.jobId)?.state)
++    }
++
++    @Test fun processDeathAfterCompletedAdoptionResumesExactRemoteIdentityAndAcksAfterPublish() = runBlocking {
++        val requested = id()
++        val adopted = requested.copy(jobId = UUID.randomUUID().toString())
++        val manifestBytes = "adopted-manifest".toByteArray()
++        val manifestHash = sha(manifestBytes)
++        val stemBytes = wav()
++        val manifest = RemoteResultManifest(
++            adopted.jobId, adopted.projectId, adopted.inputSha256,
++            "demucs.cpp", "rc19", "htdemucs_6s", RemoteResultManifest.MODEL_SHA256,
++            44100, 2, 1, 1.0,
++            RemoteResultManifest.STEMS.map {
++                RemoteStem(it, "remote/v1/output/$it.wav", stemBytes.size.toLong(), sha(stemBytes))
++            },
++        )
++        val store = MemoryStore(DurableRemoteJob(requested, RemoteJobState.READY, 1))
++        val events = mutableListOf<String>()
++        var recoveryOffered = false
++        val backend = object : RemoteSeparationBackend {
++            override suspend fun enqueue(identity: RemoteJobIdentity, inputPath: String) = error("must not enqueue")
++            override suspend fun findRecoverable(generation: RemoteSourceGeneration): DurableRemoteJob? {
++                events += "findRecoverable"
++                if (recoveryOffered) return null
++                recoveryOffered = true
++                return DurableRemoteJob(adopted, RemoteJobState.COMPLETED, 2, manifestHash)
++            }
++            override suspend fun status(identity: RemoteJobIdentity): DurableRemoteJob? {
++                assertEquals(adopted, identity)
++                events += "status:${identity.jobId}"
++                return DurableRemoteJob(adopted, RemoteJobState.COMPLETED, 3, manifestHash)
++            }
++            override suspend fun cancel(identity: RemoteJobIdentity) = error("unused")
++            override suspend fun acknowledge(identity: RemoteJobIdentity, resultManifestSha256: String) {
++                assertEquals(adopted, identity)
++                assertEquals(manifestHash, resultManifestSha256)
++                events += "ack:${identity.jobId}"
++            }
++        }
++        val transport = object : RemoteResultTransport {
++            override suspend fun uploadSource(identity: RemoteJobIdentity) = error("recovery must not upload")
++            override suspend fun downloadManifest(identity: RemoteJobIdentity): ByteArray {
++                assertEquals(adopted, identity)
++                events += "manifest:${identity.jobId}"
++                return manifestBytes
++            }
++            override suspend fun downloadStem(identity: RemoteJobIdentity, stem: RemoteStem): RemoteStemPayload {
++                assertEquals(adopted, identity)
++                return BytesPayload(stem.name, stemBytes)
++            }
++            override suspend fun cleanup(identity: RemoteJobIdentity) { events += "cleanup:${identity.jobId}" }
++        }
++        val publisher = object : RemoteStemPublisher {
++            override fun publish(
++                identity: RemoteJobIdentity,
++                manifest: RemoteResultManifest,
++                manifestSha256: String,
++                stems: Map<String, RemoteStemPayload>,
++            ): Boolean {
++                assertEquals(adopted, identity)
++                assertEquals(adopted.jobId, manifest.jobId)
++                events += "publish:${identity.jobId}"
++                return true
++            }
++        }
++
++        val firstCoordinator = RemoteSeparationCoordinator(store, backend, transport, { manifest }, publisher)
++        val recovered = firstCoordinator.reconcile(requested)
++        assertEquals(adopted, recovered.identity)
++        assertEquals(RemoteJobState.COMPLETED, recovered.state)
++
++        val afterProcessDeath = RemoteSeparationCoordinator(store, backend, transport, { manifest }, publisher)
++            .reconcile(adopted)
++        assertEquals(RemoteJobState.IMPORTED, afterProcessDeath.state)
++        assertEquals(RemoteJobState.IMPORTED, store.load(adopted.jobId)?.state)
++        assertTrue(events.indexOf("publish:${adopted.jobId}") < events.indexOf("ack:${adopted.jobId}"))
++        assertTrue(events.none { it.startsWith("enqueue") })
++    }
++    @Test fun enqueueRaceAdoptsExistingJobAndNeverQueuesRequestedIdentity() = runBlocking {
++        val requested = id()
++        val existing = requested.copy(jobId = UUID.randomUUID().toString())
++        val events = mutableListOf<String>()
++        val store = MemoryStore(DurableRemoteJob(requested, RemoteJobState.READY, 1))
++        val enqueueResult = RemoteEnqueueResult(
++            requested,
++            existing,
++            RemoteEnqueueDisposition.EXISTING_SAME_GENERATION,
++            RemoteJobState.RUNNING,
++        )
++        val result = RemoteSeparationCoordinator(
++            store,
++            backend(status = null, events = events, recoverable = null, enqueueResult = enqueueResult),
++            unusedTransport(events),
++            { error("unused") },
++            unusedPublisher(),
++        ).reconcile(requested)
++        assertEquals(existing.jobId, result.identity.jobId)
++        assertEquals(RemoteJobState.RUNNING, result.state)
++        assertEquals(listOf("findRecoverable", "upload", "enqueue:input"), events)
++        assertEquals(RemoteJobState.FAILED, store.load(requested.jobId)?.state)
++    }
++
++    @Test fun recoverableGenerationMismatchFailsClosed() {
++        val requested = id()
++        val foreign = RemoteJobIdentity(UUID.randomUUID().toString(), requested.projectId, "different-source", requested.inputSha256)
++        val store = MemoryStore(DurableRemoteJob(requested, RemoteJobState.UPLOADING, 1))
++        assertThrows(IllegalArgumentException::class.java) {
++            runBlocking {
++                RemoteSeparationCoordinator(
++                    store,
++                    backend(status = null, recoverable = DurableRemoteJob(foreign, RemoteJobState.COMPLETED, 2)),
++                    unusedTransport(),
++                    { error("unused") },
++                    unusedPublisher(),
++                ).reconcile(requested)
++            }
++        }
++    }
++
+     private fun backend(
+         status: DurableRemoteJob?,
+         events: MutableList<String> = mutableListOf(),
++        recoverable: DurableRemoteJob? = null,
++        enqueueResult: RemoteEnqueueResult? = null,
+     ) = object : RemoteSeparationBackend {
+-        override suspend fun enqueue(identity: RemoteJobIdentity, inputPath: String) { events += "enqueue:$inputPath" }
++        override suspend fun enqueue(identity: RemoteJobIdentity, inputPath: String): RemoteEnqueueResult {
++            events += "enqueue:$inputPath"
++            return enqueueResult ?: RemoteEnqueueResult(
++                identity,
++                identity,
++                RemoteEnqueueDisposition.CREATED,
++                RemoteJobState.QUEUED,
++            )
++        }
++        override suspend fun findRecoverable(generation: RemoteSourceGeneration): DurableRemoteJob? {
++            events += "findRecoverable"
++            return recoverable
++        }
+         override suspend fun status(identity: RemoteJobIdentity) = status
+         override suspend fun cancel(identity: RemoteJobIdentity) { events += "cancel" }
+         override suspend fun acknowledge(identity: RemoteJobIdentity, resultManifestSha256: String) { events += "ack" }
+@@ -306,11 +458,28 @@ class RemoteSeparationTest {
+         ) = true
+     }
+ 
+-    private class MemoryStore(var job: DurableRemoteJob) : RemoteJobStore {
+-        override fun load(jobId: String) = job
++    private class MemoryStore(initial: DurableRemoteJob) : RemoteJobStore {
++        private val jobs = linkedMapOf(initial.identity.jobId to initial)
++        val job: DurableRemoteJob get() = jobs.values.maxByOrNull { it.updatedAtMs } ?: error("empty store")
++        override fun load(jobId: String) = jobs[jobId]
++        override fun active() = jobs.values.toList()
+         override fun save(job: DurableRemoteJob): DurableRemoteJob {
+-            if (RemoteStateMachine.accepts(this.job.state, job.state)) this.job = job
+-            return this.job
++            val old = jobs[job.identity.jobId]
++            if (old == null || RemoteStateMachine.accepts(old.state, job.state)) jobs[job.identity.jobId] = job
++            return jobs[job.identity.jobId]!!
++        }
++        override fun adopt(job: DurableRemoteJob, attemptedJobId: String?): DurableRemoteJob {
++            attemptedJobId?.takeIf { it != job.identity.jobId }?.let { staleId ->
++                jobs[staleId]?.let { stale ->
++                    jobs[staleId] = stale.copy(
++                        state = RemoteJobState.FAILED,
++                        updatedAtMs = job.updatedAtMs,
++                        errorCode = "ADOPTED_REMOTE_JOB:${job.identity.jobId}",
++                    )
++                }
++            }
++            jobs[job.identity.jobId] = job
++            return job
+         }
+     }
+ 
+
+diff --git a/platform/separation/src/main/kotlin/studio/guitarlab/platform/separation/FileRemoteJobStore.kt b/platform/separation/src/main/kotlin/studio/guitarlab/platform/separation/FileRemoteJobStore.kt
+--- a/platform/separation/src/main/kotlin/studio/guitarlab/platform/separation/FileRemoteJobStore.kt
++++ b/platform/separation/src/main/kotlin/studio/guitarlab/platform/separation/FileRemoteJobStore.kt
+@@ -35,6 +35,28 @@ class FileRemoteJobStore(context: Context) : RemoteJobStore {
+             .mapNotNull { runCatching { decode(it.readText()) }.getOrNull() }
+     }
+ 
++    override fun adopt(job: DurableRemoteJob, attemptedJobId: String?): DurableRemoteJob = synchronized(this) {
++        attemptedJobId
++            ?.takeIf { it != job.identity.jobId }
++            ?.let { staleJobId ->
++                load(staleJobId)?.let { stale ->
++                    require(stale.identity.generation() == job.identity.generation()) { "adoption generation mismatch" }
++                    writeUnchecked(
++                        stale.copy(
++                            state = RemoteJobState.FAILED,
++                            updatedAtMs = job.updatedAtMs,
++                            errorCode = "ADOPTED_REMOTE_JOB:${job.identity.jobId}",
++                        ),
++                    )
++                }
++            }
++        load(job.identity.jobId)?.let { existing ->
++            require(existing.identity == job.identity) { "adopted remote identity mismatch" }
++            if (existing.state == RemoteJobState.IMPORTED && job.state != RemoteJobState.IMPORTED) return existing
++        }
++        writeUnchecked(job)
++    }
++
+     fun latestForProject(projectId: String): DurableRemoteJob? =
+         RemoteRecoveryPolicy.selectLatestForProject(active(), projectId)
+ 
+
+diff --git a/platform/separation/src/main/kotlin/studio/guitarlab/platform/separation/FirebaseRemoteBackend.kt b/platform/separation/src/main/kotlin/studio/guitarlab/platform/separation/FirebaseRemoteBackend.kt
+--- a/platform/separation/src/main/kotlin/studio/guitarlab/platform/separation/FirebaseRemoteBackend.kt
++++ b/platform/separation/src/main/kotlin/studio/guitarlab/platform/separation/FirebaseRemoteBackend.kt
+@@ -5,30 +5,76 @@ import com.google.firebase.firestore.FirebaseFirestore
+ import com.google.firebase.functions.FirebaseFunctions
+ import kotlinx.coroutines.tasks.await
+ import studio.guitarlab.core.separation.DurableRemoteJob
++import studio.guitarlab.core.separation.RemoteEnqueueDisposition
++import studio.guitarlab.core.separation.RemoteEnqueueResult
+ import studio.guitarlab.core.separation.RemoteJobIdentity
+ import studio.guitarlab.core.separation.RemoteJobState
+ import studio.guitarlab.core.separation.RemoteSeparationBackend
++import studio.guitarlab.core.separation.RemoteSourceGeneration
+ 
+ class FirebaseRemoteBackend(
+     private val auth: FirebaseAuth,
+     private val db: FirebaseFirestore,
+     private val functions: FirebaseFunctions,
+ ) : RemoteSeparationBackend {
+-    override suspend fun enqueue(i: RemoteJobIdentity, inputPath: String) = staged(RemotePipelineStage.ENQUEUEING) {
+-        user()
+-        functions.getHttpsCallable("enqueueRemoteSeparation")
+-            .call(
+-                mapOf(
+-                    "jobId" to i.jobId,
+-                    "projectId" to i.projectId,
+-                    "inputSha256" to i.inputSha256,
+-                    "inputPath" to inputPath,
+-                    "sourceAssetId" to i.sourceAssetId,
++    override suspend fun enqueue(i: RemoteJobIdentity, inputPath: String): RemoteEnqueueResult =
++        staged(RemotePipelineStage.ENQUEUEING) {
++            user()
++            val result = functions.getHttpsCallable("enqueueRemoteSeparation")
++                .call(
++                    mapOf(
++                        "jobId" to i.jobId,
++                        "projectId" to i.projectId,
++                        "inputSha256" to i.inputSha256,
++                        "inputPath" to inputPath,
++                        "sourceAssetId" to i.sourceAssetId,
++                    ),
++                )
++                .await()
++            val payload = result.data.asMap()
++            val effectiveJobId = payload.string("effectiveJobId")
++            RemoteEnqueueResult(
++                requestedIdentity = i,
++                effectiveIdentity = RemoteJobIdentity(
++                    effectiveJobId,
++                    i.projectId,
++                    i.sourceAssetId,
++                    i.inputSha256,
+                 ),
++                disposition = RemoteEnqueueDisposition.valueOf(payload.string("disposition")),
++                state = RemoteJobState.valueOf(payload.string("state")),
++                resultManifestSha256 = payload.optionalString("resultManifestSha256"),
+             )
+-            .await()
+-        Unit
+-    }
++        }
++
++    override suspend fun findRecoverable(generation: RemoteSourceGeneration): DurableRemoteJob? =
++        staged(RemotePipelineStage.CHECKING_REMOTE) {
++            user()
++            val result = functions.getHttpsCallable("findRecoverableRemoteSeparation")
++                .call(
++                    mapOf(
++                        "projectId" to generation.projectId,
++                        "sourceAssetId" to generation.sourceAssetId,
++                        "inputSha256" to generation.inputSha256,
++                    ),
++                )
++                .await()
++            val payload = result.data.asMap()
++            if (payload["found"] != true) return@staged null
++            val identity = RemoteJobIdentity(
++                payload.string("jobId"),
++                generation.projectId,
++                generation.sourceAssetId,
++                generation.inputSha256,
++            )
++            DurableRemoteJob(
++                identity,
++                RemoteJobState.valueOf(payload.string("state")),
++                System.currentTimeMillis(),
++                payload.optionalString("resultManifestSha256"),
++                null,
++            )
++        }
+ 
+     override suspend fun cancel(i: RemoteJobIdentity) = staged(RemotePipelineStage.CANCELLING) {
+         user()
+@@ -77,6 +123,15 @@ class FirebaseRemoteBackend(
+         requireStableRemoteUid(auth)
+     }
+ 
++    private fun Any?.asMap(): Map<*, *> =
++        this as? Map<*, *> ?: error("Invalid callable response.")
++
++    private fun Map<*, *>.string(key: String): String =
++        (this[key] as? String)?.takeIf { it.isNotBlank() } ?: error("Missing callable response field: $key")
++
++    private fun Map<*, *>.optionalString(key: String): String? =
++        (this[key] as? String)?.takeIf { it.isNotBlank() }
++
+     private suspend fun <T> staged(stage: RemotePipelineStage, block: suspend () -> T): T =
+         try {
+             block()
+
+diff --git a/platform/separation/src/main/kotlin/studio/guitarlab/platform/separation/FirebaseRemoteRuntime.kt b/platform/separation/src/main/kotlin/studio/guitarlab/platform/separation/FirebaseRemoteRuntime.kt
+--- a/platform/separation/src/main/kotlin/studio/guitarlab/platform/separation/FirebaseRemoteRuntime.kt
++++ b/platform/separation/src/main/kotlin/studio/guitarlab/platform/separation/FirebaseRemoteRuntime.kt
+@@ -157,6 +157,24 @@ class RemoteSeparationWorker(context: Context, params: WorkerParameters) : Corou
+             )
+             current?.let { notifier.show(id, projectName, it.state, it.errorCode) }
+             val next = if (current == null) coordinator.start(id) else coordinator.reconcile(id)
++            if (next.identity.jobId != id.jobId) {
++                notifier.show(next.identity, projectName, next.state, next.errorCode)
++                val manager = WorkManager.getInstance(applicationContext)
++                if (next.state == RemoteJobState.CANCEL_REQUESTED) {
++                    manager.enqueueUniqueWork(
++                        remoteCancelWorkName(next.identity.jobId),
++                        ExistingWorkPolicy.REPLACE,
++                        remoteCancelRequest(next.identity),
++                    )
++                } else {
++                    manager.enqueueUniqueWork(
++                        remoteWorkName(next.identity.jobId),
++                        ExistingWorkPolicy.KEEP,
++                        remoteSeparationRequest(next.identity),
++                    )
++                }
++                return Result.success()
++            }
+             when (next.state) {
+                 RemoteJobState.IMPORTED -> {
+                     resultTransport.cleanup(id)
+@@ -354,8 +372,8 @@ class RemoteSeparationClient(private val context: Context) {
+     fun resumePending() {
+         val store = FileRemoteJobStore(context)
+         store.repairLegacyImportExpirations()
+-        recoverProjectsWithoutLocalJob(store)
+         val repository = FileProjectRepository(context.filesDir)
++        scheduleGenerationRecoveryProbes(store, repository)
+         val jobs = store.active()
+         notifier.reconcileExisting(jobs) { projectId ->
+             repository.load(projectId)?.name ?: "Projeto"
+@@ -387,27 +405,27 @@ class RemoteSeparationClient(private val context: Context) {
+         )
+     }
+ 
+-    private fun recoverProjectsWithoutLocalJob(store: FileRemoteJobStore) {
+-        val repository = FileProjectRepository(context.filesDir)
+-        val activeProjectIds = store.active()
+-            .filter { RemoteRecoveryPolicy.isUnresolved(it.state) }
+-            .map { it.identity.projectId }
+-            .toSet()
+-        repository.list()
+-            .filter { project ->
+-                RemoteRecoveryPolicy.shouldRestoreSourceReady(
+-                    project.preparation?.status,
+-                    project.id in activeProjectIds,
+-                )
++    private fun scheduleGenerationRecoveryProbes(
++        store: FileRemoteJobStore,
++        repository: FileProjectRepository,
++    ) {
++        repository.list().forEach { project ->
++            val preparation = project.preparation ?: return@forEach
++            val sourceId = preparation.sourceAssetId ?: return@forEach
++            if (preparation.activeBackingAssetId != null && preparation.activeGuitarAssetId != null) return@forEach
++            val source = project.assets.firstOrNull { it.assetId == sourceId } ?: return@forEach
++            val generation = RemoteSourceGeneration(project.id, sourceId, source.sha256)
++            val hasUnresolved = store.active().any {
++                RemoteRecoveryPolicy.isUnresolved(it.state) && RemoteRecoveryPolicy.sameGeneration(it, generation)
+             }
+-            .forEach { project ->
+-                repository.save(
+-                    project.copy(
+-                        updatedAtEpochMs = System.currentTimeMillis(),
+-                        preparation = requireNotNull(project.preparation).copy(status = PreparationStatus.SOURCE_READY),
+-                    ),
++            if (!hasUnresolved) {
++                WorkManager.getInstance(context).enqueueUniqueWork(
++                    remoteRecoveryWorkName(project.id),
++                    ExistingWorkPolicy.KEEP,
++                    remoteRecoveryRequest(project.id),
+                 )
+             }
++        }
+     }
+ 
+     private fun separationRequest(id: RemoteJobIdentity) =
+@@ -434,6 +452,83 @@ class RemoteSeparationClient(private val context: Context) {
+     }
+ }
+ 
++
++class RemoteRecoveryProbeWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
++    override suspend fun doWork(): Result {
++        val projectId = inputData.getString("projectId") ?: return Result.failure()
++        val repository = FileProjectRepository(applicationContext.filesDir)
++        val project = repository.load(projectId) ?: return Result.success()
++        val preparation = project.preparation ?: return Result.success()
++        val sourceId = preparation.sourceAssetId ?: return Result.success()
++        if (preparation.activeBackingAssetId != null && preparation.activeGuitarAssetId != null) return Result.success()
++        val source = project.assets.firstOrNull { it.assetId == sourceId } ?: return Result.success()
++        val generation = RemoteSourceGeneration(projectId, sourceId, source.sha256)
++        val app = GuitarLabFirebase.app(applicationContext)
++        val backend = FirebaseRemoteBackend(
++            FirebaseAuth.getInstance(app),
++            FirebaseFirestore.getInstance(app),
++            FirebaseFunctions.getInstance(app, "us-central1"),
++        )
++        val store = FileRemoteJobStore(applicationContext)
++        val notifier = RemoteSeparationNotifier(applicationContext)
++        return try {
++            val remote = backend.findRecoverable(generation)
++            if (remote == null) {
++                val hasUnresolved = store.active().any {
++                    RemoteRecoveryPolicy.isUnresolved(it.state) && RemoteRecoveryPolicy.sameGeneration(it, generation)
++                }
++                if (RemoteRecoveryPolicy.shouldRestoreSourceReady(preparation.status, hasUnresolved)) {
++                    repository.save(
++                        project.copy(
++                            updatedAtEpochMs = System.currentTimeMillis(),
++                            preparation = preparation.copy(status = PreparationStatus.SOURCE_READY),
++                        ),
++                    )
++                }
++                return Result.success()
++            }
++            val adopted = store.adopt(
++                remote.copy(
++                    updatedAtMs = System.currentTimeMillis(),
++                    errorCode = remote.errorCode ?: RemoteSeparationCoordinator.RECOVERY_MARKER,
++                ),
++            )
++            repository.save(
++                project.copy(
++                    updatedAtEpochMs = System.currentTimeMillis(),
++                    preparation = preparation.copy(status = PreparationStatus.SEPARATING),
++                ),
++            )
++            notifier.show(adopted.identity, project.name, adopted.state, adopted.errorCode)
++            val manager = WorkManager.getInstance(applicationContext)
++            if (adopted.state == RemoteJobState.CANCEL_REQUESTED) {
++                manager.enqueueUniqueWork(
++                    remoteCancelWorkName(adopted.identity.jobId),
++                    ExistingWorkPolicy.REPLACE,
++                    remoteCancelRequest(adopted.identity),
++                )
++            } else {
++                manager.enqueueUniqueWork(
++                    remoteWorkName(adopted.identity.jobId),
++                    ExistingWorkPolicy.KEEP,
++                    remoteSeparationRequest(adopted.identity),
++                )
++            }
++            Result.success()
++        } catch (cancelled: CancellationException) {
++            throw cancelled
++        } catch (error: Throwable) {
++            val failure = RemoteFirebaseFailureClassifier.classify(error)
++            Log.w(
++                "GuitarLabRemote",
++                "recovery project=${projectId} code=${failure.code} retryable=${failure.retryable} attempt=${runAttemptCount + 1}",
++                error,
++            )
++            if (failure.retryable && runAttemptCount < 5) Result.retry() else Result.success()
++        }
++    }
++}
++
+ class RemoteCancelWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
+     override suspend fun doWork(): Result {
+         val id = remoteIdentityFrom(inputData) ?: return Result.failure()
+@@ -530,6 +625,38 @@ class RemoteCancelWorker(context: Context, params: WorkerParameters) : Coroutine
+     }
+ }
+ 
++
++private fun remoteWorkName(jobId: String) = "guitarlab-separation:$jobId"
++private fun remoteCancelWorkName(jobId: String) = "guitarlab-separation-cancel:$jobId"
++private fun remoteRecoveryWorkName(projectId: String) = "guitarlab-separation-recovery:$projectId"
++
++private fun remoteSeparationRequest(id: RemoteJobIdentity) =
++    OneTimeWorkRequestBuilder<RemoteSeparationWorker>()
++        .setInputData(remoteWorkData(id))
++        .setConstraints(networkConstraints())
++        .setBackoffCriteria(BackoffPolicy.LINEAR, 30, TimeUnit.SECONDS)
++        .addTag("guitarlab-separation")
++        .addTag("guitarlab-separation:${id.projectId}")
++        .build()
++
++private fun remoteCancelRequest(id: RemoteJobIdentity) =
++    OneTimeWorkRequestBuilder<RemoteCancelWorker>()
++        .setInputData(remoteWorkData(id))
++        .setConstraints(networkConstraints())
++        .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
++        .addTag("guitarlab-separation-cancel")
++        .addTag("guitarlab-separation-cancel:${id.projectId}")
++        .build()
++
++private fun remoteRecoveryRequest(projectId: String) =
++    OneTimeWorkRequestBuilder<RemoteRecoveryProbeWorker>()
++        .setInputData(workDataOf("projectId" to projectId))
++        .setConstraints(networkConstraints())
++        .setBackoffCriteria(BackoffPolicy.LINEAR, 30, TimeUnit.SECONDS)
++        .addTag("guitarlab-separation-recovery")
++        .addTag("guitarlab-separation-recovery:$projectId")
++        .build()
++
+ private fun remoteIdentityFrom(data: Data): RemoteJobIdentity? = runCatching {
+     RemoteJobIdentity(
+         requireNotNull(data.getString("jobId")),
+
+diff --git a/platform/separation/src/main/kotlin/studio/guitarlab/platform/separation/RemoteFirebaseFailureClassifier.kt b/platform/separation/src/main/kotlin/studio/guitarlab/platform/separation/RemoteFirebaseFailureClassifier.kt
+--- a/platform/separation/src/main/kotlin/studio/guitarlab/platform/separation/RemoteFirebaseFailureClassifier.kt
++++ b/platform/separation/src/main/kotlin/studio/guitarlab/platform/separation/RemoteFirebaseFailureClassifier.kt
+@@ -52,7 +52,8 @@ internal object RemoteFirebaseFailureClassifier {
+             return classifyFirestore(it.code.name, stage ?: RemotePipelineStage.CHECKING_REMOTE)
+         }
+         chain.filterIsInstance<FirebaseFunctionsException>().firstOrNull()?.let {
+-            return classifyFunctions(it.code.name, stage ?: RemotePipelineStage.ENQUEUEING)
++            val reason = (it.details as? Map<*, *>)?.get("reason")?.toString()
++            return classifyFunctions(it.code.name, stage ?: RemotePipelineStage.ENQUEUEING, reason)
+         }
+         chain.filterIsInstance<StorageException>().firstOrNull()?.let {
+             return classifyStorage(it.errorCode, stage ?: RemotePipelineStage.UPLOADING)
+@@ -89,7 +90,15 @@ internal object RemoteFirebaseFailureClassifier {
+         return RemoteFailure("FIRESTORE_$normalized", retryable, stage)
+     }
+ 
+-    internal fun classifyFunctions(code: String, stage: RemotePipelineStage? = RemotePipelineStage.ENQUEUEING): RemoteFailure {
++    internal fun classifyFunctions(
++        code: String,
++        stage: RemotePipelineStage? = RemotePipelineStage.ENQUEUEING,
++        reason: String? = null,
++    ): RemoteFailure {
++        val typed = reason?.uppercase()
++        if (typed in setOf("ACTIVE_JOB_CONFLICT", "MONTHLY_QUOTA_REACHED", "REMOTE_STATE_AMBIGUOUS")) {
++            return RemoteFailure(requireNotNull(typed), false, stage)
++        }
+         val normalized = code.uppercase()
+         val retryable = normalized in setOf("UNAVAILABLE", "DEADLINE_EXCEEDED", "ABORTED", "INTERNAL")
+         return RemoteFailure("FUNCTIONS_$normalized", retryable, stage)
+
+diff --git a/platform/separation/src/main/kotlin/studio/guitarlab/platform/separation/RemoteRecoveryPolicy.kt b/platform/separation/src/main/kotlin/studio/guitarlab/platform/separation/RemoteRecoveryPolicy.kt
+--- a/platform/separation/src/main/kotlin/studio/guitarlab/platform/separation/RemoteRecoveryPolicy.kt
++++ b/platform/separation/src/main/kotlin/studio/guitarlab/platform/separation/RemoteRecoveryPolicy.kt
+@@ -4,6 +4,7 @@ import studio.guitarlab.core.model.PreparationStatus
+ import studio.guitarlab.core.separation.DurableRemoteJob
+ import studio.guitarlab.core.separation.RemoteFailurePolicy
+ import studio.guitarlab.core.separation.RemoteJobState
++import studio.guitarlab.core.separation.RemoteSourceGeneration
+ 
+ enum class CancellationFailureAction { RETRY, TERMINAL_FAILURE }
+ 
+@@ -22,6 +23,11 @@ object RemoteRecoveryPolicy {
+     fun shouldRestoreSourceReady(status: PreparationStatus?, hasActiveJob: Boolean): Boolean =
+         status == PreparationStatus.SEPARATING && !hasActiveJob
+ 
++    fun sameGeneration(job: DurableRemoteJob, generation: RemoteSourceGeneration): Boolean =
++        job.identity.projectId == generation.projectId &&
++            job.identity.sourceAssetId == generation.sourceAssetId &&
++            job.identity.inputSha256 == generation.inputSha256
++
+     fun shouldRestoreAfterTerminalJob(
+         status: PreparationStatus?,
+         currentSourceAssetId: String?,
+
+diff --git a/platform/separation/src/test/kotlin/studio/guitarlab/platform/separation/RemoteFirebaseFailureClassifierTest.kt b/platform/separation/src/test/kotlin/studio/guitarlab/platform/separation/RemoteFirebaseFailureClassifierTest.kt
+--- a/platform/separation/src/test/kotlin/studio/guitarlab/platform/separation/RemoteFirebaseFailureClassifierTest.kt
++++ b/platform/separation/src/test/kotlin/studio/guitarlab/platform/separation/RemoteFirebaseFailureClassifierTest.kt
+@@ -40,6 +40,21 @@ class RemoteFirebaseFailureClassifierTest {
+         assertFalse(RemoteFirebaseFailureClassifier.classifyFunctions("PERMISSION_DENIED").retryable)
+     }
+ 
++    @Test fun activeConflictAndMonthlyQuotaRemainDistinctProductFailures() {
++        val conflict = RemoteFirebaseFailureClassifier.classifyFunctions(
++            "RESOURCE_EXHAUSTED",
++            reason = "ACTIVE_JOB_CONFLICT",
++        )
++        val quota = RemoteFirebaseFailureClassifier.classifyFunctions(
++            "RESOURCE_EXHAUSTED",
++            reason = "MONTHLY_QUOTA_REACHED",
++        )
++        assertEquals("ACTIVE_JOB_CONFLICT", conflict.code)
++        assertEquals("MONTHLY_QUOTA_REACHED", quota.code)
++        assertFalse(conflict.retryable)
++        assertFalse(quota.retryable)
++    }
++
+     @Test fun storageAuthAndRetryLimitAreTerminal() {
+         assertFalse(RemoteFirebaseFailureClassifier.classifyStorage(StorageException.ERROR_NOT_AUTHENTICATED).retryable)
+         assertFalse(RemoteFirebaseFailureClassifier.classifyStorage(StorageException.ERROR_NOT_AUTHORIZED).retryable)
+
+diff --git a/platform/separation/src/test/kotlin/studio/guitarlab/platform/separation/RemoteRecoveryPolicyTest.kt b/platform/separation/src/test/kotlin/studio/guitarlab/platform/separation/RemoteRecoveryPolicyTest.kt
+--- a/platform/separation/src/test/kotlin/studio/guitarlab/platform/separation/RemoteRecoveryPolicyTest.kt
++++ b/platform/separation/src/test/kotlin/studio/guitarlab/platform/separation/RemoteRecoveryPolicyTest.kt
+@@ -9,6 +9,7 @@ import studio.guitarlab.core.model.PreparationStatus
+ import studio.guitarlab.core.separation.DurableRemoteJob
+ import studio.guitarlab.core.separation.RemoteJobIdentity
+ import studio.guitarlab.core.separation.RemoteJobState
++import studio.guitarlab.core.separation.RemoteSourceGeneration
+ 
+ class RemoteRecoveryPolicyTest {
+     private fun job(state: RemoteJobState, updatedAtMs: Long, projectId: String = "project") =
+@@ -93,6 +94,18 @@ class RemoteRecoveryPolicyTest {
+         )
+     }
+ 
++    @Test fun sameGenerationRequiresProjectSourceAndHash() {
++        val current = job(RemoteJobState.FAILED, 1)
++        val generation = RemoteSourceGeneration(
++            current.identity.projectId,
++            current.identity.sourceAssetId,
++            current.identity.inputSha256,
++        )
++        assertTrue(RemoteRecoveryPolicy.sameGeneration(current, generation))
++        assertFalse(RemoteRecoveryPolicy.sameGeneration(current, generation.copy(sourceAssetId = "different-source")))
++        assertFalse(RemoteRecoveryPolicy.sameGeneration(current, generation.copy(inputSha256 = "b".repeat(64))))
++    }
++
+     @Test fun cancellationRetriesAreBoundedAndTerminalize() {
+         assertEquals(
+             CancellationFailureAction.RETRY,
+
+diff --git a/scripts/u4_cloud_integration_smoke.sh b/scripts/u4_cloud_integration_smoke.sh
+--- a/scripts/u4_cloud_integration_smoke.sh
++++ b/scripts/u4_cloud_integration_smoke.sh
+@@ -20,11 +20,19 @@ import uuid
+ print(uuid.uuid4())
+ PY
+ )"
++SOURCE_ASSET_ID="u4-source-${RUN_TOKEN//[^A-Za-z0-9._:-]/-}"
++RECOVERY_JOB_ID="$(python3 - <<'PY'
++import uuid
++print(uuid.uuid4())
++PY
++)"
+ PREFIX="remote/v1/users/${TEST_UID}/jobs/${JOB_ID}"
++RECOVERY_PREFIX="remote/v1/users/${TEST_UID}/jobs/${RECOVERY_JOB_ID}"
+ INPUT_PATH="${PREFIX}/input/source.wav"
+ TMP="$(mktemp -d)"
+ cleanup() {
+   gcloud storage rm "gs://${GBW_BUCKET}/${PREFIX}/**" --recursive >/dev/null 2>&1 || true
++  gcloud storage rm "gs://${GBW_BUCKET}/${RECOVERY_PREFIX}/**" --recursive >/dev/null 2>&1 || true
+   TOKEN="$(gcloud auth print-access-token 2>/dev/null || true)"
+   if [[ -n "$TOKEN" ]]; then
+     curl --silent -X DELETE -H "Authorization: Bearer ${TOKEN}" "https://firestore.googleapis.com/v1/projects/${GBW_GCP_PROJECT}/databases/(default)/documents/users/${TEST_UID}/jobs/${JOB_ID}" >/dev/null 2>&1 || true
+@@ -123,7 +131,7 @@ DOC_URL="https://firestore.googleapis.com/v1/projects/${GBW_GCP_PROJECT}/databas
+ curl --fail-with-body --show-error -X POST "$DOC_URL" \
+   -H "Authorization: Bearer ${ACCESS_TOKEN}" -H "Content-Type: application/json" \
+   -H "X-Goog-User-Project: ${GBW_GCP_PROJECT}" \
+-  --data "{\"fields\":{\"schemaVersion\":{\"integerValue\":\"2\"},\"resultContract\":{\"stringValue\":\"prepared-reference-v2\"},\"uid\":{\"stringValue\":\"${TEST_UID}\"},\"projectId\":{\"stringValue\":\"${PROJECT_ID}\"},\"inputPath\":{\"stringValue\":\"${INPUT_PATH}\"},\"inputSha256\":{\"stringValue\":\"${INPUT_SHA}\"},\"state\":{\"stringValue\":\"QUEUED\"},\"phase\":{\"stringValue\":\"STARTING\"},\"progress\":{\"integerValue\":\"0\"}}}" >/dev/null
++  --data "{\"fields\":{\"schemaVersion\":{\"integerValue\":\"2\"},\"resultContract\":{\"stringValue\":\"prepared-reference-v2\"},\"uid\":{\"stringValue\":\"${TEST_UID}\"},\"projectId\":{\"stringValue\":\"${PROJECT_ID}\"},\"sourceAssetId\":{\"stringValue\":\"${SOURCE_ASSET_ID}\"},\"inputPath\":{\"stringValue\":\"${INPUT_PATH}\"},\"inputSha256\":{\"stringValue\":\"${INPUT_SHA}\"},\"state\":{\"stringValue\":\"QUEUED\"},\"phase\":{\"stringValue\":\"STARTING\"},\"progress\":{\"integerValue\":\"0\"},\"remoteCleanupState\":{\"stringValue\":\"NONE\"}}}" >/dev/null
+ 
+ echo "Executing ${GBW_JOB_NAME} for GuitarLab cloud smoke..."
+ EXECUTION="$(gcloud beta run jobs execute "$GBW_JOB_NAME"   --project "$GBW_GCP_PROJECT" --region "$GBW_REGION"   --update-env-vars "GBW_BUCKET=${GBW_BUCKET},GBW_UID=${TEST_UID},GBW_JOB_ID=${JOB_ID},GBW_PROJECT_ID=${PROJECT_ID},GBW_INPUT_PATH=${INPUT_PATH},GBW_INPUT_SHA256=${INPUT_SHA}"   --task-timeout 30m --wait --format='value(metadata.name)')"
+@@ -181,6 +189,68 @@ for artifact in "${DELIVERABLES[@]}"; do
+ done
+ gcloud storage objects describe "$MANIFEST_URI" >/dev/null
+ 
++# Prove authoritative same-generation discovery/adoption before ACK.
++FIND_URL="https://${GBW_REGION}-${GBW_GCP_PROJECT}.cloudfunctions.net/findRecoverableRemoteSeparation"
++FIND_PAYLOAD="{\"data\":{\"projectId\":\"${PROJECT_ID}\",\"sourceAssetId\":\"${SOURCE_ASSET_ID}\",\"inputSha256\":\"${INPUT_SHA}\"}}"
++FIND_RESPONSE="$(
++  curl --fail-with-body --show-error --silent     -H "Authorization: Bearer ${FIREBASE_ID_TOKEN}"     -H "Content-Type: application/json"     -X POST "$FIND_URL"     --data "$FIND_PAYLOAD"
++)"
++python3 - "$FIND_RESPONSE" "$JOB_ID" <<'PY'
++import json,sys
++payload=json.loads(sys.argv[1])
++result=payload.get("result") or {}
++assert result.get("found") is True, payload
++assert result.get("disposition")=="EXISTING_SAME_GENERATION", payload
++assert result.get("jobId")==sys.argv[2], payload
++assert result.get("state")=="COMPLETED", payload
++PY
++
++RECOVERY_INPUT_PATH="${RECOVERY_PREFIX}/input/source.wav"
++gcloud storage cp "$TMP/source.wav" "gs://${GBW_BUCKET}/${RECOVERY_INPUT_PATH}" --content-type="audio/wav" --custom-metadata="sha256=${INPUT_SHA},projectId=${PROJECT_ID},jobId=${RECOVERY_JOB_ID}" >/dev/null
++STATUS_URL="https://${GBW_REGION}-${GBW_GCP_PROJECT}.cloudfunctions.net/remoteBackendStatus"
++STATUS_PAYLOAD='{"data":{}}'
++STATUS_BEFORE="$(
++  curl --fail-with-body --show-error --silent     -H "Authorization: Bearer ${FIREBASE_ID_TOKEN}"     -H "Content-Type: application/json"     -X POST "$STATUS_URL"     --data "$STATUS_PAYLOAD"
++)"
++EXECUTIONS_BEFORE="$(gcloud run jobs executions list --job "$GBW_JOB_NAME" --region "$GBW_REGION" --project "$GBW_GCP_PROJECT" --format='value(name)' | sort)"
++
++ENQUEUE_URL="https://${GBW_REGION}-${GBW_GCP_PROJECT}.cloudfunctions.net/enqueueRemoteSeparation"
++ENQUEUE_PAYLOAD="{\"data\":{\"jobId\":\"${RECOVERY_JOB_ID}\",\"projectId\":\"${PROJECT_ID}\",\"sourceAssetId\":\"${SOURCE_ASSET_ID}\",\"inputSha256\":\"${INPUT_SHA}\",\"inputPath\":\"${RECOVERY_INPUT_PATH}\"}}"
++ENQUEUE_RESPONSE="$(
++  curl --fail-with-body --show-error --silent     -H "Authorization: Bearer ${FIREBASE_ID_TOKEN}"     -H "Content-Type: application/json"     -X POST "$ENQUEUE_URL"     --data "$ENQUEUE_PAYLOAD"
++)"
++python3 - "$ENQUEUE_RESPONSE" "$JOB_ID" "$RECOVERY_JOB_ID" <<'PY'
++import json,sys
++payload=json.loads(sys.argv[1])
++result=payload.get("result") or {}
++assert result.get("requestedJobId")==sys.argv[3], payload
++assert result.get("effectiveJobId")==sys.argv[2], payload
++assert result.get("disposition")=="EXISTING_SAME_GENERATION", payload
++assert result.get("state")=="COMPLETED", payload
++PY
++
++! gcloud storage ls "gs://${GBW_BUCKET}/${RECOVERY_PREFIX}/**" --recursive >/dev/null 2>&1
++RECOVERY_DOC="$(
++  curl --fail-with-body --show-error --silent     -H "Authorization: Bearer ${ACCESS_TOKEN}"     -H "X-Goog-User-Project: ${GBW_GCP_PROJECT}"     "https://firestore.googleapis.com/v1/projects/${GBW_GCP_PROJECT}/databases/(default)/documents/users/${TEST_UID}/jobs/${RECOVERY_JOB_ID}"
++)" || true
++python3 - "$RECOVERY_DOC" <<'PY'
++import json,sys
++payload=json.loads(sys.argv[1])
++assert "error" in payload and int(payload["error"].get("code",0))==404, payload
++PY
++STATUS_AFTER="$(
++  curl --fail-with-body --show-error --silent     -H "Authorization: Bearer ${FIREBASE_ID_TOKEN}"     -H "Content-Type: application/json"     -X POST "$STATUS_URL"     --data "$STATUS_PAYLOAD"
++)"
++python3 - "$STATUS_BEFORE" "$STATUS_AFTER" <<'PY'
++import json,sys
++before=(json.loads(sys.argv[1]).get("result") or {})
++after=(json.loads(sys.argv[2]).get("result") or {})
++assert int(before.get("acceptedJobs",-1)) == int(after.get("acceptedJobs",-2)), (before,after)
++PY
++EXECUTIONS_AFTER="$(gcloud run jobs executions list --job "$GBW_JOB_NAME" --region "$GBW_REGION" --project "$GBW_GCP_PROJECT" --format='value(name)' | sort)"
++test "$EXECUTIONS_BEFORE" = "$EXECUTIONS_AFTER"
++echo "U4 same-generation recovery PASS: completed original adopted; quota unchanged; no second Cloud Run execution; retry upload cleaned."
++
+ # Call the production callable with a real Firebase-authenticated allowlisted identity.
+ ACK_URL="https://${GBW_REGION}-${GBW_GCP_PROJECT}.cloudfunctions.net/acknowledgeRemoteImport"
+ ACK_PAYLOAD="{\"data\":{\"jobId\":\"${JOB_ID}\",\"projectId\":\"${PROJECT_ID}\",\"resultManifestSha256\":\"${MANIFEST_SHA}\"}}"
