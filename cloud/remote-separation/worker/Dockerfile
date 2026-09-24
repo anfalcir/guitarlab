@@ -27,6 +27,7 @@ RUN python -m pip install -r /tmp/requirements.txt \
 import importlib.metadata as metadata
 import torch
 assert metadata.version("demucs") == "4.1.0"
+assert metadata.version("numpy") == "1.26.4"
 assert metadata.version("torch") == "2.14.0+cpu"
 assert torch.__version__ == "2.14.0+cpu"
 assert not torch.cuda.is_available()
