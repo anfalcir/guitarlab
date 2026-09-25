@@ -41,7 +41,7 @@ Unsigned candidate authority:
 - APK build: PASS;
 - API 36 emulator regression: PASS.
 
-The signed candidate must be produced from canonical `main` after integration and temporary-branch removal.
+The maintenance line was merged through PR #7 into canonical `main` at `2617fe1f1f2351a17389f165ed5d5a8e834e16a2`. The signed candidate must be produced from canonical `main` after temporary-branch removal/neutralization.
 
 ## Promotion status
 
