@@ -4,7 +4,6 @@ import android.content.Context
 import studio.guitarlab.app.backup.BackupScheduler
 import studio.guitarlab.core.project.UnifiedOperationKind
 import studio.guitarlab.core.project.UnifiedOperationRecord
-import studio.guitarlab.platform.separation.FileRemoteJobStore
 import studio.guitarlab.platform.separation.RemoteSeparationClient
 import studio.guitarlab.platform.source.android.SourceAcquisitionClient
 
@@ -41,13 +40,11 @@ class ActivityCancellationCoordinator(context: Context) {
 
             UnifiedOperationKind.SEPARATION -> {
                 val projectId = record.projectId
-                val remote = FileRemoteJobStore(appContext).load(record.operationId)
-                if (projectId != null && remote?.identity?.projectId == projectId) {
-                    separation.cancel(projectId, record.operationId)
+                if (projectId != null && separation.cancelFromActivity(projectId, record.operationId)) {
                     durableRequested = true
                     durableDetail = "firebase-cloud-cancel-requested"
                 } else {
-                    durableDetail = "remote-job-not-found-locally"
+                    durableDetail = "remote-cancel-not-requested"
                 }
             }
 
