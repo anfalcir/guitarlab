@@ -50,6 +50,19 @@ object BackupScheduler {
         WorkManager.getInstance(context.applicationContext).cancelUniqueWork(COALESCED_WORK)
     }
 
+    /**
+     * Cancels the currently owned automatic/coalesced execution and immediately restores the
+     * periodic schedule from persisted settings so a manual Activity cleanup does not disable
+     * future backups.
+     */
+    fun cancelAutomaticExecution(context: Context) {
+        val appContext = context.applicationContext
+        val manager = WorkManager.getInstance(appContext)
+        manager.cancelUniqueWork(COALESCED_WORK)
+        manager.cancelUniqueWork(PERIODIC_WORK)
+        sync(appContext)
+    }
+
     private fun constraints(settings: BackupSettingsSnapshot): Constraints = Constraints.Builder()
         .setRequiredNetworkType(if (settings.unmeteredOnly) NetworkType.UNMETERED else NetworkType.CONNECTED)
         .setRequiresCharging(settings.chargingOnly)
