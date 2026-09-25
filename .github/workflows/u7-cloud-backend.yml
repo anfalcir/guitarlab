@@ -334,6 +334,7 @@ jobs:
         shell: bash
         env:
           GBW_JOB_NAME: ${{ steps.deploy_mode.outputs.mode == 'shadow' && 'guitarlab-demucs-shadow' || 'gbw-demucs' }}
+          GBW_PREQUALIFIED_IMAGE: ${{ steps.deploy_mode.outputs.mode == 'production' && 'us-central1-docker.pkg.dev/gbwapp-ef048/gbw/remote-worker@sha256:14e240cb01b71131cb049dd34e0df078614238da3514325f80126d56f8d5e698' || '' }}
         run: |
           set -euo pipefail
           pinned="$(bash cloud/remote-separation/scripts/deploy-worker.sh | tail -1)"
