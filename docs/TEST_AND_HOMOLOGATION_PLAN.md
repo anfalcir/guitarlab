@@ -138,3 +138,8 @@ The next Android candidate must qualify:
 - restored reference media must naturally invalidate/regenerate only the affected waveform cache entries.
 
 Physical homologation should specifically replace/edit a backing, restore Base only, confirm the canonical audio and waveform return together, then repeat for Guitar and verify recorded takes are unchanged.
+
+
+## U12bw signed waveform/reference candidate
+
+Install `GuitarLabStudio-0.5.0-rc20-U12bw-homologacao.apk` for physical validation. Producer commit: `99cd47022a9babd7accee39c4478fe7dbc2fd1d3`; signed APK SHA-256: `529834d908a0bf69c09182ebe08ca3a6269f7d776c57b37a76dbabcedae5c60f`. Validate: waveform refresh after media/reference replacement; visual alignment against playback across the song; trimmed/split clips; recorded takes; same-project re-entry after Prepare changes; always-visible prepared-reference restore button; Base-only, Guitar-only and both restore selections; preservation of takes, other tracks and mixer state. Final freeze waits for owner acceptance.
