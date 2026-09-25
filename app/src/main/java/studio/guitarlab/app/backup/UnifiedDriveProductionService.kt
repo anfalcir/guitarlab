@@ -83,6 +83,7 @@ internal class UnifiedDriveProductionService(
         val versions: List<BackupVersionDescriptor>,
         val reconciliations: Map<String, DriveReconciliation>,
         val remoteTips: Map<String, List<BackupVersionDescriptor>>,
+        val manifestCreatedAtEpochMs: Map<String, Long>,
     )
 
     /**
@@ -94,39 +95,81 @@ internal class UnifiedDriveProductionService(
         localProjects: List<GuitarProject>,
         retentionPolicy: BackupRetentionPolicy,
         knownVersions: List<BackupVersionDescriptor> = emptyList(),
+        knownManifestCreatedAtEpochMs: Map<String, Long> = emptyMap(),
     ): CatalogSnapshot {
         val heads = remote.listAllHeads()
+        val uniqueHeads = heads.distinctBy { it.descriptor.manifestSha256.lowercase() }
         val headsByProject = heads.groupBy { it.descriptor.projectId }
-        val manifestBySha = linkedMapOf<String, studio.guitarlab.core.project.DriveProjectRevisionManifest>()
-        heads.forEach { head ->
-            if (head.descriptor.manifestSha256 !in manifestBySha) {
-                val manifest = remote.loadManifest(head.descriptor)
-                manifestBySha[manifest.manifestSha256] = manifest
-            }
+        val currentManifestHashes = uniqueHeads.mapTo(mutableSetOf()) { it.descriptor.manifestSha256.lowercase() }
+        val manifestBySha = linkedMapOf<String, DriveProjectRevisionManifest>()
+        val createdAtBySha = linkedMapOf<String, Long>()
+
+        knownManifestCreatedAtEpochMs.forEach { (sha256, createdAt) ->
+            val key = sha256.lowercase()
+            if (key in currentManifestHashes && createdAt >= 0L) createdAtBySha[key] = createdAt
         }
 
-        val retained = DriveManifestRetentionPlanner.retained(
-            manifests = manifestBySha.values.toList(),
+        suspend fun realManifest(head: DrivePublishedHead): DriveProjectRevisionManifest {
+            val key = head.descriptor.manifestSha256.lowercase()
+            manifestBySha[key]?.let { return it }
+            val manifest = remote.loadManifest(head.descriptor)
+            require(
+                manifest.projectId == head.descriptor.projectId &&
+                    manifest.revisionId == head.descriptor.revisionId &&
+                    manifest.manifestSha256 == key
+            ) { "Drive head does not match its manifest." }
+            manifestBySha[key] = manifest
+            createdAtBySha[key] = manifest.createdAtEpochMs
+            return manifest
+        }
+
+        // First visit validates all manifest timestamps once. Later refreshes reuse the durable
+        // timestamp hints and fetch only manifests that appeared since the last successful catalog.
+        uniqueHeads.forEach { head ->
+            val key = head.descriptor.manifestSha256.lowercase()
+            if (key !in createdAtBySha) realManifest(head)
+        }
+
+        val retentionSummaries = uniqueHeads.map { head ->
+            DriveProjectRevisionManifest(
+                projectId = head.descriptor.projectId,
+                revisionId = head.descriptor.revisionId,
+                baseRevisionId = head.baseRevisionId,
+                createdAtEpochMs = createdAtBySha.getValue(head.descriptor.manifestSha256.lowercase()),
+                canonicalProjectStateSha256 = "0".repeat(64),
+                assets = emptyList(),
+            )
+        }
+        val retainedKeys = DriveManifestRetentionPlanner.retained(
+            manifests = retentionSummaries,
             policy = retentionPolicy,
             nowEpochMs = nowEpochMs(),
-        )
+        ).mapTo(mutableSetOf()) { it.projectId to it.revisionId }
+
         val descriptorCache = knownVersions
             .filter { it.formatVersion == 3 && it.remoteId == "u8:${it.sha256}" }
             .associateByTo(linkedMapOf()) { it.sha256.lowercase() }
 
-        suspend fun describe(manifest: studio.guitarlab.core.project.DriveProjectRevisionManifest): BackupVersionDescriptor {
-            descriptorCache[manifest.manifestSha256.lowercase()]?.let { cached ->
-                if (cached.projectId == manifest.projectId && cached.revisionId == manifest.revisionId) return cached
+        suspend fun describe(head: DrivePublishedHead): BackupVersionDescriptor {
+            val key = head.descriptor.manifestSha256.lowercase()
+            descriptorCache[key]?.let { cached ->
+                if (
+                    cached.projectId == head.descriptor.projectId &&
+                        cached.revisionId == head.descriptor.revisionId
+                ) return cached
             }
+            val manifest = realManifest(head)
             val descriptor = versionDescriptor(
                 manifest,
                 loadRemoteProject(manifest.projectStateAsset, manifest),
             )
-            descriptorCache[manifest.manifestSha256.lowercase()] = descriptor
+            descriptorCache[key] = descriptor
             return descriptor
         }
 
-        val versions = retained.map { describe(it) }
+        val versions = uniqueHeads
+            .filter { (it.descriptor.projectId to it.descriptor.revisionId) in retainedKeys }
+            .map { describe(it) }
             .distinctBy { it.deduplicationKey }
             .sortedWith(
                 compareByDescending<BackupVersionDescriptor> { it.backupCreatedAtEpochMs }
@@ -148,14 +191,15 @@ internal class UnifiedDriveProductionService(
             }
             reconciliations[project.id] = reconciliation
             if (reconciliation == DriveReconciliation.CONFLICT || reconciliation == DriveReconciliation.DOWNLOAD_REMOTE) {
-                remoteTips[project.id] = tips.map { head ->
-                    val manifest = manifestBySha[head.descriptor.manifestSha256]
-                        ?: remote.loadManifest(head.descriptor).also { manifestBySha[it.manifestSha256] = it }
-                    describe(manifest)
-                }
+                remoteTips[project.id] = tips.map { describe(it) }
             }
         }
-        return CatalogSnapshot(versions, reconciliations, remoteTips)
+        return CatalogSnapshot(
+            versions = versions,
+            reconciliations = reconciliations,
+            remoteTips = remoteTips,
+            manifestCreatedAtEpochMs = createdAtBySha,
+        )
     }
 
     suspend fun listCommittedVersions(
