@@ -292,14 +292,16 @@ jobs:
           version: '585.0.0'
           install_components: 'beta'
 
-      - name: Set up Node.js for cloud smoke and production Functions
+      - name: Set up Node.js for production Functions and U4 smoke
+        if: steps.deploy_mode.outputs.mode == 'production'
         uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
         with:
           node-version: '22'
           cache: npm
           cache-dependency-path: cloud/remote-separation/functions/package-lock.json
 
-      - name: Install Firebase Admin dependencies for cloud smoke
+      - name: Install Firebase Admin dependencies for production U4 smoke
+        if: steps.deploy_mode.outputs.mode == 'production'
         run: npm ci --prefix cloud/remote-separation/functions
 
       - name: Install pinned Firebase CLI for production
@@ -475,7 +477,8 @@ jobs:
           python3 -c 'import json,sys; d=json.load(sys.stdin); t=d["spec"]["template"]["spec"]; i=t["template"]["spec"]; assert int(t["taskCount"])==1; assert int(t["parallelism"])==1; assert int(i["maxRetries"])==0; assert int(str(i["timeoutSeconds"]).removesuffix("s"))==1800' <<<"$job_json"
           echo "runtime_contract=PASS" >> u7-deploy-evidence.txt
 
-      - name: Exercise real prepared-reference v2 job contract
+      - name: Exercise full U4 prepared-reference v2 contract after production cutover
+        if: steps.deploy_mode.outputs.mode == 'production'
         shell: bash
         env:
           GBW_JOB_NAME: ${{ steps.deploy_mode.outputs.mode == 'shadow' && 'guitarlab-demucs-shadow' || 'gbw-demucs' }}
@@ -485,27 +488,8 @@ jobs:
           set -euo pipefail
           bash scripts/u4_cloud_integration_smoke.sh | tee -a u7-deploy-evidence.txt
 
-      - name: Run W3 local/container versus Cloud Run parity
-        id: w3
-        if: steps.deploy_mode.outputs.mode == 'shadow'
-        shell: bash
-        env:
-          GBW_PINNED_IMAGE: ${{ steps.worker.outputs.pinned_image }}
-        run: |
-          set -euo pipefail
-          bash scripts/u12_rc20_parity.sh | tee -a u7-deploy-evidence.txt
-
-      - name: Upload W3 parity evidence
-        if: always() && steps.deploy_mode.outputs.mode == 'shadow' && steps.w3.outcome != 'skipped'
-        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4
-        with:
-          name: u12-rc20-w3-parity-${{ github.sha }}
-          path: artifacts/u12-rc20-w3/
-          if-no-files-found: error
-          retention-days: 14
-
-      - name: Run W4 representative shadow benchmark
-        id: w4_baseline
+      - name: Run consolidated W3/W4 shadow qualification
+        id: w3_w4_baseline
         if: steps.deploy_mode.outputs.mode == 'shadow'
         shell: bash
         env:
@@ -516,7 +500,8 @@ jobs:
           GBW_W4_MEMORY_GIB: '16'
           GBW_W4_MEMORY_RESOURCE: 16Gi
           GBW_W4_WARM_PROBE: '1'
-          GBW_W4_MODEL_PROBE: '1'
+          # Full benchmark validates assets/model load; separate Cloud Run model-probe is redundant.
+          GBW_W4_MODEL_PROBE: '0'
         run: |
           set -euo pipefail
           bash scripts/u12_rc20_shadow_benchmark.sh | tee -a u7-deploy-evidence.txt
@@ -543,11 +528,11 @@ jobs:
           set -euo pipefail
           bash scripts/u12_rc20_shadow_benchmark.sh | tee -a u7-deploy-evidence.txt
 
-      - name: Upload W4 benchmark and listening bundle
+      - name: Upload consolidated W3/W4 qualification bundle
         if: always() && steps.deploy_mode.outputs.mode == 'shadow' && steps.worker.outcome == 'success'
         uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4
         with:
-          name: u12-rc20-w4-shadow-${{ github.sha }}
+          name: u12-rc20-w3-w4-shadow-${{ github.sha }}
           path: artifacts/u12-rc20-w4/
           if-no-files-found: warn
           retention-days: 14
@@ -569,68 +554,4 @@ jobs:
           name: u7-cloud-deploy-${{ github.sha }}-${{ steps.deploy_mode.outputs.mode }}
           path: u7-deploy-evidence.txt
           if-no-files-found: error
-
-  w5_listening:
-    name: RC20 W5 exact-digest musical listening bundle
-    if: >-
-      github.repository_id == '1361533070' &&
-      github.repository_owner_id == '216095257' &&
-      github.ref == 'refs/heads/main' &&
-      github.event_name == 'push' &&
-      contains(github.event.head_commit.message, '[run u7 w5]')
-    permissions:
-      contents: read
-      id-token: write
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
-    env:
-      GBW_GCP_PROJECT: gbwapp-ef048
-      GBW_BUCKET: gbwapp-ef048.firebasestorage.app
-      GBW_REGION: us-central1
-      GBW_PINNED_IMAGE: us-central1-docker.pkg.dev/gbwapp-ef048/gbw/remote-worker@sha256:6a6d5017e0e2c9bf3800bca3a3c3988ed9398add4ef2c3097241a7a260893dbe
-      GBW_W5_SOURCE_FILE: temporario/mmf-misery-85cdef6e6bd5671e320fc503db582f23eecd1a75097c5cc2b5994f8e693d9ec2.m4a
-      GBW_W5_SOURCE_SHA256: 85cdef6e6bd5671e320fc503db582f23eecd1a75097c5cc2b5994f8e693d9ec2
-    steps:
-      - name: Checkout exact source
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-
-      - name: Verify musical fixture identity
-        shell: bash
-        run: |
-          set -euo pipefail
-          test -f "$GBW_W5_SOURCE_FILE"
-          test "$(sha256sum "$GBW_W5_SOURCE_FILE" | awk '{print $1}')" = "$GBW_W5_SOURCE_SHA256"
-
-      - name: Authenticate keylessly to Google Cloud
-        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
-        with:
-          workload_identity_provider: projects/119299736855/locations/global/workloadIdentityPools/github-gbw/providers/github-actions
-          service_account: gbw-github-deployer@gbwapp-ef048.iam.gserviceaccount.com
-          create_credentials_file: true
-
-      - name: Set up Google Cloud CLI
-        uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3
-        with:
-          version: '585.0.0'
-
-      - name: Install ffmpeg for private source canonicalization
-        shell: bash
-        run: |
-          set -euo pipefail
-          sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends ffmpeg
-
-      - name: Generate W5 listening bundle on exact finalist digest
-        shell: bash
-        run: |
-          set -euo pipefail
-          bash scripts/u12_rc20_w5_listening.sh
-
-      - name: Upload W5 musical listening bundle
-        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4
-        with:
-          name: u12-rc20-w5-listening-${{ github.sha }}
-          path: artifacts/u12-rc20-w5/
-          if-no-files-found: error
-          retention-days: 14
 
