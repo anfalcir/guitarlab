@@ -8,23 +8,33 @@ data class WaveformEnvelope(
 )
 
 object WaveformEnvelopeBuilder {
-    fun build(decoder: AudioFrameDecoder, targetPoints: Int = 320): WaveformEnvelope {
+    fun build(
+        decoder: AudioFrameDecoder,
+        targetPoints: Int = 320,
+        startFrame: Long = 0L,
+        frameCount: Long? = null,
+    ): WaveformEnvelope {
         require(targetPoints > 0) { "targetPoints must be positive" }
         val totalFrames = decoder.metadata.totalFrames
         val channels = decoder.metadata.channelCount
-        if (totalFrames == 0L) return WaveformEnvelope(emptyList(), List(channels) { emptyList() })
+        require(startFrame in 0L..totalFrames) { "startFrame must be inside the decoded media" }
+        val availableFrames = (totalFrames - startFrame).coerceAtLeast(0L)
+        val requestedFrames = frameCount?.also { require(it >= 0L) { "frameCount must be non-negative" } }
+            ?.coerceAtMost(availableFrames)
+            ?: availableFrames
+        if (requestedFrames == 0L) return WaveformEnvelope(emptyList(), List(channels) { emptyList() })
 
-        val pointCount = minOf(targetPoints.toLong(), totalFrames).toInt()
-        val framesPerPoint = (totalFrames + pointCount - 1L) / pointCount
+        val pointCount = minOf(targetPoints.toLong(), requestedFrames).toInt()
+        val framesPerPoint = (requestedFrames + pointCount - 1L) / pointCount
         val peaks = ArrayList<Float>(pointCount)
         val perChannel = List(channels) { ArrayList<Float>(pointCount) }
         val bufferFrames = minOf(4096L, framesPerPoint).toInt().coerceAtLeast(1)
         val buffer = FloatArray(bufferFrames * channels)
 
-        decoder.seekToFrame(0L)
+        decoder.seekToFrame(startFrame)
         var consumed = 0L
         repeat(pointCount) {
-            var remaining = minOf(framesPerPoint, totalFrames - consumed)
+            var remaining = minOf(framesPerPoint, requestedFrames - consumed)
             var aggregatePeak = 0f
             val channelPeak = FloatArray(channels)
             while (remaining > 0L) {
