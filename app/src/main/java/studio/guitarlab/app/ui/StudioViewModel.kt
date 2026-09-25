@@ -10,6 +10,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import java.util.UUID
 import kotlin.math.abs
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.channels.Channel
@@ -603,6 +604,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                     error = null,
                 )
             }.onFailure { error ->
+                if (error is CancellationException) throw error
                 _state.value = _state.value.copy(importing = false, error = error.message ?: "Não foi possível importar o áudio.", importStatus = null)
             }
         }
@@ -713,6 +715,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                     error = null,
                 )
             }.onFailure { error ->
+                if (error is CancellationException) throw error
                 _state.value = _state.value.copy(importing = false, error = error.message ?: "Não foi possível separar os canais estéreo.", importStatus = null)
             }
         }
