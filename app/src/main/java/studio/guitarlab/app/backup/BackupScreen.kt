@@ -69,7 +69,7 @@ fun BackupScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     DisposableEffect(viewModel) {
         viewModel.onScreenEntered()
-        onDispose(viewModel::onScreenLeft)
+        onDispose { viewModel.onScreenLeft() }
     }
     val authorizationLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
         if (result.resultCode == Activity.RESULT_OK) viewModel.completeDriveConnection(result.data)
