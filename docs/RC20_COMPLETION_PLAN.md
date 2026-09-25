@@ -1136,3 +1136,16 @@ Implemented before final freeze:
 - RC20 Android identity 0.5.0-rc20 / versionCode 40.
 
 U12bn is source-materialized fail-closed. Digital Android/API36 qualification remains required before signed homologation candidate creation.
+
+
+### RC20 signed homologation candidate
+
+- digital qualification: Android CI #893 PASS;
+- signed candidate run: Android CI #894 PASS;
+- producer commit: `fd63413ea440ed96a227b0203768b113bf256e98`;
+- package: `studio.guitarlab.app`;
+- version: `0.5.0-rc20` / versionCode `40`;
+- unsigned APK SHA-256: `adc2deab513d8b3d311015887199a6229eb46518daaa351837f25e40dc8b39b3`;
+- signed APK SHA-256 `e82fdc75896564ea10c28e072fd186913320eca293b6fad9ea4b7c8fa0468468`;
+- signer SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`;
+- remaining gate: consolidated physical homologation only; no rebuild is allowed before that validation.
