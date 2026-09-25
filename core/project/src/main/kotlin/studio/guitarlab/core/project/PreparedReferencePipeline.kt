@@ -452,7 +452,9 @@ object PreparedReferenceBindingPolicy {
     ): GuitarProject {
         require(desired.isNotEmpty()) { "A família de referência selecionada não está disponível." }
         val targetTrackIds = familyKinds.mapNotNull { targetTrack(project, it)?.id }.toSet()
-        val retainedClips = project.clips.filterNot { it.trackId in targetTrackIds }
+        val retainedClips = project.clips.filterNot { clip ->
+            clip.trackId in targetTrackIds && clip.takeId == null
+        }
         val previousBindings = project.referenceBindings.associateBy { it.kind }
         var next = project.copy(
             clips = retainedClips,
