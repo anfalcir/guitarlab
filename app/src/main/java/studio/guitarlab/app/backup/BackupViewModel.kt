@@ -103,7 +103,11 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
             }
 
             try {
-                val remoteCatalog = unifiedDrive.loadCatalog(projects, retention(settings))
+                val remoteCatalog = unifiedDrive.loadCatalog(
+                    localProjects = projects,
+                    retentionPolicy = retention(settings),
+                    knownVersions = cached?.versions.orEmpty(),
+                )
                 val refreshedAt = System.currentTimeMillis()
                 val snapshot = BackupCatalogSnapshot(
                     versions = remoteCatalog.versions,
