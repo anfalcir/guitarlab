@@ -95,6 +95,10 @@ internal class FirebaseResultTransport(
             }
         }
 
+    override suspend fun persistAcceptedManifest(identity: RemoteJobIdentity, manifestBytes: ByteArray) {
+        AcceptedRemoteManifestStore(context).persist(identity, manifestBytes)
+    }
+
     override suspend fun cleanup(identity: RemoteJobIdentity) {
         // Remote object ownership belongs to acknowledgeRemoteImport/cancel/janitor.
         // Client cleanup is deliberately local-only so backend purge failures remain observable.
