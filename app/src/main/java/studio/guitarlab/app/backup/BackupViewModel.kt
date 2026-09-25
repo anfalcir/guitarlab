@@ -223,6 +223,7 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
                 authorization.revoke()
                 unifiedDrive.clearAllLocalState()
                 confirmedRevisions.clearAll()
+                catalogCache.clear()
                 settingsStore.clearDriveConnection()
                 BackupScheduler.sync(getApplication())
                 _state.update {
@@ -233,6 +234,9 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
                         versions = emptyList(),
                         reconciliations = emptyMap(),
                         remoteTips = emptyMap(),
+                        catalogRefreshing = false,
+                        catalogUpdatedAtEpochMs = null,
+                        catalogFromCache = false,
                         authorizationRequired = false,
                         message = "Google Drive desconectado. Os backups existentes não foram apagados.",
                     )
