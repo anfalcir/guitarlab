@@ -7,7 +7,7 @@ This document describes current execution controls. Historical tail hashes, run 
 ## Source materialization
 
 - canonical entrypoint: `scripts/materialize_ci_sources.sh`;
-- current tail: U12bl via `scripts/materialize_ci_sources_u12bl.py`;
+- current tail: U12bm via `scripts/materialize_ci_sources_u12bm.py`;
 - protected deltas: `.source-parts/`;
 - required properties: deterministic, hash/blob locked, idempotent, semantic guards, reverse-apply validation and fail-closed drift handling.
 
@@ -63,7 +63,7 @@ U7 retains:
 - SBOM and full vulnerability report;
 - exact engine/model/runtime contract;
 - one consolidated CPU8 W3/W4 shadow qualification: exactly one Cloud Run execution and one Demucs inference, collecting exact engine/model/config + structural/quality gates and performance/cost evidence;
-- controlled shadow/production deployment and rollback information.
+- controlled shadow/production deployment and rollback information; production promotion uses the exact prequalified digest and never rebuilds the promoted worker.
 
 CPU4 runs only when explicitly requested and is not an RC20 prerequisite while CPU8 remains acceptable. Warm-probe and standalone model-probe are off in the normal path. The full transactional U4 smoke runs only after production cutover inside the controlled deploy so rollback remains automatic. The standalone U4 workflow is pinned to the same official RC20 checkpoint identity.
 
