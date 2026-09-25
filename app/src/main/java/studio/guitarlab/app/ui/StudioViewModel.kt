@@ -480,8 +480,9 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                         }
                         val metadata = FileSeekableByteSource(finalEditingFile).use { WavMetadataReader().read(it) }
                         val clipId = UUID.randomUUID().toString().also { importedClipId = it }
-                        val envelope = FileSeekableByteSource(finalEditingFile).use { source -> WaveformEnvelopeBuilder.build(WavPcmDecoder(source), WAVEFORM_POINTS) }
-                        waveformCache.write(current.id, clipId, envelope)
+                        val envelope = FileSeekableByteSource(finalEditingFile).use { source ->
+                            WaveformEnvelopeBuilder.build(WavPcmDecoder(source), WAVEFORM_POINTS)
+                        }
                         val sourceBits = if (originalFormat == AudioImportFormat.WAV_PCM) sourceMetadata.bitsPerSample else null
                         val sourceEncoding = if (originalFormat == AudioImportFormat.WAV_PCM) sourceMetadata.sampleEncoding.name else "COMPRESSED"
                         val clip = AudioClip(
@@ -503,6 +504,12 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                             sourceEncoding = sourceEncoding,
                             editingSampleRateHz = metadata.sampleRateHz,
                             editingTotalFrames = metadata.totalFrames,
+                        )
+                        waveformCache.write(
+                            current.id,
+                            clip.id,
+                            WaveformCacheIdentity.forClip(clip, WAVEFORM_POINTS),
+                            envelope,
                         )
                         val saved = withContext(NonCancellable) {
                             saveLatest(current.id) { latest ->
@@ -1252,9 +1259,19 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                     )
                     val clip = saved.clips.first { it.id == transaction.id }
                     val envelope = FileSeekableByteSource(transaction.finalFile).use { source ->
-                        WaveformEnvelopeBuilder.build(WavPcmDecoder(source), WAVEFORM_POINTS)
+                        WaveformEnvelopeBuilder.build(
+                            decoder = WavPcmDecoder(source),
+                            targetPoints = WAVEFORM_POINTS,
+                            startFrame = clip.sourceStartFrame,
+                            frameCount = clip.lengthFrames,
+                        )
                     }
-                    waveformCache.write(saved.id, clip.id, envelope)
+                    waveformCache.write(
+                        saved.id,
+                        clip.id,
+                        WaveformCacheIdentity.forClip(clip, WAVEFORM_POINTS),
+                        envelope,
+                    )
                     val persisted = withContext(NonCancellable) {
                         repository.save(saved).also {
                             committed = true
@@ -1795,9 +1812,19 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                             }
                             val clip = saved.clips.first { it.id == transactionId }
                             val envelope = FileSeekableByteSource(media).use { source ->
-                                WaveformEnvelopeBuilder.build(WavPcmDecoder(source), WAVEFORM_POINTS)
+                                WaveformEnvelopeBuilder.build(
+                                    decoder = WavPcmDecoder(source),
+                                    targetPoints = WAVEFORM_POINTS,
+                                    startFrame = clip.sourceStartFrame,
+                                    frameCount = clip.lengthFrames,
+                                )
                             }
-                            waveformCache.write(saved.id, clip.id, envelope)
+                            waveformCache.write(
+                                saved.id,
+                                clip.id,
+                                WaveformCacheIdentity.forClip(clip, WAVEFORM_POINTS),
+                                envelope,
+                            )
                             runCatching { recordingMediaStore.markPublished(saved.id, transactionId) }
                             Triple(saved, clip, envelope.peaks)
                         }
