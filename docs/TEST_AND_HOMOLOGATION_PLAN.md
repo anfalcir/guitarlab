@@ -107,3 +107,8 @@ After final owner acceptance, do not run recurring qualification or rebuild for 
 
 ## U12bn RC20 Android completion focus
 The next Android qualification must exercise the exact U12bn source and include focused coverage for persistent Prepare search terminal states/suggestion retry, local reference-binding repair, diagnostics navigation/export/redaction/checksums, accepted-manifest retention ordering, and adjacent Prepare → Studio behavior. The final signed artifact remains subject to the consolidated SM-X230/MK-300 physical campaign before freeze.
+
+
+## RC20 physical candidate identity
+
+The exact APK to install for final physical validation is `GuitarLabStudio-0.5.0-rc20-homologacao.apk`, signed APK SHA-256 `e82fdc75896564ea10c28e072fd186913320eca293b6fad9ea4b7c8fa0468468`, producer commit `fd63413ea440ed96a227b0203768b113bf256e98`. Do not rebuild between this digital pass and physical homologation.
