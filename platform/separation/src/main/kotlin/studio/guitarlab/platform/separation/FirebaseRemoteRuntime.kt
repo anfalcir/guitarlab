@@ -665,8 +665,8 @@ class RemoteActivityOrphanCancelWorker(context: Context, params: WorkerParameter
                 .call(mapOf("jobId" to jobId))
                 .await()
             Result.success()
-        } catch (_: CancellationException) {
-            throw
+        } catch (cancelled: CancellationException) {
+            throw cancelled
         } catch (_: Throwable) {
             if (runAttemptCount < 4) Result.retry() else Result.failure()
         }
