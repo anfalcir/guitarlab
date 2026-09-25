@@ -57,6 +57,7 @@ import studio.guitarlab.core.project.TransportPolicy
 fun StudioShellScreen(
     projectId: String,
     shellProject: GuitarProject,
+    navigationEntry: Long = 0L,
     onBack: () -> Unit,
     onPrepare: () -> Unit,
     onOptions: () -> Unit,
@@ -101,7 +102,7 @@ fun StudioShellScreen(
         }
     }
 
-    LaunchedEffect(projectId) { viewModel.load(projectId) }
+    LaunchedEffect(projectId, navigationEntry) { viewModel.load(projectId) }
     LaunchedEffect(projectId) {
         ExternalControlHub.actions.collect { action ->
             ExternalControlCommandDispatcher.dispatch(
