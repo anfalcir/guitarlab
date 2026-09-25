@@ -7,7 +7,7 @@ This document describes current execution controls. Historical tail hashes, run 
 ## Source materialization
 
 - canonical entrypoint: `scripts/materialize_ci_sources.sh`;
-- current tail: U12bt via `scripts/materialize_ci_sources_u12bt.py`;
+- current tail: U12bu via `scripts/materialize_ci_sources_u12bu.py`;
 - protected deltas: `.source-parts/`;
 - required properties: deterministic, hash/blob locked, idempotent, semantic guards, reverse-apply validation and fail-closed drift handling.
 
@@ -114,3 +114,5 @@ The frozen APK/worker does not require recurring CI. Run this pipeline again onl
 - U12bq materialization note: the POSIX API36 workflow change is represented by a regenerated exact Git patch with blob-hash verification; malformed source-parts are expected to fail before Gradle/emulator execution.
 
 - API36 runner note: `android-emulator-runner` now receives a single command only; device readiness, animation disabling, fail-closed class coverage and grouped regression execution live inside `scripts/ci_run_api36_regression_groups.sh`.
+
+- U12bu Activity cancellation / Settings cleanup is materialized fail-closed but intentionally unqualified: owner explicitly requested implementation without generating another APK. A future candidate must run the normal software gate + API36 gate before any signed homologation artifact is produced.
