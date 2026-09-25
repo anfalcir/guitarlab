@@ -45,6 +45,7 @@ class BackupCatalogCacheInstrumentedTest {
             reconciliations = mapOf("project-a" to DriveReconciliation.NO_OP),
             remoteTips = emptyMap(),
             localRevisions = mapOf("project-a" to "revision-a"),
+            manifestCreatedAtEpochMs = mapOf("a".repeat(64) to 20L),
             refreshedAtEpochMs = 40L,
         )
 
@@ -65,6 +66,7 @@ class BackupCatalogCacheInstrumentedTest {
                 reconciliations = emptyMap(),
                 remoteTips = emptyMap(),
                 localRevisions = emptyMap(),
+                manifestCreatedAtEpochMs = emptyMap(),
                 refreshedAtEpochMs = 1L,
             ),
         )
