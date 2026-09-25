@@ -10,6 +10,10 @@ import org.junit.Test
 import studio.guitarlab.core.model.AssetClassification
 import studio.guitarlab.core.model.AssetLifecycle
 import studio.guitarlab.core.model.AssetRole
+import studio.guitarlab.core.model.AudioClip
+import studio.guitarlab.core.model.AudioTrack
+import studio.guitarlab.core.model.BuiltInRoles
+import studio.guitarlab.core.model.ChannelLayout
 import studio.guitarlab.core.model.ManagedAsset
 import studio.guitarlab.core.model.ProjectFactory
 import studio.guitarlab.core.model.ProjectTemplate
@@ -51,6 +55,71 @@ class UnifiedDriveProductionStorageTest {
 
         assertFailsWith<IllegalArgumentException> {
             store.load(fixture.project.id)
+        }
+    }
+
+    @Test fun legacyRecordingRestoreVerifiesPersistedDigestBeforeTakeRecovery() {
+        val root = Files.createTempDirectory("rc21-legacy-drive-restore").toFile()
+        val base = ProjectFactory(idGenerator = { "legacy-drive" }, clock = { 1L })
+            .create("Legacy", ProjectTemplate.GUITAR)
+        val track = AudioTrack(
+            id = "guitar-left",
+            name = "Minha Guitarra E",
+            roleId = BuiltInRoles.RECORDED_GUITAR_L,
+            channelLayout = ChannelLayout.MONO,
+            order = 0,
+        )
+        val relativePath = "media/source/legacy-clip-take-1790203123119.wav"
+        val project = base.copy(
+            tracks = listOf(track),
+            clips = listOf(
+                AudioClip(
+                    id = "legacy-clip",
+                    trackId = track.id,
+                    name = "Take 1",
+                    sourceUri = "managed://$relativePath",
+                    managedSourcePath = relativePath,
+                    startFrame = 0L,
+                    sourceStartFrame = 10L,
+                    lengthFrames = 90L,
+                    sourceFormat = "WAV",
+                    sourceSampleRateHz = 44_100,
+                    sourceChannelCount = 2,
+                    sourceBitsPerSample = 32,
+                    sourceEncoding = "FLOAT32_LE",
+                    sourceTotalFrames = 100L,
+                ),
+            ),
+        )
+        val projectDirectory = File(File(root, "projects"), project.id).apply { mkdirs() }
+        File(projectDirectory, relativePath).apply {
+            parentFile.mkdirs()
+            writeText("legacy-recording-bytes")
+        }
+
+        val frozen = UnifiedDriveProjectSnapshotBuilder(root, nowEpochMs = { 10L })
+            .freeze(project, null)
+        try {
+            val staging = materializeRestoreStaging(frozen)
+            val plan = DriveRestorePlan(
+                DriveCurrentDescriptor(
+                    frozen.manifest.projectId,
+                    frozen.manifest.revisionId,
+                    frozen.manifest.manifestSha256,
+                ),
+                frozen.manifest,
+                UnifiedDriveProjectRestoreLayout.targets(frozen.manifest),
+            )
+
+            UnifiedDriveLocalRestoreValidator().validate(staging, plan)
+
+            val serialized = File(staging, "project.json").readText()
+            val codec = ProjectCodec()
+            assertTrue(codec.decodePersistedState(serialized).takes.isEmpty())
+            assertEquals("legacy-clip", codec.decode(serialized).takes.single().id)
+        } finally {
+            frozen.close()
+            root.deleteRecursively()
         }
     }
 
