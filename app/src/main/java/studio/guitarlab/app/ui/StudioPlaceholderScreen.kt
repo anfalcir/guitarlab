@@ -1809,7 +1809,7 @@ private fun StudioTrackLane(
                     val x = maxWidth * startFraction.toFloat()
                     val naturalWidth = maxWidth * (endFraction - startFraction).toFloat()
                     val availableWidth = (maxWidth - x).coerceAtLeast(1.dp)
-                    val clipWidth = naturalWidth.coerceAtLeast(92.dp).coerceAtMost(availableWidth)
+                    val clipWidth = naturalWidth.coerceAtLeast(1.dp).coerceAtMost(availableWidth)
                     TimelineClipCard(
                         clip = clip,
                         peaks = waveforms[clip.id],
@@ -1974,7 +1974,7 @@ private fun TimelineClipCard(
         border = BorderStroke(1.dp, if (trimming) StudioTrim else trackColor.copy(alpha = 0.72f)),
         tonalElevation = 0.dp,
     ) {
-        Box(modifier = Modifier.fillMaxSize().padding(horizontal = 7.dp, vertical = 4.dp)) {
+        Box(modifier = Modifier.fillMaxSize().padding(vertical = 4.dp)) {
             peaks?.let {
                 if (trimming && trimControls != null) {
                     TrimWaveformEditor(
