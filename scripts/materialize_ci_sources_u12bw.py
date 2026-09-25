@@ -7,7 +7,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 PREVIOUS = ROOT / "scripts/materialize_ci_sources_u12bv.py"
 PATCH = ROOT / ".source-parts/U12bwWaveformAndReferenceRestore.patch"
-PATCH_BLOB = "2831e411829e78e21d8544da47109be14b02cafb"
+PATCH_BLOB = "fa1b450ed5aa9373410788b05479876fbb23633f"
 TARGETS = {
     "app/src/androidTest/java/studio/guitarlab/app/GuitarLabLifecycleInstrumentedTest.kt": ("6f60a15195e4f17b981fdafa30ac4f2399acf2ed", "b3c0fd1a3974a8a612e0af77401104826da6bc70"),
     "app/src/androidTest/java/studio/guitarlab/app/PhysicalEditingHardeningInstrumentedTest.kt": ("8d1ee2bb3965b079e106756586b8bf0ff0d08bbb", "019ba7aa969d4d37eaaa05aa28c4c44b7b633ba3"),
@@ -21,9 +21,9 @@ TARGETS = {
     "app/src/test/java/studio/guitarlab/app/ui/WaveformRenderReducerTest.kt": (None, "da92ec5f141e62bf4e0064fc6109ef77058f1eb1"),
     "core/codec/src/main/kotlin/studio/guitarlab/core/codec/WaveformEnvelope.kt": ("c67dea4358e715d328c61edfe454ab9534316027", "61c43fdd6f58b93e48718ebd696ffa2154e4e46f"),
     "core/codec/src/test/kotlin/studio/guitarlab/core/codec/WaveformEnvelopeBuilderTest.kt": ("ea8126ee5492df6605e12a79f64584a72e3cf902", "92c9300471d7468b22cce68e403818ae7cc4fcdf"),
-    "core/project/src/main/kotlin/studio/guitarlab/core/project/PreparedReferencePipeline.kt": ("f2304f650f2565b8aedf1a97f2289c466b112fa1", "abb90c45a50ecb9d124fec3faee7260af2bbe746"),
+    "core/project/src/main/kotlin/studio/guitarlab/core/project/PreparedReferencePipeline.kt": ("f2304f650f2565b8aedf1a97f2289c466b112fa1", "69b97fe68c6545f7ebb73d53512b51bee9a448a9"),
     "core/project/src/main/kotlin/studio/guitarlab/core/project/WaveformCacheStore.kt": ("3665c37c7bf1d8debc79975e4c3042bf96acd00e", "1fdd125c7a27741667b1d405475fc60cbb0bf175"),
-    "core/project/src/test/kotlin/studio/guitarlab/core/project/PreparedReferencePipelineTest.kt": ("e3da70403d28a6054c405d407077e7fa5bcc861b", "92bb9c442b0e8267bcc2f859766af5c82c47fc59"),
+    "core/project/src/test/kotlin/studio/guitarlab/core/project/PreparedReferencePipelineTest.kt": ("e3da70403d28a6054c405d407077e7fa5bcc861b", "63b466187a3d5b3e47ee4d6f8ed8291bd4df5c68"),
     "core/project/src/test/kotlin/studio/guitarlab/core/project/WaveformCacheStoreTest.kt": ("7805a8c77c3b32afe163b313929b504b24f1e65c", "603e4ff798972d1d8b6d74afae962e030ab2f573"),
 }
 
@@ -78,7 +78,7 @@ def verify() -> None:
         (timeline, "val clipWidth = naturalWidth.coerceAtLeast(1.dp)"),
         (refs, "enum class PreparedReferenceRestoreTarget"),
         (refs, "fun restoreSelected("),
-        (refs, "val retainedClips = project.clips.filterNot { it.trackId in targetTrackIds }"),
+        (refs, "clip.trackId in targetTrackIds && clip.takeId == null"),
         (prepare, 'testTag("prepare-restore-references")'),
         (prepare, 'testTag("restore-reference-dialog")'),
         (prepare, 'testTag("restore-reference-backing")'),
