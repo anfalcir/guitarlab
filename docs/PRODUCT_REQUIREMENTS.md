@@ -11,6 +11,7 @@ Stable product identity, support boundaries, proportional quality, freeze policy
 - Save a portable versioned `.guitarlab` package and reopen it from Home as an independent project without silently overwriting the original.
 - Validate package/project/media identity and reject structurally invalid, incompatible or unsafe packages before publication.
 - Read supported current-line schema/package versions safely and reject unknown incompatible versions without corruption; no indefinite historical migration promise is implied.
+- Cryptographic/revision integrity of stored project state is verified before compatibility repair is applied to the decoded in-memory representation.
 
 Home project-library requirements:
 - Search project names in real time without case or diacritic sensitivity.
@@ -52,6 +53,9 @@ Home project-library requirements:
 - Immutable content-addressed media plus transactional project revision metadata is the target architecture.
 - Upload/restore is resumable where applicable, server-confirmed, checksum-validated and conflict-aware.
 - Restore stages and validates all required project/media state before atomic publication.
+- Remote Drive heads/manifests are authoritative for version history; a local metadata cache may accelerate display but may never replace remote verification.
+- Backup screen entry and explicit refresh verify current remote heads; cached versions may remain visible while that verification runs.
+- Automatic backup must remain correct with no Backup UI alive. Off-screen completion must not require a catalog read; a later screen entry must reconcile from Drive.
 - Legacy H37/GBW backup discovery/import is outside current support scope; current unified backup/restore integrity remains mandatory.
 
 ## Tracks, roles and mixing
@@ -71,6 +75,8 @@ Home project-library requirements:
 - `Excluir clipe`, `Limpar pista` and `Excluir pista` remain distinct scopes.
 - Drag-to-trash uses the same confirmed domain deletion as `Excluir clipe`; cancel is a no-op.
 - Split recording segments may share take lineage, but moves/deletions must never create dangling take references.
+- Separating a stereo clip into mono tracks must use the actual derived media frame/rate bounds and preserve unambiguous take metadata/active-state semantics.
+- If an existing take lineage is shared across multiple temporal clips, stereo separation must fail closed rather than silently inventing lineage.
 - Failed/stale/invalid drag must not partially commit project/history/media state.
 
 ## Managed media
@@ -105,6 +111,8 @@ The currently implemented format set includes WAV PCM, FLAC, AIFF/AIFC PCM, MP3,
 - Record uses visible 3-second countdown plus zero-time revalidation of permission, route, project and exactly one armed track.
 - Finalized takes enter immutable managed storage transactionally; zero-frame attempts create no clip.
 - A track may retain multiple takes with one active take for playback/export.
+- Current-line recordings always persist take lineage; narrowly recognizable legacy managed recordings may recover missing take metadata deterministically and idempotently.
+- Compatibility recovery must never classify a generic imported WAV as a recording merely from its track role or filename coincidence.
 
 ### Recording synchronization
 - Never correct device/session timing with a hidden hard-coded offset.
