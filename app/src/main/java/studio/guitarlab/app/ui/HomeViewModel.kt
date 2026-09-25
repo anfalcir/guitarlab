@@ -688,6 +688,15 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                     )
                 }
             }.onSuccess {
+                activityStore.record(
+                    operationId = "reference-repair-$projectId-${System.currentTimeMillis()}",
+                    projectId = projectId,
+                    kind = UnifiedOperationKind.REFERENCE_PREPARATION,
+                    state = UnifiedOperationState.SUCCEEDED,
+                    progressPercent = 100,
+                    summary = "Referências do Studio verificadas/recolocadas localmente",
+                    technicalDetail = "local-only; zero cloud/quota",
+                )
                 _state.update { current ->
                     current.copy(
                         message = "Referências recolocadas no Studio sem alterar gravações ou edições.",
