@@ -1,6 +1,6 @@
 # Backup Identity Contract
 
-Updated: 2026-09-24
+Updated: 2026-09-25
 
 This contract protects current GuitarLab backup/restore identity independently from transport. Historical H28 implementation and acceptance evidence is retained in `history/H28_BACKUP_IDENTITY_CONSISTENCY.md`.
 
@@ -45,6 +45,8 @@ Incomplete or mismatched uploads never appear as restorable committed revisions.
 ## Restore
 
 Restore downloads, stages and validates the complete package before publication. It must reject malformed, incompatible, unsafe or integrity-mismatched data without mutating an existing project.
+
+Stored project/revision integrity is evaluated against the decoded persisted canonical state before any compatibility recovery mutates the in-memory representation. A compatibility repair may make an accepted historical project usable, but it may not retroactively redefine the state whose digest/revision identity was authenticated.
 
 Successful restore publishes a new independent project identity. Repeating restore must not overwrite the prior local project silently.
 

@@ -62,7 +62,7 @@ Existing CI and vulnerability workflows are not weakened merely to implement thi
 
 ## Freeze policy
 
-The current RC20 baseline has completed final physical acceptance; its exact immutable identity is recorded in `RELEASE_BASELINE.md`. For every accepted baseline:
+`RELEASE_BASELINE.md` records the exact immutable identity of the currently accepted baseline. RC20 remains that accepted baseline while RC21 proceeds through maintenance qualification; opening a successor candidate does not mutate the accepted artifact identity. For every accepted baseline:
 
 - freeze the exact signed APK;
 - record and freeze its producer SHA, package/version, APK SHA-256 and signer certificate;
@@ -82,6 +82,8 @@ Development reopens only for one or more of:
 6. a new feature explicitly requested by the owner.
 
 A future change requalifies only the paths it can materially affect, plus adjacent smoke needed to prove safe integration. Previously accepted unrelated evidence remains reusable.
+
+The current RC21 maintenance line is an example of this rule: an owner-observed Studio/project-integrity regression plus backup/feedback issues reopened only the affected Android paths. It does not reopen the frozen Demucs worker or unrelated physical evidence. Until RC21 is signed and physically accepted, RC20 remains the promoted baseline.
 
 ## Release principle
 

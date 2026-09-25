@@ -22,9 +22,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.SnackbarDuration
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -74,7 +71,6 @@ fun StudioShellScreen(
     var allLevelsDialogVisible by rememberSaveable(projectId) { mutableStateOf(false) }
     var projectMediaVisible by rememberSaveable(projectId) { mutableStateOf(false) }
     var pendingRecordMode by remember(projectId) { mutableStateOf(PracticeRecordingMode.CURRENT_PLAYHEAD) }
-    val snackbarHostState = remember { SnackbarHostState() }
     val recordPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (granted) viewModel.startRecording(pendingRecordMode) else viewModel.onRecordPermissionResult(false)
     }
@@ -126,14 +122,7 @@ fun StudioShellScreen(
     val rawTransientMessage = if (state.project != null) {
         state.error ?: state.transientNotice
     } else null
-    LaunchedEffect(rawTransientMessage) {
-        rawTransientMessage?.let { rawMessage ->
-            val userMessage = AppTransientFeedbackPolicy.userSafe(rawMessage, "Não foi possível concluir a operação de áudio.")
-            snackbarHostState.currentSnackbarData?.dismiss()
-            snackbarHostState.showSnackbar(message = userMessage, duration = SnackbarDuration.Short)
-            viewModel.dismissTransientMessage(rawMessage)
-        }
-    }
+    val transientKind = if (state.error != null) TransientFeedbackKind.ERROR else state.transientNoticeKind
 
     val structuralControlsEnabled = !state.importing &&
         !state.editingClip &&
@@ -283,9 +272,12 @@ fun StudioShellScreen(
             }
         }
         }
-        SnackbarHost(
-            hostState = snackbarHostState,
-            modifier = Modifier.align(Alignment.TopCenter).padding(top = 76.dp).widthIn(max = 560.dp),
+        AppTransientFeedbackHost(
+            message = rawTransientMessage,
+            kind = transientKind,
+            onConsumed = { rawTransientMessage?.let(viewModel::dismissTransientMessage) },
+            modifier = Modifier.align(Alignment.TopCenter).padding(top = 64.dp),
+            fallback = "Não foi possível concluir a operação de áudio.",
         )
     }
 

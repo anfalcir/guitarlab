@@ -56,7 +56,8 @@ fun GuitarLabApp(
         }
     }
 
-    when (val current = screen) {
+    Box(Modifier.fillMaxSize()) {
+        when (val current = screen) {
         AppScreen.Home -> HomeScreen(
             viewModel = homeViewModel,
             onNewProject = { navigate(AppScreen.NewProject) },
@@ -173,6 +174,14 @@ fun GuitarLabApp(
             projectId = current.projectId,
             onBack = { if (current.returnToHome) navigate(AppScreen.Home) else navigate(AppScreen.Options(current.projectId)) },
             onProjectsChanged = homeViewModel::refresh,
+        )
+        }
+
+        AppTransientFeedbackHost(
+            message = homeState.error ?: homeState.message,
+            kind = if (homeState.error != null) TransientFeedbackKind.ERROR else homeState.messageKind,
+            onConsumed = homeViewModel::clearMessage,
+            modifier = Modifier.align(Alignment.TopCenter),
         )
     }
 }

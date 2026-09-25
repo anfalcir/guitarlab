@@ -1,0 +1,2496 @@
+diff --git a/app/build.gradle.kts b/app/build.gradle.kts
+--- a/app/build.gradle.kts
++++ b/app/build.gradle.kts
+@@ -11,8 +11,8 @@ android {
+         applicationId = "studio.guitarlab.app"
+         minSdk = 26
+         targetSdk = 36
+-        versionCode = 40
+-        versionName = "0.5.0-rc20"
++        versionCode = 41
++        versionName = "0.5.0-rc21"
+         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+     }
+ 
+diff --git a/app/src/androidTest/java/studio/guitarlab/app/BackupCatalogCacheInstrumentedTest.kt b/app/src/androidTest/java/studio/guitarlab/app/BackupCatalogCacheInstrumentedTest.kt
+new file mode 100644
+--- /dev/null
++++ b/app/src/androidTest/java/studio/guitarlab/app/BackupCatalogCacheInstrumentedTest.kt
+@@ -0,0 +1,118 @@
++package studio.guitarlab.app
++
++import androidx.test.core.app.ApplicationProvider
++import androidx.test.ext.junit.runners.AndroidJUnit4
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertNull
++import org.junit.After
++import org.junit.Before
++import org.junit.Test
++import org.junit.runner.RunWith
++import org.json.JSONObject
++import studio.guitarlab.app.backup.BackupCatalogCacheStore
++import studio.guitarlab.app.backup.BackupCatalogSnapshot
++import studio.guitarlab.app.backup.BackupSettingsSnapshot
++import studio.guitarlab.core.project.BackupVersionDescriptor
++import studio.guitarlab.core.project.DriveReconciliation
++
++@RunWith(AndroidJUnit4::class)
++class BackupCatalogCacheInstrumentedTest {
++    private val context get() = ApplicationProvider.getApplicationContext<android.content.Context>()
++    private val store get() = BackupCatalogCacheStore(context)
++
++    @Before fun clearBefore() = store.clear()
++    @After fun clearAfter() = store.clear()
++
++    @Test fun durableCatalogRoundTripsAndRejectsDifferentAccountOrRetention() {
++        val settings = BackupSettingsSnapshot(
++            driveConnected = true,
++            driveAccountLabel = "Conta A",
++            retentionDays = 90,
++            maximumVersions = 3,
++        )
++        val version = BackupVersionDescriptor(
++            remoteId = "u8:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
++            projectId = "project-a",
++            projectName = "Projeto A",
++            projectUpdatedAtEpochMs = 10L,
++            backupCreatedAtEpochMs = 20L,
++            sizeBytes = 30L,
++            sha256 = "a".repeat(64),
++            revisionId = VALID_REVISION,
++            formatVersion = 3,
++        )
++        val snapshot = BackupCatalogSnapshot(
++            versions = listOf(version),
++            reconciliations = mapOf("project-a" to DriveReconciliation.NO_OP),
++            remoteTips = emptyMap(),
++            localRevisions = mapOf("project-a" to VALID_REVISION),
++            manifestCreatedAtEpochMs = mapOf("a".repeat(64) to 20L),
++            refreshedAtEpochMs = 40L,
++        )
++
++        store.save(settings, snapshot)
++
++        assertEquals(snapshot, store.load(settings))
++        assertNull(store.load(settings.copy(driveAccountLabel = "Conta B")))
++        assertNull(store.load(settings.copy(retentionDays = 30)))
++        assertNull(store.load(settings.copy(maximumVersions = 5)))
++    }
++
++    @Test fun corruptedLocalCacheIsDiscardedInsteadOfBecomingCatalogTruth() {
++        val settings = BackupSettingsSnapshot(
++            driveConnected = true,
++            driveAccountLabel = "Conta A",
++            retentionDays = 90,
++            maximumVersions = 3,
++        )
++        val version = BackupVersionDescriptor(
++            remoteId = "u8:${"a".repeat(64)}",
++            projectId = "project-a",
++            projectName = "Projeto A",
++            projectUpdatedAtEpochMs = 10L,
++            backupCreatedAtEpochMs = 20L,
++            sizeBytes = 30L,
++            sha256 = "a".repeat(64),
++            revisionId = VALID_REVISION,
++            formatVersion = 3,
++        )
++        store.save(
++            settings,
++            BackupCatalogSnapshot(
++                versions = listOf(version),
++                reconciliations = mapOf("project-a" to DriveReconciliation.NO_OP),
++                remoteTips = emptyMap(),
++                localRevisions = mapOf("project-a" to VALID_REVISION),
++                manifestCreatedAtEpochMs = mapOf("a".repeat(64) to 20L),
++                refreshedAtEpochMs = 40L,
++            ),
++        )
++
++        val preferences = context.getSharedPreferences("guitarlab_backup_catalog_cache", android.content.Context.MODE_PRIVATE)
++        val root = JSONObject(requireNotNull(preferences.getString("snapshot", null)))
++        root.getJSONObject("manifestCreatedAtEpochMs").put("a".repeat(64), 999L)
++        preferences.edit().putString("snapshot", root.toString()).commit()
++
++        assertNull(store.load(settings))
++    }
++
++    @Test fun disconnectedDriveNeverExposesPersistedCatalog() {
++        val connected = BackupSettingsSnapshot(driveConnected = true, driveAccountLabel = "Conta A")
++        store.save(
++            connected,
++            BackupCatalogSnapshot(
++                versions = emptyList(),
++                reconciliations = emptyMap(),
++                remoteTips = emptyMap(),
++                localRevisions = emptyMap(),
++                manifestCreatedAtEpochMs = emptyMap(),
++                refreshedAtEpochMs = 1L,
++            ),
++        )
++
++        assertNull(store.load(connected.copy(driveConnected = false)))
++    }
++    private companion object {
++        const val VALID_REVISION = "r_10_aaaaaaaaaaaaaaaaaaaaaaaa"
++    }
++}
+diff --git a/app/src/androidTest/java/studio/guitarlab/app/BackupScreenInstrumentedTest.kt b/app/src/androidTest/java/studio/guitarlab/app/BackupScreenInstrumentedTest.kt
+--- a/app/src/androidTest/java/studio/guitarlab/app/BackupScreenInstrumentedTest.kt
++++ b/app/src/androidTest/java/studio/guitarlab/app/BackupScreenInstrumentedTest.kt
+@@ -128,6 +128,54 @@ class BackupScreenInstrumentedTest {
+     }
+ 
+ 
++    @Test fun emptyCatalogDoesNotClaimNoBackupsWhileRemoteRefreshIsRunning() {
++        compose.setContent {
++            GuitarLabTheme {
++                BackupScreenContent(
++                    state = configuredState().copy(
++                        loading = false,
++                        catalogRefreshing = true,
++                        versions = emptyList(),
++                    ),
++                    projectId = null,
++                    onBack = {}, onConnectDrive = {}, onDisconnectDrive = {}, onRefresh = {},
++                    onAutomaticEnabled = {}, onCadence = {}, onUnmeteredOnly = {}, onChargingOnly = {},
++                    onRetentionDays = {}, onMaximumVersions = {}, onBackupAll = {}, onBackupProject = {},
++                    onKeepLocal = { _, _ -> }, onUseCloud = {}, onRestoreVersion = {}, onRestoreAll = {},
++                )
++            }
++        }
++
++        compose.onNodeWithTag("backup-catalog-loading").assertIsDisplayed()
++        compose.onNodeWithTag("backup-catalog-empty").assertDoesNotExist()
++    }
++
++    @Test fun cachedCatalogRemainsVisibleDuringBackgroundRefresh() {
++        val cached = version("cached-version")
++        compose.setContent {
++            GuitarLabTheme {
++                BackupScreenContent(
++                    state = configuredState(versions = listOf(cached)).copy(
++                        loading = true,
++                        catalogRefreshing = true,
++                        catalogUpdatedAtEpochMs = 123_456L,
++                        catalogFromCache = true,
++                    ),
++                    projectId = null,
++                    onBack = {}, onConnectDrive = {}, onDisconnectDrive = {}, onRefresh = {},
++                    onAutomaticEnabled = {}, onCadence = {}, onUnmeteredOnly = {}, onChargingOnly = {},
++                    onRetentionDays = {}, onMaximumVersions = {}, onBackupAll = {}, onBackupProject = {},
++                    onKeepLocal = { _, _ -> }, onUseCloud = {}, onRestoreVersion = {}, onRestoreAll = {},
++                )
++            }
++        }
++
++        compose.onNodeWithTag("backup-catalog-background-refresh").assertIsDisplayed()
++        compose.onNode(hasScrollAction()).performScrollToNode(hasText("Ver versões"))
++        compose.onNodeWithText("Ver versões").assertIsDisplayed()
++        compose.onNodeWithTag("backup-catalog-empty").assertDoesNotExist()
++    }
++
+     @Test fun singleVersionRestoreRequiresExplicitConfirmation() {
+         val version = version("remote-1")
+         var restored: BackupVersionDescriptor? = null
+diff --git a/app/src/androidTest/java/studio/guitarlab/app/TransientFeedbackHostInstrumentedTest.kt b/app/src/androidTest/java/studio/guitarlab/app/TransientFeedbackHostInstrumentedTest.kt
+new file mode 100644
+--- /dev/null
++++ b/app/src/androidTest/java/studio/guitarlab/app/TransientFeedbackHostInstrumentedTest.kt
+@@ -0,0 +1,50 @@
++package studio.guitarlab.app
++
++import androidx.compose.ui.test.assertIsDisplayed
++import androidx.compose.ui.test.junit4.createComposeRule
++import androidx.compose.ui.test.onNodeWithText
++import java.util.concurrent.atomic.AtomicInteger
++import org.junit.Assert.assertEquals
++import org.junit.Rule
++import org.junit.Test
++import studio.guitarlab.app.ui.AppTransientFeedbackHost
++import studio.guitarlab.app.ui.TransientFeedbackKind
++import studio.guitarlab.app.ui.theme.GuitarLabTheme
++
++class TransientFeedbackHostInstrumentedTest {
++    @get:Rule val compose = createComposeRule()
++
++    @Test fun asyncCompletionIsConsumedImmediatelyAndShownOnce() {
++        val consumed = AtomicInteger(0)
++        compose.setContent {
++            GuitarLabTheme {
++                AppTransientFeedbackHost(
++                    message = "Projeto GuitarLab salvo com sucesso.",
++                    kind = TransientFeedbackKind.ASYNC_COMPLETION,
++                    onConsumed = { consumed.incrementAndGet() },
++                )
++            }
++        }
++
++        compose.waitUntil(timeoutMillis = 1_000L) { consumed.get() == 1 }
++        assertEquals(1, consumed.get())
++        compose.onNodeWithText("Projeto GuitarLab salvo com sucesso.").assertIsDisplayed()
++    }
++
++    @Test fun operationalStatusIsConsumedWithoutSnackbarNoise() {
++        val consumed = AtomicInteger(0)
++        compose.setContent {
++            GuitarLabTheme {
++                AppTransientFeedbackHost(
++                    message = "Aquisição iniciada em segundo plano.",
++                    kind = TransientFeedbackKind.OPERATIONAL_STATUS,
++                    onConsumed = { consumed.incrementAndGet() },
++                )
++            }
++        }
++
++        compose.waitUntil(timeoutMillis = 1_000L) { consumed.get() == 1 }
++        assertEquals(1, consumed.get())
++        compose.onNodeWithText("Aquisição iniciada em segundo plano.").assertDoesNotExist()
++    }
++}
+diff --git a/app/src/main/java/studio/guitarlab/app/backup/BackupCatalogCacheStore.kt b/app/src/main/java/studio/guitarlab/app/backup/BackupCatalogCacheStore.kt
+new file mode 100644
+--- /dev/null
++++ b/app/src/main/java/studio/guitarlab/app/backup/BackupCatalogCacheStore.kt
+@@ -0,0 +1,204 @@
++package studio.guitarlab.app.backup
++
++import android.content.Context
++import org.json.JSONArray
++import org.json.JSONObject
++import studio.guitarlab.core.project.BackupRevisionIdentity
++import studio.guitarlab.core.project.BackupVersionDescriptor
++import studio.guitarlab.core.project.DriveReconciliation
++
++internal data class BackupCatalogSnapshot(
++    val versions: List<BackupVersionDescriptor>,
++    val reconciliations: Map<String, DriveReconciliation>,
++    val remoteTips: Map<String, List<BackupVersionDescriptor>>,
++    val localRevisions: Map<String, String>,
++    val manifestCreatedAtEpochMs: Map<String, Long>,
++    val refreshedAtEpochMs: Long,
++)
++
++internal object BackupCatalogFreshnessPolicy {
++    const val DEFAULT_MAX_AGE_MS: Long = 2L * 60L * 1_000L
++
++    fun shouldRefresh(
++        snapshot: BackupCatalogSnapshot?,
++        nowEpochMs: Long,
++        force: Boolean,
++        currentLocalRevisions: Map<String, String>? = null,
++        maxAgeMs: Long = DEFAULT_MAX_AGE_MS,
++    ): Boolean {
++        if (force || snapshot == null) return true
++        if (currentLocalRevisions != null && snapshot.localRevisions != currentLocalRevisions) return true
++        if (snapshot.refreshedAtEpochMs <= 0L || nowEpochMs < snapshot.refreshedAtEpochMs) return true
++        return nowEpochMs - snapshot.refreshedAtEpochMs >= maxAgeMs
++    }
++}
++
++/**
++ * Small durable metadata cache for the Drive backup catalog.
++ *
++ * It never contains media, OAuth credentials or upload-session state. A cache is accepted only for
++ * the same Drive account label and retention settings, and failed refreshes never overwrite it.
++ */
++internal class BackupCatalogCacheStore(context: Context) {
++    private val preferences = context.applicationContext.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
++
++    fun load(settings: BackupSettingsSnapshot): BackupCatalogSnapshot? {
++        if (!settings.driveConnected) return null
++        val raw = preferences.getString(KEY_SNAPSHOT, null) ?: return null
++        return runCatching {
++            val root = JSONObject(raw)
++            if (root.optInt("schema", 0) != SCHEMA) return@runCatching null
++            if (root.optString("account") != settings.driveAccountLabel.orEmpty()) return@runCatching null
++            if (root.optInt("retentionDays", Int.MIN_VALUE) != (settings.retentionDays ?: NO_RETENTION)) return@runCatching null
++            if (root.optInt("maximumVersions", Int.MIN_VALUE) != settings.maximumVersions) return@runCatching null
++
++            val versions = root.getJSONArray("versions").toDescriptors()
++            val reconciliationsObject = root.optJSONObject("reconciliations") ?: JSONObject()
++            val reconciliations = buildMap {
++                val keys = reconciliationsObject.keys()
++                while (keys.hasNext()) {
++                    val key = keys.next()
++                    runCatching { DriveReconciliation.valueOf(reconciliationsObject.getString(key)) }
++                        .getOrNull()
++                        ?.let { put(key, it) }
++                }
++            }
++            val tipsObject = root.optJSONObject("remoteTips") ?: JSONObject()
++            val remoteTips = buildMap {
++                val keys = tipsObject.keys()
++                while (keys.hasNext()) {
++                    val key = keys.next()
++                    put(key, tipsObject.getJSONArray(key).toDescriptors())
++                }
++            }
++            val revisionsObject = root.optJSONObject("localRevisions") ?: JSONObject()
++            val localRevisions = buildMap {
++                val keys = revisionsObject.keys()
++                while (keys.hasNext()) {
++                    val key = keys.next()
++                    put(key, revisionsObject.getString(key))
++                }
++            }
++            val manifestTimesObject = root.optJSONObject("manifestCreatedAtEpochMs") ?: JSONObject()
++            val manifestCreatedAtEpochMs = buildMap {
++                val keys = manifestTimesObject.keys()
++                while (keys.hasNext()) {
++                    val key = keys.next()
++                    val value = manifestTimesObject.getLong(key)
++                    if (value >= 0L) put(key.lowercase(), value)
++                }
++            }
++            BackupCatalogSnapshot(
++                versions = versions,
++                reconciliations = reconciliations,
++                remoteTips = remoteTips,
++                localRevisions = localRevisions,
++                manifestCreatedAtEpochMs = manifestCreatedAtEpochMs,
++                refreshedAtEpochMs = root.getLong("refreshedAtEpochMs"),
++            ).takeIf(::isValidSnapshot)
++        }.getOrNull()
++    }
++
++    fun save(settings: BackupSettingsSnapshot, snapshot: BackupCatalogSnapshot) {
++        if (!settings.driveConnected) return
++        val reconciliations = JSONObject()
++        snapshot.reconciliations.forEach { (projectId, state) -> reconciliations.put(projectId, state.name) }
++        val tips = JSONObject()
++        snapshot.remoteTips.forEach { (projectId, versions) -> tips.put(projectId, versions.toJson()) }
++        val localRevisions = JSONObject()
++        snapshot.localRevisions.forEach { (projectId, revision) -> localRevisions.put(projectId, revision) }
++        val manifestTimes = JSONObject()
++        snapshot.manifestCreatedAtEpochMs.forEach { (sha256, createdAt) ->
++            if (createdAt >= 0L) manifestTimes.put(sha256.lowercase(), createdAt)
++        }
++        val root = JSONObject()
++            .put("schema", SCHEMA)
++            .put("account", settings.driveAccountLabel.orEmpty())
++            .put("retentionDays", settings.retentionDays ?: NO_RETENTION)
++            .put("maximumVersions", settings.maximumVersions)
++            .put("refreshedAtEpochMs", snapshot.refreshedAtEpochMs)
++            .put("versions", snapshot.versions.toJson())
++            .put("reconciliations", reconciliations)
++            .put("remoteTips", tips)
++            .put("localRevisions", localRevisions)
++            .put("manifestCreatedAtEpochMs", manifestTimes)
++        preferences.edit().putString(KEY_SNAPSHOT, root.toString()).apply()
++    }
++
++    fun clear() {
++        preferences.edit().remove(KEY_SNAPSHOT).apply()
++    }
++
++    private fun isValidSnapshot(snapshot: BackupCatalogSnapshot): Boolean {
++        if (snapshot.refreshedAtEpochMs <= 0L) return false
++        if (snapshot.localRevisions.any { (projectId, revision) ->
++                projectId.isBlank() || !BackupRevisionIdentity.isValid(revision)
++            }) return false
++        if (snapshot.reconciliations.keys.any(String::isBlank)) return false
++        if (snapshot.manifestCreatedAtEpochMs.any { (sha256, createdAt) ->
++                !SHA256.matches(sha256) || createdAt < 0L
++            }) return false
++
++        val allVersions = snapshot.versions + snapshot.remoteTips.values.flatten()
++        if (allVersions.any { !isValidVersion(it) }) return false
++        if (allVersions.any { version ->
++                snapshot.manifestCreatedAtEpochMs[version.sha256.lowercase()] != version.backupCreatedAtEpochMs
++            }) return false
++        return true
++    }
++
++    private fun isValidVersion(version: BackupVersionDescriptor): Boolean =
++        version.formatVersion == 3 &&
++            version.projectId.isNotBlank() &&
++            version.projectName.isNotBlank() &&
++            version.projectUpdatedAtEpochMs >= 0L &&
++            version.backupCreatedAtEpochMs >= 0L &&
++            version.sizeBytes > 0L &&
++            SHA256.matches(version.sha256) &&
++            version.remoteId == "u8:${version.sha256}" &&
++            BackupRevisionIdentity.isValid(version.revisionId)
++
++    private fun List<BackupVersionDescriptor>.toJson(): JSONArray = JSONArray().also { array ->
++        forEach { version ->
++            array.put(
++                JSONObject()
++                    .put("remoteId", version.remoteId)
++                    .put("projectId", version.projectId)
++                    .put("projectName", version.projectName)
++                    .put("projectUpdatedAtEpochMs", version.projectUpdatedAtEpochMs)
++                    .put("backupCreatedAtEpochMs", version.backupCreatedAtEpochMs)
++                    .put("sizeBytes", version.sizeBytes)
++                    .put("sha256", version.sha256)
++                    .put("revisionId", version.revisionId)
++                    .put("formatVersion", version.formatVersion),
++            )
++        }
++    }
++
++    private fun JSONArray.toDescriptors(): List<BackupVersionDescriptor> = buildList {
++        for (index in 0 until length()) {
++            val item = getJSONObject(index)
++            add(
++                BackupVersionDescriptor(
++                    remoteId = item.getString("remoteId"),
++                    projectId = item.getString("projectId"),
++                    projectName = item.getString("projectName"),
++                    projectUpdatedAtEpochMs = item.getLong("projectUpdatedAtEpochMs"),
++                    backupCreatedAtEpochMs = item.getLong("backupCreatedAtEpochMs"),
++                    sizeBytes = item.getLong("sizeBytes"),
++                    sha256 = item.getString("sha256"),
++                    revisionId = item.getString("revisionId"),
++                    formatVersion = item.getInt("formatVersion"),
++                ),
++            )
++        }
++    }
++
++    private companion object {
++        const val PREFERENCES = "guitarlab_backup_catalog_cache"
++        const val KEY_SNAPSHOT = "snapshot"
++        const val SCHEMA = 3
++        const val NO_RETENTION = -1
++        val SHA256 = Regex("[0-9a-f]{64}")
++    }
++}
+diff --git a/app/src/main/java/studio/guitarlab/app/backup/BackupScreen.kt b/app/src/main/java/studio/guitarlab/app/backup/BackupScreen.kt
+--- a/app/src/main/java/studio/guitarlab/app/backup/BackupScreen.kt
++++ b/app/src/main/java/studio/guitarlab/app/backup/BackupScreen.kt
+@@ -33,14 +33,12 @@ import androidx.compose.material3.HorizontalDivider
+ import androidx.compose.material3.Icon
+ import androidx.compose.material3.MaterialTheme
+ import androidx.compose.material3.OutlinedButton
+-import androidx.compose.material3.SnackbarHost
+-import androidx.compose.material3.SnackbarHostState
+ import androidx.compose.material3.Surface
+ import androidx.compose.material3.Switch
+ import androidx.compose.material3.Text
+ import androidx.compose.material3.TextButton
+ import androidx.compose.runtime.Composable
+-import androidx.compose.runtime.LaunchedEffect
++import androidx.compose.runtime.DisposableEffect
+ import androidx.compose.runtime.getValue
+ import androidx.compose.runtime.mutableStateOf
+ import androidx.compose.runtime.remember
+@@ -54,6 +52,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
+ import java.text.DateFormat
+ import java.util.Date
+ import studio.guitarlab.app.ui.AppIconButton
++import studio.guitarlab.app.ui.AppTransientFeedbackHost
++import studio.guitarlab.app.ui.TransientFeedbackKind
+ import studio.guitarlab.app.ui.ProductEmptyState
+ import studio.guitarlab.app.ui.ProductSectionCard
+ import studio.guitarlab.core.project.BackupVersionDescriptor
+@@ -67,18 +67,14 @@ fun BackupScreen(
+     viewModel: BackupViewModel = viewModel(),
+ ) {
+     val state by viewModel.state.collectAsStateWithLifecycle()
+-    val snackbar = remember { SnackbarHostState() }
++    DisposableEffect(viewModel) {
++        viewModel.onScreenEntered()
++        onDispose { viewModel.onScreenLeft() }
++    }
+     val authorizationLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
+         if (result.resultCode == Activity.RESULT_OK) viewModel.completeDriveConnection(result.data)
+         else viewModel.authorizationCancelled()
+     }
+-    LaunchedEffect(state.message, state.error) {
+-        val message = state.error ?: state.message
+-        if (message != null) {
+-            snackbar.showSnackbar(message)
+-            viewModel.clearMessage()
+-        }
+-    }
+     Box(Modifier.fillMaxSize()) {
+         BackupScreenContent(
+             state = state,
+@@ -107,7 +103,13 @@ fun BackupScreen(
+             onRestoreAll = { viewModel.restoreLatestAll(onProjectsChanged) },
+             onDeleteCloudProject = viewModel::deleteCloudProject,
+         )
+-        SnackbarHost(snackbar, Modifier.align(Alignment.TopCenter).padding(top = 12.dp))
++        AppTransientFeedbackHost(
++            message = state.error ?: state.message,
++            kind = if (state.error != null) TransientFeedbackKind.ERROR else state.messageKind,
++            onConsumed = viewModel::clearMessage,
++            modifier = Modifier.align(Alignment.TopCenter),
++            fallback = "Não foi possível concluir a operação de backup.",
++        )
+         if (state.busy) {
+             BackupBusyFeedback(state.busyLabel)
+         }
+@@ -184,7 +186,44 @@ fun BackupScreenContent(
+         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+             AppIconButton(icon = Icons.Default.ArrowBack, contentDescription = "Voltar", onClick = onBack)
+             Text("Backup e restauração", modifier = Modifier.weight(1f), style = MaterialTheme.typography.headlineSmall)
+-            AppIconButton(icon = Icons.Default.Refresh, contentDescription = "Atualizar catálogo de backups", onClick = onRefresh, enabled = !state.busy)
++            AppIconButton(
++                icon = Icons.Default.Refresh,
++                contentDescription = "Atualizar catálogo de backups",
++                onClick = onRefresh,
++                enabled = !state.busy && !state.catalogRefreshing,
++            )
++        }
++        when {
++            state.catalogRefreshing && state.versions.isEmpty() -> {
++                Row(
++                    Modifier.fillMaxWidth().testTag("backup-catalog-loading"),
++                    verticalAlignment = Alignment.CenterVertically,
++                    horizontalArrangement = Arrangement.spacedBy(8.dp),
++                ) {
++                    CircularProgressIndicator()
++                    Text("Carregando histórico do Google Drive…", style = MaterialTheme.typography.bodySmall)
++                }
++            }
++            state.catalogRefreshing && state.versions.isNotEmpty() -> {
++                Row(
++                    Modifier.fillMaxWidth().testTag("backup-catalog-background-refresh"),
++                    verticalAlignment = Alignment.CenterVertically,
++                    horizontalArrangement = Arrangement.spacedBy(8.dp),
++                ) {
++                    CircularProgressIndicator()
++                    Text("Atualizando histórico em segundo plano…", style = MaterialTheme.typography.bodySmall)
++                }
++            }
++            state.catalogUpdatedAtEpochMs != null -> {
++                val updated = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT)
++                    .format(Date(state.catalogUpdatedAtEpochMs))
++                Text(
++                    "Histórico atualizado em $updated${if (state.catalogFromCache) " · cache local" else ""}",
++                    style = MaterialTheme.typography.bodySmall,
++                    color = MaterialTheme.colorScheme.onSurfaceVariant,
++                    modifier = Modifier.testTag("backup-catalog-freshness"),
++                )
++            }
+         }
+ 
+         LazyColumn(Modifier.fillMaxSize().testTag("backup-screen"), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+@@ -350,8 +389,14 @@ fun BackupScreenContent(
+                 Text("Restaurar cria uma nova cópia local; nenhum projeto existente é sobrescrito.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+             }
+ 
+-            if (state.loading) {
+-                item { Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() } }
++            if ((state.loading || state.catalogRefreshing) && state.versions.isEmpty()) {
++                item {
++                    Text(
++                        "Consultando as versões disponíveis…",
++                        style = MaterialTheme.typography.bodySmall,
++                        color = MaterialTheme.colorScheme.onSurfaceVariant,
++                    )
++                }
+             } else if (!configured) {
+                 item {
+                     ProductEmptyState(
+diff --git a/app/src/main/java/studio/guitarlab/app/backup/BackupViewModel.kt b/app/src/main/java/studio/guitarlab/app/backup/BackupViewModel.kt
+--- a/app/src/main/java/studio/guitarlab/app/backup/BackupViewModel.kt
++++ b/app/src/main/java/studio/guitarlab/app/backup/BackupViewModel.kt
+@@ -22,8 +22,10 @@ import kotlinx.coroutines.withContext
+ import java.util.UUID
+ import studio.guitarlab.app.activity.ActivityCancellationRegistry
+ import studio.guitarlab.app.activity.UnifiedActivityStore
++import studio.guitarlab.app.ui.TransientFeedbackKind
+ import studio.guitarlab.core.model.GuitarProject
+ import studio.guitarlab.core.project.BackupRetentionPolicy
++import studio.guitarlab.core.project.BackupRevisionIdentity
+ import studio.guitarlab.core.project.BackupRunReport
+ import studio.guitarlab.core.project.BackupVersionDescriptor
+ import studio.guitarlab.core.project.DriveConflictAction
+@@ -44,7 +46,11 @@ data class BackupUiState(
+     val reconciliations: Map<String, DriveReconciliation> = emptyMap(),
+     val remoteTips: Map<String, List<BackupVersionDescriptor>> = emptyMap(),
+     val authorizationRequired: Boolean = false,
++    val catalogRefreshing: Boolean = false,
++    val catalogUpdatedAtEpochMs: Long? = null,
++    val catalogFromCache: Boolean = false,
+     val message: String? = null,
++    val messageKind: TransientFeedbackKind = TransientFeedbackKind.ASYNC_COMPLETION,
+     val error: String? = null,
+ )
+ 
+@@ -56,77 +62,128 @@ class BackupViewModel(application: Application) : AndroidViewModel(application)
+     private val confirmedRevisions = ConfirmedRevisionStore(application)
+     private val unifiedDrive = UnifiedDriveProductionService(application)
+     private val deletedProjectStore = DeletedProjectBackupStore(application)
++    private val catalogCache = BackupCatalogCacheStore(application)
++    private var refreshJob: Job? = null
++    private var screenVisible = false
++    private var screenEnteredOnce = false
+     private val _state = MutableStateFlow(BackupUiState())
+     val state: StateFlow<BackupUiState> = _state.asStateFlow()
+     init {
+-        refresh()
+         observeAutomaticBackupCompletion()
+     }
+ 
+-    fun refresh() {
+-        viewModelScope.launch {
+-            _state.update { it.copy(loading = true, error = null) }
++    /** User-requested refresh always verifies Drive; re-entry may reuse a recent durable catalog. */
++    fun refresh() = refreshInternal(forceRemote = true)
++
++    fun onScreenEntered() {
++        val returning = screenEnteredOnce && !screenVisible
++        screenVisible = true
++        screenEnteredOnce = true
++        if (returning) clearMessage()
++        if (refreshJob?.isActive == true || _state.value.busy) return
++        // Cache is painted immediately, but every visible entry verifies the current Drive heads.
++        refreshInternal(forceRemote = true)
++    }
++
++    fun onScreenLeft() {
++        screenVisible = false
++        clearMessage()
++    }
++
++    private fun refreshInternal(forceRemote: Boolean) {
++        refreshJob?.cancel()
++        refreshJob = viewModelScope.launch {
+             val settings = settingsStore.snapshot()
+             val projects = withContext(Dispatchers.IO) { repository.list() }
+-            var authRequired = false
+-            val versions = if (settings.driveConnected) {
+-                try {
+-                    unifiedDrive.listCommittedVersions(retention(settings))
+-                } catch (_: DriveAuthorizationRequiredException) {
+-                    authRequired = true
+-                    emptyList()
+-                } catch (error: Throwable) {
+-                    if (error is CancellationException) throw error
+-                    _state.update {
+-                        it.copy(
+-                            error = error.message
+-                                ?: "Não foi possível ler os backups do Google Drive.",
+-                        )
+-                    }
+-                    emptyList()
+-                }
+-            } else {
+-                emptyList()
+-            }
++            val cached = catalogCache.load(settings)
++            val localRevisions = projects.associate { it.id to BackupRevisionIdentity.forProject(it) }
++            val cachedMatchesLocal = cached != null && cached.localRevisions == localRevisions
++            val shouldRefreshRemote = settings.driveConnected &&
++                BackupCatalogFreshnessPolicy.shouldRefresh(
++                    snapshot = cached,
++                    nowEpochMs = System.currentTimeMillis(),
++                    force = forceRemote,
++                    currentLocalRevisions = localRevisions,
++                )
+ 
+-            val reconciliations = linkedMapOf<String, DriveReconciliation>()
+-            val remoteTips = linkedMapOf<String, List<BackupVersionDescriptor>>()
+-            if (settings.driveConnected && !authRequired) {
+-                for (project in projects) {
+-                    try {
+-                        val reconciliation = unifiedDrive.reconciliation(project.id)
+-                        reconciliations[project.id] = reconciliation
+-                        if (
+-                            reconciliation == DriveReconciliation.CONFLICT ||
+-                                reconciliation == DriveReconciliation.DOWNLOAD_REMOTE
+-                        ) {
+-                            remoteTips[project.id] = unifiedDrive.currentRemoteTips(project.id)
+-                        }
+-                    } catch (_: DriveAuthorizationRequiredException) {
+-                        authRequired = true
+-                        break
+-                    } catch (error: Throwable) {
+-                        if (error is CancellationException) throw error
+-                        _state.update {
+-                            it.copy(
+-                                error = error.message
+-                                    ?: "Não foi possível reconciliar o estado do backup.",
+-                            )
+-                        }
+-                    }
+-                }
+-            }
+             _state.update { current ->
+                 current.copy(
+-                    loading = false,
+-                    settings = settingsStore.snapshot(),
++                    loading = cached == null && shouldRefreshRemote,
++                    catalogRefreshing = shouldRefreshRemote,
++                    settings = settings,
+                     localProjects = projects,
+-                    versions = versions,
++                    versions = cached?.versions ?: if (settings.driveConnected) current.versions else emptyList(),
+                     deletedProjects = deletedProjectStore.all(),
+-                    reconciliations = reconciliations,
+-                    remoteTips = remoteTips,
+-                    authorizationRequired = authRequired,
++                    reconciliations = if (cachedMatchesLocal) cached?.reconciliations.orEmpty() else emptyMap(),
++                    remoteTips = if (cachedMatchesLocal) cached?.remoteTips.orEmpty() else emptyMap(),
++                    catalogUpdatedAtEpochMs = cached?.refreshedAtEpochMs ?: current.catalogUpdatedAtEpochMs,
++                    catalogFromCache = cached != null,
++                    authorizationRequired = false,
++                    error = null,
++                )
++            }
++
++            if (!settings.driveConnected || !shouldRefreshRemote) {
++                _state.update { it.copy(loading = false, catalogRefreshing = false) }
++                return@launch
++            }
++
++            try {
++                val remoteCatalog = unifiedDrive.loadCatalog(
++                    localProjects = projects,
++                    retentionPolicy = retention(settings),
++                    knownVersions = cached?.versions.orEmpty(),
++                    knownManifestCreatedAtEpochMs = cached?.manifestCreatedAtEpochMs.orEmpty(),
++                )
++                val refreshedAt = System.currentTimeMillis()
++                val snapshot = BackupCatalogSnapshot(
++                    versions = remoteCatalog.versions,
++                    reconciliations = remoteCatalog.reconciliations,
++                    remoteTips = remoteCatalog.remoteTips,
++                    localRevisions = localRevisions,
++                    manifestCreatedAtEpochMs = remoteCatalog.manifestCreatedAtEpochMs,
++                    refreshedAtEpochMs = refreshedAt,
+                 )
++                catalogCache.save(settings, snapshot)
++                _state.update {
++                    it.copy(
++                        loading = false,
++                        catalogRefreshing = false,
++                        settings = settingsStore.snapshot(),
++                        localProjects = projects,
++                        versions = snapshot.versions,
++                        deletedProjects = deletedProjectStore.all(),
++                        reconciliations = snapshot.reconciliations,
++                        remoteTips = snapshot.remoteTips,
++                        catalogUpdatedAtEpochMs = refreshedAt,
++                        catalogFromCache = false,
++                        authorizationRequired = false,
++                        error = null,
++                    )
++                }
++            } catch (_: DriveAuthorizationRequiredException) {
++                _state.update {
++                    it.copy(
++                        loading = false,
++                        catalogRefreshing = false,
++                        authorizationRequired = true,
++                        error = if (cached == null) "Reconecte o Google Drive para atualizar o histórico de backups."
++                        else "A autorização do Google Drive expirou. O último histórico salvo continua disponível.",
++                    )
++                }
++            } catch (error: Throwable) {
++                if (error is CancellationException) throw error
++                _state.update {
++                    it.copy(
++                        loading = false,
++                        catalogRefreshing = false,
++                        error = if (cached == null) {
++                            error.message ?: "Não foi possível ler os backups do Google Drive."
++                        } else {
++                            "Não foi possível atualizar o Google Drive agora. O último histórico salvo continua disponível."
++                        },
++                    )
++                }
+             }
+         }
+     }
+@@ -139,7 +196,8 @@ class BackupViewModel(application: Application) : AndroidViewModel(application)
+         onResolution: (PendingIntent) -> Unit,
+     ) {
+         if (_state.value.busy) return
+-        _state.update { it.copy(busy = true, busyLabel = "Conectando ao Google Drive…", error = null, message = null) }
++        refreshJob?.cancel()
++        _state.update { it.copy(busy = true, busyLabel = "Conectando ao Google Drive…", error = null, message = null, messageKind = TransientFeedbackKind.ASYNC_COMPLETION) }
+         viewModelScope.launch {
+             try {
+                 when (val result = authorization.request()) {
+@@ -157,6 +215,7 @@ class BackupViewModel(application: Application) : AndroidViewModel(application)
+                             busy = false,
+                             busyLabel = null,
+                             message = "Operação cancelada.",
++                            messageKind = TransientFeedbackKind.OPERATIONAL_STATUS,
+                             error = null,
+                         )
+                     }
+@@ -169,13 +228,17 @@ class BackupViewModel(application: Application) : AndroidViewModel(application)
+ 
+     fun completeDriveConnection(data: Intent?) {
+         if (_state.value.busy) return
+-        _state.update { it.copy(busy = true, busyLabel = "Validando a conexão…", error = null, message = null) }
++        refreshJob?.cancel()
++        _state.update { it.copy(busy = true, busyLabel = "Validando a conexão…", error = null, message = null, messageKind = TransientFeedbackKind.ASYNC_COMPLETION) }
+         viewModelScope.launch {
+             try {
+                 authorization.tokenFromResult(data) // validates the user-granted result
+                 finishDriveConnection()
+             } catch (error: Throwable) {
+-                if (error is CancellationException) throw error
++                if (error is CancellationException) {
++                    clearBusyAfterCancellation()
++                    throw error
++                }
+                 fail(error)
+             }
+         }
+@@ -186,19 +249,23 @@ class BackupViewModel(application: Application) : AndroidViewModel(application)
+             it.copy(
+                 busy = false,
+                 busyLabel = null,
+-                error = "A conexão com o Google Drive foi cancelada.",
++                error = null,
++                message = "Conexão com o Google Drive cancelada.",
++                messageKind = TransientFeedbackKind.OPERATIONAL_STATUS,
+             )
+         }
+     }
+ 
+     fun disconnectDrive() {
+         if (_state.value.busy) return
+-        _state.update { it.copy(busy = true, busyLabel = "Desconectando…", error = null, message = null) }
++        refreshJob?.cancel()
++        _state.update { it.copy(busy = true, busyLabel = "Desconectando…", error = null, message = null, messageKind = TransientFeedbackKind.ASYNC_COMPLETION) }
+         viewModelScope.launch {
+             try {
+                 authorization.revoke()
+                 unifiedDrive.clearAllLocalState()
+                 confirmedRevisions.clearAll()
++                catalogCache.clear()
+                 settingsStore.clearDriveConnection()
+                 BackupScheduler.sync(getApplication())
+                 _state.update {
+@@ -209,12 +276,18 @@ class BackupViewModel(application: Application) : AndroidViewModel(application)
+                         versions = emptyList(),
+                         reconciliations = emptyMap(),
+                         remoteTips = emptyMap(),
++                        catalogRefreshing = false,
++                        catalogUpdatedAtEpochMs = null,
++                        catalogFromCache = false,
+                         authorizationRequired = false,
+                         message = "Google Drive desconectado. Os backups existentes não foram apagados.",
+                     )
+                 }
+             } catch (error: Throwable) {
+-                if (error is CancellationException) throw error
++                if (error is CancellationException) {
++                    clearBusyAfterCancellation()
++                    throw error
++                }
+                 fail(error)
+             }
+         }
+@@ -224,8 +297,8 @@ class BackupViewModel(application: Application) : AndroidViewModel(application)
+     fun setCadence(value: BackupCadence) = updateSettings { settingsStore.setCadence(value) }
+     fun setUnmeteredOnly(value: Boolean) = updateSettings { settingsStore.setUnmeteredOnly(value) }
+     fun setChargingOnly(value: Boolean) = updateSettings { settingsStore.setChargingOnly(value) }
+-    fun setRetentionDays(value: Int?) = updateSettings { settingsStore.setRetentionDays(value) }
+-    fun setMaximumVersions(value: Int) = updateSettings { settingsStore.setMaximumVersions(value) }
++    fun setRetentionDays(value: Int?) = updateSettings(refreshCatalog = true) { settingsStore.setRetentionDays(value) }
++    fun setMaximumVersions(value: Int) = updateSettings(refreshCatalog = true) { settingsStore.setMaximumVersions(value) }
+ 
+     fun backupAllNow() = runBackup(null, "Backup total") { service ->
+         val settings = settingsStore.snapshot()
+@@ -283,7 +356,10 @@ class BackupViewModel(application: Application) : AndroidViewModel(application)
+                 it.copy(message = "Versão da nuvem aplicada com segurança.")
+             }
+         } catch (error: Throwable) {
+-            if (error is CancellationException) throw error
++            if (error is CancellationException) {
++                activityStore.record(operationId, version.projectId, UnifiedOperationKind.RESTORE, UnifiedOperationState.CANCELLED, null, "Aplicação da versão da nuvem cancelada")
++                throw error
++            }
+             activityStore.record(
+                 operationId,
+                 version.projectId,
+@@ -316,7 +392,10 @@ class BackupViewModel(application: Application) : AndroidViewModel(application)
+             withContext(Dispatchers.Main) { onProjectsChanged() }
+             _state.update { it.copy(message = "$success.") }
+         } catch (error: Throwable) {
+-            if (error is CancellationException) throw error
++            if (error is CancellationException) {
++                activityStore.record(operationId, version.projectId, UnifiedOperationKind.RESTORE, UnifiedOperationState.CANCELLED, null, "Restauração cancelada")
++                throw error
++            }
+             activityStore.record(operationId, version.projectId, UnifiedOperationKind.RESTORE, UnifiedOperationState.FAILED, null, "Não foi possível restaurar o projeto", error.message)
+             throw error
+         }
+@@ -351,16 +430,39 @@ class BackupViewModel(application: Application) : AndroidViewModel(application)
+                 _state.update { it.copy(error = detail, message = summary) }
+             }
+         } catch (error: Throwable) {
+-            if (error is CancellationException) throw error
++            if (error is CancellationException) {
++                activityStore.record(operationId, null, UnifiedOperationKind.RESTORE, UnifiedOperationState.CANCELLED, null, "Restauração total cancelada")
++                throw error
++            }
+             activityStore.record(operationId, null, UnifiedOperationKind.RESTORE, UnifiedOperationState.FAILED, null, "Não foi possível restaurar os projetos", error.message)
+             throw error
+         }
+     }
+ 
+-    fun clearMessage() = _state.update { it.copy(message = null, error = null) }
++    fun clearMessage() = _state.update {
++        it.copy(
++            message = null,
++            messageKind = TransientFeedbackKind.ASYNC_COMPLETION,
++            error = null,
++        )
++    }
+ 
+     private suspend fun finishDriveConnection() {
++        val previousLabel = settingsStore.snapshot().driveAccountLabel
+         val label = unifiedDrive.probeReadWriteDelete()
++        val accountChanged = previousLabel != null && previousLabel != label
++        if (accountChanged) {
++            catalogCache.clear()
++            _state.update {
++                it.copy(
++                    versions = emptyList(),
++                    reconciliations = emptyMap(),
++                    remoteTips = emptyMap(),
++                    catalogUpdatedAtEpochMs = null,
++                    catalogFromCache = false,
++                )
++            }
++        }
+         settingsStore.setDriveConnected(label)
+         BackupScheduler.sync(getApplication())
+         _state.update {
+@@ -388,7 +490,10 @@ class BackupViewModel(application: Application) : AndroidViewModel(application)
+         }
+         if (automaticBackupActive) {
+             _state.update {
+-                it.copy(message = "Já existe um backup automático em andamento. O catálogo será atualizado quando ele terminar.")
++                it.copy(
++                    message = "Já existe um backup automático em andamento. O catálogo será atualizado quando ele terminar.",
++                    messageKind = TransientFeedbackKind.WARNING,
++                )
+             }
+             return
+         }
+@@ -412,7 +517,10 @@ class BackupViewModel(application: Application) : AndroidViewModel(application)
+                     _state.update { it.copy(message = summary, error = failureDetail) }
+                 }
+             } catch (error: Throwable) {
+-                if (error is CancellationException) throw error
++                if (error is CancellationException) {
++                    activityStore.record(operationId, projectId, UnifiedOperationKind.BACKUP, UnifiedOperationState.CANCELLED, null, "$label cancelado")
++                    throw error
++                }
+                 activityStore.record(operationId, projectId, UnifiedOperationKind.BACKUP, UnifiedOperationState.FAILED, null, "Não foi possível concluir o backup", error.message)
+                 throw error
+             }
+@@ -432,10 +540,14 @@ class BackupViewModel(application: Application) : AndroidViewModel(application)
+         }
+     }
+ 
+-    private fun updateSettings(change: () -> Unit) {
++    private fun updateSettings(
++        refreshCatalog: Boolean = false,
++        change: () -> Unit,
++    ) {
+         change()
+         BackupScheduler.sync(getApplication())
+         _state.update { it.copy(settings = settingsStore.snapshot()) }
++        if (refreshCatalog && !_state.value.busy) refreshInternal(forceRemote = false)
+     }
+ 
+     private fun runBusy(
+@@ -444,19 +556,34 @@ class BackupViewModel(application: Application) : AndroidViewModel(application)
+         action: suspend () -> Unit,
+     ) {
+         if (_state.value.busy) return
+-        _state.update { it.copy(busy = true, busyLabel = busyLabel, error = null, message = null) }
++        _state.update { it.copy(busy = true, busyLabel = busyLabel, error = null, message = null, messageKind = TransientFeedbackKind.ASYNC_COMPLETION) }
+         viewModelScope.launch {
+             try {
+                 action()
+                 _state.update { it.copy(busy = false, busyLabel = null, message = it.message ?: successMessage) }
+                 refresh()
+             } catch (error: Throwable) {
+-                if (error is CancellationException) throw error
++                if (error is CancellationException) {
++                    clearBusyAfterCancellation()
++                    throw error
++                }
+                 fail(error)
+             }
+         }
+     }
+ 
++    private fun clearBusyAfterCancellation() {
++        _state.update {
++            it.copy(
++                busy = false,
++                busyLabel = null,
++                message = "Operação cancelada.",
++                messageKind = TransientFeedbackKind.OPERATIONAL_STATUS,
++                error = null,
++            )
++        }
++    }
++
+     private fun fail(error: Throwable) {
+         val message = error.message ?: "Não foi possível concluir a operação de backup."
+         settingsStore.recordError(message)
+@@ -481,7 +608,15 @@ class BackupViewModel(application: Application) : AndroidViewModel(application)
+                 .distinctUntilChanged()
+                 .drop(1)
+                 .collect { completedAt ->
+-                    if (completedAt != null && settingsStore.snapshot().driveConnected) refresh()
++                    // The worker already persisted the Drive truth. Re-read the catalog only while
++                    // this screen is visible; the next screen entry always forces a remote refresh.
++                    if (
++                        completedAt != null &&
++                            screenVisible &&
++                            settingsStore.snapshot().driveConnected
++                    ) {
++                        refresh()
++                    }
+                 }
+         }
+     }
+diff --git a/app/src/main/java/studio/guitarlab/app/backup/UnifiedDriveProductionService.kt b/app/src/main/java/studio/guitarlab/app/backup/UnifiedDriveProductionService.kt
+--- a/app/src/main/java/studio/guitarlab/app/backup/UnifiedDriveProductionService.kt
++++ b/app/src/main/java/studio/guitarlab/app/backup/UnifiedDriveProductionService.kt
+@@ -79,6 +79,129 @@ internal class UnifiedDriveProductionService(
+             nowEpochMs = nowEpochMs,
+         ).run()
+ 
++    data class CatalogSnapshot(
++        val versions: List<BackupVersionDescriptor>,
++        val reconciliations: Map<String, DriveReconciliation>,
++        val remoteTips: Map<String, List<BackupVersionDescriptor>>,
++        val manifestCreatedAtEpochMs: Map<String, Long>,
++    )
++
++    /**
++     * Reads the Drive catalog once and derives version history plus local reconciliation from the
++     * same remote snapshot. The previous UI path re-listed heads once per local project, turning a
++     * screen refresh into N+1 Drive scans.
++     */
++    suspend fun loadCatalog(
++        localProjects: List<GuitarProject>,
++        retentionPolicy: BackupRetentionPolicy,
++        knownVersions: List<BackupVersionDescriptor> = emptyList(),
++        knownManifestCreatedAtEpochMs: Map<String, Long> = emptyMap(),
++    ): CatalogSnapshot {
++        val heads = remote.listAllHeads()
++        val uniqueHeads = heads.distinctBy { it.descriptor.manifestSha256.lowercase() }
++        val headsByProject = heads.groupBy { it.descriptor.projectId }
++        val currentManifestHashes = uniqueHeads.mapTo(mutableSetOf()) { it.descriptor.manifestSha256.lowercase() }
++        val manifestBySha = linkedMapOf<String, DriveProjectRevisionManifest>()
++        val createdAtBySha = linkedMapOf<String, Long>()
++
++        knownManifestCreatedAtEpochMs.forEach { (sha256, createdAt) ->
++            val key = sha256.lowercase()
++            if (key in currentManifestHashes && createdAt >= 0L) createdAtBySha[key] = createdAt
++        }
++
++        suspend fun realManifest(head: DrivePublishedHead): DriveProjectRevisionManifest {
++            val key = head.descriptor.manifestSha256.lowercase()
++            manifestBySha[key]?.let { return it }
++            val manifest = remote.loadManifest(head.descriptor)
++            require(
++                manifest.projectId == head.descriptor.projectId &&
++                    manifest.revisionId == head.descriptor.revisionId &&
++                    manifest.manifestSha256 == key
++            ) { "Drive head does not match its manifest." }
++            manifestBySha[key] = manifest
++            createdAtBySha[key] = manifest.createdAtEpochMs
++            return manifest
++        }
++
++        // First visit validates all manifest timestamps once. Later refreshes reuse the durable
++        // timestamp hints and fetch only manifests that appeared since the last successful catalog.
++        uniqueHeads.forEach { head ->
++            val key = head.descriptor.manifestSha256.lowercase()
++            if (key !in createdAtBySha) realManifest(head)
++        }
++
++        val retentionSummaries = uniqueHeads.map { head ->
++            DriveProjectRevisionManifest(
++                projectId = head.descriptor.projectId,
++                revisionId = head.descriptor.revisionId,
++                baseRevisionId = head.baseRevisionId,
++                createdAtEpochMs = createdAtBySha.getValue(head.descriptor.manifestSha256.lowercase()),
++                canonicalProjectStateSha256 = "0".repeat(64),
++                assets = emptyList(),
++            )
++        }
++        val retainedKeys = DriveManifestRetentionPlanner.retained(
++            manifests = retentionSummaries,
++            policy = retentionPolicy,
++            nowEpochMs = nowEpochMs(),
++        ).mapTo(mutableSetOf()) { it.projectId to it.revisionId }
++
++        val descriptorCache = knownVersions
++            .filter { it.formatVersion == 3 && it.remoteId == "u8:${it.sha256}" }
++            .associateByTo(linkedMapOf()) { it.sha256.lowercase() }
++
++        suspend fun describe(head: DrivePublishedHead): BackupVersionDescriptor {
++            val key = head.descriptor.manifestSha256.lowercase()
++            descriptorCache[key]?.let { cached ->
++                if (
++                    cached.projectId == head.descriptor.projectId &&
++                        cached.revisionId == head.descriptor.revisionId
++                ) return cached
++            }
++            val manifest = realManifest(head)
++            val descriptor = versionDescriptor(
++                manifest,
++                loadRemoteProject(manifest.projectStateAsset, manifest),
++            )
++            descriptorCache[key] = descriptor
++            return descriptor
++        }
++
++        val versions = uniqueHeads
++            .filter { (it.descriptor.projectId to it.descriptor.revisionId) in retainedKeys }
++            .map { describe(it) }
++            .distinctBy { it.deduplicationKey }
++            .sortedWith(
++                compareByDescending<BackupVersionDescriptor> { it.backupCreatedAtEpochMs }
++                    .thenByDescending { it.revisionId },
++            )
++
++        val reconciliations = linkedMapOf<String, DriveReconciliation>()
++        val remoteTips = linkedMapOf<String, List<BackupVersionDescriptor>>()
++        localProjects.forEach { project ->
++            val tips = currentTips(headsByProject[project.id].orEmpty())
++            val reconciliation = if (tips.size > 1) {
++                DriveReconciliation.CONFLICT
++            } else {
++                DriveConflictResolver.resolve(
++                    localRevisionId = BackupRevisionIdentity.forProject(project),
++                    confirmedRevisionId = confirmedRevisions.confirmedRevision(project.id),
++                    remoteRevisionId = tips.singleOrNull()?.descriptor?.revisionId,
++                )
++            }
++            reconciliations[project.id] = reconciliation
++            if (reconciliation == DriveReconciliation.CONFLICT || reconciliation == DriveReconciliation.DOWNLOAD_REMOTE) {
++                remoteTips[project.id] = tips.map { describe(it) }
++            }
++        }
++        return CatalogSnapshot(
++            versions = versions,
++            reconciliations = reconciliations,
++            remoteTips = remoteTips,
++            manifestCreatedAtEpochMs = createdAtBySha,
++        )
++    }
++
+     suspend fun listCommittedVersions(
+         retentionPolicy: BackupRetentionPolicy,
+     ): List<BackupVersionDescriptor> {
+@@ -584,14 +707,15 @@ internal class UnifiedDriveProductionService(
+         val temporary = kotlin.io.path.createTempFile("guitarlab-u8-state-", ".json").toFile()
+         return try {
+             remote.downloadAsset(identity, temporary)
+-            val project = codec.decode(temporary.readText(Charsets.UTF_8))
+-            require(project.id == manifest.projectId) {
++            val serialized = temporary.readText(Charsets.UTF_8)
++            val persistedProject = codec.decodePersistedState(serialized)
++            require(persistedProject.id == manifest.projectId) {
+                 "Drive project.json identity does not match its manifest."
+             }
+-            require(UnifiedProjectRevision.sha256(project) == manifest.canonicalProjectStateSha256) {
++            require(UnifiedProjectRevision.sha256(persistedProject) == manifest.canonicalProjectStateSha256) {
+                 "Drive project.json state digest does not match its manifest."
+             }
+-            project
++            codec.decode(serialized)
+         } finally {
+             temporary.delete()
+         }
+diff --git a/app/src/main/java/studio/guitarlab/app/diagnostics/DiagnosticsScreen.kt b/app/src/main/java/studio/guitarlab/app/diagnostics/DiagnosticsScreen.kt
+--- a/app/src/main/java/studio/guitarlab/app/diagnostics/DiagnosticsScreen.kt
++++ b/app/src/main/java/studio/guitarlab/app/diagnostics/DiagnosticsScreen.kt
+@@ -3,6 +3,7 @@ package studio.guitarlab.app.diagnostics
+ import androidx.activity.compose.rememberLauncherForActivityResult
+ import androidx.activity.result.contract.ActivityResultContracts
+ import androidx.compose.foundation.layout.Arrangement
++import androidx.compose.foundation.layout.Box
+ import androidx.compose.foundation.layout.Column
+ import androidx.compose.foundation.layout.Row
+ import androidx.compose.foundation.layout.fillMaxSize
+@@ -13,7 +14,6 @@ import androidx.compose.foundation.lazy.items
+ import androidx.compose.material.icons.Icons
+ import androidx.compose.material.icons.filled.ArrowBack
+ import androidx.compose.material3.Button
+-import androidx.compose.material3.HorizontalDivider
+ import androidx.compose.material3.MaterialTheme
+ import androidx.compose.material3.OutlinedButton
+ import androidx.compose.material3.Surface
+@@ -24,16 +24,20 @@ import androidx.compose.runtime.remember
+ import androidx.compose.runtime.rememberCoroutineScope
+ import androidx.compose.runtime.getValue
+ import androidx.compose.runtime.setValue
++import androidx.compose.ui.Alignment
+ import androidx.compose.ui.Modifier
+ import androidx.compose.ui.platform.LocalContext
+ import androidx.compose.ui.platform.testTag
+ import androidx.compose.ui.unit.dp
++import kotlinx.coroutines.CancellationException
+ import kotlinx.coroutines.Dispatchers
+ import kotlinx.coroutines.launch
+ import kotlinx.coroutines.withContext
+ import studio.guitarlab.app.BuildConfig
+ import studio.guitarlab.app.backup.BackupSettingsStore
+ import studio.guitarlab.app.ui.AppIconButton
++import studio.guitarlab.app.ui.AppTransientFeedbackHost
++import studio.guitarlab.app.ui.TransientFeedbackKind
+ import studio.guitarlab.app.ui.StudioAudioRoutingStore
+ import studio.guitarlab.core.project.FileProjectRepository
+ import studio.guitarlab.core.project.PreparedReferenceBindingPolicy
+@@ -51,6 +55,7 @@ fun DiagnosticsScreen(
+     val journal = remember(context) { DiagnosticJournal(context) }
+     var events by remember { mutableStateOf(journal.readEvents()) }
+     var status by remember { mutableStateOf<String?>(null) }
++    var statusKind by remember { mutableStateOf(TransientFeedbackKind.ASYNC_COMPLETION) }
+     var exporting by remember { mutableStateOf(false) }
+ 
+     val project = remember(projectId) { projectId?.let { FileProjectRepository(context.filesDir).load(it) } }
+@@ -71,25 +76,30 @@ fun DiagnosticsScreen(
+         exporting = true
+         status = null
+         scope.launch {
+-            runCatching {
+-                withContext(Dispatchers.IO) {
++            try {
++                val result = withContext(Dispatchers.IO) {
+                     context.contentResolver.openOutputStream(uri, "w")?.use { output ->
+                         DiagnosticBundleExporter(context).export(projectId, output)
+                     } ?: error("O Android não abriu o arquivo de destino.")
+                 }
+-            }.onSuccess { result ->
++                statusKind = TransientFeedbackKind.ASYNC_COMPLETION
+                 status = "Pacote exportado com ${result.entryNames.size} arquivos de diagnóstico. Nenhum áudio foi incluído."
+-            }.onFailure { error ->
++            } catch (cancelled: CancellationException) {
++                throw cancelled
++            } catch (error: Throwable) {
++                statusKind = TransientFeedbackKind.ERROR
+                 status = error.message ?: "Não foi possível exportar o pacote de diagnóstico."
++            } finally {
++                exporting = false
+             }
+-            exporting = false
+         }
+     }
+ 
+-    Column(
+-        Modifier.fillMaxSize().padding(horizontal = 22.dp, vertical = 16.dp).testTag("diagnostics-screen"),
+-        verticalArrangement = Arrangement.spacedBy(12.dp),
+-    ) {
++    Box(Modifier.fillMaxSize()) {
++        Column(
++            Modifier.fillMaxSize().padding(horizontal = 22.dp, vertical = 16.dp).testTag("diagnostics-screen"),
++            verticalArrangement = Arrangement.spacedBy(12.dp),
++        ) {
+         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+             Column {
+                 Text("Diagnóstico", style = MaterialTheme.typography.headlineMedium)
+@@ -190,7 +200,7 @@ fun DiagnosticsScreen(
+                             onClick = {
+                                 journal.clear()
+                                 events = emptyList()
+-                                status = "Registro local de eventos limpo."
++                                status = null
+                             },
+                             modifier = Modifier.testTag("diagnostics-clear-journal"),
+                         ) { Text("Limpar registro") }
+@@ -216,13 +226,15 @@ fun DiagnosticsScreen(
+                 }
+             }
+ 
+-            status?.let { message ->
+-                item {
+-                    HorizontalDivider()
+-                    Text(message, style = MaterialTheme.typography.bodySmall, modifier = Modifier.testTag("diagnostics-status"))
+-                }
+-            }
+         }
++        }
++        AppTransientFeedbackHost(
++            message = status,
++            kind = statusKind,
++            onConsumed = { status = null },
++            modifier = Modifier.align(Alignment.TopCenter),
++            fallback = "Não foi possível exportar o pacote de diagnóstico.",
++        )
+     }
+ }
+ 
+diff --git a/app/src/main/java/studio/guitarlab/app/ui/AppTransientFeedbackHost.kt b/app/src/main/java/studio/guitarlab/app/ui/AppTransientFeedbackHost.kt
+new file mode 100644
+--- /dev/null
++++ b/app/src/main/java/studio/guitarlab/app/ui/AppTransientFeedbackHost.kt
+@@ -0,0 +1,67 @@
++package studio.guitarlab.app.ui
++
++import androidx.compose.foundation.layout.padding
++import androidx.compose.foundation.layout.widthIn
++import androidx.compose.material3.SnackbarDuration
++import androidx.compose.material3.SnackbarHost
++import androidx.compose.material3.SnackbarHostState
++import androidx.compose.runtime.Composable
++import androidx.compose.runtime.LaunchedEffect
++import androidx.compose.runtime.getValue
++import androidx.compose.runtime.mutableStateOf
++import androidx.compose.runtime.remember
++import androidx.compose.runtime.rememberCoroutineScope
++import androidx.compose.runtime.setValue
++import androidx.compose.ui.Modifier
++import androidx.compose.ui.unit.dp
++import kotlinx.coroutines.Job
++import kotlinx.coroutines.launch
++
++/**
++ * One-shot transient feedback boundary.
++ *
++ * The producer state is consumed before presentation is suspended on Snackbar duration. This
++ * prevents a completed operation from being replayed minutes later after navigation. Presentation
++ * itself lives in the composable scope and is intentionally disposable when its owning surface
++ * leaves the composition.
++ */
++@Composable
++fun AppTransientFeedbackHost(
++    message: String?,
++    kind: TransientFeedbackKind,
++    onConsumed: () -> Unit,
++    modifier: Modifier = Modifier,
++    fallback: String = "Não foi possível concluir a operação.",
++) {
++    val hostState = remember { SnackbarHostState() }
++    val scope = rememberCoroutineScope()
++    var presentationJob by remember { mutableStateOf<Job?>(null) }
++
++    LaunchedEffect(message, kind) {
++        val raw = message ?: return@LaunchedEffect
++        val safe = AppTransientFeedbackPolicy.userSafe(raw, fallback)
++        val shouldShow = AppTransientFeedbackPolicy.shouldShowSnackbar(kind)
++        if (shouldShow) {
++            presentationJob?.cancel()
++            presentationJob = scope.launch {
++                hostState.currentSnackbarData?.dismiss()
++                val duration = when (kind) {
++                    TransientFeedbackKind.ERROR,
++                    TransientFeedbackKind.WARNING,
++                    -> SnackbarDuration.Long
++                    TransientFeedbackKind.ASYNC_COMPLETION,
++                    TransientFeedbackKind.OPERATIONAL_STATUS,
++                    -> SnackbarDuration.Short
++                }
++                hostState.showSnackbar(safe, duration = duration)
++            }
++        }
++        // Clear producer state immediately; do not wait for Snackbar duration/navigation.
++        onConsumed()
++    }
++
++    SnackbarHost(
++        hostState = hostState,
++        modifier = modifier.padding(top = 12.dp).widthIn(max = 560.dp),
++    )
++}
+diff --git a/app/src/main/java/studio/guitarlab/app/ui/GuitarLabApp.kt b/app/src/main/java/studio/guitarlab/app/ui/GuitarLabApp.kt
+--- a/app/src/main/java/studio/guitarlab/app/ui/GuitarLabApp.kt
++++ b/app/src/main/java/studio/guitarlab/app/ui/GuitarLabApp.kt
+@@ -56,7 +56,8 @@ fun GuitarLabApp(
+         }
+     }
+ 
+-    when (val current = screen) {
++    Box(Modifier.fillMaxSize()) {
++        when (val current = screen) {
+         AppScreen.Home -> HomeScreen(
+             viewModel = homeViewModel,
+             onNewProject = { navigate(AppScreen.NewProject) },
+@@ -174,6 +175,14 @@ fun GuitarLabApp(
+             onBack = { if (current.returnToHome) navigate(AppScreen.Home) else navigate(AppScreen.Options(current.projectId)) },
+             onProjectsChanged = homeViewModel::refresh,
+         )
++        }
++
++        AppTransientFeedbackHost(
++            message = homeState.error ?: homeState.message,
++            kind = if (homeState.error != null) TransientFeedbackKind.ERROR else homeState.messageKind,
++            onConsumed = homeViewModel::clearMessage,
++            modifier = Modifier.align(Alignment.TopCenter),
++        )
+     }
+ }
+ 
+diff --git a/app/src/main/java/studio/guitarlab/app/ui/HomeScreen.kt b/app/src/main/java/studio/guitarlab/app/ui/HomeScreen.kt
+--- a/app/src/main/java/studio/guitarlab/app/ui/HomeScreen.kt
++++ b/app/src/main/java/studio/guitarlab/app/ui/HomeScreen.kt
+@@ -45,8 +45,6 @@ import androidx.compose.material3.IconButton
+ import androidx.compose.material3.MaterialTheme
+ import androidx.compose.material3.OutlinedButton
+ import androidx.compose.material3.OutlinedTextField
+-import androidx.compose.material3.SnackbarHost
+-import androidx.compose.material3.SnackbarHostState
+ import androidx.compose.material3.Surface
+ import androidx.compose.material3.Text
+ import androidx.compose.material3.TextButton
+@@ -102,19 +100,13 @@ fun HomeScreen(
+     var deleteProject by remember { mutableStateOf<GuitarProject?>(null) }
+     var deleteHasActiveOperations by remember { mutableStateOf(false) }
+     var helpDialogVisible by remember { mutableStateOf(false) }
+-    val snackbar = remember { SnackbarHostState() }
+     val projectListState = rememberLazyListState()
+     val projectPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> if (uri != null) viewModel.importProject(uri, onOpenProject) }
+ 
+     LaunchedEffect(state.libraryQuery) {
+         if (state.projects.isNotEmpty()) projectListState.scrollToItem(0)
+     }
+ 
+-    LaunchedEffect(state.message, state.error) {
+-        val message = state.error ?: state.message
+-        if (message != null) { snackbar.showSnackbar(AppTransientFeedbackPolicy.userSafe(message, "Não foi possível concluir a operação.")); viewModel.clearMessage() }
+-    }
+-
+     Box(Modifier.fillMaxSize()) {
+         Column(Modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 18.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+@@ -236,7 +228,6 @@ fun HomeScreen(
+                 }
+             }
+         }
+-        SnackbarHost(snackbar, Modifier.align(Alignment.TopCenter).padding(top = 12.dp))
+         if (state.exportBusy) Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.scrim.copy(alpha = 0.35f)) { Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() } }
+     }
+ 
+diff --git a/app/src/main/java/studio/guitarlab/app/ui/HomeViewModel.kt b/app/src/main/java/studio/guitarlab/app/ui/HomeViewModel.kt
+--- a/app/src/main/java/studio/guitarlab/app/ui/HomeViewModel.kt
++++ b/app/src/main/java/studio/guitarlab/app/ui/HomeViewModel.kt
+@@ -81,6 +81,7 @@ data class HomeUiState(
+     val exportBusy: Boolean = false,
+     val exportOperationLabel: String? = null,
+     val message: String? = null,
++    val messageKind: TransientFeedbackKind = TransientFeedbackKind.ASYNC_COMPLETION,
+     val sourceCandidatesByProject: Map<String, List<RankedSourceCandidate>> = emptyMap(),
+     val sourceWarningsByProject: Map<String, List<String>> = emptyMap(),
+     val sourceSearchOutcomesByProject: Map<String, SourceSearchOutcome> = emptyMap(),
+@@ -353,6 +354,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
+                             preparedReferenceBusyProjects = current.preparedReferenceBusyProjects - projectId,
+                             sourceReplacementProjects = current.sourceReplacementProjects - projectId,
+                             message = if (hadActiveOperations) "Projeto excluído. As operações em andamento foram canceladas e desvinculadas." else "Projeto excluído.",
++                            messageKind = TransientFeedbackKind.ASYNC_COMPLETION,
+                         )
+                     }
+                     unifiedDrive.clearProjectLocalState(projectId)
+@@ -389,6 +391,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
+                 sourceSearchBusyProjects = current.sourceSearchBusyProjects - projectId,
+                 preparedReferenceBusyProjects = current.preparedReferenceBusyProjects - projectId,
+                 message = "Escolha a nova fonte. A fonte atual e o conteúdo do Studio permanecem preservados até a substituição ser validada.",
++                messageKind = TransientFeedbackKind.OPERATIONAL_STATUS,
+                 error = null,
+             )
+         }
+@@ -402,6 +405,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
+             current.copy(
+                 sourceReplacementProjects = current.sourceReplacementProjects - projectId,
+                 message = "Substituição cancelada. A fonte atual foi mantida.",
++                messageKind = TransientFeedbackKind.OPERATIONAL_STATUS,
+                 error = null,
+             )
+         }
+@@ -432,7 +436,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
+             }.onSuccess {
+                 val active = hasActiveProjectOperations(projectId)
+                 BackupScheduler.enqueueCoalesced(getApplication())
+-                _state.update { it.copy(message = if (active) "Projeto renomeado. As operações em andamento continuam vinculadas ao mesmo projeto." else "Projeto renomeado.") }
++                _state.update { it.copy(message = if (active) "Projeto renomeado. As operações em andamento continuam vinculadas ao mesmo projeto." else "Projeto renomeado.", messageKind = TransientFeedbackKind.ASYNC_COMPLETION) }
+                 refresh()
+             }.onFailure { error -> _state.update { it.copy(error = error.message ?: "Não foi possível renomear o projeto.") } }
+         }
+@@ -599,12 +603,13 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
+                     _state.update { current -> current.copy(
+                         sourceReplacementProjects = current.sourceReplacementProjects - projectId,
+                         message = "Fonte validada. Uma nova preparação foi iniciada sem alterar gravações ou edições do Studio.",
++                        messageKind = TransientFeedbackKind.ASYNC_COMPLETION,
+                     ) }
+                     refreshSourceOperation(projectId)
+                     refresh()
+                 }
+                 .onFailure { error ->
+-                    if (error is kotlinx.coroutines.CancellationException) return@onFailure
++                    if (error is CancellationException) throw error
+                     _state.update { it.copy(error = error.message ?: "Não foi possível importar a fonte.") }
+                     refreshSourceOperation(projectId)
+                 }
+@@ -617,7 +622,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
+             .onSuccess { operationId ->
+                 handledSourceSuccessOperations.remove(operationId)
+                 refreshSourceOperation(projectId)
+-                _state.update { it.copy(message = "Aquisição iniciada em segundo plano.", error = null) }
++                _state.update { it.copy(message = "Aquisição iniciada em segundo plano.", messageKind = TransientFeedbackKind.OPERATIONAL_STATUS, error = null) }
+             }
+             .onFailure { error -> _state.update { it.copy(error = error.message ?: "Não foi possível iniciar a aquisição.") } }
+     }
+@@ -643,7 +648,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
+         }
+         runCatching { separation.enqueue(projectId) }
+             .onSuccess {
+-                _state.update { it.copy(message = "Separação Demucs iniciada em segundo plano.", error = null) }
++                _state.update { it.copy(message = "Separação Demucs iniciada em segundo plano.", messageKind = TransientFeedbackKind.OPERATIONAL_STATUS, error = null) }
+                 refreshSeparation(projectId)
+                 refresh()
+             }
+@@ -664,7 +669,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
+         }
+         runCatching { separation.resumeImport(projectId) }
+             .onSuccess {
+-                _state.update { it.copy(message = "Retomando download, validação e importação dos resultados preparados.", error = null) }
++                _state.update { it.copy(message = "Retomando download, validação e importação dos resultados preparados.", messageKind = TransientFeedbackKind.OPERATIONAL_STATUS, error = null) }
+                 refreshSeparation(projectId)
+             }
+             .onFailure { error ->
+@@ -714,6 +719,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
+                 _state.update { current ->
+                     current.copy(
+                         message = "Referências recolocadas no Studio: $labels.",
++                        messageKind = TransientFeedbackKind.ASYNC_COMPLETION,
+                         error = null,
+                     )
+                 }
+@@ -744,6 +750,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
+                 BackupScheduler.enqueueCoalesced(getApplication())
+                 _state.update { it.copy(
+                     message = if (result.reusedExisting) "Referências preparadas já estavam atualizadas." else "Base e referência preparadas para o Studio.",
++                    messageKind = TransientFeedbackKind.ASYNC_COMPLETION,
+                 ) }
+                 activityStore.record(
+                     operationId = activityId,
+@@ -754,7 +761,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
+                     summary = "Referências prontas para o Studio",
+                 )
+                 refresh()
+-            } catch (_: CancellationException) {
++            } catch (cancelled: CancellationException) {
+                 activityStore.record(
+                     operationId = activityId,
+                     projectId = projectId,
+@@ -763,7 +770,8 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
+                     progressPercent = null,
+                     summary = "Preparação de referências cancelada",
+                 )
+-                _state.update { it.copy(message = "Preparação de referências cancelada.") }
++                _state.update { it.copy(message = "Preparação de referências cancelada.", messageKind = TransientFeedbackKind.OPERATIONAL_STATUS) }
++                throw cancelled
+             } catch (error: Throwable) {
+                 activityStore.record(
+                     operationId = activityId,
+@@ -808,7 +816,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
+ 
+     fun cancelExport() { exportJob?.cancel() }
+ 
+-    fun clearMessage() { _state.update { it.copy(message = null, error = null) } }
++    fun clearMessage() { _state.update { it.copy(message = null, messageKind = TransientFeedbackKind.ASYNC_COMPLETION, error = null) } }
+ 
+     private fun launchExport(projectId: String, label: String, action: suspend () -> String) {
+         if (_state.value.exportBusy) return
+@@ -826,10 +834,11 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
+             try {
+                 val success = action()
+                 activityStore.record(operationId, projectId, UnifiedOperationKind.EXPORT, UnifiedOperationState.SUCCEEDED, 100, success)
+-                _state.update { it.copy(exportBusy = false, exportOperationLabel = null, message = success) }
+-            } catch (_: CancellationException) {
++                _state.update { it.copy(exportBusy = false, exportOperationLabel = null, message = success, messageKind = TransientFeedbackKind.ASYNC_COMPLETION) }
++            } catch (cancelled: CancellationException) {
+                 activityStore.record(operationId, projectId, UnifiedOperationKind.EXPORT, UnifiedOperationState.CANCELLED, null, "Exportação cancelada")
+-                _state.update { it.copy(exportBusy = false, exportOperationLabel = null, message = "Exportação cancelada.") }
++                _state.update { it.copy(exportBusy = false, exportOperationLabel = null, message = "Exportação cancelada.", messageKind = TransientFeedbackKind.OPERATIONAL_STATUS) }
++                throw cancelled
+             } catch (error: Throwable) {
+                 activityStore.record(operationId, projectId, UnifiedOperationKind.EXPORT, UnifiedOperationState.FAILED, null, "Não foi possível concluir a exportação", error.message)
+                 _state.update { it.copy(exportBusy = false, exportOperationLabel = null, error = error.message ?: "Não foi possível exportar o projeto.") }
+@@ -854,7 +863,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
+                 }
+             }.onSuccess {
+                 BackupScheduler.enqueueCoalesced(getApplication())
+-                _state.update { it.copy(message = "Cópia criada com o conteúdo durável do projeto, sem herdar operações em andamento.") }
++                _state.update { it.copy(message = "Cópia criada com o conteúdo durável do projeto, sem herdar operações em andamento.", messageKind = TransientFeedbackKind.ASYNC_COMPLETION) }
+                 refresh()
+             }.onFailure { error -> _state.update { it.copy(error = error.message ?: "Não foi possível duplicar o projeto.") } }
+         }
+diff --git a/app/src/main/java/studio/guitarlab/app/ui/StudioShellScreen.kt b/app/src/main/java/studio/guitarlab/app/ui/StudioShellScreen.kt
+--- a/app/src/main/java/studio/guitarlab/app/ui/StudioShellScreen.kt
++++ b/app/src/main/java/studio/guitarlab/app/ui/StudioShellScreen.kt
+@@ -22,9 +22,6 @@ import androidx.compose.material3.Icon
+ import androidx.compose.material3.MaterialTheme
+ import androidx.compose.material3.OutlinedButton
+ import androidx.compose.material3.OutlinedTextField
+-import androidx.compose.material3.SnackbarDuration
+-import androidx.compose.material3.SnackbarHost
+-import androidx.compose.material3.SnackbarHostState
+ import androidx.compose.material3.Surface
+ import androidx.compose.material3.Text
+ import androidx.compose.material3.TextButton
+@@ -74,7 +71,6 @@ fun StudioShellScreen(
+     var allLevelsDialogVisible by rememberSaveable(projectId) { mutableStateOf(false) }
+     var projectMediaVisible by rememberSaveable(projectId) { mutableStateOf(false) }
+     var pendingRecordMode by remember(projectId) { mutableStateOf(PracticeRecordingMode.CURRENT_PLAYHEAD) }
+-    val snackbarHostState = remember { SnackbarHostState() }
+     val recordPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+         if (granted) viewModel.startRecording(pendingRecordMode) else viewModel.onRecordPermissionResult(false)
+     }
+@@ -126,14 +122,7 @@ fun StudioShellScreen(
+     val rawTransientMessage = if (state.project != null) {
+         state.error ?: state.transientNotice
+     } else null
+-    LaunchedEffect(rawTransientMessage) {
+-        rawTransientMessage?.let { rawMessage ->
+-            val userMessage = AppTransientFeedbackPolicy.userSafe(rawMessage, "Não foi possível concluir a operação de áudio.")
+-            snackbarHostState.currentSnackbarData?.dismiss()
+-            snackbarHostState.showSnackbar(message = userMessage, duration = SnackbarDuration.Short)
+-            viewModel.dismissTransientMessage(rawMessage)
+-        }
+-    }
++    val transientKind = if (state.error != null) TransientFeedbackKind.ERROR else state.transientNoticeKind
+ 
+     val structuralControlsEnabled = !state.importing &&
+         !state.editingClip &&
+@@ -283,9 +272,12 @@ fun StudioShellScreen(
+             }
+         }
+         }
+-        SnackbarHost(
+-            hostState = snackbarHostState,
+-            modifier = Modifier.align(Alignment.TopCenter).padding(top = 76.dp).widthIn(max = 560.dp),
++        AppTransientFeedbackHost(
++            message = rawTransientMessage,
++            kind = transientKind,
++            onConsumed = { rawTransientMessage?.let(viewModel::dismissTransientMessage) },
++            modifier = Modifier.align(Alignment.TopCenter).padding(top = 64.dp),
++            fallback = "Não foi possível concluir a operação de áudio.",
+         )
+     }
+ 
+diff --git a/app/src/main/java/studio/guitarlab/app/ui/StudioViewModel.kt b/app/src/main/java/studio/guitarlab/app/ui/StudioViewModel.kt
+--- a/app/src/main/java/studio/guitarlab/app/ui/StudioViewModel.kt
++++ b/app/src/main/java/studio/guitarlab/app/ui/StudioViewModel.kt
+@@ -10,6 +10,7 @@ import androidx.lifecycle.AndroidViewModel
+ import androidx.lifecycle.viewModelScope
+ import java.util.UUID
+ import kotlin.math.abs
++import kotlinx.coroutines.CancellationException
+ import kotlinx.coroutines.Dispatchers
+ import kotlinx.coroutines.CoroutineStart
+ import kotlinx.coroutines.channels.Channel
+@@ -93,6 +94,8 @@ import studio.guitarlab.core.project.TrackLevelAccumulator
+ import studio.guitarlab.core.project.TrackLevelAdvisor
+ import studio.guitarlab.core.project.TrackRoleAssignmentPolicy
+ import studio.guitarlab.core.project.TakeManagementPolicy
++import studio.guitarlab.core.project.StereoSeparationIds
++import studio.guitarlab.core.project.StereoSeparationProjectPolicy
+ import studio.guitarlab.platform.audio.android.AndroidStudioPlaybackEngine
+ import studio.guitarlab.platform.audio.android.AndroidStudioRecordingEngine
+ import studio.guitarlab.platform.audio.android.StudioRecordingConfig
+@@ -166,6 +169,7 @@ data class StudioUiState(
+     val newTrackRolePromptId: String? = null,
+     val clipStatus: String? = null,
+     val transientNotice: String? = null,
++    val transientNoticeKind: TransientFeedbackKind = TransientFeedbackKind.WARNING,
+     val preparedReferenceUpdateAvailable: Boolean = false,
+ )
+ 
+@@ -457,6 +461,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application)
+                     canUndo = projectHistory.canUndo,
+                     canRedo = projectHistory.canRedo,
+                     transientNotice = "A versão atual do Studio foi mantida.",
++                    transientNoticeKind = TransientFeedbackKind.ASYNC_COMPLETION,
+                 )
+             }.onFailure { error ->
+                 _state.value = _state.value.copy(
+@@ -599,6 +604,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application)
+                     error = null,
+                 )
+             }.onFailure { error ->
++                if (error is CancellationException) throw error
+                 _state.value = _state.value.copy(importing = false, error = error.message ?: "Não foi possível importar o áudio.", importStatus = null)
+             }
+         }
+@@ -626,7 +632,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application)
+                     var rightProxyPath: String? = null
+                     var committed = false
+                     try {
+-                        StereoWavChannelSplitter.split(editingFile, leftTemp, rightTemp)
++                        val split = StereoWavChannelSplitter.split(editingFile, leftTemp, rightTemp)
+                         val leftProxy = leftTemp.inputStream().buffered().use { mediaStore.ingestEditProxy(project.id, "${clip.name}-L.wav", it) }
+                         leftProxyPath = leftProxy.relativePath
+                         val rightProxy = rightTemp.inputStream().buffered().use { mediaStore.ingestEditProxy(project.id, "${clip.name}-R.wav", it) }
+@@ -660,26 +666,23 @@ class StudioViewModel(application: Application) : AndroidViewModel(application)
+                                         }
+                                     } + rightTrack
+                                 }
+-                                val leftClip = sourceClip.copy(
+-                                    id = UUID.randomUUID().toString(), trackId = leftTrack.id,
+-                                    name = "${sourceClip.name} · L", managedEditProxyPath = leftProxy.relativePath,
+-                                    sourceChannelCount = 1, sourceBitsPerSample = 32,
+-                                    sourceEncoding = "IEEE_FLOAT · canal L derivado",
+-                                    editingSampleRateHz = sourceClip.editingSampleRateHz ?: sourceClip.sourceSampleRateHz,
+-                                    editingTotalFrames = sourceClip.editingTotalFrames ?: sourceClip.lengthFrames,
+-                                )
+-                                val rightClip = sourceClip.copy(
+-                                    id = UUID.randomUUID().toString(), trackId = rightTrack.id,
+-                                    name = "${sourceClip.name} · R", managedEditProxyPath = rightProxy.relativePath,
+-                                    sourceChannelCount = 1, sourceBitsPerSample = 32,
+-                                    sourceEncoding = "IEEE_FLOAT · canal R derivado",
+-                                    editingSampleRateHz = sourceClip.editingSampleRateHz ?: sourceClip.sourceSampleRateHz,
+-                                    editingTotalFrames = sourceClip.editingTotalFrames ?: sourceClip.lengthFrames,
+-                                )
+-                                latest.copy(
+-                                    tracks = tracks.sortedBy { it.order },
+-                                    clips = latest.clips.filterNot { it.id == sourceClip.id } + leftClip + rightClip,
+-                                    updatedAtEpochMs = System.currentTimeMillis(),
++                                val routingProject = latest.copy(tracks = tracks.sortedBy { it.order })
++                                StereoSeparationProjectPolicy.separate(
++                                    project = routingProject,
++                                    sourceClipId = sourceClip.id,
++                                    leftTrackId = leftTrack.id,
++                                    rightTrackId = rightTrack.id,
++                                    leftProxyPath = leftProxy.relativePath,
++                                    rightProxyPath = rightProxy.relativePath,
++                                    splitTotalFrames = split.totalFrames,
++                                    splitSampleRateHz = split.sampleRateHz,
++                                    ids = StereoSeparationIds(
++                                        leftClipId = UUID.randomUUID().toString(),
++                                        rightClipId = UUID.randomUUID().toString(),
++                                        leftTakeId = UUID.randomUUID().toString(),
++                                        rightTakeId = UUID.randomUUID().toString(),
++                                    ),
++                                    nowEpochMs = System.currentTimeMillis(),
+                                 )
+                             }.also { committed = true }
+                         }
+@@ -712,6 +715,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application)
+                     error = null,
+                 )
+             }.onFailure { error ->
++                if (error is CancellationException) throw error
+                 _state.value = _state.value.copy(importing = false, error = error.message ?: "Não foi possível separar os canais estéreo.", importStatus = null)
+             }
+         }
+@@ -1565,7 +1569,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application)
+             lastTransientWarning = safe
+             lastTransientWarningAtMs = now
+         }
+-        _state.value = _state.value.copy(transientNotice = safe)
++        _state.value = _state.value.copy(transientNotice = safe, transientNoticeKind = kind)
+     }
+ 
+     private fun postTransientWarning(message: String, fallback: String, cooldownMs: Long = 30_000L) =
+@@ -1578,7 +1582,10 @@ class StudioViewModel(application: Application) : AndroidViewModel(application)
+         val current = _state.value
+         when (message) {
+             current.error -> _state.value = current.copy(error = null)
+-            current.transientNotice -> _state.value = current.copy(transientNotice = null)
++            current.transientNotice -> _state.value = current.copy(
++                transientNotice = null,
++                transientNoticeKind = TransientFeedbackKind.WARNING,
++            )
+         }
+     }
+ 
+diff --git a/app/src/test/java/studio/guitarlab/app/backup/BackupCatalogFreshnessPolicyTest.kt b/app/src/test/java/studio/guitarlab/app/backup/BackupCatalogFreshnessPolicyTest.kt
+new file mode 100644
+--- /dev/null
++++ b/app/src/test/java/studio/guitarlab/app/backup/BackupCatalogFreshnessPolicyTest.kt
+@@ -0,0 +1,77 @@
++package studio.guitarlab.app.backup
++
++import org.junit.Test
++import kotlin.test.assertFalse
++import kotlin.test.assertTrue
++
++class BackupCatalogFreshnessPolicyTest {
++    @Test fun missingOrForcedCatalogAlwaysRefreshes() {
++        assertTrue(BackupCatalogFreshnessPolicy.shouldRefresh(null, nowEpochMs = 10_000L, force = false))
++        assertTrue(
++            BackupCatalogFreshnessPolicy.shouldRefresh(
++                snapshot = BackupCatalogSnapshot(emptyList(), emptyMap(), emptyMap(), emptyMap(), emptyMap(), 9_900L),
++                nowEpochMs = 10_000L,
++                force = true,
++            ),
++        )
++    }
++
++    @Test fun recentDurableCatalogAvoidsImmediateRemoteReload() {
++        val snapshot = BackupCatalogSnapshot(emptyList(), emptyMap(), emptyMap(), emptyMap(), emptyMap(), refreshedAtEpochMs = 100_000L)
++        assertFalse(
++            BackupCatalogFreshnessPolicy.shouldRefresh(
++                snapshot = snapshot,
++                nowEpochMs = 100_000L + BackupCatalogFreshnessPolicy.DEFAULT_MAX_AGE_MS - 1L,
++                force = false,
++            ),
++        )
++    }
++
++    @Test fun localRevisionDriftIsDetectableWithoutDiscardingCachedVersionHistory() {
++        val snapshot = BackupCatalogSnapshot(
++            versions = emptyList(),
++            reconciliations = emptyMap(),
++            remoteTips = emptyMap(),
++            localRevisions = mapOf("project-a" to "revision-a"),
++            manifestCreatedAtEpochMs = emptyMap(),
++            refreshedAtEpochMs = 100_000L,
++        )
++
++        assertTrue(
++            BackupCatalogFreshnessPolicy.shouldRefresh(
++                snapshot = snapshot,
++                nowEpochMs = 100_001L,
++                force = false,
++                currentLocalRevisions = mapOf("project-a" to "revision-b"),
++            ),
++        )
++        assertTrue(
++            BackupCatalogFreshnessPolicy.shouldRefresh(
++                snapshot = snapshot,
++                nowEpochMs = 100_001L,
++                force = false,
++                currentLocalRevisions = mapOf("project-a" to "revision-a", "project-b" to "revision-b"),
++            ),
++        )
++        assertFalse(
++            BackupCatalogFreshnessPolicy.shouldRefresh(
++                snapshot = snapshot,
++                nowEpochMs = 100_001L,
++                force = false,
++                currentLocalRevisions = snapshot.localRevisions,
++            ),
++        )
++    }
++
++    @Test fun staleClockRollbackOrExpiredCatalogRefreshes() {
++        val snapshot = BackupCatalogSnapshot(emptyList(), emptyMap(), emptyMap(), emptyMap(), emptyMap(), refreshedAtEpochMs = 100_000L)
++        assertTrue(
++            BackupCatalogFreshnessPolicy.shouldRefresh(
++                snapshot = snapshot,
++                nowEpochMs = 100_000L + BackupCatalogFreshnessPolicy.DEFAULT_MAX_AGE_MS,
++                force = false,
++            ),
++        )
++        assertTrue(BackupCatalogFreshnessPolicy.shouldRefresh(snapshot, nowEpochMs = 99_999L, force = false))
++    }
++}
+diff --git a/core/project/src/main/kotlin/studio/guitarlab/core/project/LegacyRecordingTakeRecoveryPolicy.kt b/core/project/src/main/kotlin/studio/guitarlab/core/project/LegacyRecordingTakeRecoveryPolicy.kt
+new file mode 100644
+--- /dev/null
++++ b/core/project/src/main/kotlin/studio/guitarlab/core/project/LegacyRecordingTakeRecoveryPolicy.kt
+@@ -0,0 +1,67 @@
++package studio.guitarlab.core.project
++
++import studio.guitarlab.core.model.AudioClip
++import studio.guitarlab.core.model.BuiltInRoles
++import studio.guitarlab.core.model.GuitarProject
++import studio.guitarlab.core.model.RecordingTake
++
++/**
++ * Recovers take metadata emitted by older unified GuitarLab recording builds before RecordingTake
++ * became durable project metadata.
++ *
++ * Recovery is deliberately narrow: only project-managed WAV files created by the canonical
++ * recording-media filename contract (<clipId>-take-<epoch>.wav) on a recorded-guitar role qualify.
++ * Imported clips, arbitrary WAV files and non-recorded roles are never promoted heuristically.
++ */
++object LegacyRecordingTakeRecoveryPolicy {
++    private val recordedRoles = setOf(
++        BuiltInRoles.RECORDED_GUITAR,
++        BuiltInRoles.RECORDED_GUITAR_L,
++        BuiltInRoles.RECORDED_GUITAR_R,
++    )
++    private val recordingName = Regex("""^(.+)-take-(\d{10,})\.wav$""", RegexOption.IGNORE_CASE)
++
++    fun recover(project: GuitarProject): GuitarProject {
++        val tracksById = project.tracks.associateBy { it.id }
++        val existingTakeIds = project.takes.mapTo(mutableSetOf()) { it.id }
++        val recoveredByClipId = linkedMapOf<String, RecordingTake>()
++
++        project.clips.forEach { clip ->
++            if (clip.takeId != null) return@forEach
++            val track = tracksById[clip.trackId] ?: return@forEach
++            if (track.roleId !in recordedRoles) return@forEach
++            val createdAt = recordingTimestamp(clip) ?: return@forEach
++            val takeId = clip.id.takeUnless(existingTakeIds::contains) ?: return@forEach
++            existingTakeIds += takeId
++            recoveredByClipId[clip.id] = RecordingTake(
++                id = takeId,
++                trackId = clip.trackId,
++                clipId = clip.id,
++                name = clip.name.trim().ifBlank { "Take" }.take(TakeManagementPolicy.MAX_NAME_LENGTH),
++                createdAtEpochMs = createdAt,
++                active = false,
++            )
++        }
++
++        if (recoveredByClipId.isEmpty()) return project
++
++        val recovered = project.copy(
++            clips = project.clips.map { clip ->
++                recoveredByClipId[clip.id]?.let { clip.copy(takeId = it.id) } ?: clip
++            },
++            takes = project.takes + recoveredByClipId.values,
++        )
++        return TakeManagementPolicy.normalizeAll(recovered)
++    }
++
++    private fun recordingTimestamp(clip: AudioClip): Long? {
++        val path = clip.managedSourcePath ?: return null
++        if (!path.startsWith("media/source/")) return null
++        val fileName = path.substringAfterLast('/')
++        val match = recordingName.matchEntire(fileName) ?: return null
++        if (match.groupValues[1] != clip.id) return null
++        if (clip.sourceUri != "managed://$path") return null
++        if (!clip.sourceFormat.equals("WAV", ignoreCase = true)) return null
++        return match.groupValues[2].toLongOrNull()
++    }
++}
+diff --git a/core/project/src/main/kotlin/studio/guitarlab/core/project/ProjectCodec.kt b/core/project/src/main/kotlin/studio/guitarlab/core/project/ProjectCodec.kt
+--- a/core/project/src/main/kotlin/studio/guitarlab/core/project/ProjectCodec.kt
++++ b/core/project/src/main/kotlin/studio/guitarlab/core/project/ProjectCodec.kt
+@@ -14,7 +14,18 @@ class ProjectCodec(
+     }
+ ) {
+     fun encode(project: GuitarProject): String = json.encodeToString(project)
+-    fun decode(serialized: String): GuitarProject = UnifiedProjectMigrator.upgrade(
+-        TakeManagementPolicy.normalizeAll(json.decodeFromString(serialized))
+-    )
++
++    /**
++     * Decodes the persisted logical state using the pre-RC21 compatibility rules.
++     *
++     * Integrity checks for Drive manifests must run against this state before any new compatibility
++     * repair is applied, otherwise a safe migration could be mistaken for remote corruption.
++     */
++    fun decodePersistedState(serialized: String): GuitarProject =
++        UnifiedProjectMigrator.upgrade(
++            TakeManagementPolicy.normalizeAll(json.decodeFromString(serialized)),
++        )
++
++    fun decode(serialized: String): GuitarProject =
++        LegacyRecordingTakeRecoveryPolicy.recover(decodePersistedState(serialized))
+ }
+diff --git a/core/project/src/main/kotlin/studio/guitarlab/core/project/StereoSeparationProjectPolicy.kt b/core/project/src/main/kotlin/studio/guitarlab/core/project/StereoSeparationProjectPolicy.kt
+new file mode 100644
+--- /dev/null
++++ b/core/project/src/main/kotlin/studio/guitarlab/core/project/StereoSeparationProjectPolicy.kt
+@@ -0,0 +1,154 @@
++package studio.guitarlab.core.project
++
++import studio.guitarlab.core.model.AudioClip
++import studio.guitarlab.core.model.GuitarProject
++import studio.guitarlab.core.model.RecordingTake
++
++data class StereoSeparationIds(
++    val leftClipId: String,
++    val rightClipId: String,
++    val leftTakeId: String,
++    val rightTakeId: String,
++)
++
++/**
++ * Transactionally replaces one stereo clip with synchronized mono L/R derivatives.
++ *
++ * The generated proxy frame count is authoritative for the editing domain. Recording-take
++ * lineage is split into one valid take per destination track rather than leaving a dangling
++ * canonical clip or a single lineage spanning two tracks.
++ */
++object StereoSeparationProjectPolicy {
++    fun separate(
++        project: GuitarProject,
++        sourceClipId: String,
++        leftTrackId: String,
++        rightTrackId: String,
++        leftProxyPath: String,
++        rightProxyPath: String,
++        splitTotalFrames: Long,
++        splitSampleRateHz: Int,
++        ids: StereoSeparationIds,
++        nowEpochMs: Long,
++    ): GuitarProject {
++        require(leftTrackId != rightTrackId) { "Stereo separation requires two distinct destination tracks." }
++        require(splitTotalFrames > 0L) { "Stereo separation produced no audio frames." }
++        require(splitSampleRateHz > 0) { "Stereo separation produced an invalid sample rate." }
++        require(project.tracks.any { it.id == leftTrackId }) { "Left destination track does not exist." }
++        require(project.tracks.any { it.id == rightTrackId }) { "Right destination track does not exist." }
++
++        val source = project.clips.firstOrNull { it.id == sourceClipId }
++            ?: error("Stereo source clip not found: $sourceClipId")
++        require(source.sourceChannelCount == 2) { "Stereo separation requires a two-channel clip." }
++        require(source.sourceStartFrame <= splitTotalFrames && source.lengthFrames <= splitTotalFrames - source.sourceStartFrame) {
++            "Stereo proxy is shorter than the visible source window."
++        }
++        require(ids.leftClipId != ids.rightClipId) { "Stereo clip ids must be distinct." }
++        require(project.clips.none { it.id == ids.leftClipId || it.id == ids.rightClipId }) {
++            "Stereo separation clip id already exists."
++        }
++
++        val sourceTake = source.takeId?.let { takeId ->
++            requireNotNull(project.takes.firstOrNull { it.id == takeId }) {
++                "Stereo source references a missing take: $takeId"
++            }.also { take ->
++                require(take.trackId == source.trackId) {
++                    "Stereo source take lineage is inconsistent."
++                }
++                val lineage = project.clips.filter { it.takeId == takeId }
++                require(lineage.size == 1 && lineage.single().id == source.id && take.clipId == source.id) {
++                    "Separe canais apenas antes de dividir temporalmente uma take."
++                }
++            }
++        }
++
++        if (sourceTake != null) {
++            require(ids.leftTakeId != ids.rightTakeId) { "Stereo take ids must be distinct." }
++            require(project.takes.none {
++                it.id != sourceTake.id && (it.id == ids.leftTakeId || it.id == ids.rightTakeId)
++            }) { "Stereo separation take id already exists." }
++        }
++
++        val leftClip = monoClip(
++            source = source,
++            id = ids.leftClipId,
++            trackId = leftTrackId,
++            proxyPath = leftProxyPath,
++            suffix = "L",
++            takeId = sourceTake?.let { ids.leftTakeId },
++            splitTotalFrames = splitTotalFrames,
++            splitSampleRateHz = splitSampleRateHz,
++        )
++        val rightClip = monoClip(
++            source = source,
++            id = ids.rightClipId,
++            trackId = rightTrackId,
++            proxyPath = rightProxyPath,
++            suffix = "R",
++            takeId = sourceTake?.let { ids.rightTakeId },
++            splitTotalFrames = splitTotalFrames,
++            splitSampleRateHz = splitSampleRateHz,
++        )
++
++        var takes = project.takes
++        if (sourceTake != null) {
++            takes = takes.filterNot { it.id == sourceTake.id }
++            if (sourceTake.active) {
++                takes = takes.map { take ->
++                    if (take.trackId == leftTrackId || take.trackId == rightTrackId) take.copy(active = false) else take
++                }
++            }
++            takes = takes + channelTake(sourceTake, ids.leftTakeId, leftTrackId, leftClip.id, "L") +
++                channelTake(sourceTake, ids.rightTakeId, rightTrackId, rightClip.id, "R")
++        }
++
++        val replaced = project.copy(
++            clips = project.clips.filterNot { it.id == source.id } + leftClip + rightClip,
++            takes = takes,
++            updatedAtEpochMs = nowEpochMs,
++        )
++        return TakeManagementPolicy.normalizeAll(replaced)
++    }
++
++    private fun monoClip(
++        source: AudioClip,
++        id: String,
++        trackId: String,
++        proxyPath: String,
++        suffix: String,
++        takeId: String?,
++        splitTotalFrames: Long,
++        splitSampleRateHz: Int,
++    ): AudioClip = source.copy(
++        id = id,
++        trackId = trackId,
++        name = "${source.name} · $suffix",
++        managedEditProxyPath = proxyPath,
++        sourceChannelCount = 1,
++        sourceBitsPerSample = 32,
++        sourceEncoding = "IEEE_FLOAT · canal $suffix derivado",
++        editingSampleRateHz = splitSampleRateHz,
++        editingTotalFrames = splitTotalFrames,
++        takeId = takeId,
++    )
++
++    private fun channelTake(
++        source: RecordingTake,
++        id: String,
++        trackId: String,
++        clipId: String,
++        suffix: String,
++    ): RecordingTake = source.copy(
++        id = id,
++        trackId = trackId,
++        clipId = clipId,
++        name = channelTakeName(source.name, suffix),
++    )
++
++    private fun channelTakeName(name: String, suffix: String): String {
++        val marker = " · $suffix"
++        return name.trim().ifBlank { "Take" }
++            .take((TakeManagementPolicy.MAX_NAME_LENGTH - marker.length).coerceAtLeast(1))
++            .trimEnd() + marker
++    }
++}
+diff --git a/core/project/src/main/kotlin/studio/guitarlab/core/project/UnifiedDriveProductionStorage.kt b/core/project/src/main/kotlin/studio/guitarlab/core/project/UnifiedDriveProductionStorage.kt
+--- a/core/project/src/main/kotlin/studio/guitarlab/core/project/UnifiedDriveProductionStorage.kt
++++ b/core/project/src/main/kotlin/studio/guitarlab/core/project/UnifiedDriveProductionStorage.kt
+@@ -160,13 +160,15 @@ class UnifiedDriveLocalRestoreValidator(
+ 
+         val stateFile = File(stagingDirectory, PROJECT_FILE)
+         require(stateFile.isFile) { "Restored project.json is missing." }
+-        val project = codec.decode(stateFile.readText(Charsets.UTF_8))
+-        require(project.id == plan.manifest.projectId) {
++        val serialized = stateFile.readText(Charsets.UTF_8)
++        val persistedProject = codec.decodePersistedState(serialized)
++        require(persistedProject.id == plan.manifest.projectId) {
+             "Restored project identity does not match the manifest."
+         }
+-        require(UnifiedProjectRevision.sha256(project) == plan.manifest.canonicalProjectStateSha256) {
++        require(UnifiedProjectRevision.sha256(persistedProject) == plan.manifest.canonicalProjectStateSha256) {
+             "Restored project state digest does not match the manifest."
+         }
++        val project = codec.decode(serialized)
+         val issues = ProjectValidator.validate(project)
+         require(issues.isEmpty()) {
+             "Restored project is invalid: ${issues.joinToString { it.code }}"
+diff --git a/core/project/src/test/kotlin/studio/guitarlab/core/project/LegacyRecordingStereoMaintenanceTest.kt b/core/project/src/test/kotlin/studio/guitarlab/core/project/LegacyRecordingStereoMaintenanceTest.kt
+new file mode 100644
+--- /dev/null
++++ b/core/project/src/test/kotlin/studio/guitarlab/core/project/LegacyRecordingStereoMaintenanceTest.kt
+@@ -0,0 +1,226 @@
++package studio.guitarlab.core.project
++
++import kotlin.test.Test
++import kotlin.test.assertEquals
++import kotlin.test.assertFailsWith
++import kotlin.test.assertNull
++import kotlin.test.assertTrue
++import studio.guitarlab.core.model.AudioClip
++import studio.guitarlab.core.model.AudioTrack
++import studio.guitarlab.core.model.BuiltInRoles
++import studio.guitarlab.core.model.ChannelLayout
++import studio.guitarlab.core.model.GuitarProject
++import studio.guitarlab.core.model.ProjectTemplate
++import studio.guitarlab.core.model.ProjectValidator
++import studio.guitarlab.core.model.RecordingTake
++
++class LegacyRecordingStereoMaintenanceTest {
++    @Test
++    fun legacyManagedRecordingIsRecoveredAsTakeWithoutPromotingOrdinaryImports() {
++        val legacy = projectWithLegacyRecording()
++        val ordinary = legacy.clips.single().copy(
++            id = "ordinary",
++            name = "Imported guitar",
++            sourceUri = "managed://media/source/media-id-take-1790203123119.wav",
++            managedSourcePath = "media/source/media-id-take-1790203123119.wav",
++        )
++        val recovered = LegacyRecordingTakeRecoveryPolicy.recover(legacy.copy(clips = legacy.clips + ordinary))
++
++        assertEquals(1, recovered.takes.size)
++        val take = recovered.takes.single()
++        assertEquals("recording", take.id)
++        assertEquals(1_790_203_123_119L, take.createdAtEpochMs)
++        assertTrue(take.active)
++        assertEquals("recording", recovered.clips.first { it.id == "recording" }.takeId)
++        assertNull(recovered.clips.first { it.id == "ordinary" }.takeId)
++        assertTrue(ProjectValidator.validate(recovered).isEmpty())
++    }
++
++    @Test
++    fun legacyRecoveryIsIdempotent() {
++        val first = LegacyRecordingTakeRecoveryPolicy.recover(projectWithLegacyRecording())
++        val second = LegacyRecordingTakeRecoveryPolicy.recover(first)
++
++        assertEquals(first, second)
++        assertEquals(1, second.takes.size)
++        assertEquals(1, second.clips.count { it.takeId != null })
++    }
++
++    @Test
++    fun projectCodecRecoversLegacyRecordingMetadataAfterPersistedStateDecode() {
++        val codec = ProjectCodec()
++        val serialized = codec.encode(projectWithLegacyRecording())
++        val persisted = codec.decodePersistedState(serialized)
++        val restored = codec.decode(serialized)
++
++        assertNull(persisted.clips.single().takeId)
++        assertTrue(persisted.takes.isEmpty())
++        assertEquals("recording", restored.clips.single().takeId)
++        assertEquals("recording", restored.takes.single().id)
++        assertTrue(restored.takes.single().active)
++    }
++
++    @Test
++    fun recoveredLegacyTakeSupportsReversiblePerTakeSynchronization() {
++        val recovered = LegacyRecordingTakeRecoveryPolicy.recover(projectWithLegacyRecording())
++        val take = recovered.takes.single()
++        val shifted = TakeManagementPolicy.setFineAdjustmentFrames(
++            project = recovered,
++            takeId = take.id,
++            newFineAdjustmentFrames = 441L,
++            nowEpochMs = 20L,
++        )
++        val restored = TakeManagementPolicy.setFineAdjustmentFrames(
++            project = shifted,
++            takeId = take.id,
++            newFineAdjustmentFrames = 0L,
++            nowEpochMs = 30L,
++        )
++
++        assertEquals(793L, shifted.clips.single().startFrame)
++        assertEquals(9_615L, shifted.clips.single().sourceStartFrame)
++        assertEquals(441L, shifted.takes.single().fineAdjustmentFrames)
++        assertEquals(1_234L, restored.clips.single().startFrame)
++        assertEquals(9_615L, restored.clips.single().sourceStartFrame)
++        assertEquals(0L, restored.takes.single().fineAdjustmentFrames)
++        assertTrue(ProjectValidator.validate(restored).isEmpty())
++    }
++
++    @Test
++    fun trimmedLegacyStereoRecordingSeparatesWithoutTrimBoundsAndKeepsValidTakeLineage() {
++        val recovered = LegacyRecordingTakeRecoveryPolicy.recover(projectWithLegacyRecording())
++        val separated = StereoSeparationProjectPolicy.separate(
++            project = recovered,
++            sourceClipId = "recording",
++            leftTrackId = "left",
++            rightTrackId = "right",
++            leftProxyPath = "media/proxy/recording-L.wav",
++            rightProxyPath = "media/proxy/recording-R.wav",
++            splitTotalFrames = 8_790_012L,
++            splitSampleRateHz = 44_100,
++            ids = StereoSeparationIds("left-clip", "right-clip", "left-take", "right-take"),
++            nowEpochMs = 20L,
++        )
++
++        assertTrue(ProjectValidator.validate(separated).isEmpty())
++        assertEquals(2, separated.clips.size)
++        assertEquals(2, separated.takes.size)
++        separated.clips.forEach { clip ->
++            assertEquals(1_234L, clip.startFrame)
++            assertEquals(9_615L, clip.sourceStartFrame)
++            assertEquals(8_780_397L, clip.lengthFrames)
++            assertEquals(8_790_012L, clip.editingTotalFrames)
++            assertEquals(44_100, clip.editingSampleRateHz)
++            assertEquals(1, clip.sourceChannelCount)
++            assertEquals("managed://media/source/recording-take-1790203123119.wav", clip.sourceUri)
++            assertEquals("media/source/recording-take-1790203123119.wav", clip.managedSourcePath)
++            assertEquals(-3f, clip.gainDb)
++            assertEquals(100L, clip.fadeInFrames)
++            assertEquals(200L, clip.fadeOutFrames)
++        }
++        assertEquals(setOf("left", "right"), separated.takes.map { it.trackId }.toSet())
++        assertEquals(setOf("left-take", "right-take"), separated.clips.mapNotNull { it.takeId }.toSet())
++    }
++
++    @Test
++    fun temporalTakeLineageMustBeResolvedBeforeStereoChannelSeparation() {
++        val recovered = LegacyRecordingTakeRecoveryPolicy.recover(projectWithLegacyRecording())
++        val splitSibling = recovered.clips.single().copy(
++            id = "recording-sibling",
++            sourceStartFrame = 1_000L,
++            lengthFrames = 2_000L,
++            takeId = recovered.takes.single().id,
++        )
++        val splitProject = recovered.copy(clips = recovered.clips + splitSibling)
++
++        assertFailsWith<IllegalArgumentException> {
++            StereoSeparationProjectPolicy.separate(
++                splitProject, "recording", "left", "right",
++                "media/proxy/L.wav", "media/proxy/R.wav", 8_790_012L, 44_100,
++                StereoSeparationIds("lc", "rc", "lt", "rt"), 25L,
++            )
++        }
++        assertTrue(ProjectValidator.validate(recovered).isEmpty())
++    }
++
++    @Test
++    fun modernStereoTakeCopiesFineAdjustmentAndDeactivatesConflictingDestinationTake() {
++        val base = LegacyRecordingTakeRecoveryPolicy.recover(projectWithLegacyRecording())
++        val sourceTake = base.takes.single().copy(favorite = true, note = "keeper", fineAdjustmentFrames = 441L)
++        val existingRightClip = AudioClip(
++            id = "existing-right",
++            trackId = "right",
++            name = "Older",
++            sourceUri = "managed://media/source/existing.wav",
++            managedSourcePath = "media/source/existing.wav",
++            startFrame = 0L,
++            lengthFrames = 100L,
++            sourceSampleRateHz = 44_100,
++            sourceChannelCount = 1,
++            takeId = "existing-right-take",
++        )
++        val withRightTake = base.copy(
++            clips = base.clips + existingRightClip,
++            takes = listOf(sourceTake, RecordingTake("existing-right-take", "right", "existing-right", "Older", 1L, true)),
++        )
++        val separated = StereoSeparationProjectPolicy.separate(
++            withRightTake, "recording", "left", "right",
++            "media/proxy/L.wav", "media/proxy/R.wav", 8_790_012L, 44_100,
++            StereoSeparationIds("lc", "rc", "lt", "rt"), 30L,
++        )
++
++        assertTrue(ProjectValidator.validate(separated).isEmpty())
++        assertEquals(441L, separated.takes.first { it.id == "lt" }.fineAdjustmentFrames)
++        assertEquals(441L, separated.takes.first { it.id == "rt" }.fineAdjustmentFrames)
++        assertTrue(separated.takes.first { it.id == "lt" }.active)
++        assertTrue(separated.takes.first { it.id == "rt" }.active)
++        assertTrue(!separated.takes.first { it.id == "existing-right-take" }.active)
++    }
++
++    private fun projectWithLegacyRecording(): GuitarProject {
++        val tracks = listOf(
++            AudioTrack(
++                id = "left",
++                name = "Minha Guitarra E",
++                roleId = BuiltInRoles.RECORDED_GUITAR_L,
++                channelLayout = ChannelLayout.MONO,
++                order = 0,
++            ),
++            AudioTrack(
++                id = "right",
++                name = "Minha Guitarra D",
++                roleId = BuiltInRoles.RECORDED_GUITAR_R,
++                channelLayout = ChannelLayout.MONO,
++                order = 1,
++            ),
++        )
++        val clip = AudioClip(
++            id = "recording",
++            trackId = "left",
++            name = "Take 1",
++            sourceUri = "managed://media/source/recording-take-1790203123119.wav",
++            managedSourcePath = "media/source/recording-take-1790203123119.wav",
++            startFrame = 1_234L,
++            sourceStartFrame = 9_615L,
++            lengthFrames = 8_780_397L,
++            gainDb = -3f,
++            fadeInFrames = 100L,
++            fadeOutFrames = 200L,
++            sourceFormat = "WAV",
++            sourceSampleRateHz = 44_100,
++            sourceChannelCount = 2,
++            sourceBitsPerSample = 32,
++            sourceEncoding = "FLOAT32_LE",
++            sourceTotalFrames = 8_790_012L,
++        )
++        return GuitarProject(
++            id = "legacy-recording-project",
++            name = "Legacy recording",
++            template = ProjectTemplate.GUITAR,
++            createdAtEpochMs = 1L,
++            updatedAtEpochMs = 10L,
++            tracks = tracks,
++            clips = listOf(clip),
++        )
++    }
++}
+diff --git a/core/project/src/test/kotlin/studio/guitarlab/core/project/UnifiedDriveProductionStorageTest.kt b/core/project/src/test/kotlin/studio/guitarlab/core/project/UnifiedDriveProductionStorageTest.kt
+--- a/core/project/src/test/kotlin/studio/guitarlab/core/project/UnifiedDriveProductionStorageTest.kt
++++ b/core/project/src/test/kotlin/studio/guitarlab/core/project/UnifiedDriveProductionStorageTest.kt
+@@ -10,6 +10,10 @@ import org.junit.Test
+ import studio.guitarlab.core.model.AssetClassification
+ import studio.guitarlab.core.model.AssetLifecycle
+ import studio.guitarlab.core.model.AssetRole
++import studio.guitarlab.core.model.AudioClip
++import studio.guitarlab.core.model.AudioTrack
++import studio.guitarlab.core.model.BuiltInRoles
++import studio.guitarlab.core.model.ChannelLayout
+ import studio.guitarlab.core.model.ManagedAsset
+ import studio.guitarlab.core.model.ProjectFactory
+ import studio.guitarlab.core.model.ProjectTemplate
+@@ -54,6 +58,71 @@ class UnifiedDriveProductionStorageTest {
+         }
+     }
+ 
++    @Test fun legacyRecordingRestoreVerifiesPersistedDigestBeforeTakeRecovery() {
++        val root = Files.createTempDirectory("rc21-legacy-drive-restore").toFile()
++        val base = ProjectFactory(idGenerator = { "legacy-drive" }, clock = { 1L })
++            .create("Legacy", ProjectTemplate.BLANK)
++        val track = AudioTrack(
++            id = "guitar-left",
++            name = "Minha Guitarra E",
++            roleId = BuiltInRoles.RECORDED_GUITAR_L,
++            channelLayout = ChannelLayout.MONO,
++            order = 0,
++        )
++        val relativePath = "media/source/legacy-clip-take-1790203123119.wav"
++        val project = base.copy(
++            tracks = listOf(track),
++            clips = listOf(
++                AudioClip(
++                    id = "legacy-clip",
++                    trackId = track.id,
++                    name = "Take 1",
++                    sourceUri = "managed://$relativePath",
++                    managedSourcePath = relativePath,
++                    startFrame = 0L,
++                    sourceStartFrame = 10L,
++                    lengthFrames = 90L,
++                    sourceFormat = "WAV",
++                    sourceSampleRateHz = 44_100,
++                    sourceChannelCount = 2,
++                    sourceBitsPerSample = 32,
++                    sourceEncoding = "FLOAT32_LE",
++                    sourceTotalFrames = 100L,
++                ),
++            ),
++        )
++        val projectDirectory = File(File(root, "projects"), project.id).apply { mkdirs() }
++        File(projectDirectory, relativePath).apply {
++            parentFile.mkdirs()
++            writeText("legacy-recording-bytes")
++        }
++
++        val frozen = UnifiedDriveProjectSnapshotBuilder(root, nowEpochMs = { 10L })
++            .freeze(project, null)
++        try {
++            val staging = materializeRestoreStaging(frozen)
++            val plan = DriveRestorePlan(
++                DriveCurrentDescriptor(
++                    frozen.manifest.projectId,
++                    frozen.manifest.revisionId,
++                    frozen.manifest.manifestSha256,
++                ),
++                frozen.manifest,
++                UnifiedDriveProjectRestoreLayout.targets(frozen.manifest),
++            )
++
++            UnifiedDriveLocalRestoreValidator().validate(staging, plan)
++
++            val serialized = File(staging, "project.json").readText()
++            val codec = ProjectCodec()
++            assertTrue(codec.decodePersistedState(serialized).takes.isEmpty())
++            assertEquals("legacy-clip", codec.decode(serialized).takes.single().id)
++        } finally {
++            frozen.close()
++            root.deleteRecursively()
++        }
++    }
++
+     @Test fun validatedRestoreCanPublishAsIndependentCopyWithoutChangingMediaBytes() {
+         val fixture = fixture()
+         val frozen = UnifiedDriveProjectSnapshotBuilder(
+diff --git a/scripts/ci_run_api36_regression_groups.sh b/scripts/ci_run_api36_regression_groups.sh
+--- a/scripts/ci_run_api36_regression_groups.sh
++++ b/scripts/ci_run_api36_regression_groups.sh
+@@ -32,6 +32,7 @@ GROUP1_CLASSES=(
+   GuitarLabLifecycleInstrumentedTest
+   HomeProjectLibraryInstrumentedTest
+   ProjectDeleteConfirmationInstrumentedTest
++  TransientFeedbackHostInstrumentedTest
+   UnifiedProjectShellInstrumentedTest
+ )
+ GROUP2_CLASSES=(
+@@ -54,6 +55,7 @@ GROUP4_CLASSES=(
+   ActivityNotificationDeepLinkInstrumentedTest
+   AndroidMasterAudioEncoderInstrumentedTest
+   DiagnosticSupportInstrumentedTest
++  BackupCatalogCacheInstrumentedTest
+   BackupScreenInstrumentedTest
+   ProjectExportMediaStoreInstrumentedTest
+   StudyExportInstrumentedTest

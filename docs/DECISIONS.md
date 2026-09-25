@@ -429,3 +429,22 @@ Consequences:
 - documentation-only commits after acceptance do not change the accepted producer identity;
 - no recurring CI, rebuild, dependency refresh or re-homologation is required without a D-090 maintenance trigger or explicit owner-requested feature;
 - any future runtime/source/backend mutation creates a new candidate and receives proportional qualification under `TEST_AND_HOMOLOGATION_POLICY.md`.
+
+## D-097 — RC21 maintenance repairs legacy recording integrity and treats Drive catalog cache as non-authoritative
+
+An owner-observed RC20 project failed persistence validation after stereo separation with `clip.trim.bounds`. Forensics showed a legacy managed recording without take metadata and a trimmed stereo clip whose derived mono editing bound had been incorrectly inherited from clip length rather than the splitter's actual output frame count. The same maintenance cycle also exposed duplicated/ad-hoc transient feedback and unnecessary Drive catalog reads.
+
+RC21 reopens only the affected Android maintenance paths under D-090/D-096.
+
+Consequences:
+- legacy take recovery is deliberately narrow: only project-managed WAV recordings with a recorded-guitar role, exact managed URI/path convention, clip-id filename prefix and historical take timestamp pattern are eligible;
+- generic imported media is never promoted to a recording take merely because it is placed on a guitar track;
+- compatibility repair is applied only after cryptographic/revision validation of the persisted canonical project state, so recovery cannot redefine stored-state identity;
+- stereo channel separation uses the actual splitter output sample rate and total frame count as the derived editing bound;
+- modern take metadata is preserved by creating per-track lineage; an existing take shared across multiple temporal clips is ambiguous and separation fails closed rather than guessing;
+- derived/proxy outputs are cleaned if the project transaction does not commit;
+- the Drive catalog is derived from one remote head snapshot. A durable metadata-only cache is an optimization, not authority, and is scoped/validated against account, retention settings, local revision identities and manifest metadata;
+- visible Backup-screen entry and explicit refresh verify Drive. Automatic WorkManager backup remains UI-independent; off-screen completion does not perform a redundant catalog read and the next entry performs the required remote refresh;
+- normal transient Error/Warning/Async Completion presentation is centralized through the shared host and eligible events are consumed on handoff to prevent delayed replay after navigation;
+- RC20 remains the accepted frozen baseline until the exact RC21 signed APK completes residual owner acceptance. Opening this maintenance candidate does not rewrite RC20 release identity or reopen the unchanged Demucs worker.
+

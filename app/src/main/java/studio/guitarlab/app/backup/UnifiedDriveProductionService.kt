@@ -79,6 +79,129 @@ internal class UnifiedDriveProductionService(
             nowEpochMs = nowEpochMs,
         ).run()
 
+    data class CatalogSnapshot(
+        val versions: List<BackupVersionDescriptor>,
+        val reconciliations: Map<String, DriveReconciliation>,
+        val remoteTips: Map<String, List<BackupVersionDescriptor>>,
+        val manifestCreatedAtEpochMs: Map<String, Long>,
+    )
+
+    /**
+     * Reads the Drive catalog once and derives version history plus local reconciliation from the
+     * same remote snapshot. The previous UI path re-listed heads once per local project, turning a
+     * screen refresh into N+1 Drive scans.
+     */
+    suspend fun loadCatalog(
+        localProjects: List<GuitarProject>,
+        retentionPolicy: BackupRetentionPolicy,
+        knownVersions: List<BackupVersionDescriptor> = emptyList(),
+        knownManifestCreatedAtEpochMs: Map<String, Long> = emptyMap(),
+    ): CatalogSnapshot {
+        val heads = remote.listAllHeads()
+        val uniqueHeads = heads.distinctBy { it.descriptor.manifestSha256.lowercase() }
+        val headsByProject = heads.groupBy { it.descriptor.projectId }
+        val currentManifestHashes = uniqueHeads.mapTo(mutableSetOf()) { it.descriptor.manifestSha256.lowercase() }
+        val manifestBySha = linkedMapOf<String, DriveProjectRevisionManifest>()
+        val createdAtBySha = linkedMapOf<String, Long>()
+
+        knownManifestCreatedAtEpochMs.forEach { (sha256, createdAt) ->
+            val key = sha256.lowercase()
+            if (key in currentManifestHashes && createdAt >= 0L) createdAtBySha[key] = createdAt
+        }
+
+        suspend fun realManifest(head: DrivePublishedHead): DriveProjectRevisionManifest {
+            val key = head.descriptor.manifestSha256.lowercase()
+            manifestBySha[key]?.let { return it }
+            val manifest = remote.loadManifest(head.descriptor)
+            require(
+                manifest.projectId == head.descriptor.projectId &&
+                    manifest.revisionId == head.descriptor.revisionId &&
+                    manifest.manifestSha256 == key
+            ) { "Drive head does not match its manifest." }
+            manifestBySha[key] = manifest
+            createdAtBySha[key] = manifest.createdAtEpochMs
+            return manifest
+        }
+
+        // First visit validates all manifest timestamps once. Later refreshes reuse the durable
+        // timestamp hints and fetch only manifests that appeared since the last successful catalog.
+        uniqueHeads.forEach { head ->
+            val key = head.descriptor.manifestSha256.lowercase()
+            if (key !in createdAtBySha) realManifest(head)
+        }
+
+        val retentionSummaries = uniqueHeads.map { head ->
+            DriveProjectRevisionManifest(
+                projectId = head.descriptor.projectId,
+                revisionId = head.descriptor.revisionId,
+                baseRevisionId = head.baseRevisionId,
+                createdAtEpochMs = createdAtBySha.getValue(head.descriptor.manifestSha256.lowercase()),
+                canonicalProjectStateSha256 = "0".repeat(64),
+                assets = emptyList(),
+            )
+        }
+        val retainedKeys = DriveManifestRetentionPlanner.retained(
+            manifests = retentionSummaries,
+            policy = retentionPolicy,
+            nowEpochMs = nowEpochMs(),
+        ).mapTo(mutableSetOf()) { it.projectId to it.revisionId }
+
+        val descriptorCache = knownVersions
+            .filter { it.formatVersion == 3 && it.remoteId == "u8:${it.sha256}" }
+            .associateByTo(linkedMapOf()) { it.sha256.lowercase() }
+
+        suspend fun describe(head: DrivePublishedHead): BackupVersionDescriptor {
+            val key = head.descriptor.manifestSha256.lowercase()
+            descriptorCache[key]?.let { cached ->
+                if (
+                    cached.projectId == head.descriptor.projectId &&
+                        cached.revisionId == head.descriptor.revisionId
+                ) return cached
+            }
+            val manifest = realManifest(head)
+            val descriptor = versionDescriptor(
+                manifest,
+                loadRemoteProject(manifest.projectStateAsset, manifest),
+            )
+            descriptorCache[key] = descriptor
+            return descriptor
+        }
+
+        val versions = uniqueHeads
+            .filter { (it.descriptor.projectId to it.descriptor.revisionId) in retainedKeys }
+            .map { describe(it) }
+            .distinctBy { it.deduplicationKey }
+            .sortedWith(
+                compareByDescending<BackupVersionDescriptor> { it.backupCreatedAtEpochMs }
+                    .thenByDescending { it.revisionId },
+            )
+
+        val reconciliations = linkedMapOf<String, DriveReconciliation>()
+        val remoteTips = linkedMapOf<String, List<BackupVersionDescriptor>>()
+        localProjects.forEach { project ->
+            val tips = currentTips(headsByProject[project.id].orEmpty())
+            val reconciliation = if (tips.size > 1) {
+                DriveReconciliation.CONFLICT
+            } else {
+                DriveConflictResolver.resolve(
+                    localRevisionId = BackupRevisionIdentity.forProject(project),
+                    confirmedRevisionId = confirmedRevisions.confirmedRevision(project.id),
+                    remoteRevisionId = tips.singleOrNull()?.descriptor?.revisionId,
+                )
+            }
+            reconciliations[project.id] = reconciliation
+            if (reconciliation == DriveReconciliation.CONFLICT || reconciliation == DriveReconciliation.DOWNLOAD_REMOTE) {
+                remoteTips[project.id] = tips.map { describe(it) }
+            }
+        }
+        return CatalogSnapshot(
+            versions = versions,
+            reconciliations = reconciliations,
+            remoteTips = remoteTips,
+            manifestCreatedAtEpochMs = createdAtBySha,
+        )
+    }
+
     suspend fun listCommittedVersions(
         retentionPolicy: BackupRetentionPolicy,
     ): List<BackupVersionDescriptor> {
@@ -584,14 +707,15 @@ internal class UnifiedDriveProductionService(
         val temporary = kotlin.io.path.createTempFile("guitarlab-u8-state-", ".json").toFile()
         return try {
             remote.downloadAsset(identity, temporary)
-            val project = codec.decode(temporary.readText(Charsets.UTF_8))
-            require(project.id == manifest.projectId) {
+            val serialized = temporary.readText(Charsets.UTF_8)
+            val persistedProject = codec.decodePersistedState(serialized)
+            require(persistedProject.id == manifest.projectId) {
                 "Drive project.json identity does not match its manifest."
             }
-            require(UnifiedProjectRevision.sha256(project) == manifest.canonicalProjectStateSha256) {
+            require(UnifiedProjectRevision.sha256(persistedProject) == manifest.canonicalProjectStateSha256) {
                 "Drive project.json state digest does not match its manifest."
             }
-            project
+            codec.decode(serialized)
         } finally {
             temporary.delete()
         }

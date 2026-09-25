@@ -32,6 +32,7 @@ GROUP1_CLASSES=(
   GuitarLabLifecycleInstrumentedTest
   HomeProjectLibraryInstrumentedTest
   ProjectDeleteConfirmationInstrumentedTest
+  TransientFeedbackHostInstrumentedTest
   UnifiedProjectShellInstrumentedTest
 )
 GROUP2_CLASSES=(
@@ -54,6 +55,7 @@ GROUP4_CLASSES=(
   ActivityNotificationDeepLinkInstrumentedTest
   AndroidMasterAudioEncoderInstrumentedTest
   DiagnosticSupportInstrumentedTest
+  BackupCatalogCacheInstrumentedTest
   BackupScreenInstrumentedTest
   ProjectExportMediaStoreInstrumentedTest
   StudyExportInstrumentedTest

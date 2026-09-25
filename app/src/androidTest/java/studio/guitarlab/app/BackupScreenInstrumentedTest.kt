@@ -128,6 +128,54 @@ class BackupScreenInstrumentedTest {
     }
 
 
+    @Test fun emptyCatalogDoesNotClaimNoBackupsWhileRemoteRefreshIsRunning() {
+        compose.setContent {
+            GuitarLabTheme {
+                BackupScreenContent(
+                    state = configuredState().copy(
+                        loading = false,
+                        catalogRefreshing = true,
+                        versions = emptyList(),
+                    ),
+                    projectId = null,
+                    onBack = {}, onConnectDrive = {}, onDisconnectDrive = {}, onRefresh = {},
+                    onAutomaticEnabled = {}, onCadence = {}, onUnmeteredOnly = {}, onChargingOnly = {},
+                    onRetentionDays = {}, onMaximumVersions = {}, onBackupAll = {}, onBackupProject = {},
+                    onKeepLocal = { _, _ -> }, onUseCloud = {}, onRestoreVersion = {}, onRestoreAll = {},
+                )
+            }
+        }
+
+        compose.onNodeWithTag("backup-catalog-loading").assertIsDisplayed()
+        compose.onNodeWithTag("backup-catalog-empty").assertDoesNotExist()
+    }
+
+    @Test fun cachedCatalogRemainsVisibleDuringBackgroundRefresh() {
+        val cached = version("cached-version")
+        compose.setContent {
+            GuitarLabTheme {
+                BackupScreenContent(
+                    state = configuredState(versions = listOf(cached)).copy(
+                        loading = true,
+                        catalogRefreshing = true,
+                        catalogUpdatedAtEpochMs = 123_456L,
+                        catalogFromCache = true,
+                    ),
+                    projectId = null,
+                    onBack = {}, onConnectDrive = {}, onDisconnectDrive = {}, onRefresh = {},
+                    onAutomaticEnabled = {}, onCadence = {}, onUnmeteredOnly = {}, onChargingOnly = {},
+                    onRetentionDays = {}, onMaximumVersions = {}, onBackupAll = {}, onBackupProject = {},
+                    onKeepLocal = { _, _ -> }, onUseCloud = {}, onRestoreVersion = {}, onRestoreAll = {},
+                )
+            }
+        }
+
+        compose.onNodeWithTag("backup-catalog-background-refresh").assertIsDisplayed()
+        compose.onNode(hasScrollAction()).performScrollToNode(hasText("Ver versões"))
+        compose.onNodeWithText("Ver versões").assertIsDisplayed()
+        compose.onNodeWithTag("backup-catalog-empty").assertDoesNotExist()
+    }
+
     @Test fun singleVersionRestoreRequiresExplicitConfirmation() {
         val version = version("remote-1")
         var restored: BackupVersionDescriptor? = null

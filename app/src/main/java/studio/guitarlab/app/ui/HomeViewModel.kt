@@ -81,6 +81,7 @@ data class HomeUiState(
     val exportBusy: Boolean = false,
     val exportOperationLabel: String? = null,
     val message: String? = null,
+    val messageKind: TransientFeedbackKind = TransientFeedbackKind.ASYNC_COMPLETION,
     val sourceCandidatesByProject: Map<String, List<RankedSourceCandidate>> = emptyMap(),
     val sourceWarningsByProject: Map<String, List<String>> = emptyMap(),
     val sourceSearchOutcomesByProject: Map<String, SourceSearchOutcome> = emptyMap(),
@@ -353,6 +354,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                             preparedReferenceBusyProjects = current.preparedReferenceBusyProjects - projectId,
                             sourceReplacementProjects = current.sourceReplacementProjects - projectId,
                             message = if (hadActiveOperations) "Projeto excluído. As operações em andamento foram canceladas e desvinculadas." else "Projeto excluído.",
+                            messageKind = TransientFeedbackKind.ASYNC_COMPLETION,
                         )
                     }
                     unifiedDrive.clearProjectLocalState(projectId)
@@ -389,6 +391,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 sourceSearchBusyProjects = current.sourceSearchBusyProjects - projectId,
                 preparedReferenceBusyProjects = current.preparedReferenceBusyProjects - projectId,
                 message = "Escolha a nova fonte. A fonte atual e o conteúdo do Studio permanecem preservados até a substituição ser validada.",
+                messageKind = TransientFeedbackKind.OPERATIONAL_STATUS,
                 error = null,
             )
         }
@@ -402,6 +405,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             current.copy(
                 sourceReplacementProjects = current.sourceReplacementProjects - projectId,
                 message = "Substituição cancelada. A fonte atual foi mantida.",
+                messageKind = TransientFeedbackKind.OPERATIONAL_STATUS,
                 error = null,
             )
         }
@@ -432,7 +436,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             }.onSuccess {
                 val active = hasActiveProjectOperations(projectId)
                 BackupScheduler.enqueueCoalesced(getApplication())
-                _state.update { it.copy(message = if (active) "Projeto renomeado. As operações em andamento continuam vinculadas ao mesmo projeto." else "Projeto renomeado.") }
+                _state.update { it.copy(message = if (active) "Projeto renomeado. As operações em andamento continuam vinculadas ao mesmo projeto." else "Projeto renomeado.", messageKind = TransientFeedbackKind.ASYNC_COMPLETION) }
                 refresh()
             }.onFailure { error -> _state.update { it.copy(error = error.message ?: "Não foi possível renomear o projeto.") } }
         }
@@ -599,12 +603,13 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                     _state.update { current -> current.copy(
                         sourceReplacementProjects = current.sourceReplacementProjects - projectId,
                         message = "Fonte validada. Uma nova preparação foi iniciada sem alterar gravações ou edições do Studio.",
+                        messageKind = TransientFeedbackKind.ASYNC_COMPLETION,
                     ) }
                     refreshSourceOperation(projectId)
                     refresh()
                 }
                 .onFailure { error ->
-                    if (error is kotlinx.coroutines.CancellationException) return@onFailure
+                    if (error is CancellationException) throw error
                     _state.update { it.copy(error = error.message ?: "Não foi possível importar a fonte.") }
                     refreshSourceOperation(projectId)
                 }
@@ -617,7 +622,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             .onSuccess { operationId ->
                 handledSourceSuccessOperations.remove(operationId)
                 refreshSourceOperation(projectId)
-                _state.update { it.copy(message = "Aquisição iniciada em segundo plano.", error = null) }
+                _state.update { it.copy(message = "Aquisição iniciada em segundo plano.", messageKind = TransientFeedbackKind.OPERATIONAL_STATUS, error = null) }
             }
             .onFailure { error -> _state.update { it.copy(error = error.message ?: "Não foi possível iniciar a aquisição.") } }
     }
@@ -643,7 +648,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         }
         runCatching { separation.enqueue(projectId) }
             .onSuccess {
-                _state.update { it.copy(message = "Separação Demucs iniciada em segundo plano.", error = null) }
+                _state.update { it.copy(message = "Separação Demucs iniciada em segundo plano.", messageKind = TransientFeedbackKind.OPERATIONAL_STATUS, error = null) }
                 refreshSeparation(projectId)
                 refresh()
             }
@@ -664,7 +669,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         }
         runCatching { separation.resumeImport(projectId) }
             .onSuccess {
-                _state.update { it.copy(message = "Retomando download, validação e importação dos resultados preparados.", error = null) }
+                _state.update { it.copy(message = "Retomando download, validação e importação dos resultados preparados.", messageKind = TransientFeedbackKind.OPERATIONAL_STATUS, error = null) }
                 refreshSeparation(projectId)
             }
             .onFailure { error ->
@@ -714,6 +719,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 _state.update { current ->
                     current.copy(
                         message = "Referências recolocadas no Studio: $labels.",
+                        messageKind = TransientFeedbackKind.ASYNC_COMPLETION,
                         error = null,
                     )
                 }
@@ -744,6 +750,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 BackupScheduler.enqueueCoalesced(getApplication())
                 _state.update { it.copy(
                     message = if (result.reusedExisting) "Referências preparadas já estavam atualizadas." else "Base e referência preparadas para o Studio.",
+                    messageKind = TransientFeedbackKind.ASYNC_COMPLETION,
                 ) }
                 activityStore.record(
                     operationId = activityId,
@@ -754,7 +761,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                     summary = "Referências prontas para o Studio",
                 )
                 refresh()
-            } catch (_: CancellationException) {
+            } catch (cancelled: CancellationException) {
                 activityStore.record(
                     operationId = activityId,
                     projectId = projectId,
@@ -763,7 +770,8 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                     progressPercent = null,
                     summary = "Preparação de referências cancelada",
                 )
-                _state.update { it.copy(message = "Preparação de referências cancelada.") }
+                _state.update { it.copy(message = "Preparação de referências cancelada.", messageKind = TransientFeedbackKind.OPERATIONAL_STATUS) }
+                throw cancelled
             } catch (error: Throwable) {
                 activityStore.record(
                     operationId = activityId,
@@ -808,7 +816,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     fun cancelExport() { exportJob?.cancel() }
 
-    fun clearMessage() { _state.update { it.copy(message = null, error = null) } }
+    fun clearMessage() { _state.update { it.copy(message = null, messageKind = TransientFeedbackKind.ASYNC_COMPLETION, error = null) } }
 
     private fun launchExport(projectId: String, label: String, action: suspend () -> String) {
         if (_state.value.exportBusy) return
@@ -826,10 +834,11 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 val success = action()
                 activityStore.record(operationId, projectId, UnifiedOperationKind.EXPORT, UnifiedOperationState.SUCCEEDED, 100, success)
-                _state.update { it.copy(exportBusy = false, exportOperationLabel = null, message = success) }
-            } catch (_: CancellationException) {
+                _state.update { it.copy(exportBusy = false, exportOperationLabel = null, message = success, messageKind = TransientFeedbackKind.ASYNC_COMPLETION) }
+            } catch (cancelled: CancellationException) {
                 activityStore.record(operationId, projectId, UnifiedOperationKind.EXPORT, UnifiedOperationState.CANCELLED, null, "Exportação cancelada")
-                _state.update { it.copy(exportBusy = false, exportOperationLabel = null, message = "Exportação cancelada.") }
+                _state.update { it.copy(exportBusy = false, exportOperationLabel = null, message = "Exportação cancelada.", messageKind = TransientFeedbackKind.OPERATIONAL_STATUS) }
+                throw cancelled
             } catch (error: Throwable) {
                 activityStore.record(operationId, projectId, UnifiedOperationKind.EXPORT, UnifiedOperationState.FAILED, null, "Não foi possível concluir a exportação", error.message)
                 _state.update { it.copy(exportBusy = false, exportOperationLabel = null, error = error.message ?: "Não foi possível exportar o projeto.") }
@@ -854,7 +863,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 }
             }.onSuccess {
                 BackupScheduler.enqueueCoalesced(getApplication())
-                _state.update { it.copy(message = "Cópia criada com o conteúdo durável do projeto, sem herdar operações em andamento.") }
+                _state.update { it.copy(message = "Cópia criada com o conteúdo durável do projeto, sem herdar operações em andamento.", messageKind = TransientFeedbackKind.ASYNC_COMPLETION) }
                 refresh()
             }.onFailure { error -> _state.update { it.copy(error = error.message ?: "Não foi possível duplicar o projeto.") } }
         }

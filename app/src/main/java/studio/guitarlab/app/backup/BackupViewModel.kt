@@ -22,8 +22,10 @@ import kotlinx.coroutines.withContext
 import java.util.UUID
 import studio.guitarlab.app.activity.ActivityCancellationRegistry
 import studio.guitarlab.app.activity.UnifiedActivityStore
+import studio.guitarlab.app.ui.TransientFeedbackKind
 import studio.guitarlab.core.model.GuitarProject
 import studio.guitarlab.core.project.BackupRetentionPolicy
+import studio.guitarlab.core.project.BackupRevisionIdentity
 import studio.guitarlab.core.project.BackupRunReport
 import studio.guitarlab.core.project.BackupVersionDescriptor
 import studio.guitarlab.core.project.DriveConflictAction
@@ -44,7 +46,11 @@ data class BackupUiState(
     val reconciliations: Map<String, DriveReconciliation> = emptyMap(),
     val remoteTips: Map<String, List<BackupVersionDescriptor>> = emptyMap(),
     val authorizationRequired: Boolean = false,
+    val catalogRefreshing: Boolean = false,
+    val catalogUpdatedAtEpochMs: Long? = null,
+    val catalogFromCache: Boolean = false,
     val message: String? = null,
+    val messageKind: TransientFeedbackKind = TransientFeedbackKind.ASYNC_COMPLETION,
     val error: String? = null,
 )
 
@@ -56,77 +62,128 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
     private val confirmedRevisions = ConfirmedRevisionStore(application)
     private val unifiedDrive = UnifiedDriveProductionService(application)
     private val deletedProjectStore = DeletedProjectBackupStore(application)
+    private val catalogCache = BackupCatalogCacheStore(application)
+    private var refreshJob: Job? = null
+    private var screenVisible = false
+    private var screenEnteredOnce = false
     private val _state = MutableStateFlow(BackupUiState())
     val state: StateFlow<BackupUiState> = _state.asStateFlow()
     init {
-        refresh()
         observeAutomaticBackupCompletion()
     }
 
-    fun refresh() {
-        viewModelScope.launch {
-            _state.update { it.copy(loading = true, error = null) }
+    /** User-requested refresh always verifies Drive; re-entry may reuse a recent durable catalog. */
+    fun refresh() = refreshInternal(forceRemote = true)
+
+    fun onScreenEntered() {
+        val returning = screenEnteredOnce && !screenVisible
+        screenVisible = true
+        screenEnteredOnce = true
+        if (returning) clearMessage()
+        if (refreshJob?.isActive == true || _state.value.busy) return
+        // Cache is painted immediately, but every visible entry verifies the current Drive heads.
+        refreshInternal(forceRemote = true)
+    }
+
+    fun onScreenLeft() {
+        screenVisible = false
+        clearMessage()
+    }
+
+    private fun refreshInternal(forceRemote: Boolean) {
+        refreshJob?.cancel()
+        refreshJob = viewModelScope.launch {
             val settings = settingsStore.snapshot()
             val projects = withContext(Dispatchers.IO) { repository.list() }
-            var authRequired = false
-            val versions = if (settings.driveConnected) {
-                try {
-                    unifiedDrive.listCommittedVersions(retention(settings))
-                } catch (_: DriveAuthorizationRequiredException) {
-                    authRequired = true
-                    emptyList()
-                } catch (error: Throwable) {
-                    if (error is CancellationException) throw error
-                    _state.update {
-                        it.copy(
-                            error = error.message
-                                ?: "Não foi possível ler os backups do Google Drive.",
-                        )
-                    }
-                    emptyList()
-                }
-            } else {
-                emptyList()
-            }
+            val cached = catalogCache.load(settings)
+            val localRevisions = projects.associate { it.id to BackupRevisionIdentity.forProject(it) }
+            val cachedMatchesLocal = cached != null && cached.localRevisions == localRevisions
+            val shouldRefreshRemote = settings.driveConnected &&
+                BackupCatalogFreshnessPolicy.shouldRefresh(
+                    snapshot = cached,
+                    nowEpochMs = System.currentTimeMillis(),
+                    force = forceRemote,
+                    currentLocalRevisions = localRevisions,
+                )
 
-            val reconciliations = linkedMapOf<String, DriveReconciliation>()
-            val remoteTips = linkedMapOf<String, List<BackupVersionDescriptor>>()
-            if (settings.driveConnected && !authRequired) {
-                for (project in projects) {
-                    try {
-                        val reconciliation = unifiedDrive.reconciliation(project.id)
-                        reconciliations[project.id] = reconciliation
-                        if (
-                            reconciliation == DriveReconciliation.CONFLICT ||
-                                reconciliation == DriveReconciliation.DOWNLOAD_REMOTE
-                        ) {
-                            remoteTips[project.id] = unifiedDrive.currentRemoteTips(project.id)
-                        }
-                    } catch (_: DriveAuthorizationRequiredException) {
-                        authRequired = true
-                        break
-                    } catch (error: Throwable) {
-                        if (error is CancellationException) throw error
-                        _state.update {
-                            it.copy(
-                                error = error.message
-                                    ?: "Não foi possível reconciliar o estado do backup.",
-                            )
-                        }
-                    }
-                }
-            }
             _state.update { current ->
                 current.copy(
-                    loading = false,
-                    settings = settingsStore.snapshot(),
+                    loading = cached == null && shouldRefreshRemote,
+                    catalogRefreshing = shouldRefreshRemote,
+                    settings = settings,
                     localProjects = projects,
-                    versions = versions,
+                    versions = cached?.versions ?: if (settings.driveConnected) current.versions else emptyList(),
                     deletedProjects = deletedProjectStore.all(),
-                    reconciliations = reconciliations,
-                    remoteTips = remoteTips,
-                    authorizationRequired = authRequired,
+                    reconciliations = if (cachedMatchesLocal) cached?.reconciliations.orEmpty() else emptyMap(),
+                    remoteTips = if (cachedMatchesLocal) cached?.remoteTips.orEmpty() else emptyMap(),
+                    catalogUpdatedAtEpochMs = cached?.refreshedAtEpochMs ?: current.catalogUpdatedAtEpochMs,
+                    catalogFromCache = cached != null,
+                    authorizationRequired = false,
+                    error = null,
                 )
+            }
+
+            if (!settings.driveConnected || !shouldRefreshRemote) {
+                _state.update { it.copy(loading = false, catalogRefreshing = false) }
+                return@launch
+            }
+
+            try {
+                val remoteCatalog = unifiedDrive.loadCatalog(
+                    localProjects = projects,
+                    retentionPolicy = retention(settings),
+                    knownVersions = cached?.versions.orEmpty(),
+                    knownManifestCreatedAtEpochMs = cached?.manifestCreatedAtEpochMs.orEmpty(),
+                )
+                val refreshedAt = System.currentTimeMillis()
+                val snapshot = BackupCatalogSnapshot(
+                    versions = remoteCatalog.versions,
+                    reconciliations = remoteCatalog.reconciliations,
+                    remoteTips = remoteCatalog.remoteTips,
+                    localRevisions = localRevisions,
+                    manifestCreatedAtEpochMs = remoteCatalog.manifestCreatedAtEpochMs,
+                    refreshedAtEpochMs = refreshedAt,
+                )
+                catalogCache.save(settings, snapshot)
+                _state.update {
+                    it.copy(
+                        loading = false,
+                        catalogRefreshing = false,
+                        settings = settingsStore.snapshot(),
+                        localProjects = projects,
+                        versions = snapshot.versions,
+                        deletedProjects = deletedProjectStore.all(),
+                        reconciliations = snapshot.reconciliations,
+                        remoteTips = snapshot.remoteTips,
+                        catalogUpdatedAtEpochMs = refreshedAt,
+                        catalogFromCache = false,
+                        authorizationRequired = false,
+                        error = null,
+                    )
+                }
+            } catch (_: DriveAuthorizationRequiredException) {
+                _state.update {
+                    it.copy(
+                        loading = false,
+                        catalogRefreshing = false,
+                        authorizationRequired = true,
+                        error = if (cached == null) "Reconecte o Google Drive para atualizar o histórico de backups."
+                        else "A autorização do Google Drive expirou. O último histórico salvo continua disponível.",
+                    )
+                }
+            } catch (error: Throwable) {
+                if (error is CancellationException) throw error
+                _state.update {
+                    it.copy(
+                        loading = false,
+                        catalogRefreshing = false,
+                        error = if (cached == null) {
+                            error.message ?: "Não foi possível ler os backups do Google Drive."
+                        } else {
+                            "Não foi possível atualizar o Google Drive agora. O último histórico salvo continua disponível."
+                        },
+                    )
+                }
             }
         }
     }
@@ -139,7 +196,8 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
         onResolution: (PendingIntent) -> Unit,
     ) {
         if (_state.value.busy) return
-        _state.update { it.copy(busy = true, busyLabel = "Conectando ao Google Drive…", error = null, message = null) }
+        refreshJob?.cancel()
+        _state.update { it.copy(busy = true, busyLabel = "Conectando ao Google Drive…", error = null, message = null, messageKind = TransientFeedbackKind.ASYNC_COMPLETION) }
         viewModelScope.launch {
             try {
                 when (val result = authorization.request()) {
@@ -157,6 +215,7 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
                             busy = false,
                             busyLabel = null,
                             message = "Operação cancelada.",
+                            messageKind = TransientFeedbackKind.OPERATIONAL_STATUS,
                             error = null,
                         )
                     }
@@ -169,13 +228,17 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
 
     fun completeDriveConnection(data: Intent?) {
         if (_state.value.busy) return
-        _state.update { it.copy(busy = true, busyLabel = "Validando a conexão…", error = null, message = null) }
+        refreshJob?.cancel()
+        _state.update { it.copy(busy = true, busyLabel = "Validando a conexão…", error = null, message = null, messageKind = TransientFeedbackKind.ASYNC_COMPLETION) }
         viewModelScope.launch {
             try {
                 authorization.tokenFromResult(data) // validates the user-granted result
                 finishDriveConnection()
             } catch (error: Throwable) {
-                if (error is CancellationException) throw error
+                if (error is CancellationException) {
+                    clearBusyAfterCancellation()
+                    throw error
+                }
                 fail(error)
             }
         }
@@ -186,19 +249,23 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
             it.copy(
                 busy = false,
                 busyLabel = null,
-                error = "A conexão com o Google Drive foi cancelada.",
+                error = null,
+                message = "Conexão com o Google Drive cancelada.",
+                messageKind = TransientFeedbackKind.OPERATIONAL_STATUS,
             )
         }
     }
 
     fun disconnectDrive() {
         if (_state.value.busy) return
-        _state.update { it.copy(busy = true, busyLabel = "Desconectando…", error = null, message = null) }
+        refreshJob?.cancel()
+        _state.update { it.copy(busy = true, busyLabel = "Desconectando…", error = null, message = null, messageKind = TransientFeedbackKind.ASYNC_COMPLETION) }
         viewModelScope.launch {
             try {
                 authorization.revoke()
                 unifiedDrive.clearAllLocalState()
                 confirmedRevisions.clearAll()
+                catalogCache.clear()
                 settingsStore.clearDriveConnection()
                 BackupScheduler.sync(getApplication())
                 _state.update {
@@ -209,12 +276,18 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
                         versions = emptyList(),
                         reconciliations = emptyMap(),
                         remoteTips = emptyMap(),
+                        catalogRefreshing = false,
+                        catalogUpdatedAtEpochMs = null,
+                        catalogFromCache = false,
                         authorizationRequired = false,
                         message = "Google Drive desconectado. Os backups existentes não foram apagados.",
                     )
                 }
             } catch (error: Throwable) {
-                if (error is CancellationException) throw error
+                if (error is CancellationException) {
+                    clearBusyAfterCancellation()
+                    throw error
+                }
                 fail(error)
             }
         }
@@ -224,8 +297,8 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
     fun setCadence(value: BackupCadence) = updateSettings { settingsStore.setCadence(value) }
     fun setUnmeteredOnly(value: Boolean) = updateSettings { settingsStore.setUnmeteredOnly(value) }
     fun setChargingOnly(value: Boolean) = updateSettings { settingsStore.setChargingOnly(value) }
-    fun setRetentionDays(value: Int?) = updateSettings { settingsStore.setRetentionDays(value) }
-    fun setMaximumVersions(value: Int) = updateSettings { settingsStore.setMaximumVersions(value) }
+    fun setRetentionDays(value: Int?) = updateSettings(refreshCatalog = true) { settingsStore.setRetentionDays(value) }
+    fun setMaximumVersions(value: Int) = updateSettings(refreshCatalog = true) { settingsStore.setMaximumVersions(value) }
 
     fun backupAllNow() = runBackup(null, "Backup total") { service ->
         val settings = settingsStore.snapshot()
@@ -283,7 +356,10 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
                 it.copy(message = "Versão da nuvem aplicada com segurança.")
             }
         } catch (error: Throwable) {
-            if (error is CancellationException) throw error
+            if (error is CancellationException) {
+                activityStore.record(operationId, version.projectId, UnifiedOperationKind.RESTORE, UnifiedOperationState.CANCELLED, null, "Aplicação da versão da nuvem cancelada")
+                throw error
+            }
             activityStore.record(
                 operationId,
                 version.projectId,
@@ -316,7 +392,10 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
             withContext(Dispatchers.Main) { onProjectsChanged() }
             _state.update { it.copy(message = "$success.") }
         } catch (error: Throwable) {
-            if (error is CancellationException) throw error
+            if (error is CancellationException) {
+                activityStore.record(operationId, version.projectId, UnifiedOperationKind.RESTORE, UnifiedOperationState.CANCELLED, null, "Restauração cancelada")
+                throw error
+            }
             activityStore.record(operationId, version.projectId, UnifiedOperationKind.RESTORE, UnifiedOperationState.FAILED, null, "Não foi possível restaurar o projeto", error.message)
             throw error
         }
@@ -351,16 +430,39 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
                 _state.update { it.copy(error = detail, message = summary) }
             }
         } catch (error: Throwable) {
-            if (error is CancellationException) throw error
+            if (error is CancellationException) {
+                activityStore.record(operationId, null, UnifiedOperationKind.RESTORE, UnifiedOperationState.CANCELLED, null, "Restauração total cancelada")
+                throw error
+            }
             activityStore.record(operationId, null, UnifiedOperationKind.RESTORE, UnifiedOperationState.FAILED, null, "Não foi possível restaurar os projetos", error.message)
             throw error
         }
     }
 
-    fun clearMessage() = _state.update { it.copy(message = null, error = null) }
+    fun clearMessage() = _state.update {
+        it.copy(
+            message = null,
+            messageKind = TransientFeedbackKind.ASYNC_COMPLETION,
+            error = null,
+        )
+    }
 
     private suspend fun finishDriveConnection() {
+        val previousLabel = settingsStore.snapshot().driveAccountLabel
         val label = unifiedDrive.probeReadWriteDelete()
+        val accountChanged = previousLabel != null && previousLabel != label
+        if (accountChanged) {
+            catalogCache.clear()
+            _state.update {
+                it.copy(
+                    versions = emptyList(),
+                    reconciliations = emptyMap(),
+                    remoteTips = emptyMap(),
+                    catalogUpdatedAtEpochMs = null,
+                    catalogFromCache = false,
+                )
+            }
+        }
         settingsStore.setDriveConnected(label)
         BackupScheduler.sync(getApplication())
         _state.update {
@@ -388,7 +490,10 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
         }
         if (automaticBackupActive) {
             _state.update {
-                it.copy(message = "Já existe um backup automático em andamento. O catálogo será atualizado quando ele terminar.")
+                it.copy(
+                    message = "Já existe um backup automático em andamento. O catálogo será atualizado quando ele terminar.",
+                    messageKind = TransientFeedbackKind.WARNING,
+                )
             }
             return
         }
@@ -412,7 +517,10 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
                     _state.update { it.copy(message = summary, error = failureDetail) }
                 }
             } catch (error: Throwable) {
-                if (error is CancellationException) throw error
+                if (error is CancellationException) {
+                    activityStore.record(operationId, projectId, UnifiedOperationKind.BACKUP, UnifiedOperationState.CANCELLED, null, "$label cancelado")
+                    throw error
+                }
                 activityStore.record(operationId, projectId, UnifiedOperationKind.BACKUP, UnifiedOperationState.FAILED, null, "Não foi possível concluir o backup", error.message)
                 throw error
             }
@@ -432,10 +540,14 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-    private fun updateSettings(change: () -> Unit) {
+    private fun updateSettings(
+        refreshCatalog: Boolean = false,
+        change: () -> Unit,
+    ) {
         change()
         BackupScheduler.sync(getApplication())
         _state.update { it.copy(settings = settingsStore.snapshot()) }
+        if (refreshCatalog && !_state.value.busy) refreshInternal(forceRemote = false)
     }
 
     private fun runBusy(
@@ -444,16 +556,31 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
         action: suspend () -> Unit,
     ) {
         if (_state.value.busy) return
-        _state.update { it.copy(busy = true, busyLabel = busyLabel, error = null, message = null) }
+        _state.update { it.copy(busy = true, busyLabel = busyLabel, error = null, message = null, messageKind = TransientFeedbackKind.ASYNC_COMPLETION) }
         viewModelScope.launch {
             try {
                 action()
                 _state.update { it.copy(busy = false, busyLabel = null, message = it.message ?: successMessage) }
                 refresh()
             } catch (error: Throwable) {
-                if (error is CancellationException) throw error
+                if (error is CancellationException) {
+                    clearBusyAfterCancellation()
+                    throw error
+                }
                 fail(error)
             }
+        }
+    }
+
+    private fun clearBusyAfterCancellation() {
+        _state.update {
+            it.copy(
+                busy = false,
+                busyLabel = null,
+                message = "Operação cancelada.",
+                messageKind = TransientFeedbackKind.OPERATIONAL_STATUS,
+                error = null,
+            )
         }
     }
 
@@ -481,7 +608,15 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
                 .distinctUntilChanged()
                 .drop(1)
                 .collect { completedAt ->
-                    if (completedAt != null && settingsStore.snapshot().driveConnected) refresh()
+                    // The worker already persisted the Drive truth. Re-read the catalog only while
+                    // this screen is visible; the next screen entry always forces a remote refresh.
+                    if (
+                        completedAt != null &&
+                            screenVisible &&
+                            settingsStore.snapshot().driveConnected
+                    ) {
+                        refresh()
+                    }
                 }
         }
     }

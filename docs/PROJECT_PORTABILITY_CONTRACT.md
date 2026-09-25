@@ -24,6 +24,8 @@ Package creation is staged. Failure or cancellation must not replace a known-goo
 
 Import extracts into staging, validates schema, paths, media facts, required assets and integrity, then publishes atomically. Invalid/incompatible packages must fail without corrupting an existing project.
 
+Where current code applies narrow compatibility recovery after decode, package/state integrity is checked against the persisted canonical representation first. Recovery is deterministic/idempotent and occurs only after those stored bytes/state are accepted.
+
 An imported/restored copy receives an independent local project identity rather than silently overwriting an existing project with the source identity.
 
 ## Support boundary

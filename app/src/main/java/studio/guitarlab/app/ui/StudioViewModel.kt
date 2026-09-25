@@ -10,6 +10,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import java.util.UUID
 import kotlin.math.abs
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.channels.Channel
@@ -93,6 +94,8 @@ import studio.guitarlab.core.project.TrackLevelAccumulator
 import studio.guitarlab.core.project.TrackLevelAdvisor
 import studio.guitarlab.core.project.TrackRoleAssignmentPolicy
 import studio.guitarlab.core.project.TakeManagementPolicy
+import studio.guitarlab.core.project.StereoSeparationIds
+import studio.guitarlab.core.project.StereoSeparationProjectPolicy
 import studio.guitarlab.platform.audio.android.AndroidStudioPlaybackEngine
 import studio.guitarlab.platform.audio.android.AndroidStudioRecordingEngine
 import studio.guitarlab.platform.audio.android.StudioRecordingConfig
@@ -166,6 +169,7 @@ data class StudioUiState(
     val newTrackRolePromptId: String? = null,
     val clipStatus: String? = null,
     val transientNotice: String? = null,
+    val transientNoticeKind: TransientFeedbackKind = TransientFeedbackKind.WARNING,
     val preparedReferenceUpdateAvailable: Boolean = false,
 )
 
@@ -457,6 +461,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                     canUndo = projectHistory.canUndo,
                     canRedo = projectHistory.canRedo,
                     transientNotice = "A versão atual do Studio foi mantida.",
+                    transientNoticeKind = TransientFeedbackKind.ASYNC_COMPLETION,
                 )
             }.onFailure { error ->
                 _state.value = _state.value.copy(
@@ -599,6 +604,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                     error = null,
                 )
             }.onFailure { error ->
+                if (error is CancellationException) throw error
                 _state.value = _state.value.copy(importing = false, error = error.message ?: "Não foi possível importar o áudio.", importStatus = null)
             }
         }
@@ -626,7 +632,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                     var rightProxyPath: String? = null
                     var committed = false
                     try {
-                        StereoWavChannelSplitter.split(editingFile, leftTemp, rightTemp)
+                        val split = StereoWavChannelSplitter.split(editingFile, leftTemp, rightTemp)
                         val leftProxy = leftTemp.inputStream().buffered().use { mediaStore.ingestEditProxy(project.id, "${clip.name}-L.wav", it) }
                         leftProxyPath = leftProxy.relativePath
                         val rightProxy = rightTemp.inputStream().buffered().use { mediaStore.ingestEditProxy(project.id, "${clip.name}-R.wav", it) }
@@ -660,26 +666,23 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                                         }
                                     } + rightTrack
                                 }
-                                val leftClip = sourceClip.copy(
-                                    id = UUID.randomUUID().toString(), trackId = leftTrack.id,
-                                    name = "${sourceClip.name} · L", managedEditProxyPath = leftProxy.relativePath,
-                                    sourceChannelCount = 1, sourceBitsPerSample = 32,
-                                    sourceEncoding = "IEEE_FLOAT · canal L derivado",
-                                    editingSampleRateHz = sourceClip.editingSampleRateHz ?: sourceClip.sourceSampleRateHz,
-                                    editingTotalFrames = sourceClip.editingTotalFrames ?: sourceClip.lengthFrames,
-                                )
-                                val rightClip = sourceClip.copy(
-                                    id = UUID.randomUUID().toString(), trackId = rightTrack.id,
-                                    name = "${sourceClip.name} · R", managedEditProxyPath = rightProxy.relativePath,
-                                    sourceChannelCount = 1, sourceBitsPerSample = 32,
-                                    sourceEncoding = "IEEE_FLOAT · canal R derivado",
-                                    editingSampleRateHz = sourceClip.editingSampleRateHz ?: sourceClip.sourceSampleRateHz,
-                                    editingTotalFrames = sourceClip.editingTotalFrames ?: sourceClip.lengthFrames,
-                                )
-                                latest.copy(
-                                    tracks = tracks.sortedBy { it.order },
-                                    clips = latest.clips.filterNot { it.id == sourceClip.id } + leftClip + rightClip,
-                                    updatedAtEpochMs = System.currentTimeMillis(),
+                                val routingProject = latest.copy(tracks = tracks.sortedBy { it.order })
+                                StereoSeparationProjectPolicy.separate(
+                                    project = routingProject,
+                                    sourceClipId = sourceClip.id,
+                                    leftTrackId = leftTrack.id,
+                                    rightTrackId = rightTrack.id,
+                                    leftProxyPath = leftProxy.relativePath,
+                                    rightProxyPath = rightProxy.relativePath,
+                                    splitTotalFrames = split.totalFrames,
+                                    splitSampleRateHz = split.sampleRateHz,
+                                    ids = StereoSeparationIds(
+                                        leftClipId = UUID.randomUUID().toString(),
+                                        rightClipId = UUID.randomUUID().toString(),
+                                        leftTakeId = UUID.randomUUID().toString(),
+                                        rightTakeId = UUID.randomUUID().toString(),
+                                    ),
+                                    nowEpochMs = System.currentTimeMillis(),
                                 )
                             }.also { committed = true }
                         }
@@ -712,6 +715,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                     error = null,
                 )
             }.onFailure { error ->
+                if (error is CancellationException) throw error
                 _state.value = _state.value.copy(importing = false, error = error.message ?: "Não foi possível separar os canais estéreo.", importStatus = null)
             }
         }
@@ -1565,7 +1569,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
             lastTransientWarning = safe
             lastTransientWarningAtMs = now
         }
-        _state.value = _state.value.copy(transientNotice = safe)
+        _state.value = _state.value.copy(transientNotice = safe, transientNoticeKind = kind)
     }
 
     private fun postTransientWarning(message: String, fallback: String, cooldownMs: Long = 30_000L) =
@@ -1578,7 +1582,10 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
         val current = _state.value
         when (message) {
             current.error -> _state.value = current.copy(error = null)
-            current.transientNotice -> _state.value = current.copy(transientNotice = null)
+            current.transientNotice -> _state.value = current.copy(
+                transientNotice = null,
+                transientNoticeKind = TransientFeedbackKind.WARNING,
+            )
         }
     }
 
