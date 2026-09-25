@@ -14,6 +14,37 @@ class WaveformEnvelopeBuilderTest {
         assertEquals(listOf(0.25f, 0.5f, 1f, 0.3f), envelope.peaks)
     }
 
+    @Test
+    fun buildsOnlyTheRequestedFrameWindow() {
+        val decoder = FakeDecoder(
+            samples = floatArrayOf(1f, 0.9f, -0.5f, 0.1f, 0.75f, -1f, 0.2f, 0.3f),
+            channels = 1,
+        )
+        val envelope = WaveformEnvelopeBuilder.build(
+            decoder = decoder,
+            targetPoints = 2,
+            startFrame = 2,
+            frameCount = 4,
+        )
+        assertEquals(listOf(0.5f, 1f), envelope.peaks)
+        assertEquals(6L, decoder.positionFrames)
+    }
+
+    @Test
+    fun clampsRequestedWindowAtEndOfMedia() {
+        val decoder = FakeDecoder(
+            samples = floatArrayOf(0.1f, 0.2f, 0.3f, 0.8f),
+            channels = 1,
+        )
+        val envelope = WaveformEnvelopeBuilder.build(
+            decoder = decoder,
+            targetPoints = 16,
+            startFrame = 3,
+            frameCount = 99,
+        )
+        assertEquals(listOf(0.8f), envelope.peaks)
+    }
+
     private class FakeDecoder(
         private val samples: FloatArray,
         private val channels: Int,
