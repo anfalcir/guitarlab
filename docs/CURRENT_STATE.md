@@ -8,6 +8,8 @@ Updated: 2026-09-24
 
 - U7 #164 / run `36085821470` PASS on producer `aab87776f314fddc20028432371a9a5d268079c1`; all verify/auth/shadow/runtime/SBOM-Trivy/U4/W3/W4 gates completed green under the pre-U12bk workflow. Newly qualified RC20 worker digest: `sha256:14e240cb01b71131cb049dd34e0df078614238da3514325f80126d56f8d5e698`. Previous production remains `sha256:a70bd221ab50ef092508781c609cbfbecfe6b71ba4c8a722fc5f087b09dbd550`. U12bm now makes W6 promote that exact qualified digest without rebuild; current source-tail changes U12bk/U12bl/U12bm are workflow/release-orchestration only and do not mutate worker image contents.
 
+- W6 controlled production cutover dispatched from this source state: promote exact prequalified digest `sha256:14e240cb01b71131cb049dd34e0df078614238da3514325f80126d56f8d5e698`, verify runtime contract, run full U4 transaction/recovery/ACK-purge gate, and restore prior production `sha256:a70bd221ab50ef092508781c609cbfbecfe6b71ba4c8a722fc5f087b09dbd550` automatically on failure.
+
 ## Unified program progress
 - Stable product identity is governed by `PROJECT_IDENTITY.md` and D-090: private single-owner appliance, proportional gates, exact signed APK + digest-pinned worker freeze after physical acceptance, and maintenance only for a real trigger.
 - Product-scope override (2026-09-21): legacy project/backup migration is retired. The owner has only two legacy projects and accepts recreating them manually. U9 is retired; U8/U10/U11 no longer carry H37/GBW/pre-unification migration obligations. Current unified-line save/reopen, schema evolution, backup/restore and integrity guarantees remain mandatory.
