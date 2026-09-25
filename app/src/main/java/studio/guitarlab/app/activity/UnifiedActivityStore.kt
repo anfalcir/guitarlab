@@ -78,6 +78,26 @@ class UnifiedActivityStore(context: Context) {
         }
     }
 
+    fun cancelActive(
+        operationId: String,
+        summary: String = "Operação cancelada pelo usuário",
+        technicalDetail: String? = "USER_CANCELLED_FROM_ACTIVITY",
+        nowEpochMs: Long = System.currentTimeMillis(),
+    ): Boolean {
+        val current = _records.value.firstOrNull { it.operationId == operationId } ?: return false
+        if (!current.state.isActive) return false
+        upsert(
+            current.copy(
+                state = UnifiedOperationState.CANCELLED,
+                progressPercent = null,
+                updatedAtEpochMs = nowEpochMs,
+                summary = summary,
+                technicalDetail = technicalDetail,
+            ),
+        )
+        return true
+    }
+
     fun clearHistory(): Int = synchronized(lock) {
         val before = _records.value
         val next = UnifiedActivityPolicy.clearHistory(before).let(::bounded)
