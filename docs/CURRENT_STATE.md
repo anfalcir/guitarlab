@@ -52,6 +52,8 @@ Updated: 2026-09-24
 - Owner physical audio validation update: the RC20 official PyTorch/Demucs separation itself is considered homologated. The apparent regression was traced to stale WAV/reference bindings in Studio; after using “Recolocar referências no Studio”, the newly processed references sounded correct. This does not close the overall release freeze: U12bu frontend/Activity cancellation changes still require fresh Android CI/API36 qualification and a new signed APK for physical frontend validation.
 - U12bu qualification dispatched on the exact current main source. If software gate + API36 pass, produce a signed homologation APK from the same qualified source; final documentation/freeze remains pending owner confirmation after frontend physical validation.
 
+- Android CI #895: software gate PASS; API36 reached androidTest compilation and failed only because `SettingsVisualHierarchyInstrumentedTest` used unsupported Compose `assertDoesNotExist`. U12bv replaces those checks with the repository-supported `onAllNodesWithText(...).assertCountEquals(0)` assertions. Production app code is unchanged by this corrective.
+
 ## Unified program progress
 - Stable product identity is governed by `PROJECT_IDENTITY.md` and D-090: private single-owner appliance, proportional gates, exact signed APK + digest-pinned worker freeze after physical acceptance, and maintenance only for a real trigger.
 - Product-scope override (2026-09-21): legacy project/backup migration is retired. The owner has only two legacy projects and accepts recreating them manually. U9 is retired; U8/U10/U11 no longer carry H37/GBW/pre-unification migration obligations. Current unified-line save/reopen, schema evolution, backup/restore and integrity guarantees remain mandatory.
