@@ -1,0 +1,180 @@
+diff --git a/core/audio/src/main/kotlin/studio/guitarlab/core/audio/PlaybackClockPolicy.kt b/core/audio/src/main/kotlin/studio/guitarlab/core/audio/PlaybackClockPolicy.kt
+index 6533a6b..71b8d55 100644
+--- a/core/audio/src/main/kotlin/studio/guitarlab/core/audio/PlaybackClockPolicy.kt
++++ b/core/audio/src/main/kotlin/studio/guitarlab/core/audio/PlaybackClockPolicy.kt
+@@ -1,6 +1,32 @@
+ package studio.guitarlab.core.audio
+ 
+ object PlaybackClockPolicy {
++    /**
++     * Converts the AudioTrack presentation clock to a count of frames that have actually reached
++     * the presentation timeline. Before the stream origin, the visible position stays anchored.
++     * The result is capped by frames already accepted by AudioTrack so UI can never outrun audio.
++     */
++    fun presentedFramesAt(
++        nowMonotonicNs: Long,
++        presentationOriginMonotonicNs: Long,
++        sampleRateHz: Int,
++        maxWrittenFrames: Long,
++    ): Long {
++        require(sampleRateHz > 0) { "Sample rate must be positive." }
++        val written = maxWrittenFrames.coerceAtLeast(0L)
++        if (written == 0L || nowMonotonicNs <= presentationOriginMonotonicNs) return 0L
++
++        val elapsedNs = try {
++            Math.subtractExact(nowMonotonicNs, presentationOriginMonotonicNs)
++        } catch (_: ArithmeticException) {
++            Long.MAX_VALUE
++        }
++        if (elapsedNs <= 0L) return 0L
++
++        val presented = (elapsedNs.toDouble() * sampleRateHz.toDouble() / 1_000_000_000.0).toLong()
++        return presented.coerceIn(0L, written)
++    }
++
+     fun timelineFrame(
+         startFrame: Long,
+         presentedFrames: Long,
+diff --git a/core/audio/src/test/kotlin/studio/guitarlab/core/audio/PlaybackClockPolicyTest.kt b/core/audio/src/test/kotlin/studio/guitarlab/core/audio/PlaybackClockPolicyTest.kt
+index 22ee73c..ef8a7fe 100644
+--- a/core/audio/src/test/kotlin/studio/guitarlab/core/audio/PlaybackClockPolicyTest.kt
++++ b/core/audio/src/test/kotlin/studio/guitarlab/core/audio/PlaybackClockPolicyTest.kt
+@@ -22,4 +22,32 @@ class PlaybackClockPolicyTest {
+         assertEquals(8_000, PlaybackClockPolicy.timelineFrame(2_000, 6_000, 48_000, true, 12_000, 24_000))
+         assertEquals(13_000, PlaybackClockPolicy.timelineFrame(2_000, 23_000, 48_000, true, 12_000, 24_000))
+     }
++
++    @Test
++    fun presentationClockDoesNotAdvanceBeforeAudioOrigin() {
++        val origin = 5_000_000_000L
++        assertEquals(0L, PlaybackClockPolicy.presentedFramesAt(origin - 1L, origin, 48_000, 8_000L))
++        assertEquals(0L, PlaybackClockPolicy.presentedFramesAt(origin, origin, 48_000, 8_000L))
++    }
++
++    @Test
++    fun presentationClockMapsElapsedTimeAndNeverOutrunsWrittenAudio() {
++        val origin = 5_000_000_000L
++        val presented = PlaybackClockPolicy.presentedFramesAt(
++            nowMonotonicNs = origin + 100_000_000L,
++            presentationOriginMonotonicNs = origin,
++            sampleRateHz = 48_000,
++            maxWrittenFrames = 8_000L,
++        )
++        assertEquals(4_800L, presented)
++        assertEquals(
++            244_800L,
++            PlaybackClockPolicy.timelineFrame(240_000L, presented, 480_000L, false, 0L, 480_000L),
++        )
++        assertEquals(
++            2_000L,
++            PlaybackClockPolicy.presentedFramesAt(origin + 1_000_000_000L, origin, 48_000, 2_000L),
++        )
++    }
++
+ }
+diff --git a/platform/audio-android/src/main/kotlin/studio/guitarlab/platform/audio/android/AndroidStudioPlaybackEngine.kt b/platform/audio-android/src/main/kotlin/studio/guitarlab/platform/audio/android/AndroidStudioPlaybackEngine.kt
+index 9366d7f..b8a3a42 100644
+--- a/platform/audio-android/src/main/kotlin/studio/guitarlab/platform/audio/android/AndroidStudioPlaybackEngine.kt
++++ b/platform/audio-android/src/main/kotlin/studio/guitarlab/platform/audio/android/AndroidStudioPlaybackEngine.kt
+@@ -13,6 +13,7 @@ import kotlin.math.max
+ import kotlin.math.min
+ import kotlin.math.pow
+ import kotlin.math.sqrt
++import studio.guitarlab.core.audio.AudioClockAnchor
+ import studio.guitarlab.core.audio.AudioClockAnchorPolicy
+ import studio.guitarlab.core.audio.AudioClockObservation
+ import studio.guitarlab.core.audio.PlaybackClockPolicy
+@@ -227,6 +228,8 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
+             var clockStartFrame = renderFrame
+             var clockHeadBase = playbackHead(audioTrack)
+             var writtenFramesSinceClockBase = 0L
++            var playbackClockAnchor: AudioClockAnchor? = null
++            var clockAnchorAttempted = false
+             val mix = FloatArray(CHUNK_FRAMES * 2)
+             val trackBuffers = linkedMapOf<String, FloatArray>()
+             readers.forEach { reader -> trackBuffers.getOrPut(reader.trackId) { FloatArray(CHUNK_FRAMES * 2) } }
+@@ -246,6 +249,8 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
+                     clockStartFrame = renderFrame
+                     clockHeadBase = playbackHead(audioTrack)
+                     writtenFramesSinceClockBase = 0L
++                    playbackClockAnchor = null
++                    clockAnchorAttempted = false
+                     listener.onPosition(renderFrame)
+                 }
+ 
+@@ -288,8 +293,11 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
+                 val writtenFrames = samplesWritten / 2
+                 if (writtenFrames <= 0) error("A saída de áudio não avançou durante a reprodução.")
+                 writtenFramesSinceClockBase += writtenFrames
++                if (!clockAnchorAttempted) {
++                    playbackClockAnchor = stablePlaybackClockAnchor(audioTrack, request.sampleRateHz)
++                    clockAnchorAttempted = true
++                }
+                 if (!playbackStartReported) {
+-                    val playbackClockAnchor = stablePlaybackClockAnchor(audioTrack, request.sampleRateHz)
+                     val hasTimestamp = playbackClockAnchor != null
+                     val presentationStartNs = playbackClockAnchor?.streamOriginMonotonicNs ?: playCommandNs
+                     val routed = audioTrack.routedDevice
+@@ -309,7 +317,13 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
+                 renderFrame += writtenFrames
+                 if (repeatLoop && renderFrame >= request.loopEndFrame) renderFrame = request.loopStartFrame
+ 
+-                val presentedFrames = playbackHeadDelta(playbackHead(audioTrack), clockHeadBase)
++                val presentedFrames = presentedFrames(
++                    track = audioTrack,
++                    clockHeadBase = clockHeadBase,
++                    playbackClockAnchor = playbackClockAnchor,
++                    sampleRateHz = request.sampleRateHz,
++                    writtenFramesSinceClockBase = writtenFramesSinceClockBase,
++                )
+                 lastTimelineFrame = PlaybackClockPolicy.timelineFrame(
+                     startFrame = clockStartFrame,
+                     presentedFrames = presentedFrames,
+@@ -325,11 +339,23 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
+                 val deadline = System.nanoTime() + DRAIN_TIMEOUT_NS
+                 while (
+                     running &&
+-                    playbackHeadDelta(playbackHead(audioTrack), clockHeadBase) < writtenFramesSinceClockBase &&
++                    presentedFrames(
++                        track = audioTrack,
++                        clockHeadBase = clockHeadBase,
++                        playbackClockAnchor = playbackClockAnchor,
++                        sampleRateHz = request.sampleRateHz,
++                        writtenFramesSinceClockBase = writtenFramesSinceClockBase,
++                    ) < writtenFramesSinceClockBase &&
+                     System.nanoTime() < deadline
+                 ) {
+                     Thread.sleep(4)
+-                    val presentedFrames = playbackHeadDelta(playbackHead(audioTrack), clockHeadBase)
++                    val presentedFrames = presentedFrames(
++                        track = audioTrack,
++                        clockHeadBase = clockHeadBase,
++                        playbackClockAnchor = playbackClockAnchor,
++                        sampleRateHz = request.sampleRateHz,
++                        writtenFramesSinceClockBase = writtenFramesSinceClockBase,
++                    )
+                     lastTimelineFrame = PlaybackClockPolicy.timelineFrame(
+                         clockStartFrame,
+                         presentedFrames,
+@@ -447,6 +473,21 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
+         return target.coerceIn(request.loopStartFrame, lastPlayableFrame)
+     }
+ 
++    private fun presentedFrames(
++        track: AudioTrack,
++        clockHeadBase: Long,
++        playbackClockAnchor: AudioClockAnchor?,
++        sampleRateHz: Int,
++        writtenFramesSinceClockBase: Long,
++    ): Long = playbackClockAnchor?.let { anchor ->
++        PlaybackClockPolicy.presentedFramesAt(
++            nowMonotonicNs = System.nanoTime(),
++            presentationOriginMonotonicNs = anchor.streamOriginMonotonicNs,
++            sampleRateHz = sampleRateHz,
++            maxWrittenFrames = writtenFramesSinceClockBase,
++        )
++    } ?: playbackHeadDelta(playbackHead(track), clockHeadBase).coerceAtMost(writtenFramesSinceClockBase)
++
+     private fun playbackHead(track: AudioTrack): Long = track.playbackHeadPosition.toLong() and 0xffffffffL
+ 
+     private fun playbackHeadDelta(current: Long, base: Long): Long = (current - base) and 0xffffffffL
