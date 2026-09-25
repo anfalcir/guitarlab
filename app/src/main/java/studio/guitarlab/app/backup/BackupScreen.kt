@@ -105,7 +105,7 @@ fun BackupScreen(
         )
         AppTransientFeedbackHost(
             message = state.error ?: state.message,
-            kind = if (state.error != null) TransientFeedbackKind.ERROR else TransientFeedbackKind.ASYNC_COMPLETION,
+            kind = if (state.error != null) TransientFeedbackKind.ERROR else state.messageKind,
             onConsumed = viewModel::clearMessage,
             modifier = Modifier.align(Alignment.TopCenter),
             fallback = "Não foi possível concluir a operação de backup.",
