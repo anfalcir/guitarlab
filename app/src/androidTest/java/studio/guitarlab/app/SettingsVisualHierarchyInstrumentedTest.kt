@@ -1,6 +1,6 @@
 package studio.guitarlab.app
 
-import androidx.compose.ui.test.assertDoesNotExist
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasTestTag
@@ -8,6 +8,7 @@ import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
 import org.junit.Rule
@@ -39,9 +40,9 @@ class SettingsVisualHierarchyInstrumentedTest {
         composeRule.onNodeWithTag("settings-external-control-toggle").assertIsDisplayed()
         composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("Diagnóstico"))
         composeRule.onNodeWithText("Diagnóstico").assertIsDisplayed()
-        composeRule.onNodeWithText("Projeto e Studio").assertDoesNotExist()
-        composeRule.onNodeWithText("Importação").assertDoesNotExist()
-        composeRule.onNodeWithText("Ver atividade").assertDoesNotExist()
+        composeRule.onAllNodesWithText("Projeto e Studio").assertCountEquals(0)
+        composeRule.onAllNodesWithText("Importação").assertCountEquals(0)
+        composeRule.onAllNodesWithText("Ver atividade").assertCountEquals(0)
     }
 
     @Test
