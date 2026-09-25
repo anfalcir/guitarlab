@@ -179,7 +179,7 @@ class PreparedReferencePipelineTest {
             id = "backing-take-id",
             trackId = backingBinding.trackId,
             clipId = backingTakeClip.id,
-            displayName = "Take preservado",
+            name = "Take preservado",
             createdAtEpochMs = 7,
             active = true,
         )
