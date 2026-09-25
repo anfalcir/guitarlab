@@ -24,6 +24,7 @@ import studio.guitarlab.app.activity.ActivityCancellationRegistry
 import studio.guitarlab.app.activity.UnifiedActivityStore
 import studio.guitarlab.core.model.GuitarProject
 import studio.guitarlab.core.project.BackupRetentionPolicy
+import studio.guitarlab.core.project.BackupRevisionIdentity
 import studio.guitarlab.core.project.BackupRunReport
 import studio.guitarlab.core.project.BackupVersionDescriptor
 import studio.guitarlab.core.project.DriveConflictAction
@@ -71,14 +72,23 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
     /** User-requested refresh always verifies Drive; re-entry may reuse a recent durable catalog. */
     fun refresh() = refreshInternal(forceRemote = true)
 
+    fun onScreenEntered() {
+        if (refreshJob?.isActive == true || _state.value.busy) return
+        refreshInternal(forceRemote = false)
+    }
+
     private fun refreshInternal(forceRemote: Boolean) {
         refreshJob?.cancel()
         refreshJob = viewModelScope.launch {
             val settings = settingsStore.snapshot()
             val projects = withContext(Dispatchers.IO) { repository.list() }
             val cached = catalogCache.load(settings)
-            val shouldRefreshRemote = settings.driveConnected &&
-                BackupCatalogFreshnessPolicy.shouldRefresh(cached, System.currentTimeMillis(), forceRemote)
+            val localRevisions = projects.associate { it.id to BackupRevisionIdentity.forProject(it) }
+            val cachedMatchesLocal = cached != null && cached.localRevisions == localRevisions
+            val shouldRefreshRemote = settings.driveConnected && (
+                !cachedMatchesLocal ||
+                    BackupCatalogFreshnessPolicy.shouldRefresh(cached, System.currentTimeMillis(), forceRemote)
+                )
 
             _state.update { current ->
                 current.copy(
@@ -88,8 +98,8 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
                     localProjects = projects,
                     versions = cached?.versions ?: if (settings.driveConnected) current.versions else emptyList(),
                     deletedProjects = deletedProjectStore.all(),
-                    reconciliations = cached?.reconciliations ?: if (settings.driveConnected) current.reconciliations else emptyMap(),
-                    remoteTips = cached?.remoteTips ?: if (settings.driveConnected) current.remoteTips else emptyMap(),
+                    reconciliations = if (cachedMatchesLocal) cached?.reconciliations.orEmpty() else emptyMap(),
+                    remoteTips = if (cachedMatchesLocal) cached?.remoteTips.orEmpty() else emptyMap(),
                     catalogUpdatedAtEpochMs = cached?.refreshedAtEpochMs ?: current.catalogUpdatedAtEpochMs,
                     catalogFromCache = cached != null,
                     authorizationRequired = false,
@@ -113,6 +123,7 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
                     versions = remoteCatalog.versions,
                     reconciliations = remoteCatalog.reconciliations,
                     remoteTips = remoteCatalog.remoteTips,
+                    localRevisions = localRevisions,
                     refreshedAtEpochMs = refreshedAt,
                 )
                 catalogCache.save(settings, snapshot)
