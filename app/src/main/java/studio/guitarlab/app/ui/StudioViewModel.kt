@@ -813,9 +813,9 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
         _state.value = currentState.copy(historyBusy = true, error = null)
         viewModelScope.launch {
             runCatching { persistHistorySnapshot(target) }
-                .onSuccess { (saved, waveforms) ->
+                .onSuccess { (saved, waveformState) ->
                     if (sessionGeneration != projectSessionGeneration || _state.value.project?.id != currentProject.id) return@onSuccess
-                    applyHistorySnapshot(saved, waveforms, "Alteração desfeita")
+                    applyHistorySnapshot(saved, waveformState, "Alteração desfeita")
                 }
                 .onFailure { error ->
                     if (sessionGeneration != projectSessionGeneration || _state.value.project?.id != currentProject.id) return@onFailure
@@ -839,9 +839,9 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
         _state.value = currentState.copy(historyBusy = true, error = null)
         viewModelScope.launch {
             runCatching { persistHistorySnapshot(target) }
-                .onSuccess { (saved, waveforms) ->
+                .onSuccess { (saved, waveformState) ->
                     if (sessionGeneration != projectSessionGeneration || _state.value.project?.id != currentProject.id) return@onSuccess
-                    applyHistorySnapshot(saved, waveforms, "Alteração refeita")
+                    applyHistorySnapshot(saved, waveformState, "Alteração refeita")
                 }
                 .onFailure { error ->
                     if (sessionGeneration != projectSessionGeneration || _state.value.project?.id != currentProject.id) return@onFailure
@@ -2887,7 +2887,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
         )
     }
 
-    private fun applyHistorySnapshot(saved: GuitarProject, waveforms: Map<String, List<Float>>, status: String) {
+    private fun applyHistorySnapshot(saved: GuitarProject, waveformState: LoadedWaveformState, status: String) {
         if (_state.value.project?.id != saved.id) return
         trackMixDrafts.clear()
         saved.tracks.forEach { track ->
@@ -2901,7 +2901,8 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
         _state.value = state.copy(
             historyBusy = false,
             project = saved,
-            waveforms = waveforms,
+            waveforms = waveformState.waveforms,
+            waveformChannels = waveformState.waveformChannels,
             trimControls = null,
             timelineControls = TimelineControlPolicy.normalizedForProject(state.timelineControls, end),
             transportEngineReady = playbackReadiness(saved).ready,
@@ -2947,11 +2948,11 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-    private suspend fun persistHistorySnapshot(snapshot: GuitarProject): Pair<GuitarProject, Map<String, List<Float>>> =
+    private suspend fun persistHistorySnapshot(snapshot: GuitarProject): Pair<GuitarProject, LoadedWaveformState> =
         projectSaveMutex.withLock {
             val result = withContext(Dispatchers.IO) {
                 val saved = repository.save(snapshot.copy(updatedAtEpochMs = System.currentTimeMillis()))
-                saved to loadWaveforms(saved)
+                saved to loadWaveformState(saved)
             }
             BackupScheduler.enqueueCoalesced(getApplication())
             result
