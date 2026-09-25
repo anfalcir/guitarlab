@@ -361,6 +361,80 @@ class UnifiedProjectShellInstrumentedTest {
         composeRule.runOnIdle { check(retried) }
     }
 
+    @Test fun sourceSearchTerminalSuggestionRemainsVisibleAndRetriesExplicitly() {
+        val project = GuitarProject(
+            id = "search-terminal",
+            name = "MMF - Misery",
+            template = ProjectTemplate.GUITAR,
+            createdAtEpochMs = 1,
+            updatedAtEpochMs = 2,
+        )
+        var retriedArtist: String? = null
+        var retriedSong: String? = null
+        composeRule.setContent {
+            GuitarLabTheme(darkTheme = true) {
+                UnifiedPrepareScreen(
+                    project = project,
+                    projectId = project.id,
+                    onBack = {},
+                    onStudio = {},
+                    onExport = {},
+                    searchOutcome = SourceSearchOutcome(
+                        operationId = "search-1",
+                        artist = "memphys may fire",
+                        song = "misery",
+                        terminalState = SourceSearchTerminalState.DID_YOU_MEAN,
+                        message = "Nenhuma correspondência exata foi encontrada.",
+                        suggestedArtist = "Memphis May Fire",
+                    ),
+                    onSearch = { artist, song ->
+                        retriedArtist = artist
+                        retriedSong = song
+                    },
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag("prepare-search-terminal-did_you_mean").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithTag("prepare-search-suggestion").assertTextContains("Memphis May Fire")
+        composeRule.onNodeWithTag("prepare-search-use-suggestion").performClick()
+        composeRule.runOnIdle {
+            check(retriedArtist == "Memphis May Fire")
+            check(retriedSong == "misery")
+        }
+    }
+
+    @Test fun sourceSearchTimeoutNeverFallsBackToSilentIdle() {
+        val project = GuitarProject(
+            id = "search-timeout",
+            name = "Song",
+            template = ProjectTemplate.GUITAR,
+            createdAtEpochMs = 1,
+            updatedAtEpochMs = 2,
+        )
+        composeRule.setContent {
+            GuitarLabTheme(darkTheme = true) {
+                UnifiedPrepareScreen(
+                    project = project,
+                    projectId = project.id,
+                    onBack = {},
+                    onStudio = {},
+                    onExport = {},
+                    searchOutcome = SourceSearchOutcome(
+                        operationId = "search-timeout-1",
+                        artist = "Artist",
+                        song = "Song",
+                        terminalState = SourceSearchTerminalState.TIMEOUT,
+                        message = "A pesquisa demorou mais que o esperado. Verifique a conexão e tente novamente.",
+                    ),
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag("prepare-search-terminal-timeout").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithTag("prepare-search-retry").assertIsDisplayed().assertIsEnabled()
+    }
+
     @Test fun rankingBadgeIsTextualAndTechnicalDetailsStayCollapsed() {
         val candidate = RankedSourceCandidate(
             provider = SourceProvider.YOUTUBE,
