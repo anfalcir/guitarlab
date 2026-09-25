@@ -168,6 +168,7 @@ interface RemoteResultTransport {
  suspend fun downloadStem(identity:RemoteJobIdentity,stem:RemoteStem):RemoteStemPayload
  suspend fun downloadReference(identity:RemoteJobIdentity,reference:RemoteReference):RemoteStemPayload =
   throw UnsupportedOperationException("prepared reference transport is not implemented")
+ suspend fun persistAcceptedManifest(identity:RemoteJobIdentity,manifestBytes:ByteArray) {}
  suspend fun cleanup(identity:RemoteJobIdentity)
 }
 interface RemoteStemPublisher {
@@ -234,6 +235,7 @@ class RemoteSeparationCoordinator(private val store:RemoteJobStore,private val b
   store.save(accepted.copy(state=RemoteJobState.IMPORTING,updatedAtMs=nowMs(),errorCode=null))
   val manifestBytes=transport.downloadManifest(identity);val manifestSha=sha256(manifestBytes);accepted.resultManifestSha256?.let{require(it==manifestSha){"manifest checksum mismatch"}}
   val manifest=decodeManifest(manifestBytes);manifest.validateFor(identity,expectedResultUid())
+  transport.persistAcceptedManifest(identity,manifestBytes)
   if(manifest.schemaVersion==1) {
    val stems=linkedMapOf<String,RemoteStemPayload>()
    manifest.stems.forEach { stem -> stems[stem.name]=transport.downloadStem(identity,stem) }
