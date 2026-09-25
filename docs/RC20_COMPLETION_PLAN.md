@@ -1120,3 +1120,19 @@ After the signed RC20 backend/primary-flow homologation, spelling suggestions an
 - rollback target before cutover: production digest `sha256:a70bd221ab50ef092508781c609cbfbecfe6b71ba4c8a722fc5f087b09dbd550`;
 - D-092 waives W5;
 - D-095 requires W6 to promote the exact qualified digest with no rebuild, followed by runtime-contract verification and full U4 transactional smoke with automatic rollback on failure.
+
+
+### RC20 Android completion implementation — U12bn
+
+Implemented before final freeze:
+- persistent typed Prepare search terminal states: results, healthy zero-match, bounded deterministic suggestion, provider failure and timeout;
+- explicit retry and “Você quis dizer…” UX, never silent return to idle;
+- local-only idempotent “Recolocar referências no Studio” using the canonical binding policy, with zero cloud/quota use;
+- Prepare technical details grouped by active source, latest processing, active references/derived channels and historical assets;
+- consolidated Settings → Diagnostics surface;
+- sanitized JSONL event journal bounded to 14 days / 8 MiB;
+- diagnostic ZIP with app/device/events/audio route/activity/project/separation/manifest/backup metadata plus SHA256SUMS; song audio excluded by default;
+- sanitized accepted remote manifests retained locally after validation and before ACK/purge;
+- RC20 Android identity 0.5.0-rc20 / versionCode 40.
+
+U12bn is source-materialized fail-closed. Digital Android/API36 qualification remains required before signed homologation candidate creation.
