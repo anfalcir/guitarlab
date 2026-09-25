@@ -66,10 +66,17 @@ class SourceAcquisitionClient(context: Context) {
 
     fun cancel(projectId: String) {
         val snapshot = operations.snapshot(projectId) ?: return
-        if (snapshot.state !in setOf(SourceOperationState.RUNNING, SourceOperationState.RETRYING)) return
+        cancel(projectId, snapshot.operationId)
+    }
+
+    fun cancel(projectId: String, operationId: String): Boolean {
+        val snapshot = operations.snapshot(projectId) ?: return false
+        if (snapshot.operationId != operationId) return false
+        if (snapshot.state !in setOf(SourceOperationState.RUNNING, SourceOperationState.RETRYING)) return false
         operations.markCancelled(projectId)
         SourceAcquisitionWorker.cancel(appContext, projectId, snapshot.operationId)
         AndroidSourceMedia.cleanup(appContext, snapshot.operationId)
+        return true
     }
 
     /** Close all local ownership before a project is physically deleted. */
