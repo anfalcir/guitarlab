@@ -1,7 +1,8 @@
 diff --git a/.github/workflows/android-ci.yml b/.github/workflows/android-ci.yml
 --- a/.github/workflows/android-ci.yml
 +++ b/.github/workflows/android-ci.yml
-@@ -303,15 +303,17 @@ jobs:
+@@ -326,14 +326,16 @@ jobs:
+           disable-animations: false
            emulator-boot-timeout: 600
            script: |
 -            set -euo pipefail
