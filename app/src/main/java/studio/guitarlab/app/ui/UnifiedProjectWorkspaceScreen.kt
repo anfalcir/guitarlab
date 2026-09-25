@@ -42,6 +42,7 @@ import studio.guitarlab.core.separation.DurableRemoteJob
 import studio.guitarlab.core.separation.RemoteJobState
 import studio.guitarlab.core.source.RankedSourceCandidate
 import studio.guitarlab.core.source.SourceSearchRules
+import studio.guitarlab.core.project.PreparedReferenceBindingPolicy
 import studio.guitarlab.platform.codec.android.AndroidMasterAudioEncoder
 import studio.guitarlab.platform.codec.android.MasterExportFormat
 import studio.guitarlab.platform.separation.RemoteCloudAuthClient
@@ -75,6 +76,7 @@ fun UnifiedPrepareScreen(
     onResumeSeparationImport: () -> Unit = {},
     onCancelSeparation: () -> Unit = {},
     onPrepareReferences: () -> Unit = {},
+    onRepairReferences: () -> Unit = {},
     initialCloudSession: RemoteCloudAuthSession? = null,
     requestNotificationPermission: Boolean = true,
 ) {
@@ -225,7 +227,11 @@ fun UnifiedPrepareScreen(
                     onRetry = onPrepareReferences,
                 )
 
-                PrepareStage.READY -> ReadyStep(onStudio)
+                PrepareStage.READY -> ReadyStep(
+                    onStudio = onStudio,
+                    repairAvailable = project?.let(PreparedReferenceBindingPolicy::bindingDiffersFromDesired) == true,
+                    onRepairReferences = onRepairReferences,
+                )
             }
 
             if (project != null && (project.assets.isNotEmpty() || operation != null || separationJob != null)) {
@@ -544,12 +550,30 @@ private fun ReferencesStep(retryRequired: Boolean, busy: Boolean, onRetry: () ->
 }
 
 @Composable
-private fun ReadyStep(onStudio: () -> Unit) {
+private fun ReadyStep(
+    onStudio: () -> Unit,
+    repairAvailable: Boolean,
+    onRepairReferences: () -> Unit,
+) {
     Surface(Modifier.fillMaxWidth().testTag("prepare-references-ready"), tonalElevation = 2.dp, shape = MaterialTheme.shapes.medium) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Pronto para o Studio", style = MaterialTheme.typography.titleMedium)
-            Text("A base sem guitarra e a guitarra de referência estão ligadas ao projeto e prontas para uso.")
-            Button(onClick = onStudio, modifier = Modifier.testTag("prepare-open-studio")) { Text("Abrir Studio") }
+            Text(
+                if (repairAvailable) {
+                    "As referências preparadas continuam ativas, mas faltam clipes/vínculos no Studio. Você pode recolocá-los localmente."
+                } else {
+                    "A base sem guitarra e a guitarra de referência estão ligadas ao projeto e prontas para uso."
+                },
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Button(onClick = onStudio, modifier = Modifier.testTag("prepare-open-studio")) { Text("Abrir Studio") }
+                if (repairAvailable) {
+                    OutlinedButton(
+                        onClick = onRepairReferences,
+                        modifier = Modifier.testTag("prepare-repair-references"),
+                    ) { Text("Recolocar referências no Studio") }
+                }
+            }
         }
     }
 }
