@@ -14,7 +14,8 @@ class ProjectCodec(
     }
 ) {
     fun encode(project: GuitarProject): String = json.encodeToString(project)
-    fun decode(serialized: String): GuitarProject = UnifiedProjectMigrator.upgrade(
-        TakeManagementPolicy.normalizeAll(json.decodeFromString(serialized))
-    )
+    fun decode(serialized: String): GuitarProject {
+        val upgraded = UnifiedProjectMigrator.upgrade(json.decodeFromString(serialized))
+        return TakeManagementPolicy.normalizeAll(LegacyRecordingTakeRecoveryPolicy.recover(upgraded))
+    }
 }
