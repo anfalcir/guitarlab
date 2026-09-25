@@ -1,6 +1,6 @@
 # RC21 Documentation Audit — 2026-09-25
 
-Status: **COMPLETE FOR PRE-SIGNING INTEGRATION**
+Status: **COMPLETE / MERGED TO MAIN / PRE-SIGNING**
 
 This audit records the live-documentation changes required by GuitarLab RC21 before canonical-main integration and signed qualification.
 
@@ -43,5 +43,7 @@ The live documentation now consistently describes:
 - signing as pending and required from canonical `main`;
 - residual physical/provider acceptance as pending;
 - the temporary maintenance branch as disposable integration scaffolding, not release identity.
+
+Canonical integration is PR #7, merge commit `2617fe1f1f2351a17389f165ed5d5a8e834e16a2`.
 
 No live document intentionally promotes RC21 before signed/physical acceptance.
