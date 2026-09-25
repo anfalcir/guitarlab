@@ -294,9 +294,60 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                     }
                 }
             }
-            // The Activity-scoped StudioViewModel already owns the exact same project. Returning
-            // from Home/Options must not clear history/waveforms and briefly publish loading=true;
-            // doing so caused the visible double-render flash reported during physical review.
+            // Same project id is not enough to prove that the resident Studio snapshot is current:
+            // Prepare/restore can replace reference media while this Activity-scoped ViewModel lives.
+            // Read only the small project manifest first. WAV decoding happens only when the persisted
+            // snapshot actually changed, and the waveform cache then limits decoding to invalid entries.
+            val residentProject = before.project
+            viewModelScope.launch {
+                runCatching {
+                    withContext(Dispatchers.IO) {
+                        val latest = repository.load(projectId) ?: error("Projeto não encontrado: $projectId")
+                        if (latest == residentProject) return@withContext null
+                        val candidates = recordingMediaStore.recoveryCandidates(projectId)
+                        val pending = candidates.filter {
+                            RecordingRecoveryPolicy.publicationDecision(latest, it) != RecordingRecoveryPublicationDecision.ALREADY_PUBLISHED
+                        }
+                        val waveformState = loadWaveformState(latest)
+                        StudioLoadOutcome(latest, waveformState.waveforms, waveformState.waveformChannels, pending)
+                    }
+                }.onSuccess { outcome ->
+                    if (outcome == null || _state.value.project?.id != projectId) return@onSuccess
+                    ++projectSessionGeneration
+                    projectHistory.clear()
+                    trackMixDrafts.clear()
+                    val latest = outcome.project
+                    latest.tracks.forEach { track ->
+                        trackMixDrafts[track.id] = TrackMixDraft(track.gainDb, track.pan)
+                        playbackEngine.setTrackMix(track.id, track.gainDb, track.pan)
+                        playbackEngine.setTrackAudibility(track.id, track.muted, track.solo)
+                    }
+                    playbackEngine.setMasterGainDb(latest.masterGainDb)
+                    recoveryCandidatesById.clear()
+                    outcome.recoveryCandidates.forEach { recoveryCandidatesById[it.transactionId] = it }
+                    val state = _state.value
+                    val end = TimelineControlPolicy.projectEndFrame(latest)
+                    _state.value = state.copy(
+                        project = latest,
+                        waveforms = outcome.waveforms,
+                        waveformChannels = outcome.waveformChannels,
+                        timelineControls = TimelineControlPolicy.normalizedForProject(state.timelineControls, end),
+                        transportEngineReady = playbackReadiness(latest).ready,
+                        masterGainDb = latest.masterGainDb,
+                        recoveryItems = recoveryItems(latest, outcome.recoveryCandidates),
+                        trackLevelAnalysis = emptyMap(),
+                        canUndo = false,
+                        canRedo = false,
+                        preparedReferenceUpdateAvailable = PreparedReferenceBindingPolicy.updateAvailable(latest),
+                        clipStatus = "Studio sincronizado com a versão atual do projeto",
+                        error = null,
+                    )
+                }.onFailure { error ->
+                    if (_state.value.project?.id == projectId) {
+                        _state.value = _state.value.copy(error = error.message ?: "Não foi possível atualizar o Studio.")
+                    }
+                }
+            }
             return
         } else if (before.recordingSession.phase == RecordingSessionPhase.CAPTURING) {
             stopRecording()
