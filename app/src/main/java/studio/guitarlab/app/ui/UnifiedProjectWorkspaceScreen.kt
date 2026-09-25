@@ -586,8 +586,9 @@ private fun PrepareDiagnostics(project: GuitarProject, operation: SourceOperatio
     val activeSource = activeSourceId?.let { id -> project.assets.firstOrNull { it.assetId == id } }
     val activeReferences = project.assets.filter { it.assetId in activeReferenceIds }
     val derivedReferenceChildren = project.assets.filter { asset ->
-        asset.provenance?.kind == "GUITAR_CHANNEL_SPLIT" &&
-            asset.provenance.inputAssetIds.any { it in activeReferenceIds }
+        val provenance = asset.provenance
+        provenance?.kind == "GUITAR_CHANNEL_SPLIT" &&
+            provenance.inputAssetIds.any { it in activeReferenceIds }
     }
     val activeIds = buildSet {
         activeSourceId?.let(::add)
