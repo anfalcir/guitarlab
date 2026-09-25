@@ -379,3 +379,18 @@ Consequences:
 - final signed-APK physical homologation remains required for the application/hardware behaviors that are actually part of the freeze candidate.
 
 This decision supersedes only the RC20-specific requirement that W5 owner listening veto W6. It does not authorize a return to demucs.cpp, weakening of hard audio-integrity gates, or bypass of exact-digest qualification.
+
+
+## D-093 — RC20 shadow qualification consolidates W3/W4 into one representative Cloud Run execution
+
+The RC20 shadow workflow is optimized for the private single-owner release profile without weakening blocking integrity gates.
+
+Consequences:
+- W3 and W4 remain distinct evidence categories, but the normal shadow path collects both from the same representative CPU8 benchmark execution;
+- the benchmark's exact engine/model/config identity, source/stem contracts, finiteness and independent quality rejection satisfy the blocking W3 invariants under D-091, while timing/memory/cost evidence satisfies W4;
+- the separate W3 Cloud Run parity job is retired from the normal workflow because cross-host numeric closeness is diagnostic rather than a veto under D-091;
+- the standalone Cloud Run model-probe is disabled in the normal baseline because the full benchmark already validates assets/model loading and executes real inference;
+- CPU4 remains opt-in only;
+- the full transactional U4 smoke does not run in shadow; it executes after production cutover inside the controlled production deploy so failure still triggers automatic rollback;
+- W5 workflow execution is removed under D-092;
+- this workflow-only consolidation does not modify worker image contents or the qualified Demucs recipe.
