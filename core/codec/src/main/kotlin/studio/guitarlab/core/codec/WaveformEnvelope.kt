@@ -25,16 +25,17 @@ object WaveformEnvelopeBuilder {
         if (requestedFrames == 0L) return WaveformEnvelope(emptyList(), List(channels) { emptyList() })
 
         val pointCount = minOf(targetPoints.toLong(), requestedFrames).toInt()
-        val framesPerPoint = (requestedFrames + pointCount - 1L) / pointCount
         val peaks = ArrayList<Float>(pointCount)
         val perChannel = List(channels) { ArrayList<Float>(pointCount) }
-        val bufferFrames = minOf(4096L, framesPerPoint).toInt().coerceAtLeast(1)
+        val maxBucketFrames = ((requestedFrames + pointCount - 1L) / pointCount).coerceAtLeast(1L)
+        val bufferFrames = minOf(4096L, maxBucketFrames).toInt()
         val buffer = FloatArray(bufferFrames * channels)
 
         decoder.seekToFrame(startFrame)
-        var consumed = 0L
-        repeat(pointCount) {
-            var remaining = minOf(framesPerPoint, requestedFrames - consumed)
+        repeat(pointCount) { point ->
+            val bucketStart = point.toLong() * requestedFrames / pointCount
+            val bucketEnd = (point.toLong() + 1L) * requestedFrames / pointCount
+            var remaining = (bucketEnd - bucketStart).coerceAtLeast(1L)
             var aggregatePeak = 0f
             val channelPeak = FloatArray(channels)
             while (remaining > 0L) {
@@ -48,7 +49,6 @@ object WaveformEnvelopeBuilder {
                         channelPeak[channel] = maxOf(channelPeak[channel], value)
                     }
                 }
-                consumed += framesRead
                 remaining -= framesRead
             }
             peaks += aggregatePeak.coerceIn(0f, 1f)
