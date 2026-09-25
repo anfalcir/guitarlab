@@ -1,6 +1,6 @@
 # Google Drive v3 Backup Contract
 
-Updated: 2026-09-24
+Updated: 2026-09-25
 
 GuitarLab backs up directly from Android to the owner's Google Drive. Historical H37 implementation/corrective evidence is retained in `history/H37_DRIVE_V3_BACKUP.md`.
 
@@ -80,4 +80,4 @@ Repeat focused provider-real evidence when transport, OAuth, upload, catalog, in
 - disconnect/reconnect without remote deletion;
 - bounded failure behavior.
 
-Do not repeat the entire historical provider campaign for unrelated RC20 changes. A representative target-device backup/restore smoke belongs in final physical acceptance only if Drive is deliberately included in the frozen baseline or the candidate can materially affect it.
+Do not repeat the entire historical provider campaign for an unrelated maintenance change. A representative target-device backup/restore smoke is required only when Drive is deliberately part of the affected acceptance scope or the candidate can materially change provider behavior.

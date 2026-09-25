@@ -1,17 +1,25 @@
 # GuitarLab historical documentation
 
-This directory preserves superseded plans, milestone checklists, audits, forensic reports and release notes for traceability.
+This directory preserves superseded plans, milestone checklists, audits, forensic reports, release notes and closed homologation campaigns for traceability.
 
-Nothing in this directory is current authority merely because it uses words such as “current”, “required”, “pending” or “release-blocking”. Those statements belong to the dated candidate or milestone in which they were written.
+Nothing in this directory is current authority merely because it uses words such as “current”, “required”, “pending”, “open” or “release-blocking”. Those statements belong to the dated candidate or milestone in which they were written.
 
-For current work, start with [`../DOCUMENTATION_MAP.md`](../DOCUMENTATION_MAP.md), [`../PROJECT_IDENTITY.md`](../PROJECT_IDENTITY.md) and [`../CURRENT_STATE.md`](../CURRENT_STATE.md).
+For the live product, start with:
 
-Historical evidence may be reused only when a live document explicitly retains the relevant invariant and no later change has invalidated it. Do not update these files to describe new work; record new state in the live documentation instead.
+- [`../PROJECT_IDENTITY.md`](../PROJECT_IDENTITY.md)
+- [`../CURRENT_STATE.md`](../CURRENT_STATE.md)
+- [`../RELEASE_BASELINE.md`](../RELEASE_BASELINE.md)
+- [`../DOCUMENTATION_MAP.md`](../DOCUMENTATION_MAP.md)
 
-The directory intentionally contains:
+## Final RC20 closure records
 
-- old Alpha/RC release notes and homologation checklists;
-- completed M/H/U milestone plans and gate reports;
-- dated documentation/security/consistency audits;
-- RC19 F1/F2/F3 forensic reports;
-- superseded integration, hardening and migration plans.
+- `IMPLEMENTATION_ROADMAP_RC20_FINAL_2026-09-25.md` — closed unified roadmap snapshot;
+- `RC20_COMPLETION_PLAN_FINAL_2026-09-25.md` — closed RC19→RC20 corrective/completion plan;
+- `TEST_AND_HOMOLOGATION_PLAN_RC20_FINAL_2026-09-25.md` — completed release-campaign test plan;
+- `RC20_PHYSICAL_HOMOLOGATION_FINAL_2026-09-25.md` — final owner physical PASS record;
+- `RELEASE_NOTES_0.5.0-rc20.md` — immutable final release notes;
+- `FINAL_DOCUMENTATION_AUDIT_2026-09-25.md` — final document-by-document cleanup/freeze audit.
+
+The directory also intentionally contains older Alpha/RC notes, H/U/C/M milestone plans and gates, dated documentation/security/consistency audits, RC19 F1/F2/F3 forensics and superseded migration/hardening plans.
+
+Historical evidence may be reused only when a live document retains the relevant invariant and no later change invalidates it. Do not edit an old historical file to make its dated statements look current; create/update live authority instead.

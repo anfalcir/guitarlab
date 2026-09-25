@@ -15,3 +15,9 @@ Naming conventions:
 
 Do not edit a payload in place. Add a new corrective payload and materializer step
 when a source change must remain reproducible.
+
+## Frozen baseline note
+
+The accepted RC20 source tail is U12bx, but this README intentionally does not hardcode the active materializer filename as operational authority; use `docs/CI_PIPELINE.md` and `scripts/materialize_ci_sources.sh`.
+
+After freeze, do not edit an existing payload merely for cleanup or dependency freshness. A real maintenance source change adds a new corrective payload/materializer step, preserving the reproducible history of the accepted baseline.

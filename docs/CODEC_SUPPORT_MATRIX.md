@@ -1,8 +1,8 @@
 # Codec Support Matrix
 
-Updated: 2026-09-24
+Updated: 2026-09-25
 
-This matrix describes existing capabilities; it is not a promise of universal file compatibility or future format expansion. RC20 requalifies a codec only when the changed path or owner's representative flow uses it.
+This matrix describes existing capabilities; it is not a promise of universal file compatibility or future format expansion. A future maintenance candidate requalifies a codec only when the changed path or the owner's representative flow uses it.
 
 Legend:
 - **IMPLEMENTED** — code path exists;

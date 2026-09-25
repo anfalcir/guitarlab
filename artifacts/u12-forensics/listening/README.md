@@ -1,11 +1,10 @@
-# MMF — Misery diagnostic listening package
+# MMF — Misery diagnostic listening package — HISTORICAL RC19 FORENSICS
 
-These files are local diagnostic evidence and are intentionally not release
-artifacts.
+These files are local diagnostic evidence from the rejected RC19 `demucs.cpp` investigation and are intentionally not release artifacts. They do **not** describe the current production backend. RC20 replaced this inference path with the qualified official PyTorch/Demucs `htdemucs_6s` worker; see `../../../docs/RELEASE_BASELINE.md`.
 
 ## `single8-exact`
 
-Exact local replay of the current production image/model/strategy and v2
+Exact local replay of the RC19 incident-era production image/model/strategy and v2
 renderer using the preserved M4A source. This variant reproduces the systematic
 negative DC introduced by every Demucs stem.
 

@@ -1,6 +1,6 @@
 # Product Requirements
 
-Updated: 2026-09-24
+Updated: 2026-09-25
 
 Stable product identity, support boundaries, proportional quality, freeze policy and maintenance triggers are governed by `PROJECT_IDENTITY.md` and D-090.
 
@@ -44,7 +44,7 @@ Home project-library requirements:
 ### Unified managed assets
 - Authoritative/derived media uses explicit asset identity, role, integrity metadata and provenance.
 - Filename/display name is never asset or project identity.
-- Cleanup uses reachability and may not delete media referenced by project state, retained history, pending migration or pending backup.
+- Cleanup uses reachability and may not delete media referenced by project state, retained history, an in-flight package/import transaction or pending backup.
 - Re-separation/backing regeneration creates a new asset/version rather than mutating immutable bytes.
 
 ### Cloud backup destination
@@ -129,6 +129,7 @@ The currently implemented format set includes WAV PCM, FLAC, AIFF/AIFC PCM, MP3,
 - Canonical states: STOPPED, PLAYING, RECORDING.
 - Primary controls: return-to-start, play/stop, record, loop.
 - Return-to-start remains available during playback.
+- Visible playhead progress follows sink presentation timing when reliable Android audio timestamps exist, re-anchors after seek/flush, and must never advance beyond audio frames already accepted by the output sink. A hidden fixed startup delay is not a valid synchronization strategy.
 - Structural timeline editing is locked during incompatible states.
 - Support Reference, My Guitar and Both audition modes.
 - Persist markers, named sections and loop selection.

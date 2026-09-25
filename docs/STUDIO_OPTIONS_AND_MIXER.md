@@ -1,6 +1,6 @@
 # Studio Options, Export and Mixer Contract
 
-Updated: 2026-09-24
+Updated: 2026-09-25
 
 ## Options
 Options owns low-frequency setup and diagnostics: input route, main output, monitoring, Studio preferences, import capability information and diagnostic tools. These controls stay out of the timeline.
@@ -30,4 +30,4 @@ Mixer is a bottom dock with horizontally scrollable track strips and fixed Maste
 - clip migration/deletion resolves through transaction-safe drag intent (`Move`, `Delete`, `NoOp`).
 
 ## Qualification
-Repeat focused Mixer/Options/Export regression when a candidate changes those surfaces or their domain commands. They do not create a global RC20 gate for unrelated worker/search changes.
+Repeat focused Mixer/Options/Export regression when a candidate changes those surfaces or their domain commands. They do not create a global release or maintenance gate for unrelated worker/search changes.

@@ -1,6 +1,6 @@
 # GuitarLab — Project Identity
 
-Updated: 2026-09-24
+Updated: 2026-09-25
 
 This document defines the stable identity, support boundary, quality philosophy and maintenance policy of GuitarLab. It operationalizes `D-090` in `docs/DECISIONS.md`. If a later numbered decision explicitly supersedes this document, the later decision wins.
 
@@ -62,7 +62,7 @@ Existing CI and vulnerability workflows are not weakened merely to implement thi
 
 ## Freeze policy
 
-After final physical acceptance:
+The current RC20 baseline has completed final physical acceptance; its exact immutable identity is recorded in `RELEASE_BASELINE.md`. For every accepted baseline:
 
 - freeze the exact signed APK;
 - record and freeze its producer SHA, package/version, APK SHA-256 and signer certificate;
@@ -85,4 +85,4 @@ A future change requalifies only the paths it can materially affect, plus adjace
 
 ## Release principle
 
-The final physical campaign evaluates the **exact signed candidate that will be frozen**. Worker listening/quality qualification may occur before signing, but final application homologation occurs after the tested unsigned artifact has been signed and its identity verified.
+A physical campaign evaluates the **exact signed candidate intended for promotion**. Worker listening/quality qualification may occur before signing, but application homologation occurs after the tested unsigned artifact has been signed and its identity verified. Documentation-only commits after acceptance do not redefine the frozen producer or artifact identity.
