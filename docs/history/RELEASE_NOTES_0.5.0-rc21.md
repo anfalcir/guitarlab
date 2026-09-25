@@ -1,7 +1,7 @@
 # GuitarLab 0.5.0-rc21 — Maintenance Candidate Release Notes
 
 Updated: 2026-09-25  
-Status: **candidate — unsigned software/API36 PASS; signed/physical promotion pending**
+Status: **signed digital candidate — physical promotion pending**
 
 RC21 is a focused maintenance successor to the physically accepted RC20 baseline. It does not change the production Demucs worker or expand product scope.
 
@@ -41,7 +41,7 @@ Unsigned candidate authority:
 - APK build: PASS;
 - API 36 emulator regression: PASS.
 
-The maintenance line was merged through PR #7 into canonical `main` at `2617fe1f1f2351a17389f165ed5d5a8e834e16a2`. The signed candidate must be produced from canonical `main` after temporary-branch removal/neutralization.
+The maintenance line was merged through PR #7 into canonical `main` at `2617fe1f1f2351a17389f165ed5d5a8e834e16a2`. The signed candidate was produced from canonical `main` at `52b9d66f450fc597f8367f5778334280ceeb521e` by Android CI #912 / run `36197863467`. Signed APK SHA-256: `7334fba11a64397e798afef99604dd2a6ebf1cf9f4dbd0d51c0c7f3c75321a6a`; signer certificate remains `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
 
 ## Promotion status
 
