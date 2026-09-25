@@ -60,6 +60,8 @@ Updated: 2026-09-24
 
 - U12bv digital qualification PASS: Android CI #897 completed with software gate PASS and API36 instrumented regression PASS. Signed homologation is now being produced from the same U12bv app source; final documentation/freeze remains pending owner physical validation of the frontend changes.
 
+- New signed U12bv frontend homologation candidate produced successfully by Android CI #898 on commit `833142435b2e2c1e74f39bf5cee85d8049595748`: package `studio.guitarlab.app`, version `0.5.0-rc20` / versionCode `40`, unsigned APK SHA-256 `2577518b5399eb3e6ab99589bab1008f9b6e1563660098e051873424e6635b4a`, signed APK SHA-256 `6e8d2af6dad105ba4f27a703747b4c04873cdb36d3affe29e18074b2816db838`, signer SHA-256 `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`. Software gate + API36 + signing all PASS. Final documentation/freeze remains pending owner physical validation of the frontend changes.
+
 ## Unified program progress
 - Stable product identity is governed by `PROJECT_IDENTITY.md` and D-090: private single-owner appliance, proportional gates, exact signed APK + digest-pinned worker freeze after physical acceptance, and maintenance only for a real trigger.
 - Product-scope override (2026-09-21): legacy project/backup migration is retired. The owner has only two legacy projects and accepts recreating them manually. U9 is retired; U8/U10/U11 no longer carry H37/GBW/pre-unification migration obligations. Current unified-line save/reopen, schema evolution, backup/restore and integrity guarantees remain mandatory.
