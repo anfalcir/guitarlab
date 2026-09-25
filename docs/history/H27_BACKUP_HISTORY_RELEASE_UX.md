@@ -25,7 +25,7 @@ Signed APK SHA-256: `d9ce720194812afcb281ecebd263d482d4320b4285f50044a2771fc6293
 ## Physical supersession by H28
 Physical backup testing of that exact H27 APK then exposed a different defect: a cloud-backed provider could successfully create the remote backup but delay its visibility in directory listings. H27 used that immediate relist as commit confirmation/dedup evidence, creating false failures and selective duplicates on retry.
 
-H28 supersedes that provider-consistency behavior with stable project/revision identity, deterministic revision paths, direct-URI commit verification and targeted settling lookup. See `H28_BACKUP_IDENTITY_CONSISTENCY.md`.
+H28 supersedes that provider-consistency behavior with stable project/revision identity, deterministic revision paths, direct-URI commit verification and targeted settling lookup. See `BACKUP_IDENTITY_CONTRACT.md`.
 
 ## H27 materialization identity
 H27 source part: `.source-parts/H27BackupReleaseUx.patch.gz.b64`

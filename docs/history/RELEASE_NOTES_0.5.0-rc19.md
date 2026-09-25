@@ -60,5 +60,4 @@ Supplied active-reference evidence:
 
 The incident does not invalidate RC19's recovery/idempotency digital proof. It does block product acceptance because numerical integrity alone did not prove useful musical separation.
 
-The authoritative follow-up is `U12_RC19_AUDIO_FORENSICS_AND_DIAGNOSTICS_PLAN.md`. Read-only Cloud Run/Firebase lineage forensics must precede any audio-algorithm change. Any source fix requires a new candidate; planned target is `0.5.0-rc20` / versionCode `40`.
-
+The authoritative follow-up is `RC20_COMPLETION_PLAN.md`. Read-only Cloud Run/Firebase lineage forensics must precede any audio-algorithm change. Any source fix requires a new candidate; planned target is `0.5.0-rc20` / versionCode `40`.

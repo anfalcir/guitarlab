@@ -144,7 +144,7 @@ H33 real-controller connect/map/reconnect/tactile double-trigger acceptance rema
 Everything objectively established by #663 does not need to be repeated manually unless a later source change invalidates that evidence.
 
 ## Post-H28 forward quality plan
-The post-H28 audio/external-control plan remains `POST_H28_HARDENING_AND_EXTERNAL_CONTROL_PLAN.md`; H37 backup transport is additionally governed by `H37_DRIVE_V3_BACKUP.md`.
+The post-H28 audio/external-control plan remains `history/POST_H28_HARDENING_AND_EXTERNAL_CONTROL_PLAN.md`; H37 backup transport is additionally governed by `DRIVE_BACKUP_CONTRACT.md`.
 
 Key additions:
 - H29 recording session-health evidence and latency closure;
@@ -158,7 +158,7 @@ For the 10-minute quality line, stress must model realistic song projects rather
 
 ## Unified successor program — homologation strategy
 
-The approved unified integration program is governed by `UNIFIED_GUITARLAB_GBW_IMPLEMENTATION_ROADMAP.md`.
+The approved unified integration program is governed by `history/UNIFIED_GUITARLAB_GBW_IMPLEMENTATION_ROADMAP.md`.
 
 **Clean-cutover override (2026-09-21):** automatic migration/import compatibility for standalone GBW, H37/pre-unification GuitarLab and historical project corpora is no longer a release requirement. U9 is retired. Historical H37/migration evidence below remains historical evidence only and must not create new future gates.
 
@@ -250,7 +250,7 @@ Historical tests already executed are retained as evidence but are not repeated 
 
 ## Unified product-cohesion digital gate — 2026-09-21
 
-The detailed contract is `UNIFIED_PRODUCT_COHESION_AUDIT.md`. Product cohesion is release-blocking, not optional visual polish.
+The detailed contract is `history/UNIFIED_PRODUCT_COHESION_AUDIT.md`. Product cohesion is release-blocking, not optional visual polish.
 
 ### U6 boundary — CLOSED
 Android CI #694 / run `35630563575` at exact source `364a8ddb1904003af150c9162fed6aa6a4106d8e` remains the technical U6 export baseline. C1 convergence is closed by Android CI #711 / run `35658467705` at exact source `6ff1988a8309b7174eeb328e0044d6b1d3167ff6`: software gate and the complete API 36 instrumented regression passed, the exact materialized source contains no independent Home/Studio format chooser or obsolete Studio-local export state/entry point, and all project export entry points converge on the canonical Export workspace. Primary actions use concise labels while zero-transcode details remain secondary explanatory copy. U6 is DIGITAL PASS. #711 did not produce a signed homologation APK because signed homologation was not requested.

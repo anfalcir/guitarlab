@@ -88,9 +88,9 @@ Project `MMF - Misery` independently reproduced unusable audio. Local metrics fo
 An isolated replay retained canonical input and all six stems. The canonical input was physically accepted by listening and had only negligible mean (`-0.00030 / -0.00051`). Every `demucs.cpp` stem acquired a similar negative DC around `-0.013` to `-0.016`; listening found all six stems unusable and most musical content incorrectly concentrated in `other`. A 10 Hz per-stem DC blocker removed the measured offset but did **not** restore musical separation. This proves the defect is the inference output, not merely DC.
 
 Evidence:
-- `U12_RC19_F1_AUDIO_FORENSICS_REPORT.md`;
-- `U12_RC19_F2_LOCAL_AUDIO_FORENSICS_REPORT.md`;
-- `U12_RC19_F3_DIAGNOSTIC_REPLAY_REPORT.md`.
+- `history/U12_RC19_F1_AUDIO_FORENSICS_REPORT.md`;
+- `history/U12_RC19_F2_LOCAL_AUDIO_FORENSICS_REPORT.md`;
+- `history/U12_RC19_F3_DIAGNOSTIC_REPLAY_REPORT.md`.
 
 ---
 

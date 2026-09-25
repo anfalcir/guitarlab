@@ -11,4 +11,4 @@ Primary change: automatic/manual project backup and restore now target Google Dr
 
 H28 project/revision identity, deduplication, retention and restore-as-copy semantics are preserved. Existing SAF history can be migrated once to Drive; legacy content is not deleted and the SAF permission is retained until complete migration success.
 
-See `docs/H37_DRIVE_V3_BACKUP.md` for the architecture, OAuth registration identity, security contract, pre-gate evidence and physical acceptance checklist.
+See `docs/DRIVE_BACKUP_CONTRACT.md` for the architecture, OAuth registration identity, security contract, pre-gate evidence and physical acceptance checklist.

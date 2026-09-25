@@ -26,7 +26,7 @@ production vNext Drive transport/store. Result: `U8m PASS · r_1790095960 · cle
 SHA-256 `84efb70615be8ef5939da538eee5f714f7311aa6d44dd5bb2cdd0b5e9e66b702`. This provider gate authorizes closure of U8 but is not a
 signed release promotion. RC14 remains historical physically tested fallback evidence. RC19/Android CI #852 is the latest signed digital authority; it is not physically accepted.
 
-U10/C8 closure is recorded in `docs/U10_FINAL_DIGITAL_COHESION_GATE.md`. The
+U10/C8 closure is recorded in `docs/history/U10_FINAL_DIGITAL_COHESION_GATE.md`. The
 #781 integration artifact digest is
 `sha256:1c355f88bef4e20393a5c26c39fb4db94da8383089023724988af55953f509e3`;
 its exact-source artifact digest is

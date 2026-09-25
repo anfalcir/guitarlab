@@ -5,7 +5,7 @@ Updated: 2026-09-21
 ## Contract
 GuitarLab exposes **one product-wide help source of truth** covering the complete application: Home, New Project, Prepare, Studio, Export, Activity, Backup/Restore and Settings.
 
-The historical implementation may still contain a class named `StudioUserGuideDialog` during the cohesion transition. That class name does not define product scope. C7 in `UNIFIED_PRODUCT_COHESION_AUDIT.md` must converge the user-facing help experience to GuitarLab-wide help.
+The historical implementation may still contain a class named `StudioUserGuideDialog` during the cohesion transition. That class name does not define product scope. C7 in `history/UNIFIED_PRODUCT_COHESION_AUDIT.md` must converge the user-facing help experience to GuitarLab-wide help.
 
 Contextual Studio help is allowed for dense editing/recording controls, but it must consume the same canonical guide content/contracts rather than becoming a second independent help system.
 

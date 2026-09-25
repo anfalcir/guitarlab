@@ -187,7 +187,7 @@ Mandatory product rules:
 - no raw backend/domain enum names in primary UX;
 - no duplicate action path may survive merely because it existed in one of the former products.
 
-The detailed binding audit is `docs/UNIFIED_PRODUCT_COHESION_AUDIT.md`.
+The detailed binding audit is `docs/history/UNIFIED_PRODUCT_COHESION_AUDIT.md`.
 
 ## 2.8 Deterministic preparation completes automatically
 
@@ -485,7 +485,7 @@ Drive and Firebase sessions must be presented as separate capabilities even if t
 
 ## 5.11 Product-cohesion execution contract
 
-The current materialized U6 source was audited specifically for “two apps stitched together” risk. The release-blocking findings and serial C1-C8 remediation program are defined in `docs/UNIFIED_PRODUCT_COHESION_AUDIT.md`.
+The current materialized U6 source was audited specifically for “two apps stitched together” risk. The release-blocking findings and serial C1-C8 remediation program are defined in `docs/history/UNIFIED_PRODUCT_COHESION_AUDIT.md`.
 
 The roadmap adopts these mandatory outcomes:
 - Home opens the last/relevant project workspace rather than always forcing Studio;
@@ -1834,7 +1834,7 @@ End-to-end local flow Source → Stems → Backing → Studio is digitally prove
 ### Status — DIGITAL PASS (2026-09-21)
 Closed on exact source `4bada624e68f8a55ff22830e1dc276c8d51af223` by GuitarLab Android CI #690 / run `35625349001`.
 
-Closure evidence is canonicalized in `docs/U5_PREPARED_REFERENCE_GATE.md`. The final gate includes deterministic materialization, 378/378 JVM tests, Lint/build PASS, 38/38 standard API 36 tests and 1/1 isolated tablet-geometry test. U5c explicitly closes the roadmap residuals for save/reopen, rebind Undo/Redo, export/master render after rebind and Prepare → Studio handoff while preserving existing recordings/takes.
+Closure evidence is canonicalized in `docs/history/U5_PREPARED_REFERENCE_GATE.md`. The final gate includes deterministic materialization, 378/378 JVM tests, Lint/build PASS, 38/38 standard API 36 tests and 1/1 isolated tablet-geometry test. U5c explicitly closes the roadmap residuals for save/reopen, rebind Undo/Redo, export/master render after rebind and Prepare → Studio handoff while preserving existing recordings/takes.
 
 No U6 implementation is part of the U5 closure.
 
@@ -2019,7 +2019,7 @@ The identifier U9 is retained only to avoid renumbering U10-U12 and invalidating
 **Status:** **CLOSED / DIGITAL PASS — Android CI #781 / run `35791192802`, exact technical source `2aa97aa8b2c3af91d35e7d48a0eeb89c2c330e63` (2026-09-22).**
 
 ### Objective
-Attack the complete integrated system digitally before release-candidate work and close C2-C8 from `docs/UNIFIED_PRODUCT_COHESION_AUDIT.md`.
+Attack the complete integrated system digitally before release-candidate work and close C2-C8 from `docs/history/UNIFIED_PRODUCT_COHESION_AUDIT.md`.
 
 ### Work
 Run the largest regression and product-cohesion campaign of the project.
@@ -2055,7 +2055,7 @@ Required suites:
 ### Exit
 No repeatable P0/P1 digital defect; all accepted P2/P3 documented with rationale; C2-C8 product-cohesion gate PASS; no remaining repeatable evidence that the UI behaves like two stitched applications.
 
-**Closure evidence:** CI #781 passed the software gate and all five API 36 suites with 23/23 classified instrumented classes and 76 observed instrumented tests. The C8 visual gate retained 24/24 required screenshots, including Home active-operation state, Studio prepared-reference notice, backup restore/conflict, compact enlarged-font stress and isolated 1920×1200 target-tablet geometry. The artifacts were visually reviewed after Compose-surface screenshot hardening and contain no ANR/system-dialog contamination. Canonical evidence is recorded in `docs/U10_FINAL_DIGITAL_COHESION_GATE.md`. Signed homologation remained intentionally skipped; U11 owns the next signing event.
+**Closure evidence:** CI #781 passed the software gate and all five API 36 suites with 23/23 classified instrumented classes and 76 observed instrumented tests. The C8 visual gate retained 24/24 required screenshots, including Home active-operation state, Studio prepared-reference notice, backup restore/conflict, compact enlarged-font stress and isolated 1920×1200 target-tablet geometry. The artifacts were visually reviewed after Compose-surface screenshot hardening and contain no ANR/system-dialog contamination. Canonical evidence is recorded in `docs/history/U10_FINAL_DIGITAL_COHESION_GATE.md`. Signed homologation remained intentionally skipped; U11 owns the next signing event.
 
 ---
 
@@ -2080,7 +2080,7 @@ Produce the one exact signed candidate intended for the consolidated physical ca
 - current unified-schema save/reopen/restore compatibility PASS;
 - no credential leakage;
 - docs consistency audit PASS;
-- unified product-cohesion gate PASS per `docs/UNIFIED_PRODUCT_COHESION_AUDIT.md`;
+- unified product-cohesion gate PASS per `docs/history/UNIFIED_PRODUCT_COHESION_AUDIT.md`;
 - screenshot/geometry/accessibility artifact matrix reviewed and retained;
 - no duplicate export/project-shell/activity UX;
 - no user-facing orphan GBW branding or raw internal-state vocabulary;
@@ -2089,7 +2089,7 @@ Produce the one exact signed candidate intended for the consolidated physical ca
 ### Exit
 Signed candidate frozen. No source change after freeze except through a new candidate.
 
-**Closure evidence:** package `studio.guitarlab.app`, `0.5.0-rc5` / versionCode `25`, signed APK SHA-256 `795839766f2b7546af53b2c56a0638b11c25b79622fe73cce5860b5602f050e0`, signer SHA-256 `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`. Android CI #783 passed software, API36, 24/24 screenshot matrix and signing; U4 #104 passed the real six-stem Cloud Run contract; U7 #62 passed backend tests/security/container verification without deployment. Canonical evidence: `docs/U11_FINAL_DIGITAL_RELEASE_GATE.md`.
+**Closure evidence:** package `studio.guitarlab.app`, `0.5.0-rc5` / versionCode `25`, signed APK SHA-256 `795839766f2b7546af53b2c56a0638b11c25b79622fe73cce5860b5602f050e0`, signer SHA-256 `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`. Android CI #783 passed software, API36, 24/24 screenshot matrix and signing; U4 #104 passed the real six-stem Cloud Run contract; U7 #62 passed backend tests/security/container verification without deployment. Canonical evidence: `docs/history/U11_FINAL_DIGITAL_RELEASE_GATE.md`.
 
 ---
 
@@ -2198,7 +2198,7 @@ Rollback window should preserve:
 Read in this order:
 
 1. docs/CURRENT_STATE.md — live operational status.
-2. docs/UNIFIED_GUITARLAB_GBW_IMPLEMENTATION_ROADMAP.md — this integration program.
+2. docs/history/UNIFIED_GUITARLAB_GBW_IMPLEMENTATION_ROADMAP.md — this integration program.
 3. docs/DOCUMENTATION_MAP.md — authority map.
 4. docs/DECISIONS.md — durable decisions.
 5. docs/ARCHITECTURE.md — currently implemented architecture.
@@ -2214,7 +2214,7 @@ When current implementation differs from target design, ARCHITECTURE describes w
 
 | Milestone | Current status | Owner/manual dependency |
 |---|---|---|
-| U0 Baseline/inventory | PASS — `docs/U0_BASELINE_INVENTORY.md` | no physical |
+| U0 Baseline/inventory | PASS — `docs/history/U0_BASELINE_INVENTORY.md` | no physical |
 | U1 Unified domain | DIGITAL PASS — CI #669 at `14b69271f2ae04529fa14475e1a34f2fdd864553` | none |
 | U2 Unified shell UX | DIGITAL PASS — CI #675 / run `35596671163` at `665c292931c0f2ed9fa1e7145818101c5d017222` | none |
 | U3 Source acquisition | DIGITAL PASS — CI #676 / run `35606018087` at `a7af51bf6622b4eecc32308c091fbb5020a1d54b` | none; real-provider smoke may remain in consolidated final campaign |
@@ -2234,7 +2234,7 @@ A Work session updates this table only after objective evidence.
 
 - live heads frozen at GuitarLab `dc3cb95093110270c494804aa03ef625dc3ceef2` and GBW `4724b030eabe289a5c2645e379181c0f9602d25d`;
 - H37b producer `01b2371310fb872eb1583231728941beb93c1a8e` has CI #665 unit/Lint/build/API36 PASS evidence; its signing-provenance failure occurred before signing and is corrected at HEAD by H37c without promoting a signed candidate;
-- human and machine inventories: `docs/U0_BASELINE_INVENTORY.md` and `integration/u0/inventory.json`;
+- human and machine inventories: `docs/history/U0_BASELINE_INVENTORY.md` and `integration/u0/inventory.json`;
 - synthetic schema fixtures and the existing deterministic WAV fixture are hash-locked by `integration/u0/fixtures/manifest.json`;
 - `scripts/verify_u0_inventory.py` PASS: 13 mapped capabilities and 3 hash-verified fixtures;
 - H37b materialization first run and repeat/idempotent run PASS at the frozen HEAD;

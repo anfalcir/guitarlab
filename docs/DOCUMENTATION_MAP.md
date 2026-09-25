@@ -17,10 +17,11 @@ Use these documents first for all new work:
 3. `DECISIONS.md` — durable decisions; later numbered decisions supersede earlier ones.
 4. `PRODUCT_REQUIREMENTS.md` — supported product behavior.
 5. `IMPLEMENTATION_ROADMAP.md` — current RC sequence and remaining milestones.
-6. `U12_RC19_AUDIO_FORENSICS_AND_DIAGNOSTICS_PLAN.md` — active RC19→RC20 corrective plan until RC20 is physically accepted.
-7. `TEST_AND_HOMOLOGATION_PLAN.md` — current automated vs physical qualification boundary.
-8. `CANDIDATE_IDENTITY_POLICY.md` — exact-source/signing/provenance contract.
-9. `CI_PIPELINE.md` — operational CI/signing/materialization contract.
+6. `RC20_COMPLETION_PLAN.md` — active RC19→RC20 corrective plan until RC20 is physically accepted.
+7. `RC20_PHYSICAL_HOMOLOGATION.md` — focused acceptance checklist for the exact signed RC20 candidate.
+8. `TEST_AND_HOMOLOGATION_PLAN.md` — current automated vs physical qualification boundary.
+9. `CANDIDATE_IDENTITY_POLICY.md` — exact-source/signing/provenance contract.
+10. `CI_PIPELINE.md` — operational CI/signing/materialization contract.
 
 `README.md` is the repository entry point and points back to this set; it is not a second volatile status ledger.
 
@@ -38,7 +39,7 @@ Use these documents first for all new work:
 These documents remain authoritative only when work touches their subsystem:
 
 - `ARCHITECTURE.md`;
-- `H37_DRIVE_V3_BACKUP.md` for the retained direct Drive v3 transport/security/integrity contract;
+- `DRIVE_BACKUP_CONTRACT.md` for the retained direct Drive v3 transport/security/integrity contract;
 - `RECORDING_LATENCY_ARCHITECTURE.md` and `RECORDING_LATENCY_CONTRACT.md`;
 - `MANAGED_MEDIA_POLICY.md`;
 - `CODEC_SUPPORT_MATRIX.md` and `MEDIA_IO_SUPPORT_CLAIM_RULE.md`;
@@ -47,27 +48,31 @@ These documents remain authoritative only when work touches their subsystem:
 - `STUDIO_WORKSPACE_GUIDELINES.md` and `STUDIO_OPTIONS_AND_MIXER.md`;
 - `UI_VISUAL_SYSTEM.md`, `UI_COPY_STYLE.md`, `TRANSIENT_FEEDBACK_CONTRACT.md`, `USER_GUIDE_POLICY.md`;
 - `SHARE_MODAL_CONTRACT.md`;
-- `H28_BACKUP_IDENTITY_CONSISTENCY.md` for the retained backup identity/revision invariant.
+- `BACKUP_IDENTITY_CONTRACT.md` for the retained backup identity/revision invariant.
 
 A subsystem contract does not create a release gate for an unrelated change merely because the file exists.
 
 ## Historical/superseded evidence
 
-Preserve for traceability, but do not use as current-state authority unless a live document explicitly cites a retained invariant:
+All superseded documentation now lives under [`history/`](history/README.md). It is preserved for traceability but is not current-state authority unless a live document explicitly cites a retained invariant.
 
-- `U10_FINAL_DIGITAL_COHESION_GATE.md`;
-- `U11_FINAL_DIGITAL_RELEASE_GATE.md`;
-- `U11_SECURITY_DOCUMENTATION_AUDIT.md`;
+The historical directory includes:
+
+- `history/U10_FINAL_DIGITAL_COHESION_GATE.md`;
+- `history/U11_FINAL_DIGITAL_RELEASE_GATE.md`;
+- `history/U11_SECURITY_DOCUMENTATION_AUDIT.md`;
 - closed unified/cohesion milestone plans and audits;
 - superseded `RELEASE_NOTES_*`;
-- `RC14_FINAL_PHYSICAL_HOMOLOGATION.md` and older candidate/checklist files;
-- `HISTORICAL_CANDIDATES.md`;
+- `history/RC14_FINAL_PHYSICAL_HOMOLOGATION.md` and older candidate/checklist files;
+- `history/HISTORICAL_CANDIDATES.md`;
 - all `ALPHA*`, `M4_*`, `M5_*`, `M5C_*`, `M6_*`, `M7_*` milestone/checkpoint/checklist files;
 - dated documentation audits/consistency snapshots;
-- `PHYSICAL_EDITING_RECORDING_HARDENING_PLAN.md`;
-- `M8_GLOBAL_DIGITAL_REGRESSION.md`;
-- `GITLAB_CI_MIGRATION.md`;
+- `history/PHYSICAL_EDITING_RECORDING_HARDENING_PLAN.md`;
+- `history/M8_GLOBAL_DIGITAL_REGRESSION.md`;
+- `history/GITLAB_CI_MIGRATION.md`;
 - H/U milestone-specific closure reports already absorbed by the current line.
+
+Do not add a superseded plan back to the `docs/` root. Promote a retained invariant into a stable live contract instead.
 
 ## Evidence reuse rule
 

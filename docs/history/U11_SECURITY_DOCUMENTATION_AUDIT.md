@@ -125,8 +125,8 @@ Verified:
 - no live authority treats CI #663 as the current signed authority.
 
 Canonical U11/U12 documents:
-- `docs/U11_FINAL_DIGITAL_RELEASE_GATE.md`;
-- `docs/U12_FINAL_PHYSICAL_HOMOLOGATION.md`.
+- `docs/history/U11_FINAL_DIGITAL_RELEASE_GATE.md`;
+- `docs/RC20_PHYSICAL_HOMOLOGATION.md`.
 
 Result: **PASS**.
 

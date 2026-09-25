@@ -39,9 +39,9 @@ The following active documents are promoted to #641/H24a authority:
 - `docs/IMPLEMENTATION_ROADMAP.md`;
 - `docs/CI_PIPELINE.md`;
 - `docs/DOCUMENTATION_MAP.md`;
-- `docs/H24_HOME_PROJECT_LIBRARY.md`;
-- `docs/RELEASE_NOTES_0.5.0-rc3.md`;
-- `docs/RC3_FINAL_PHYSICAL_HOMOLOGATION.md`;
+- `docs/history/H24_HOME_PROJECT_LIBRARY.md`;
+- `docs/history/RELEASE_NOTES_0.5.0-rc3.md`;
+- `docs/history/RC3_FINAL_PHYSICAL_HOMOLOGATION.md`;
 - `docs/TEST_AND_HOMOLOGATION_PLAN.md`;
 - this audit record.
 

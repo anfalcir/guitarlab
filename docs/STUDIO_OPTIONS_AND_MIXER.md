@@ -35,4 +35,4 @@ Mixer is a bottom dock with horizontally scrollable track strips and fixed Maste
 - clip migration/deletion resolves through transaction-safe drag intent (`Move`, `Delete`, `NoOp`).
 
 ## Active gate
-Mixer/Options/Share behavior is an established regression surface. The active RC3 source additionally carries H0–H6 editing/recording hardening and requires one new exact-source manual CI PASS before final physical homologation. After that automated PASS, `RC3_FINAL_PHYSICAL_HOMOLOGATION.md` is the only active manual checklist; older alpha/RC checklists remain historical evidence.
+Mixer/Options/Share behavior is an established regression surface. The active RC3 source additionally carries H0–H6 editing/recording hardening and requires one new exact-source manual CI PASS before final physical homologation. After that automated PASS, `history/RC3_FINAL_PHYSICAL_HOMOLOGATION.md` is the only active manual checklist; older alpha/RC checklists remain historical evidence.

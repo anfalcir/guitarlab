@@ -3,7 +3,7 @@
 Updated: 2026-09-21  
 Status: **MANDATORY PRODUCT-CONSOLIDATION CONTRACT**  
 Applies to: unified GuitarLab line after U5 and during U6-U12  
-Primary roadmap: `docs/UNIFIED_GUITARLAB_GBW_IMPLEMENTATION_ROADMAP.md`
+Primary roadmap: `docs/history/UNIFIED_GUITARLAB_GBW_IMPLEMENTATION_ROADMAP.md`
 
 ---
 
@@ -338,7 +338,7 @@ U8 transport/cutover/fault work must preserve these product-cohesion contracts.
 
 ### C7 — Visual, copy, responsive and accessibility consolidation
 
-**Status: CLOSED / DIGITAL PASS — consumed by Android CI #781 / run `35791192802` at exact technical source `2aa97aa8b2c3af91d35e7d48a0eeb89c2c330e63`.** The final responsive/accessibility and visual artifact campaign is recorded in `docs/U10_FINAL_DIGITAL_COHESION_GATE.md`.
+**Status: CLOSED / DIGITAL PASS — consumed by Android CI #781 / run `35791192802` at exact technical source `2aa97aa8b2c3af91d35e7d48a0eeb89c2c330e63`.** The final responsive/accessibility and visual artifact campaign is recorded in `docs/history/U10_FINAL_DIGITAL_COHESION_GATE.md`.
 
 **Objective:** make the entire APK visually coherent before global hardening.
 
@@ -366,7 +366,7 @@ Exit:
 
 ### C8 — Global digital cohesion gate
 
-**Status: CLOSED / DIGITAL PASS — Android CI #781 / run `35791192802`, exact technical source `2aa97aa8b2c3af91d35e7d48a0eeb89c2c330e63`.** The fail-closed gate proved 23/23 instrumented classes, 76 observed API 36 tests and 24/24 retained screenshots; deterministic visual review found no system-overlay contamination and confirmed the required Home → Prepare → Studio → Export → Backup/Activity/Settings cohesion path. Full evidence is in `docs/U10_FINAL_DIGITAL_COHESION_GATE.md`.
+**Status: CLOSED / DIGITAL PASS — Android CI #781 / run `35791192802`, exact technical source `2aa97aa8b2c3af91d35e7d48a0eeb89c2c330e63`.** The fail-closed gate proved 23/23 instrumented classes, 76 observed API 36 tests and 24/24 retained screenshots; deterministic visual review found no system-overlay contamination and confirmed the required Home → Prepare → Studio → Export → Backup/Activity/Settings cohesion path. Full evidence is in `docs/history/U10_FINAL_DIGITAL_COHESION_GATE.md`.
 
 **Objective:** prove the final application behaves as one product before U11 candidate freeze.
 

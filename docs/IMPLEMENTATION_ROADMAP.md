@@ -2,7 +2,7 @@
 
 Updated: 2026-09-24
 
-> **Current unified-line authority (2026-09-24):** historical H29-H37 remains architecture/evidence context. U10/C8 and U11 are CLOSED / DIGITAL PASS. RC19 is digitally qualified and signed at frozen source `e0a8a2218accbe9c8eec413a40f4fedf7d9da9bc`, but physical acceptance is blocked by a real Prepare audio-quality incident. `U12_RC19_AUDIO_FORENSICS_AND_DIAGNOSTICS_PLAN.md` is the active corrective authority; RC14 remains the previous physically tested fallback.
+> **Current unified-line authority (2026-09-24):** historical H29-H37 remains architecture/evidence context. U10/C8 and U11 are CLOSED / DIGITAL PASS. RC19 is digitally qualified and signed at frozen source `e0a8a2218accbe9c8eec413a40f4fedf7d9da9bc`, but physical acceptance is blocked by a real Prepare audio-quality incident. `RC20_COMPLETION_PLAN.md` is the active corrective authority; RC14 remains the previous physically tested fallback.
 
 ## Milestones
 - **M1 — Foundation:** CLOSED.
@@ -26,11 +26,11 @@ RC19 is **not physically accepted**. A target-device Prepare run for job `c3ba40
 
 U10/C8 and U11 are digitally closed. U12 remains open. RC19 is the latest digitally qualified/signed candidate but is physically rejected pending resolution of the Prepare audio-quality incident. RC14 remains the previous physically tested fallback; RC9–RC18 are retained as corrective/history evidence as applicable.
 
-F1/F2/F3 are complete and identify the `demucs.cpp`/GGML substitution as the audio root cause. Phase W in `U12_RC19_AUDIO_FORENSICS_AND_DIAGNOSTICS_PLAN.md` owns reconstruction on official PyTorch `htdemucs_6s`. The remaining order is: close finalist shadow quality/performance and owner listening → controlled production cutover with rollback target → close the primary search terminal-state defect → run relevant Android/U7/U4 qualification → sign the exact qualified RC20 unsigned artifact → perform final physical homologation on that exact signed APK → record identities and freeze. Studio reinsertion, consolidated diagnostics, journal/ZIP, extended observability and exhaustive matrices remain post-homologation backlog unless an observed blocker needs them. Any RC20 source candidate uses `0.5.0-rc20` / versionCode `40`.
+F1/F2/F3 are complete and identify the `demucs.cpp`/GGML substitution as the audio root cause. Phase W in `RC20_COMPLETION_PLAN.md` owns reconstruction on official PyTorch `htdemucs_6s`. The remaining order is: close finalist shadow quality/performance and owner listening → controlled production cutover with rollback target → close the primary search terminal-state defect → run relevant Android/U7/U4 qualification → sign the exact qualified RC20 unsigned artifact → perform final physical homologation on that exact signed APK → record identities and freeze. Studio reinsertion, consolidated diagnostics, journal/ZIP, extended observability and exhaustive matrices remain post-homologation backlog unless an observed blocker needs them. Any RC20 source candidate uses `0.5.0-rc20` / versionCode `40`.
 U12/RC20 Phase W has closed W1/W2. U7 #156 exposed the invalid cross-run numeric veto and U12bh corrected W3 to invariants plus independent quality. U7 #157 / run `36075604507` then passed backend/auth/supply-chain/runtime/U4 and corrected W3; the CPU8 Cloud Run benchmark itself completed and all downloaded bundle hashes passed, but W4 stopped on a wrapper validator bug comparing matrix alias `cpu8_s1_o05` with canonical engine strategy `pytorch-cpu-s1-o0.5-t8`. U12bi corrects only that validator contract. U7 #158 / run `36078452293` is the focused requalification. CPU4 remains optional. W5 owner listening on the exact finalist musical bundle remains mandatory before W6 production cutover.
 
 ## Approved post-H28 implementation path
-Detailed authority: `POST_H28_HARDENING_AND_EXTERNAL_CONTROL_PLAN.md`.
+Detailed authority: `history/POST_H28_HARDENING_AND_EXTERNAL_CONTROL_PLAN.md`.
 
 H29-H36c are DIGITAL PASS at CI #663. H34-H36c are part of the signed exact-source baseline.
 
@@ -112,7 +112,7 @@ Within the H29-H37/1.1 closure line, the approved added feature family is extern
 
 A separate successor program is now approved to absorb GBW Android into GuitarLab as one product with a unified project/asset model, Prepare → Studio zero-copy workflow, shared cloud separation, unified Drive backup, legacy migration, exhaustive digital hardening and a consolidated final physical campaign.
 
-Authoritative plan: `UNIFIED_GUITARLAB_GBW_IMPLEMENTATION_ROADMAP.md`.
+Authoritative plan: `history/UNIFIED_GUITARLAB_GBW_IMPLEMENTATION_ROADMAP.md`.
 
 Current successor status: U0-U8 are closed (U9 retired); U10/C8 and U11 are closed historical evidence; **U12 is active on the RC19→RC20 corrective line**. RC19 is the latest signed digital candidate but is physically rejected; RC20 is the only active successor target.
 

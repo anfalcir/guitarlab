@@ -371,7 +371,7 @@ The incident also exposed:
 - no persistent/exportable application audit trail suitable for correlating Android actions to Firebase/Cloud Run evidence.
 
 The authoritative corrective/investigation plan is:
-`U12_RC19_AUDIO_FORENSICS_AND_DIAGNOSTICS_PLAN.md`.
+`RC20_COMPLETION_PLAN.md`.
 
 Until that plan reaches its forensic decision point:
 - do not alter the separation algorithm speculatively;
@@ -382,4 +382,3 @@ Until that plan reaches its forensic decision point:
 Any source fix after RC19 freeze must use a new candidate identity. The planned successor is `0.5.0-rc20` / versionCode `40` after the forensic/root-cause and quality gates close.
 
 Existing U12 evidence remains reusable only where the corrective cannot materially affect it. Prepare audio quality, reference reinsertion, diagnostics/observability and adjacent Studio handoff must be repeated on the successor candidate.
-

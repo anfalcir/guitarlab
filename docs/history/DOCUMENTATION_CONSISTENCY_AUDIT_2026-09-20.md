@@ -14,7 +14,7 @@ Audited the complete Markdown documentation inventory on `main`: **88 Markdown f
 
 ## Inconsistencies corrected
 1. `ARCHITECTURE.md` still identified CI #639/H23b/H24 PRE-GATE as current; it now reflects #659/H35a and the global-vs-take synchronization architecture.
-2. `H28_BACKUP_IDENTITY_CONSISTENCY.md` still marked H28 PRE-GATE; it now records H28 DIGITAL PASS, accepted target defect and protected-regression status.
+2. `BACKUP_IDENTITY_CONTRACT.md` still marked H28 PRE-GATE; it now records H28 DIGITAL PASS, accepted target defect and protected-regression status.
 3. `H26_SAF_CLOUD_BACKUP.md` still said a fresh H28 workflow was required; its supersession boundary now records the completed H28/#659 state.
 4. `POST_H28_HARDENING_AND_EXTERNAL_CONTROL_PLAN.md` still identified #657 and H34/H35 PRE-GATE; it now records #659/H35a DIGITAL PASS and physical-only residual.
 5. `PRODUCT_REQUIREMENTS.md` still described the older residual fine-adjustment model and H23b/H24 regression boundary; it now defines global future-recording adjustment, take-specific synchronization, silent verification and H35a regression scope.

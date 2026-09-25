@@ -19,12 +19,13 @@ For current work, use this small authority set:
 3. `docs/DECISIONS.md`
 4. `docs/PRODUCT_REQUIREMENTS.md`
 5. `docs/IMPLEMENTATION_ROADMAP.md`
-6. `docs/U12_RC19_AUDIO_FORENSICS_AND_DIAGNOSTICS_PLAN.md`
-7. `docs/TEST_AND_HOMOLOGATION_PLAN.md`
-8. `docs/CANDIDATE_IDENTITY_POLICY.md`
-9. `docs/DOCUMENTATION_MAP.md`
+6. `docs/RC20_COMPLETION_PLAN.md`
+7. `docs/RC20_PHYSICAL_HOMOLOGATION.md`
+8. `docs/TEST_AND_HOMOLOGATION_PLAN.md`
+9. `docs/CANDIDATE_IDENTITY_POLICY.md`
+10. `docs/DOCUMENTATION_MAP.md`
 
-Older U/H/M milestone files, release notes and audits remain evidence but are not current authority unless a live document explicitly reactivates a specific contract.
+Older U/H/M milestone files, release notes and audits are isolated under `docs/history/`. They remain evidence but are not current authority unless a live document explicitly reactivates a specific invariant.
 
 ## Current release line
 

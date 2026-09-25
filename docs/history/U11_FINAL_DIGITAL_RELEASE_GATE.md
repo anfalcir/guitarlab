@@ -46,7 +46,7 @@ Until U11 closes:
 
 ## Pre-freeze audit
 
-`docs/U11_SECURITY_DOCUMENTATION_AUDIT.md`: **PASS**.
+`docs/history/U11_SECURITY_DOCUMENTATION_AUDIT.md`: **PASS**.
 
 Candidate identity, live-document consistency, U10zb materialization ready-state, credential hygiene, Drive `drive.file` scope and tuner exclusion were verified before this trigger.
 

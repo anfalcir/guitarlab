@@ -82,6 +82,6 @@ U12 must validate the exact signed APK on:
 
 The physical campaign is limited to real routing/capture/isolation, monitoring, live waveform behavior, timing/listening, USB disconnect/reconnect, one continuous 10-minute session, real Prepare flow, real Drive user workflow and tablet ergonomics.
 
-Canonical checklist: `docs/U12_FINAL_PHYSICAL_HOMOLOGATION.md`.
+Canonical checklist: `docs/RC20_PHYSICAL_HOMOLOGATION.md`.
 
 Any source/build-identity change after this candidate requires a new U11 candidate and fresh affected gates.

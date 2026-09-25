@@ -6,7 +6,7 @@ Updated: 2026-09-24
 - Stable product identity is governed by `PROJECT_IDENTITY.md` and D-090: private single-owner appliance, proportional gates, exact signed APK + digest-pinned worker freeze after physical acceptance, and maintenance only for a real trigger.
 - Product-scope override (2026-09-21): legacy project/backup migration is retired. The owner has only two legacy projects and accepts recreating them manually. U9 is retired; U8/U10/U11 no longer carry H37/GBW/pre-unification migration obligations. Current unified-line save/reopen, schema evolution, backup/restore and integrity guarantees remain mandatory.
 - U0 baseline/inventory is **PASS** at repository HEAD `dc3cb95093110270c494804aa03ef625dc3ceef2` with GBW reference HEAD `4724b030eabe289a5c2645e379181c0f9602d25d`.
-- Evidence: `U0_BASELINE_INVENTORY.md` plus the machine-readable `integration/u0/inventory.json` and hash-locked synthetic fixtures.
+- Evidence: `history/U0_BASELINE_INVENTORY.md` plus the machine-readable `integration/u0/inventory.json` and hash-locked synthetic fixtures.
 - CI #669 supersedes the earlier H37 corrective sequence and is the latest signed DIGITAL PASS for the exact U1 source.
 - U1 unified project/asset domain is **DIGITAL PASS** on canonical CI #669 at exact source `14b69271f2ae04529fa14475e1a34f2fdd864553`: unit, Lint, build, API 36 regression and signed-candidate identity all passed.
 - Canonical CI #667 reached Kotlin compilation and exposed three U1 source errors: a non-`Nothing` unsupported-schema branch and two cross-module nullable smart casts. U1a corrects those compile boundaries without changing the domain contract.
@@ -27,12 +27,12 @@ Updated: 2026-09-24
 - C2 unified project shell/navigation is **CLOSED / DIGITAL PASS** on Android CI #713 / run `35660979142` at exact source `66cedad38875d6f7284180ef46d25d4e9049d287`. Prepare, Studio and Export share one adaptive `ProjectShellScaffold`; the bespoke Studio project top bar is removed; Studio transport remains directly beneath the shared shell; saveable workspace state is preserved across workspace switches; Home reopens the last/relevant project workspace; project-scoped Settings returns to its exact originating workspace across Activity recreation; and missing-project routes fall back safely to Home.
 - C3 new-project/project-lifecycle coherence is **CLOSED / DIGITAL PASS** on Android CI #720 / run `35669035762` at exact source `f730e08cc242ed590c333727cde4c96883f7df07`. New Project exposes Search song / Import audio / Start in Studio as explicit intents; Search/Import create the guitar-study model without a template chooser, Studio-only creation retains Guitar/Blank templates, and the selected intent/name/template survive Activity recreation. Source replacement publishes only a validated new source, resets active Prepare-derived pointers without deleting protected prior media or Studio creative state, duplicate normalizes transient preparation ownership, rename preserves immutable project identity, and delete closes source/separation/background ownership before repository removal with explicit user-facing cancellation consequences.
 - C4 progressive Prepare journey is **CLOSED / DIGITAL PASS** on Android CI #723 / run `35673758282` at exact source `0d7b05d0192cc415d328e415c517b3cad40dc209`. Source, separation, automatic reference preparation and Studio readiness form one progressive journey; accepted acquisition controls collapse behind “Trocar fonte”; accessible ranking retains its numeric score; raw job/asset details stay in diagnostics; six validated stems automatically start deterministic references; lifecycle-aware durable observation replaces Compose polling; and all five API 36 groups passed after the guide assertion was made viewport-independent.
-- Product-cohesion audit `docs/UNIFIED_PRODUCT_COHESION_AUDIT.md` is **CLOSED / DIGITAL PASS through C8**. Android CI #781 / run `35791192802` on exact technical source `2aa97aa8b2c3af91d35e7d48a0eeb89c2c330e63` proved the terminal U10/C8 gate with 23/23 instrumented classes, 76 observed API 36 tests and 24/24 retained cohesion screenshots; the post-hardening visual review passed without ANR/system-overlay contamination. Full evidence: `docs/U10_FINAL_DIGITAL_COHESION_GATE.md`.
+- Product-cohesion audit `docs/history/UNIFIED_PRODUCT_COHESION_AUDIT.md` is **CLOSED / DIGITAL PASS through C8**. Android CI #781 / run `35791192802` on exact technical source `2aa97aa8b2c3af91d35e7d48a0eeb89c2c330e63` proved the terminal U10/C8 gate with 23/23 instrumented classes, 76 observed API 36 tests and 24/24 retained cohesion screenshots; the post-hardening visual review passed without ANR/system-overlay contamination. Full evidence: `docs/history/U10_FINAL_DIGITAL_COHESION_GATE.md`.
 
 ## Active line
 - Repository/branch: `anfalcir/guitarlab` / `main`.
 - Release profile: private single-owner personal use. RC20 gates are proportional to credible impact on data/media integrity, musical quality, primary acquisition, quota/cost, credentials, recovery and signing. After acceptance, the signed APK and digest-pinned worker are frozen; optional diagnostics/matrices and scanner-database churn do not trigger maintenance by themselves (D-090).
-- **RC19 is DIGITAL PASS / SIGNED but PHYSICAL ACCEPTANCE BLOCKED by a release-blocking Prepare audio-quality incident.** The authoritative incident/investigation plan is `U12_RC19_AUDIO_FORENSICS_AND_DIAGNOSTICS_PLAN.md`. No separation-algorithm correction is authorized before read-only job forensics and local audio forensics identify the failing boundary.
+- **RC19 is DIGITAL PASS / SIGNED but PHYSICAL ACCEPTANCE BLOCKED by a release-blocking Prepare audio-quality incident.** The authoritative incident/investigation plan is `RC20_COMPLETION_PLAN.md`. No separation-algorithm correction is authorized before read-only job forensics and local audio forensics identify the failing boundary.
 - RC19 target identity: `0.5.0-rc19` / versionCode `39` / `studio.guitarlab.app`. Scope: authoritative same-generation discovery/adoption, explicit effective remote job identity, typed active-job conflict vs monthly quota, safe cleanup of unregistered rejected uploads, process/reboot recovery probe and U4 real-cloud recovery/idempotency proof.
 - Current source-materialization tail is **U12bi** via `scripts/materialize_ci_sources_u12bi.py`. RC19's U12an recovery chain remains historical evidence inside that protected chain; U12bh makes stochastic Demucs deltas diagnostic, and U12bi corrects only the W4 matrix-alias versus canonical-engine-strategy validator contract.
 - RC19 branch preflight: U7 Cloud Backend #121 / run `36014205313` PASS on exact branch source before this documentation-only CI trigger; Functions/worker tests, schemas/scripts/secret hygiene and non-publishing worker-container build passed. This is pre-merge evidence only, not final main authority.
@@ -45,7 +45,7 @@ Updated: 2026-09-24
 - RC19 candidate freeze: production qualification is green and no further source/backend mutation is authorized before physical homologation evidence. The following docs-only commit triggers the final signed Android gate for `0.5.0-rc19` / versionCode `39`.
 - RC19 signed homologation candidate: Android CI #852 / run `36026458960` PASS on frozen source `e0a8a2218accbe9c8eec413a40f4fedf7d9da9bc`; unit tests, Lint, release build, API 36 instrumented regression and signing all passed. Signed artifact `GuitarLabStudio-0.5.0-rc19-homologacao`, artifact id `10820021943`; package `studio.guitarlab.app`; versionCode `39`; signer SHA-256 `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`; signed APK SHA-256 `20c6a49efa69828653862c29c7907cd734bd2e3f62235295cd53b7f7c571c50b`. Physical homologation remains pending and must install over RC18 without clearing app data to exercise preserved remote-job recovery.
 - RC19 post-cutover independent U4 qualification: U4 Cloud Integration Smoke #160 / run `36026359099` PASS on `5be450f514f19d37d9c9e8ebe7902bbdf478eb49`; prepared-reference v2 manifest/integrity PASS; same-generation COMPLETED adoption PASS with quota unchanged, no second Cloud Run execution and retry upload cleanup; production execution `gbw-demucs-mb8ww` PASS with source cleanup, ACK, Firestore IMPORTED/PURGED and whole-prefix purge idempotency. The freeze-triggered U4 #161 was correctly skipped.
-- RC19 physical incident root cause (2026-09-24): F1 proved fresh Cloud Run execution `gbw-demucs-gbrt9` on immutable image `sha256:a70bd221ab50ef092508781c609cbfbecfe6b71ba4c8a722fc5f087b09dbd550`; F2 reproduced unusable output with a second song; F3 retained canonical input and all six stems. The canonical source is good, while every `demucs.cpp`/GGML stem is musically unusable, acquires systematic negative DC and concentrates most content incorrectly in `other`. A per-stem 10 Hz DC blocker removed the offset but did not repair separation by listening. Android publication, Firebase transport and the v2 renderer are not the originating defect. The consolidated GBW Linux reference proves its known-good Demucs path uses the official PyTorch `htdemucs_6s` CLI (`float32`, clip none, shifts 1, overlap 0.5), not `demucs.cpp`. Phase W in `U12_RC19_AUDIO_FORENSICS_AND_DIAGNOSTICS_PLAN.md` now owns worker reconstruction. Performance tiers are <=5 min optimal, >5–15 min acceptable and >15 min alert/review; musical quality and owner listening remain mandatory regardless of speed.
+- RC19 physical incident root cause (2026-09-24): F1 proved fresh Cloud Run execution `gbw-demucs-gbrt9` on immutable image `sha256:a70bd221ab50ef092508781c609cbfbecfe6b71ba4c8a722fc5f087b09dbd550`; F2 reproduced unusable output with a second song; F3 retained canonical input and all six stems. The canonical source is good, while every `demucs.cpp`/GGML stem is musically unusable, acquires systematic negative DC and concentrates most content incorrectly in `other`. A per-stem 10 Hz DC blocker removed the offset but did not repair separation by listening. Android publication, Firebase transport and the v2 renderer are not the originating defect. The consolidated GBW Linux reference proves its known-good Demucs path uses the official PyTorch `htdemucs_6s` CLI (`float32`, clip none, shifts 1, overlap 0.5), not `demucs.cpp`. Phase W in `RC20_COMPLETION_PLAN.md` now owns worker reconstruction. Performance tiers are <=5 min optimal, >5–15 min acceptable and >15 min alert/review; musical quality and owner listening remain mandatory regardless of speed.
 
 - U12/RC20 Phase W0 baseline capture (2026-09-24): worker reconstruction starts from official Demucs/PyTorch, not `demucs.cpp`. The GBW v5.23 archive was inspected without persistent extraction and confirms `htdemucs_6s --float32 --clip-mode none --shifts 1 --overlap 0.5 -d <cpu|cuda>`. The official checkpoint is `5c90dfd2-34c22ccb.th`, 54,996,327 bytes, SHA-256 `34c22ccb381c6f9fdbf324f04e1e2fe21aaaf293f5ded163a162697ff9a02ddd`. The current committed ZIP hashes to `f56eee55c71a88083bbfb2651fc65df2b9986aafc9bb217b24b6140f1c421ea6`, differing from the handoff-declared `ca4e0b1b...`; the archive remains untouched and the discrepancy is tracked explicitly. W0 is not yet declared closed until fixture/adapter validation is committed.
 - U12/RC20 worker reconstruction status (2026-09-24): W1/W2 are closed. U7 #156 established that sample-level cross-run closeness is not a valid veto for stochastic `--shifts 1`; U12bh keeps contract/structure/finiteness/independent quality blocking. U7 #157 / run `36075604507` then passed backend/auth/supply-chain/runtime/U4 and the corrected W3, and its CPU8 Cloud Run benchmark execution plus all bundle SHA256SUMS completed successfully. It failed only in the local W4 validator because the matrix alias `cpu8_s1_o05` was compared to the canonical engine strategy `pytorch-cpu-s1-o0.5-t8`. U12bi corrects that exact contract without changing the worker/audio recipe. U7 #158 / run `36078452293` is the focused shadow requalification on U12bi. W5 owner musical listening remains blocked until W4 closes. CPU4 remains optional. Production remains on pre-RC20 digest `a70bd221…`; no cutover is authorized yet.
@@ -56,7 +56,7 @@ Updated: 2026-09-24
 - RC18 exact-source digital evidence: Android CI signed run `35990311091` PASS; U7 verify run `35990311054` PASS; isolated shadow run `35991484767` PASS; controlled production deploy run `35992709966` PASS; U4 production smoke run `35994148711` PASS.
 - RC14 is the latest physically tested fallback at producer `13c6f36e5e3c2bcf82cf21f885e8d7aa6c41ed34`: Android CI run `35937621047` passed unit, Lint, build, API 36 and signing. Its cloud-identical predecessor `9b4ee9f` passed U4 `35935229248` and U7 `35935229232`.
 - RC13 signed artifact: `GuitarLabStudio-0.5.0-rc13-homologacao` / artifact id `10779803277`.
-- RC14 release notes and physical checklist: `RELEASE_NOTES_0.5.0-rc14.md`, `RC14_FINAL_PHYSICAL_HOMOLOGATION.md`.
+- RC14 release notes and physical checklist: `history/RELEASE_NOTES_0.5.0-rc14.md`, `history/RC14_FINAL_PHYSICAL_HOMOLOGATION.md`.
 - First RC14 qualification at `9b4ee9f`: software gate PASS, U4 `35935229248` PASS and U7 `35935229232` PASS; its only API 36 failure was a superseded test target. The test-only correction was subsequently sealed by signed Android run `35937621047` on `13c6f36`.
 - RC14 physical evidence then exposed two v2 integration defects: Storage rules omitted `output/prepared/*`, corrected by production ruleset `525c392a-2aeb-48f3-8685-e55f13c9d528`; and Android rejected valid extensible float32 WAV at `WavStructure.read`, corrected in RC15. Job `66464e42-937f-4d78-a5bd-dabc7c9687f9` remains the direct resume-import acceptance fixture.
 - RC15 physical homologation exposed missing signal-level acceptance and stale binding/empty-clip recovery. RC16 added the corresponding safeguards, but U7 shadow run `35984546104` failed closed with `OUTPUT_INVALID: non-finite sample in stem reconstruction`. A same-input/model A/B reproduction measured 154,350 non-finite samples in every `mt4_omp2` stem and zero in every `single8` stem. RC17 removed the defective binary, but isolated shadow run `35988775722` then failed on `stem reconstruction quality is unsafe: -1.875 dB SNR`; Cloud Run logs proved the sequential output was finite and the failure was the SNR-by-sum acceptance rule, not Demucs corruption. RC18 keeps that score as diagnostic and leaves hard publication gates on objective format, finiteness, duration, peak and prepared-reference checks; its isolated shadow, production deploy and U4 production smoke all passed.
@@ -90,7 +90,7 @@ Updated: 2026-09-24
 - signed APK size: `79,965,840` bytes;
 - artifact ZIP SHA-256: `9f9ad8e16222c4eac1d8dcc27d7946e75e54be6a9a9bfcd243beb0284e14e7b2`;
 - signer SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`;
-- final target-device acceptance remains pending under `docs/U12_FINAL_PHYSICAL_HOMOLOGATION.md`.
+- final target-device acceptance remains pending under `docs/RC20_PHYSICAL_HOMOLOGATION.md`.
 
 ## U12 rc9 historical corrective evidence
 - exact producer: `635124acfbf133553a96c8b2013f2245f58a6877`;
@@ -104,7 +104,7 @@ Updated: 2026-09-24
 - signed APK SHA-256: `4fcf529b935a584217b3b882ca8dfa05e3c360f99cfe9d70071080175439dd6c`;
 - signed APK size: `79,945,360` bytes;
 - signer SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`;
-- final target-device acceptance remains pending under `docs/U12_FINAL_PHYSICAL_HOMOLOGATION.md`.
+- final target-device acceptance remains pending under `docs/RC20_PHYSICAL_HOMOLOGATION.md`.
 
 ## U12 rc8 historical corrective evidence
 - exact producer: `68ddfd98ad61bd32f412872ab0332a7f6e97b60e`;
@@ -120,7 +120,7 @@ Updated: 2026-09-24
 - signed APK SHA-256: `142b892b375d495df90030806843e66a2f884a0e1023aefad183d9fe46304e44`;
 - signed APK size: `79,937,168` bytes;
 - signer SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`;
-- final physical acceptance remains pending under `docs/U12_FINAL_PHYSICAL_HOMOLOGATION.md`.
+- final physical acceptance remains pending under `docs/RC20_PHYSICAL_HOMOLOGATION.md`.
 
 ## U12 rc6 replacement-candidate evidence
 - exact producer: `d0926e9dbd231b6d91c19448279fe8749d182ba1`;
@@ -132,7 +132,7 @@ Updated: 2026-09-24
 - signed APK SHA-256: `4bc76565c74366d89df23db2e6410e77976a1cc827a79486ceec629fd16112b6`;
 - signed APK size: `82,894,480` bytes;
 - signer SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`;
-- physical acceptance remains pending under `docs/U12_FINAL_PHYSICAL_HOMOLOGATION.md`.
+- physical acceptance remains pending under `docs/RC20_PHYSICAL_HOMOLOGATION.md`.
 
 ## U11 closure evidence
 - exact frozen producer: `4218e4343746932a4de61c5abaa29ba5769a30ed`;
@@ -147,8 +147,8 @@ Updated: 2026-09-24
 - unsigned APK SHA-256: `6af047a1f40b0e08382a5cca74890bc186aad68a3207a14e20a87cde5df9bc2c`;
 - signed APK SHA-256: `795839766f2b7546af53b2c56a0638b11c25b79622fe73cce5860b5602f050e0`;
 - signer SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`;
-- detailed evidence: `docs/U11_FINAL_DIGITAL_RELEASE_GATE.md`;
-- physical campaign: `docs/U12_FINAL_PHYSICAL_HOMOLOGATION.md`.
+- detailed evidence: `docs/history/U11_FINAL_DIGITAL_RELEASE_GATE.md`;
+- physical campaign: `docs/RC20_PHYSICAL_HOMOLOGATION.md`.
 
 ## U10 / C8 closure evidence
 - exact technical source: `2aa97aa8b2c3af91d35e7d48a0eeb89c2c330e63`;
@@ -161,7 +161,7 @@ Updated: 2026-09-24
 - Android integration artifact digest: `sha256:1c355f88bef4e20393a5c26c39fb4db94da8383089023724988af55953f509e3`;
 - exact-source artifact digest: `sha256:e17472db3fc95fe2ae2e49c56571f06f72a0465c4fbbeecb0ad14e7c0d02210f`;
 - signed homologation: intentionally skipped; U11 owns the next signing event;
-- detailed evidence: `docs/U10_FINAL_DIGITAL_COHESION_GATE.md`.
+- detailed evidence: `docs/history/U10_FINAL_DIGITAL_COHESION_GATE.md`.
 
 ## U8m / U8 closure evidence
 - exact technical source: `2375dcb72983376cb486eccf41faf1734633cc94`;
@@ -183,7 +183,7 @@ Canonical U5 source: `4bada624e68f8a55ff22830e1dc276c8d51af223`.
 - prepared references are project-managed and Studio consumes them without user-visible copy/reimport;
 - new preparations do not silently replace existing Studio bindings;
 - save/reopen, Undo/Redo, recording preservation and master-render-after-rebind are regression-covered;
-- detailed gate evidence: `docs/U5_PREPARED_REFERENCE_GATE.md`.
+- detailed gate evidence: `docs/history/U5_PREPARED_REFERENCE_GATE.md`.
 
 ## #663 digital evidence
 All three canonical jobs passed on the exact producer SHA:
@@ -293,7 +293,7 @@ The remaining release-critical target-only item is **recording latency/synchroni
 Final stable promotion now has two independent boundaries: the existing RC3 hardware residual still requires no repeatable P0/P1 and explicit approval of an exact signed candidate; H37b additionally requires its manual exact-source digital gate plus first real OAuth/Drive backup/restore acceptance before RC4 can supersede RC3.
 
 ## Approved next-development scope
-The authoritative plan is `POST_H28_HARDENING_AND_EXTERNAL_CONTROL_PLAN.md`.
+The authoritative plan is `history/POST_H28_HARDENING_AND_EXTERNAL_CONTROL_PLAN.md`.
 
 Before stable 1.0.0, the #663 baseline is digitally closed; only the remaining hardware-only H29/H30/H32/H35 residual must now be physically closed:
 - recording synchronization/session-health hardening;
@@ -305,9 +305,9 @@ Before stable 1.0.0, the #663 baseline is digitally closed; only the remaining h
 - H28 backup/restore regression hardening;
 - final UX/accessibility polish.
 
-Within the H29-H37/1.1 closure line, external MIDI/footswitch control remains the only added feature family; the exclusions in `POST_H28_HARDENING_AND_EXTERNAL_CONTROL_PLAN.md` continue to protect that line from scope creep.
+Within the H29-H37/1.1 closure line, external MIDI/footswitch control remains the only added feature family; the exclusions in `history/POST_H28_HARDENING_AND_EXTERNAL_CONTROL_PLAN.md` continue to protect that line from scope creep.
 
-A later product decision now approves a **separate successor program** that unifies GBW Android into GuitarLab. Its authoritative plan is `UNIFIED_GUITARLAB_GBW_IMPLEMENTATION_ROADMAP.md`. The unified program does not retroactively change H29-H37 evidence or current release identity. It is designed to carry the still-unproven hardware residual into one consolidated final unified-candidate physical campaign whenever technically possible, while maximizing digital validation before that campaign.
+A later product decision now approves a **separate successor program** that unifies GBW Android into GuitarLab. Its authoritative plan is `history/UNIFIED_GUITARLAB_GBW_IMPLEMENTATION_ROADMAP.md`. The unified program does not retroactively change H29-H37 evidence or current release identity. It is designed to carry the still-unproven hardware residual into one consolidated final unified-candidate physical campaign whenever technically possible, while maximizing digital validation before that campaign.
 
 
 ## U3 source acquisition — DIGITAL PASS

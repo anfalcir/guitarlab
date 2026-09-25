@@ -27,7 +27,7 @@ Home project-library requirements:
 - Search/filter/sort is non-destructive and MUST NOT mutate project content or package schema.
 
 ## Unified Prepare workflow
-The approved successor product direction is governed by `UNIFIED_GUITARLAB_GBW_IMPLEMENTATION_ROADMAP.md`.
+The approved successor product direction is governed by `history/UNIFIED_GUITARLAB_GBW_IMPLEMENTATION_ROADMAP.md`.
 
 - One immutable projectId spans source acquisition, separation, prepared assets, Studio, exports and backup.
 - A project may remain Studio-only; Prepare is optional and must not block Blank projects.

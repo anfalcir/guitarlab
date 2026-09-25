@@ -1,0 +1,1 @@
+Alpha05 build trigger note: the signed consolidation candidate is intentionally version-bumped only after the M4 trim/playback software checkpoint passed CI. The signed CI job must verify the existing homologation certificate fingerprint and publish hashes/build identity. Physical homologation remains separate.
