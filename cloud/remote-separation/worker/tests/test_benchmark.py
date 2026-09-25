@@ -38,15 +38,28 @@ class BenchmarkContractTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             benchmark.strategy("single8")
 
-    def test_w4_bundle_prefix_is_fail_closed(self):
+    def test_rc20_bundle_prefix_is_fail_closed(self):
+        self.assertIsNone(benchmark.validate_bundle_prefix(None))
         self.assertEqual(
             benchmark.validate_bundle_prefix("diagnostics/u12-rc20/w4/run-1"),
             "diagnostics/u12-rc20/w4/run-1",
         )
-        with self.assertRaises(ValueError):
-            benchmark.validate_bundle_prefix("remote/v1/users/u/jobs/job")
-        with self.assertRaises(ValueError):
-            benchmark.validate_bundle_prefix("diagnostics/u12-rc20/w4/../escape")
+        self.assertEqual(
+            benchmark.validate_bundle_prefix("diagnostics/u12-rc20/w5/run-1/bundle"),
+            "diagnostics/u12-rc20/w5/run-1/bundle",
+        )
+        for invalid in (
+            "",
+            "/diagnostics/u12-rc20/w5/run-1",
+            "diagnostics/u12-rc20/w5/run-1/",
+            "diagnostics/u12-rc20//w5/run-1",
+            "diagnostics/u12-rc20/w5/../escape",
+            "diagnostics/u12-rc20/w6/run-1",
+            "remote/v1/users/u/jobs/job",
+        ):
+            with self.subTest(prefix=invalid):
+                with self.assertRaises(ValueError):
+                    benchmark.validate_bundle_prefix(invalid)
 
 
 if __name__ == "__main__":
