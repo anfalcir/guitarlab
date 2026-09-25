@@ -18,6 +18,9 @@ object ActivityCancellationRegistry {
         cancellers[operationId] = {
             job.cancel(CancellationException("Cancelled from Activity"))
         }
+        job.invokeOnCompletion {
+            cancellers.remove(operationId)
+        }
     }
 
     fun unregister(operationId: String) {
