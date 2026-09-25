@@ -110,3 +110,5 @@ Run IDs and current status belong in `CURRENT_STATE.md`, not here.
 ## Post-freeze
 
 The frozen APK/worker does not require recurring CI. Run this pipeline again only after a real maintenance trigger or owner-requested feature, selecting gates by affected path under `TEST_AND_HOMOLOGATION_PLAN.md`.
+
+- U12bq materialization note: the POSIX API36 workflow change is represented by a regenerated exact Git patch with blob-hash verification; malformed source-parts are expected to fail before Gradle/emulator execution.
