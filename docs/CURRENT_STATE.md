@@ -56,6 +56,8 @@ Updated: 2026-09-24
 
 - U12bv corrective qualification dispatched. If software gate + API36 pass, proceed directly to signed homologation on the exact qualified source; no freeze yet.
 
+- CI #896 was blocked before build by a syntactically corrupt hand-written U12bv source-part. The patch was regenerated from the exact GitHub compare diff and its blob hash realigned; app/test semantics are unchanged. Requalification dispatched on the repaired materializer.
+
 ## Unified program progress
 - Stable product identity is governed by `PROJECT_IDENTITY.md` and D-090: private single-owner appliance, proportional gates, exact signed APK + digest-pinned worker freeze after physical acceptance, and maintenance only for a real trigger.
 - Product-scope override (2026-09-21): legacy project/backup migration is retired. The owner has only two legacy projects and accepts recreating them manually. U9 is retired; U8/U10/U11 no longer carry H37/GBW/pre-unification migration obligations. Current unified-line save/reopen, schema evolution, backup/restore and integrity guarantees remain mandatory.
