@@ -7,7 +7,7 @@ This document describes current execution controls. Historical tail hashes, run 
 ## Source materialization
 
 - canonical entrypoint: `scripts/materialize_ci_sources.sh`;
-- current tail: U12bx via `scripts/materialize_ci_sources_u12bx.py`;
+- current tail: RC21 maintenance via `scripts/materialize_ci_sources_rc21.py`;
 - protected deltas: `.source-parts/`;
 - required properties: deterministic, hash/blob locked, idempotent, semantic guards, reverse-apply validation and fail-closed drift handling.
 
@@ -26,6 +26,8 @@ Ordinary commits use `[skip ci]` unless qualification is intentionally requested
 - production mutation requires the explicit production confirmation marker defined by the workflow.
 
 Manual `workflow_dispatch` remains available where configured. `main` is canonical.
+
+A temporary maintenance branch may be admitted to the push filter only long enough to qualify work before integration. Such an exception is not part of the release architecture and must be removed before merging to `main`. The signed candidate is produced from canonical `main`, not from the temporary branch.
 
 ## Android pipeline
 
@@ -109,6 +111,8 @@ Run IDs and current status belong in `CURRENT_STATE.md`, not here.
 
 ## Post-freeze
 
-The accepted baseline is recorded in `RELEASE_BASELINE.md`. The frozen APK/worker does not require recurring CI. Run qualification again only after a real maintenance trigger or owner-requested feature, selecting gates by affected path under `TEST_AND_HOMOLOGATION_POLICY.md`.
+The accepted baseline is recorded in `RELEASE_BASELINE.md`. RC20 remains accepted while RC21 is an unpromoted maintenance candidate. The frozen accepted APK/worker does not require recurring CI. Run qualification again only after a real maintenance trigger or owner-requested feature, selecting gates by affected path under `TEST_AND_HOMOLOGATION_POLICY.md`.
 
-The current source materialization tail is U12bx. Its AudioTimestamp-based playback-presentation clock is part of the accepted RC20 Android baseline; recording latency compensation is unchanged. Any future source change adds a new fail-closed materialization step rather than rewriting an old protected payload.
+The accepted RC20 runtime remains represented by the historical U12bx tail. The active RC21 maintenance source adds `scripts/materialize_ci_sources_rc21.py` as the current terminal materialization stage without rewriting old payloads. RC21 includes the legacy recording/stereo-integrity, transient-feedback and Drive catalog/cache changes documented in `CURRENT_STATE.md`.
+
+The RC21 unsigned qualification authority is Android CI **#910 / run 36195905242** on source `ad182678cb2704dc9bbfc622124b4f2ac121fea1`: Unit/Lint/APK build PASS and API 36 regression PASS. Signing is intentionally deferred until after canonical-main integration and temporary-branch removal.
