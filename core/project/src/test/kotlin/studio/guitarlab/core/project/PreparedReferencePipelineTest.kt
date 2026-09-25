@@ -146,15 +146,25 @@ class PreparedReferencePipelineTest {
                     clip.sourceUri == "guitarlab://asset/${binding.assetId}"
             }
         }
+        val recordedTrack = prepared.tracks.first { it.roleId == BuiltInRoles.RECORDED_GUITAR_L }
         val unrelated = AudioClip(
-            id = "user-backing-extra",
-            trackId = backingBinding.trackId,
+            id = "user-recording-extra",
+            trackId = recordedTrack.id,
             name = "Áudio do usuário",
             sourceUri = "managed://user-audio",
             startFrame = 20,
             sourceStartFrame = 2,
             lengthFrames = 6,
             gainDb = -2f,
+        )
+        val replacementOnBackingLane = AudioClip(
+            id = "wrong-backing",
+            trackId = backingBinding.trackId,
+            name = "Backing alterado",
+            sourceUri = "managed://wrong-backing",
+            startFrame = 3,
+            sourceStartFrame = 1,
+            lengthFrames = 8,
         )
         val marker = TimelineMarker("restore-marker", "Entrada", 4)
         val section = TimelineSection("restore-section", "Parte", 2, 18)
@@ -173,7 +183,7 @@ class PreparedReferencePipelineTest {
                     fadeInFrames = 2,
                     fadeOutFrames = 2,
                 ) else it
-            } + unrelated,
+            } + unrelated + replacementOnBackingLane,
             markers = listOf(marker),
             sections = listOf(section),
             masterGainDb = -3f,
@@ -198,6 +208,8 @@ class PreparedReferencePipelineTest {
         assertEquals(0L, restoredBacking.fadeInFrames)
         assertEquals(0L, restoredBacking.fadeOutFrames)
         assertTrue(restored.clips.contains(unrelated))
+        assertFalse(restored.clips.any { it.id == replacementOnBackingLane.id })
+        assertEquals(1, restored.clips.count { it.trackId == backingBinding.trackId })
         assertEquals(guitarClipsBefore, restored.clips.filter { it.id in guitarClipsBefore.map { clip -> clip.id } })
         assertEquals(tracks, restored.tracks)
         assertEquals(listOf(marker), restored.markers)
