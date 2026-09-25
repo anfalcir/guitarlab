@@ -1111,3 +1111,12 @@ The personal-use RC20 release line closes when all of the following are true:
 - normal Prepare → Studio → save/reopen use has no release-blocking defect.
 
 After the signed RC20 backend/primary-flow homologation, spelling suggestions and extended cloud observability may remain follow-up scope. However, the owner-requested completion features — reference reinsertion, Prepare diagnostics cleanup, consolidated Diagnostics, persistent journal and diagnostic ZIP — remain planned work and must be completed before the final product freeze unless the owner explicitly removes them.
+
+
+### W6 promotion identity update — 2026-09-24/25
+
+- U7 #164 / run `36085821470`: PASS;
+- qualified worker: `us-central1-docker.pkg.dev/gbwapp-ef048/gbw/remote-worker@sha256:14e240cb01b71131cb049dd34e0df078614238da3514325f80126d56f8d5e698`;
+- rollback target before cutover: production digest `sha256:a70bd221ab50ef092508781c609cbfbecfe6b71ba4c8a722fc5f087b09dbd550`;
+- D-092 waives W5;
+- D-095 requires W6 to promote the exact qualified digest with no rebuild, followed by runtime-contract verification and full U4 transactional smoke with automatic rollback on failure.
