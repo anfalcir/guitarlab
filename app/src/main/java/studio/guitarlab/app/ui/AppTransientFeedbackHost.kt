@@ -41,7 +41,6 @@ fun AppTransientFeedbackHost(
         val raw = message ?: return@LaunchedEffect
         val safe = AppTransientFeedbackPolicy.userSafe(raw, fallback)
         val shouldShow = AppTransientFeedbackPolicy.shouldShowSnackbar(kind)
-        onConsumed()
         if (shouldShow) {
             presentationJob?.cancel()
             presentationJob = scope.launch {
@@ -49,6 +48,8 @@ fun AppTransientFeedbackHost(
                 hostState.showSnackbar(safe, duration = SnackbarDuration.Short)
             }
         }
+        // Clear producer state immediately; do not wait for Snackbar duration/navigation.
+        onConsumed()
     }
 
     SnackbarHost(
