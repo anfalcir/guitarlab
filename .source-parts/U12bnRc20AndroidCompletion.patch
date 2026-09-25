@@ -1,0 +1,1810 @@
+diff --git a/app/build.gradle.kts b/app/build.gradle.kts
+--- a/app/build.gradle.kts
++++ b/app/build.gradle.kts
+@@ -11,8 +11,8 @@ android {
+         applicationId = "studio.guitarlab.app"
+         minSdk = 26
+         targetSdk = 36
+-        versionCode = 39
+-        versionName = "0.5.0-rc19"
++        versionCode = 40
++        versionName = "0.5.0-rc20"
+         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+     }
+ 
+diff --git a/app/src/androidTest/java/studio/guitarlab/app/DiagnosticSupportInstrumentedTest.kt b/app/src/androidTest/java/studio/guitarlab/app/DiagnosticSupportInstrumentedTest.kt
+new file mode 100644
+--- /dev/null
++++ b/app/src/androidTest/java/studio/guitarlab/app/DiagnosticSupportInstrumentedTest.kt
+@@ -0,0 +1,101 @@
++package studio.guitarlab.app
++
++import androidx.test.core.app.ApplicationProvider
++import androidx.test.ext.junit.runners.AndroidJUnit4
++import java.io.ByteArrayInputStream
++import java.io.ByteArrayOutputStream
++import java.io.File
++import java.security.MessageDigest
++import java.util.zip.ZipInputStream
++import org.junit.Assert.assertFalse
++import org.junit.Assert.assertTrue
++import org.junit.Test
++import org.junit.runner.RunWith
++import studio.guitarlab.app.diagnostics.DiagnosticBundleExporter
++import studio.guitarlab.app.diagnostics.DiagnosticJournal
++
++@RunWith(AndroidJUnit4::class)
++class DiagnosticSupportInstrumentedTest {
++    private val context get() = ApplicationProvider.getApplicationContext<android.content.Context>()
++
++    @Test
++    fun journalRedactsSecretsDropsExpiredAndToleratesMalformedLine() {
++        val root = File(context.filesDir, "diagnostics").apply { mkdirs() }
++        val events = File(root, "events.jsonl")
++        events.delete()
++        val journal = DiagnosticJournal(context)
++
++        journal.append(
++            eventType = "test.expired",
++            summary = "old",
++            timestampEpochMs = System.currentTimeMillis() - DiagnosticJournal.RETENTION_MS - 1_000,
++        )
++        journal.append(
++            eventType = "test.current",
++            summary = "Authorization=Bearer abcdef123 token=secret password=hunter2",
++        )
++        events.appendText("{malformed\n")
++
++        val parsed = journal.readEvents()
++        val raw = journal.rawSanitizedJsonl()
++        assertTrue(parsed.any { it.eventType == "test.current" })
++        assertFalse(parsed.any { it.eventType == "test.expired" })
++        assertFalse(raw.contains("abcdef123"))
++        assertFalse(raw.contains("hunter2"))
++        assertFalse(raw.contains("{malformed"))
++        assertTrue(raw.contains("[REDACTED]"))
++    }
++
++    @Test
++    fun diagnosticZipIsDeterministicInShapeChecksummedSanitizedAndContainsNoAudio() {
++        val manifestDir = File(context.filesDir, "diagnostics/manifests").apply { mkdirs() }
++        val manifest = File(manifestDir, "test-diagnostic-manifest.json")
++        manifest.writeText(
++            """{"jobId":"test-diagnostic-manifest","model":"htdemucs_6s","authorization":"Bearer super-secret","result":"ok"}""",
++        )
++
++        val output = ByteArrayOutputStream()
++        val result = DiagnosticBundleExporter(context).export(null, output)
++        val entries = unzip(output.toByteArray())
++
++        listOf(
++            "README.txt",
++            "app.json",
++            "device.json",
++            "events.jsonl",
++            "audio-route.json",
++            "activity.json",
++            "separation/jobs.json",
++            "backup/status.json",
++            "integrity/SHA256SUMS.txt",
++            "separation/manifests/test-diagnostic-manifest.json",
++        ).forEach { required -> assertTrue("missing $required", required in entries) }
++
++        assertFalse(entries.keys.any { it.endsWith(".wav") || it.endsWith(".mp3") || it.endsWith(".flac") })
++        assertFalse(entries.values.any { it.toString(Charsets.UTF_8).contains("super-secret") })
++        assertTrue(entries["separation/manifests/test-diagnostic-manifest.json"]!!.toString(Charsets.UTF_8).contains("htdemucs_6s"))
++
++        val sums = entries["integrity/SHA256SUMS.txt"]!!.toString(Charsets.UTF_8)
++        result.sha256ByEntry.forEach { (name, expected) ->
++            val actual = sha(entries.getValue(name))
++            assertTrue("$name checksum mismatch", sums.contains("$expected  $name"))
++            assertTrue("$name exporter result mismatch", actual == expected)
++        }
++        manifest.delete()
++    }
++
++    private fun unzip(bytes: ByteArray): Map<String, ByteArray> {
++        val entries = linkedMapOf<String, ByteArray>()
++        ZipInputStream(ByteArrayInputStream(bytes)).use { zip ->
++            while (true) {
++                val entry = zip.nextEntry ?: break
++                entries[entry.name] = zip.readBytes()
++                zip.closeEntry()
++            }
++        }
++        return entries
++    }
++
++    private fun sha(bytes: ByteArray): String =
++        MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
++}
+diff --git a/app/src/androidTest/java/studio/guitarlab/app/UnifiedProjectShellInstrumentedTest.kt b/app/src/androidTest/java/studio/guitarlab/app/UnifiedProjectShellInstrumentedTest.kt
+--- a/app/src/androidTest/java/studio/guitarlab/app/UnifiedProjectShellInstrumentedTest.kt
++++ b/app/src/androidTest/java/studio/guitarlab/app/UnifiedProjectShellInstrumentedTest.kt
+@@ -361,6 +361,80 @@ class UnifiedProjectShellInstrumentedTest {
+         composeRule.runOnIdle { check(retried) }
+     }
+ 
++    @Test fun sourceSearchTerminalSuggestionRemainsVisibleAndRetriesExplicitly() {
++        val project = GuitarProject(
++            id = "search-terminal",
++            name = "MMF - Misery",
++            template = ProjectTemplate.GUITAR,
++            createdAtEpochMs = 1,
++            updatedAtEpochMs = 2,
++        )
++        var retriedArtist: String? = null
++        var retriedSong: String? = null
++        composeRule.setContent {
++            GuitarLabTheme(darkTheme = true) {
++                UnifiedPrepareScreen(
++                    project = project,
++                    projectId = project.id,
++                    onBack = {},
++                    onStudio = {},
++                    onExport = {},
++                    searchOutcome = SourceSearchOutcome(
++                        operationId = "search-1",
++                        artist = "memphys may fire",
++                        song = "misery",
++                        terminalState = SourceSearchTerminalState.DID_YOU_MEAN,
++                        message = "Nenhuma correspondência exata foi encontrada.",
++                        suggestedArtist = "Memphis May Fire",
++                    ),
++                    onSearch = { artist, song ->
++                        retriedArtist = artist
++                        retriedSong = song
++                    },
++                )
++            }
++        }
++
++        composeRule.onNodeWithTag("prepare-search-terminal-did_you_mean").performScrollTo().assertIsDisplayed()
++        composeRule.onNodeWithTag("prepare-search-suggestion").assertTextContains("Memphis May Fire")
++        composeRule.onNodeWithTag("prepare-search-use-suggestion").performClick()
++        composeRule.runOnIdle {
++            check(retriedArtist == "Memphis May Fire")
++            check(retriedSong == "misery")
++        }
++    }
++
++    @Test fun sourceSearchTimeoutNeverFallsBackToSilentIdle() {
++        val project = GuitarProject(
++            id = "search-timeout",
++            name = "Song",
++            template = ProjectTemplate.GUITAR,
++            createdAtEpochMs = 1,
++            updatedAtEpochMs = 2,
++        )
++        composeRule.setContent {
++            GuitarLabTheme(darkTheme = true) {
++                UnifiedPrepareScreen(
++                    project = project,
++                    projectId = project.id,
++                    onBack = {},
++                    onStudio = {},
++                    onExport = {},
++                    searchOutcome = SourceSearchOutcome(
++                        operationId = "search-timeout-1",
++                        artist = "Artist",
++                        song = "Song",
++                        terminalState = SourceSearchTerminalState.TIMEOUT,
++                        message = "A pesquisa demorou mais que o esperado. Verifique a conexão e tente novamente.",
++                    ),
++                )
++            }
++        }
++
++        composeRule.onNodeWithTag("prepare-search-terminal-timeout").performScrollTo().assertIsDisplayed()
++        composeRule.onNodeWithTag("prepare-search-retry").assertIsDisplayed().assertIsEnabled()
++    }
++
+     @Test fun rankingBadgeIsTextualAndTechnicalDetailsStayCollapsed() {
+         val candidate = RankedSourceCandidate(
+             provider = SourceProvider.YOUTUBE,
+diff --git a/app/src/main/java/studio/guitarlab/app/activity/UnifiedActivityStore.kt b/app/src/main/java/studio/guitarlab/app/activity/UnifiedActivityStore.kt
+--- a/app/src/main/java/studio/guitarlab/app/activity/UnifiedActivityStore.kt
++++ b/app/src/main/java/studio/guitarlab/app/activity/UnifiedActivityStore.kt
+@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.StateFlow
+ import kotlinx.coroutines.flow.asStateFlow
+ import org.json.JSONArray
+ import org.json.JSONObject
++import studio.guitarlab.app.diagnostics.DiagnosticJournal
+ import studio.guitarlab.core.project.UnifiedActivityPolicy
+ import studio.guitarlab.core.project.UnifiedOperationKind
+ import studio.guitarlab.core.project.UnifiedOperationRecord
+@@ -21,6 +22,7 @@ import studio.guitarlab.core.project.UnifiedOperationState
+  */
+ class UnifiedActivityStore(context: Context) {
+     private val preferences = context.applicationContext.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
++    private val journal = DiagnosticJournal(context.applicationContext)
+     private val lock = Any()
+     private val _records = MutableStateFlow(read())
+     val records: StateFlow<List<UnifiedOperationRecord>> = _records.asStateFlow()
+@@ -42,6 +44,7 @@ class UnifiedActivityStore(context: Context) {
+                 .let(::bounded)
+             write(next)
+             _records.value = next
++            journal.appendActivity(record)
+         }
+     }
+ 
+diff --git a/app/src/main/java/studio/guitarlab/app/diagnostics/DiagnosticBundleExporter.kt b/app/src/main/java/studio/guitarlab/app/diagnostics/DiagnosticBundleExporter.kt
+new file mode 100644
+--- /dev/null
++++ b/app/src/main/java/studio/guitarlab/app/diagnostics/DiagnosticBundleExporter.kt
+@@ -0,0 +1,238 @@
++package studio.guitarlab.app.diagnostics
++
++import android.content.Context
++import android.os.Build
++import java.io.File
++import java.io.OutputStream
++import java.security.MessageDigest
++import java.time.Instant
++import java.util.zip.ZipEntry
++import java.util.zip.ZipOutputStream
++import org.json.JSONArray
++import org.json.JSONObject
++import studio.guitarlab.app.BuildConfig
++import studio.guitarlab.app.activity.UnifiedActivityStore
++import studio.guitarlab.app.backup.BackupSettingsStore
++import studio.guitarlab.app.ui.StudioAudioRoutingStore
++import studio.guitarlab.core.project.FileProjectRepository
++import studio.guitarlab.core.project.PreparedReferenceBindingPolicy
++import studio.guitarlab.platform.separation.FileRemoteJobStore
++
++data class DiagnosticBundleResult(
++    val entryNames: List<String>,
++    val sha256ByEntry: Map<String, String>,
++)
++
++class DiagnosticBundleExporter(private val context: Context) {
++    fun export(projectId: String?, output: OutputStream): DiagnosticBundleResult {
++        val entries = linkedMapOf<String, ByteArray>()
++        val project = projectId?.let { FileProjectRepository(context.filesDir).load(it) }
++        val activity = UnifiedActivityStore(context).snapshot()
++        val journal = DiagnosticJournal(context)
++        val routing = StudioAudioRoutingStore(context)
++        val backup = BackupSettingsStore(context).snapshot()
++        val jobs = FileRemoteJobStore(context).active()
++            .filter { projectId == null || it.identity.projectId == projectId }
++            .sortedByDescending { it.updatedAtMs }
++
++        entries["README.txt"] = buildString {
++            appendLine("GuitarLab diagnostic package")
++            appendLine("Generated: ${Instant.now()}")
++            appendLine("Contains metadata and sanitized logs only; song audio is excluded.")
++            appendLine("Authentication tokens, passwords and resumable-session URLs are not included.")
++            appendLine("Project scope: ${projectId ?: "application"}")
++        }.toByteArray()
++
++        entries["app.json"] = JSONObject()
++            .put("versionName", BuildConfig.VERSION_NAME)
++            .put("versionCode", BuildConfig.VERSION_CODE)
++            .put("packageName", BuildConfig.APPLICATION_ID)
++            .put("buildType", BuildConfig.BUILD_TYPE)
++            .toString(2).toByteArray()
++
++        entries["device.json"] = JSONObject()
++            .put("manufacturer", Build.MANUFACTURER)
++            .put("model", Build.MODEL)
++            .put("device", Build.DEVICE)
++            .put("androidRelease", Build.VERSION.RELEASE)
++            .put("sdkInt", Build.VERSION.SDK_INT)
++            .put("supportedAbis", JSONArray(Build.SUPPORTED_ABIS.toList()))
++            .put("filesFreeBytes", context.filesDir.usableSpace)
++            .put("filesTotalBytes", context.filesDir.totalSpace)
++            .toString(2).toByteArray()
++
++        entries["events.jsonl"] = journal.rawSanitizedJsonl().toByteArray()
++
++        val routeHealth = routing.routeHealth()
++        entries["audio-route.json"] = JSONObject()
++            .put("selectedInput", routing.selectedInputDiagnosticIdentity())
++            .put("selectedOutput", routing.selectedOutputDiagnosticIdentity())
++            .put("monitoringMode", routing.monitoringMode().name)
++            .put("selectedInputAvailable", routeHealth.selectedInputAvailable)
++            .put("selectedOutputAvailable", routeHealth.selectedOutputAvailable)
++            .put("usbDeviceDetected", routeHealth.usbDeviceDetected)
++            .put("effectiveInput", routeHealth.effectiveInput?.let { "${it.transportFamily}:${it.label}" })
++            .put("effectiveOutput", routeHealth.effectiveOutput?.let { "${it.transportFamily}:${it.label}" })
++            .toString(2).toByteArray()
++
++        entries["activity.json"] = JSONArray().also { array ->
++            activity.forEach { record ->
++                array.put(
++                    JSONObject()
++                        .put("operationId", record.operationId)
++                        .put("projectId", record.projectId)
++                        .put("kind", record.kind.name)
++                        .put("state", record.state.name)
++                        .put("progressPercent", record.progressPercent)
++                        .put("updatedAtEpochMs", record.updatedAtEpochMs)
++                        .put("summary", record.summary)
++                        .put("technicalDetail", sanitize(record.technicalDetail)),
++                )
++            }
++        }.toString(2).toByteArray()
++
++        if (project != null) {
++            val preparation = project.preparation
++            val activeAssetIds = buildSet {
++                preparation?.sourceAssetId?.let(::add)
++                preparation?.activeStemAssetIds?.values?.let(::addAll)
++                preparation?.activeBackingAssetId?.let(::add)
++                preparation?.activeGuitarAssetId?.let(::add)
++            }
++            entries["project/summary.json"] = JSONObject()
++                .put("projectId", project.id)
++                .put("name", project.name)
++                .put("schemaVersion", project.schemaVersion)
++                .put("assetCount", project.assets.size)
++                .put("clipCount", project.clips.size)
++                .put("trackCount", project.tracks.size)
++                .put("takeCount", project.takes.size)
++                .put("preparationStatus", preparation?.status?.name)
++                .put("referenceRepairAvailable", PreparedReferenceBindingPolicy.bindingDiffersFromDesired(project))
++                .put("updatedAtEpochMs", project.updatedAtEpochMs)
++                .toString(2).toByteArray()
++
++            entries["project/active-assets.json"] = JSONArray().also { array ->
++                project.assets.filter { it.assetId in activeAssetIds }.sortedBy { it.role.name }.forEach { asset ->
++                    array.put(
++                        JSONObject()
++                            .put("assetId", asset.assetId)
++                            .put("role", asset.role.name)
++                            .put("format", asset.format)
++                            .put("byteSize", asset.byteSize)
++                            .put("sha256", asset.sha256)
++                            .put("sampleRateHz", asset.sampleRateHz)
++                            .put("channelCount", asset.channelCount)
++                            .put("frameCount", asset.frameCount)
++                            .put("provenanceKind", asset.provenance?.kind),
++                    )
++                }
++            }.toString(2).toByteArray()
++
++            entries["project/reference-bindings.json"] = JSONArray().also { array ->
++                project.referenceBindings.sortedBy { it.kind.name }.forEach { binding ->
++                    array.put(
++                        JSONObject()
++                            .put("bindingId", binding.bindingId)
++                            .put("kind", binding.kind.name)
++                            .put("trackId", binding.trackId)
++                            .put("assetId", binding.assetId)
++                            .put("createdAtEpochMs", binding.createdAtEpochMs),
++                    )
++                }
++            }.toString(2).toByteArray()
++        }
++
++        entries["separation/jobs.json"] = JSONArray().also { array ->
++            jobs.forEach { job ->
++                array.put(
++                    JSONObject()
++                        .put("jobId", job.identity.jobId)
++                        .put("projectId", job.identity.projectId)
++                        .put("sourceAssetId", job.identity.sourceAssetId)
++                        .put("inputSha256", job.identity.inputSha256)
++                        .put("state", job.state.name)
++                        .put("updatedAtMs", job.updatedAtMs)
++                        .put("resultManifestSha256", job.resultManifestSha256)
++                        .put("errorCode", sanitize(job.errorCode)),
++                )
++            }
++        }.toString(2).toByteArray()
++
++        val manifestRoot = File(context.filesDir, "diagnostics/manifests")
++        val allowedJobIds = jobs.mapTo(mutableSetOf()) { it.identity.jobId }
++        manifestRoot.listFiles { file -> file.isFile && file.extension == "json" }.orEmpty()
++            .filter { projectId == null || it.nameWithoutExtension in allowedJobIds }
++            .sortedBy { it.name }
++            .forEach { file ->
++                val sanitized = runCatching { sanitizeJson(JSONObject(file.readText())) }.getOrNull()
++                if (sanitized != null) entries["separation/manifests/${file.name}"] = sanitized.toString(2).toByteArray()
++            }
++
++        entries["backup/status.json"] = JSONObject()
++            .put("driveConnected", backup.driveConnected)
++            .put("driveAccountConfigured", !backup.driveAccountLabel.isNullOrBlank())
++            .put("automaticEnabled", backup.automaticEnabled)
++            .put("cadence", backup.cadence.name)
++            .put("lastRunEpochMs", backup.lastRunEpochMs)
++            .put("lastSuccessEpochMs", backup.lastSuccessEpochMs)
++            .put("lastRunSummary", sanitize(backup.lastRunSummary))
++            .put("lastError", sanitize(backup.lastError))
++            .toString(2).toByteArray()
++
++        val checksums = entries.entries.associate { (name, bytes) -> name to sha256(bytes) }
++        entries["integrity/SHA256SUMS.txt"] = checksums.entries
++            .sortedBy { it.key }
++            .joinToString(separator = "\n", postfix = "\n") { (name, hash) -> "$hash  $name" }
++            .toByteArray()
++
++        ZipOutputStream(output.buffered()).use { zip ->
++            entries.entries.sortedBy { it.key }.forEach { (name, bytes) ->
++                val entry = ZipEntry(name).apply { time = 0L }
++                zip.putNextEntry(entry)
++                zip.write(bytes)
++                zip.closeEntry()
++            }
++        }
++        return DiagnosticBundleResult(entries.keys.sorted(), checksums)
++    }
++
++    private fun sanitize(value: String?): String? {
++        if (value == null) return null
++        var result = value
++        SENSITIVE_PATTERNS.forEach { result = result.replace(it, "[REDACTED]") }
++        return result.take(8_192)
++    }
++
++    private fun sanitizeJson(value: Any?): Any? = when (value) {
++        is JSONObject -> JSONObject().also { output ->
++            val keys = value.keys()
++            while (keys.hasNext()) {
++                val key = keys.next()
++                if (SENSITIVE_KEYS.any { it in key.lowercase() }) continue
++                output.put(key, sanitizeJson(value.opt(key)))
++            }
++        }
++        is JSONArray -> JSONArray().also { output ->
++            for (i in 0 until value.length()) output.put(sanitizeJson(value.opt(i)))
++        }
++        is String -> sanitize(value)
++        JSONObject.NULL, null -> JSONObject.NULL
++        else -> value
++    }
++
++    private fun sha256(bytes: ByteArray): String =
++        MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
++
++    private companion object {
++        val SENSITIVE_KEYS = listOf(
++            "password", "authorization", "accesstoken", "refreshtoken", "idtoken",
++            "appcheck", "credential", "serviceaccount", "resumablesession", "sessionurl",
++        )
++        val SENSITIVE_PATTERNS = listOf(
++            Regex("""(?i)Bearer\s+[A-Za-z0-9._~+/=-]+"""),
++            Regex("""(?i)(access[_-]?token|refresh[_-]?token|id[_-]?token|app[_-]?check|password|authorization|credential)\s*[:=]\s*[^\s,;]+"""),
++            Regex("""AIza[0-9A-Za-z_-]{30,}"""),
++        )
++    }
++}
+diff --git a/app/src/main/java/studio/guitarlab/app/diagnostics/DiagnosticJournal.kt b/app/src/main/java/studio/guitarlab/app/diagnostics/DiagnosticJournal.kt
+new file mode 100644
+--- /dev/null
++++ b/app/src/main/java/studio/guitarlab/app/diagnostics/DiagnosticJournal.kt
+@@ -0,0 +1,140 @@
++package studio.guitarlab.app.diagnostics
++
++import android.content.Context
++import android.os.SystemClock
++import java.io.File
++import java.time.Instant
++import org.json.JSONObject
++import studio.guitarlab.core.project.UnifiedOperationRecord
++
++data class DiagnosticEvent(
++    val timestampEpochMs: Long,
++    val eventType: String,
++    val projectId: String?,
++    val operationId: String?,
++    val state: String?,
++    val summary: String,
++    val technicalDetail: String?,
++)
++
++class DiagnosticJournal(context: Context) {
++    private val root = File(context.applicationContext.filesDir, "diagnostics").apply { mkdirs() }
++    private val file = File(root, "events.jsonl")
++    private val lock = Any()
++
++    fun appendActivity(record: UnifiedOperationRecord) {
++        append(
++            eventType = "activity.${record.kind.name.lowercase()}",
++            projectId = record.projectId,
++            operationId = record.operationId,
++            state = record.state.name,
++            summary = record.summary,
++            technicalDetail = record.technicalDetail,
++            timestampEpochMs = record.updatedAtEpochMs,
++        )
++    }
++
++    fun append(
++        eventType: String,
++        projectId: String? = null,
++        operationId: String? = null,
++        state: String? = null,
++        summary: String,
++        technicalDetail: String? = null,
++        timestampEpochMs: Long = System.currentTimeMillis(),
++    ) = synchronized(lock) {
++        root.mkdirs()
++        val event = JSONObject()
++            .put("schemaVersion", 1)
++            .put("timestampEpochMs", timestampEpochMs)
++            .put("timestampUtc", Instant.ofEpochMilli(timestampEpochMs).toString())
++            .put("elapsedRealtimeMs", SystemClock.elapsedRealtime())
++            .put("eventType", sanitizeScalar(eventType))
++            .put("projectId", projectId?.let(::sanitizeScalar))
++            .put("operationId", operationId?.let(::sanitizeScalar))
++            .put("state", state?.let(::sanitizeScalar))
++            .put("summary", sanitizeText(summary))
++            .put("technicalDetail", technicalDetail?.let(::sanitizeText))
++        file.appendText(event.toString() + "\n", Charsets.UTF_8)
++        pruneLocked(timestampEpochMs)
++    }
++
++    fun readEvents(): List<DiagnosticEvent> = synchronized(lock) {
++        if (!file.isFile) return@synchronized emptyList()
++        file.useLines { lines ->
++            lines.mapNotNull { line ->
++                runCatching {
++                    val o = JSONObject(line)
++                    DiagnosticEvent(
++                        timestampEpochMs = o.getLong("timestampEpochMs"),
++                        eventType = o.getString("eventType"),
++                        projectId = o.optString("projectId").takeIf { it.isNotBlank() && it != "null" },
++                        operationId = o.optString("operationId").takeIf { it.isNotBlank() && it != "null" },
++                        state = o.optString("state").takeIf { it.isNotBlank() && it != "null" },
++                        summary = o.optString("summary"),
++                        technicalDetail = o.optString("technicalDetail").takeIf { it.isNotBlank() && it != "null" },
++                    )
++                }.getOrNull()
++            }.toList()
++        }
++    }
++
++    fun rawSanitizedJsonl(): String = synchronized(lock) {
++        if (!file.isFile) "" else file.readLines(Charsets.UTF_8)
++            .mapNotNull { line -> runCatching { JSONObject(line).toString() }.getOrNull() }
++            .joinToString(separator = "\n", postfix = if (file.length() > 0) "\n" else "")
++    }
++
++    fun clear() = synchronized(lock) {
++        if (file.exists()) file.writeText("")
++    }
++
++    fun sizeBytes(): Long = synchronized(lock) { file.takeIf(File::isFile)?.length() ?: 0L }
++
++    private fun pruneLocked(nowEpochMs: Long) {
++        if (!file.isFile) return
++        val cutoff = nowEpochMs - RETENTION_MS
++        var kept = file.readLines(Charsets.UTF_8)
++            .filter { line ->
++                runCatching { JSONObject(line).optLong("timestampEpochMs", Long.MAX_VALUE) >= cutoff }
++                    .getOrDefault(false)
++            }
++
++        var bytes = kept.sumOf { it.toByteArray(Charsets.UTF_8).size + 1 }
++        if (bytes > MAX_BYTES) {
++            val reversed = mutableListOf<String>()
++            bytes = 0
++            for (line in kept.asReversed()) {
++                val lineBytes = line.toByteArray(Charsets.UTF_8).size + 1
++                if (bytes + lineBytes > MAX_BYTES) break
++                reversed += line
++                bytes += lineBytes
++            }
++            kept = reversed.asReversed()
++        }
++        val rendered = kept.joinToString(separator = "\n", postfix = if (kept.isEmpty()) "" else "\n")
++        file.writeText(rendered, Charsets.UTF_8)
++    }
++
++    private fun sanitizeScalar(value: String): String =
++        sanitizeText(value).replace("\n", " ").take(MAX_SCALAR_CHARS)
++
++    private fun sanitizeText(value: String): String {
++        var sanitized = value
++        SENSITIVE_PATTERNS.forEach { pattern -> sanitized = sanitized.replace(pattern, "[REDACTED]") }
++        return sanitized.take(MAX_TEXT_CHARS)
++    }
++
++    companion object {
++        const val MAX_BYTES = 8 * 1024 * 1024
++        const val RETENTION_MS = 14L * 24L * 60L * 60L * 1000L
++        private const val MAX_TEXT_CHARS = 8_192
++        private const val MAX_SCALAR_CHARS = 512
++        private val SENSITIVE_PATTERNS = listOf(
++            Regex("""(?i)Bearer\s+[A-Za-z0-9._~+/=-]+"""),
++            Regex("""(?i)(access[_-]?token|refresh[_-]?token|id[_-]?token|app[_-]?check|password|authorization|credential)\s*[:=]\s*[^\s,;]+"""),
++            Regex("""(?i)https?://[^\s"']+[?&](?:X-Goog-Signature|upload_id|session|token)=[^\s"']+"""),
++            Regex("""AIza[0-9A-Za-z_-]{30,}"""),
++        )
++    }
++}
+diff --git a/app/src/main/java/studio/guitarlab/app/diagnostics/DiagnosticsScreen.kt b/app/src/main/java/studio/guitarlab/app/diagnostics/DiagnosticsScreen.kt
+new file mode 100644
+--- /dev/null
++++ b/app/src/main/java/studio/guitarlab/app/diagnostics/DiagnosticsScreen.kt
+@@ -0,0 +1,246 @@
++package studio.guitarlab.app.diagnostics
++
++import androidx.activity.compose.rememberLauncherForActivityResult
++import androidx.activity.result.contract.ActivityResultContracts
++import androidx.compose.foundation.layout.Arrangement
++import androidx.compose.foundation.layout.Column
++import androidx.compose.foundation.layout.Row
++import androidx.compose.foundation.layout.fillMaxSize
++import androidx.compose.foundation.layout.fillMaxWidth
++import androidx.compose.foundation.layout.padding
++import androidx.compose.foundation.layout.weight
++import androidx.compose.foundation.lazy.LazyColumn
++import androidx.compose.foundation.lazy.items
++import androidx.compose.material.icons.Icons
++import androidx.compose.material.icons.filled.ArrowBack
++import androidx.compose.material3.Button
++import androidx.compose.material3.HorizontalDivider
++import androidx.compose.material3.MaterialTheme
++import androidx.compose.material3.OutlinedButton
++import androidx.compose.material3.Surface
++import androidx.compose.material3.Text
++import androidx.compose.runtime.Composable
++import androidx.compose.runtime.mutableStateOf
++import androidx.compose.runtime.remember
++import androidx.compose.runtime.rememberCoroutineScope
++import androidx.compose.runtime.getValue
++import androidx.compose.runtime.setValue
++import androidx.compose.ui.Modifier
++import androidx.compose.ui.platform.LocalContext
++import androidx.compose.ui.platform.testTag
++import androidx.compose.ui.unit.dp
++import kotlinx.coroutines.Dispatchers
++import kotlinx.coroutines.launch
++import kotlinx.coroutines.withContext
++import studio.guitarlab.app.BuildConfig
++import studio.guitarlab.app.backup.BackupSettingsStore
++import studio.guitarlab.app.ui.AppIconButton
++import studio.guitarlab.app.ui.StudioAudioRoutingStore
++import studio.guitarlab.core.project.FileProjectRepository
++import studio.guitarlab.core.project.PreparedReferenceBindingPolicy
++import studio.guitarlab.platform.separation.FileRemoteJobStore
++
++@Composable
++fun DiagnosticsScreen(
++    projectId: String?,
++    onBack: () -> Unit,
++    onAudioDiagnostics: () -> Unit,
++    onCodecDiagnostics: () -> Unit,
++) {
++    val context = LocalContext.current
++    val scope = rememberCoroutineScope()
++    val journal = remember(context) { DiagnosticJournal(context) }
++    var events by remember { mutableStateOf(journal.readEvents()) }
++    var status by remember { mutableStateOf<String?>(null) }
++    var exporting by remember { mutableStateOf(false) }
++
++    val project = remember(projectId) { projectId?.let { FileProjectRepository(context.filesDir).load(it) } }
++    val routing = remember(context) { StudioAudioRoutingStore(context) }
++    val routeHealth = routing.routeHealth()
++    val backup = remember(context) { BackupSettingsStore(context).snapshot() }
++    val jobs = remember(projectId) {
++        FileRemoteJobStore(context).active()
++            .filter { projectId == null || it.identity.projectId == projectId }
++            .sortedByDescending { it.updatedAtMs }
++            .take(12)
++    }
++
++    val launcher = rememberLauncherForActivityResult(
++        ActivityResultContracts.CreateDocument("application/zip"),
++    ) { uri ->
++        if (uri == null) return@rememberLauncherForActivityResult
++        exporting = true
++        status = null
++        scope.launch {
++            runCatching {
++                withContext(Dispatchers.IO) {
++                    context.contentResolver.openOutputStream(uri, "w")?.use { output ->
++                        DiagnosticBundleExporter(context).export(projectId, output)
++                    } ?: error("O Android não abriu o arquivo de destino.")
++                }
++            }.onSuccess { result ->
++                status = "Pacote exportado com ${result.entryNames.size} arquivos de diagnóstico. Nenhum áudio foi incluído."
++            }.onFailure { error ->
++                status = error.message ?: "Não foi possível exportar o pacote de diagnóstico."
++            }
++            exporting = false
++        }
++    }
++
++    Column(
++        Modifier.fillMaxSize().padding(horizontal = 22.dp, vertical = 16.dp).testTag("diagnostics-screen"),
++        verticalArrangement = Arrangement.spacedBy(12.dp),
++    ) {
++        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
++            Column {
++                Text("Diagnóstico", style = MaterialTheme.typography.headlineMedium)
++                Text(
++                    "Estado técnico consolidado e pacote de suporte",
++                    style = MaterialTheme.typography.bodyMedium,
++                    color = MaterialTheme.colorScheme.onSurfaceVariant,
++                )
++            }
++            AppIconButton(icon = Icons.Default.ArrowBack, contentDescription = "Voltar", onClick = onBack)
++        }
++
++        LazyColumn(
++            modifier = Modifier.weight(1f),
++            verticalArrangement = Arrangement.spacedBy(12.dp),
++        ) {
++            item {
++                DiagnosticSection("Aplicativo e dispositivo") {
++                    DiagnosticLine("Versão", "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})")
++                    DiagnosticLine("Android", "${android.os.Build.VERSION.RELEASE} · API ${android.os.Build.VERSION.SDK_INT}")
++                    DiagnosticLine("Dispositivo", "${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}")
++                    DiagnosticLine("Armazenamento livre", "${context.filesDir.usableSpace / (1024 * 1024)} MiB")
++                }
++            }
++
++            item {
++                DiagnosticSection("Áudio e USB") {
++                    DiagnosticLine("Entrada selecionada", routing.selectedInputDiagnosticIdentity() ?: "Automática")
++                    DiagnosticLine("Saída selecionada", routing.selectedOutputDiagnosticIdentity() ?: "Automática")
++                    DiagnosticLine("Entrada disponível", if (routeHealth.selectedInputAvailable) "Sim" else "Não")
++                    DiagnosticLine("Saída disponível", if (routeHealth.selectedOutputAvailable) "Sim" else "Não")
++                    DiagnosticLine("USB detectado", if (routeHealth.usbDeviceDetected) "Sim" else "Não")
++                    DiagnosticLine("Monitoramento", routing.monitoringMode().name)
++                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
++                        OutlinedButton(onClick = onAudioDiagnostics) { Text("Áudio e dispositivos") }
++                        OutlinedButton(onClick = onCodecDiagnostics) { Text("Codecs e arquivos") }
++                    }
++                }
++            }
++
++            item {
++                DiagnosticSection("Separação em nuvem") {
++                    if (jobs.isEmpty()) {
++                        Text("Nenhum job local recente.", style = MaterialTheme.typography.bodySmall)
++                    } else {
++                        jobs.forEach { job ->
++                            DiagnosticLine(
++                                job.identity.jobId.take(12),
++                                "${job.state.name} · manifest ${job.resultManifestSha256?.take(12) ?: "—"}",
++                            )
++                            job.errorCode?.let { Text(it.take(180), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
++                        }
++                    }
++                }
++            }
++
++            item {
++                DiagnosticSection("Projeto atual") {
++                    if (project == null) {
++                        Text("Abra Diagnóstico a partir de um projeto para ver o grafo local.", style = MaterialTheme.typography.bodySmall)
++                    } else {
++                        DiagnosticLine("Projeto", project.name)
++                        DiagnosticLine("Assets", project.assets.size.toString())
++                        DiagnosticLine("Clipes", project.clips.size.toString())
++                        DiagnosticLine("Bindings", project.referenceBindings.size.toString())
++                        DiagnosticLine(
++                            "Referências",
++                            if (PreparedReferenceBindingPolicy.bindingDiffersFromDesired(project)) "Reparo local disponível" else "Consistentes",
++                        )
++                    }
++                }
++            }
++
++            item {
++                DiagnosticSection("Backup e nuvem") {
++                    DiagnosticLine("Google Drive", if (backup.driveConnected) "Conectado" else "Não conectado")
++                    DiagnosticLine("Backup automático", if (backup.automaticEnabled) backup.cadence.label else "Desativado")
++                    DiagnosticLine("Último sucesso", backup.lastSuccessEpochMs?.toString() ?: "—")
++                    backup.lastError?.let { Text(it.take(240), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
++                }
++            }
++
++            item {
++                DiagnosticSection("Registro de eventos") {
++                    DiagnosticLine("Eventos legíveis", events.size.toString())
++                    DiagnosticLine("Armazenamento", "${journal.sizeBytes() / 1024} KiB · limite 8 MiB / 14 dias")
++                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
++                        Button(
++                            enabled = !exporting,
++                            onClick = {
++                                val timestamp = System.currentTimeMillis()
++                                launcher.launch("GuitarLab-Diagnostics-$timestamp.zip")
++                            },
++                            modifier = Modifier.testTag("diagnostics-export"),
++                        ) { Text(if (exporting) "Exportando…" else "Exportar pacote de diagnóstico") }
++                        OutlinedButton(
++                            enabled = events.isNotEmpty(),
++                            onClick = {
++                                journal.clear()
++                                events = emptyList()
++                                status = "Registro local de eventos limpo."
++                            },
++                            modifier = Modifier.testTag("diagnostics-clear-journal"),
++                        ) { Text("Limpar registro") }
++                    }
++                    Text(
++                        "O pacote padrão contém apenas metadados e logs sanitizados. Áudio das músicas não é incluído.",
++                        style = MaterialTheme.typography.bodySmall,
++                        color = MaterialTheme.colorScheme.onSurfaceVariant,
++                    )
++                }
++            }
++
++            if (events.isNotEmpty()) {
++                item { Text("Eventos recentes", style = MaterialTheme.typography.titleMedium) }
++                items(events.takeLast(20).asReversed()) { event ->
++                    Surface(Modifier.fillMaxWidth(), tonalElevation = 1.dp, shape = MaterialTheme.shapes.small) {
++                        Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
++                            Text(event.eventType, style = MaterialTheme.typography.labelLarge)
++                            Text("${event.state ?: "—"} · ${event.summary}", style = MaterialTheme.typography.bodySmall)
++                            Text(event.timestampEpochMs.toString(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
++                        }
++                    }
++                }
++            }
++
++            status?.let { message ->
++                item {
++                    HorizontalDivider()
++                    Text(message, style = MaterialTheme.typography.bodySmall, modifier = Modifier.testTag("diagnostics-status"))
++                }
++            }
++        }
++    }
++}
++
++@Composable
++private fun DiagnosticSection(title: String, content: @Composable () -> Unit) {
++    Surface(Modifier.fillMaxWidth(), tonalElevation = 1.dp, shape = MaterialTheme.shapes.medium) {
++        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
++            Text(title, style = MaterialTheme.typography.titleMedium)
++            content()
++        }
++    }
++}
++
++@Composable
++private fun DiagnosticLine(label: String, value: String) {
++    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
++        Text(label, style = MaterialTheme.typography.bodySmall)
++        Text(value, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
++    }
++}
+diff --git a/app/src/main/java/studio/guitarlab/app/ui/AppScreen.kt b/app/src/main/java/studio/guitarlab/app/ui/AppScreen.kt
+--- a/app/src/main/java/studio/guitarlab/app/ui/AppScreen.kt
++++ b/app/src/main/java/studio/guitarlab/app/ui/AppScreen.kt
+@@ -8,6 +8,7 @@ sealed interface AppScreen {
+     data class Studio(val projectId: String) : AppScreen
+     data class Export(val projectId: String) : AppScreen
+     data class Options(val projectId: String? = null) : AppScreen
++    data class Diagnostics(val projectId: String? = null) : AppScreen
+     data class AudioProbe(val projectId: String? = null) : AppScreen
+     data class CodecProbe(val projectId: String? = null) : AppScreen
+     data class Backup(val projectId: String? = null, val returnToHome: Boolean = false) : AppScreen
+@@ -23,6 +24,7 @@ object AppRouteCodec {
+         is AppScreen.Studio -> "studio:${screen.projectId}"
+         is AppScreen.Export -> "export:${screen.projectId}"
+         is AppScreen.Options -> "options:${screen.projectId.orEmpty()}"
++        is AppScreen.Diagnostics -> "diagnostics:${screen.projectId.orEmpty()}"
+         is AppScreen.AudioProbe -> "audio-probe:${screen.projectId.orEmpty()}"
+         is AppScreen.CodecProbe -> "codec-probe:${screen.projectId.orEmpty()}"
+         is AppScreen.Backup -> "${if (screen.returnToHome) "backup-home" else "backup"}:${screen.projectId.orEmpty()}"
+@@ -37,6 +39,7 @@ object AppRouteCodec {
+         route.startsWith("studio:") -> route.substringAfter(':').takeIf { it.isNotBlank() }?.let(AppScreen::Studio) ?: AppScreen.Home
+         route.startsWith("export:") -> route.substringAfter(':').takeIf { it.isNotBlank() }?.let(AppScreen::Export) ?: AppScreen.Home
+         route.startsWith("options:") -> AppScreen.Options(route.substringAfter(':').takeIf { it.isNotBlank() })
++        route.startsWith("diagnostics:") -> AppScreen.Diagnostics(route.substringAfter(':').takeIf { it.isNotBlank() })
+         route.startsWith("audio-probe:") -> AppScreen.AudioProbe(route.substringAfter(':').takeIf { it.isNotBlank() })
+         route.startsWith("codec-probe:") -> AppScreen.CodecProbe(route.substringAfter(':').takeIf { it.isNotBlank() })
+         route.startsWith("backup-home:") -> AppScreen.Backup(route.substringAfter(':').takeIf { it.isNotBlank() }, returnToHome = true)
+diff --git a/app/src/main/java/studio/guitarlab/app/ui/GuitarLabApp.kt b/app/src/main/java/studio/guitarlab/app/ui/GuitarLabApp.kt
+--- a/app/src/main/java/studio/guitarlab/app/ui/GuitarLabApp.kt
++++ b/app/src/main/java/studio/guitarlab/app/ui/GuitarLabApp.kt
+@@ -25,6 +25,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
+ import studio.guitarlab.app.backup.BackupScreen
+ import studio.guitarlab.app.activity.ActivityScreen
+ import studio.guitarlab.app.activity.UnifiedActivityViewModel
++import studio.guitarlab.app.diagnostics.DiagnosticsScreen
+ import studio.guitarlab.core.model.GuitarProject
+ import studio.guitarlab.core.model.ProjectTemplate
+ import studio.guitarlab.platform.separation.RemoteCloudAuthClient
+@@ -98,6 +99,7 @@ fun GuitarLabApp(
+                     onSettings = { navigate(AppScreen.Options(current.projectId)) },
+                     candidates = homeState.sourceCandidatesByProject[current.projectId].orEmpty(),
+                     warnings = homeState.sourceWarningsByProject[current.projectId].orEmpty(),
++                    searchOutcome = homeState.sourceSearchOutcomesByProject[current.projectId],
+                     searchBusy = current.projectId in homeState.sourceSearchBusyProjects,
+                     operation = homeState.sourceOperationsByProject[current.projectId],
+                     separationJob = homeState.separationJobsByProject[current.projectId],
+@@ -113,6 +115,7 @@ fun GuitarLabApp(
+                     onResumeSeparationImport = { homeViewModel.resumeSeparationImport(current.projectId) },
+                     onCancelSeparation = { homeViewModel.cancelSeparation(current.projectId) },
+                     onPrepareReferences = { homeViewModel.prepareReferences(current.projectId) },
++                    onRepairReferences = { homeViewModel.repairPreparedReferenceBindings(current.projectId) },
+                     initialCloudSession = remoteCloudAuth.currentSession(),
+                 )
+                 }
+@@ -153,6 +156,13 @@ fun GuitarLabApp(
+             onCodecDiagnostics = { navigate(AppScreen.CodecProbe(current.projectId)) },
+             onBackupSettings = { navigate(AppScreen.Backup(current.projectId)) },
+             onActivity = { navigate(AppScreen.Activity()) },
++            onDiagnostics = { navigate(AppScreen.Diagnostics(current.projectId)) },
++        )
++        is AppScreen.Diagnostics -> DiagnosticsScreen(
++            projectId = current.projectId,
++            onBack = { navigate(AppScreen.Options(current.projectId)) },
++            onAudioDiagnostics = { navigate(AppScreen.AudioProbe(current.projectId)) },
++            onCodecDiagnostics = { navigate(AppScreen.CodecProbe(current.projectId)) },
+         )
+         is AppScreen.AudioProbe -> AudioProbeScreen(onBack = { navigate(AppScreen.Options(current.projectId)) })
+         is AppScreen.CodecProbe -> CodecProbeScreen(onBack = { navigate(AppScreen.Options(current.projectId)) })
+diff --git a/app/src/main/java/studio/guitarlab/app/ui/HomeViewModel.kt b/app/src/main/java/studio/guitarlab/app/ui/HomeViewModel.kt
+--- a/app/src/main/java/studio/guitarlab/app/ui/HomeViewModel.kt
++++ b/app/src/main/java/studio/guitarlab/app/ui/HomeViewModel.kt
+@@ -32,6 +32,7 @@ import studio.guitarlab.core.project.ProjectLibraryPolicy
+ import studio.guitarlab.core.project.ProjectLibraryQuery
+ import studio.guitarlab.core.project.ProjectManagedMediaStore
+ import studio.guitarlab.core.project.PreparedReferenceService
++import studio.guitarlab.core.project.PreparedReferenceBindingPolicy
+ import studio.guitarlab.core.project.ProjectRecordingMediaStore
+ import studio.guitarlab.core.project.ProjectSampleRateFilter
+ import studio.guitarlab.core.project.ProjectSortOrder
+@@ -49,6 +50,25 @@ import studio.guitarlab.platform.separation.RemoteSeparationClient
+ import studio.guitarlab.core.project.UnifiedOperationKind
+ import studio.guitarlab.core.project.UnifiedOperationState
+ 
++enum class SourceSearchTerminalState {
++    RESULTS,
++    NO_EXACT_MATCH,
++    DID_YOU_MEAN,
++    PROVIDER_FAILURE,
++    TIMEOUT,
++}
++
++data class SourceSearchOutcome(
++    val operationId: String,
++    val artist: String,
++    val song: String,
++    val terminalState: SourceSearchTerminalState,
++    val message: String,
++    val candidateCount: Int = 0,
++    val suggestedArtist: String? = null,
++    val warnings: List<String> = emptyList(),
++)
++
+ data class HomeUiState(
+     val loading: Boolean = true,
+     val projects: List<GuitarProject> = emptyList(),
+@@ -61,6 +81,7 @@ data class HomeUiState(
+     val message: String? = null,
+     val sourceCandidatesByProject: Map<String, List<RankedSourceCandidate>> = emptyMap(),
+     val sourceWarningsByProject: Map<String, List<String>> = emptyMap(),
++    val sourceSearchOutcomesByProject: Map<String, SourceSearchOutcome> = emptyMap(),
+     val sourceSearchBusyProjects: Set<String> = emptySet(),
+     val sourceOperationsByProject: Map<String, SourceOperationSnapshot> = emptyMap(),
+     val separationJobsByProject: Map<String, DurableRemoteJob> = emptyMap(),
+@@ -323,6 +344,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
+                         current.copy(
+                             sourceCandidatesByProject = current.sourceCandidatesByProject - projectId,
+                             sourceWarningsByProject = current.sourceWarningsByProject - projectId,
++                            sourceSearchOutcomesByProject = current.sourceSearchOutcomesByProject - projectId,
+                             sourceSearchBusyProjects = current.sourceSearchBusyProjects - projectId,
+                             sourceOperationsByProject = current.sourceOperationsByProject - projectId,
+                             separationJobsByProject = current.separationJobsByProject - projectId,
+@@ -361,6 +383,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
+                 sourceReplacementProjects = current.sourceReplacementProjects + projectId,
+                 sourceCandidatesByProject = current.sourceCandidatesByProject - projectId,
+                 sourceWarningsByProject = current.sourceWarningsByProject - projectId,
++                sourceSearchOutcomesByProject = current.sourceSearchOutcomesByProject - projectId,
+                 sourceSearchBusyProjects = current.sourceSearchBusyProjects - projectId,
+                 preparedReferenceBusyProjects = current.preparedReferenceBusyProjects - projectId,
+                 message = "Escolha a nova fonte. A fonte atual e o conteúdo do Studio permanecem preservados até a substituição ser validada.",
+@@ -443,57 +466,104 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
+             _state.update { current ->
+                 current.copy(
+                     sourceSearchBusyProjects = current.sourceSearchBusyProjects + projectId,
++                    sourceCandidatesByProject = current.sourceCandidatesByProject - projectId,
+                     sourceWarningsByProject = current.sourceWarningsByProject - projectId,
++                    sourceSearchOutcomesByProject = current.sourceSearchOutcomesByProject - projectId,
++                    message = null,
+                     error = null,
+                 )
+             }
+             try {
+                 val result = withTimeout(SOURCE_SEARCH_TIMEOUT_MS) {
+                     sourceAcquisition.search(SourceSearchRequest(artist = artist, song = song))
+                 }
+-                val providerFailure = result.candidates.isEmpty() && result.warnings.isNotEmpty()
+-                val emptyMessage = when {
+-                    result.candidates.isNotEmpty() -> null
+-                    providerFailure -> null
+-                    else -> "Nenhuma fonte automática compatível foi encontrada."
++                val terminalState = when {
++                    result.candidates.isNotEmpty() -> SourceSearchTerminalState.RESULTS
++                    result.providersSucceeded == 0 && result.providersFailed > 0 -> SourceSearchTerminalState.PROVIDER_FAILURE
++                    result.suggestedArtist != null -> SourceSearchTerminalState.DID_YOU_MEAN
++                    else -> SourceSearchTerminalState.NO_EXACT_MATCH
+                 }
+-                val providerFailureMessage = if (providerFailure) {
+-                    "A pesquisa não pôde consultar as fontes automáticas. Verifique a conexão e tente novamente."
+-                } else {
+-                    null
++                val terminalMessage = when (terminalState) {
++                    SourceSearchTerminalState.RESULTS -> when (result.candidates.size) {
++                        1 -> "1 fonte compatível encontrada."
++                        else -> "${result.candidates.size} fontes compatíveis encontradas."
++                    }
++                    SourceSearchTerminalState.DID_YOU_MEAN -> "Nenhuma correspondência exata foi encontrada."
++                    SourceSearchTerminalState.NO_EXACT_MATCH -> "Nenhuma fonte compatível encontrada para esta busca."
++                    SourceSearchTerminalState.PROVIDER_FAILURE -> "A pesquisa não pôde consultar as fontes automáticas. Verifique a conexão e tente novamente."
++                    SourceSearchTerminalState.TIMEOUT -> error("TIMEOUT is handled by the timeout branch")
+                 }
++                val outcome = SourceSearchOutcome(
++                    operationId = operationId,
++                    artist = artist.trim(),
++                    song = song.trim(),
++                    terminalState = terminalState,
++                    message = terminalMessage,
++                    candidateCount = result.candidates.size,
++                    suggestedArtist = result.suggestedArtist,
++                    warnings = result.warnings,
++                )
+                 _state.update { current ->
+                     current.copy(
+                         sourceCandidatesByProject = current.sourceCandidatesByProject + (projectId to result.candidates),
+                         sourceWarningsByProject = current.sourceWarningsByProject + (projectId to result.warnings),
+-                        message = emptyMessage,
+-                        error = providerFailureMessage,
++                        sourceSearchOutcomesByProject = current.sourceSearchOutcomesByProject + (projectId to outcome),
++                        message = null,
++                        error = null,
+                     )
+                 }
++                val failed = terminalState == SourceSearchTerminalState.PROVIDER_FAILURE
+                 activityStore.record(
+                     operationId,
+                     projectId,
+                     UnifiedOperationKind.SOURCE_ACQUISITION,
+-                    if (providerFailure) UnifiedOperationState.FAILED else UnifiedOperationState.SUCCEEDED,
+-                    if (providerFailure) null else 100,
+-                    when {
+-                        providerFailure -> "Pesquisa de fontes indisponível"
+-                        result.candidates.isEmpty() -> "Pesquisa concluída sem fontes compatíveis"
+-                        result.candidates.size == 1 -> "1 fonte encontrada"
+-                        else -> "${result.candidates.size} fontes encontradas"
++                    if (failed) UnifiedOperationState.FAILED else UnifiedOperationState.SUCCEEDED,
++                    if (failed) null else 100,
++                    when (terminalState) {
++                        SourceSearchTerminalState.RESULTS -> if (result.candidates.size == 1) "1 fonte encontrada" else "${result.candidates.size} fontes encontradas"
++                        SourceSearchTerminalState.DID_YOU_MEAN -> "Pesquisa concluída com sugestão de correção"
++                        SourceSearchTerminalState.NO_EXACT_MATCH -> "Pesquisa concluída sem fontes compatíveis"
++                        SourceSearchTerminalState.PROVIDER_FAILURE -> "Pesquisa de fontes indisponível"
++                        SourceSearchTerminalState.TIMEOUT -> "Pesquisa de fontes expirou"
+                     },
+                     result.warnings.joinToString("\n").ifBlank { null },
+                 )
+             } catch (_: TimeoutCancellationException) {
+                 val message = "A pesquisa demorou mais que o esperado. Verifique a conexão e tente novamente."
+-                _state.update { it.copy(error = message) }
++                val outcome = SourceSearchOutcome(
++                    operationId = operationId,
++                    artist = artist.trim(),
++                    song = song.trim(),
++                    terminalState = SourceSearchTerminalState.TIMEOUT,
++                    message = message,
++                )
++                _state.update { current ->
++                    current.copy(
++                        sourceSearchOutcomesByProject = current.sourceSearchOutcomesByProject + (projectId to outcome),
++                        error = null,
++                        message = null,
++                    )
++                }
+                 activityStore.record(operationId, projectId, UnifiedOperationKind.SOURCE_ACQUISITION, UnifiedOperationState.FAILED, null, "Pesquisa de fontes expirou", message)
+             } catch (error: CancellationException) {
+                 activityStore.record(operationId, projectId, UnifiedOperationKind.SOURCE_ACQUISITION, UnifiedOperationState.CANCELLED, null, "Pesquisa de fontes cancelada")
+                 throw error
+             } catch (error: Throwable) {
+                 val message = "Não foi possível pesquisar fontes. Verifique a conexão e tente novamente."
+-                _state.update { it.copy(error = message) }
++                val outcome = SourceSearchOutcome(
++                    operationId = operationId,
++                    artist = artist.trim(),
++                    song = song.trim(),
++                    terminalState = SourceSearchTerminalState.PROVIDER_FAILURE,
++                    message = message,
++                )
++                _state.update { current ->
++                    current.copy(
++                        sourceSearchOutcomesByProject = current.sourceSearchOutcomesByProject + (projectId to outcome),
++                        error = null,
++                        message = null,
++                    )
++                }
+                 activityStore.record(
+                     operationId,
+                     projectId,
+@@ -604,6 +674,44 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
+ 
+     fun cancelSeparation(projectId:String){separation.snapshotProject(projectId)?.let{separation.cancel(projectId,it.identity.jobId)};refreshSeparation(projectId)}
+ 
++    fun repairPreparedReferenceBindings(projectId: String) {
++        viewModelScope.launch {
++            runCatching {
++                withContext(Dispatchers.IO) {
++                    val project = repository.load(projectId) ?: error("Projeto não encontrado.")
++                    if (!PreparedReferenceBindingPolicy.bindingDiffersFromDesired(project)) return@withContext project
++                    repository.save(
++                        PreparedReferenceBindingPolicy.applyUpdate(
++                            project = project,
++                            now = System.currentTimeMillis(),
++                        ),
++                    )
++                }
++            }.onSuccess {
++                activityStore.record(
++                    operationId = "reference-repair-$projectId-${System.currentTimeMillis()}",
++                    projectId = projectId,
++                    kind = UnifiedOperationKind.REFERENCE_PREPARATION,
++                    state = UnifiedOperationState.SUCCEEDED,
++                    progressPercent = 100,
++                    summary = "Referências do Studio verificadas/recolocadas localmente",
++                    technicalDetail = "local-only; zero cloud/quota",
++                )
++                _state.update { current ->
++                    current.copy(
++                        message = "Referências recolocadas no Studio sem alterar gravações ou edições.",
++                        error = null,
++                    )
++                }
++                refresh()
++            }.onFailure { error ->
++                _state.update {
++                    it.copy(error = error.message ?: "Não foi possível recolocar as referências no Studio.")
++                }
++            }
++        }
++    }
++
+     fun prepareReferences(projectId: String) {
+         if (preparedReferenceJobs[projectId]?.isActive == true) return
+         val activityId = referenceActivityId(projectId)
+diff --git a/app/src/main/java/studio/guitarlab/app/ui/SettingsScreen.kt b/app/src/main/java/studio/guitarlab/app/ui/SettingsScreen.kt
+--- a/app/src/main/java/studio/guitarlab/app/ui/SettingsScreen.kt
++++ b/app/src/main/java/studio/guitarlab/app/ui/SettingsScreen.kt
+@@ -66,6 +66,7 @@ fun SettingsScreen(
+     onCodecDiagnostics: () -> Unit,
+     onBackupSettings: () -> Unit = {},
+     onActivity: () -> Unit = {},
++    onDiagnostics: () -> Unit = {},
+ ) {
+     val context = LocalContext.current
+     ExternalControlHub.initialize(context)
+@@ -536,6 +537,14 @@ fun SettingsScreen(
+                     title = "Diagnóstico",
+                     subtitle = "Ferramentas técnicas reunidas em um único lugar para suporte e solução de problemas.",
+                 ) {
++                    SettingsActionRow(
++                        title = "Visão geral e pacote",
++                        detail = "Projeto, operações, rota, backup, journal sanitizado e exportação ZIP sem áudio.",
++                        actionLabel = "Abrir",
++                        onClick = onDiagnostics,
++                        testTag = "settings-diagnostics",
++                        primary = true,
++                    )
+                     SettingsActionRow(
+                         title = "Áudio e dispositivos",
+                         detail = "Rotas, capacidades e estado efetivo da entrada/saída.",
+diff --git a/app/src/main/java/studio/guitarlab/app/ui/UnifiedProjectWorkspaceScreen.kt b/app/src/main/java/studio/guitarlab/app/ui/UnifiedProjectWorkspaceScreen.kt
+--- a/app/src/main/java/studio/guitarlab/app/ui/UnifiedProjectWorkspaceScreen.kt
++++ b/app/src/main/java/studio/guitarlab/app/ui/UnifiedProjectWorkspaceScreen.kt
+@@ -42,6 +42,7 @@ import studio.guitarlab.core.separation.DurableRemoteJob
+ import studio.guitarlab.core.separation.RemoteJobState
+ import studio.guitarlab.core.source.RankedSourceCandidate
+ import studio.guitarlab.core.source.SourceSearchRules
++import studio.guitarlab.core.project.PreparedReferenceBindingPolicy
+ import studio.guitarlab.platform.codec.android.AndroidMasterAudioEncoder
+ import studio.guitarlab.platform.codec.android.MasterExportFormat
+ import studio.guitarlab.platform.separation.RemoteCloudAuthClient
+@@ -59,6 +60,7 @@ fun UnifiedPrepareScreen(
+     onSettings: () -> Unit = {},
+     candidates: List<RankedSourceCandidate> = emptyList(),
+     warnings: List<String> = emptyList(),
++    searchOutcome: SourceSearchOutcome? = null,
+     searchBusy: Boolean = false,
+     operation: SourceOperationSnapshot? = null,
+     separationJob: DurableRemoteJob? = null,
+@@ -74,6 +76,7 @@ fun UnifiedPrepareScreen(
+     onResumeSeparationImport: () -> Unit = {},
+     onCancelSeparation: () -> Unit = {},
+     onPrepareReferences: () -> Unit = {},
++    onRepairReferences: () -> Unit = {},
+     initialCloudSession: RemoteCloudAuthSession? = null,
+     requestNotificationPermission: Boolean = true,
+ ) {
+@@ -194,6 +197,7 @@ fun UnifiedPrepareScreen(
+                     onSongChange = { song = it },
+                     candidates = candidates,
+                     warnings = warnings,
++                    searchOutcome = searchOutcome,
+                     searchBusy = searchBusy,
+                     operation = operation,
+                     sourceReplacementActive = sourceReplacementActive,
+@@ -223,7 +227,11 @@ fun UnifiedPrepareScreen(
+                     onRetry = onPrepareReferences,
+                 )
+ 
+-                PrepareStage.READY -> ReadyStep(onStudio)
++                PrepareStage.READY -> ReadyStep(
++                    onStudio = onStudio,
++                    repairAvailable = project?.let(PreparedReferenceBindingPolicy::bindingDiffersFromDesired) == true,
++                    onRepairReferences = onRepairReferences,
++                )
+             }
+ 
+             if (project != null && (project.assets.isNotEmpty() || operation != null || separationJob != null)) {
+@@ -318,6 +326,7 @@ private fun SourceSelectionStep(
+     onSongChange: (String) -> Unit,
+     candidates: List<RankedSourceCandidate>,
+     warnings: List<String>,
++    searchOutcome: SourceSearchOutcome?,
+     searchBusy: Boolean,
+     operation: SourceOperationSnapshot?,
+     sourceReplacementActive: Boolean,
+@@ -377,6 +386,55 @@ private fun SourceSelectionStep(
+                 LinearProgressIndicator(Modifier.fillMaxWidth())
+             }
+         }
++    } else if (searchOutcome != null) {
++        val terminalTag = searchOutcome.terminalState.name.lowercase()
++        Surface(
++            modifier = Modifier.fillMaxWidth().testTag("prepare-search-terminal-$terminalTag"),
++            tonalElevation = 1.dp,
++            shape = MaterialTheme.shapes.medium,
++        ) {
++            Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
++                Text(searchOutcome.message, style = MaterialTheme.typography.bodyMedium)
++                when (searchOutcome.terminalState) {
++                    SourceSearchTerminalState.RESULTS -> {
++                        Text(
++                            if (searchOutcome.candidateCount == 1) "Resultado pronto para escolher." else "Resultados prontos para escolher.",
++                            style = MaterialTheme.typography.bodySmall,
++                            color = MaterialTheme.colorScheme.onSurfaceVariant,
++                        )
++                    }
++                    SourceSearchTerminalState.DID_YOU_MEAN -> {
++                        searchOutcome.suggestedArtist?.let { suggestion ->
++                            Text(
++                                "Você quis dizer “$suggestion”?",
++                                style = MaterialTheme.typography.bodyMedium,
++                                modifier = Modifier.testTag("prepare-search-suggestion"),
++                            )
++                            Button(
++                                onClick = {
++                                    onArtistChange(suggestion)
++                                    onSongChange(searchOutcome.song)
++                                    onSearch(suggestion, searchOutcome.song)
++                                },
++                                modifier = Modifier.testTag("prepare-search-use-suggestion"),
++                            ) { Text("Usar “$suggestion” e pesquisar novamente") }
++                        }
++                    }
++                    SourceSearchTerminalState.NO_EXACT_MATCH,
++                    SourceSearchTerminalState.PROVIDER_FAILURE,
++                    SourceSearchTerminalState.TIMEOUT -> {
++                        OutlinedButton(
++                            onClick = {
++                                onArtistChange(searchOutcome.artist)
++                                onSongChange(searchOutcome.song)
++                                onSearch(searchOutcome.artist, searchOutcome.song)
++                            },
++                            modifier = Modifier.testTag("prepare-search-retry"),
++                        ) { Text("Pesquisar novamente") }
++                    }
++                }
++            }
++        }
+     }
+ 
+     warnings.forEach { warning ->
+@@ -492,41 +550,118 @@ private fun ReferencesStep(retryRequired: Boolean, busy: Boolean, onRetry: () ->
+ }
+ 
+ @Composable
+-private fun ReadyStep(onStudio: () -> Unit) {
++private fun ReadyStep(
++    onStudio: () -> Unit,
++    repairAvailable: Boolean,
++    onRepairReferences: () -> Unit,
++) {
+     Surface(Modifier.fillMaxWidth().testTag("prepare-references-ready"), tonalElevation = 2.dp, shape = MaterialTheme.shapes.medium) {
+         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+             Text("Pronto para o Studio", style = MaterialTheme.typography.titleMedium)
+-            Text("A base sem guitarra e a guitarra de referência estão ligadas ao projeto e prontas para uso.")
+-            Button(onClick = onStudio, modifier = Modifier.testTag("prepare-open-studio")) { Text("Abrir Studio") }
++            Text(
++                if (repairAvailable) {
++                    "As referências preparadas continuam ativas, mas faltam clipes/vínculos no Studio. Você pode recolocá-los localmente."
++                } else {
++                    "A base sem guitarra e a guitarra de referência estão ligadas ao projeto e prontas para uso."
++                },
++            )
++            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
++                Button(onClick = onStudio, modifier = Modifier.testTag("prepare-open-studio")) { Text("Abrir Studio") }
++                if (repairAvailable) {
++                    OutlinedButton(
++                        onClick = onRepairReferences,
++                        modifier = Modifier.testTag("prepare-repair-references"),
++                    ) { Text("Recolocar referências no Studio") }
++                }
++            }
+         }
+     }
+ }
+ 
+ @Composable
+ private fun PrepareDiagnostics(project: GuitarProject, operation: SourceOperationSnapshot?, job: DurableRemoteJob?) {
++    val preparation = project.preparation
++    val activeSourceId = preparation?.sourceAssetId
++    val activeReferenceIds = setOfNotNull(preparation?.activeBackingAssetId, preparation?.activeGuitarAssetId)
++    val activeSource = activeSourceId?.let { id -> project.assets.firstOrNull { it.assetId == id } }
++    val activeReferences = project.assets.filter { it.assetId in activeReferenceIds }
++    val derivedReferenceChildren = project.assets.filter { asset ->
++        asset.provenance?.kind == "GUITAR_CHANNEL_SPLIT" &&
++            asset.provenance.inputAssetIds.any { it in activeReferenceIds }
++    }
++    val activeIds = buildSet {
++        activeSourceId?.let(::add)
++        addAll(activeReferenceIds)
++        addAll(derivedReferenceChildren.map { it.assetId })
++    }
++    val historical = project.assets.filter { it.assetId !in activeIds }
++
++    @Composable
++    fun assetLine(prefix: String, asset: studio.guitarlab.core.model.ManagedAsset, tag: String? = null) {
++        Text(
++            "$prefix • ${asset.format.uppercase()} • ${asset.byteSize / 1024} KB • SHA-256 ${asset.sha256.take(12)}…",
++            modifier = tag?.let { Modifier.testTag(it) } ?: Modifier,
++            style = MaterialTheme.typography.bodySmall,
++            color = MaterialTheme.colorScheme.onSurfaceVariant,
++        )
++    }
++
+     Surface(Modifier.fillMaxWidth().testTag("prepare-diagnostics"), tonalElevation = 1.dp, shape = MaterialTheme.shapes.medium) {
+-        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
++        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+             Text("Detalhes técnicos", style = MaterialTheme.typography.titleMedium)
+-            operation?.let { Text("Operação de fonte: ${it.operationId}", style = MaterialTheme.typography.bodySmall) }
+-            job?.let { Text("Processamento: ${it.identity.jobId}", style = MaterialTheme.typography.bodySmall) }
+-            val roles = listOf(
+-                AssetRole.SOURCE_ORIGINAL,
+-                AssetRole.REFERENCE_BACKING,
+-                AssetRole.REFERENCE_GUITAR,
+-                AssetRole.STEM_DRUMS,
+-                AssetRole.STEM_BASS,
+-                AssetRole.STEM_GUITAR,
+-                AssetRole.STEM_VOCALS,
+-                AssetRole.STEM_PIANO,
+-                AssetRole.STEM_OTHER,
+-            )
+-            roles.forEach { role ->
+-                project.assets.filter { it.role == role }.forEach { asset ->
+-                    Text(
+-                        "${assetRoleLabel(role)} • ${asset.format.uppercase()} • ${asset.byteSize / 1024} KB • SHA-256 ${asset.sha256}",
+-                        modifier = Modifier.testTag("prepare-asset-${role.name.lowercase()}"),
+-                        style = MaterialTheme.typography.bodySmall,
+-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
++
++            Text("Fonte ativa", style = MaterialTheme.typography.titleSmall)
++            if (activeSource != null) {
++                assetLine(
++                    "ACTIVE · Fonte original",
++                    activeSource,
++                    "prepare-asset-source_original",
++                )
++            } else {
++                Text("Nenhuma fonte ativa.", style = MaterialTheme.typography.bodySmall)
++            }
++
++            Text("Processamento mais recente", style = MaterialTheme.typography.titleSmall)
++            operation?.let {
++                Text("Aquisição · ${it.operationId} · ${it.state.name}", style = MaterialTheme.typography.bodySmall)
++            }
++            job?.let {
++                Text("Separação · ${it.identity.jobId} · ${it.state.name}", style = MaterialTheme.typography.bodySmall)
++                it.resultManifestSha256?.let { sha ->
++                    Text("Manifesto · SHA-256 ${sha.take(12)}…", style = MaterialTheme.typography.bodySmall)
++                }
++            }
++            if (operation == null && job == null) {
++                Text("Sem operação ativa ou recente carregada.", style = MaterialTheme.typography.bodySmall)
++            }
++
++            Text("Referências ativas", style = MaterialTheme.typography.titleSmall)
++            activeReferences.forEach { asset ->
++                assetLine(
++                    "ACTIVE · ${assetRoleLabel(asset.role)}",
++                    asset,
++                    "prepare-asset-${asset.role.name.lowercase()}",
++                )
++            }
++            derivedReferenceChildren.forEach { asset ->
++                val channel = asset.provenance?.parameters?.get("channel")?.lowercase()?.replaceFirstChar { it.uppercase() } ?: "Canal"
++                assetLine(
++                    "DERIVED CHANNEL · Guitarra de referência · $channel",
++                    asset,
++                    "prepare-asset-derived-${asset.assetId}",
++                )
++            }
++            if (activeReferences.isEmpty()) {
++                Text("Nenhuma referência ativa.", style = MaterialTheme.typography.bodySmall)
++            }
++
++            if (historical.isNotEmpty()) {
++                Text("Histórico / superseded", style = MaterialTheme.typography.titleSmall)
++                historical.sortedWith(compareBy({ it.role.name }, { it.createdAtEpochMs })).forEach { asset ->
++                    assetLine(
++                        "HISTORICAL · ${assetRoleLabel(asset.role)}",
++                        asset,
++                        "prepare-asset-history-${asset.assetId}",
+                     )
+                 }
+             }
+diff --git a/app/src/test/java/studio/guitarlab/app/ui/AppRouteCodecTest.kt b/app/src/test/java/studio/guitarlab/app/ui/AppRouteCodecTest.kt
+--- a/app/src/test/java/studio/guitarlab/app/ui/AppRouteCodecTest.kt
++++ b/app/src/test/java/studio/guitarlab/app/ui/AppRouteCodecTest.kt
+@@ -16,6 +16,8 @@ class AppRouteCodecTest {
+             AppScreen.Export("project:a/b?c"),
+             AppScreen.Options(),
+             AppScreen.Options("project:a/b?c"),
++            AppScreen.Diagnostics(),
++            AppScreen.Diagnostics("project:a/b?c"),
+             AppScreen.AudioProbe(),
+             AppScreen.AudioProbe("p:1"),
+             AppScreen.CodecProbe(),
+diff --git a/core/separation/src/main/kotlin/studio/guitarlab/core/separation/RemoteSeparation.kt b/core/separation/src/main/kotlin/studio/guitarlab/core/separation/RemoteSeparation.kt
+--- a/core/separation/src/main/kotlin/studio/guitarlab/core/separation/RemoteSeparation.kt
++++ b/core/separation/src/main/kotlin/studio/guitarlab/core/separation/RemoteSeparation.kt
+@@ -168,6 +168,7 @@ interface RemoteResultTransport {
+  suspend fun downloadStem(identity:RemoteJobIdentity,stem:RemoteStem):RemoteStemPayload
+  suspend fun downloadReference(identity:RemoteJobIdentity,reference:RemoteReference):RemoteStemPayload =
+   throw UnsupportedOperationException("prepared reference transport is not implemented")
++ suspend fun persistAcceptedManifest(identity:RemoteJobIdentity,manifestBytes:ByteArray) {}
+  suspend fun cleanup(identity:RemoteJobIdentity)
+ }
+ interface RemoteStemPublisher {
+@@ -234,6 +235,7 @@ class RemoteSeparationCoordinator(private val store:RemoteJobStore,private val b
+   store.save(accepted.copy(state=RemoteJobState.IMPORTING,updatedAtMs=nowMs(),errorCode=null))
+   val manifestBytes=transport.downloadManifest(identity);val manifestSha=sha256(manifestBytes);accepted.resultManifestSha256?.let{require(it==manifestSha){"manifest checksum mismatch"}}
+   val manifest=decodeManifest(manifestBytes);manifest.validateFor(identity,expectedResultUid())
++  transport.persistAcceptedManifest(identity,manifestBytes)
+   if(manifest.schemaVersion==1) {
+    val stems=linkedMapOf<String,RemoteStemPayload>()
+    manifest.stems.forEach { stem -> stems[stem.name]=transport.downloadStem(identity,stem) }
+diff --git a/core/separation/src/test/kotlin/studio/guitarlab/core/separation/RemoteSeparationTest.kt b/core/separation/src/test/kotlin/studio/guitarlab/core/separation/RemoteSeparationTest.kt
+--- a/core/separation/src/test/kotlin/studio/guitarlab/core/separation/RemoteSeparationTest.kt
++++ b/core/separation/src/test/kotlin/studio/guitarlab/core/separation/RemoteSeparationTest.kt
+@@ -217,6 +217,11 @@ class RemoteSeparationTest {
+                 events += "download:${reference.name}"
+                 return BytesPayload(reference.name, bytes)
+             }
++            override suspend fun persistAcceptedManifest(identity: RemoteJobIdentity, manifestBytes: ByteArray) {
++                assertEquals(i, identity)
++                assertEquals(manifestHash, sha(manifestBytes))
++                events += "persistManifest"
++            }
+             override suspend fun cleanup(identity: RemoteJobIdentity) { events += "cleanup" }
+         }
+         val publisher = object : RemoteStemPublisher {
+@@ -242,7 +247,7 @@ class RemoteSeparationTest {
+         RemoteSeparationCoordinator(store, backend, transport, { manifest }, publisher).reconcile(i)
+ 
+         assertEquals(
+-            listOf("download:backing", "download:guitar", "publishReferences", "ack", "cleanup"),
++            listOf("persistManifest", "download:backing", "download:guitar", "publishReferences", "ack", "cleanup"),
+             events,
+         )
+         assertEquals(RemoteJobState.IMPORTED, store.job.state)
+diff --git a/core/source/src/main/kotlin/studio/guitarlab/core/source/SourceSearch.kt b/core/source/src/main/kotlin/studio/guitarlab/core/source/SourceSearch.kt
+--- a/core/source/src/main/kotlin/studio/guitarlab/core/source/SourceSearch.kt
++++ b/core/source/src/main/kotlin/studio/guitarlab/core/source/SourceSearch.kt
+@@ -51,6 +51,12 @@ data class RankedSourceCandidate(
+     val automaticDownloadSupported: Boolean = true,
+ )
+ 
++data class SourceSearchSuggestion(
++    val artist: String,
++    val confidence: Double,
++    val supportCount: Int,
++)
++
+ interface SourceSearchProviderClient {
+     suspend fun search(request: SourceSearchRequest): List<SourceCandidateDraft>
+ }
+@@ -118,6 +124,44 @@ object SourceSearchRules {
+         return "${rounded / 60}:${(rounded % 60).toString().padStart(2, '0')}"
+     }
+ 
++    fun suggestArtist(request: SourceSearchRequest, drafts: List<SourceCandidateDraft>): SourceSearchSuggestion? {
++        val requested = normalize(request.artist)
++        if (requested.isBlank()) return null
++        val grouped = drafts
++            .asSequence()
++            .filter { titleMatchesSong(request.song, it.title) }
++            .mapNotNull { draft ->
++                val cleaned = draft.uploader
++                    .replace(Regex("""(?i)\s*[-–—]\s*topic\s*$"""), "")
++                    .replace(Regex("""(?i)\s*[-–—]\s*official\s*$"""), "")
++                    .trim()
++                    .takeIf { it.isNotBlank() }
++                    ?: return@mapNotNull null
++                val normalized = normalize(cleaned)
++                if (normalized.isBlank() || normalized == requested) return@mapNotNull null
++                Triple(normalized, cleaned, textSimilarity(request.artist, cleaned))
++            }
++            .filter { (_, _, similarity) -> similarity >= 0.74 }
++            .groupBy { it.first }
++
++        return grouped.values
++            .map { rows ->
++                val best = rows.maxBy { it.third }
++                SourceSearchSuggestion(
++                    artist = best.second,
++                    confidence = best.third,
++                    supportCount = rows.size,
++                )
++            }
++            .filter { it.confidence >= 0.82 || (it.supportCount >= 2 && it.confidence >= 0.76) }
++            .sortedWith(
++                compareByDescending<SourceSearchSuggestion> { it.supportCount }
++                    .thenByDescending { it.confidence }
++                    .thenBy { normalize(it.artist) },
++            )
++            .firstOrNull()
++    }
++
+     fun rank(request: SourceSearchRequest, drafts: List<SourceCandidateDraft>, limit: Int = 15): List<RankedSourceCandidate> {
+         val accepted = drafts
+             .filter { it.url.startsWith("http://") || it.url.startsWith("https://") }
+diff --git a/core/source/src/test/kotlin/studio/guitarlab/core/source/SourceSearchRulesTest.kt b/core/source/src/test/kotlin/studio/guitarlab/core/source/SourceSearchRulesTest.kt
+--- a/core/source/src/test/kotlin/studio/guitarlab/core/source/SourceSearchRulesTest.kt
++++ b/core/source/src/test/kotlin/studio/guitarlab/core/source/SourceSearchRulesTest.kt
+@@ -51,4 +51,42 @@ class SourceSearchRulesTest {
+         assertTrue(SourceAcquisitionPolicy.retryableMessage("HTTP 503"))
+         assertFalse(SourceAcquisitionPolicy.retryableMessage("arquivo não contém áudio"))
+     }
++
++    @Test fun typoArtistProducesHighConfidenceSuggestion() {
++        val request = SourceSearchRequest("Memphys May Fire", "Misery")
++        val drafts = listOf(
++            SourceCandidateDraft(
++                SourceProvider.YOUTUBE,
++                "Misery (Official Audio)",
++                "Memphis May Fire - Topic",
++                "https://x/1",
++                automaticDownloadSupported = true,
++            ),
++            SourceCandidateDraft(
++                SourceProvider.BANDCAMP,
++                "Misery",
++                "Memphis May Fire",
++                "https://x/2",
++                automaticDownloadSupported = true,
++            ),
++        )
++
++        val suggestion = SourceSearchRules.suggestArtist(request, drafts)
++        assertEquals("Memphis May Fire", suggestion?.artist)
++        assertTrue((suggestion?.confidence ?: 0.0) >= 0.82)
++        assertEquals(2, suggestion?.supportCount)
++    }
++
++    @Test fun exactOrUnrelatedArtistDoesNotProduceSuggestion() {
++        val exact = SourceSearchRules.suggestArtist(
++            SourceSearchRequest("Memphis May Fire", "Misery"),
++            listOf(SourceCandidateDraft(SourceProvider.YOUTUBE, "Misery", "Memphis May Fire - Topic", "https://x/1")),
++        )
++        val unrelated = SourceSearchRules.suggestArtist(
++            SourceSearchRequest("Memphys May Fire", "Misery"),
++            listOf(SourceCandidateDraft(SourceProvider.YOUTUBE, "Misery", "Skillet - Topic", "https://x/2")),
++        )
++        assertEquals(null, exact)
++        assertEquals(null, unrelated)
++    }
+ }
+diff --git a/platform/separation/src/main/kotlin/studio/guitarlab/platform/separation/AcceptedRemoteManifestStore.kt b/platform/separation/src/main/kotlin/studio/guitarlab/platform/separation/AcceptedRemoteManifestStore.kt
+new file mode 100644
+--- /dev/null
++++ b/platform/separation/src/main/kotlin/studio/guitarlab/platform/separation/AcceptedRemoteManifestStore.kt
+@@ -0,0 +1,95 @@
++package studio.guitarlab.platform.separation
++
++import android.content.Context
++import java.io.File
++import java.nio.file.Files
++import java.nio.file.StandardCopyOption
++import org.json.JSONArray
++import org.json.JSONObject
++import studio.guitarlab.core.separation.RemoteJobIdentity
++
++/**
++ * Durable, sanitized provenance retained after remote ACK/purge.
++ * Audio is never copied here.
++ */
++internal class AcceptedRemoteManifestStore(context: Context) {
++    private val root = File(context.filesDir, "diagnostics/manifests").apply { mkdirs() }
++
++    fun persist(identity: RemoteJobIdentity, bytes: ByteArray) {
++        require(bytes.size in 2..65_536) { "RESULT_INVALID" }
++        val parsed = JSONObject(bytes.toString(Charsets.UTF_8))
++        val sanitized = sanitize(parsed)
++        sanitized.put("_diagnosticJobId", identity.jobId)
++        sanitized.put("_diagnosticProjectId", identity.projectId)
++        sanitized.put("_acceptedAtEpochMs", System.currentTimeMillis())
++
++        val target = File(root, "${identity.jobId}.json")
++        val partial = File(root, ".${identity.jobId}.json.part")
++        partial.writeText(sanitized.toString(2), Charsets.UTF_8)
++        try {
++            Files.move(
++                partial.toPath(),
++                target.toPath(),
++                StandardCopyOption.REPLACE_EXISTING,
++                StandardCopyOption.ATOMIC_MOVE,
++            )
++        } catch (_: Exception) {
++            Files.move(partial.toPath(), target.toPath(), StandardCopyOption.REPLACE_EXISTING)
++        }
++        prune()
++    }
++
++    private fun sanitize(value: Any?): Any? = when (value) {
++        is JSONObject -> JSONObject().also { output ->
++            val names = value.keys()
++            while (names.hasNext()) {
++                val key = names.next()
++                if (isSensitiveKey(key)) continue
++                output.put(key, sanitize(value.opt(key)))
++            }
++        }
++        is JSONArray -> JSONArray().also { output ->
++            for (index in 0 until value.length()) output.put(sanitize(value.opt(index)))
++        }
++        JSONObject.NULL, null -> JSONObject.NULL
++        is String -> sanitizeString(value)
++        else -> value
++    }
++
++    private fun isSensitiveKey(key: String): Boolean {
++        val normalized = key.lowercase()
++        return listOf(
++            "password", "authorization", "accesstoken", "refreshtoken",
++            "idtoken", "appcheck", "credential", "serviceaccount",
++            "resumablesession", "sessionurl",
++        ).any { it in normalized }
++    }
++
++    private fun sanitizeString(value: String): String {
++        var result = value
++        SENSITIVE_PATTERNS.forEach { regex -> result = result.replace(regex, "[REDACTED]") }
++        return result.take(MAX_STRING_CHARS)
++    }
++
++    private fun prune() {
++        val now = System.currentTimeMillis()
++        root.listFiles { file -> file.isFile && file.extension == "json" }.orEmpty()
++            .forEach { file ->
++                if (now - file.lastModified() > RETENTION_MS) file.delete()
++            }
++        val ordered = root.listFiles { file -> file.isFile && file.extension == "json" }.orEmpty()
++            .sortedByDescending { it.lastModified() }
++        ordered.drop(MAX_FILES).forEach(File::delete)
++    }
++
++    private companion object {
++        const val MAX_FILES = 40
++        const val MAX_STRING_CHARS = 8_192
++        const val RETENTION_MS = 14L * 24L * 60L * 60L * 1000L
++        val SENSITIVE_PATTERNS = listOf(
++            Regex("""(?i)Bearer\s+[A-Za-z0-9._~+/=-]+"""),
++            Regex("""(?i)(token|password|authorization)\s*[:=]\s*[^\s,;]+"""),
++            Regex("""(?i)https?://[^\s"']+[?&](?:X-Goog-Signature|upload_id|session)=[^\s"']+"""),
++        )
++    }
++}
+diff --git a/platform/separation/src/main/kotlin/studio/guitarlab/platform/separation/FirebaseRemoteRuntime.kt b/platform/separation/src/main/kotlin/studio/guitarlab/platform/separation/FirebaseRemoteRuntime.kt
+--- a/platform/separation/src/main/kotlin/studio/guitarlab/platform/separation/FirebaseRemoteRuntime.kt
++++ b/platform/separation/src/main/kotlin/studio/guitarlab/platform/separation/FirebaseRemoteRuntime.kt
+@@ -95,6 +95,10 @@ internal class FirebaseResultTransport(
+             }
+         }
+ 
++    override suspend fun persistAcceptedManifest(identity: RemoteJobIdentity, manifestBytes: ByteArray) {
++        AcceptedRemoteManifestStore(context).persist(identity, manifestBytes)
++    }
++
+     override suspend fun cleanup(identity: RemoteJobIdentity) {
+         // Remote object ownership belongs to acknowledgeRemoteImport/cancel/janitor.
+         // Client cleanup is deliberately local-only so backend purge failures remain observable.
+diff --git a/platform/source-android/src/main/kotlin/studio/guitarlab/platform/source/android/SourceDiscovery.kt b/platform/source-android/src/main/kotlin/studio/guitarlab/platform/source/android/SourceDiscovery.kt
+--- a/platform/source-android/src/main/kotlin/studio/guitarlab/platform/source/android/SourceDiscovery.kt
++++ b/platform/source-android/src/main/kotlin/studio/guitarlab/platform/source/android/SourceDiscovery.kt
+@@ -23,7 +23,13 @@ import studio.guitarlab.core.source.SourceSearchProviderClient
+ import studio.guitarlab.core.source.SourceSearchRequest
+ import studio.guitarlab.core.source.SourceSearchRules
+ 
+-data class SourceDiscoveryResult(val candidates: List<RankedSourceCandidate>, val warnings: List<String> = emptyList())
++data class SourceDiscoveryResult(
++    val candidates: List<RankedSourceCandidate>,
++    val warnings: List<String> = emptyList(),
++    val suggestedArtist: String? = null,
++    val providersSucceeded: Int = 0,
++    val providersFailed: Int = 0,
++)
+ 
+ class SourceSearchCoordinator(private val providers: List<SourceSearchProviderClient>) {
+     constructor(context: Context) : this(listOf(BandcampDiscoveryProvider(), YtDlpDiscoveryProvider(context.applicationContext)))
+@@ -43,7 +49,21 @@ class SourceSearchCoordinator(private val providers: List<SourceSearchProviderCl
+                 }
+             }.awaitAll()
+         }
+-        return SourceDiscoveryResult(SourceSearchRules.rank(request, outcomes.flatMap { it.drafts }), outcomes.mapNotNull { it.warning })
++        val drafts = outcomes.flatMap { it.drafts }
++        val ranked = SourceSearchRules.rank(request, drafts)
++        val succeeded = outcomes.count { it.warning == null }
++        val failed = outcomes.size - succeeded
++        return SourceDiscoveryResult(
++            candidates = ranked,
++            warnings = outcomes.mapNotNull { it.warning },
++            suggestedArtist = if (ranked.isEmpty() && succeeded > 0) {
++                SourceSearchRules.suggestArtist(request, drafts)?.artist
++            } else {
++                null
++            },
++            providersSucceeded = succeeded,
++            providersFailed = failed,
++        )
+     }
+ }
+ 
+diff --git a/platform/source-android/src/test/kotlin/studio/guitarlab/platform/source/android/SourceDiscoveryTest.kt b/platform/source-android/src/test/kotlin/studio/guitarlab/platform/source/android/SourceDiscoveryTest.kt
+--- a/platform/source-android/src/test/kotlin/studio/guitarlab/platform/source/android/SourceDiscoveryTest.kt
++++ b/platform/source-android/src/test/kotlin/studio/guitarlab/platform/source/android/SourceDiscoveryTest.kt
+@@ -89,4 +89,39 @@ class SourceDiscoveryTest {
+         override suspend fun inspectUrl(url: String, provider: SourceProvider): SourceCandidateDraft =
+             error("runtime unavailable")
+     }
++
++    @Test
++    fun coordinatorDistinguishesHealthyEmptyFromProviderFailureAndSuggestion() = runBlocking {
++        val healthyNearMatch = object : studio.guitarlab.core.source.SourceSearchProviderClient {
++            override suspend fun search(request: SourceSearchRequest) = listOf(
++                SourceCandidateDraft(
++                    provider = SourceProvider.YOUTUBE,
++                    title = "Misery",
++                    uploader = "Memphis May Fire - Topic",
++                    url = "https://x/near",
++                    automaticDownloadSupported = true,
++                ),
++            )
++        }
++        val failing = object : studio.guitarlab.core.source.SourceSearchProviderClient {
++            override suspend fun search(request: SourceSearchRequest): List<SourceCandidateDraft> =
++                error("provider offline")
++        }
++
++        val mixed = SourceSearchCoordinator(listOf(healthyNearMatch, failing)).search(
++            SourceSearchRequest(artist = "Memphys May Fire", song = "Misery"),
++        )
++        assertEquals(1, mixed.providersSucceeded)
++        assertEquals(1, mixed.providersFailed)
++        assertEquals("Memphis May Fire", mixed.suggestedArtist)
++
++        val allFailed = SourceSearchCoordinator(listOf(failing)).search(
++            SourceSearchRequest(artist = "Memphys May Fire", song = "Misery"),
++        )
++        assertEquals(0, allFailed.providersSucceeded)
++        assertEquals(1, allFailed.providersFailed)
++        assertEquals(null, allFailed.suggestedArtist)
++        assertTrue(allFailed.warnings.isNotEmpty())
++    }
++
+ }
