@@ -38,6 +38,7 @@ fun GuitarLabApp(
     onDeepLinkConsumed: () -> Unit = {},
 ) {
     val persistedRoute by navigationViewModel.persistedRoute.collectAsState()
+    val navigationEntry by navigationViewModel.navigationEntry.collectAsState()
     val homeState by homeViewModel.state.collectAsState()
     val context = LocalContext.current
     val remoteCloudAuth = remember(context) { RemoteCloudAuthClient(context) }
@@ -128,6 +129,7 @@ fun GuitarLabApp(
                 StudioShellScreen(
                     projectId = current.projectId,
                     shellProject = project,
+                    navigationEntry = navigationEntry,
                     onBack = {
                         homeViewModel.refresh()
                         navigate(AppScreen.Home)
