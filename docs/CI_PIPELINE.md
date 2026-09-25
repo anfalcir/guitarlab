@@ -7,7 +7,7 @@ This document describes current execution controls. Historical tail hashes, run 
 ## Source materialization
 
 - canonical entrypoint: `scripts/materialize_ci_sources.sh`;
-- current tail: U12bu via `scripts/materialize_ci_sources_u12bu.py`;
+- current tail: U12bv via `scripts/materialize_ci_sources_u12bv.py`;
 - protected deltas: `.source-parts/`;
 - required properties: deterministic, hash/blob locked, idempotent, semantic guards, reverse-apply validation and fail-closed drift handling.
 
