@@ -1,0 +1,12 @@
+diff --git a/platform/separation/src/main/kotlin/studio/guitarlab/platform/separation/AcceptedRemoteManifestStore.kt b/platform/separation/src/main/kotlin/studio/guitarlab/platform/separation/AcceptedRemoteManifestStore.kt
+--- a/platform/separation/src/main/kotlin/studio/guitarlab/platform/separation/AcceptedRemoteManifestStore.kt
++++ b/platform/separation/src/main/kotlin/studio/guitarlab/platform/separation/AcceptedRemoteManifestStore.kt
+@@ -18,7 +18,7 @@ internal class AcceptedRemoteManifestStore(context: Context) {
+     fun persist(identity: RemoteJobIdentity, bytes: ByteArray) {
+         require(bytes.size in 2..65_536) { "RESULT_INVALID" }
+         val parsed = JSONObject(bytes.toString(Charsets.UTF_8))
+-        val sanitized = sanitize(parsed)
++        val sanitized = requireNotNull(sanitize(parsed) as? JSONObject) { "RESULT_INVALID" }
+         sanitized.put("_diagnosticJobId", identity.jobId)
+         sanitized.put("_diagnosticProjectId", identity.projectId)
+         sanitized.put("_acceptedAtEpochMs", System.currentTimeMillis())
