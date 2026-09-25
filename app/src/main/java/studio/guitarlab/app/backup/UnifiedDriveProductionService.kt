@@ -111,10 +111,15 @@ internal class UnifiedDriveProductionService(
         )
         val descriptorCache = linkedMapOf<String, BackupVersionDescriptor>()
 
-        suspend fun describe(manifest: studio.guitarlab.core.project.DriveProjectRevisionManifest): BackupVersionDescriptor =
-            descriptorCache.getOrPut(manifest.manifestSha256) {
-                versionDescriptor(manifest, loadRemoteProject(manifest.projectStateAsset, manifest))
-            }
+        suspend fun describe(manifest: studio.guitarlab.core.project.DriveProjectRevisionManifest): BackupVersionDescriptor {
+            descriptorCache[manifest.manifestSha256]?.let { return it }
+            val descriptor = versionDescriptor(
+                manifest,
+                loadRemoteProject(manifest.projectStateAsset, manifest),
+            )
+            descriptorCache[manifest.manifestSha256] = descriptor
+            return descriptor
+        }
 
         val versions = retained.map { describe(it) }
             .distinctBy { it.deduplicationKey }
