@@ -10,6 +10,8 @@ Updated: 2026-09-24
 
 - W6 controlled production cutover dispatched from this source state: promote exact prequalified digest `sha256:14e240cb01b71131cb049dd34e0df078614238da3514325f80126d56f8d5e698`, verify runtime contract, run full U4 transaction/recovery/ACK-purge gate, and restore prior production `sha256:a70bd221ab50ef092508781c609cbfbecfe6b71ba4c8a722fc5f087b09dbd550` automatically on failure.
 
+- RC20 Android completion implementation is now staged under U12bn: persistent source-search terminal outcomes with bounded “Você quis dizer…”, local/idempotent Studio reference reinsertion, grouped Prepare technical details, Configurações → Diagnóstico, sanitized 14-day/8-MiB JSONL journal, offline diagnostic ZIP with SHA256SUMS and no song audio, and durable sanitized accepted-manifest retention before remote ACK/purge. Android identity is now `0.5.0-rc20` / versionCode `40`. This scope is pending Android CI/API36 qualification before signing/final physical homologation.
+
 ## Unified program progress
 - Stable product identity is governed by `PROJECT_IDENTITY.md` and D-090: private single-owner appliance, proportional gates, exact signed APK + digest-pinned worker freeze after physical acceptance, and maintenance only for a real trigger.
 - Product-scope override (2026-09-21): legacy project/backup migration is retired. The owner has only two legacy projects and accepts recreating them manually. U9 is retired; U8/U10/U11 no longer carry H37/GBW/pre-unification migration obligations. Current unified-line save/reopen, schema evolution, backup/restore and integrity guarantees remain mandatory.
