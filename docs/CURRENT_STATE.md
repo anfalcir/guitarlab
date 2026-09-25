@@ -4,7 +4,7 @@ Updated: 2026-09-25
 
 ## Status
 
-**RC21 MAINTENANCE CANDIDATE — SOFTWARE/API 36 PASS / MAIN INTEGRATION + SIGNING PENDING**
+**RC21 MAINTENANCE CANDIDATE — SOFTWARE/API 36 PASS / MAIN INTEGRATED / SIGNING PENDING**
 
 RC20 remains the currently accepted, physically homologated baseline recorded in `RELEASE_BASELINE.md`. RC21 is a proportional maintenance successor opened under the RC20 maintenance policy after owner-observed persistence/Studio and backup-feedback regressions. Implementation and serial hardening are complete; the unsigned Android qualification is green. RC21 does not replace RC20 until the exact signed RC21 APK passes residual owner acceptance.
 
@@ -14,6 +14,8 @@ RC20 remains the currently accepted, physically homologated baseline recorded in
 - versionName: `0.5.0-rc21`;
 - versionCode: `41`;
 - maintenance source branch before integration: `maintenance/rc21-integrity-feedback-backup`;
+- canonical integration: PR #7 merged into `main`;
+- main integration commit: `2617fe1f1f2351a17389f165ed5d5a8e834e16a2`;
 - software/API36 qualified source: `ad182678cb2704dc9bbfc622124b4f2ac121fea1`;
 - Android CI: **#910 / run 36195905242 — PASS**;
 - Unit tests + Lint + APK build: PASS;
@@ -64,10 +66,10 @@ The underlying Drive v3 OAuth/transport/resumable-upload/commit/restore store is
 
 ## Promotion sequence
 
-1. finish the complete RC21 documentation update;
-2. merge the maintenance branch into canonical `main`;
-3. remove/disable the temporary maintenance branch and its CI trigger;
-4. run `[run ci signed]` from the exact post-merge `main`;
+1. complete live documentation — DONE;
+2. merge the maintenance work into canonical `main` — DONE via PR #7;
+3. remove/disable the temporary maintenance branch and keep it out of CI triggers — next pre-signing control;
+4. run `[run ci signed]` from the exact canonical `main`;
 5. install that exact signed artifact on Samsung SM-X230 / Android 16;
 6. perform residual acceptance for the affected maintenance paths, including the legacy Studio recovery case and representative Drive backup/catalog/restore;
 7. after owner PASS, update `RELEASE_BASELINE.md` to RC21 and archive the final acceptance record.
