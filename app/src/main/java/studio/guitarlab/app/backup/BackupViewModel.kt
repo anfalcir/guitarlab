@@ -67,7 +67,6 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
     private val _state = MutableStateFlow(BackupUiState())
     val state: StateFlow<BackupUiState> = _state.asStateFlow()
     init {
-        refreshInternal(forceRemote = false)
         observeAutomaticBackupCompletion()
     }
 
@@ -80,7 +79,8 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
         screenEnteredOnce = true
         if (returning) clearMessage()
         if (refreshJob?.isActive == true || _state.value.busy) return
-        refreshInternal(forceRemote = false)
+        // Cache is painted immediately, but every visible entry verifies the current Drive heads.
+        refreshInternal(forceRemote = true)
     }
 
     fun onScreenLeft() {
