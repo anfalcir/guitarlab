@@ -32,6 +32,8 @@ Updated: 2026-09-24
 
 - CI #890: software gate PASS; API36 still failed before tests because `android-emulator-runner` executes each `script:` line as an independent `/usr/bin/sh -c`, so the multiline `while ... done` was split and failed with `expecting done`. U12br moves all readiness logic into the repository-owned Bash regression script and leaves the runner with one command only. The new `DiagnosticSupportInstrumentedTest` was also added to the fail-closed API36 grouping so coverage remains complete once tests start.
 
+- U12br corrective qualification dispatched after CI #890. Software gate was already green; signing remains deferred until API36 passes on the exact U12br source.
+
 ## Unified program progress
 - Stable product identity is governed by `PROJECT_IDENTITY.md` and D-090: private single-owner appliance, proportional gates, exact signed APK + digest-pinned worker freeze after physical acceptance, and maintenance only for a real trigger.
 - Product-scope override (2026-09-21): legacy project/backup migration is retired. The owner has only two legacy projects and accepts recreating them manually. U9 is retired; U8/U10/U11 no longer carry H37/GBW/pre-unification migration obligations. Current unified-line save/reopen, schema evolution, backup/restore and integrity guarantees remain mandatory.
