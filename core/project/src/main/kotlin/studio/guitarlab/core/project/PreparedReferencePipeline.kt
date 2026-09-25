@@ -386,7 +386,6 @@ object PreparedReferenceBindingPolicy {
                 project = next,
                 desired = desired.filterKeys { it == ReferenceBindingKind.BACKING },
                 familyKinds = setOf(ReferenceBindingKind.BACKING),
-                assetRole = AssetRole.REFERENCE_BACKING,
                 now = now,
                 idFactory = idFactory,
             )
@@ -396,7 +395,6 @@ object PreparedReferenceBindingPolicy {
                 project = next,
                 desired = desired.filterKeys { it in GUITAR_BINDING_KINDS },
                 familyKinds = GUITAR_BINDING_KINDS,
-                assetRole = AssetRole.REFERENCE_GUITAR,
                 now = now,
                 idFactory = idFactory,
             )
@@ -449,7 +447,6 @@ object PreparedReferenceBindingPolicy {
         project: GuitarProject,
         desired: Map<ReferenceBindingKind, ManagedAsset>,
         familyKinds: Set<ReferenceBindingKind>,
-        assetRole: AssetRole,
         now: Long,
         idFactory: () -> String,
     ): GuitarProject {
