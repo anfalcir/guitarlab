@@ -332,11 +332,13 @@ U7 #146–#149 demonstrated that both the implicit Cloud Build `gcb-internal` bu
 
 RC20 shadow publication therefore uses the existing keyless GitHub WIF identity, which already has Artifact Registry administration rights: `docker build --pull --no-cache` executes on the verified runner, `docker push` publishes to the existing Artifact Registry, the resulting registry digest is resolved, and Cloud Run is deployed by digest. No new static credential, secret, project or production permission is introduced. U7 #150/#151 proved this path can publish and deploy the shadow image while production remains unchanged.
 
-## D-088 — Cross-host Demucs parity is bounded metric equivalence, not bit identity
+## D-088 — Cross-host Demucs parity is bounded metric equivalence, not bit identity (superseded by D-091)
 
 The same official PyTorch Demucs digest can produce small floating-point differences on different CPU hosts. U7 #152 observed a 0.37% drum-peak delta between the GitHub-hosted local/container run and Cloud Run; the original 0.2% tolerance was therefore too strict and did not represent a musical/structural failure.
 
 W3 now requires exact engine/model/config/source contracts and hard quality-gate PASS, while numeric audio metrics use a 1% relative / 5e-6 absolute envelope. Prepared-reference metrics, shared gain and stem energy shares are also compared. Stem/prepared SHA equality is retained as evidence where available but is not a veto when the runtime does not promise cross-host bit determinism.
+
+U7 #156 later proved that even this widened numeric envelope is not a valid blocking invariant for independent `--shifts 1` executions. D-091 replaces only that veto rule; the exact contracts, hard quality checks and retained comparison evidence remain.
 
 ## D-089 — RC20 CRITICAL gate permits only evidence-backed, non-applicable findings
 
@@ -353,3 +355,9 @@ The full Debian 13 image in U7 #155 retained one finding: `CVE-2026-6653` in `li
 GuitarLab targets one owner, private projects and provider-mediated source acquisition. Release rigor protects the owner's actual risks: media/project loss, unusable audio, broken primary flow, quota/cost duplication, credentials, recovery and signed artifact identity. Evidence without a credible path to those harms does not automatically veto homologation.
 
 After physical acceptance, the exact signed APK and digest-pinned worker are frozen. Scanner-database churn, new optional matrix cells, percentile collection, convenience diagnostics and dependency freshness do not themselves authorize a rebuild. Maintenance reopens only for an observed regression, provider/platform deprecation, applicable known-exploited vulnerability, credential exposure, unacceptable cost/integrity risk or an owner-requested feature. Any rebuilt digest receives proportional requalification of the affected path.
+
+## D-091 — Stochastic Demucs parity validates invariants, not sample closeness
+
+U7 #156 proved that independent executions of the exact official Demucs contract can exceed a fixed numeric closeness envelope while both outputs remain structurally valid and pass the worker's quality gates. This is expected because `--shifts 1` applies a random shift; forcing a seed merely to satisfy CI would change the qualified runtime recipe.
+
+W3 therefore blocks on exact engine/model/config/source identity, frame/channel/finite-sample structure and independent quality rejection. It records stem/prepared hashes and all peak/RMS/DC/energy/shared-gain/energy-share deltas, including misses against the former 1% envelope, as evidence rather than vetoes. Musical usefulness remains protected by W5 owner listening on the exact candidate digest.
