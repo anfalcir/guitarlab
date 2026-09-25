@@ -6,7 +6,7 @@ Updated: 2026-09-24
 - `main` is canonical.
 - Product behavior is promoted only after exact-source automated gates and, where required, residual physical validation.
 - `.github/workflows/android-ci.yml` supports manual dispatch plus explicit `[run ci]` / `[run ci signed]` commit-message gates on `main`; ordinary `[skip ci]` commits remain inert.
-- Active source candidate is RC18 (`0.5.0-rc18` / 38), retaining strict prepared-audio validation and Studio synchronization while replacing defective partitioned inference with pinned `single8`. It must qualify on its own Android/U7 SHA, isolated shadow and controlled production deployment. Latest signed authority remains RC14 at `13c6f36e5e3c2bcf82cf21f885e8d7aa6c41ed34` / Android `35937621047`.
+- RC19 (`0.5.0-rc19` / 39) is the latest signed digital candidate but is physically rejected by the Prepare audio-quality incident. RC20 is the active corrective line on official PyTorch Demucs. Read `CURRENT_STATE.md` for the exact worker/run state; final physical acceptance occurs only on the exact signed RC20 APK intended for freeze.
 
 ## Module boundaries
 - `core:model`: immutable project/track/clip/take metadata contracts.
@@ -15,7 +15,7 @@ Updated: 2026-09-24
 - `core:audio`: pure audio/timing/calibration policies.
 - `platform:codec-android`: Android compressed-format decode/encode adapters.
 - `platform:audio-android`: playback/capture engines, routing, timing evidence and offline master renderer.
-- `app`: Compose presentation, ViewModels, Android orchestration, direct Google Drive API v3 backup transport, legacy SAF migration and instrumentation surface.
+- `app`: Compose presentation, ViewModels, Android orchestration, direct Google Drive API v3 backup transport, retained historical migration code where harmless, and instrumentation surface.
 
 ## Managed media and portable projects
 Imported external media is copied into project-controlled immutable source storage before becoming authoritative. Optional edit proxies, waveforms and renders are derivatives and may be regenerated. Non-destructive edits remain metadata operations.
@@ -86,7 +86,7 @@ Durable creative state belongs in project persistence, not transient Composable 
 ## Build/release architecture
 `scripts/build_local.sh` is the local software gate when its environment is available. The GitHub workflow is the canonical full software/API36/geometry/signing executor.
 
-Large deltas are materialized from `.source-parts` serially. The current canonical tail ends at U12k and composes the accepted H-series, Drive v3, unified-domain/shell/cloud/backup, cohesion hardening and U12 physical-corrective blocks. Each protected block verifies patch/archive identity and exact terminal Git blobs; the current tail additionally preserves `git diff --check`, semantic guards and reverse-apply/idempotence checks. Unexplained drift blocks the build.
+Large deltas are materialized from `.source-parts` serially. The current canonical tail ends at U12bi and composes the accepted H-series, Drive v3, unified-domain/shell/cloud/backup, cohesion hardening and U12 physical-corrective blocks. Each protected block verifies patch/archive identity and exact terminal Git blobs; the current tail additionally preserves `git diff --check`, semantic guards and reverse-apply/idempotence checks. Unexplained drift blocks the build.
 
 ## Backup transport boundary — direct Drive v3 production path
 The protected backup domain remains transport-agnostic: project/revision identity, deduplication, retention and restore semantics are separated from transport. H37 introduced the direct Drive API v3 edge; U8 production cutover and U8m provider-real acceptance made that path the current unified backup authority.
