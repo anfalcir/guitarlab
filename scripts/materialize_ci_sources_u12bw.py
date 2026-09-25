@@ -7,7 +7,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 PREVIOUS = ROOT / "scripts/materialize_ci_sources_u12bv.py"
 PATCH = ROOT / ".source-parts/U12bwWaveformAndReferenceRestore.patch"
-PATCH_BLOB = "fa1b450ed5aa9373410788b05479876fbb23633f"
+PATCH_BLOB = "aa8e18c7071f90842e6d064f6c53d8e2f89035de"
 TARGETS = {
     "app/src/androidTest/java/studio/guitarlab/app/GuitarLabLifecycleInstrumentedTest.kt": ("6f60a15195e4f17b981fdafa30ac4f2399acf2ed", "b3c0fd1a3974a8a612e0af77401104826da6bc70"),
     "app/src/androidTest/java/studio/guitarlab/app/PhysicalEditingHardeningInstrumentedTest.kt": ("8d1ee2bb3965b079e106756586b8bf0ff0d08bbb", "019ba7aa969d4d37eaaa05aa28c4c44b7b633ba3"),
@@ -15,7 +15,7 @@ TARGETS = {
     "app/src/main/java/studio/guitarlab/app/ui/GuitarLabApp.kt": ("ea852856665dea56da2107d21e6cd8a3aa4d5065", "fed6ae043d06990e6b097fc4c7db6c3fd4544246"),
     "app/src/main/java/studio/guitarlab/app/ui/HomeViewModel.kt": ("2445bba607b4b730dade4a796dd1c4d2abb2173c", "a7982d01296f6c61c05a860798e239279e9c5d80"),
     "app/src/main/java/studio/guitarlab/app/ui/StudioPlaceholderScreen.kt": ("ac2990aed12e000e9976735d6641d986f9c77b92", "6caa17e56c450dd2dcbd519709eb194e41a05db8"),
-    "app/src/main/java/studio/guitarlab/app/ui/StudioViewModel.kt": ("673949b4773b005ac058597f859796b97cd875ee", "b3ce11d1d5d81d8be9ff178efe5eecdad9a003d3"),
+    "app/src/main/java/studio/guitarlab/app/ui/StudioViewModel.kt": ("673949b4773b005ac058597f859796b97cd875ee", "02c53da6409543e57e77be4522b2ea3e6a856fb3"),
     "app/src/main/java/studio/guitarlab/app/ui/UnifiedProjectWorkspaceScreen.kt": ("cbd645d5dbeb67df82290a2395bc8d6d3721f81b", "82e3640b3644d312fd66335d8eb505528b174935"),
     "app/src/main/java/studio/guitarlab/app/ui/WaveformMini.kt": ("3fb9ebc50a6dd55b4309314a8788ef604ae8a51f", "f0ab880f297374918faaf84f6450e86962253bdf"),
     "app/src/test/java/studio/guitarlab/app/ui/WaveformRenderReducerTest.kt": (None, "da92ec5f141e62bf4e0064fc6109ef77058f1eb1"),
@@ -23,7 +23,7 @@ TARGETS = {
     "core/codec/src/test/kotlin/studio/guitarlab/core/codec/WaveformEnvelopeBuilderTest.kt": ("ea8126ee5492df6605e12a79f64584a72e3cf902", "92c9300471d7468b22cce68e403818ae7cc4fcdf"),
     "core/project/src/main/kotlin/studio/guitarlab/core/project/PreparedReferencePipeline.kt": ("f2304f650f2565b8aedf1a97f2289c466b112fa1", "69b97fe68c6545f7ebb73d53512b51bee9a448a9"),
     "core/project/src/main/kotlin/studio/guitarlab/core/project/WaveformCacheStore.kt": ("3665c37c7bf1d8debc79975e4c3042bf96acd00e", "1fdd125c7a27741667b1d405475fc60cbb0bf175"),
-    "core/project/src/test/kotlin/studio/guitarlab/core/project/PreparedReferencePipelineTest.kt": ("e3da70403d28a6054c405d407077e7fa5bcc861b", "63b466187a3d5b3e47ee4d6f8ed8291bd4df5c68"),
+    "core/project/src/test/kotlin/studio/guitarlab/core/project/PreparedReferencePipelineTest.kt": ("e3da70403d28a6054c405d407077e7fa5bcc861b", "a58e0d7650f204c78608fd45a4ba7bb989ba1a42"),
     "core/project/src/test/kotlin/studio/guitarlab/core/project/WaveformCacheStoreTest.kt": ("7805a8c77c3b32afe163b313929b504b24f1e65c", "603e4ff798972d1d8b6d74afae962e030ab2f573"),
 }
 
