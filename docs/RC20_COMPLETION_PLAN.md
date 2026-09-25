@@ -1154,3 +1154,20 @@ U12bn is source-materialized fail-closed. Digital Android/API36 qualification re
 ### U12bu post-candidate delta
 
 After the first signed RC20 physical candidate, the owner requested one additional frontend/support cleanup before physical acceptance. U12bu removes dead/redundant Settings surfaces and adds actionable cancellation to Activity, including Android and Firebase/Cloud orphan cleanup. The implementation is committed and source-materialized but deliberately has not triggered Android CI or produced a new APK. Therefore the earlier signed RC20 artifact remains historical pre-U12bu evidence, not the final physical artifact for the new HEAD.
+
+
+### U12bw waveform and reference restoration
+
+Implemented as the final post-validation hardening candidate before another physical pass:
+
+- waveform cache v2 validates the exact represented media/window rather than trusting clip id alone;
+- stale/legacy cache entries regenerate lazily; unchanged entries cause zero WAV reads on normal reopen;
+- waveform envelopes follow the exact playback source window and use 4096 bins;
+- rendering collapses bins to visible columns by maximum peak, keeping transient fidelity with bounded draw cost;
+- same-project Studio reentry compares the persisted project snapshot before deciding whether resident media/waveforms are still valid;
+- static clip waveform geometry shares the exact timeline width, without horizontal inset or artificial 92 dp duration;
+- aggregate and stereo L/R waveform state refresh together across load, edits, Undo/Redo, takes and recovery;
+- “Recolocar referências no Studio” is available whenever prepared references exist and offers explicit Base/Guitar selection;
+- selected reference lanes are restored canonically from the active prepared assets; user recordings/takes, mixer state, markers/sections and unselected references are preserved.
+
+The implementation must pass software + API36 gates and then be signed as the next homologation APK. Final documentation/freeze remains contingent on owner physical acceptance.
