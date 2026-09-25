@@ -61,6 +61,32 @@ class LegacyRecordingStereoMaintenanceTest {
     }
 
     @Test
+    fun recoveredLegacyTakeSupportsReversiblePerTakeSynchronization() {
+        val recovered = LegacyRecordingTakeRecoveryPolicy.recover(projectWithLegacyRecording())
+        val take = recovered.takes.single()
+        val shifted = TakeManagementPolicy.setFineAdjustmentFrames(
+            project = recovered,
+            takeId = take.id,
+            newFineAdjustmentFrames = 441L,
+            nowEpochMs = 20L,
+        )
+        val restored = TakeManagementPolicy.setFineAdjustmentFrames(
+            project = shifted,
+            takeId = take.id,
+            newFineAdjustmentFrames = 0L,
+            nowEpochMs = 30L,
+        )
+
+        assertEquals(793L, shifted.clips.single().startFrame)
+        assertEquals(9_615L, shifted.clips.single().sourceStartFrame)
+        assertEquals(441L, shifted.takes.single().fineAdjustmentFrames)
+        assertEquals(1_234L, restored.clips.single().startFrame)
+        assertEquals(9_615L, restored.clips.single().sourceStartFrame)
+        assertEquals(0L, restored.takes.single().fineAdjustmentFrames)
+        assertTrue(ProjectValidator.validate(restored).isEmpty())
+    }
+
+    @Test
     fun trimmedLegacyStereoRecordingSeparatesWithoutTrimBoundsAndKeepsValidTakeLineage() {
         val recovered = LegacyRecordingTakeRecoveryPolicy.recover(projectWithLegacyRecording())
         val separated = StereoSeparationProjectPolicy.separate(
