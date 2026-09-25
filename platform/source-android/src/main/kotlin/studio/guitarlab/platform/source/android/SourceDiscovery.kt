@@ -23,7 +23,13 @@ import studio.guitarlab.core.source.SourceSearchProviderClient
 import studio.guitarlab.core.source.SourceSearchRequest
 import studio.guitarlab.core.source.SourceSearchRules
 
-data class SourceDiscoveryResult(val candidates: List<RankedSourceCandidate>, val warnings: List<String> = emptyList())
+data class SourceDiscoveryResult(
+    val candidates: List<RankedSourceCandidate>,
+    val warnings: List<String> = emptyList(),
+    val suggestedArtist: String? = null,
+    val providersSucceeded: Int = 0,
+    val providersFailed: Int = 0,
+)
 
 class SourceSearchCoordinator(private val providers: List<SourceSearchProviderClient>) {
     constructor(context: Context) : this(listOf(BandcampDiscoveryProvider(), YtDlpDiscoveryProvider(context.applicationContext)))
@@ -43,7 +49,21 @@ class SourceSearchCoordinator(private val providers: List<SourceSearchProviderCl
                 }
             }.awaitAll()
         }
-        return SourceDiscoveryResult(SourceSearchRules.rank(request, outcomes.flatMap { it.drafts }), outcomes.mapNotNull { it.warning })
+        val drafts = outcomes.flatMap { it.drafts }
+        val ranked = SourceSearchRules.rank(request, drafts)
+        val succeeded = outcomes.count { it.warning == null }
+        val failed = outcomes.size - succeeded
+        return SourceDiscoveryResult(
+            candidates = ranked,
+            warnings = outcomes.mapNotNull { it.warning },
+            suggestedArtist = if (ranked.isEmpty() && succeeded > 0) {
+                SourceSearchRules.suggestArtist(request, drafts)?.artist
+            } else {
+                null
+            },
+            providersSucceeded = succeeded,
+            providersFailed = failed,
+        )
     }
 }
 
