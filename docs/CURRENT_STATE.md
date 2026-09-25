@@ -388,3 +388,11 @@ Implementation candidate prepared on top of the exact U2d materialized source. T
 - active New Project Search/Import entry points and API36 Compose regression coverage.
 
 Pre-gate evidence: clean U2d→U3 materialization PASS, terminal Git-blob verification PASS, repeat/idempotent materialization PASS, reverse dry-run PASS and `git diff --check` PASS. Canonical automatic CI #676 then closed U3 at exact source `a7af51bf6622b4eecc32308c091fbb5020a1d54b`: 358/358 JVM/unit tests PASS; Android Lint PASS with 0 errors (58 warnings + 4 hints in app, plus 1/1/2 warnings in source/codec/audio platform modules); debug APK assembly PASS; 37/37 standard API36 instrumented tests PASS; 1/1 isolated target-tablet geometry PASS. The signed homologation job was intentionally skipped for this intermediate milestone.
+
+
+## U12bw — waveform fidelity + selective prepared-reference restore — candidate gate dispatched
+U12bw is source-complete and sealed on top of U12bv. The candidate replaces clip-id-only waveform caching with media/window-aware cache identity, generates envelopes from the exact playable frame window, uses 4096-bin envelopes with peak-preserving screen reduction, aligns waveform geometry edge-to-edge with the timeline, and reloads an Activity-resident Studio snapshot only when the persisted project revision actually changed.
+
+Prepare now keeps **Recolocar referências no Studio** available whenever canonical prepared references exist. The modal can restore Base sem guitarra, Guitarra de referência, or both. Selected reference lanes are restored from canonical prepared assets; recorded take clips remain preserved; other tracks, takes, markers, sections and track mixer state remain intact. The operation is local-only and does not consume separation/cloud quota.
+
+The U12bw materialization chain is fail-closed from U12bv with exact terminal blob checks and semantic guards. This commit intentionally dispatches the canonical signed Android qualification: software gate + API 36 regression + signing of the exact tested unsigned candidate. Physical SM-X230/MK-300 acceptance remains pending after the signed artifact is produced.
