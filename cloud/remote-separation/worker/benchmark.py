@@ -39,7 +39,10 @@ STRATEGIES = {
         "overlap": 0.5,
     },
 }
-BUNDLE_PREFIX_ROOT = "diagnostics/u12-rc20/w4/"
+BUNDLE_PREFIX_ROOTS = (
+    "diagnostics/u12-rc20/w4/",
+    "diagnostics/u12-rc20/w5/",
+)
 
 
 def strategy(name: str) -> dict:
@@ -53,8 +56,14 @@ def validate_bundle_prefix(prefix: str | None) -> str | None:
     if prefix is None:
         return None
     normalized = prefix.strip("/")
-    if not normalized.startswith(BUNDLE_PREFIX_ROOT) or ".." in normalized.split("/"):
-        raise ValueError("W4 bundle prefix must stay inside the diagnostic namespace")
+    parts = normalized.split("/")
+    if (
+        not normalized
+        or normalized != prefix
+        or not any(normalized.startswith(root) for root in BUNDLE_PREFIX_ROOTS)
+        or any(part in {"", ".", ".."} for part in parts)
+    ):
+        raise ValueError("bundle prefix must stay inside an authorized RC20 diagnostic namespace")
     return normalized
 
 
