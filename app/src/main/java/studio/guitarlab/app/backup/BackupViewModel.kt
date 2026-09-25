@@ -392,7 +392,9 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
     fun clearMessage() = _state.update { it.copy(message = null, error = null) }
 
     private suspend fun finishDriveConnection() {
+        val previousLabel = settingsStore.snapshot().driveAccountLabel
         val label = unifiedDrive.probeReadWriteDelete()
+        if (previousLabel != null && previousLabel != label) catalogCache.clear()
         settingsStore.setDriveConnected(label)
         BackupScheduler.sync(getApplication())
         _state.update {
