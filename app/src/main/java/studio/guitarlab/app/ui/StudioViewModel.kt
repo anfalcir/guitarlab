@@ -1964,11 +1964,12 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch {
             runCatching { saveLatest(project.id, transform) }
                 .onSuccess { saved ->
-                    val waveforms = withContext(Dispatchers.IO) { loadWaveforms(saved) }
+                    val waveformState = withContext(Dispatchers.IO) { loadWaveformState(saved) }
                     val end = TimelineControlPolicy.projectEndFrame(saved)
                     _state.value = _state.value.copy(
                         project = saved,
-                        waveforms = waveforms,
+                        waveforms = waveformState.waveforms,
+                        waveformChannels = waveformState.waveformChannels,
                         timelineControls = TimelineControlPolicy.normalizedForProject(_state.value.timelineControls, end),
                         transportEngineReady = playbackReadiness(saved).ready,
                         canUndo = projectHistory.canUndo,
@@ -2755,18 +2756,15 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
             _state.value = _state.value.copy(editingClip = true, error = null, clipStatus = null)
             runCatching {
                 val saved = saveLatest(current.id, transform)
-                saved to withContext(Dispatchers.IO) {
-                    loadWaveforms(saved).also {
-                        waveformCache.prune(saved.id, saved.clips.mapTo(mutableSetOf()) { clip -> clip.id })
-                    }
-                }
+                saved to withContext(Dispatchers.IO) { loadWaveformState(saved) }
             }
-                .onSuccess { (saved, waveforms) ->
+                .onSuccess { (saved, waveformState) ->
                     val end = TimelineControlPolicy.projectEndFrame(saved)
                     _state.value = _state.value.copy(
                         editingClip = false,
                         project = saved,
-                        waveforms = waveforms,
+                        waveforms = waveformState.waveforms,
+                        waveformChannels = waveformState.waveformChannels,
                         timelineControls = TimelineControlPolicy.normalizedForProject(_state.value.timelineControls, end),
                         transportEngineReady = playbackReadiness(saved).ready,
                         masterGainDb = saved.masterGainDb,
