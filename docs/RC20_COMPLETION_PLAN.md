@@ -27,7 +27,7 @@ This plan owns the RC20 corrective and the owner-approved completion features th
 10. persistent sanitized application audit journal;
 11. exportable diagnostic ZIP/support bundle.
 
-The second track does **not** block W5/W6, the PyTorch backend cutover or backend qualification. It does remain committed product scope: these features must be completed before GuitarLab is declared finally frozen unless the owner explicitly removes one of them.
+The second track does **not** block W6, the PyTorch backend cutover or backend qualification. W5 owner listening was explicitly waived by the owner under D-092. It does remain committed product scope: these features must be completed before GuitarLab is declared finally frozen unless the owner explicitly removes one of them.
 
 The forensic prerequisite is now satisfied. Do not patch around the defective engine with a DC blocker as the production solution: listening proved that DC was only one symptom of a structurally invalid separation dominated by the `other` stem.
 
@@ -550,9 +550,9 @@ W3/W4 qualification evidence (2026-09-24):
 ### 9A.7 Phase W exit gate
 
 Phase W closes only when:
-- official Demucs stems are musically usable and correctly distributed;
+- official Demucs output passes the retained structural/audio quality gates;
 - no systematic DC/non-finite/pathological energy defect exists;
-- owner listening accepts the exact worker image;
+- the exact candidate digest passes the required proportional shadow qualification;
 - representative wall time is `<= 15 minutes`, with `<= 5 minutes` preferred;
 - cost/resource evidence is recorded;
 - Firebase/Firestore/Storage lifecycle invariants remain green;
