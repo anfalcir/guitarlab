@@ -68,7 +68,7 @@ The underlying Drive v3 OAuth/transport/resumable-upload/commit/restore store is
 
 1. complete live documentation — DONE;
 2. merge the maintenance work into canonical `main` — DONE via PR #7;
-3. remove/disable the temporary maintenance branch and keep it out of CI triggers — next pre-signing control;
+3. remove/disable the temporary maintenance branch and keep it out of CI triggers — DONE: workflow exception removed; ref neutralized to canonical `main` with no unique commits;
 4. run `[run ci signed]` from the exact canonical `main`;
 5. install that exact signed artifact on Samsung SM-X230 / Android 16;
 6. perform residual acceptance for the affected maintenance paths, including the legacy Studio recovery case and representative Drive backup/catalog/restore;
