@@ -151,7 +151,17 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
                     }
                 }
             } catch (error: Throwable) {
-                if (error is CancellationException) throw error
+                if (error is CancellationException) {
+                    _state.update {
+                        it.copy(
+                            busy = false,
+                            busyLabel = null,
+                            message = "Operação cancelada.",
+                            error = null,
+                        )
+                    }
+                    throw error
+                }
                 fail(error)
             }
         }
