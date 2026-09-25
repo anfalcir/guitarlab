@@ -366,7 +366,7 @@ object PreparedReferenceBindingPolicy {
      *
      * Unlike applyUpdate/repair, this intentionally resets clip-level edits for the selected
      * reference family even when bindings already look consistent. Track mixer state, unrelated
-     * audio, takes, markers, sections and every unselected reference family are preserved.
+     * audio on other tracks, takes, markers, sections and every unselected reference family are preserved.
      */
     fun restoreSelected(
         project: GuitarProject,
@@ -455,14 +455,7 @@ object PreparedReferenceBindingPolicy {
     ): GuitarProject {
         require(desired.isNotEmpty()) { "A família de referência selecionada não está disponível." }
         val targetTrackIds = familyKinds.mapNotNull { targetTrack(project, it)?.id }.toSet()
-        val preparedAssetIds = buildSet {
-            project.assets.filter { it.role == assetRole }.forEach { add(it.assetId) }
-            project.referenceBindings.filter { it.kind in familyKinds }.forEach { add(it.assetId) }
-        }
-        val retainedClips = project.clips.filterNot { clip ->
-            clip.trackId in targetTrackIds &&
-                preparedAssetIds.any { assetId -> clip.sourceUri == "guitarlab://asset/$assetId" }
-        }
+        val retainedClips = project.clips.filterNot { it.trackId in targetTrackIds }
         val previousBindings = project.referenceBindings.associateBy { it.kind }
         var next = project.copy(
             clips = retainedClips,
