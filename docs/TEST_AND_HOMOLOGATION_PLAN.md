@@ -112,3 +112,8 @@ The next Android qualification must exercise the exact U12bn source and include 
 ## RC20 physical candidate identity
 
 The exact APK to install for final physical validation is `GuitarLabStudio-0.5.0-rc20-homologacao.apk`, signed APK SHA-256 `e82fdc75896564ea10c28e072fd186913320eca293b6fad9ea4b7c8fa0468468`, producer commit `fd63413ea440ed96a227b0203768b113bf256e98`. Do not rebuild between this digital pass and physical homologation.
+
+
+## U12bu Settings/Activity delta
+
+Before the next physical candidate is signed, Android qualification must additionally verify: Settings no longer exposes “Projeto e Studio”, “Importação” or the redundant “Ver atividade” row under “Conta e nuvem”; Home still exposes the primary Activity entry point; every active Activity record exposes a Cancel action; local live jobs are cancelled through the process registry when present; exact source acquisition ownership is cancelled without touching a newer operation; separation cancellation reaches Firebase/Cloud by jobId including the orphan fallback; automatic backup work is cancelled without permanently disabling the future schedule; truly orphaned records become CANCELLED and leave the active set. No APK has been generated for U12bu yet.
