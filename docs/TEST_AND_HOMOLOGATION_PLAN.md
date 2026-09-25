@@ -117,3 +117,8 @@ The exact APK to install for final physical validation is `GuitarLabStudio-0.5.0
 ## U12bu Settings/Activity delta
 
 Before the next physical candidate is signed, Android qualification must additionally verify: Settings no longer exposes “Projeto e Studio”, “Importação” or the redundant “Ver atividade” row under “Conta e nuvem”; Home still exposes the primary Activity entry point; every active Activity record exposes a Cancel action; local live jobs are cancelled through the process registry when present; exact source acquisition ownership is cancelled without touching a newer operation; separation cancellation reaches Firebase/Cloud by jobId including the orphan fallback; automatic backup work is cancelled without permanently disabling the future schedule; truly orphaned records become CANCELLED and leave the active set. No APK has been generated for U12bu yet.
+
+
+## U12bv signed frontend candidate
+
+Install `GuitarLabStudio-0.5.0-rc20-U12bv-homologacao.apk` for the final frontend physical validation. Producer commit: `833142435b2e2c1e74f39bf5cee85d8049595748`; signed APK SHA-256: `6e8d2af6dad105ba4f27a703747b4c04873cdb36d3affe29e18074b2816db838`. Validate the U12bu/U12bv Settings cleanup and Activity cancellation behavior; final documentation/freeze must wait for owner acceptance.
