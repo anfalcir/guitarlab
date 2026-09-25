@@ -117,6 +117,7 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
                     localProjects = projects,
                     retentionPolicy = retention(settings),
                     knownVersions = cached?.versions.orEmpty(),
+                    knownManifestCreatedAtEpochMs = cached?.manifestCreatedAtEpochMs.orEmpty(),
                 )
                 val refreshedAt = System.currentTimeMillis()
                 val snapshot = BackupCatalogSnapshot(
@@ -124,6 +125,7 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
                     reconciliations = remoteCatalog.reconciliations,
                     remoteTips = remoteCatalog.remoteTips,
                     localRevisions = localRevisions,
+                    manifestCreatedAtEpochMs = remoteCatalog.manifestCreatedAtEpochMs,
                     refreshedAtEpochMs = refreshedAt,
                 )
                 catalogCache.save(settings, snapshot)
