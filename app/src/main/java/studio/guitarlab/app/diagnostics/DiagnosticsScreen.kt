@@ -29,6 +29,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -75,20 +76,22 @@ fun DiagnosticsScreen(
         exporting = true
         status = null
         scope.launch {
-            runCatching {
-                withContext(Dispatchers.IO) {
+            try {
+                val result = withContext(Dispatchers.IO) {
                     context.contentResolver.openOutputStream(uri, "w")?.use { output ->
                         DiagnosticBundleExporter(context).export(projectId, output)
                     } ?: error("O Android não abriu o arquivo de destino.")
                 }
-            }.onSuccess { result ->
                 statusKind = TransientFeedbackKind.ASYNC_COMPLETION
                 status = "Pacote exportado com ${result.entryNames.size} arquivos de diagnóstico. Nenhum áudio foi incluído."
-            }.onFailure { error ->
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Throwable) {
                 statusKind = TransientFeedbackKind.ERROR
                 status = error.message ?: "Não foi possível exportar o pacote de diagnóstico."
+            } finally {
+                exporting = false
             }
-            exporting = false
         }
     }
 
