@@ -396,3 +396,7 @@ U12bw is source-complete and sealed on top of U12bv. The candidate replaces clip
 Prepare now keeps **Recolocar referências no Studio** available whenever canonical prepared references exist. The modal can restore Base sem guitarra, Guitarra de referência, or both. Selected reference lanes are restored from canonical prepared assets; recorded take clips remain preserved; other tracks, takes, markers, sections and track mixer state remain intact. The operation is local-only and does not consume separation/cloud quota.
 
 The U12bw materialization chain is fail-closed from U12bv with exact terminal blob checks and semantic guards. This commit intentionally dispatches the canonical signed Android qualification: software gate + API 36 regression + signing of the exact tested unsigned candidate. Physical SM-X230/MK-300 acceptance remains pending after the signed artifact is produced.
+
+
+### U12bw signed gate corrective
+The first signed U12bw qualification run 36132274501 failed at compile time only: the recovery branch mixed `List<Float>` and `WaveformEnvelope`, and one new preservation test used the wrong `RecordingTake` constructor label. No runtime/algorithm contract was invalidated. Both issues were corrected, the U12bw terminal patch/materializer were resealed against the exact corrected blobs, and the signed canonical gate is intentionally re-dispatched by this commit.
