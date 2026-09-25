@@ -98,6 +98,7 @@ fun GuitarLabApp(
                     onSettings = { navigate(AppScreen.Options(current.projectId)) },
                     candidates = homeState.sourceCandidatesByProject[current.projectId].orEmpty(),
                     warnings = homeState.sourceWarningsByProject[current.projectId].orEmpty(),
+                    searchOutcome = homeState.sourceSearchOutcomesByProject[current.projectId],
                     searchBusy = current.projectId in homeState.sourceSearchBusyProjects,
                     operation = homeState.sourceOperationsByProject[current.projectId],
                     separationJob = homeState.separationJobsByProject[current.projectId],
