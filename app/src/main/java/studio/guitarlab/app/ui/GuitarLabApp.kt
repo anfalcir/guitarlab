@@ -155,7 +155,6 @@ fun GuitarLabApp(
             onAudioDiagnostics = { navigate(AppScreen.AudioProbe(current.projectId)) },
             onCodecDiagnostics = { navigate(AppScreen.CodecProbe(current.projectId)) },
             onBackupSettings = { navigate(AppScreen.Backup(current.projectId)) },
-            onActivity = { navigate(AppScreen.Activity()) },
             onDiagnostics = { navigate(AppScreen.Diagnostics(current.projectId)) },
         )
         is AppScreen.Diagnostics -> DiagnosticsScreen(
