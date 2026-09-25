@@ -14,8 +14,18 @@ class ProjectCodec(
     }
 ) {
     fun encode(project: GuitarProject): String = json.encodeToString(project)
-    fun decode(serialized: String): GuitarProject {
-        val upgraded = UnifiedProjectMigrator.upgrade(json.decodeFromString(serialized))
-        return TakeManagementPolicy.normalizeAll(LegacyRecordingTakeRecoveryPolicy.recover(upgraded))
-    }
+
+    /**
+     * Decodes the persisted logical state using the pre-RC21 compatibility rules.
+     *
+     * Integrity checks for Drive manifests must run against this state before any new compatibility
+     * repair is applied, otherwise a safe migration could be mistaken for remote corruption.
+     */
+    fun decodePersistedState(serialized: String): GuitarProject =
+        UnifiedProjectMigrator.upgrade(
+            TakeManagementPolicy.normalizeAll(json.decodeFromString(serialized)),
+        )
+
+    fun decode(serialized: String): GuitarProject =
+        LegacyRecordingTakeRecoveryPolicy.recover(decodePersistedState(serialized))
 }
