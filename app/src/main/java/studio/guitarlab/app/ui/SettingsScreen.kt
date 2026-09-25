@@ -66,6 +66,7 @@ fun SettingsScreen(
     onCodecDiagnostics: () -> Unit,
     onBackupSettings: () -> Unit = {},
     onActivity: () -> Unit = {},
+    onDiagnostics: () -> Unit = {},
 ) {
     val context = LocalContext.current
     ExternalControlHub.initialize(context)
@@ -536,6 +537,14 @@ fun SettingsScreen(
                     title = "Diagnóstico",
                     subtitle = "Ferramentas técnicas reunidas em um único lugar para suporte e solução de problemas.",
                 ) {
+                    SettingsActionRow(
+                        title = "Visão geral e pacote",
+                        detail = "Projeto, operações, rota, backup, journal sanitizado e exportação ZIP sem áudio.",
+                        actionLabel = "Abrir",
+                        onClick = onDiagnostics,
+                        testTag = "settings-diagnostics",
+                        primary = true,
+                    )
                     SettingsActionRow(
                         title = "Áudio e dispositivos",
                         detail = "Rotas, capacidades e estado efetivo da entrada/saída.",
