@@ -31,6 +31,20 @@ class WaveformEnvelopeBuilderTest {
     }
 
     @Test
+    fun proportionalBucketsCoverEveryFrameWithoutTrailingEmptyBucket() {
+        val decoder = FakeDecoder(
+            samples = floatArrayOf(0.1f, 0.2f, 0.3f, 0.4f, 1f),
+            channels = 1,
+        )
+        val envelope = WaveformEnvelopeBuilder.build(
+            decoder = decoder,
+            targetPoints = 4,
+        )
+        assertEquals(listOf(0.1f, 0.2f, 0.3f, 1f), envelope.peaks)
+        assertEquals(5L, decoder.positionFrames)
+    }
+
+    @Test
     fun clampsRequestedWindowAtEndOfMedia() {
         val decoder = FakeDecoder(
             samples = floatArrayOf(0.1f, 0.2f, 0.3f, 0.8f),
