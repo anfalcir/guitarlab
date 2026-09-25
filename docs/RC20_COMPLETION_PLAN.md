@@ -10,16 +10,24 @@ Repository authority: `anfalcir/guitarlab` / `main`
 
 RC19 closed the authoritative same-generation remote recovery defect and passed its complete digital qualification, but target-device listening exposed a separate release-blocking audio-quality incident after a real Prepare run. F1/F2/F3 subsequently proved that the incident originates in the substituted `demucs.cpp`/GGML inference engine, not in source canonicalization, Firebase transport, Android publication, Studio binding or the prepared-reference renderer.
 
-This plan owns the investigation and the related product/observability corrections. It intentionally separates:
+This plan owns the RC20 corrective and the owner-approved completion features that must remain in scope before the final product freeze. It intentionally separates two tracks:
 
+**Release-critical RC20 corrective**
 1. completed forensic proof of what executed in Firebase/Cloud Run;
 2. completed audio-content diagnosis and root-cause localization;
 3. reconstruction of the worker on the consolidated GBW Linux Demucs baseline;
 4. balanced quality/performance/cost qualification;
-5. Studio reference reinsertion UX;
-6. Prepare technical-detail cleanup;
-7. durable application/cloud diagnostics;
-8. quality-gate hardening.
+5. the source-search terminal-state correction required for the owner's normal Prepare flow;
+6. quality-gate hardening required to prevent another musically invalid prepared result from being accepted.
+
+**Owner-requested completion features before final freeze**
+7. explicit Studio reference reinsertion UX;
+8. Prepare technical-detail cleanup/grouping;
+9. consolidated Diagnostics in Settings;
+10. persistent sanitized application audit journal;
+11. exportable diagnostic ZIP/support bundle.
+
+The second track does **not** block W5/W6, the PyTorch backend cutover or backend qualification. It does remain committed product scope: these features must be completed before GuitarLab is declared finally frozen unless the owner explicitly removes one of them.
 
 The forensic prerequisite is now satisfied. Do not patch around the defective engine with a DC blocker as the production solution: listening proved that DC was only one symptom of a structurally invalid separation dominated by the `other` stem.
 
@@ -736,7 +744,7 @@ If the optional diagnostics journal/export package ships, it includes search lif
 
 ---
 
-## 12. Phase S — explicit Studio reference reinsertion — post-homologation convenience unless currently blocking
+## 12. Phase S — explicit Studio reference reinsertion — owner-requested completion feature before final freeze
 
 Add a secondary action beside `Abrir Studio` in the Ready state:
 
@@ -770,7 +778,7 @@ Automated tests:
 
 ---
 
-## 13. Phase P — Prepare technical-detail redesign — non-blocking polish
+## 13. Phase P — Prepare technical-detail redesign — owner-requested completion feature before final freeze
 
 The current `PrepareDiagnostics` must stop presenting every historical asset as an undifferentiated flat list.
 
@@ -808,7 +816,7 @@ Tests must assert ordering/grouping and that active references are unambiguous.
 
 ---
 
-## 14. Phase D — consolidated Diagnostics in Settings — optional post-homologation
+## 14. Phase D — consolidated Diagnostics in Settings — owner-requested completion feature before final freeze
 
 Create one dedicated surface:
 
@@ -856,7 +864,7 @@ No raw token/session/security data is ever shown.
 
 ---
 
-## 15. Phase J — persistent audit journal — optional post-homologation
+## 15. Phase J — persistent audit journal — owner-requested completion feature before final freeze
 
 Implement a structured local event journal instead of relying only on Logcat.
 
@@ -904,7 +912,7 @@ Never persist:
 
 ---
 
-## 16. Phase X — exportable diagnostic ZIP — optional post-homologation
+## 16. Phase X — exportable diagnostic ZIP — owner-requested completion feature before final freeze
 
 Expose:
 **Exportar pacote de diagnóstico**
@@ -1005,13 +1013,17 @@ DID_YOU_MEAN-specific tests are required only if that optional enhancement ships
 - representative audio-quality evidence on the finalist digest;
 - no duplicate quota/job or broken ACK/purge behavior.
 
-### Conditional evidence — only if the optional feature ships or becomes necessary for a blocker
+### Owner-requested completion evidence — required before final freeze, but not before backend cutover
+The following evidence is required when the corresponding owner-requested completion feature is implemented. These items do not block W5/W6 or the PyTorch production cutover by themselves:
+
 - reference-binding repair/reinsertion tests;
-- active-vs-historical diagnostics grouping;
+- active-vs-historical Prepare diagnostics grouping;
 - consolidated Settings diagnostics;
 - persistent journal serialization/rotation/redaction;
 - diagnostic ZIP integrity/export;
-- accepted-manifest audit persistence;
+- accepted-manifest local audit persistence required by the diagnostic package.
+
+### Conditional evidence — only when needed for an observed blocker
 - extended structured cloud logging;
 - alternative CPU/resource/hardware/duration matrices.
 
@@ -1098,4 +1110,4 @@ The personal-use RC20 release line closes when all of the following are true:
 - the successor signed candidate passes focused physical listening;
 - normal Prepare → Studio → save/reopen use has no release-blocking defect.
 
-The broader improvement plan may remain open after signed homologation for spelling suggestions, reference reinsertion, diagnostics cleanup, journal/ZIP, extended observability and unused hardware residuals. Those items do not invalidate the frozen personal-use release unless the owner encounters the related problem.
+After the signed RC20 backend/primary-flow homologation, spelling suggestions and extended cloud observability may remain follow-up scope. However, the owner-requested completion features — reference reinsertion, Prepare diagnostics cleanup, consolidated Diagnostics, persistent journal and diagnostic ZIP — remain planned work and must be completed before the final product freeze unless the owner explicitly removes them.
