@@ -612,7 +612,7 @@ diff --git a/app/src/main/java/studio/guitarlab/app/backup/BackupViewModel.kt b/
      val error: String? = null,
  )
  
-@@ -56,78 +62,129 @@ class BackupViewModel(application: Application) : AndroidViewModel(application)
+@@ -56,77 +62,128 @@ class BackupViewModel(application: Application) : AndroidViewModel(application)
      private val confirmedRevisions = ConfirmedRevisionStore(application)
      private val unifiedDrive = UnifiedDriveProductionService(application)
      private val deletedProjectStore = DeletedProjectBackupStore(application)
@@ -731,8 +731,8 @@ diff --git a/app/src/main/java/studio/guitarlab/app/backup/BackupViewModel.kt b/
 +                    catalogFromCache = cached != null,
 +                    authorizationRequired = false,
 +                    error = null,
-                 )
-             }
++                )
++            }
 +
 +            if (!settings.driveConnected || !shouldRefreshRemote) {
 +                _state.update { it.copy(loading = false, catalogRefreshing = false) }
@@ -754,7 +754,7 @@ diff --git a/app/src/main/java/studio/guitarlab/app/backup/BackupViewModel.kt b/
 +                    localRevisions = localRevisions,
 +                    manifestCreatedAtEpochMs = remoteCatalog.manifestCreatedAtEpochMs,
 +                    refreshedAtEpochMs = refreshedAt,
-+                )
+                 )
 +                catalogCache.save(settings, snapshot)
 +                _state.update {
 +                    it.copy(
@@ -795,10 +795,9 @@ diff --git a/app/src/main/java/studio/guitarlab/app/backup/BackupViewModel.kt b/
 +                        },
 +                    )
 +                }
-+            }
+             }
          }
      }
- 
 @@ -139,7 +196,8 @@ class BackupViewModel(application: Application) : AndroidViewModel(application)
          onResolution: (PendingIntent) -> Unit,
      ) {
@@ -1037,6 +1036,23 @@ diff --git a/app/src/main/java/studio/guitarlab/app/backup/BackupViewModel.kt b/
      private fun fail(error: Throwable) {
          val message = error.message ?: "Não foi possível concluir a operação de backup."
          settingsStore.recordError(message)
+@@ -481,7 +608,15 @@ class BackupViewModel(application: Application) : AndroidViewModel(application)
+                 .distinctUntilChanged()
+                 .drop(1)
+                 .collect { completedAt ->
+-                    if (completedAt != null && settingsStore.snapshot().driveConnected) refresh()
++                    // The worker already persisted the Drive truth. Re-read the catalog only while
++                    // this screen is visible; the next screen entry always forces a remote refresh.
++                    if (
++                        completedAt != null &&
++                            screenVisible &&
++                            settingsStore.snapshot().driveConnected
++                    ) {
++                        refresh()
++                    }
+                 }
+         }
+     }
 diff --git a/app/src/main/java/studio/guitarlab/app/backup/UnifiedDriveProductionService.kt b/app/src/main/java/studio/guitarlab/app/backup/UnifiedDriveProductionService.kt
 --- a/app/src/main/java/studio/guitarlab/app/backup/UnifiedDriveProductionService.kt
 +++ b/app/src/main/java/studio/guitarlab/app/backup/UnifiedDriveProductionService.kt
