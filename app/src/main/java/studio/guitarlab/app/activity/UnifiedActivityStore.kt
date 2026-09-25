@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import org.json.JSONArray
 import org.json.JSONObject
+import studio.guitarlab.app.diagnostics.DiagnosticJournal
 import studio.guitarlab.core.project.UnifiedActivityPolicy
 import studio.guitarlab.core.project.UnifiedOperationKind
 import studio.guitarlab.core.project.UnifiedOperationRecord
@@ -21,6 +22,7 @@ import studio.guitarlab.core.project.UnifiedOperationState
  */
 class UnifiedActivityStore(context: Context) {
     private val preferences = context.applicationContext.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
+    private val journal = DiagnosticJournal(context.applicationContext)
     private val lock = Any()
     private val _records = MutableStateFlow(read())
     val records: StateFlow<List<UnifiedOperationRecord>> = _records.asStateFlow()
@@ -42,6 +44,7 @@ class UnifiedActivityStore(context: Context) {
                 .let(::bounded)
             write(next)
             _records.value = next
+            journal.appendActivity(record)
         }
     }
 
