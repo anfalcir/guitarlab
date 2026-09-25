@@ -7,10 +7,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 PREVIOUS = ROOT / "scripts/materialize_ci_sources_u12bx.py"
 PATCH = ROOT / ".source-parts/RC21IntegrityFeedbackBackup.patch"
-PATCH_BLOB = "2d8a2893f99664e9f06cf50d6c143705d0f85de0"
+PATCH_BLOB = "599b9cc60d8ecc2b2b66bdbab3a90570018c42db"
 TARGETS = {
     "app/build.gradle.kts": ("2e89ebca930e7b7f960f746eb36adf24fb2bddda", "076c5e76779c30a2a78df6edbbf5f849950134f8"),
-    "app/src/androidTest/java/studio/guitarlab/app/BackupCatalogCacheInstrumentedTest.kt": (None, "3e5d28c1751754aa0e54996a21913dc139bfe26e"),
+    "app/src/androidTest/java/studio/guitarlab/app/BackupCatalogCacheInstrumentedTest.kt": (None, "6355ef50077dcf0d6eac51f82339f71b6dabcd38"),
     "app/src/androidTest/java/studio/guitarlab/app/BackupScreenInstrumentedTest.kt": ("67b200b6be911830628158f73d9475f150689951", "e80c6a95107bfa6ab5705269369a33170304de50"),
     "app/src/androidTest/java/studio/guitarlab/app/TransientFeedbackHostInstrumentedTest.kt": (None, "5a229cc263868a846d8e94f839b4cf173473aefb"),
     "app/src/main/java/studio/guitarlab/app/backup/BackupCatalogCacheStore.kt": (None, "7de3a96919b5ad73dede826f5e1fa57de3631d8b"),
@@ -124,6 +124,8 @@ def verify() -> None:
         (drive_test, "legacyRecordingRestoreVerifiesPersistedDigestBeforeTakeRecovery"),
         (feedback_test, "asyncCompletionIsConsumedImmediatelyAndShownOnce"),
         (cache_test, "corruptedLocalCacheIsDiscardedInsteadOfBecomingCatalogTruth"),
+        (cache_test, "org.junit.Assert.assertEquals"),
+        (cache_test, "org.junit.Assert.assertNull"),
         (api36_groups, "BackupCatalogCacheInstrumentedTest"),
         (api36_groups, "TransientFeedbackHostInstrumentedTest"),
     )
