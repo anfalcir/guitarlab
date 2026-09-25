@@ -45,7 +45,15 @@ fun AppTransientFeedbackHost(
             presentationJob?.cancel()
             presentationJob = scope.launch {
                 hostState.currentSnackbarData?.dismiss()
-                hostState.showSnackbar(safe, duration = SnackbarDuration.Short)
+                val duration = when (kind) {
+                    TransientFeedbackKind.ERROR,
+                    TransientFeedbackKind.WARNING,
+                    -> SnackbarDuration.Long
+                    TransientFeedbackKind.ASYNC_COMPLETION,
+                    TransientFeedbackKind.OPERATIONAL_STATUS,
+                    -> SnackbarDuration.Short
+                }
+                hostState.showSnackbar(safe, duration = duration)
             }
         }
         // Clear producer state immediately; do not wait for Snackbar duration/navigation.
