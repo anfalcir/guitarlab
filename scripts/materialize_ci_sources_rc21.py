@@ -7,7 +7,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 PREVIOUS = ROOT / "scripts/materialize_ci_sources_u12bx.py"
 PATCH = ROOT / ".source-parts/RC21IntegrityFeedbackBackup.patch"
-PATCH_BLOB = "1f8a7d9e7aaa5b455c7f84b9e2d7ecebfdeea7d4"
+PATCH_BLOB = "ffcbe3a6d9f6ec8cfd714bba1b957142cfff6dff"
 TARGETS = {
     "app/build.gradle.kts": ("2e89ebca930e7b7f960f746eb36adf24fb2bddda", "076c5e76779c30a2a78df6edbbf5f849950134f8"),
     "app/src/androidTest/java/studio/guitarlab/app/BackupCatalogCacheInstrumentedTest.kt": (None, "3e5d28c1751754aa0e54996a21913dc139bfe26e"),
@@ -30,7 +30,7 @@ TARGETS = {
     "core/project/src/main/kotlin/studio/guitarlab/core/project/StereoSeparationProjectPolicy.kt": (None, "68ba6691e66aed52c910d9333a7f2794a84d003d"),
     "core/project/src/main/kotlin/studio/guitarlab/core/project/UnifiedDriveProductionStorage.kt": ("1baf6a31cdcedadcd148658bd307785754e5b18b", "fe9024752d5944baba29d0c927f8a92f2ed9fac3"),
     "core/project/src/test/kotlin/studio/guitarlab/core/project/LegacyRecordingStereoMaintenanceTest.kt": (None, "46590131058f86981b196d8cab95e2f12d4e347f"),
-    "core/project/src/test/kotlin/studio/guitarlab/core/project/UnifiedDriveProductionStorageTest.kt": ("41f958e91e13857bc7e3b7a4ec7eaef9371da450", "1dc2bfe521b3605007b2c4c94a8ac76fff4d76ed"),
+    "core/project/src/test/kotlin/studio/guitarlab/core/project/UnifiedDriveProductionStorageTest.kt": ("41f958e91e13857bc7e3b7a4ec7eaef9371da450", "34d2df5ea6c7535c177c5484942b78d6ac00514a"),
 }
 
 
