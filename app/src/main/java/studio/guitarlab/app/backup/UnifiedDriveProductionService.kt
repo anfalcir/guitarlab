@@ -93,6 +93,7 @@ internal class UnifiedDriveProductionService(
     suspend fun loadCatalog(
         localProjects: List<GuitarProject>,
         retentionPolicy: BackupRetentionPolicy,
+        knownVersions: List<BackupVersionDescriptor> = emptyList(),
     ): CatalogSnapshot {
         val heads = remote.listAllHeads()
         val headsByProject = heads.groupBy { it.descriptor.projectId }
@@ -109,15 +110,19 @@ internal class UnifiedDriveProductionService(
             policy = retentionPolicy,
             nowEpochMs = nowEpochMs(),
         )
-        val descriptorCache = linkedMapOf<String, BackupVersionDescriptor>()
+        val descriptorCache = knownVersions
+            .filter { it.formatVersion == 3 && it.remoteId == "u8:${it.sha256}" }
+            .associateByTo(linkedMapOf()) { it.sha256.lowercase() }
 
         suspend fun describe(manifest: studio.guitarlab.core.project.DriveProjectRevisionManifest): BackupVersionDescriptor {
-            descriptorCache[manifest.manifestSha256]?.let { return it }
+            descriptorCache[manifest.manifestSha256.lowercase()]?.let { cached ->
+                if (cached.projectId == manifest.projectId && cached.revisionId == manifest.revisionId) return cached
+            }
             val descriptor = versionDescriptor(
                 manifest,
                 loadRemoteProject(manifest.projectStateAsset, manifest),
             )
-            descriptorCache[manifest.manifestSha256] = descriptor
+            descriptorCache[manifest.manifestSha256.lowercase()] = descriptor
             return descriptor
         }
 
