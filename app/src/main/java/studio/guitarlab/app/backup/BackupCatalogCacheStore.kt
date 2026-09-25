@@ -10,6 +10,7 @@ internal data class BackupCatalogSnapshot(
     val versions: List<BackupVersionDescriptor>,
     val reconciliations: Map<String, DriveReconciliation>,
     val remoteTips: Map<String, List<BackupVersionDescriptor>>,
+    val localRevisions: Map<String, String>,
     val refreshedAtEpochMs: Long,
 )
 
@@ -66,10 +67,19 @@ internal class BackupCatalogCacheStore(context: Context) {
                     put(key, tipsObject.getJSONArray(key).toDescriptors())
                 }
             }
+            val revisionsObject = root.optJSONObject("localRevisions") ?: JSONObject()
+            val localRevisions = buildMap {
+                val keys = revisionsObject.keys()
+                while (keys.hasNext()) {
+                    val key = keys.next()
+                    put(key, revisionsObject.getString(key))
+                }
+            }
             BackupCatalogSnapshot(
                 versions = versions,
                 reconciliations = reconciliations,
                 remoteTips = remoteTips,
+                localRevisions = localRevisions,
                 refreshedAtEpochMs = root.getLong("refreshedAtEpochMs"),
             )
         }.getOrNull()
@@ -81,6 +91,8 @@ internal class BackupCatalogCacheStore(context: Context) {
         snapshot.reconciliations.forEach { (projectId, state) -> reconciliations.put(projectId, state.name) }
         val tips = JSONObject()
         snapshot.remoteTips.forEach { (projectId, versions) -> tips.put(projectId, versions.toJson()) }
+        val localRevisions = JSONObject()
+        snapshot.localRevisions.forEach { (projectId, revision) -> localRevisions.put(projectId, revision) }
         val root = JSONObject()
             .put("schema", SCHEMA)
             .put("account", settings.driveAccountLabel.orEmpty())
@@ -90,6 +102,7 @@ internal class BackupCatalogCacheStore(context: Context) {
             .put("versions", snapshot.versions.toJson())
             .put("reconciliations", reconciliations)
             .put("remoteTips", tips)
+            .put("localRevisions", localRevisions)
         preferences.edit().putString(KEY_SNAPSHOT, root.toString()).apply()
     }
 
@@ -136,7 +149,7 @@ internal class BackupCatalogCacheStore(context: Context) {
     private companion object {
         const val PREFERENCES = "guitarlab_backup_catalog_cache"
         const val KEY_SNAPSHOT = "snapshot"
-        const val SCHEMA = 1
+        const val SCHEMA = 2
         const val NO_RETENTION = -1
     }
 }
