@@ -14,7 +14,7 @@ TARGETS = {
         "fad97d82feb666dcb29fae83a685bcfa4e870b89",
     ),
     "scripts/ci_run_api36_regression_groups.sh": (
-        "3572294655313543420f5f91ecb9a9a95d1570f4",
+        "bbc2280836a353dcc3ce2baf3ba1912d0a12a296",
         "55bd9a9367fb4f2b02903755d0428231259c728b",
     ),
 }
