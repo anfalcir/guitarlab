@@ -17,7 +17,7 @@ Use these documents first for all new work:
 3. `DECISIONS.md` — durable decisions; later numbered decisions supersede earlier ones.
 4. `PRODUCT_REQUIREMENTS.md` — supported product behavior.
 5. `IMPLEMENTATION_ROADMAP.md` — current RC sequence and remaining milestones.
-6. `RC20_COMPLETION_PLAN.md` — active RC19→RC20 corrective plan until RC20 is physically accepted.
+6. `RC20_COMPLETION_PLAN.md` — remaining RC20 corrective work through freeze.
 7. `RC20_PHYSICAL_HOMOLOGATION.md` — focused acceptance checklist for the exact signed RC20 candidate.
 8. `TEST_AND_HOMOLOGATION_PLAN.md` — current automated vs physical qualification boundary.
 9. `CANDIDATE_IDENTITY_POLICY.md` — exact-source/signing/provenance contract.
@@ -25,14 +25,9 @@ Use these documents first for all new work:
 
 `README.md` is the repository entry point and points back to this set; it is not a second volatile status ledger.
 
-## Current release boundary
+## Volatile state rule
 
-- RC19 (`0.5.0-rc19` / 39) is the latest signed digitally qualified candidate.
-- RC19 is not physically accepted because a real Prepare run produced musically unusable audio.
-- RC20 (`0.5.0-rc20` / planned versionCode `40`) is the corrective successor once its source is materialized and qualified.
-- The locked signer remains `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
-- The current source-materialization entrypoint ends at **U12bi** via `scripts/materialize_ci_sources_u12bi.py`.
-- Exact run IDs, source SHA, worker digest and next action belong in `CURRENT_STATE.md`.
+Version, run IDs, source SHA, worker digest, active blocker and next action belong only in `CURRENT_STATE.md`. Do not duplicate them into stable contracts or this map.
 
 ## Normative subsystem contracts
 
@@ -47,7 +42,7 @@ These documents remain authoritative only when work touches their subsystem:
 - `TIMELINE_INTERACTION_GUIDELINES.md`;
 - `STUDIO_WORKSPACE_GUIDELINES.md` and `STUDIO_OPTIONS_AND_MIXER.md`;
 - `UI_VISUAL_SYSTEM.md`, `UI_COPY_STYLE.md`, `TRANSIENT_FEEDBACK_CONTRACT.md`, `USER_GUIDE_POLICY.md`;
-- `SHARE_MODAL_CONTRACT.md`;
+- `OUTPUT_WORKFLOW_CONTRACT.md`;
 - `BACKUP_IDENTITY_CONTRACT.md` for the retained backup identity/revision invariant.
 
 A subsystem contract does not create a release gate for an unrelated change merely because the file exists.
@@ -70,6 +65,7 @@ The historical directory includes:
 - `history/PHYSICAL_EDITING_RECORDING_HARDENING_PLAN.md`;
 - `history/M8_GLOBAL_DIGITAL_REGRESSION.md`;
 - `history/GITLAB_CI_MIGRATION.md`;
+- archived pre-cleanup RC20/physical/test/CI plans;
 - H/U milestone-specific closure reports already absorbed by the current line.
 
 Do not add a superseded plan back to the `docs/` root. Promote a retained invariant into a stable live contract instead.

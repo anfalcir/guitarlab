@@ -1,6 +1,8 @@
 # Codec Support Matrix
 
-Updated: 2026-09-10
+Updated: 2026-09-24
+
+This matrix describes existing capabilities; it is not a promise of universal file compatibility or future format expansion. RC20 requalifies a codec only when the changed path or owner's representative flow uses it.
 
 Legend:
 - **IMPLEMENTED** — code path exists;
@@ -17,9 +19,9 @@ A capability is never promoted merely because code compiles.
 | FLAC | Yes | Yes | Export **EMULATOR VERIFIED** on API 36 | Export writes native `fLaC` + STREAMINFO codec-specific data, then encoded frames. Instrumentation verifies marker, native extraction/decoding, 48 kHz stereo metadata and payload. Current encoder input is PCM16, so no 24-bit FLAC export claim is made. |
 | AIFF / AIFF-C PCM | Yes | No | IMPLEMENTED import | Dedicated PCM path supports common 8/16/24/32-bit AIFF and AIFC `NONE`, `twos`, `sowt`. Unsupported compressed AIFF-C is rejected. |
 | MP3 | Yes | Yes | Export behavior **EMULATOR VERIFIED / DEVICE-GATED** | Export requests 320 kbps from a device-exposed Android MP3 encoder. Android does not guarantee such an encoder. Instrumentation verifies successful extractable output when an encoder exists and controlled `AudioCodecException` with no leftover destination when it does not. Final availability remains Samsung-target-specific. |
-| AAC / M4A | Yes | Later | IMPLEMENTED import | Common mobile interchange import through Android media decoding. Final AAC/M4A export is outside the current scope. |
-| OGG Vorbis | Yes | Optional later | IMPLEMENTED import | Import through Android media decoding; no current export claim. |
-| Opus | Yes | Later | IMPLEMENTED import | Import through Android media decoding; no current export claim. |
+| AAC / M4A | Yes | No | IMPLEMENTED import | Common mobile interchange import through Android media decoding. AAC/M4A export is outside current scope. |
+| OGG Vorbis | Yes | No | IMPLEMENTED import | Import through Android media decoding; no export claim. |
+| Opus | Yes | No | IMPLEMENTED import | Import through Android media decoding; no export claim. |
 
 ## Import architecture
 Successful import preserves a byte-identical project-managed native original as the authoritative source. Directly compatible WAV may be edited from that managed source. Other accepted formats decode to a separate managed PCM WAV editing proxy. The proxy is derived/regenerable and never replaces the original.
@@ -28,7 +30,7 @@ Successful import preserves a byte-identical project-managed native original as 
 Project-relevant rates include 44.1, 48, 88.2 and 96 kHz. Mismatched source/project rates use validated bounded-memory conversion to a managed Float32 editing proxy; the native source remains immutable. Deterministic software regression covers 44.1→48, 48→44.1, 88.2→48, 96→48 and 44.1→96 with asserted duration/pitch/RMS/channel behavior. Equal-rate conversion has independent byte-behavior coverage. Silent speed/pitch changes are prohibited.
 
 ## Channel layouts
-Mono and stereo are the primary V1 target. Unsupported broader layouts are rejected rather than silently remapped. Stereo editing/display keeps L/R identity and role-aware separation remains non-destructive.
+Mono and stereo are the supported channel scope. Unsupported broader layouts are rejected rather than silently remapped. Stereo editing/display keeps L/R identity and role-aware separation remains non-destructive.
 
 ## WAV encoding/decoding
 Core parsing/decoding supports:
@@ -47,8 +49,8 @@ Master WAV export uses IEEE 32-bit float.
 - Android integration uses native extraction/decoding rather than extension/size-only checks;
 - MP3 absence is a capability result, never a reason to fabricate support.
 
-## Residual target-device codec gate
-Only target-specific facts remain physical:
+## Conditional target-device codec gate
+When the owner uses the affected format, target-specific facts are physical:
 - whether the Samsung image exposes a compatible MP3 encoder;
 - final playability/listening smoke through the intended target workflow.
-FLAC structural validity is no longer delegated to physical homologation because it is API 36 instrumented.
+FLAC structural validity is covered digitally. Do not repeat codec/device gates for an unrelated candidate.

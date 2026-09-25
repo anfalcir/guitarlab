@@ -4,9 +4,9 @@ Updated: 2026-09-24
 
 ## Repository and release boundary
 - `main` is canonical.
-- Product behavior is promoted only after exact-source automated gates and, where required, residual physical validation.
+- Product behavior is promoted after exact-source affected-path gates and, where required, residual physical validation on the owner's environment.
 - `.github/workflows/android-ci.yml` supports manual dispatch plus explicit `[run ci]` / `[run ci signed]` commit-message gates on `main`; ordinary `[skip ci]` commits remain inert.
-- RC19 (`0.5.0-rc19` / 39) is the latest signed digital candidate but is physically rejected by the Prepare audio-quality incident. RC20 is the active corrective line on official PyTorch Demucs. Read `CURRENT_STATE.md` for the exact worker/run state; final physical acceptance occurs only on the exact signed RC20 APK intended for freeze.
+- `CURRENT_STATE.md` alone records the active version/run boundary. Final physical acceptance occurs only on the exact signed APK intended for freeze.
 
 ## Module boundaries
 - `core:model`: immutable project/track/clip/take metadata contracts.
@@ -41,12 +41,12 @@ Timing keeps distinct layers:
 4. take-specific post-recording synchronization stored on the recorded take and applied by exact delta across its lineage;
 5. punch/pre-roll creative region logic.
 
-H23b requires progressing monotonic timestamp evidence, rejects stale/backwards clocks, never mixes incompatible evidence bases and protects placement arithmetic from overflow. H34/H35/H35a add the ±500 ms global future-recording guardrail, persistent take-specific synchronization, PCM-zero silent route/clock verification, exact live-route confirmation before physical calibration stimulus, and the explicit RECORD_AUDIO permission guard.
+Timing evidence must progress monotonically, reject stale/backwards clocks, never mix incompatible evidence bases and protect placement arithmetic from overflow. Current behavior includes the ±500 ms global future-recording guardrail, persistent take-specific synchronization, PCM-zero silent route/clock verification, exact live-route confirmation before physical calibration stimulus and the explicit RECORD_AUDIO permission guard.
 
 ## Live recording waveform
 Live waveform uses captured frame coverage as its timebase. Bounded envelope compaction preserves represented duration and transient peaks. UI publication is bounded/conflated; finalized file-derived waveform replaces transient state without changing clip placement.
 
-## H24 Home Project Library architecture
+## Home Project Library architecture
 Home separates **repository state** from **library view state**.
 
 Pipeline:
@@ -84,23 +84,19 @@ The canonical Export workspace owns external delivery; editable `.guitarlab` per
 Durable creative state belongs in project persistence, not transient Composable state. Navigation/recreation and interrupted media operations are independently recoverable. Home library query state is presentation state and may be recreated without changing project data.
 
 ## Build/release architecture
-`scripts/build_local.sh` is the local software gate when its environment is available. The GitHub workflow is the canonical full software/API36/geometry/signing executor.
+`scripts/build_local.sh` is the local software gate when its environment is available. GitHub workflows provide controlled Android/API36/signing and cloud qualification. Required jobs are selected proportionally under `TEST_AND_HOMOLOGATION_PLAN.md`.
 
-Large deltas are materialized from `.source-parts` serially. The current canonical tail ends at U12bi and composes the accepted H-series, Drive v3, unified-domain/shell/cloud/backup, cohesion hardening and U12 physical-corrective blocks. Each protected block verifies patch/archive identity and exact terminal Git blobs; the current tail additionally preserves `git diff --check`, semantic guards and reverse-apply/idempotence checks. Unexplained drift blocks the build.
+Large deltas are materialized from `.source-parts` serially. The canonical entrypoint and current tail are identified in `CI_PIPELINE.md`. Protected blocks verify patch/archive identity and exact terminal Git blobs; the tail preserves `git diff --check`, semantic guards and reverse-apply/idempotence checks. Unexplained drift blocks the build.
 
 ## Backup transport boundary — direct Drive v3 production path
-The protected backup domain remains transport-agnostic: project/revision identity, deduplication, retention and restore semantics are separated from transport. H37 introduced the direct Drive API v3 edge; U8 production cutover and U8m provider-real acceptance made that path the current unified backup authority.
+The protected backup domain remains transport-agnostic: project/revision identity, deduplication, retention and restore semantics are separated from transport. Direct Drive API v3 is the current backup transport.
 
-Primary path: Android + Google Identity Services OAuth `drive.file` → Drive v3 resumable upload/download. The Drive store uses private `appProperties` plus Drive `fileId`, byte size and SHA-256 for remote commit identity. Incomplete uploads are not catalogued as committed revisions. Persisted resumable session state is app-private and excluded from Android cloud/device backup. SAF remains only as a bounded one-time legacy migration source until all retained H26-H28 history has copied successfully.
+Primary path: Android + Google Identity Services OAuth `drive.file` → Drive v3 resumable upload/download. The Drive store uses private `appProperties` plus Drive `fileId`, byte size and SHA-256 for remote commit identity. Incomplete uploads are not catalogued as committed revisions. Persisted resumable session state is app-private and excluded from Android cloud/device backup. Historical SAF/GBW/H37 migration is outside the supported release scope.
 
 No Firebase/Cloud Run/Functions hop, service account, client secret or refresh-token custody is part of this backup architecture.
 
-## Current milestone boundary
+## Remote separation recovery
 
-U10/C8 and U11 remain CLOSED / DIGITAL PASS historical authorities. RC18 is digitally qualified on producer `ee947c6fbbd8b24430d3a3faa04e27ef9a46856c`; it still cannot supersede the previous physically tested fallback until target-device listening/reinsertion acceptance passes.
+The local durable store is recovery intent, not proof that a cloud job exists. When reconciliation finds no remote job, replayable pre-dispatch states are idempotently re-enqueued, cancellation requests terminalize locally, and states requiring an already-created remote job expire safely. Cancellation/worker retry exhaustion must end in a terminal local state. Restoration of `SOURCE_READY` is source-generation-aware and may not overwrite newer active work. Per-project observation prefers active work over a late terminal completion from an older generation.
 
-Remote separation recovery now treats the local durable store as recovery intent, not proof that a cloud job exists. When reconciliation finds no remote job, replayable pre-dispatch states are idempotently re-enqueued, cancellation requests terminalize locally, and states that require an already-created remote job expire safely. Cancellation/worker retry exhaustion must also end in a terminal local state. Restoration of `SOURCE_READY` is source-generation-aware and may not overwrite a newer active separation. Per-project observation prefers active work over a late terminal completion from an older generation.
-
-The exact rc9 producer also passed U4 Cloud Integration Smoke #111. U7 Cloud Backend #69 passed source/container/security verification; its controlled deploy step was skipped. Drive provider-real acceptance remains closed by U8m and is unaffected by U12k.
-
-U12 remains the only release boundary: first validate the rc8→rc9 orphan-recovery correction on the target tablet, then complete the residual real MK-300 routing/capture/isolation, monitoring, timing/listening, USB reconnect, continuous 10-minute quality and ergonomics checks. External-controller physical acceptance remains a separate 1.1 boundary unless explicitly promoted.
+Current release work is defined only by `RC20_COMPLETION_PLAN.md`; historical milestones do not create architecture or homologation gates.

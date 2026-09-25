@@ -1,6 +1,6 @@
 # UI Copy Style
 
-Updated: 2026-09-16
+Updated: 2026-09-24
 
 ## Scope
 This standard applies to all user-visible GuitarLab copy: Home, New Project, Prepare, Studio, mixer, Export, Activity, Settings, backup/restore, dialogs, diagnostics, accessibility descriptions, snackbars, notifications and the in-app `Ajuda` guide.
@@ -45,8 +45,8 @@ Every normal product surface is written for an end user, not for the developer, 
 ## Accessibility
 Content descriptions follow the same product-first and sentence-case rules and should describe the action or control directly, without decorative punctuation.
 
-## Release discipline
-Any user-visible rename must update dependent Compose instrumentation and the `Ajuda` guide in the same change. Release candidates require a product-copy audit that searches for internal implementation/release vocabulary and accidental personal/hardware-specific wording in normal screens. Copy review is part of release hardening, not a post-release cleanup task.
+## Change discipline
+Any user-visible rename updates dependent Compose instrumentation and the `Ajuda` guide in the same change. A candidate that changes user-facing copy receives a focused scan for internal implementation/release vocabulary and accidental personal/hardware-specific wording in affected normal screens. Unchanged copy does not require a new global audit.
 
 
 ## State and action wording
@@ -81,8 +81,8 @@ Examples:
 ## Background-operation wording
 Notifications, Activity and in-screen progress must use the same semantic status mapper. A job may have provider-specific internal states, but the user-facing language must stay stable when implementation changes.
 
-## Release cohesion scan
-U10/U11 copy audit must search for:
+## Copy-cohesion scan when affected
+Search affected user-facing surfaces for:
 - `GBW` in normal UI strings;
 - `Study Exports`;
 - raw `STEM_` / `REFERENCE_` role text;

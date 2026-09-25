@@ -1,6 +1,6 @@
 # Timeline interaction guidelines
 
-Updated: 2026-09-14
+Updated: 2026-09-24
 
 ## Global invariants
 Structural timeline edits are allowed only in compatible stopped states and are blocked during import, active Trim/history operations and incompatible transport/recording states. Managed source bytes remain immutable. Every completed edit is a project/history transaction; preview motion and cancelled gestures are no-ops.
@@ -66,5 +66,5 @@ Trim is non-destructive metadata editing local to the active clip.
 - structural clip edits remain stopped-only even though playhead-only seek is intentionally allowed during ordinary Play;
 - recording/countdown/finalization rejects structural timeline gestures.
 
-## Required regression evidence
-Automated coverage must include trim start/end handle movement, close-handle cases, `Move`/`Delete`/`NoOp` drag intent, split-child migration/deletion, save/reopen lineage integrity and target-geometry Compose interaction. Real-device homologation only confirms tactile acquisition/ergonomics that cannot be established in emulator tests.
+## Qualification when affected
+Changes to timeline interaction require focused coverage for the altered gesture/domain path plus save/reopen lineage integrity. Use trim handle, `Move`/`Delete`/`NoOp`, split-child and geometry cases as applicable. Repeat real-device tactile/ergonomic acceptance only when interaction geometry changes or an observed device defect invalidates prior evidence.

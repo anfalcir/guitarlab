@@ -1,6 +1,6 @@
 # Studio Workspace Guidelines
 
-Updated: 2026-09-14
+Updated: 2026-09-24
 
 This document is a normative UI/UX contract for the GuitarLab Studio workspace on tablet.
 
@@ -68,4 +68,4 @@ Playhead crosses all lanes. Loop guides cross lanes only while Loop is active. R
 Transient success/error feedback must not reserve permanent structural space. User-visible errors are safe and understandable; raw repository invariant text belongs in diagnostics, not normal UX.
 
 ## Tablet ergonomics
-Primary controls remain readable/tappable without precision gestures. Landscape and portrait preserve the open project and use responsive layout. Exact geometry is automated; physical validation confirms tactile/visual behavior that an emulator cannot establish.
+Primary controls remain readable/tappable without precision gestures. Landscape and portrait preserve the open project and use responsive layout. Repeat geometry/physical ergonomics evidence when a candidate changes this workspace or when an observed target-device defect invalidates prior evidence.

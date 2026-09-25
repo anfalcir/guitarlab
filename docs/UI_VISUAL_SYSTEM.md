@@ -1,7 +1,6 @@
 # GuitarLab Visual System
 
-Updated: 2026-09-15
-Status: H21 source contract — PRE-GATE until the next exact-source full CI passes.
+Updated: 2026-09-24
 
 ## Product intent
 GuitarLab should visually read as one coherent music-production/study instrument: clear modules, restrained graphite surfaces, precise controls and small-radius rectangular geometry. Studio may be the densest workspace, but Prepare, Export, Activity, Backup and Settings must use the same visual grammar. The interface must prioritize immediate operational comprehension over decorative softness.
@@ -97,7 +96,7 @@ Functional accents:
 - inherits global compact Material3 shapes and stronger outlines;
 - actions remain visually separated from status copy.
 
-### Track settings / level analysis / help / export dialogs
+### Track settings / level analysis / help dialogs and Export panels
 - major dialog/panel geometry capped at 10dp;
 - nested sections use 8dp;
 - actions use 6dp/default compact control shape;
@@ -153,7 +152,7 @@ Narrow/phone:
 - no capability disappears solely because width is reduced.
 
 ## Shared product primitives
-The cohesion line should converge on reusable visual components for:
+Use reusable visual components for:
 - project page scaffold;
 - section/card;
 - status chip;
@@ -196,5 +195,5 @@ The user sees semantic operation states, not raw backend enums. Provider/job IDs
 ## Backup and cloud
 Backup/restore must use the same page/section/status language as the rest of GuitarLab. It must not read visually as a separate utility app.
 
-## Cohesion screenshot matrix
-U10/U11 retain screenshot artifacts for Home, New Project, Prepare states, Studio, Export, Activity, Settings, Backup and destructive/error states across representative tablet/phone, dark/light and font-scale conditions. Semantic geometry remains the automated gate; screenshot review checks visual coherence and accidental subsystem-specific styling.
+## Visual qualification when affected
+Changes to shared shell, layout, typography, shapes, colors or responsive behavior require focused semantic geometry and screenshot review for the affected surfaces and representative reference-device conditions. Do not replay the historical full screenshot matrix for unrelated audio/backend/search logic changes. Existing accepted screenshots remain evidence until a visual change invalidates them.

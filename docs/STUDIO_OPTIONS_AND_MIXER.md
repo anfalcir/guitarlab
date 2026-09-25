@@ -1,24 +1,19 @@
-# Studio Options, Share and Mixer contract
+# Studio Options, Export and Mixer Contract
 
-Updated: 2026-09-14
+Updated: 2026-09-24
 
 ## Options
 Options owns low-frequency setup and diagnostics: input route, main output, monitoring, Studio preferences, import capability information and diagnostic tools. These controls stay out of the timeline.
 
-Project-save and final-audio export actions are **not** Options actions. Earlier wording assigning export to Options is superseded by the Share contract below.
+Project persistence and final-audio export are **not** Options actions.
 
 ## Studio global actions
-The right side of the Studio top bar is ordered:
-**Mixer → Ajuda → Opções → Compartilhar → Home**.
+Studio exposes Mixer, Help, Options, Export and Home using the shared project-shell navigation language. Exact placement follows the responsive shell rather than a frozen historical top-bar order.
 
 `Ajuda` opens the same shared `StudioUserGuideDialog` implementation used by the Home entry point; there is no second guide implementation/copy.
 
-## Share / Salvar e exportar
-`Compartilhar` opens one modal titled `Salvar e exportar` with a clear semantic split:
-- **Projeto editável** — `.guitarlab`, for portable round-trip persistence;
-- **Master final** — WAV 32-bit float, FLAC lossless path and MP3 320 kbps.
-
-The modal uses descriptive cards rather than unexplained format buttons. Project persistence is visually separated from final masters. Sample rate follows established project/render policy rather than exposing unnecessary codec knobs in the RC3 UI.
+## Project persistence and Export
+Portable `.guitarlab` save remains semantically distinct from external Study Export and Studio Master delivery. The canonical Export workspace owns output/format selection; Studio/Home entry points navigate there and do not maintain a second modal chooser. Sample rate follows established project/render policy without unnecessary codec knobs.
 
 ## Mixer
 Mixer is a bottom dock with horizontally scrollable track strips and fixed Master. Gain/pan may preview live and are persisted on completed gestures. Pan is bipolar. Mute/Solo/REC Arm remain distinct. REC Arm is the persisted recording-target state used by the recording coordinator.
@@ -34,5 +29,5 @@ Mixer is a bottom dock with horizontally scrollable track strips and fixed Maste
 - track ordering remains drag-only through the workspace coordinator;
 - clip migration/deletion resolves through transaction-safe drag intent (`Move`, `Delete`, `NoOp`).
 
-## Active gate
-Mixer/Options/Share behavior is an established regression surface. The active RC3 source additionally carries H0–H6 editing/recording hardening and requires one new exact-source manual CI PASS before final physical homologation. After that automated PASS, `history/RC3_FINAL_PHYSICAL_HOMOLOGATION.md` is the only active manual checklist; older alpha/RC checklists remain historical evidence.
+## Qualification
+Repeat focused Mixer/Options/Export regression when a candidate changes those surfaces or their domain commands. They do not create a global RC20 gate for unrelated worker/search changes.

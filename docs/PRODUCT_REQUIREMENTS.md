@@ -10,7 +10,7 @@ Stable product identity, support boundaries, proportional quality, freeze policy
 - Reopen internal projects without data loss; writes must be atomic or safely replaceable.
 - Save a portable versioned `.guitarlab` package and reopen it from Home as an independent project without silently overwriting the original.
 - Validate package/project/media identity and reject structurally invalid, incompatible or unsafe packages before publication.
-- Support future schema/package evolution without silently corrupting older projects.
+- Read supported current-line schema/package versions safely and reject unknown incompatible versions without corruption; no indefinite historical migration promise is implied.
 
 Home project-library requirements:
 - Search project names in real time without case or diacritic sensitivity.
@@ -26,8 +26,7 @@ Home project-library requirements:
 - Clearing filters does not silently reset the selected sort order.
 - Search/filter/sort is non-destructive and MUST NOT mutate project content or package schema.
 
-## Unified Prepare workflow
-The approved successor product direction is governed by `history/UNIFIED_GUITARLAB_GBW_IMPLEMENTATION_ROADMAP.md`.
+## Prepare workflow
 
 - One immutable projectId spans source acquisition, separation, prepared assets, Studio, exports and backup.
 - A project may remain Studio-only; Prepare is optional and must not block Blank projects.
@@ -48,8 +47,8 @@ The approved successor product direction is governed by `history/UNIFIED_GUITARL
 - Cleanup uses reachability and may not delete media referenced by project state, retained history, pending migration or pending backup.
 - Re-separation/backing regeneration creates a new asset/version rather than mutating immutable bytes.
 
-### Unified cloud backup destination
-- The successor cloud backup must avoid requiring full large-media reupload for every metadata-only project edit.
+### Cloud backup destination
+- Cloud backup avoids requiring full large-media reupload for every metadata-only project edit.
 - Immutable content-addressed media plus transactional project revision metadata is the target architecture.
 - Upload/restore is resumable where applicable, server-confirmed, checksum-validated and conflict-aware.
 - Restore stages and validates all required project/media state before atomic publication.
@@ -83,7 +82,7 @@ The approved successor product direction is governed by `history/UNIFIED_GUITARL
 - Media still referenced by any clip/take must not be deleted.
 
 ## Import and codecs
-Target V1 interoperability includes WAV PCM, FLAC, AIFF/AIFC PCM, MP3, AAC/M4A, OGG Vorbis and Opus subject to `CODEC_SUPPORT_MATRIX.md`.
+The currently implemented format set includes WAV PCM, FLAC, AIFF/AIFC PCM, MP3, AAC/M4A, OGG Vorbis and Opus, subject to the exact claims and device qualifications in `CODEC_SUPPORT_MATRIX.md`. This is not a promise to accept arbitrary files or expand the matrix.
 - Accept common mono/stereo sources.
 - WAV PCM core covers verified U8/S16/S24/S32/Float32 variants.
 - Android media formats may decode into managed PCM proxies.
@@ -156,10 +155,10 @@ Offline export respects current timeline/mix and never modifies authoritative so
 - Deployment profile is private single-owner/personal use, not public distribution or commercial service. Release gates are risk-based: data/media integrity, musical validity, primary acquisition, quota/cost, credentials, recovery and exact signing remain strict; non-applicable scanner severity, alternative performance cells, unsupported percentile claims and convenience diagnostics do not block by default.
 - After owner acceptance, the signed APK and digest-pinned backend form a frozen appliance baseline. Do not perform maintenance-only rebuilds or upgrades without an observed regression, provider/platform deprecation, applicable known-exploited vulnerability, credential exposure, cost/integrity risk or owner-requested feature.
 - Mandatory promoted-RC gates: relevant JVM/unit tests, Android Lint, release assembly, representative API36 regression, exact artifact provenance and locked signing verification. Debug assembly and isolated geometry run when affected by the candidate or when prior evidence is invalidated; unrelated flaky/cosmetic coverage may be quarantined with an explicit reason.
-- Current regression scope retains prior editing/persistence/audio/routing/timing/waveform/Home/backup behavior through H35a, including global-vs-take synchronization and quiet/silent calibration contracts.
+- Regression scope protects current editing, persistence, audio, routing, timing, waveform, Home and backup behavior when a candidate can materially affect it.
 - Source materialization must be deterministic, hash-verified, idempotent and fail closed on drift.
 - Signed homologation uses CI-only signing material and locked certificate verification.
 - Portable package extraction defends against traversal/out-of-root writes and bounded-resource abuse.
 - Keystores, credentials and local SDK configuration are never committed.
-- Physical homologation remains distinct from software CI; current RC3/H37 evidence keeps its historical acceptance rules.
-- For the approved unified successor program, digitally provable claims are removed from manual QA and the target is one consolidated final signed-candidate physical campaign, with repeat only when a source fix invalidates relevant evidence.
+- Physical homologation remains distinct from software CI and evaluates only target-device behavior relevant to the exact signed candidate and frozen baseline.
+- Digitally provable claims are removed from manual QA. Repeat physical testing only when a source/backend change invalidates relevant evidence or the owner deliberately includes the capability in the frozen baseline.

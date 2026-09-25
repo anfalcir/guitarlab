@@ -1,6 +1,6 @@
 # Transient Feedback Contract
 
-Updated: 2026-09-16
+Updated: 2026-09-24
 
 This is the product contract for Toast/Snackbar-like feedback in GuitarLab. New features must use this contract instead of adding ad-hoc transient messages.
 
@@ -44,14 +44,14 @@ Normal transient feedback must never expose directly:
 - any other Android/OEM low-level routing identity.
 
 Preferred behavior:
-1. use the H22 semantic physical-route layer (`Microfone do tablet`, `Alto-falante do tablet`, `MK-300`, friendly Bluetooth name);
+1. use the semantic physical-route layer (`Microfone do tablet`, `Alto-falante do tablet`, `MK-300`, friendly Bluetooth name);
 2. if a raw technical error reaches the transient boundary and no reliable semantic substitution is available, use a safe generic user-facing fallback;
 3. preserve raw details only in diagnostics/logging.
 
-H23b applies the sanitizer to both centralized transient notices **and raw Studio error messages** before Snackbar display.
+The sanitizer applies to both centralized transient notices **and raw Studio error messages** before Snackbar display.
 
 ## Warning cooldown
-Repeated identical warnings from a continuing condition use cooldown. H23/H23b default Studio warning cooldown is 30 seconds. A materially different error/warning is not suppressed merely because another message was recently shown.
+Repeated identical warnings from a continuing condition use cooldown. The default Studio warning cooldown is 30 seconds. A materially different error/warning is not suppressed merely because another message was recently shown.
 
 ## Review policy for future code
 Before adding any transient message, answer:
@@ -63,8 +63,8 @@ Before adding any transient message, answer:
 
 If #1 is yes and #2 is no, do not add a Snackbar/Toast.
 
-## Test policy
-Central policy tests must continue to assert:
+## Qualification when affected
+Changes to the transient-feedback boundary require focused policy assertions that:
 - `OPERATIONAL_STATUS` is not Snackbar-eligible;
 - Error, Warning and Async Completion are eligible;
 - semantic route labels remain unchanged;

@@ -1,8 +1,8 @@
 # Managed Media Policy
 
-Updated: 2026-09-09
+Updated: 2026-09-24
 
-This document is normative for GuitarLab Studio media handling.
+This document is normative for GuitarLab media handling.
 
 ## Core invariant
 GuitarLab never edits the user's external source file. A successful import creates a complete project-managed source copy. That managed source is authoritative and immutable after commit. Ordinary editing is non-destructive metadata work.
@@ -53,10 +53,10 @@ Restore rules:
 Removing a clip removes its project reference, not by rewriting source media. Orphan cleanup remains conservative: prefer retained orphan media over accidental deletion until reference-safe garbage collection is implemented and tested.
 
 ## Master export
-Master export is separate from edit proxies. It renders the current project/timeline/mix into a new destination and never replaces a managed source or proxy. The alpha13 render pipeline produces a floating-point master representation before format encoding.
+Master export is separate from edit proxies. It renders the current project/timeline/mix into a new destination and never replaces a managed source or proxy. The render pipeline produces a floating-point master representation before format encoding.
 
-## Backward compatibility
-Legacy projects may still contain external `sourceUri` references. New imports use managed source storage. Compatibility readers must tolerate missing `managedEditProxyPath` and resolve existing managed WAV sources directly.
+## Current-line compatibility
+Existing current-line projects may contain external `sourceUri` references or omit `managedEditProxyPath`; readers tolerate those states and resolve managed WAV sources directly. This compatibility does not create an obligation to import retired standalone/legacy project families.
 
 ## Test expectations
-Software gates cover source/proxy persistence compatibility, rollback, package round-trip, manifest/version validation, ZIP traversal rejection, referenced-media validation and WAV Float32 writer behavior. Device validation must additionally prove projects remain usable after external originals disappear and that requested imports/exports work on the target Android device.
+Affected-path software gates cover source/proxy persistence, rollback, package round-trip, manifest/version validation, ZIP traversal rejection, referenced-media validation and WAV Float32 writer behavior. Repeat device validation when import/export or storage behavior changes; prior unrelated evidence remains reusable.

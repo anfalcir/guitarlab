@@ -1,8 +1,8 @@
 # Architectural and Product Decisions
 
-Updated: 2026-09-23
+Updated: 2026-09-24
 
-This log records decisions that must survive chat/context loss. Historical decisions remain binding unless a later numbered decision explicitly supersedes them.
+This log records durable decisions that must survive chat/context loss. Later numbered decisions supersede earlier ones. Milestone-specific wording is historical unless a current live document retains the invariant; D-090 governs the proportional release and maintenance interpretation of every earlier decision.
 
 ## D-001 — Android-first
 GuitarLab targets Android/tablet as the primary environment.
@@ -16,8 +16,8 @@ Built-in/custom roles organize tracks without making structure rigid.
 ## D-004 — Non-destructive clip model
 Move, trim, gain and mute change metadata, never immutable source audio.
 
-## D-005 — Multi-format interoperability is product scope
-WAV-first is staged validation only. Broader import/export remains governed by `CODEC_SUPPORT_MATRIX.md`.
+## D-005 — Implemented media formats are explicit, not universal
+WAV-first is not the only implemented path, but GuitarLab makes claims only for formats and owner use cases currently validated under `CODEC_SUPPORT_MATRIX.md`. This does not create a universal interoperability or matrix-expansion obligation.
 
 ## D-006 — Sample-rate mismatches are explicit
 Never change speed/pitch accidentally. Mismatches require validated resampling.
@@ -100,8 +100,8 @@ Track drop uses `ProjectTrackEditor.reorderTrack`; clip migration uses `ProjectC
 ## D-032 — Track Settings is responsive and metadata-aware
 Wide layouts use balanced identity/color and source-metadata columns; narrow layouts stack them. Source filename/format/sample rate/channels/bit depth/encoding/duration are shown when available, with a compact empty state otherwise.
 
-## D-033 — M5 physical approval is mandatory
-Software-green and signed identity are necessary but insufficient. Historical M5 candidate wording is superseded by the explicit M5 PASS/CLOSED state and later milestone decisions.
+## D-033 — Physical behavior is accepted on the relevant signed candidate
+Software-green and signed identity are insufficient for behavior that depends on the owner's actual device, route or hearing. Historical M5 is closed; D-090 limits future physical repetition to capabilities affected by the candidate or deliberately included in its frozen baseline.
 
 ## D-034 — Native original and edit proxy are distinct
 Every successful import preserves the project-managed native original as authoritative immutable source. A format that cannot be consumed directly by the Studio WAV path receives a separate managed PCM WAV proxy. The proxy is derivative/regenerable and never replaces or redefines the original source.
@@ -114,6 +114,8 @@ Final output renders current timeline/trim/placement/clip gain/track mix/Mute/So
 
 ## D-037 — Share owns project save and final export UX
 A Share icon lives immediately before Home in the Studio top bar. It opens `Salvar e exportar`, semantically separating editable `.guitarlab` persistence from final-audio masters. Options continues to own setup/preferences/diagnostics and must not duplicate these output actions as primary commands.
+
+D-083 supersedes the modal-specific surface: the semantic separation remains, while the canonical Export workspace now owns external format/output selection.
 
 ## D-038 — Media I/O/persistence/export were intentionally pulled forward into M5
 Historical alpha13 wording is evidence only. M5 later closed by explicit approval of alpha14; M6 later closed by explicit approval of `0.3.0-alpha1`.
@@ -172,8 +174,8 @@ Multiple takes may remain attached to one track, but validation requires exactly
 ## D-056 — Analysis produces reviewable suggestions
 Automatic section detection and level analysis never mutate creative state silently. Suggestions are bounded and become persistent only after explicit acceptance/application.
 
-## D-057 — Hosted CI is optional, evidence is mandatory
-GitHub Actions stays manual-only. A local pinned toolchain may establish software/build/signature evidence; emulator-only and physical-only claims must remain explicitly distinguished.
+## D-057 — Hosted CI is optional; relevant evidence is required
+GitHub Actions stays controlled. A local pinned toolchain may establish software/build/signature evidence; emulator-only and physical-only claims remain explicitly distinguished. Under D-090, relevant evidence covers the changed path and credible owner risk rather than replaying every historical gate automatically.
 
 ## D-058 — Loop constrains explicit Play, not recording pre-roll
 When Loop is active, an explicit Play action may begin only inside `[loopStart, loopEnd)`. A playhead outside that interval normalizes to loop start, and visible playback callbacks are kept inside the interval. This rule belongs to playback transport policy and must not be pushed into shared recording semantics because punch recording may legitimately begin before loop start for pre-roll.
