@@ -404,3 +404,7 @@ The first signed U12bw qualification run 36132274501 failed at compile time only
 
 ### U12bw signed gate corrective 2
 The second signed U12bw qualification run 36132746100 passed the previous compile corrective and then failed only because the new app JVM reducer test imported `kotlin.test.Test`, while the app test source set uses JUnit4. The test annotation was aligned to `org.junit.Test`; source behavior is unchanged. The U12bw patch/materializer were resealed and this commit intentionally re-dispatches the signed canonical gate.
+
+
+- Android CI #901: software gate PASS; API36 failed only in the new resident-revision lifecycle regression because returning to the same Studio route did not retrigger reconciliation. U12bw now publishes a monotonic navigation-entry token on every navigation transition (including identical encoded routes) and keys the Studio reconcile effect by projectId + entry token. The U12bw patch/materializer was regenerated and hash-aligned against the exact U12bv baseline → terminal source, including AppNavigationViewModel, GuitarLabApp, StudioShellScreen and the route-entry unit test.
+- Signed U12bw requalification dispatched on the exact terminal source. Final APK remains pending software/API36/signing PASS.
