@@ -91,9 +91,9 @@ Because RC21 changes the catalog/cache/background orchestration, final residual 
 
 Before any signed RC21 run:
 
-1. complete live documentation;
-2. merge the maintenance work into canonical `main`;
-3. remove the temporary maintenance branch/trigger;
+1. complete live documentation — DONE;
+2. merge the maintenance work into canonical `main` — DONE via PR #7, merge `2617fe1f1f2351a17389f165ed5d5a8e834e16a2`;
+3. remove/disable the temporary maintenance branch/trigger — required before signed dispatch;
 4. run the exact-source signed Android gate from `main`.
 
 RC20 remains the accepted baseline until the resulting signed RC21 APK passes proportional owner acceptance. Only then may `RELEASE_BASELINE.md` be promoted.
