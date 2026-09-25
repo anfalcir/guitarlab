@@ -68,6 +68,14 @@ fun ActivityScreen(
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        state.message?.let { message ->
+            Text(
+                message,
+                modifier = Modifier.fillMaxWidth().testTag("activity-message"),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
         if (state.historyCount > 0) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                 TextButton(
@@ -86,7 +94,13 @@ fun ActivityScreen(
                 state = listState,
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                items(state.records, key = { it.operationId }) { record -> ActivityRecordCard(record) }
+                items(state.records, key = { it.operationId }) { record ->
+                    ActivityRecordCard(
+                        record = record,
+                        cancelling = record.operationId in state.cancellingOperationIds,
+                        onCancel = { viewModel.cancel(record) },
+                    )
+                }
             }
         }
     }
@@ -103,7 +117,11 @@ private fun ActivityEmptyState(modifier: Modifier) {
 }
 
 @Composable
-private fun ActivityRecordCard(record: UnifiedOperationRecord) {
+private fun ActivityRecordCard(
+    record: UnifiedOperationRecord,
+    cancelling: Boolean,
+    onCancel: () -> Unit,
+) {
     val active = record.state.isActive
     Card(Modifier.fillMaxWidth().testTag("activity-record-${record.operationId}")) {
         Row(Modifier.fillMaxWidth().padding(14.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.Top) {
@@ -148,6 +166,17 @@ private fun ActivityRecordCard(record: UnifiedOperationRecord) {
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                if (active) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                        TextButton(
+                            onClick = onCancel,
+                            enabled = !cancelling,
+                            modifier = Modifier.testTag("activity-cancel-${record.operationId}"),
+                        ) {
+                            Text(if (cancelling) "Cancelando…" else "Cancelar")
+                        }
+                    }
+                }
             }
         }
     }
