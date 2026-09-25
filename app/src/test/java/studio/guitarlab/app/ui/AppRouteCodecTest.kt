@@ -16,6 +16,8 @@ class AppRouteCodecTest {
             AppScreen.Export("project:a/b?c"),
             AppScreen.Options(),
             AppScreen.Options("project:a/b?c"),
+            AppScreen.Diagnostics(),
+            AppScreen.Diagnostics("project:a/b?c"),
             AppScreen.AudioProbe(),
             AppScreen.AudioProbe("p:1"),
             AppScreen.CodecProbe(),
