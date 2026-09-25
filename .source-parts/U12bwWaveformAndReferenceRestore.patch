@@ -1,0 +1,1531 @@
+diff --git a/app/src/androidTest/java/studio/guitarlab/app/GuitarLabLifecycleInstrumentedTest.kt b/app/src/androidTest/java/studio/guitarlab/app/GuitarLabLifecycleInstrumentedTest.kt
+--- a/app/src/androidTest/java/studio/guitarlab/app/GuitarLabLifecycleInstrumentedTest.kt
++++ b/app/src/androidTest/java/studio/guitarlab/app/GuitarLabLifecycleInstrumentedTest.kt
+@@ -15,6 +15,7 @@ import androidx.lifecycle.ViewModelProvider
+ import androidx.test.ext.junit.runners.AndroidJUnit4
+ import androidx.test.platform.app.InstrumentationRegistry
+ import org.junit.Assert.assertEquals
++import org.junit.Assert.assertFalse
+ import org.junit.Assert.assertNotNull
+ import org.junit.Assert.assertTrue
+ import org.junit.Rule
+@@ -273,6 +274,50 @@ class GuitarLabLifecycleInstrumentedTest {
+         }
+     }
+ 
++    @Test
++    fun returningToSameStudioProjectReloadsWhenPersistedRevisionChangedExternally() {
++        val repository = FileProjectRepository(instrumentation.targetContext.filesDir)
++        val project = ProjectFactory(idGenerator = { "resident-revision-${System.nanoTime()}" }, clock = { 700L })
++            .create("Resident Revision", ProjectTemplate.BLANK)
++            .copy(tracks = listOf(AudioTrack(id = "revision-track", name = "Revision", order = 0)))
++        repository.save(project)
++
++        try {
++            navigation().navigate(AppScreen.Studio(project.id))
++            waitForRoute(AppScreen.Studio(project.id))
++            composeRule.waitUntil(timeoutMillis = UI_TIMEOUT_MS) {
++                studio().state.value.project?.id == project.id && !studio().state.value.loading
++            }
++
++            studio().toggleTrackMuted("revision-track")
++            composeRule.waitUntil(timeoutMillis = UI_TIMEOUT_MS) { studio().state.value.canUndo }
++
++            navigation().navigate(AppScreen.Options(project.id))
++            waitForRoute(AppScreen.Options(project.id))
++            val persisted = repository.load(project.id)!!
++            repository.save(
++                persisted.copy(
++                    name = "Updated outside Studio",
++                    updatedAtEpochMs = persisted.updatedAtEpochMs + 10_000,
++                ),
++            )
++
++            navigation().navigate(AppScreen.Studio(project.id))
++            waitForRoute(AppScreen.Studio(project.id))
++            composeRule.waitUntil(timeoutMillis = UI_TIMEOUT_MS) {
++                studio().state.value.project?.name == "Updated outside Studio"
++            }
++
++            assertFalse(
++                "Undo history from the resident revision must not cross an external project revision",
++                studio().state.value.canUndo,
++            )
++            assertFalse(studio().state.value.loading)
++        } finally {
++            runCatching { repository.delete(project.id) }
++        }
++    }
++
+     private fun waitUntilEnabled(text: String) {
+         composeRule.waitUntil(timeoutMillis = UI_TIMEOUT_MS) {
+             runCatching {
+diff --git a/app/src/androidTest/java/studio/guitarlab/app/PhysicalEditingHardeningInstrumentedTest.kt b/app/src/androidTest/java/studio/guitarlab/app/PhysicalEditingHardeningInstrumentedTest.kt
+--- a/app/src/androidTest/java/studio/guitarlab/app/PhysicalEditingHardeningInstrumentedTest.kt
++++ b/app/src/androidTest/java/studio/guitarlab/app/PhysicalEditingHardeningInstrumentedTest.kt
+@@ -31,6 +31,7 @@ import studio.guitarlab.core.model.ProjectFactory
+ import studio.guitarlab.core.model.ProjectTemplate
+ import studio.guitarlab.core.project.FileProjectRepository
+ import studio.guitarlab.core.project.TimelineControlPolicy
++import studio.guitarlab.core.project.WaveformCacheIdentity
+ import studio.guitarlab.core.project.WaveformCacheStore
+ 
+ @RunWith(AndroidJUnit4::class)
+@@ -64,9 +65,11 @@ class PhysicalEditingHardeningInstrumentedTest {
+                 ),
+             )
+         repository.save(project)
++        val clip = project.clips.single()
+         WaveformCacheStore(root).write(
+             project.id,
+-            "c1",
++            clip.id,
++            WaveformCacheIdentity.forClip(clip, targetPoints = 4096),
+             WaveformEnvelope(List(160) { index -> if (index % 17 == 0) 0.9f else 0.25f }),
+         )
+ 
+diff --git a/app/src/androidTest/java/studio/guitarlab/app/UnifiedProjectShellInstrumentedTest.kt b/app/src/androidTest/java/studio/guitarlab/app/UnifiedProjectShellInstrumentedTest.kt
+--- a/app/src/androidTest/java/studio/guitarlab/app/UnifiedProjectShellInstrumentedTest.kt
++++ b/app/src/androidTest/java/studio/guitarlab/app/UnifiedProjectShellInstrumentedTest.kt
+@@ -175,16 +175,24 @@ class UnifiedProjectShellInstrumentedTest {
+             ),
+         )
+         var openedStudio = false
++        var restored: Pair<Boolean, Boolean>? = null
+         composeRule.setContent {
+             GuitarLabTheme(darkTheme = true) {
+                 UnifiedPrepareScreen(
+                     project = project, projectId = project.id, onBack = {},
+                     onStudio = { openedStudio = true }, onExport = {},
++                    onRestoreReferences = { backing, guitar -> restored = backing to guitar },
+                 )
+             }
+         }
+ 
+         composeRule.onNodeWithTag("prepare-references-ready").performScrollTo().assertIsDisplayed()
++        composeRule.onNodeWithTag("prepare-restore-references").assertIsDisplayed().performClick()
++        composeRule.onNodeWithTag("restore-reference-dialog").assertIsDisplayed()
++        composeRule.onNodeWithTag("restore-reference-backing").assertIsDisplayed()
++        composeRule.onNodeWithTag("restore-reference-guitar").assertIsDisplayed().performClick()
++        composeRule.onNodeWithTag("restore-reference-confirm").performClick()
++        composeRule.runOnIdle { check(restored == (true to false)) }
+         composeRule.captureCohesionScreenshot("prepare-ready-dark")
+         composeRule.onNodeWithText("Studio").performClick()
+         composeRule.runOnIdle { check(openedStudio) }
+diff --git a/app/src/main/java/studio/guitarlab/app/ui/GuitarLabApp.kt b/app/src/main/java/studio/guitarlab/app/ui/GuitarLabApp.kt
+--- a/app/src/main/java/studio/guitarlab/app/ui/GuitarLabApp.kt
++++ b/app/src/main/java/studio/guitarlab/app/ui/GuitarLabApp.kt
+@@ -115,7 +115,9 @@ fun GuitarLabApp(
+                     onResumeSeparationImport = { homeViewModel.resumeSeparationImport(current.projectId) },
+                     onCancelSeparation = { homeViewModel.cancelSeparation(current.projectId) },
+                     onPrepareReferences = { homeViewModel.prepareReferences(current.projectId) },
+-                    onRepairReferences = { homeViewModel.repairPreparedReferenceBindings(current.projectId) },
++                    onRestoreReferences = { backing, guitar ->
++                        homeViewModel.restorePreparedReferences(current.projectId, backing, guitar)
++                    },
+                     initialCloudSession = remoteCloudAuth.currentSession(),
+                 )
+                 }
+diff --git a/app/src/main/java/studio/guitarlab/app/ui/HomeViewModel.kt b/app/src/main/java/studio/guitarlab/app/ui/HomeViewModel.kt
+--- a/app/src/main/java/studio/guitarlab/app/ui/HomeViewModel.kt
++++ b/app/src/main/java/studio/guitarlab/app/ui/HomeViewModel.kt
+@@ -34,6 +34,7 @@ import studio.guitarlab.core.project.ProjectLibraryQuery
+ import studio.guitarlab.core.project.ProjectManagedMediaStore
+ import studio.guitarlab.core.project.PreparedReferenceService
+ import studio.guitarlab.core.project.PreparedReferenceBindingPolicy
++import studio.guitarlab.core.project.PreparedReferenceRestoreTarget
+ import studio.guitarlab.core.project.ProjectRecordingMediaStore
+ import studio.guitarlab.core.project.ProjectSampleRateFilter
+ import studio.guitarlab.core.project.ProjectSortOrder
+@@ -677,32 +678,42 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
+ 
+     fun cancelSeparation(projectId:String){separation.snapshotProject(projectId)?.let{separation.cancel(projectId,it.identity.jobId)};refreshSeparation(projectId)}
+ 
+-    fun repairPreparedReferenceBindings(projectId: String) {
++    fun restorePreparedReferences(projectId: String, restoreBacking: Boolean, restoreGuitar: Boolean) {
++        val targets = buildSet {
++            if (restoreBacking) add(PreparedReferenceRestoreTarget.BACKING)
++            if (restoreGuitar) add(PreparedReferenceRestoreTarget.GUITAR)
++        }
++        if (targets.isEmpty()) return
+         viewModelScope.launch {
+             runCatching {
+                 withContext(Dispatchers.IO) {
+                     val project = repository.load(projectId) ?: error("Projeto não encontrado.")
+-                    if (!PreparedReferenceBindingPolicy.bindingDiffersFromDesired(project)) return@withContext project
+                     repository.save(
+-                        PreparedReferenceBindingPolicy.applyUpdate(
++                        PreparedReferenceBindingPolicy.restoreSelected(
+                             project = project,
++                            targets = targets,
+                             now = System.currentTimeMillis(),
+                         ),
+                     )
+                 }
+             }.onSuccess {
++                BackupScheduler.enqueueCoalesced(getApplication())
++                val labels = buildList {
++                    if (PreparedReferenceRestoreTarget.BACKING in targets) add("base")
++                    if (PreparedReferenceRestoreTarget.GUITAR in targets) add("guitarra")
++                }.joinToString(" e ")
+                 activityStore.record(
+-                    operationId = "reference-repair-$projectId-${System.currentTimeMillis()}",
++                    operationId = "reference-restore-$projectId-${System.currentTimeMillis()}",
+                     projectId = projectId,
+                     kind = UnifiedOperationKind.REFERENCE_PREPARATION,
+                     state = UnifiedOperationState.SUCCEEDED,
+                     progressPercent = 100,
+-                    summary = "Referências do Studio verificadas/recolocadas localmente",
+-                    technicalDetail = "local-only; zero cloud/quota",
++                    summary = "Referências do Studio recolocadas: $labels",
++                    technicalDetail = "local-only; canonical prepared assets; zero cloud/quota",
+                 )
+                 _state.update { current ->
+                     current.copy(
+-                        message = "Referências recolocadas no Studio sem alterar gravações ou edições.",
++                        message = "Referências recolocadas no Studio: $labels.",
+                         error = null,
+                     )
+                 }
+diff --git a/app/src/main/java/studio/guitarlab/app/ui/StudioPlaceholderScreen.kt b/app/src/main/java/studio/guitarlab/app/ui/StudioPlaceholderScreen.kt
+--- a/app/src/main/java/studio/guitarlab/app/ui/StudioPlaceholderScreen.kt
++++ b/app/src/main/java/studio/guitarlab/app/ui/StudioPlaceholderScreen.kt
+@@ -1809,7 +1809,7 @@ private fun StudioTrackLane(
+                     val x = maxWidth * startFraction.toFloat()
+                     val naturalWidth = maxWidth * (endFraction - startFraction).toFloat()
+                     val availableWidth = (maxWidth - x).coerceAtLeast(1.dp)
+-                    val clipWidth = naturalWidth.coerceAtLeast(92.dp).coerceAtMost(availableWidth)
++                    val clipWidth = naturalWidth.coerceAtLeast(1.dp).coerceAtMost(availableWidth)
+                     TimelineClipCard(
+                         clip = clip,
+                         peaks = waveforms[clip.id],
+@@ -1974,7 +1974,7 @@ private fun TimelineClipCard(
+         border = BorderStroke(1.dp, if (trimming) StudioTrim else trackColor.copy(alpha = 0.72f)),
+         tonalElevation = 0.dp,
+     ) {
+-        Box(modifier = Modifier.fillMaxSize().padding(horizontal = 7.dp, vertical = 4.dp)) {
++        Box(modifier = Modifier.fillMaxSize().padding(vertical = 4.dp)) {
+             peaks?.let {
+                 if (trimming && trimControls != null) {
+                     TrimWaveformEditor(
+diff --git a/app/src/main/java/studio/guitarlab/app/ui/StudioViewModel.kt b/app/src/main/java/studio/guitarlab/app/ui/StudioViewModel.kt
+--- a/app/src/main/java/studio/guitarlab/app/ui/StudioViewModel.kt
++++ b/app/src/main/java/studio/guitarlab/app/ui/StudioViewModel.kt
+@@ -38,6 +38,7 @@ import studio.guitarlab.core.codec.AudioImportFormatPolicy
+ import studio.guitarlab.core.codec.FileSeekableByteSource
+ import studio.guitarlab.core.codec.WavMetadataReader
+ import studio.guitarlab.core.codec.WavPcmDecoder
++import studio.guitarlab.core.codec.WaveformEnvelope
+ import studio.guitarlab.core.codec.WaveformEnvelopeBuilder
+ import studio.guitarlab.core.codec.StereoWavChannelSplitter
+ import studio.guitarlab.core.codec.WavSampleRateConverter
+@@ -73,6 +74,7 @@ import studio.guitarlab.core.project.TransportPolicy
+ import studio.guitarlab.core.project.TransportState
+ import studio.guitarlab.core.project.TrimControlPolicy
+ import studio.guitarlab.core.project.TrimControlState
++import studio.guitarlab.core.project.WaveformCacheIdentity
+ import studio.guitarlab.core.project.WaveformCacheStore
+ import studio.guitarlab.core.project.ActiveTakePolicy
+ import studio.guitarlab.core.project.GuitarAuditionMode
+@@ -182,6 +184,11 @@ private data class StudioLoadOutcome(
+     val recoveryCandidates: List<RecordingRecoveryCandidate>,
+ )
+ 
++private data class LoadedWaveformState(
++    val waveforms: Map<String, List<Float>>,
++    val waveformChannels: Map<String, List<List<Float>>>,
++)
++
+ private data class RecordingProgressUpdate(
+     val generation: Long,
+     val framesCaptured: Long,
+@@ -287,9 +294,60 @@ class StudioViewModel(application: Application) : AndroidViewModel(application)
+                     }
+                 }
+             }
+-            // The Activity-scoped StudioViewModel already owns the exact same project. Returning
+-            // from Home/Options must not clear history/waveforms and briefly publish loading=true;
+-            // doing so caused the visible double-render flash reported during physical review.
++            // Same project id is not enough to prove that the resident Studio snapshot is current:
++            // Prepare/restore can replace reference media while this Activity-scoped ViewModel lives.
++            // Read only the small project manifest first. WAV decoding happens only when the persisted
++            // snapshot actually changed, and the waveform cache then limits decoding to invalid entries.
++            val residentProject = before.project
++            viewModelScope.launch {
++                runCatching {
++                    withContext(Dispatchers.IO) {
++                        val latest = repository.load(projectId) ?: error("Projeto não encontrado: $projectId")
++                        if (latest == residentProject) return@withContext null
++                        val candidates = recordingMediaStore.recoveryCandidates(projectId)
++                        val pending = candidates.filter {
++                            RecordingRecoveryPolicy.publicationDecision(latest, it) != RecordingRecoveryPublicationDecision.ALREADY_PUBLISHED
++                        }
++                        val waveformState = loadWaveformState(latest)
++                        StudioLoadOutcome(latest, waveformState.waveforms, waveformState.waveformChannels, pending)
++                    }
++                }.onSuccess { outcome ->
++                    if (outcome == null || _state.value.project?.id != projectId) return@onSuccess
++                    ++projectSessionGeneration
++                    projectHistory.clear()
++                    trackMixDrafts.clear()
++                    val latest = outcome.project
++                    latest.tracks.forEach { track ->
++                        trackMixDrafts[track.id] = TrackMixDraft(track.gainDb, track.pan)
++                        playbackEngine.setTrackMix(track.id, track.gainDb, track.pan)
++                        playbackEngine.setTrackAudibility(track.id, track.muted, track.solo)
++                    }
++                    playbackEngine.setMasterGainDb(latest.masterGainDb)
++                    recoveryCandidatesById.clear()
++                    outcome.recoveryCandidates.forEach { recoveryCandidatesById[it.transactionId] = it }
++                    val state = _state.value
++                    val end = TimelineControlPolicy.projectEndFrame(latest)
++                    _state.value = state.copy(
++                        project = latest,
++                        waveforms = outcome.waveforms,
++                        waveformChannels = outcome.waveformChannels,
++                        timelineControls = TimelineControlPolicy.normalizedForProject(state.timelineControls, end),
++                        transportEngineReady = playbackReadiness(latest).ready,
++                        masterGainDb = latest.masterGainDb,
++                        recoveryItems = recoveryItems(latest, outcome.recoveryCandidates),
++                        trackLevelAnalysis = emptyMap(),
++                        canUndo = false,
++                        canRedo = false,
++                        preparedReferenceUpdateAvailable = PreparedReferenceBindingPolicy.updateAvailable(latest),
++                        clipStatus = "Studio sincronizado com a versão atual do projeto",
++                        error = null,
++                    )
++                }.onFailure { error ->
++                    if (_state.value.project?.id == projectId) {
++                        _state.value = _state.value.copy(error = error.message ?: "Não foi possível atualizar o Studio.")
++                    }
++                }
++            }
+             return
+         } else if (before.recordingSession.phase == RecordingSessionPhase.CAPTURING) {
+             stopRecording()
+@@ -316,7 +374,8 @@ class StudioViewModel(application: Application) : AndroidViewModel(application)
+                     val pending = candidates.filter {
+                         RecordingRecoveryPolicy.publicationDecision(project, it) != RecordingRecoveryPublicationDecision.ALREADY_PUBLISHED
+                     }
+-                    StudioLoadOutcome(project, loadWaveforms(project), loadWaveformChannels(project), pending)
++                    val waveformState = loadWaveformState(project)
++                    StudioLoadOutcome(project, waveformState.waveforms, waveformState.waveformChannels, pending)
+                 }
+             }.onSuccess { outcome ->
+                 val project = outcome.project
+@@ -356,7 +415,10 @@ class StudioViewModel(application: Application) : AndroidViewModel(application)
+                 val saved = saveLatest(project.id) { latest ->
+                     PreparedReferenceBindingPolicy.applyUpdate(latest, System.currentTimeMillis())
+                 }
+-                withContext(Dispatchers.IO) { Triple(saved, loadWaveforms(saved), loadWaveformChannels(saved)) }
++                withContext(Dispatchers.IO) {
++                    val waveformState = loadWaveformState(saved)
++                    Triple(saved, waveformState.waveforms, waveformState.waveformChannels)
++                }
+             }.onSuccess { (saved, waveforms, channels) ->
+                 val state = _state.value
+                 if (state.project?.id != saved.id) return@onSuccess
+@@ -469,8 +531,9 @@ class StudioViewModel(application: Application) : AndroidViewModel(application)
+                         }
+                         val metadata = FileSeekableByteSource(finalEditingFile).use { WavMetadataReader().read(it) }
+                         val clipId = UUID.randomUUID().toString().also { importedClipId = it }
+-                        val envelope = FileSeekableByteSource(finalEditingFile).use { source -> WaveformEnvelopeBuilder.build(WavPcmDecoder(source), WAVEFORM_POINTS) }
+-                        waveformCache.write(current.id, clipId, envelope)
++                        val envelope = FileSeekableByteSource(finalEditingFile).use { source ->
++                            WaveformEnvelopeBuilder.build(WavPcmDecoder(source), WAVEFORM_POINTS)
++                        }
+                         val sourceBits = if (originalFormat == AudioImportFormat.WAV_PCM) sourceMetadata.bitsPerSample else null
+                         val sourceEncoding = if (originalFormat == AudioImportFormat.WAV_PCM) sourceMetadata.sampleEncoding.name else "COMPRESSED"
+                         val clip = AudioClip(
+@@ -493,6 +556,12 @@ class StudioViewModel(application: Application) : AndroidViewModel(application)
+                             editingSampleRateHz = metadata.sampleRateHz,
+                             editingTotalFrames = metadata.totalFrames,
+                         )
++                        waveformCache.write(
++                            current.id,
++                            clip.id,
++                            WaveformCacheIdentity.forClip(clip, WAVEFORM_POINTS),
++                            envelope,
++                        )
+                         val saved = withContext(NonCancellable) {
+                             saveLatest(current.id) { latest ->
+                                 latest.copy(clips = latest.clips + clip, updatedAtEpochMs = System.currentTimeMillis())
+@@ -614,8 +683,8 @@ class StudioViewModel(application: Application) : AndroidViewModel(application)
+                                 )
+                             }.also { committed = true }
+                         }
+-                        val waveforms = loadWaveforms(saved)
+-                        Triple(saved, waveforms, loadWaveformChannels(saved))
++                        val waveformState = loadWaveformState(saved)
++                        Triple(saved, waveformState.waveforms, waveformState.waveformChannels)
+                     } catch (error: Throwable) {
+                         if (!committed) {
+                             leftProxyPath?.let { mediaStore.discardUncommitted(project.id, it) }
+@@ -795,9 +864,9 @@ class StudioViewModel(application: Application) : AndroidViewModel(application)
+         _state.value = currentState.copy(historyBusy = true, error = null)
+         viewModelScope.launch {
+             runCatching { persistHistorySnapshot(target) }
+-                .onSuccess { (saved, waveforms) ->
++                .onSuccess { (saved, waveformState) ->
+                     if (sessionGeneration != projectSessionGeneration || _state.value.project?.id != currentProject.id) return@onSuccess
+-                    applyHistorySnapshot(saved, waveforms, "Alteração desfeita")
++                    applyHistorySnapshot(saved, waveformState, "Alteração desfeita")
+                 }
+                 .onFailure { error ->
+                     if (sessionGeneration != projectSessionGeneration || _state.value.project?.id != currentProject.id) return@onFailure
+@@ -821,9 +890,9 @@ class StudioViewModel(application: Application) : AndroidViewModel(application)
+         _state.value = currentState.copy(historyBusy = true, error = null)
+         viewModelScope.launch {
+             runCatching { persistHistorySnapshot(target) }
+-                .onSuccess { (saved, waveforms) ->
++                .onSuccess { (saved, waveformState) ->
+                     if (sessionGeneration != projectSessionGeneration || _state.value.project?.id != currentProject.id) return@onSuccess
+-                    applyHistorySnapshot(saved, waveforms, "Alteração refeita")
++                    applyHistorySnapshot(saved, waveformState, "Alteração refeita")
+                 }
+                 .onFailure { error ->
+                     if (sessionGeneration != projectSessionGeneration || _state.value.project?.id != currentProject.id) return@onFailure
+@@ -1241,9 +1310,19 @@ class StudioViewModel(application: Application) : AndroidViewModel(application)
+                     )
+                     val clip = saved.clips.first { it.id == transaction.id }
+                     val envelope = FileSeekableByteSource(transaction.finalFile).use { source ->
+-                        WaveformEnvelopeBuilder.build(WavPcmDecoder(source), WAVEFORM_POINTS)
++                        WaveformEnvelopeBuilder.build(
++                            decoder = WavPcmDecoder(source),
++                            targetPoints = WAVEFORM_POINTS,
++                            startFrame = clip.sourceStartFrame,
++                            frameCount = clip.lengthFrames,
++                        )
+                     }
+-                    waveformCache.write(saved.id, clip.id, envelope)
++                    waveformCache.write(
++                        saved.id,
++                        clip.id,
++                        WaveformCacheIdentity.forClip(clip, WAVEFORM_POINTS),
++                        envelope,
++                    )
+                     val persisted = withContext(NonCancellable) {
+                         repository.save(saved).also {
+                             committed = true
+@@ -1252,9 +1331,9 @@ class StudioViewModel(application: Application) : AndroidViewModel(application)
+                             runCatching { recordingMediaStore.markPublished(transaction) }
+                         }
+                     }
+-                    Triple(persisted, clip, envelope.peaks)
++                    Triple(persisted, clip, envelope)
+                 }
+-            }.onSuccess { (saved, clip, peaks) ->
++            }.onSuccess { (saved, clip, envelope) ->
+                 BackupScheduler.enqueueCoalesced(getApplication())
+                 val state = _state.value
+                 val end = TimelineControlPolicy.projectEndFrame(saved)
+@@ -1288,7 +1367,12 @@ class StudioViewModel(application: Application) : AndroidViewModel(application)
+                 )
+                 _state.value = state.copy(
+                     project = saved,
+-                    waveforms = state.waveforms + (clip.id to peaks),
++                    waveforms = state.waveforms + (clip.id to envelope.peaks),
++                    waveformChannels = if (envelope.channelPeaks.size == 2) {
++                        state.waveformChannels + (clip.id to envelope.channelPeaks)
++                    } else {
++                        state.waveformChannels - clip.id
++                    },
+                     timelineControls = TimelineControlPolicy.normalizedForProject(state.timelineControls.copy(playheadFrame = clip.startFrame + clip.lengthFrames), end),
+                     transport = state.transport.copy(mode = TransportMode.STOPPED),
+                     recordingSession = RecordingSessionPolicy.reset(),
+@@ -1784,24 +1868,43 @@ class StudioViewModel(application: Application) : AndroidViewModel(application)
+                             }
+                             val clip = saved.clips.first { it.id == transactionId }
+                             val envelope = FileSeekableByteSource(media).use { source ->
+-                                WaveformEnvelopeBuilder.build(WavPcmDecoder(source), WAVEFORM_POINTS)
++                                WaveformEnvelopeBuilder.build(
++                                    decoder = WavPcmDecoder(source),
++                                    targetPoints = WAVEFORM_POINTS,
++                                    startFrame = clip.sourceStartFrame,
++                                    frameCount = clip.lengthFrames,
++                                )
+                             }
+-                            waveformCache.write(saved.id, clip.id, envelope)
++                            waveformCache.write(
++                                saved.id,
++                                clip.id,
++                                WaveformCacheIdentity.forClip(clip, WAVEFORM_POINTS),
++                                envelope,
++                            )
+                             runCatching { recordingMediaStore.markPublished(saved.id, transactionId) }
+-                            Triple(saved, clip, envelope.peaks)
++                            Triple(saved, clip, envelope)
+                         }
+                         RecordingRecoveryPublicationDecision.TARGET_TRACK_MISSING -> error("A pista original desta gravação não existe mais. O áudio foi preservado para suporte.")
+                         RecordingRecoveryPublicationDecision.UNSAFE_PAYLOAD -> error(candidate.diagnosticReason ?: "A gravação interrompida não pôde ser validada com segurança.")
+                     }
+                 }
+-            }.onSuccess { (saved, clip, peaks) ->
++            }.onSuccess { (saved, clip, envelope) ->
+                 recoveryCandidatesById.remove(transactionId)
+                 val nextItems = _state.value.recoveryItems.filterNot { it.transactionId == transactionId }
++                val currentWaveforms = _state.value.waveforms
++                val currentChannels = _state.value.waveformChannels
+                 _state.value = _state.value.copy(
+                     recoveryBusy = false,
+                     recoveryItems = nextItems,
+                     project = saved,
+-                    waveforms = if (clip != null && peaks != null) _state.value.waveforms + (clip.id to peaks) else _state.value.waveforms,
++                    waveforms = if (clip != null && envelope != null) currentWaveforms + (clip.id to envelope.peaks) else currentWaveforms,
++                    waveformChannels = if (clip != null && envelope?.channelPeaks?.size == 2) {
++                        currentChannels + (clip.id to envelope.channelPeaks)
++                    } else if (clip != null) {
++                        currentChannels - clip.id
++                    } else {
++                        currentChannels
++                    },
+                     transportEngineReady = playbackReadiness(saved).ready,
+                     canUndo = projectHistory.canUndo,
+                     canRedo = projectHistory.canRedo,
+@@ -1926,11 +2029,12 @@ class StudioViewModel(application: Application) : AndroidViewModel(application)
+         viewModelScope.launch {
+             runCatching { saveLatest(project.id, transform) }
+                 .onSuccess { saved ->
+-                    val waveforms = withContext(Dispatchers.IO) { loadWaveforms(saved) }
++                    val waveformState = withContext(Dispatchers.IO) { loadWaveformState(saved) }
+                     val end = TimelineControlPolicy.projectEndFrame(saved)
+                     _state.value = _state.value.copy(
+                         project = saved,
+-                        waveforms = waveforms,
++                        waveforms = waveformState.waveforms,
++                        waveformChannels = waveformState.waveformChannels,
+                         timelineControls = TimelineControlPolicy.normalizedForProject(_state.value.timelineControls, end),
+                         transportEngineReady = playbackReadiness(saved).ready,
+                         canUndo = projectHistory.canUndo,
+@@ -2535,14 +2639,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application)
+         }
+ 
+     private fun loadWaveformForClip(project: GuitarProject, clip: AudioClip): List<Float> =
+-        waveformCache.read(project.id, clip.id)?.peaks ?: run {
+-            val path = editingMediaPathOrNull(clip) ?: return emptyList()
+-            val envelope = FileSeekableByteSource(mediaStore.resolveEditable(project.id, path)).use { source ->
+-                WaveformEnvelopeBuilder.build(WavPcmDecoder(source), WAVEFORM_POINTS)
+-            }
+-            waveformCache.write(project.id, clip.id, envelope)
+-            envelope.peaks
+-        }
++        loadWaveformEnvelope(project, clip)?.peaks.orEmpty()
+ 
+     private fun friendlySelectedInputLabel(): String {
+         val signature = audioRoutingStore.selectedInputSignature() ?: return "entrada automática"
+@@ -2724,18 +2821,15 @@ class StudioViewModel(application: Application) : AndroidViewModel(application)
+             _state.value = _state.value.copy(editingClip = true, error = null, clipStatus = null)
+             runCatching {
+                 val saved = saveLatest(current.id, transform)
+-                saved to withContext(Dispatchers.IO) {
+-                    loadWaveforms(saved).also {
+-                        waveformCache.prune(saved.id, saved.clips.mapTo(mutableSetOf()) { clip -> clip.id })
+-                    }
+-                }
++                saved to withContext(Dispatchers.IO) { loadWaveformState(saved) }
+             }
+-                .onSuccess { (saved, waveforms) ->
++                .onSuccess { (saved, waveformState) ->
+                     val end = TimelineControlPolicy.projectEndFrame(saved)
+                     _state.value = _state.value.copy(
+                         editingClip = false,
+                         project = saved,
+-                        waveforms = waveforms,
++                        waveforms = waveformState.waveforms,
++                        waveformChannels = waveformState.waveformChannels,
+                         timelineControls = TimelineControlPolicy.normalizedForProject(_state.value.timelineControls, end),
+                         transportEngineReady = playbackReadiness(saved).ready,
+                         masterGainDb = saved.masterGainDb,
+@@ -2856,7 +2950,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application)
+         )
+     }
+ 
+-    private fun applyHistorySnapshot(saved: GuitarProject, waveforms: Map<String, List<Float>>, status: String) {
++    private fun applyHistorySnapshot(saved: GuitarProject, waveformState: LoadedWaveformState, status: String) {
+         if (_state.value.project?.id != saved.id) return
+         trackMixDrafts.clear()
+         saved.tracks.forEach { track ->
+@@ -2870,7 +2964,8 @@ class StudioViewModel(application: Application) : AndroidViewModel(application)
+         _state.value = state.copy(
+             historyBusy = false,
+             project = saved,
+-            waveforms = waveforms,
++            waveforms = waveformState.waveforms,
++            waveformChannels = waveformState.waveformChannels,
+             trimControls = null,
+             timelineControls = TimelineControlPolicy.normalizedForProject(state.timelineControls, end),
+             transportEngineReady = playbackReadiness(saved).ready,
+@@ -2916,11 +3011,11 @@ class StudioViewModel(application: Application) : AndroidViewModel(application)
+         }
+     }
+ 
+-    private suspend fun persistHistorySnapshot(snapshot: GuitarProject): Pair<GuitarProject, Map<String, List<Float>>> =
++    private suspend fun persistHistorySnapshot(snapshot: GuitarProject): Pair<GuitarProject, LoadedWaveformState> =
+         projectSaveMutex.withLock {
+             val result = withContext(Dispatchers.IO) {
+                 val saved = repository.save(snapshot.copy(updatedAtEpochMs = System.currentTimeMillis()))
+-                saved to loadWaveforms(saved)
++                saved to loadWaveformState(saved)
+             }
+             BackupScheduler.enqueueCoalesced(getApplication())
+             result
+@@ -2975,35 +3070,35 @@ class StudioViewModel(application: Application) : AndroidViewModel(application)
+         return if (left != null && right != null) left to right else null
+     }
+ 
+-    private fun loadWaveformChannels(project: GuitarProject): Map<String, List<List<Float>>> = buildMap {
++    private fun loadWaveformState(project: GuitarProject): LoadedWaveformState {
++        val waveforms = linkedMapOf<String, List<Float>>()
++        val channels = linkedMapOf<String, List<List<Float>>>()
+         project.clips.forEach { clip ->
+-            val cached = waveformCache.read(project.id, clip.id)
+-            if (cached != null && cached.channelPeaks.size > 1) {
+-                put(clip.id, cached.channelPeaks)
+-                return@forEach
+-            }
+-            if (clip.sourceChannelCount != 2) return@forEach
+-            val managedPath = editingMediaPathOrNull(clip) ?: return@forEach
+-            runCatching {
+-                val file = mediaStore.resolveEditable(project.id, managedPath)
+-                val envelope = FileSeekableByteSource(file).use { source -> WaveformEnvelopeBuilder.build(WavPcmDecoder(source), WAVEFORM_POINTS) }
+-                waveformCache.write(project.id, clip.id, envelope)
+-                if (envelope.channelPeaks.size == 2) put(clip.id, envelope.channelPeaks)
+-            }
++            val envelope = loadWaveformEnvelope(project, clip) ?: return@forEach
++            waveforms[clip.id] = envelope.peaks
++            if (envelope.channelPeaks.size == 2) channels[clip.id] = envelope.channelPeaks
+         }
++        waveformCache.prune(project.id, project.clips.mapTo(mutableSetOf()) { it.id })
++        return LoadedWaveformState(waveforms, channels)
+     }
+ 
+-    private fun loadWaveforms(project: GuitarProject): Map<String, List<Float>> = buildMap {
+-        project.clips.forEach { clip ->
+-            waveformCache.read(project.id, clip.id)?.let { put(clip.id, it.peaks); return@forEach }
+-            val managedPath = editingMediaPathOrNull(clip) ?: return@forEach
+-            runCatching {
+-                val file = mediaStore.resolveEditable(project.id, managedPath)
+-                val envelope = FileSeekableByteSource(file).use { source -> WaveformEnvelopeBuilder.build(WavPcmDecoder(source), WAVEFORM_POINTS) }
+-                waveformCache.write(project.id, clip.id, envelope)
+-                put(clip.id, envelope.peaks)
++    private fun loadWaveformEnvelope(project: GuitarProject, clip: AudioClip): WaveformEnvelope? {
++        val managedPath = editingMediaPathOrNull(clip) ?: return null
++        val identity = WaveformCacheIdentity.forClip(clip, WAVEFORM_POINTS)
++        waveformCache.read(project.id, clip.id, identity)?.let { return it }
++        return runCatching {
++            val file = mediaStore.resolveEditable(project.id, managedPath)
++            val envelope = FileSeekableByteSource(file).use { source ->
++                WaveformEnvelopeBuilder.build(
++                    decoder = WavPcmDecoder(source),
++                    targetPoints = WAVEFORM_POINTS,
++                    startFrame = clip.sourceStartFrame,
++                    frameCount = clip.lengthFrames,
++                )
+             }
+-        }
++            waveformCache.write(project.id, clip.id, identity, envelope)
++            envelope
++        }.getOrNull()
+     }
+ 
+     private fun editingMediaPath(clip: AudioClip): String = requireNotNull(editingMediaPathOrNull(clip)) {
+@@ -3034,7 +3129,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application)
+     private companion object {
+         const val LIVE_WAVEFORM_UI_INTERVAL_MS = 33L
+         const val LEVEL_GAIN_EPSILON_DB = 0.1f
+-        const val WAVEFORM_POINTS = 320
++        const val WAVEFORM_POINTS = 4096
+         const val TRACK_COLOR_COUNT = 20
+     }
+ }
+diff --git a/app/src/main/java/studio/guitarlab/app/ui/UnifiedProjectWorkspaceScreen.kt b/app/src/main/java/studio/guitarlab/app/ui/UnifiedProjectWorkspaceScreen.kt
+--- a/app/src/main/java/studio/guitarlab/app/ui/UnifiedProjectWorkspaceScreen.kt
++++ b/app/src/main/java/studio/guitarlab/app/ui/UnifiedProjectWorkspaceScreen.kt
+@@ -13,13 +13,16 @@ import androidx.compose.foundation.layout.fillMaxWidth
+ import androidx.compose.foundation.layout.padding
+ import androidx.compose.foundation.rememberScrollState
+ import androidx.compose.foundation.verticalScroll
++import androidx.compose.material3.AlertDialog
+ import androidx.compose.material3.Button
++import androidx.compose.material3.Checkbox
+ import androidx.compose.material3.LinearProgressIndicator
+ import androidx.compose.material3.MaterialTheme
+ import androidx.compose.material3.OutlinedButton
+ import androidx.compose.material3.OutlinedTextField
+ import androidx.compose.material3.Surface
+ import androidx.compose.material3.Text
++import androidx.compose.material3.TextButton
+ import androidx.compose.runtime.Composable
+ import androidx.compose.runtime.collectAsState
+ import androidx.compose.runtime.getValue
+@@ -76,7 +79,7 @@ fun UnifiedPrepareScreen(
+     onResumeSeparationImport: () -> Unit = {},
+     onCancelSeparation: () -> Unit = {},
+     onPrepareReferences: () -> Unit = {},
+-    onRepairReferences: () -> Unit = {},
++    onRestoreReferences: (restoreBacking: Boolean, restoreGuitar: Boolean) -> Unit = { _, _ -> },
+     initialCloudSession: RemoteCloudAuthSession? = null,
+     requestNotificationPermission: Boolean = true,
+ ) {
+@@ -227,11 +230,16 @@ fun UnifiedPrepareScreen(
+                     onRetry = onPrepareReferences,
+                 )
+ 
+-                PrepareStage.READY -> ReadyStep(
+-                    onStudio = onStudio,
+-                    repairAvailable = project?.let(PreparedReferenceBindingPolicy::bindingDiffersFromDesired) == true,
+-                    onRepairReferences = onRepairReferences,
+-                )
++                PrepareStage.READY -> {
++                    val restoreTargets = project?.let(PreparedReferenceBindingPolicy::availableRestoreTargets).orEmpty()
++                    ReadyStep(
++                        onStudio = onStudio,
++                        restoreBackingAvailable = studio.guitarlab.core.project.PreparedReferenceRestoreTarget.BACKING in restoreTargets,
++                        restoreGuitarAvailable = studio.guitarlab.core.project.PreparedReferenceRestoreTarget.GUITAR in restoreTargets,
++                        repairRecommended = project?.let(PreparedReferenceBindingPolicy::bindingDiffersFromDesired) == true,
++                        onRestoreReferences = onRestoreReferences,
++                    )
++                }
+             }
+ 
+             if (project != null && (project.assets.isNotEmpty() || operation != null || separationJob != null)) {
+@@ -552,30 +560,95 @@ private fun ReferencesStep(retryRequired: Boolean, busy: Boolean, onRetry: () ->
+ @Composable
+ private fun ReadyStep(
+     onStudio: () -> Unit,
+-    repairAvailable: Boolean,
+-    onRepairReferences: () -> Unit,
++    restoreBackingAvailable: Boolean,
++    restoreGuitarAvailable: Boolean,
++    repairRecommended: Boolean,
++    onRestoreReferences: (Boolean, Boolean) -> Unit,
+ ) {
++    var restoreDialogVisible by rememberSaveable { mutableStateOf(false) }
++    var restoreBacking by rememberSaveable { mutableStateOf(false) }
++    var restoreGuitar by rememberSaveable { mutableStateOf(false) }
++    val restoreAvailable = restoreBackingAvailable || restoreGuitarAvailable
++
+     Surface(Modifier.fillMaxWidth().testTag("prepare-references-ready"), tonalElevation = 2.dp, shape = MaterialTheme.shapes.medium) {
+         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+             Text("Pronto para o Studio", style = MaterialTheme.typography.titleMedium)
+             Text(
+-                if (repairAvailable) {
+-                    "As referências preparadas continuam ativas, mas faltam clipes/vínculos no Studio. Você pode recolocá-los localmente."
++                if (repairRecommended) {
++                    "As referências preparadas estão disponíveis e o Studio pode ser sincronizado novamente com elas."
+                 } else {
+-                    "A base sem guitarra e a guitarra de referência estão ligadas ao projeto e prontas para uso."
++                    "A base sem guitarra e a guitarra de referência estão preparadas e prontas para uso."
+                 },
+             )
+             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                 Button(onClick = onStudio, modifier = Modifier.testTag("prepare-open-studio")) { Text("Abrir Studio") }
+-                if (repairAvailable) {
++                if (restoreAvailable) {
+                     OutlinedButton(
+-                        onClick = onRepairReferences,
+-                        modifier = Modifier.testTag("prepare-repair-references"),
++                        onClick = {
++                            restoreBacking = restoreBackingAvailable
++                            restoreGuitar = restoreGuitarAvailable
++                            restoreDialogVisible = true
++                        },
++                        modifier = Modifier.testTag("prepare-restore-references"),
+                     ) { Text("Recolocar referências no Studio") }
+                 }
+             }
+         }
+     }
++
++    if (restoreDialogVisible) {
++        AlertDialog(
++            onDismissRequest = { restoreDialogVisible = false },
++            title = { Text("Recolocar referências") },
++            text = {
++                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
++                    Text("Escolha quais referências preparadas deseja restaurar no Studio.")
++                    if (restoreBackingAvailable) {
++                        Row(verticalAlignment = Alignment.CenterVertically) {
++                            Checkbox(
++                                checked = restoreBacking,
++                                onCheckedChange = { restoreBacking = it },
++                                modifier = Modifier.testTag("restore-reference-backing"),
++                            )
++                            Text("Base sem guitarra")
++                        }
++                    }
++                    if (restoreGuitarAvailable) {
++                        Row(verticalAlignment = Alignment.CenterVertically) {
++                            Checkbox(
++                                checked = restoreGuitar,
++                                onCheckedChange = { restoreGuitar = it },
++                                modifier = Modifier.testTag("restore-reference-guitar"),
++                            )
++                            Text("Guitarra de referência")
++                        }
++                    }
++                    Text(
++                        "Edições feitas diretamente nas referências selecionadas serão substituídas pela versão preparada. Gravações, takes, marcadores, seções e mixagem das pistas serão preservados.",
++                        style = MaterialTheme.typography.bodySmall,
++                        color = MaterialTheme.colorScheme.onSurfaceVariant,
++                    )
++                }
++            },
++            confirmButton = {
++                Button(
++                    enabled = restoreBacking || restoreGuitar,
++                    onClick = {
++                        onRestoreReferences(restoreBacking, restoreGuitar)
++                        restoreDialogVisible = false
++                    },
++                    modifier = Modifier.testTag("restore-reference-confirm"),
++                ) { Text("Recolocar") }
++            },
++            dismissButton = {
++                TextButton(
++                    onClick = { restoreDialogVisible = false },
++                    modifier = Modifier.testTag("restore-reference-cancel"),
++                ) { Text("Cancelar") }
++            },
++            modifier = Modifier.testTag("restore-reference-dialog"),
++        )
++    }
+ }
+ 
+ @Composable
+diff --git a/app/src/main/java/studio/guitarlab/app/ui/WaveformMini.kt b/app/src/main/java/studio/guitarlab/app/ui/WaveformMini.kt
+--- a/app/src/main/java/studio/guitarlab/app/ui/WaveformMini.kt
++++ b/app/src/main/java/studio/guitarlab/app/ui/WaveformMini.kt
+@@ -9,6 +9,29 @@ import androidx.compose.ui.Modifier
+ import androidx.compose.ui.geometry.Offset
+ import androidx.compose.ui.graphics.Color
+ import androidx.compose.ui.unit.dp
++import kotlin.math.ceil
++import kotlin.math.floor
++
++internal object WaveformRenderReducer {
++    /**
++     * Keeps the maximum peak that contributes to each visible column. This makes rendering cost
++     * proportional to screen pixels rather than cache resolution while preserving transients.
++     */
++    fun maxPerColumn(peaks: List<Float>, columns: Int): List<Float> {
++        if (peaks.isEmpty() || columns <= 0) return emptyList()
++        if (peaks.size <= columns) return peaks
++        val outputColumns = columns.coerceAtMost(peaks.size)
++        return List(outputColumns) { column ->
++            val start = floor(column.toDouble() * peaks.size / outputColumns).toInt()
++            val endExclusive = ceil((column + 1).toDouble() * peaks.size / outputColumns).toInt()
++                .coerceAtMost(peaks.size)
++                .coerceAtLeast(start + 1)
++            var peak = 0f
++            for (index in start until endExclusive) peak = maxOf(peak, peaks[index])
++            peak
++        }
++    }
++}
+ 
+ @Composable
+ fun WaveformMini(
+@@ -19,10 +42,13 @@ fun WaveformMini(
+ ) {
+     val waveformColor = if (muted) MaterialTheme.colorScheme.onSurfaceVariant else color
+     Canvas(modifier.fillMaxWidth().height(18.dp)) {
+-        if (peaks.isEmpty()) return@Canvas
++        if (peaks.isEmpty() || size.width <= 0f) return@Canvas
++        val columns = size.width.toInt().coerceAtLeast(1)
++        val visiblePeaks = WaveformRenderReducer.maxPerColumn(peaks, columns)
++        if (visiblePeaks.isEmpty()) return@Canvas
+         val centerY = size.height / 2f
+-        val step = size.width / peaks.size.coerceAtLeast(1)
+-        peaks.forEachIndexed { index, rawPeak ->
++        val step = size.width / visiblePeaks.size
++        visiblePeaks.forEachIndexed { index, rawPeak ->
+             val amplitude = rawPeak.coerceIn(0f, 1f) * centerY
+             val x = (index + 0.5f) * step
+             drawLine(
+diff --git a/app/src/test/java/studio/guitarlab/app/ui/WaveformRenderReducerTest.kt b/app/src/test/java/studio/guitarlab/app/ui/WaveformRenderReducerTest.kt
+new file mode 100644
+--- /dev/null
++++ b/app/src/test/java/studio/guitarlab/app/ui/WaveformRenderReducerTest.kt
+@@ -0,0 +1,22 @@
++package studio.guitarlab.app.ui
++
++import kotlin.test.Test
++import kotlin.test.assertEquals
++
++class WaveformRenderReducerTest {
++    @Test
++    fun preservesMaximumTransientPerVisibleColumn() {
++        val reduced = WaveformRenderReducer.maxPerColumn(
++            peaks = listOf(0.1f, 0.8f, 0.2f, 0.3f, 1f, 0.4f, 0.2f, 0.6f),
++            columns = 4,
++        )
++        assertEquals(listOf(0.8f, 0.3f, 1f, 0.6f), reduced)
++    }
++
++    @Test
++    fun neverExpandsAlreadyScreenSizedEnvelope() {
++        val peaks = listOf(0.1f, 0.5f, 0.2f)
++        assertEquals(peaks, WaveformRenderReducer.maxPerColumn(peaks, 20))
++        assertEquals(emptyList(), WaveformRenderReducer.maxPerColumn(peaks, 0))
++    }
++}
+diff --git a/core/codec/src/main/kotlin/studio/guitarlab/core/codec/WaveformEnvelope.kt b/core/codec/src/main/kotlin/studio/guitarlab/core/codec/WaveformEnvelope.kt
+--- a/core/codec/src/main/kotlin/studio/guitarlab/core/codec/WaveformEnvelope.kt
++++ b/core/codec/src/main/kotlin/studio/guitarlab/core/codec/WaveformEnvelope.kt
+@@ -8,23 +8,34 @@ data class WaveformEnvelope(
+ )
+ 
+ object WaveformEnvelopeBuilder {
+-    fun build(decoder: AudioFrameDecoder, targetPoints: Int = 320): WaveformEnvelope {
++    fun build(
++        decoder: AudioFrameDecoder,
++        targetPoints: Int = 320,
++        startFrame: Long = 0L,
++        frameCount: Long? = null,
++    ): WaveformEnvelope {
+         require(targetPoints > 0) { "targetPoints must be positive" }
+         val totalFrames = decoder.metadata.totalFrames
+         val channels = decoder.metadata.channelCount
+-        if (totalFrames == 0L) return WaveformEnvelope(emptyList(), List(channels) { emptyList() })
++        require(startFrame in 0L..totalFrames) { "startFrame must be inside the decoded media" }
++        val availableFrames = (totalFrames - startFrame).coerceAtLeast(0L)
++        val requestedFrames = frameCount?.also { require(it >= 0L) { "frameCount must be non-negative" } }
++            ?.coerceAtMost(availableFrames)
++            ?: availableFrames
++        if (requestedFrames == 0L) return WaveformEnvelope(emptyList(), List(channels) { emptyList() })
+ 
+-        val pointCount = minOf(targetPoints.toLong(), totalFrames).toInt()
+-        val framesPerPoint = (totalFrames + pointCount - 1L) / pointCount
++        val pointCount = minOf(targetPoints.toLong(), requestedFrames).toInt()
+         val peaks = ArrayList<Float>(pointCount)
+         val perChannel = List(channels) { ArrayList<Float>(pointCount) }
+-        val bufferFrames = minOf(4096L, framesPerPoint).toInt().coerceAtLeast(1)
++        val maxBucketFrames = ((requestedFrames + pointCount - 1L) / pointCount).coerceAtLeast(1L)
++        val bufferFrames = minOf(4096L, maxBucketFrames).toInt()
+         val buffer = FloatArray(bufferFrames * channels)
+ 
+-        decoder.seekToFrame(0L)
+-        var consumed = 0L
+-        repeat(pointCount) {
+-            var remaining = minOf(framesPerPoint, totalFrames - consumed)
++        decoder.seekToFrame(startFrame)
++        repeat(pointCount) { point ->
++            val bucketStart = point.toLong() * requestedFrames / pointCount
++            val bucketEnd = (point.toLong() + 1L) * requestedFrames / pointCount
++            var remaining = (bucketEnd - bucketStart).coerceAtLeast(1L)
+             var aggregatePeak = 0f
+             val channelPeak = FloatArray(channels)
+             while (remaining > 0L) {
+@@ -38,7 +49,6 @@ object WaveformEnvelopeBuilder {
+                         channelPeak[channel] = maxOf(channelPeak[channel], value)
+                     }
+                 }
+-                consumed += framesRead
+                 remaining -= framesRead
+             }
+             peaks += aggregatePeak.coerceIn(0f, 1f)
+diff --git a/core/codec/src/test/kotlin/studio/guitarlab/core/codec/WaveformEnvelopeBuilderTest.kt b/core/codec/src/test/kotlin/studio/guitarlab/core/codec/WaveformEnvelopeBuilderTest.kt
+--- a/core/codec/src/test/kotlin/studio/guitarlab/core/codec/WaveformEnvelopeBuilderTest.kt
++++ b/core/codec/src/test/kotlin/studio/guitarlab/core/codec/WaveformEnvelopeBuilderTest.kt
+@@ -14,6 +14,51 @@ class WaveformEnvelopeBuilderTest {
+         assertEquals(listOf(0.25f, 0.5f, 1f, 0.3f), envelope.peaks)
+     }
+ 
++    @Test
++    fun buildsOnlyTheRequestedFrameWindow() {
++        val decoder = FakeDecoder(
++            samples = floatArrayOf(1f, 0.9f, -0.5f, 0.1f, 0.75f, -1f, 0.2f, 0.3f),
++            channels = 1,
++        )
++        val envelope = WaveformEnvelopeBuilder.build(
++            decoder = decoder,
++            targetPoints = 2,
++            startFrame = 2,
++            frameCount = 4,
++        )
++        assertEquals(listOf(0.5f, 1f), envelope.peaks)
++        assertEquals(6L, decoder.positionFrames)
++    }
++
++    @Test
++    fun proportionalBucketsCoverEveryFrameWithoutTrailingEmptyBucket() {
++        val decoder = FakeDecoder(
++            samples = floatArrayOf(0.1f, 0.2f, 0.3f, 0.4f, 1f),
++            channels = 1,
++        )
++        val envelope = WaveformEnvelopeBuilder.build(
++            decoder = decoder,
++            targetPoints = 4,
++        )
++        assertEquals(listOf(0.1f, 0.2f, 0.3f, 1f), envelope.peaks)
++        assertEquals(5L, decoder.positionFrames)
++    }
++
++    @Test
++    fun clampsRequestedWindowAtEndOfMedia() {
++        val decoder = FakeDecoder(
++            samples = floatArrayOf(0.1f, 0.2f, 0.3f, 0.8f),
++            channels = 1,
++        )
++        val envelope = WaveformEnvelopeBuilder.build(
++            decoder = decoder,
++            targetPoints = 16,
++            startFrame = 3,
++            frameCount = 99,
++        )
++        assertEquals(listOf(0.8f), envelope.peaks)
++    }
++
+     private class FakeDecoder(
+         private val samples: FloatArray,
+         private val channels: Int,
+diff --git a/core/project/src/main/kotlin/studio/guitarlab/core/project/PreparedReferencePipeline.kt b/core/project/src/main/kotlin/studio/guitarlab/core/project/PreparedReferencePipeline.kt
+--- a/core/project/src/main/kotlin/studio/guitarlab/core/project/PreparedReferencePipeline.kt
++++ b/core/project/src/main/kotlin/studio/guitarlab/core/project/PreparedReferencePipeline.kt
+@@ -292,6 +292,8 @@ class PreparedReferenceService(
+     private fun sha256(bytes: ByteArray): String = MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
+ }
+ 
++enum class PreparedReferenceRestoreTarget { BACKING, GUITAR }
++
+ object PreparedReferenceBindingPolicy {
+     fun updateAvailable(project: GuitarProject): Boolean {
+         val desired = desired(project)
+@@ -350,6 +352,61 @@ object PreparedReferenceBindingPolicy {
+         )
+     }
+ 
++    fun availableRestoreTargets(project: GuitarProject): Set<PreparedReferenceRestoreTarget> {
++        val desired = desired(project)
++        if (desired.isEmpty()) return emptySet()
++        return buildSet {
++            if (ReferenceBindingKind.BACKING in desired) add(PreparedReferenceRestoreTarget.BACKING)
++            if (desired.keys.any { it in GUITAR_BINDING_KINDS }) add(PreparedReferenceRestoreTarget.GUITAR)
++        }
++    }
++
++    /**
++     * Explicit user-owned restoration from the current canonical prepared assets.
++     *
++     * Unlike applyUpdate/repair, this intentionally resets clip-level edits for the selected
++     * reference family even when bindings already look consistent. Track mixer state, unrelated
++     * audio on other tracks, takes, markers, sections and every unselected reference family are preserved.
++     */
++    fun restoreSelected(
++        project: GuitarProject,
++        targets: Set<PreparedReferenceRestoreTarget>,
++        now: Long,
++        idFactory: () -> String = { UUID.randomUUID().toString() },
++    ): GuitarProject {
++        require(targets.isNotEmpty()) { "Selecione ao menos uma referência para recolocar." }
++        val desired = desired(project)
++        require(desired.isNotEmpty()) { "Não há referências preparadas ativas." }
++        val available = availableRestoreTargets(project)
++        require(targets.all { it in available }) { "A referência selecionada não está disponível neste projeto." }
++
++        var next = project
++        if (PreparedReferenceRestoreTarget.BACKING in targets) {
++            next = restoreFamily(
++                project = next,
++                desired = desired.filterKeys { it == ReferenceBindingKind.BACKING },
++                familyKinds = setOf(ReferenceBindingKind.BACKING),
++                now = now,
++                idFactory = idFactory,
++            )
++        }
++        if (PreparedReferenceRestoreTarget.GUITAR in targets) {
++            next = restoreFamily(
++                project = next,
++                desired = desired.filterKeys { it in GUITAR_BINDING_KINDS },
++                familyKinds = GUITAR_BINDING_KINDS,
++                now = now,
++                idFactory = idFactory,
++            )
++        }
++        return next.copy(
++            updatedAtEpochMs = now,
++            preparation = requireNotNull(next.preparation).copy(
++                acknowledgedReferenceRevisionId = desiredRevisionId(desired),
++            ),
++        )
++    }
++
+     private fun desired(project: GuitarProject): Map<ReferenceBindingKind, ManagedAsset> {
+         val prep = project.preparation ?: return emptyMap()
+         val backing = prep.activeBackingAssetId?.let { id -> project.assets.singleOrNull { it.assetId == id && it.role == AssetRole.REFERENCE_BACKING } } ?: return emptyMap()
+@@ -386,6 +443,68 @@ object PreparedReferenceBindingPolicy {
+         }
+     }
+ 
++    private fun restoreFamily(
++        project: GuitarProject,
++        desired: Map<ReferenceBindingKind, ManagedAsset>,
++        familyKinds: Set<ReferenceBindingKind>,
++        now: Long,
++        idFactory: () -> String,
++    ): GuitarProject {
++        require(desired.isNotEmpty()) { "A família de referência selecionada não está disponível." }
++        val targetTrackIds = familyKinds.mapNotNull { targetTrack(project, it)?.id }.toSet()
++        val retainedClips = project.clips.filterNot { it.trackId in targetTrackIds }
++        val previousBindings = project.referenceBindings.associateBy { it.kind }
++        var next = project.copy(
++            clips = retainedClips,
++            referenceBindings = project.referenceBindings.filterNot { it.kind in familyKinds },
++        )
++        desired.forEach { (kind, asset) ->
++            val track = targetTrack(next, kind) ?: error("A pista de referência necessária não existe.")
++            val frameCount = requireNotNull(asset.frameCount) { "A referência preparada não possui duração válida." }
++            require(frameCount > 0L) { "A referência preparada está vazia." }
++            val clip = AudioClip(
++                id = idFactory(),
++                trackId = track.id,
++                name = when (kind) {
++                    ReferenceBindingKind.BACKING -> "Base preparada"
++                    ReferenceBindingKind.GUITAR_LEFT -> "Guitarra Ref. E"
++                    ReferenceBindingKind.GUITAR_RIGHT -> "Guitarra Ref. D"
++                    ReferenceBindingKind.GUITAR_REFERENCE -> "Guitarra de referência"
++                },
++                sourceUri = "guitarlab://asset/${asset.assetId}",
++                startFrame = 0L,
++                sourceStartFrame = 0L,
++                lengthFrames = frameCount,
++                gainDb = 0f,
++                muted = false,
++                managedSourcePath = asset.relativePath,
++                originUri = "prepared:${asset.assetId}",
++                sourceFormat = "wav",
++                sourceSampleRateHz = asset.sampleRateHz,
++                sourceChannelCount = asset.channelCount,
++                sourceBitsPerSample = 32,
++                sourceEncoding = "FLOAT32_LE",
++                sourceTotalFrames = frameCount,
++                editingSampleRateHz = asset.sampleRateHz,
++                editingTotalFrames = frameCount,
++                fadeInFrames = 0L,
++                fadeOutFrames = 0L,
++            )
++            val binding = ReferenceBinding(
++                bindingId = previousBindings[kind]?.bindingId ?: idFactory(),
++                trackId = track.id,
++                assetId = asset.assetId,
++                kind = kind,
++                createdAtEpochMs = now,
++            )
++            next = next.copy(
++                clips = next.clips + clip,
++                referenceBindings = next.referenceBindings + binding,
++            )
++        }
++        return next
++    }
++
+     private fun bind(project: GuitarProject, kind: ReferenceBindingKind, asset: ManagedAsset, trackId: String, now: Long, idFactory: () -> String, replaceExisting: Boolean): GuitarProject {
+         val oldBinding = project.referenceBindings.firstOrNull { it.kind == kind }
+         val existingBoundClip = oldBinding?.let { binding -> project.clips.firstOrNull { it.trackId == trackId && it.sourceUri == "guitarlab://asset/${binding.assetId}" } }
+@@ -411,4 +530,10 @@ object PreparedReferenceBindingPolicy {
+         }
+         return project.copy(referenceBindings = bindings, clips = clips)
+     }
++
++    private val GUITAR_BINDING_KINDS = setOf(
++        ReferenceBindingKind.GUITAR_REFERENCE,
++        ReferenceBindingKind.GUITAR_LEFT,
++        ReferenceBindingKind.GUITAR_RIGHT,
++    )
+ }
+diff --git a/core/project/src/main/kotlin/studio/guitarlab/core/project/WaveformCacheStore.kt b/core/project/src/main/kotlin/studio/guitarlab/core/project/WaveformCacheStore.kt
+--- a/core/project/src/main/kotlin/studio/guitarlab/core/project/WaveformCacheStore.kt
++++ b/core/project/src/main/kotlin/studio/guitarlab/core/project/WaveformCacheStore.kt
+@@ -5,15 +5,83 @@ import java.io.DataOutputStream
+ import java.io.File
+ import java.nio.file.Files
+ import java.nio.file.StandardCopyOption
++import java.security.MessageDigest
+ import studio.guitarlab.core.codec.WaveformEnvelope
++import studio.guitarlab.core.model.AudioClip
++
++/**
++ * Immutable identity of the exact media window represented by one waveform cache entry.
++ *
++ * The cache is intentionally clip-addressed on disk for cheap lookup, but validity is content/window
++ * addressed. Reusing a clip id with a new prepared asset, trimming/splitting a clip, changing proxy
++ * media or changing waveform resolution invalidates the entry without scanning/rehashing the WAV.
++ */
++data class WaveformCacheIdentity(
++    val mediaKey: String,
++    val sourceStartFrame: Long,
++    val lengthFrames: Long,
++    val sampleRateHz: Int?,
++    val totalFrames: Long?,
++    val channelCount: Int?,
++    val targetPoints: Int,
++    val algorithmVersion: Int = CURRENT_ALGORITHM_VERSION,
++) {
++    init {
++        require(mediaKey.isNotBlank()) { "mediaKey must not be blank" }
++        require(sourceStartFrame >= 0L) { "sourceStartFrame must be non-negative" }
++        require(lengthFrames >= 0L) { "lengthFrames must be non-negative" }
++        require(targetPoints > 0) { "targetPoints must be positive" }
++    }
++
++    val fingerprint: String by lazy(LazyThreadSafetyMode.NONE) {
++        val canonical = buildString {
++            append("waveform-cache-v2\n")
++            append("algorithm=").append(algorithmVersion).append('\n')
++            append("media=").append(mediaKey).append('\n')
++            append("start=").append(sourceStartFrame).append('\n')
++            append("length=").append(lengthFrames).append('\n')
++            append("rate=").append(sampleRateHz ?: -1).append('\n')
++            append("total=").append(totalFrames ?: -1).append('\n')
++            append("channels=").append(channelCount ?: -1).append('\n')
++            append("points=").append(targetPoints)
++        }
++        MessageDigest.getInstance("SHA-256")
++            .digest(canonical.toByteArray(Charsets.UTF_8))
++            .joinToString("") { "%02x".format(it) }
++    }
++
++    companion object {
++        const val CURRENT_ALGORITHM_VERSION = 2
++
++        fun forClip(clip: AudioClip, targetPoints: Int): WaveformCacheIdentity {
++            val managedPath = clip.managedEditProxyPath ?: clip.managedSourcePath
++            val mediaKey = listOfNotNull(
++                clip.sourceUri.takeIf { it.isNotBlank() },
++                managedPath?.takeIf { it.isNotBlank() },
++            ).joinToString("|").ifBlank { "clip:${clip.id}" }
++            return WaveformCacheIdentity(
++                mediaKey = mediaKey,
++                sourceStartFrame = clip.sourceStartFrame,
++                lengthFrames = clip.lengthFrames,
++                sampleRateHz = clip.editingSampleRateHz ?: clip.sourceSampleRateHz,
++                totalFrames = clip.editingTotalFrames ?: clip.sourceTotalFrames,
++                channelCount = clip.sourceChannelCount,
++                targetPoints = targetPoints,
++            )
++        }
++    }
++}
+ 
+ class WaveformCacheStore(private val rootDirectory: File) {
+-    fun write(projectId: String, clipId: String, envelope: WaveformEnvelope) {
++    fun write(projectId: String, clipId: String, identity: WaveformCacheIdentity, envelope: WaveformEnvelope) {
++        require(envelope.peaks.size <= MAX_POINTS) { "Waveform cache point count exceeds limit." }
++        require(envelope.channelPeaks.all { it.size <= MAX_POINTS }) { "Waveform cache channel point count exceeds limit." }
+         val destination = cacheFile(projectId, clipId).also { it.parentFile?.mkdirs() }
+         val temporary = File(destination.parentFile, ".${destination.name}.part")
+         try {
+             DataOutputStream(temporary.outputStream().buffered()).use { output ->
+-                output.writeInt(MAGIC)
++                output.writeInt(MAGIC_V2)
++                output.writeUTF(identity.fingerprint)
+                 output.writeInt(envelope.peaks.size)
+                 envelope.peaks.forEach(output::writeFloat)
+                 output.writeInt(envelope.channelPeaks.size)
+@@ -37,23 +105,26 @@ class WaveformCacheStore(private val rootDirectory: File) {
+         }
+     }
+ 
+-    fun read(projectId: String, clipId: String): WaveformEnvelope? = runCatching {
++    /**
++     * Returns null for legacy v1 entries, malformed entries or an identity mismatch.
++     * A caller can then regenerate exactly once and atomically replace the stale cache.
++     */
++    fun read(projectId: String, clipId: String, identity: WaveformCacheIdentity): WaveformEnvelope? = runCatching {
+         val file = cacheFile(projectId, clipId)
+         if (!file.isFile) return null
+         DataInputStream(file.inputStream().buffered()).use { input ->
+-            require(input.readInt() == MAGIC) { "Invalid waveform cache magic." }
++            if (input.readInt() != MAGIC_V2) return null
++            if (input.readUTF() != identity.fingerprint) return null
+             val count = input.readInt()
+             require(count in 0..MAX_POINTS) { "Invalid waveform cache point count." }
+             val peaks = List(count) { input.readFloat().coerceIn(0f, 1f) }
+-            val channelPeaks = if (input.available() >= Int.SIZE_BYTES) {
+-                val channels = input.readInt()
+-                require(channels in 0..2) { "Invalid waveform cache channel count." }
+-                List(channels) {
+-                    val channelCount = input.readInt()
+-                    require(channelCount in 0..MAX_POINTS) { "Invalid waveform cache channel point count." }
+-                    List(channelCount) { input.readFloat().coerceIn(0f, 1f) }
+-                }
+-            } else emptyList()
++            val channels = input.readInt()
++            require(channels in 0..2) { "Invalid waveform cache channel count." }
++            val channelPeaks = List(channels) {
++                val channelCount = input.readInt()
++                require(channelCount in 0..MAX_POINTS) { "Invalid waveform cache channel point count." }
++                List(channelCount) { input.readFloat().coerceIn(0f, 1f) }
++            }
+             WaveformEnvelope(peaks, channelPeaks)
+         }
+     }.getOrNull()
+@@ -82,7 +153,7 @@ class WaveformCacheStore(private val rootDirectory: File) {
+         File(rootDirectory, "projects/${ManagedStorageKey.from(projectId)}/media/derived/waveform")
+ 
+     private companion object {
+-        const val MAGIC = 0x474C5746 // GLWF
++        const val MAGIC_V2 = 0x474C5732 // GLW2
+         const val MAX_POINTS = 16_384
+     }
+ }
+diff --git a/core/project/src/test/kotlin/studio/guitarlab/core/project/PreparedReferencePipelineTest.kt b/core/project/src/test/kotlin/studio/guitarlab/core/project/PreparedReferencePipelineTest.kt
+--- a/core/project/src/test/kotlin/studio/guitarlab/core/project/PreparedReferencePipelineTest.kt
++++ b/core/project/src/test/kotlin/studio/guitarlab/core/project/PreparedReferencePipelineTest.kt
+@@ -126,6 +126,155 @@ class PreparedReferencePipelineTest {
+         assertFalse(PreparedReferenceBindingPolicy.bindingDiffersFromDesired(repaired))
+     }
+ 
++    @Test fun explicitRestoreIsAvailableEvenWhenBindingsAreHealthyAndBackingRestoreIsSelective() {
++        val fixture = fixture()
++        val prepared = fixture.service.prepare(fixture.projectId).project
++        assertFalse(PreparedReferenceBindingPolicy.bindingDiffersFromDesired(prepared))
++        assertEquals(
++            setOf(PreparedReferenceRestoreTarget.BACKING, PreparedReferenceRestoreTarget.GUITAR),
++            PreparedReferenceBindingPolicy.availableRestoreTargets(prepared),
++        )
++
++        val backingBinding = prepared.referenceBindings.single { it.kind == ReferenceBindingKind.BACKING }
++        val backingClip = prepared.clips.single {
++            it.trackId == backingBinding.trackId && it.sourceUri == "guitarlab://asset/${backingBinding.assetId}"
++        }
++        val guitarClipsBefore = prepared.clips.filter { clip ->
++            prepared.referenceBindings.any { binding ->
++                binding.kind != ReferenceBindingKind.BACKING &&
++                    binding.trackId == clip.trackId &&
++                    clip.sourceUri == "guitarlab://asset/${binding.assetId}"
++            }
++        }
++        val recordedTrack = prepared.tracks.first { it.roleId == BuiltInRoles.RECORDED_GUITAR_L }
++        val unrelated = AudioClip(
++            id = "user-recording-extra",
++            trackId = recordedTrack.id,
++            name = "Áudio do usuário",
++            sourceUri = "managed://user-audio",
++            startFrame = 20,
++            sourceStartFrame = 2,
++            lengthFrames = 6,
++            gainDb = -2f,
++        )
++        val replacementOnBackingLane = AudioClip(
++            id = "wrong-backing",
++            trackId = backingBinding.trackId,
++            name = "Backing alterado",
++            sourceUri = "managed://wrong-backing",
++            startFrame = 3,
++            sourceStartFrame = 1,
++            lengthFrames = 8,
++        )
++        val marker = TimelineMarker("restore-marker", "Entrada", 4)
++        val section = TimelineSection("restore-section", "Parte", 2, 18)
++        val tracks = prepared.tracks.map {
++            if (it.id == backingBinding.trackId) it.copy(gainDb = -5f, muted = true) else it
++        }
++        val damaged = prepared.copy(
++            tracks = tracks,
++            clips = prepared.clips.map {
++                if (it.id == backingClip.id) it.copy(
++                    startFrame = 9,
++                    sourceStartFrame = 3,
++                    lengthFrames = 7,
++                    gainDb = -12f,
++                    muted = true,
++                    fadeInFrames = 2,
++                    fadeOutFrames = 2,
++                ) else it
++            } + unrelated + replacementOnBackingLane,
++            markers = listOf(marker),
++            sections = listOf(section),
++            masterGainDb = -3f,
++        )
++
++        val restored = PreparedReferenceBindingPolicy.restoreSelected(
++            damaged,
++            setOf(PreparedReferenceRestoreTarget.BACKING),
++            now = 2_000,
++        ) { "restore-${fixture.ids.incrementAndGet()}" }
++
++        val activeBackingId = restored.preparation!!.activeBackingAssetId!!
++        val activeBacking = restored.assets.single { it.assetId == activeBackingId }
++        val restoredBacking = restored.clips.single {
++            it.trackId == backingBinding.trackId && it.sourceUri == "guitarlab://asset/$activeBackingId"
++        }
++        assertEquals(0L, restoredBacking.startFrame)
++        assertEquals(0L, restoredBacking.sourceStartFrame)
++        assertEquals(activeBacking.frameCount, restoredBacking.lengthFrames)
++        assertEquals(0f, restoredBacking.gainDb)
++        assertFalse(restoredBacking.muted)
++        assertEquals(0L, restoredBacking.fadeInFrames)
++        assertEquals(0L, restoredBacking.fadeOutFrames)
++        assertTrue(restored.clips.contains(unrelated))
++        assertFalse(restored.clips.any { it.id == replacementOnBackingLane.id })
++        assertEquals(1, restored.clips.count { it.trackId == backingBinding.trackId })
++        assertEquals(guitarClipsBefore, restored.clips.filter { it.id in guitarClipsBefore.map { clip -> clip.id } })
++        assertEquals(tracks, restored.tracks)
++        assertEquals(listOf(marker), restored.markers)
++        assertEquals(listOf(section), restored.sections)
++        assertEquals(-3f, restored.masterGainDb)
++    }
++
++    @Test fun guitarRestoreIsAtomicResetsPreparedClipEditsAndNeverDuplicates() {
++        val fixture = fixture()
++        val prepared = fixture.service.prepare(fixture.projectId).project
++        val guitarBindings = prepared.referenceBindings.filter {
++            it.kind == ReferenceBindingKind.GUITAR_REFERENCE ||
++                it.kind == ReferenceBindingKind.GUITAR_LEFT ||
++                it.kind == ReferenceBindingKind.GUITAR_RIGHT
++        }
++        assertTrue(guitarBindings.isNotEmpty())
++        val guitarAssetIds = guitarBindings.mapTo(mutableSetOf()) { it.assetId }
++        val damaged = prepared.copy(
++            clips = prepared.clips.map { clip ->
++                if (guitarAssetIds.any { clip.sourceUri == "guitarlab://asset/$it" }) {
++                    clip.copy(startFrame = 11, sourceStartFrame = 2, lengthFrames = 5, gainDb = -7f, muted = true, fadeInFrames = 1)
++                } else clip
++            },
++        )
++
++        val first = PreparedReferenceBindingPolicy.restoreSelected(
++            damaged,
++            setOf(PreparedReferenceRestoreTarget.GUITAR),
++            now = 2_100,
++        ) { "guitar-restore-${fixture.ids.incrementAndGet()}" }
++        val second = PreparedReferenceBindingPolicy.restoreSelected(
++            first,
++            setOf(PreparedReferenceRestoreTarget.GUITAR),
++            now = 2_200,
++        ) { "guitar-restore-${fixture.ids.incrementAndGet()}" }
++
++        val desiredGuitarBindings = second.referenceBindings.filter {
++            it.kind == ReferenceBindingKind.GUITAR_REFERENCE ||
++                it.kind == ReferenceBindingKind.GUITAR_LEFT ||
++                it.kind == ReferenceBindingKind.GUITAR_RIGHT
++        }
++        assertEquals(guitarBindings.size, desiredGuitarBindings.size)
++        desiredGuitarBindings.forEach { binding ->
++            val asset = second.assets.single { it.assetId == binding.assetId }
++            val clip = second.clips.single {
++                it.trackId == binding.trackId && it.sourceUri == "guitarlab://asset/${binding.assetId}"
++            }
++            assertEquals(0L, clip.startFrame)
++            assertEquals(0L, clip.sourceStartFrame)
++            assertEquals(asset.frameCount, clip.lengthFrames)
++            assertEquals(0f, clip.gainDb)
++            assertFalse(clip.muted)
++            assertEquals(0L, clip.fadeInFrames)
++            assertEquals(0L, clip.fadeOutFrames)
++        }
++        val backingBinding = second.referenceBindings.single { it.kind == ReferenceBindingKind.BACKING }
++        assertEquals(
++            1,
++            second.clips.count {
++                it.trackId == backingBinding.trackId && it.sourceUri == "guitarlab://asset/${backingBinding.assetId}"
++            },
++        )
++        assertFalse(PreparedReferenceBindingPolicy.bindingDiffersFromDesired(second))
++    }
++
+     @Test fun newPreparationAutomaticallyFillsReferenceTracksThatUserCleared() {
+         val fixture = fixture()
+         val first = fixture.service.prepare(fixture.projectId).project
+diff --git a/core/project/src/test/kotlin/studio/guitarlab/core/project/WaveformCacheStoreTest.kt b/core/project/src/test/kotlin/studio/guitarlab/core/project/WaveformCacheStoreTest.kt
+--- a/core/project/src/test/kotlin/studio/guitarlab/core/project/WaveformCacheStoreTest.kt
++++ b/core/project/src/test/kotlin/studio/guitarlab/core/project/WaveformCacheStoreTest.kt
+@@ -4,39 +4,60 @@ import java.io.File
+ import java.nio.file.Files
+ import kotlin.test.Test
+ import kotlin.test.assertEquals
++import kotlin.test.assertNotEquals
+ import kotlin.test.assertNull
+ import kotlin.test.assertTrue
+ import studio.guitarlab.core.codec.WaveformEnvelope
+ 
+ class WaveformCacheStoreTest {
+     @Test
+-    fun cacheRoundTripsAndCanBeRegeneratedIndependently() {
++    fun cacheRoundTripsOnlyForTheExactMediaWindowIdentity() {
+         val root = Files.createTempDirectory("guitarlab-waveform-cache").toFile()
+         try {
+             val store = WaveformCacheStore(root)
+             val envelope = WaveformEnvelope(listOf(0f, 0.25f, 1f, 0.5f))
+-            store.write("project-1", "clip-1", envelope)
+-            assertEquals(envelope, store.read("project-1", "clip-1"))
++            val identity = identity("media/a.wav", start = 0, length = 48_000)
++            store.write("project-1", "clip-1", identity, envelope)
++
++            assertEquals(envelope, store.read("project-1", "clip-1", identity))
++            assertNull(store.read("project-1", "clip-1", identity.copy(mediaKey = "media/b.wav")))
++            assertNull(store.read("project-1", "clip-1", identity.copy(sourceStartFrame = 1)))
++            assertNull(store.read("project-1", "clip-1", identity.copy(lengthFrames = 24_000)))
++            assertNull(store.read("project-1", "clip-1", identity.copy(targetPoints = 320)))
++
+             store.remove("project-1", "clip-1")
+-            assertNull(store.read("project-1", "clip-1"))
++            assertNull(store.read("project-1", "clip-1", identity))
+         } finally {
+             root.deleteRecursively()
+         }
+     }
+ 
++    @Test
++    fun cacheFingerprintChangesForMediaWindowAndAlgorithmInputs() {
++        val base = identity("media/reference.wav", start = 0, length = 96_000)
++        assertNotEquals(base.fingerprint, base.copy(mediaKey = "media/reference-v2.wav").fingerprint)
++        assertNotEquals(base.fingerprint, base.copy(sourceStartFrame = 12_000).fingerprint)
++        assertNotEquals(base.fingerprint, base.copy(lengthFrames = 48_000).fingerprint)
++        assertNotEquals(base.fingerprint, base.copy(sampleRateHz = 44_100).fingerprint)
++        assertNotEquals(base.fingerprint, base.copy(targetPoints = 320).fingerprint)
++        assertNotEquals(base.fingerprint, base.copy(algorithmVersion = 99).fingerprint)
++    }
++
+     @Test
+     fun pruneRemovesOnlyUnreferencedRegenerableCaches() {
+         val root = Files.createTempDirectory("guitarlab-waveform-prune").toFile()
+         try {
+             val store = WaveformCacheStore(root)
+             val envelope = WaveformEnvelope(listOf(0.1f, 0.9f))
+-            store.write("project", "keep", envelope)
+-            store.write("project", "orphan", envelope)
++            val keepIdentity = identity("media/keep.wav", 0, 100)
++            val orphanIdentity = identity("media/orphan.wav", 0, 100)
++            store.write("project", "keep", keepIdentity, envelope)
++            store.write("project", "orphan", orphanIdentity, envelope)
+             val unrelated = File(root, "projects/project/media/derived/waveform/notes.txt").apply { writeText("keep") }
+ 
+             assertEquals(1, store.prune("project", setOf("keep")))
+-            assertEquals(envelope, store.read("project", "keep"))
+-            assertNull(store.read("project", "orphan"))
++            assertEquals(envelope, store.read("project", "keep", keepIdentity))
++            assertNull(store.read("project", "orphan", orphanIdentity))
+             assertTrue(unrelated.isFile)
+         } finally { root.deleteRecursively() }
+     }
+@@ -48,11 +69,23 @@ class WaveformCacheStoreTest {
+             val store = WaveformCacheStore(root)
+             val first = WaveformEnvelope(listOf(0.1f))
+             val second = WaveformEnvelope(listOf(0.9f))
+-            store.write("project", "a/b", first)
+-            store.write("project", "a?b", second)
++            val firstIdentity = identity("media/first.wav", 0, 10)
++            val secondIdentity = identity("media/second.wav", 0, 10)
++            store.write("project", "a/b", firstIdentity, first)
++            store.write("project", "a?b", secondIdentity, second)
+ 
+-            assertEquals(first, store.read("project", "a/b"))
+-            assertEquals(second, store.read("project", "a?b"))
++            assertEquals(first, store.read("project", "a/b", firstIdentity))
++            assertEquals(second, store.read("project", "a?b", secondIdentity))
+         } finally { root.deleteRecursively() }
+     }
++
++    private fun identity(media: String, start: Long, length: Long) = WaveformCacheIdentity(
++        mediaKey = media,
++        sourceStartFrame = start,
++        lengthFrames = length,
++        sampleRateHz = 48_000,
++        totalFrames = 192_000,
++        channelCount = 2,
++        targetPoints = 4096,
++    )
+ }
