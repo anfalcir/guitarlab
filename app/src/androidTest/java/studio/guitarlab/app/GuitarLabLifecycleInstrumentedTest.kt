@@ -273,6 +273,50 @@ class GuitarLabLifecycleInstrumentedTest {
         }
     }
 
+    @Test
+    fun returningToSameStudioProjectReloadsWhenPersistedRevisionChangedExternally() {
+        val repository = FileProjectRepository(instrumentation.targetContext.filesDir)
+        val project = ProjectFactory(idGenerator = { "resident-revision-${System.nanoTime()}" }, clock = { 700L })
+            .create("Resident Revision", ProjectTemplate.BLANK)
+            .copy(tracks = listOf(AudioTrack(id = "revision-track", name = "Revision", order = 0)))
+        repository.save(project)
+
+        try {
+            navigation().navigate(AppScreen.Studio(project.id))
+            waitForRoute(AppScreen.Studio(project.id))
+            composeRule.waitUntil(timeoutMillis = UI_TIMEOUT_MS) {
+                studio().state.value.project?.id == project.id && !studio().state.value.loading
+            }
+
+            studio().toggleTrackMuted("revision-track")
+            composeRule.waitUntil(timeoutMillis = UI_TIMEOUT_MS) { studio().state.value.canUndo }
+
+            navigation().navigate(AppScreen.Options(project.id))
+            waitForRoute(AppScreen.Options(project.id))
+            val persisted = repository.load(project.id)!!
+            repository.save(
+                persisted.copy(
+                    name = "Updated outside Studio",
+                    updatedAtEpochMs = persisted.updatedAtEpochMs + 10_000,
+                ),
+            )
+
+            navigation().navigate(AppScreen.Studio(project.id))
+            waitForRoute(AppScreen.Studio(project.id))
+            composeRule.waitUntil(timeoutMillis = UI_TIMEOUT_MS) {
+                studio().state.value.project?.name == "Updated outside Studio"
+            }
+
+            assertFalse(
+                "Undo history from the resident revision must not cross an external project revision",
+                studio().state.value.canUndo,
+            )
+            assertFalse(studio().state.value.loading)
+        } finally {
+            runCatching { repository.delete(project.id) }
+        }
+    }
+
     private fun waitUntilEnabled(text: String) {
         composeRule.waitUntil(timeoutMillis = UI_TIMEOUT_MS) {
             runCatching {
