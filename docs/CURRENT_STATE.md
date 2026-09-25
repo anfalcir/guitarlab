@@ -38,6 +38,8 @@ Updated: 2026-09-24
 
 - Autonomous RC20 qualification loop requested by owner: continue fixing/monitoring Android CI until software gate + API36 are green, then run signed homologation on the exact qualified source and deliver that signed APK for physical validation.
 
+- CI #892: software gate PASS. API36 reached real instrumented execution; group 1 failed only in `UnifiedProjectShellInstrumentedTest.sourceSearchTerminalSuggestionRemainsVisibleAndRetriesExplicitly`. Runtime evidence showed the UI text was correct (`Você quis dizer “Memphis May Fire”?`); Compose `assertTextContains` produced a false negative. U12bt changes only that test to assert the exact semantic text.
+
 ## Unified program progress
 - Stable product identity is governed by `PROJECT_IDENTITY.md` and D-090: private single-owner appliance, proportional gates, exact signed APK + digest-pinned worker freeze after physical acceptance, and maintenance only for a real trigger.
 - Product-scope override (2026-09-21): legacy project/backup migration is retired. The owner has only two legacy projects and accepts recreating them manually. U9 is retired; U8/U10/U11 no longer carry H37/GBW/pre-unification migration obligations. Current unified-line save/reopen, schema evolution, backup/restore and integrity guarantees remain mandatory.
