@@ -49,6 +49,25 @@ import studio.guitarlab.platform.separation.RemoteSeparationClient
 import studio.guitarlab.core.project.UnifiedOperationKind
 import studio.guitarlab.core.project.UnifiedOperationState
 
+enum class SourceSearchTerminalState {
+    RESULTS,
+    NO_EXACT_MATCH,
+    DID_YOU_MEAN,
+    PROVIDER_FAILURE,
+    TIMEOUT,
+}
+
+data class SourceSearchOutcome(
+    val operationId: String,
+    val artist: String,
+    val song: String,
+    val terminalState: SourceSearchTerminalState,
+    val message: String,
+    val candidateCount: Int = 0,
+    val suggestedArtist: String? = null,
+    val warnings: List<String> = emptyList(),
+)
+
 data class HomeUiState(
     val loading: Boolean = true,
     val projects: List<GuitarProject> = emptyList(),
@@ -61,6 +80,7 @@ data class HomeUiState(
     val message: String? = null,
     val sourceCandidatesByProject: Map<String, List<RankedSourceCandidate>> = emptyMap(),
     val sourceWarningsByProject: Map<String, List<String>> = emptyMap(),
+    val sourceSearchOutcomesByProject: Map<String, SourceSearchOutcome> = emptyMap(),
     val sourceSearchBusyProjects: Set<String> = emptySet(),
     val sourceOperationsByProject: Map<String, SourceOperationSnapshot> = emptyMap(),
     val separationJobsByProject: Map<String, DurableRemoteJob> = emptyMap(),
@@ -323,6 +343,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                         current.copy(
                             sourceCandidatesByProject = current.sourceCandidatesByProject - projectId,
                             sourceWarningsByProject = current.sourceWarningsByProject - projectId,
+                            sourceSearchOutcomesByProject = current.sourceSearchOutcomesByProject - projectId,
                             sourceSearchBusyProjects = current.sourceSearchBusyProjects - projectId,
                             sourceOperationsByProject = current.sourceOperationsByProject - projectId,
                             separationJobsByProject = current.separationJobsByProject - projectId,
@@ -361,6 +382,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 sourceReplacementProjects = current.sourceReplacementProjects + projectId,
                 sourceCandidatesByProject = current.sourceCandidatesByProject - projectId,
                 sourceWarningsByProject = current.sourceWarningsByProject - projectId,
+                sourceSearchOutcomesByProject = current.sourceSearchOutcomesByProject - projectId,
                 sourceSearchBusyProjects = current.sourceSearchBusyProjects - projectId,
                 preparedReferenceBusyProjects = current.preparedReferenceBusyProjects - projectId,
                 message = "Escolha a nova fonte. A fonte atual e o conteúdo do Studio permanecem preservados até a substituição ser validada.",
@@ -443,7 +465,10 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             _state.update { current ->
                 current.copy(
                     sourceSearchBusyProjects = current.sourceSearchBusyProjects + projectId,
+                    sourceCandidatesByProject = current.sourceCandidatesByProject - projectId,
                     sourceWarningsByProject = current.sourceWarningsByProject - projectId,
+                    sourceSearchOutcomesByProject = current.sourceSearchOutcomesByProject - projectId,
+                    message = null,
                     error = null,
                 )
             }
@@ -451,49 +476,93 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 val result = withTimeout(SOURCE_SEARCH_TIMEOUT_MS) {
                     sourceAcquisition.search(SourceSearchRequest(artist = artist, song = song))
                 }
-                val providerFailure = result.candidates.isEmpty() && result.warnings.isNotEmpty()
-                val emptyMessage = when {
-                    result.candidates.isNotEmpty() -> null
-                    providerFailure -> null
-                    else -> "Nenhuma fonte automática compatível foi encontrada."
+                val terminalState = when {
+                    result.candidates.isNotEmpty() -> SourceSearchTerminalState.RESULTS
+                    result.providersSucceeded == 0 && result.providersFailed > 0 -> SourceSearchTerminalState.PROVIDER_FAILURE
+                    result.suggestedArtist != null -> SourceSearchTerminalState.DID_YOU_MEAN
+                    else -> SourceSearchTerminalState.NO_EXACT_MATCH
                 }
-                val providerFailureMessage = if (providerFailure) {
-                    "A pesquisa não pôde consultar as fontes automáticas. Verifique a conexão e tente novamente."
-                } else {
-                    null
+                val terminalMessage = when (terminalState) {
+                    SourceSearchTerminalState.RESULTS -> when (result.candidates.size) {
+                        1 -> "1 fonte compatível encontrada."
+                        else -> "${result.candidates.size} fontes compatíveis encontradas."
+                    }
+                    SourceSearchTerminalState.DID_YOU_MEAN -> "Nenhuma correspondência exata foi encontrada."
+                    SourceSearchTerminalState.NO_EXACT_MATCH -> "Nenhuma fonte compatível encontrada para esta busca."
+                    SourceSearchTerminalState.PROVIDER_FAILURE -> "A pesquisa não pôde consultar as fontes automáticas. Verifique a conexão e tente novamente."
+                    SourceSearchTerminalState.TIMEOUT -> error("TIMEOUT is handled by the timeout branch")
                 }
+                val outcome = SourceSearchOutcome(
+                    operationId = operationId,
+                    artist = artist.trim(),
+                    song = song.trim(),
+                    terminalState = terminalState,
+                    message = terminalMessage,
+                    candidateCount = result.candidates.size,
+                    suggestedArtist = result.suggestedArtist,
+                    warnings = result.warnings,
+                )
                 _state.update { current ->
                     current.copy(
                         sourceCandidatesByProject = current.sourceCandidatesByProject + (projectId to result.candidates),
                         sourceWarningsByProject = current.sourceWarningsByProject + (projectId to result.warnings),
-                        message = emptyMessage,
-                        error = providerFailureMessage,
+                        sourceSearchOutcomesByProject = current.sourceSearchOutcomesByProject + (projectId to outcome),
+                        message = null,
+                        error = null,
                     )
                 }
+                val failed = terminalState == SourceSearchTerminalState.PROVIDER_FAILURE
                 activityStore.record(
                     operationId,
                     projectId,
                     UnifiedOperationKind.SOURCE_ACQUISITION,
-                    if (providerFailure) UnifiedOperationState.FAILED else UnifiedOperationState.SUCCEEDED,
-                    if (providerFailure) null else 100,
-                    when {
-                        providerFailure -> "Pesquisa de fontes indisponível"
-                        result.candidates.isEmpty() -> "Pesquisa concluída sem fontes compatíveis"
-                        result.candidates.size == 1 -> "1 fonte encontrada"
-                        else -> "${result.candidates.size} fontes encontradas"
+                    if (failed) UnifiedOperationState.FAILED else UnifiedOperationState.SUCCEEDED,
+                    if (failed) null else 100,
+                    when (terminalState) {
+                        SourceSearchTerminalState.RESULTS -> if (result.candidates.size == 1) "1 fonte encontrada" else "${result.candidates.size} fontes encontradas"
+                        SourceSearchTerminalState.DID_YOU_MEAN -> "Pesquisa concluída com sugestão de correção"
+                        SourceSearchTerminalState.NO_EXACT_MATCH -> "Pesquisa concluída sem fontes compatíveis"
+                        SourceSearchTerminalState.PROVIDER_FAILURE -> "Pesquisa de fontes indisponível"
+                        SourceSearchTerminalState.TIMEOUT -> "Pesquisa de fontes expirou"
                     },
                     result.warnings.joinToString("\n").ifBlank { null },
                 )
             } catch (_: TimeoutCancellationException) {
                 val message = "A pesquisa demorou mais que o esperado. Verifique a conexão e tente novamente."
-                _state.update { it.copy(error = message) }
+                val outcome = SourceSearchOutcome(
+                    operationId = operationId,
+                    artist = artist.trim(),
+                    song = song.trim(),
+                    terminalState = SourceSearchTerminalState.TIMEOUT,
+                    message = message,
+                )
+                _state.update { current ->
+                    current.copy(
+                        sourceSearchOutcomesByProject = current.sourceSearchOutcomesByProject + (projectId to outcome),
+                        error = null,
+                        message = null,
+                    )
+                }
                 activityStore.record(operationId, projectId, UnifiedOperationKind.SOURCE_ACQUISITION, UnifiedOperationState.FAILED, null, "Pesquisa de fontes expirou", message)
             } catch (error: CancellationException) {
                 activityStore.record(operationId, projectId, UnifiedOperationKind.SOURCE_ACQUISITION, UnifiedOperationState.CANCELLED, null, "Pesquisa de fontes cancelada")
                 throw error
             } catch (error: Throwable) {
                 val message = "Não foi possível pesquisar fontes. Verifique a conexão e tente novamente."
-                _state.update { it.copy(error = message) }
+                val outcome = SourceSearchOutcome(
+                    operationId = operationId,
+                    artist = artist.trim(),
+                    song = song.trim(),
+                    terminalState = SourceSearchTerminalState.PROVIDER_FAILURE,
+                    message = message,
+                )
+                _state.update { current ->
+                    current.copy(
+                        sourceSearchOutcomesByProject = current.sourceSearchOutcomesByProject + (projectId to outcome),
+                        error = null,
+                        message = null,
+                    )
+                }
                 activityStore.record(
                     operationId,
                     projectId,
