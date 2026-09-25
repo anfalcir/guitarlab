@@ -13,13 +13,16 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -76,7 +79,7 @@ fun UnifiedPrepareScreen(
     onResumeSeparationImport: () -> Unit = {},
     onCancelSeparation: () -> Unit = {},
     onPrepareReferences: () -> Unit = {},
-    onRepairReferences: () -> Unit = {},
+    onRestoreReferences: (restoreBacking: Boolean, restoreGuitar: Boolean) -> Unit = { _, _ -> },
     initialCloudSession: RemoteCloudAuthSession? = null,
     requestNotificationPermission: Boolean = true,
 ) {
@@ -227,11 +230,16 @@ fun UnifiedPrepareScreen(
                     onRetry = onPrepareReferences,
                 )
 
-                PrepareStage.READY -> ReadyStep(
-                    onStudio = onStudio,
-                    repairAvailable = project?.let(PreparedReferenceBindingPolicy::bindingDiffersFromDesired) == true,
-                    onRepairReferences = onRepairReferences,
-                )
+                PrepareStage.READY -> {
+                    val restoreTargets = project?.let(PreparedReferenceBindingPolicy::availableRestoreTargets).orEmpty()
+                    ReadyStep(
+                        onStudio = onStudio,
+                        restoreBackingAvailable = studio.guitarlab.core.project.PreparedReferenceRestoreTarget.BACKING in restoreTargets,
+                        restoreGuitarAvailable = studio.guitarlab.core.project.PreparedReferenceRestoreTarget.GUITAR in restoreTargets,
+                        repairRecommended = project?.let(PreparedReferenceBindingPolicy::bindingDiffersFromDesired) == true,
+                        onRestoreReferences = onRestoreReferences,
+                    )
+                }
             }
 
             if (project != null && (project.assets.isNotEmpty() || operation != null || separationJob != null)) {
@@ -552,29 +560,94 @@ private fun ReferencesStep(retryRequired: Boolean, busy: Boolean, onRetry: () ->
 @Composable
 private fun ReadyStep(
     onStudio: () -> Unit,
-    repairAvailable: Boolean,
-    onRepairReferences: () -> Unit,
+    restoreBackingAvailable: Boolean,
+    restoreGuitarAvailable: Boolean,
+    repairRecommended: Boolean,
+    onRestoreReferences: (Boolean, Boolean) -> Unit,
 ) {
+    var restoreDialogVisible by rememberSaveable { mutableStateOf(false) }
+    var restoreBacking by rememberSaveable { mutableStateOf(false) }
+    var restoreGuitar by rememberSaveable { mutableStateOf(false) }
+    val restoreAvailable = restoreBackingAvailable || restoreGuitarAvailable
+
     Surface(Modifier.fillMaxWidth().testTag("prepare-references-ready"), tonalElevation = 2.dp, shape = MaterialTheme.shapes.medium) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Pronto para o Studio", style = MaterialTheme.typography.titleMedium)
             Text(
-                if (repairAvailable) {
-                    "As referências preparadas continuam ativas, mas faltam clipes/vínculos no Studio. Você pode recolocá-los localmente."
+                if (repairRecommended) {
+                    "As referências preparadas estão disponíveis e o Studio pode ser sincronizado novamente com elas."
                 } else {
-                    "A base sem guitarra e a guitarra de referência estão ligadas ao projeto e prontas para uso."
+                    "A base sem guitarra e a guitarra de referência estão preparadas e prontas para uso."
                 },
             )
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Button(onClick = onStudio, modifier = Modifier.testTag("prepare-open-studio")) { Text("Abrir Studio") }
-                if (repairAvailable) {
+                if (restoreAvailable) {
                     OutlinedButton(
-                        onClick = onRepairReferences,
-                        modifier = Modifier.testTag("prepare-repair-references"),
+                        onClick = {
+                            restoreBacking = restoreBackingAvailable
+                            restoreGuitar = restoreGuitarAvailable
+                            restoreDialogVisible = true
+                        },
+                        modifier = Modifier.testTag("prepare-restore-references"),
                     ) { Text("Recolocar referências no Studio") }
                 }
             }
         }
+    }
+
+    if (restoreDialogVisible) {
+        AlertDialog(
+            onDismissRequest = { restoreDialogVisible = false },
+            title = { Text("Recolocar referências") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("Escolha quais referências preparadas deseja restaurar no Studio.")
+                    if (restoreBackingAvailable) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Checkbox(
+                                checked = restoreBacking,
+                                onCheckedChange = { restoreBacking = it },
+                                modifier = Modifier.testTag("restore-reference-backing"),
+                            )
+                            Text("Base sem guitarra")
+                        }
+                    }
+                    if (restoreGuitarAvailable) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Checkbox(
+                                checked = restoreGuitar,
+                                onCheckedChange = { restoreGuitar = it },
+                                modifier = Modifier.testTag("restore-reference-guitar"),
+                            )
+                            Text("Guitarra de referência")
+                        }
+                    }
+                    Text(
+                        "Edições feitas diretamente nas referências selecionadas serão substituídas pela versão preparada. Gravações, takes, marcadores, seções e mixagem das pistas serão preservados.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    enabled = restoreBacking || restoreGuitar,
+                    onClick = {
+                        onRestoreReferences(restoreBacking, restoreGuitar)
+                        restoreDialogVisible = false
+                    },
+                    modifier = Modifier.testTag("restore-reference-confirm"),
+                ) { Text("Recolocar") }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { restoreDialogVisible = false },
+                    modifier = Modifier.testTag("restore-reference-cancel"),
+                ) { Text("Cancelar") }
+            },
+            modifier = Modifier.testTag("restore-reference-dialog"),
+        )
     }
 }
 
