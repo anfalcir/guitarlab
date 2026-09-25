@@ -52,7 +52,6 @@ import kotlinx.coroutines.withContext
 import studio.guitarlab.app.backup.BackupSettingsStore
 import studio.guitarlab.core.audio.LatencyFineAdjustmentPolicy
 import studio.guitarlab.core.audio.MonitoringMode
-import studio.guitarlab.core.codec.AudioImportFormatPolicy
 import studio.guitarlab.core.project.FileProjectRepository
 import studio.guitarlab.core.project.RecordingSampleRatePolicy
 import studio.guitarlab.core.project.ExternalControlAction
@@ -65,7 +64,6 @@ fun SettingsScreen(
     onAudioDiagnostics: () -> Unit,
     onCodecDiagnostics: () -> Unit,
     onBackupSettings: () -> Unit = {},
-    onActivity: () -> Unit = {},
     onDiagnostics: () -> Unit = {},
 ) {
     val context = LocalContext.current
@@ -403,40 +401,6 @@ fun SettingsScreen(
                         actionLabel = "Abrir",
                         onClick = onBackupSettings,
                     )
-                    SettingsActionRow(
-                        title = "Ver atividade",
-                        detail = "Fonte, separação, referências, exportações, backup e restauração em um único histórico.",
-                        actionLabel = "Abrir",
-                        onClick = onActivity,
-                        testTag = "settings-open-activity",
-                    )
-                }
-            }
-
-            item {
-                OptionSection(
-                    title = "Projeto e Studio",
-                    subtitle = "Preferências que não precisam ocupar a área de edição.",
-                ) {
-                    OptionRow("Salvamento automático", "Ativo", "Alterações do projeto são salvas automaticamente.")
-                    OptionRow("Mixer", "Abrir/fechar persistente", "Use o botão Mixer na barra do Studio. Um toque abre, outro fecha, e a visibilidade é mantida ao navegar pelo aplicativo.")
-                    OptionRow("Novo projeto", "Perguntar sempre", "Projeto vazio ou template de guitarra")
-                    if (projectId != null) {
-                        Text(
-                            "Para criar um Projeto portátil, Arquivos para estudo ou o Mix final do Studio, use Exportar no projeto.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
-            }
-
-            item {
-                OptionSection(
-                    title = "Importação",
-                    subtitle = "Os arquivos originais são preservados; quando necessário, o GuitarLab cria uma cópia otimizada para edição.",
-                ) {
-                    OptionRow("Importar áudio", AudioImportFormatPolicy.supportedExtensionsDescription, "WAV/FLAC/AIFF/MP3/AAC-M4A/OGG/Opus")
                 }
             }
 
