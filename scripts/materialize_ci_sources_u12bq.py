@@ -7,7 +7,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 PREVIOUS = ROOT / "scripts/materialize_ci_sources_u12bp.py"
 PATCH = ROOT / ".source-parts/U12bqApi36PosixRunner.patch"
-PATCH_BLOB = "acb027d1204a399e7a446c647acbf47c3cd115e1"
+PATCH_BLOB = "57d60e5542be38cc45600110b9c75d306cc2457c"
 TARGET = ROOT / ".github/workflows/android-ci.yml"
 BEFORE_BLOB = "9f4d6144da5b36b40a5d4dfa5a6a859007c4d7c4"
 AFTER_BLOB = "d403499821d1653b6934fddd22141a980a9684d8"
