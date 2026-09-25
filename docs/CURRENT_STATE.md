@@ -12,6 +12,8 @@ Updated: 2026-09-24
 
 - RC20 Android completion implementation is now staged under U12bn: persistent source-search terminal outcomes with bounded “Você quis dizer…”, local/idempotent Studio reference reinsertion, grouped Prepare technical details, Configurações → Diagnóstico, sanitized 14-day/8-MiB JSONL journal, offline diagnostic ZIP with SHA256SUMS and no song audio, and durable sanitized accepted-manifest retention before remote ACK/purge. Android identity is now `0.5.0-rc20` / versionCode `40`. This scope is pending Android CI/API36 qualification before signing/final physical homologation.
 
+- U12bn complete RC20 Android qualification dispatched: exact source includes final search UX, local reference repair, grouped Prepare diagnostics, consolidated Diagnostics/journal/ZIP, accepted-manifest retention and Android identity `0.5.0-rc20` / versionCode `40`. Signing remains intentionally deferred until this exact unsigned source passes Android CI/API36.
+
 ## Unified program progress
 - Stable product identity is governed by `PROJECT_IDENTITY.md` and D-090: private single-owner appliance, proportional gates, exact signed APK + digest-pinned worker freeze after physical acceptance, and maintenance only for a real trigger.
 - Product-scope override (2026-09-21): legacy project/backup migration is retired. The owner has only two legacy projects and accepts recreating them manually. U9 is retired; U8/U10/U11 no longer carry H37/GBW/pre-unification migration obligations. Current unified-line save/reopen, schema evolution, backup/restore and integrity guarantees remain mandatory.
