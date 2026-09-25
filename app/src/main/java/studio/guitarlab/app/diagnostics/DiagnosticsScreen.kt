@@ -3,6 +3,7 @@ package studio.guitarlab.app.diagnostics
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -13,7 +14,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.Button
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
@@ -24,6 +24,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
@@ -34,6 +35,8 @@ import kotlinx.coroutines.withContext
 import studio.guitarlab.app.BuildConfig
 import studio.guitarlab.app.backup.BackupSettingsStore
 import studio.guitarlab.app.ui.AppIconButton
+import studio.guitarlab.app.ui.AppTransientFeedbackHost
+import studio.guitarlab.app.ui.TransientFeedbackKind
 import studio.guitarlab.app.ui.StudioAudioRoutingStore
 import studio.guitarlab.core.project.FileProjectRepository
 import studio.guitarlab.core.project.PreparedReferenceBindingPolicy
@@ -51,6 +54,7 @@ fun DiagnosticsScreen(
     val journal = remember(context) { DiagnosticJournal(context) }
     var events by remember { mutableStateOf(journal.readEvents()) }
     var status by remember { mutableStateOf<String?>(null) }
+    var statusKind by remember { mutableStateOf(TransientFeedbackKind.ASYNC_COMPLETION) }
     var exporting by remember { mutableStateOf(false) }
 
     val project = remember(projectId) { projectId?.let { FileProjectRepository(context.filesDir).load(it) } }
@@ -78,18 +82,21 @@ fun DiagnosticsScreen(
                     } ?: error("O Android não abriu o arquivo de destino.")
                 }
             }.onSuccess { result ->
+                statusKind = TransientFeedbackKind.ASYNC_COMPLETION
                 status = "Pacote exportado com ${result.entryNames.size} arquivos de diagnóstico. Nenhum áudio foi incluído."
             }.onFailure { error ->
+                statusKind = TransientFeedbackKind.ERROR
                 status = error.message ?: "Não foi possível exportar o pacote de diagnóstico."
             }
             exporting = false
         }
     }
 
-    Column(
-        Modifier.fillMaxSize().padding(horizontal = 22.dp, vertical = 16.dp).testTag("diagnostics-screen"),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
+    Box(Modifier.fillMaxSize()) {
+        Column(
+            Modifier.fillMaxSize().padding(horizontal = 22.dp, vertical = 16.dp).testTag("diagnostics-screen"),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Column {
                 Text("Diagnóstico", style = MaterialTheme.typography.headlineMedium)
@@ -190,7 +197,7 @@ fun DiagnosticsScreen(
                             onClick = {
                                 journal.clear()
                                 events = emptyList()
-                                status = "Registro local de eventos limpo."
+                                status = null
                             },
                             modifier = Modifier.testTag("diagnostics-clear-journal"),
                         ) { Text("Limpar registro") }
@@ -216,13 +223,14 @@ fun DiagnosticsScreen(
                 }
             }
 
-            status?.let { message ->
-                item {
-                    HorizontalDivider()
-                    Text(message, style = MaterialTheme.typography.bodySmall, modifier = Modifier.testTag("diagnostics-status"))
-                }
-            }
         }
+        AppTransientFeedbackHost(
+            message = status,
+            kind = statusKind,
+            onConsumed = { status = null },
+            modifier = Modifier.align(Alignment.TopCenter),
+            fallback = "Não foi possível exportar o pacote de diagnóstico.",
+        )
     }
 }
 
