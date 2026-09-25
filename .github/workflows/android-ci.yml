@@ -287,8 +287,7 @@ jobs:
         with:
           path: |
             ~/.android/avd/*
-            ~/.android/adb*
-          key: guitarlab-avd-v1-api36-default-x86_64-pixel7
+          key: guitarlab-avd-v2-api36-default-x86_64-pixel7
 
       - name: Create API 36 AVD snapshot on cache miss
         if: steps.avd-cache.outputs.cache-hit != 'true'
@@ -305,6 +304,15 @@ jobs:
           emulator-boot-timeout: 600
           script: echo "Generated clean API 36 AVD snapshot for CI cache."
 
+      - name: Reset ADB server before API 36 regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          adb kill-server || true
+          rm -f ~/.android/adbkey ~/.android/adbkey.pub
+          adb start-server
+          adb devices
+
       - name: Run API 36 instrumented regression
         uses: ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
         with:
@@ -315,9 +323,24 @@ jobs:
           avd-name: guitarlab-api36
           force-avd-creation: false
           emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none -no-metrics
-          disable-animations: true
+          disable-animations: false
           emulator-boot-timeout: 600
           script: |
+            set -euo pipefail
+            adb wait-for-device
+            for attempt in {1..30}; do
+              state="$(adb get-state 2>/dev/null || true)"
+              booted="$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r' || true)"
+              if [[ "$state" == "device" && "$booted" == "1" ]]; then
+                break
+              fi
+              sleep 2
+            done
+            test "$(adb get-state)" = "device"
+            test "$(adb shell getprop sys.boot_completed | tr -d '\r')" = "1"
+            adb shell settings put global window_animation_scale 0.0
+            adb shell settings put global transition_animation_scale 0.0
+            adb shell settings put global animator_duration_scale 0.0
             chmod +x scripts/ci_run_api36_regression_groups.sh
             scripts/ci_run_api36_regression_groups.sh
 
