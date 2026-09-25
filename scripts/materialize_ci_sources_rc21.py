@@ -7,14 +7,14 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 PREVIOUS = ROOT / "scripts/materialize_ci_sources_u12bx.py"
 PATCH = ROOT / ".source-parts/RC21IntegrityFeedbackBackup.patch"
-PATCH_BLOB = "599b9cc60d8ecc2b2b66bdbab3a90570018c42db"
+PATCH_BLOB = "cd9702e544701e5ab721bb53b02397bd6ddffb14"
 TARGETS = {
     "app/build.gradle.kts": ("2e89ebca930e7b7f960f746eb36adf24fb2bddda", "076c5e76779c30a2a78df6edbbf5f849950134f8"),
     "app/src/androidTest/java/studio/guitarlab/app/BackupCatalogCacheInstrumentedTest.kt": (None, "6355ef50077dcf0d6eac51f82339f71b6dabcd38"),
     "app/src/androidTest/java/studio/guitarlab/app/BackupScreenInstrumentedTest.kt": ("67b200b6be911830628158f73d9475f150689951", "e80c6a95107bfa6ab5705269369a33170304de50"),
     "app/src/androidTest/java/studio/guitarlab/app/TransientFeedbackHostInstrumentedTest.kt": (None, "5a229cc263868a846d8e94f839b4cf173473aefb"),
     "app/src/main/java/studio/guitarlab/app/backup/BackupCatalogCacheStore.kt": (None, "7de3a96919b5ad73dede826f5e1fa57de3631d8b"),
-    "app/src/main/java/studio/guitarlab/app/backup/BackupScreen.kt": ("7c9f128b42f1546cc84db277f594eef767da17d6", "8d09e32f9fc82521a260ff01bceaecb5d852a5ab"),
+    "app/src/main/java/studio/guitarlab/app/backup/BackupScreen.kt": ("7c9f128b42f1546cc84db277f594eef767da17d6", "0857ecbd7f12e4827b48d03b1eaf6197aa1bea3a"),
     "app/src/main/java/studio/guitarlab/app/backup/BackupViewModel.kt": ("600ca22ceab33c8377ee7abad642e5a481f269da", "3afcc48f5c91dee4284e0873a6113a64129c3315"),
     "app/src/main/java/studio/guitarlab/app/backup/UnifiedDriveProductionService.kt": ("5ac06fad4bac40074c39d7051232ca41481619ba", "699ac96c4067a7f0c6facec2cd6d2e02f4f6c7e2"),
     "app/src/main/java/studio/guitarlab/app/diagnostics/DiagnosticsScreen.kt": ("2365960949f75f039ec6f8b5ee858469390847b2", "a0bb842418119c781c7f8832219d037d94e68490"),
@@ -111,6 +111,7 @@ def verify() -> None:
         (backup_vm, "knownManifestCreatedAtEpochMs = cached?.manifestCreatedAtEpochMs.orEmpty()"),
         (backup_vm, "messageKind = TransientFeedbackKind.OPERATIONAL_STATUS"),
         (backup_screen, 'testTag("backup-catalog-loading")'),
+        (backup_screen, "Carregando histórico do Google Drive…"),
         (backup_screen, 'testTag("backup-catalog-background-refresh")'),
         (backup_service, "val heads = remote.listAllHeads()"),
         (backup_service, "knownManifestCreatedAtEpochMs: Map<String, Long> = emptyMap()"),
