@@ -1,6 +1,6 @@
 package studio.guitarlab.app.ui
 
-import kotlin.test.Test
+import org.junit.Test
 import kotlin.test.assertEquals
 
 class WaveformRenderReducerTest {
