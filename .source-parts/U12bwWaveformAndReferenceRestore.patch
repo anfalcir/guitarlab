@@ -1054,7 +1054,7 @@ diff --git a/core/project/src/main/kotlin/studio/guitarlab/core/project/Prepared
      private fun desired(project: GuitarProject): Map<ReferenceBindingKind, ManagedAsset> {
          val prep = project.preparation ?: return emptyMap()
          val backing = prep.activeBackingAssetId?.let { id -> project.assets.singleOrNull { it.assetId == id && it.role == AssetRole.REFERENCE_BACKING } } ?: return emptyMap()
-@@ -386,6 +443,68 @@ object PreparedReferenceBindingPolicy {
+@@ -386,6 +443,70 @@ object PreparedReferenceBindingPolicy {
          }
      }
  
@@ -1067,7 +1067,9 @@ diff --git a/core/project/src/main/kotlin/studio/guitarlab/core/project/Prepared
 +    ): GuitarProject {
 +        require(desired.isNotEmpty()) { "A família de referência selecionada não está disponível." }
 +        val targetTrackIds = familyKinds.mapNotNull { targetTrack(project, it)?.id }.toSet()
-+        val retainedClips = project.clips.filterNot { it.trackId in targetTrackIds }
++        val retainedClips = project.clips.filterNot { clip ->
++            clip.trackId in targetTrackIds && clip.takeId == null
++        }
 +        val previousBindings = project.referenceBindings.associateBy { it.kind }
 +        var next = project.copy(
 +            clips = retainedClips,
@@ -1123,7 +1125,7 @@ diff --git a/core/project/src/main/kotlin/studio/guitarlab/core/project/Prepared
      private fun bind(project: GuitarProject, kind: ReferenceBindingKind, asset: ManagedAsset, trackId: String, now: Long, idFactory: () -> String, replaceExisting: Boolean): GuitarProject {
          val oldBinding = project.referenceBindings.firstOrNull { it.kind == kind }
          val existingBoundClip = oldBinding?.let { binding -> project.clips.firstOrNull { it.trackId == trackId && it.sourceUri == "guitarlab://asset/${binding.assetId}" } }
-@@ -411,4 +530,10 @@ object PreparedReferenceBindingPolicy {
+@@ -411,4 +532,10 @@ object PreparedReferenceBindingPolicy {
          }
          return project.copy(referenceBindings = bindings, clips = clips)
      }
@@ -1273,7 +1275,7 @@ diff --git a/core/project/src/main/kotlin/studio/guitarlab/core/project/Waveform
 diff --git a/core/project/src/test/kotlin/studio/guitarlab/core/project/PreparedReferencePipelineTest.kt b/core/project/src/test/kotlin/studio/guitarlab/core/project/PreparedReferencePipelineTest.kt
 --- a/core/project/src/test/kotlin/studio/guitarlab/core/project/PreparedReferencePipelineTest.kt
 +++ b/core/project/src/test/kotlin/studio/guitarlab/core/project/PreparedReferencePipelineTest.kt
-@@ -126,6 +126,155 @@ class PreparedReferencePipelineTest {
+@@ -126,6 +126,175 @@ class PreparedReferencePipelineTest {
          assertFalse(PreparedReferenceBindingPolicy.bindingDiffersFromDesired(repaired))
      }
  
@@ -1317,6 +1319,23 @@ diff --git a/core/project/src/test/kotlin/studio/guitarlab/core/project/Prepared
 +            sourceStartFrame = 1,
 +            lengthFrames = 8,
 +        )
++        val backingTakeClip = AudioClip(
++            id = "backing-take",
++            trackId = backingBinding.trackId,
++            name = "Take preservado",
++            sourceUri = "managed://backing-take",
++            startFrame = 12,
++            lengthFrames = 5,
++            takeId = "backing-take-id",
++        )
++        val backingTake = RecordingTake(
++            id = "backing-take-id",
++            trackId = backingBinding.trackId,
++            clipId = backingTakeClip.id,
++            displayName = "Take preservado",
++            createdAtEpochMs = 7,
++            active = true,
++        )
 +        val marker = TimelineMarker("restore-marker", "Entrada", 4)
 +        val section = TimelineSection("restore-section", "Parte", 2, 18)
 +        val tracks = prepared.tracks.map {
@@ -1334,7 +1353,8 @@ diff --git a/core/project/src/test/kotlin/studio/guitarlab/core/project/Prepared
 +                    fadeInFrames = 2,
 +                    fadeOutFrames = 2,
 +                ) else it
-+            } + unrelated + replacementOnBackingLane,
++            } + unrelated + replacementOnBackingLane + backingTakeClip,
++            takes = listOf(backingTake),
 +            markers = listOf(marker),
 +            sections = listOf(section),
 +            masterGainDb = -3f,
@@ -1359,8 +1379,10 @@ diff --git a/core/project/src/test/kotlin/studio/guitarlab/core/project/Prepared
 +        assertEquals(0L, restoredBacking.fadeInFrames)
 +        assertEquals(0L, restoredBacking.fadeOutFrames)
 +        assertTrue(restored.clips.contains(unrelated))
++        assertTrue(restored.clips.contains(backingTakeClip))
++        assertEquals(listOf(backingTake), restored.takes)
 +        assertFalse(restored.clips.any { it.id == replacementOnBackingLane.id })
-+        assertEquals(1, restored.clips.count { it.trackId == backingBinding.trackId })
++        assertEquals(2, restored.clips.count { it.trackId == backingBinding.trackId })
 +        assertEquals(guitarClipsBefore, restored.clips.filter { it.id in guitarClipsBefore.map { clip -> clip.id } })
 +        assertEquals(tracks, restored.tracks)
 +        assertEquals(listOf(marker), restored.markers)
