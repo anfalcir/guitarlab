@@ -1,41 +1,36 @@
 # Product Vision
 
+Updated: 2026-09-24
+
 ## Mission
-GuitarLab Studio is an Android-first guitar preparation, practice, recording, comparison and mixing workspace. The approved successor direction unifies the GBW Android preparation/separation workflow with GuitarLab so one project can move from source acquisition and Demucs preparation directly into study and recording without file handoff or desktop workflows.
+
+GuitarLab is a private, single-owner Android guitar preparation, practice, recording, comparison, mixing, export and backup appliance. It unifies source acquisition and Demucs preparation with Studio so the owner can move from a song source directly into study and recording without a desktop/file-handoff workflow.
+
+The stable product identity and maintenance model are defined by `PROJECT_IDENTITY.md` and D-090.
 
 ## Final-state product
-The planned final product must support:
-- source acquisition and validated managed-source publication through the approved Prepare workflow;
-- Demucs-based six-stem preparation with durable provenance, job recovery and validated publication;
-- prepared backing/guitar references that bind directly into Studio without export/reimport;
-- one immutable project identity spanning Prepare, Studio, exports and cloud backup;
-- project creation from Blank or Guitar templates;
-- flexible track/group organization and built-in/custom roles;
-- non-destructive audio clips on a timeline;
-- import from multiple audio formats and sample rates;
-- waveform visualization, trim, move, split and clip-level gain/mute;
-- transport, seeking, looping and reliable playback;
-- low-latency guitar capture with monitoring and robust Android/USB routing;
-- multi-track recording, including double-tracked guitar workflows;
-- track controls such as arm, mute, solo, gain and pan;
-- mixing and export in multiple useful formats/qualities;
-- project persistence, safe reopening and compatibility across app upgrades;
-- practical Android UX for tablet use, with a clean modern visual system;
-- diagnostics and homologation tooling that remain available without leaking into the normal creative workflow.
+
+The supported personal product includes source acquisition/Prepare, validated Demucs references, one managed project identity, Studio editing/recording/mixing, useful validated import/export formats, safe save/reopen, direct Drive v3 backup/restore and practical tablet UX.
 
 ## Product principles
+
 1. Guitar-first, not generic-DAW-first.
-2. Non-destructive editing by default.
-3. Reliable before feature-rich: every major capability passes software and device gates.
-4. Flexible audio I/O and file interoperability.
-5. Explicit capability status: planned features are never advertised as supported before validation.
-6. Offline-capable Studio/core workflows; network-dependent preparation/cloud operations expose connectivity explicitly and never pretend to be offline.
-7. Project files store structure/metadata; large audio assets remain external or app-managed references.
-8. Prepare and Studio share one managed project/asset domain rather than copying files between subsystems.
-9. Modern, readable tablet UI with light/dark themes and restrained accent colors.
+2. Private personal appliance, not public platform.
+3. Non-destructive editing and transactional publication by default.
+4. Reliable before feature-rich.
+5. Musical usefulness matters: structurally valid but unusable separated audio is a release failure.
+6. Quality gates are proportional to credible risk, not gate count.
+7. Explicit capability status: unvalidated features are not advertised as supported.
+8. Studio/core remains usable locally; network-dependent operations expose their dependency explicitly.
+9. Prepare and Studio share one managed project/asset domain.
+10. After physical acceptance, freeze the exact signed APK and digest-pinned worker until a real maintenance trigger exists.
 
 ## Scope guardrail
-WAV is the first physically validated codec path, not the final interoperability scope. Multi-format import/export remains part of the planned product and must not be removed merely because early milestones use WAV as the vertical slice.
+
+Existing multi-format import/export support may remain and should not be regressed without reason, but GuitarLab has no obligation to become a universal media-conversion product. Provider-mediated source acquisition and the owner's actual workflows define the practical support boundary.
+
+Historical compatibility is not an open-ended product obligation. Current unified projects, their save/reopen path and data the owner actually needs remain protected; retired GBW/H37/pre-unification migration does not re-enter scope without an explicit later decision.
 
 ## Canonical documentation
-This file defines the destination. `PRODUCT_REQUIREMENTS.md` defines required behavior, `IMPLEMENTATION_ROADMAP.md` defines the current release sequence, `UNIFIED_GUITARLAB_GBW_IMPLEMENTATION_ROADMAP.md` defines the approved successor integration program, `CURRENT_STATE.md` records where development currently stands, and `CODEC_SUPPORT_MATRIX.md` prevents temporary codec limitations from becoming accidental product scope.
+
+`PROJECT_IDENTITY.md` defines stable identity; `PRODUCT_REQUIREMENTS.md` defines supported behavior; `CURRENT_STATE.md` records current state; `IMPLEMENTATION_ROADMAP.md` defines release sequence; `DECISIONS.md` contains durable decisions; and `DOCUMENTATION_MAP.md` separates live authority from historical evidence.

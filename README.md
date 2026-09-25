@@ -1,109 +1,70 @@
 # GuitarLab
 
-Android-first guitar practice, recording, preparation, comparison, mixing, export and backup workspace.
+Private, single-owner Android guitar preparation, study, recording, mixing, export and backup appliance.
 
 Updated: 2026-09-24
 
-## Repository truth
+## Project identity
 
-The repository is canonical for scope, architecture, implementation state and homologation evidence.
+GuitarLab is for personal/private use by one owner. It is not a public or commercial service and does not carry universal device/input/support obligations. Release rigor is risk-based: integrity, musical usefulness, the primary workflow, recovery, quota/cost, credentials and exact artifact identity remain strict; unrelated matrices, convenience diagnostics and maintenance-only freshness do not block by default.
 
-Read first:
-- `docs/CURRENT_STATE.md`
-- `docs/UNIFIED_GUITARLAB_GBW_IMPLEMENTATION_ROADMAP.md`
-- `docs/U10_FINAL_DIGITAL_COHESION_GATE.md`
-- `docs/UNIFIED_PRODUCT_COHESION_AUDIT.md`
-- `docs/CANDIDATE_IDENTITY_POLICY.md`
-- `docs/CI_PIPELINE.md`
-- `docs/TEST_AND_HOMOLOGATION_PLAN.md`
-- `docs/DOCUMENTATION_MAP.md`
-- `docs/H37_DRIVE_V3_BACKUP.md`
-- `docs/H35_TAKE_SYNC_QUIET_CALIBRATION.md`
-- `docs/RELEASE_NOTES_0.5.0-rc14.md`
-- `docs/RELEASE_NOTES_0.5.0-rc18.md`
-- `docs/RC14_FINAL_PHYSICAL_HOMOLOGATION.md`
-- `docs/RELEASE_NOTES_0.5.0-rc9.md` — historical corrective evidence
+Read the stable identity policy in `docs/PROJECT_IDENTITY.md` and durable decisions in `docs/DECISIONS.md`.
 
-## Active source/release state
+## Read first
 
-**U11 is CLOSED / DIGITAL PASS. U12 RC18 is digitally qualified and awaits target-tablet physical acceptance.**
+For current work, use this small authority set:
 
-Active signed RC18 candidate:
-- `0.5.0-rc18`
-- versionCode `38`
-- package `studio.guitarlab.app`
-- producer `ee947c6fbbd8b24430d3a3faa04e27ef9a46856c`
-- signed homologation artifact `GuitarLabStudio-0.5.0-rc18-homologacao` / artifact id `10804182567`
+1. `docs/PROJECT_IDENTITY.md`
+2. `docs/CURRENT_STATE.md`
+3. `docs/DECISIONS.md`
+4. `docs/PRODUCT_REQUIREMENTS.md`
+5. `docs/IMPLEMENTATION_ROADMAP.md`
+6. `docs/U12_RC19_AUDIO_FORENSICS_AND_DIAGNOSTICS_PLAN.md`
+7. `docs/TEST_AND_HOMOLOGATION_PLAN.md`
+8. `docs/CANDIDATE_IDENTITY_POLICY.md`
+9. `docs/DOCUMENTATION_MAP.md`
 
-RC18 digital evidence on producer `ee947c6fbbd8b24430d3a3faa04e27ef9a46856c`: Android CI signed run `35990311091`, U7 verify run `35990311054`, isolated shadow run `35991484767`, production deploy run `35992709966`, and U4 production smoke run `35994148711` all passed. RC14 remains the previous physically tested fallback at producer `13c6f36e5e3c2bcf82cf21f885e8d7aa6c41ed34`.
+Older U/H/M milestone files, release notes and audits remain evidence but are not current authority unless a live document explicitly reactivates a specific contract.
 
-Locked homologation certificate SHA-256:
-`4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
+## Current release line
 
-RC18 retains end-to-end signal validation/canonicalization and Studio reinsertion, removes the partitioned Demucs path proven to emit non-finite stem samples, and keeps stem reconstruction SNR as a diagnostic instead of a publication veto. It remains pending only target-device listening/reinsertion acceptance.
+RC19 (`0.5.0-rc19` / versionCode `39`) is the latest signed digitally qualified candidate, but it is physically rejected because a real Prepare run produced musically unusable separated audio. RC20 is the corrective successor line.
+
+The exact current worker/source/run status must be read from `docs/CURRENT_STATE.md`; this README intentionally does not duplicate volatile run IDs as release authority.
+
+Locked Android identity:
+
+- package: `studio.guitarlab.app`;
+- homologation certificate SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
 
 ## Product model
 
-GuitarLab is one application and one project model:
-
 **Home → Prepare → Studio → Export → Backup / Activity / Settings**
 
-The product includes:
-- source search/import and managed source publication;
-- cloud separation whose six intermediate stems remain ephemeral in v2;
-- import of only the two managed final references (backing and guitar) into the project;
-- Studio recording/editing/mixer/timing workflows;
-- canonical export workspace;
-- unified Activity/background-operation model;
-- direct Google Drive API v3 backup/restore;
-- phone/tablet responsive UI and accessibility contracts.
+The product includes provider-backed source acquisition, cloud Demucs separation, project-managed backing/guitar references, Studio recording/editing/mixer/timing, study/master export, Activity/background state, direct Google Drive v3 backup/restore and tablet-focused responsive/accessibility behavior.
 
-GBW is historical implementation provenance only; it is not a second end-user product surface.
+GBW is historical implementation provenance only. Legacy standalone GBW/H37/pre-unification migration is intentionally outside release scope.
 
-Legacy standalone GBW/H37/pre-unification migration is intentionally out of release scope. U9 is retired.
-
-## Current cloud/backup authority
-
-Remote separation uses the production Firebase/Cloud Run integration governed by the unified roadmap. The rc11 producer passed U4 Cloud Integration Smoke #123 on the exact source SHA; U7 Cloud Backend #81 also passed Email/Password Firebase identity enforcement, allowlisted-user verification and backend source/container/security verification. The six-stem Cloud Run contract remains unchanged.
-
-Drive backup uses direct client-side Google Identity Services + Drive API v3 with OAuth `drive.file`. U8m closed provider-real acceptance with:
-
-`U8m PASS · r_1790095960 · cleanup 8/8/14`
-
-Sanitized report SHA-256:
-`84efb70615be8ef5939da538eee5f714f7311aa6d44dd5bb2cdd0b5e9e66b702`.
-
-No Firebase/Cloud Run/Functions hop, service account, client secret or refresh-token custody is part of the Drive backup data path.
+No tuner functionality is part of GuitarLab.
 
 ## Branch and CI policy
 
 - `main` is canonical.
-- Ordinary commits use `[skip ci]`.
-- `[run ci]` runs software + API 36 gates.
-- `[run ci signed]` additionally signs the exact tested unsigned release candidate.
-- `[run u4 cloud]` runs the controlled real-cloud six-stem smoke.
-- `[run u7 cloud]` runs backend source/container/security verification; push-triggered execution does not deploy.
-- The current rc11 APK producer is frozen at `34cb60624b2fabf21cfe2c60003b04eac1597418`; subsequent docs-only commits never alter that APK producer identity.
+- Ordinary documentation/source commits use `[skip ci]` unless a real gate is requested.
+- `[run ci]` runs the current Android software/API36 workflow.
+- `[run ci signed]` signs the exact tested unsigned release candidate.
+- `[run u4 cloud]` runs the controlled real-cloud transactional smoke.
+- `[run u7 cloud]` runs backend verification; controlled shadow/production mutation requires explicit authorization.
+- Broad existing coverage remains available. A proven unrelated flaky/cosmetic failure may be quarantined only with explicit evidence; protected integrity/audio/primary-flow/quota/credential/signing failures may not be quarantined.
 
 ## Source materialization
 
 Large protected deltas are versioned under `.source-parts/` and materialized serially by `scripts/materialize_ci_sources.sh`.
 
-The current canonical tail ends at **U12w**. Each stage preserves fail-closed patch/blob verification, `git diff --check` and reverse-apply/idempotence guarantees. Unexpected drift blocks the build.
+The current canonical tail is **U12bh**. Materialization remains deterministic, hash/blob verified, idempotent and fail-closed. It is not being refactored merely for cleanup before RC20.
 
-## Security
+## Security and freeze
 
-Never commit keystores, credentials, local SDK configuration, client secrets, refresh tokens or service-account keys.
+Never commit keystores, private credentials, client secrets, refresh tokens or service-account keys.
 
-Drive authorization is limited to `drive.file`. Remote-separation deployment uses keyless GitHub/OpenID federation where cloud mutation is explicitly authorized. The Android package and signing identity remain `studio.guitarlab.app` plus the locked homologation certificate.
-
-## Physical boundary
-
-U11 is complete. U12 now resumes on the exact rc11 signed candidate. The focused corrective check is to authenticate once in Opções → Conta e nuvem using the existing personal Firebase Email/Password account, verify the account is accepted by the backend, then repeat Prepare separation to confirm upload → callable → Cloud Run → import on the target tablet. The broader residual campaign remains on:
-- Samsung SM-X230 / Android 16 / API 36;
-- M-VAVE MK-300 over USB;
-- actual intended hub/power topology when part of normal use.
-
-The final manual campaign is limited to claims digital systems cannot establish: real USB routing/isolation, monitoring, capture behavior, timing/listening, reconnect behavior, continuous 10-minute quality and target-device ergonomics.
-
-No tuner functionality is part of GuitarLab.
+After final physical acceptance, the exact signed APK and digest-pinned worker become the frozen personal-use baseline. Rebuild only for an observed regression, real provider/platform deprecation, applicable high-risk vulnerability, credential exposure, unacceptable integrity/cost risk or an owner-requested feature.
