@@ -1171,3 +1171,8 @@ Implemented as the final post-validation hardening candidate before another phys
 - selected reference lanes are restored canonically from the active prepared assets; user recordings/takes, mixer state, markers/sections and unselected references are preserved.
 
 The implementation must pass software + API36 gates and then be signed as the next homologation APK. Final documentation/freeze remains contingent on owner physical acceptance.
+
+
+### U12bw waveform/reference candidate
+
+U12bw completed canonical Android qualification in CI #902 and produced an exact signed homologation artifact. Waveform cache v2/media-window identity, exact frame-window envelope generation, 4096-bin peak-preserving rendering, timeline geometry correction, same-project revision reconciliation and selective canonical reference restore are digitally closed. Physical acceptance of this exact APK is the remaining release gate before final documentation/freeze. Signed APK SHA-256: `529834d908a0bf69c09182ebe08ca3a6269f7d776c57b37a76dbabcedae5c60f`.
