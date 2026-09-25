@@ -66,6 +66,7 @@ fun GuitarLabApp(
             onPrepareProject = { navigate(AppScreen.Prepare(it)) },
             onExportWorkspace = { navigate(ExportEntryPointPolicy.destination(it)) },
             onSettings = { navigate(AppScreen.Options()) },
+            onActivity = { navigate(AppScreen.Activity()) },
             onBackupProject = { navigate(AppScreen.Backup(it, returnToHome = true)) },
         )
         is AppScreen.Activity -> ActivityScreen(
