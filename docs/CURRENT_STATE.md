@@ -34,6 +34,8 @@ Updated: 2026-09-24
 
 - U12br corrective qualification dispatched after CI #890. Software gate was already green; signing remains deferred until API36 passes on the exact U12br source.
 
+- CI #891: software gate PASS; API36 runner/ADB/readiness finally operated correctly and reached `compileDebugAndroidTestKotlin`. The only blocker was missing imports for `SourceSearchOutcome` and `SourceSearchTerminalState` in `UnifiedProjectShellInstrumentedTest`. U12bs adds those imports only; no production app behavior changes.
+
 ## Unified program progress
 - Stable product identity is governed by `PROJECT_IDENTITY.md` and D-090: private single-owner appliance, proportional gates, exact signed APK + digest-pinned worker freeze after physical acceptance, and maintenance only for a real trigger.
 - Product-scope override (2026-09-21): legacy project/backup migration is retired. The owner has only two legacy projects and accepts recreating them manually. U9 is retired; U8/U10/U11 no longer carry H37/GBW/pre-unification migration obligations. Current unified-line save/reopen, schema evolution, backup/restore and integrity guarantees remain mandatory.
