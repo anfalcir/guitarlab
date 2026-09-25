@@ -139,3 +139,7 @@ H28 is frozen in `materialize_ci_sources_through_h28.sh`; the existing H29-H36c 
 
 ## Unified U3 source-acquisition checkpoint — 2026-09-21
 U3 ports the proven GBW acquisition behavior without copying the GBW project/UI model. Provider/network code is isolated from project mutation; validated media is published only through GuitarLab's unified project domain as `SOURCE_ORIGINAL`. Local import, remote search/ranking/download, persistent progress/cancel/retry and stale-operation/idempotency guards are included. Demucs/separation remains explicitly U4 scope. Automatic CI #676 closed U3 at exact source `a7af51bf6622b4eecc32308c091fbb5020a1d54b`: 358 JVM/unit tests, Lint, debug APK assembly, 37 standard API36 tests and 1 target-tablet geometry test all passed. U4 separation integration is next.
+
+
+## RC20 final Android completion status — U12bn
+The committed pre-freeze frontend/support scope is implemented and protected by the U12bn materialization tail. The next blocking step is Android CI/API36 qualification of the complete RC20 source, followed by exact-artifact signing and one consolidated physical homologation campaign. No intermediate incomplete APK is eligible for freeze.
