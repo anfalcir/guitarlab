@@ -194,6 +194,16 @@ fun BackupScreenContent(
             )
         }
         when {
+            state.catalogRefreshing && state.versions.isEmpty() -> {
+                Row(
+                    Modifier.fillMaxWidth().testTag("backup-catalog-loading"),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    CircularProgressIndicator()
+                    Text("Carregando histórico do Google Drive…", style = MaterialTheme.typography.bodySmall)
+                }
+            }
             state.catalogRefreshing && state.versions.isNotEmpty() -> {
                 Row(
                     Modifier.fillMaxWidth().testTag("backup-catalog-background-refresh"),
@@ -381,12 +391,11 @@ fun BackupScreenContent(
 
             if ((state.loading || state.catalogRefreshing) && state.versions.isEmpty()) {
                 item {
-                    Box(
-                        Modifier.fillMaxWidth().padding(24.dp).testTag("backup-catalog-loading"),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        CircularProgressIndicator()
-                    }
+                    Text(
+                        "Consultando as versões disponíveis…",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
             } else if (!configured) {
                 item {
