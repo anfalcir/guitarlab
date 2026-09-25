@@ -499,7 +499,7 @@ jobs:
           GBW_W4_VCPU: '8'
           GBW_W4_MEMORY_GIB: '16'
           GBW_W4_MEMORY_RESOURCE: 16Gi
-          GBW_W4_WARM_PROBE: '1'
+          GBW_W4_WARM_PROBE: '0'
           # Full benchmark validates assets/model load; separate Cloud Run model-probe is redundant.
           GBW_W4_MODEL_PROBE: '0'
         run: |
@@ -522,7 +522,7 @@ jobs:
           GBW_W4_VCPU: '4'
           GBW_W4_MEMORY_GIB: '16'
           GBW_W4_MEMORY_RESOURCE: 16Gi
-          GBW_W4_WARM_PROBE: '1'
+          GBW_W4_WARM_PROBE: '0'
           GBW_W4_MODEL_PROBE: '0'
         run: |
           set -euo pipefail
