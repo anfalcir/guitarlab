@@ -356,6 +356,27 @@ class RemoteSeparationClient(private val context: Context) {
         scheduleCancel(requesting)
     }
 
+    /**
+     * Activity may outlive the local durable job row after process/recovery edge cases.
+     * In that case we still own the authenticated remote job id, so enqueue a minimal
+     * Firebase cancellation request instead of leaving a cloud orphan behind.
+     */
+    fun cancelFromActivity(projectId: String, jobId: String): Boolean {
+        val store = FileRemoteJobStore(context)
+        val job = store.load(jobId)
+        if (job != null) {
+            if (job.identity.projectId != projectId) return false
+            cancel(projectId, jobId)
+            return true
+        }
+        WorkManager.getInstance(context.applicationContext).enqueueUniqueWork(
+            remoteActivityCancelWorkName(jobId),
+            ExistingWorkPolicy.REPLACE,
+            remoteActivityCancelRequest(projectId, jobId),
+        )
+        return true
+    }
+
     fun closeProject(projectId: String) {
         val store = FileRemoteJobStore(context)
         val jobs = store.active().filter { it.identity.projectId == projectId }
@@ -630,8 +651,31 @@ class RemoteCancelWorker(context: Context, params: WorkerParameters) : Coroutine
 }
 
 
+
+class RemoteActivityOrphanCancelWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
+    override suspend fun doWork(): Result {
+        val jobId = inputData.getString("jobId").orEmpty()
+        if (jobId.isBlank()) return Result.failure()
+        return try {
+            val app = GuitarLabFirebase.app(applicationContext)
+            val auth = FirebaseAuth.getInstance(app)
+            requireStableRemoteUid(auth)
+            FirebaseFunctions.getInstance(app, "us-central1")
+                .getHttpsCallable("cancelRemoteSeparation")
+                .call(mapOf("jobId" to jobId))
+                .await()
+            Result.success()
+        } catch (_: CancellationException) {
+            throw
+        } catch (_: Throwable) {
+            if (runAttemptCount < 4) Result.retry() else Result.failure()
+        }
+    }
+}
+
 private fun remoteWorkName(jobId: String) = "guitarlab-separation:$jobId"
 private fun remoteCancelWorkName(jobId: String) = "guitarlab-separation-cancel:$jobId"
+private fun remoteActivityCancelWorkName(jobId: String) = "guitarlab-separation-activity-cancel:$jobId"
 private fun remoteRecoveryWorkName(projectId: String) = "guitarlab-separation-recovery:$projectId"
 
 private fun remoteSeparationRequest(id: RemoteJobIdentity) =
@@ -650,6 +694,15 @@ private fun remoteCancelRequest(id: RemoteJobIdentity) =
         .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
         .addTag("guitarlab-separation-cancel")
         .addTag("guitarlab-separation-cancel:${id.projectId}")
+        .build()
+
+private fun remoteActivityCancelRequest(projectId: String, jobId: String) =
+    OneTimeWorkRequestBuilder<RemoteActivityOrphanCancelWorker>()
+        .setInputData(workDataOf("projectId" to projectId, "jobId" to jobId))
+        .setConstraints(networkConstraints())
+        .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
+        .addTag("guitarlab-separation-activity-cancel")
+        .addTag("guitarlab-separation-activity-cancel:$projectId")
         .build()
 
 private fun remoteRecoveryRequest(projectId: String) =
