@@ -400,3 +400,7 @@ The U12bw materialization chain is fail-closed from U12bv with exact terminal bl
 
 ### U12bw signed gate corrective
 The first signed U12bw qualification run 36132274501 failed at compile time only: the recovery branch mixed `List<Float>` and `WaveformEnvelope`, and one new preservation test used the wrong `RecordingTake` constructor label. No runtime/algorithm contract was invalidated. Both issues were corrected, the U12bw terminal patch/materializer were resealed against the exact corrected blobs, and the signed canonical gate is intentionally re-dispatched by this commit.
+
+
+### U12bw signed gate corrective 2
+The second signed U12bw qualification run 36132746100 passed the previous compile corrective and then failed only because the new app JVM reducer test imported `kotlin.test.Test`, while the app test source set uses JUnit4. The test annotation was aligned to `org.junit.Test`; source behavior is unchanged. The U12bw patch/materializer were resealed and this commit intentionally re-dispatches the signed canonical gate.
