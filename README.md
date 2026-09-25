@@ -3,7 +3,7 @@
 Private, single-owner Android guitar preparation, study, recording, mixing, export and backup appliance.
 
 Updated: 2026-09-25  
-Release state: **RC20 FINAL / PHYSICALLY HOMOLOGATED / FROZEN**
+Release state: **RC20 ACCEPTED / RC21 MAINTENANCE CANDIDATE — SOFTWARE/API36 PASS**
 
 ## Start here
 
@@ -22,9 +22,9 @@ For the current product, read:
 
 Completed roadmaps, milestone plans, candidate checklists, release campaigns and audits are under `docs/history/` and are not current authority.
 
-## Frozen release
+## Accepted baseline and active candidate
 
-GuitarLab `0.5.0-rc20` / versionCode `40` is the accepted personal-use baseline.
+GuitarLab `0.5.0-rc20` / versionCode `40` remains the accepted personal-use baseline. A proportional maintenance candidate, `0.5.0-rc21` / versionCode `41`, has completed its unsigned software/API36 qualification and is progressing through canonical-main signing and residual owner acceptance.
 
 - package: `studio.guitarlab.app`;
 - final Android CI: #904 PASS;
@@ -52,7 +52,7 @@ GBW is historical implementation provenance only. Legacy standalone GBW/H37/pre-
 
 - canonical branch: `main`;
 - canonical materialization entrypoint: `scripts/materialize_ci_sources.sh`;
-- frozen source tail: **U12bx** via `scripts/materialize_ci_sources_u12bx.py`;
+- current source tail: **RC21IntegrityFeedbackBackup** via `scripts/materialize_ci_sources_rc21.py`;
 - protected payloads: `.source-parts/`;
 - materialization is deterministic, hash/blob locked, idempotent and fail-closed.
 
@@ -67,10 +67,10 @@ Ordinary documentation/source commits use `[skip ci]` unless qualification is in
 - `[run u4 cloud]`: controlled real-cloud transactional smoke;
 - `[run u7 cloud]`: backend verification/deploy workflow with explicit shadow/production authorization.
 
-The frozen baseline does not require recurring CI.
+The accepted RC20 baseline does not require recurring CI. RC21 qualification is intentionally active only because an observed regression reopened maintenance under the frozen-product policy.
 
 ## Security and maintenance
 
 Never commit keystores, private credentials, client secrets, refresh tokens or service-account keys.
 
-The accepted APK and backend digest remain frozen until a real maintenance trigger in `docs/PROJECT_IDENTITY.md` / D-090 / D-096 occurs or the owner requests a new feature. Future qualification is proportional under `docs/TEST_AND_HOMOLOGATION_POLICY.md`.
+The accepted RC20 APK and backend digest remain frozen until a successor is promoted. RC21 exists because a real owner-observed regression triggered maintenance under `docs/PROJECT_IDENTITY.md` / D-090 / D-096; its qualification is proportional under `docs/TEST_AND_HOMOLOGATION_POLICY.md`. The separation backend is unchanged.
