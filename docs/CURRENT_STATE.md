@@ -42,6 +42,8 @@ Updated: 2026-09-24
 
 - U12bt autonomous requalification dispatched; continue monitoring until Android software/API36 qualification is green, then run exact-artifact signing for physical homologation.
 
+- Android CI #893 / run `36097096901` PASS on U12bt: software gate PASS and all API36 grouped regressions PASS. The next commit is documentation-only and intentionally triggers `[run ci signed]`; it does not modify Android/runtime/materialized source. That signed run must independently pass the same software/API36 gates, upload the tested unsigned candidate, and sign that exact artifact without recompilation before physical homologation.
+
 ## Unified program progress
 - Stable product identity is governed by `PROJECT_IDENTITY.md` and D-090: private single-owner appliance, proportional gates, exact signed APK + digest-pinned worker freeze after physical acceptance, and maintenance only for a real trigger.
 - Product-scope override (2026-09-21): legacy project/backup migration is retired. The owner has only two legacy projects and accepts recreating them manually. U9 is retired; U8/U10/U11 no longer carry H37/GBW/pre-unification migration obligations. Current unified-line save/reopen, schema evolution, backup/restore and integrity guarantees remain mandatory.
