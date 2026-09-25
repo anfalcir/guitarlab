@@ -1,6 +1,6 @@
 # Product Vision
 
-Updated: 2026-09-24
+Updated: 2026-09-25
 
 ## Mission
 
@@ -23,7 +23,7 @@ The supported personal product includes source acquisition/Prepare, validated De
 7. Explicit capability status: unvalidated features are not advertised as supported.
 8. Studio/core remains usable locally; network-dependent operations expose their dependency explicitly.
 9. Prepare and Studio share one managed project/asset domain.
-10. After physical acceptance, freeze the exact signed APK and digest-pinned worker until a real maintenance trigger exists.
+10. Keep the accepted exact signed APK and digest-pinned worker frozen until a real maintenance trigger exists.
 
 ## Scope guardrail
 
@@ -33,4 +33,4 @@ Historical compatibility is not an open-ended product obligation. Current unifie
 
 ## Canonical documentation
 
-`PROJECT_IDENTITY.md` defines stable identity; `PRODUCT_REQUIREMENTS.md` defines supported behavior; `CURRENT_STATE.md` records current state; `IMPLEMENTATION_ROADMAP.md` defines release sequence; `DECISIONS.md` contains durable decisions; and `DOCUMENTATION_MAP.md` separates live authority from historical evidence.
+`PROJECT_IDENTITY.md` defines stable identity; `PRODUCT_REQUIREMENTS.md` defines supported behavior; `CURRENT_STATE.md` records present state; `RELEASE_BASELINE.md` records the exact frozen release identity; `DECISIONS.md` contains durable decisions; `TEST_AND_HOMOLOGATION_POLICY.md` governs future qualification; and `DOCUMENTATION_MAP.md` separates live authority from historical evidence.

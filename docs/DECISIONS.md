@@ -414,3 +414,18 @@ Consequences:
 U7 #164 / run `36085821470` passed on producer `aab87776f314fddc20028432371a9a5d268079c1` and qualified immutable worker digest `sha256:14e240cb01b71131cb049dd34e0df078614238da3514325f80126d56f8d5e698`. Production before W6 remains `sha256:a70bd221ab50ef092508781c609cbfbecfe6b71ba4c8a722fc5f087b09dbd550`.
 
 W6 therefore promotes that exact Artifact Registry digest. Production deploy must not rebuild or retag an equivalent worker as the promoted candidate. The deploy script accepts a production-only prequalified digest, validates the exact repository and sha256 shape plus registry existence, deploys it with the locked CPU8/16 GiB Demucs contract, then runs runtime verification and the full U4 transactional smoke. Failure restores the captured previous production image automatically. Shadow qualification continues to build/publish normally when a new worker image actually requires qualification.
+
+## D-096 — RC20 is physically accepted and the exact APK/worker baseline is frozen
+
+On 2026-09-25 the owner physically homologated the exact signed U12bx RC20 candidate on the reference Samsung SM-X230 / Android 16 line, with the M-VAVE MK-300 USB path used for the relevant hardware-audio validation. The accepted signed APK SHA-256 is `0d5832666a00484635ef37daecb9bead021ed771ddd053b88d88191a5f029fd2`; producer commit is `76a832afdd8045ac944046dae2c31d8f6ec00716`; signer certificate remains `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
+
+The production separation worker is frozen at immutable digest `sha256:14e240cb01b71131cb049dd34e0df078614238da3514325f80126d56f8d5e698`, promoted without rebuild by U7 #165 after U7 #164 qualification. The official engine/model contract remains Demucs/PyTorch `htdemucs_6s` with checkpoint SHA-256 `34c22ccb381c6f9fdbf324f04e1e2fe21aaaf293f5ded163a162697ff9a02ddd` and the qualified CPU8 recipe.
+
+Consequences:
+- U12 and the RC20 completion campaign are CLOSED;
+- the U/C development roadmaps are historical evidence, not live work queues;
+- the exact identities are recorded in `RELEASE_BASELINE.md`;
+- completed development/homologation plans are archived under `docs/history/`;
+- documentation-only commits after acceptance do not change the accepted producer identity;
+- no recurring CI, rebuild, dependency refresh or re-homologation is required without a D-090 maintenance trigger or explicit owner-requested feature;
+- any future runtime/source/backend mutation creates a new candidate and receives proportional qualification under `TEST_AND_HOMOLOGATION_POLICY.md`.

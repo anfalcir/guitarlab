@@ -1,6 +1,6 @@
 # Candidate identity policy
 
-Updated: 2026-09-24
+Updated: 2026-09-25
 
 This file defines the stable identity/provenance contract for every promoted GuitarLab candidate. It intentionally does **not** duplicate the volatile “current candidate” snapshot; read `CURRENT_STATE.md` for that.
 
@@ -36,7 +36,7 @@ A promoted candidate must pass all gates relevant to the changed code and repres
 
 Existing broad Android regression may continue to execute unchanged. A specific unrelated flaky/cosmetic failure may be quarantined only with explicit evidence and rationale. No data-loss, audio-integrity, primary-flow, quota/cost, credential or signing failure may be quarantined.
 
-The current Trivy/SBOM workflow also remains unchanged for RC20. Applicability under D-090 guides future decisions; no new generic vulnerability-reachability framework is required before homologation.
+The frozen RC20 Trivy/SBOM evidence is retained. For future maintenance candidates, applicability under D-090/D-096 guides decisions; no generic severity-only waiver or broad subjective reachability framework replaces evidence-backed review.
 
 ## Cloud/backend identity
 
@@ -44,8 +44,8 @@ When a candidate changes the separation backend/worker, the finalist is qualifie
 
 Unrelated Android-only changes do not automatically require a redundant provider-real campaign when prior applicable evidence remains valid.
 
-## Current RC20 target
+## Frozen baseline and future candidates
 
-The successor target is `0.5.0-rc20` / planned versionCode `40`, preserving the locked package and signer. It does not become the active signed authority until its build configuration, exact producer run and signed artifact evidence exist.
+The accepted RC20 artifact/backend identity is recorded in `RELEASE_BASELINE.md`. That baseline is frozen and is not redefined by later documentation commits.
 
-A later docs-only commit never changes the producer identity of an already-built candidate.
+A future runtime/source/backend change creates a new candidate with a new exact producer identity and proportional qualification. A later docs-only commit never changes the producer identity of an already-built candidate.

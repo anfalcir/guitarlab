@@ -1,6 +1,6 @@
 # CI and Release Pipeline
 
-Updated: 2026-09-24
+Updated: 2026-09-25
 
 This document describes current execution controls. Historical tail hashes, run chronology and retired gate details are preserved in `history/CI_PIPELINE_PRE_RC20.md` and immutable workflow artifacts.
 
@@ -65,7 +65,7 @@ U7 retains:
 - one consolidated CPU8 W3/W4 shadow qualification: exactly one Cloud Run execution and one Demucs inference, collecting exact engine/model/config + structural/quality gates and performance/cost evidence;
 - controlled shadow/production deployment and rollback information; production promotion uses the exact prequalified digest and never rebuilds the promoted worker.
 
-CPU4 runs only when explicitly requested and is not an RC20 prerequisite while CPU8 remains acceptable. Warm-probe and standalone model-probe are off in the normal path. The full transactional U4 smoke runs only after production cutover inside the controlled deploy so rollback remains automatic. The standalone U4 workflow is pinned to the same official RC20 checkpoint identity.
+CPU4 runs only when explicitly requested and is not part of the frozen RC20 qualification baseline. Warm-probe and standalone model-probe are off in the normal path. The full transactional U4 smoke runs after production cutover inside the controlled deploy so rollback remains automatic. The standalone U4 workflow remains pinned to the official frozen checkpoint identity unless a future qualified engine/model change explicitly replaces it.
 
 ## Real-cloud transactional gate
 
@@ -75,9 +75,9 @@ The gate must prove representative source → job → output → import/ACK/purg
 
 ## Vulnerability policy
 
-Retain complete scanner/SBOM evidence. RC20 keeps the existing narrow evidence-backed exceptions. A new finding blocks when it is materially applicable to the shipped runtime or credentials, not merely because a database assigns a severity label.
+Retain complete scanner/SBOM evidence. The frozen RC20 baseline keeps its narrow evidence-backed applicability decisions. A future finding blocks when it is materially applicable to the shipped runtime or credentials, not merely because a database assigns a severity label.
 
-Do not build a broad subjective reachability system before RC20. Review a newly blocking finding with package/path/vendor/fix/exploit context and encode only a narrow auditable decision when justified.
+Do not replace evidence with a broad subjective reachability system. Review a newly blocking finding with package/path/vendor/fix/exploit context and encode only a narrow auditable decision when justified.
 
 ## Proportional failure handling
 
@@ -109,16 +109,6 @@ Run IDs and current status belong in `CURRENT_STATE.md`, not here.
 
 ## Post-freeze
 
-The frozen APK/worker does not require recurring CI. Run this pipeline again only after a real maintenance trigger or owner-requested feature, selecting gates by affected path under `TEST_AND_HOMOLOGATION_PLAN.md`.
+The accepted baseline is recorded in `RELEASE_BASELINE.md`. The frozen APK/worker does not require recurring CI. Run qualification again only after a real maintenance trigger or owner-requested feature, selecting gates by affected path under `TEST_AND_HOMOLOGATION_POLICY.md`.
 
-- U12bq materialization note: the POSIX API36 workflow change is represented by a regenerated exact Git patch with blob-hash verification; malformed source-parts are expected to fail before Gradle/emulator execution.
-
-- API36 runner note: `android-emulator-runner` now receives a single command only; device readiness, animation disabling, fail-closed class coverage and grouped regression execution live inside `scripts/ci_run_api36_regression_groups.sh`.
-
-- U12bu Activity cancellation / Settings cleanup is materialized fail-closed but intentionally unqualified: owner explicitly requested implementation without generating another APK. A future candidate must run the normal software gate + API36 gate before any signed homologation artifact is produced.
-
-
-- U12bw waveform/reference completion is source-materialized fail-closed. Waveform caches are v2 media/window-aware, the Studio reloads the same project id only when the persisted snapshot changed, static envelopes use exact source windows at 4096 bins with screen-resolution peak reduction, and Prepare exposes selective canonical Base/Guitar restoration. Qualification requires the normal software gate + API36 gate before signing.
-
-
-- U12bx playback-presentation clock is materialized fail-closed on top of U12bw. The Studio playhead now prefers a stable AudioTimestamp-derived presentation origin, remains anchored before the sink presentation origin, re-anchors after seek/flush, clamps to frames already accepted by AudioTrack, and retains playbackHeadPosition only as the fallback when a stable timestamp is unavailable. Recording latency compensation is unchanged.
+The current source materialization tail is U12bx. Its AudioTimestamp-based playback-presentation clock is part of the accepted RC20 Android baseline; recording latency compensation is unchanged. Any future source change adds a new fail-closed materialization step rather than rewriting an old protected payload.

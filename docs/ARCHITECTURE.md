@@ -1,12 +1,12 @@
 # GuitarLab Architecture
 
-Updated: 2026-09-24
+Updated: 2026-09-25
 
 ## Repository and release boundary
 - `main` is canonical.
 - Product behavior is promoted after exact-source affected-path gates and, where required, residual physical validation on the owner's environment.
 - `.github/workflows/android-ci.yml` supports manual dispatch plus explicit `[run ci]` / `[run ci signed]` commit-message gates on `main`; ordinary `[skip ci]` commits remain inert.
-- `CURRENT_STATE.md` alone records the active version/run boundary. Final physical acceptance occurs only on the exact signed APK intended for freeze.
+- `CURRENT_STATE.md` records present-tense operational state and `RELEASE_BASELINE.md` records the immutable accepted artifact/backend identity. Any future physical acceptance occurs only on the exact signed APK intended for promotion.
 
 ## Module boundaries
 - `core:model`: immutable project/track/clip/take metadata contracts.
@@ -84,7 +84,7 @@ The canonical Export workspace owns external delivery; editable `.guitarlab` per
 Durable creative state belongs in project persistence, not transient Composable state. Navigation/recreation and interrupted media operations are independently recoverable. Home library query state is presentation state and may be recreated without changing project data.
 
 ## Build/release architecture
-`scripts/build_local.sh` is the local software gate when its environment is available. GitHub workflows provide controlled Android/API36/signing and cloud qualification. Required jobs are selected proportionally under `TEST_AND_HOMOLOGATION_PLAN.md`.
+`scripts/build_local.sh` is the local software gate when its environment is available. GitHub workflows provide controlled Android/API36/signing and cloud qualification. Required jobs are selected proportionally under `TEST_AND_HOMOLOGATION_POLICY.md`.
 
 Large deltas are materialized from `.source-parts` serially. The canonical entrypoint and current tail are identified in `CI_PIPELINE.md`. Protected blocks verify patch/archive identity and exact terminal Git blobs; the tail preserves `git diff --check`, semantic guards and reverse-apply/idempotence checks. Unexplained drift blocks the build.
 
@@ -99,4 +99,4 @@ No Firebase/Cloud Run/Functions hop, service account, client secret or refresh-t
 
 The local durable store is recovery intent, not proof that a cloud job exists. When reconciliation finds no remote job, replayable pre-dispatch states are idempotently re-enqueued, cancellation requests terminalize locally, and states requiring an already-created remote job expire safely. Cancellation/worker retry exhaustion must end in a terminal local state. Restoration of `SOURCE_READY` is source-generation-aware and may not overwrite newer active work. Per-project observation prefers active work over a late terminal completion from an older generation.
 
-Current release work is defined only by `RC20_COMPLETION_PLAN.md`; historical milestones do not create architecture or homologation gates.
+There is no active development plan in the live documentation root. RC20 is frozen; future runtime work begins only after a maintenance trigger or explicit owner-requested feature and is qualified under `TEST_AND_HOMOLOGATION_POLICY.md`. Closed plans and milestones remain historical evidence only.

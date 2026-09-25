@@ -1,3 +1,7 @@
+> **ARCHIVED FINAL CLOSURE — 2026-09-25**
+>
+> The unified implementation roadmap is **CLOSED**. GuitarLab RC20 (`0.5.0-rc20` / versionCode `40`) reached complete digital qualification and owner physical homologation on the exact signed U12bx candidate. The authoritative frozen identity is `../RELEASE_BASELINE.md`. Statements below such as “open”, “pending”, “next” or “current” are preserved as historical plan chronology and are not present-tense authority.
+
 # Implementation Roadmap
 
 Updated: 2026-09-24

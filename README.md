@@ -2,70 +2,75 @@
 
 Private, single-owner Android guitar preparation, study, recording, mixing, export and backup appliance.
 
-Updated: 2026-09-24
+Updated: 2026-09-25  
+Release state: **RC20 FINAL / PHYSICALLY HOMOLOGATED / FROZEN**
 
-## Project identity
+## Start here
 
-GuitarLab is for personal/private use by one owner. It is not a public or commercial service and does not carry universal device/input/support obligations. Release rigor is risk-based: integrity, musical usefulness, the primary workflow, recovery, quota/cost, credentials and exact artifact identity remain strict; unrelated matrices, convenience diagnostics and maintenance-only freshness do not block by default.
-
-Read the stable identity policy in `docs/PROJECT_IDENTITY.md` and durable decisions in `docs/DECISIONS.md`.
-
-## Read first
-
-For current work, use this small authority set:
+For the current product, read:
 
 1. `docs/PROJECT_IDENTITY.md`
 2. `docs/CURRENT_STATE.md`
-3. `docs/DECISIONS.md`
+3. `docs/RELEASE_BASELINE.md`
 4. `docs/PRODUCT_REQUIREMENTS.md`
-5. `docs/IMPLEMENTATION_ROADMAP.md`
-6. `docs/RC20_COMPLETION_PLAN.md`
-7. `docs/RC20_PHYSICAL_HOMOLOGATION.md`
-8. `docs/TEST_AND_HOMOLOGATION_PLAN.md`
-9. `docs/CANDIDATE_IDENTITY_POLICY.md`
+5. `docs/ARCHITECTURE.md`
+6. `docs/DECISIONS.md`
+7. `docs/TEST_AND_HOMOLOGATION_POLICY.md`
+8. `docs/CANDIDATE_IDENTITY_POLICY.md`
+9. `docs/CI_PIPELINE.md`
 10. `docs/DOCUMENTATION_MAP.md`
 
-Older U/H/M milestone files, release notes and audits are isolated under `docs/history/`. They remain evidence but are not current authority unless a live document explicitly reactivates a specific invariant.
+Completed roadmaps, milestone plans, candidate checklists, release campaigns and audits are under `docs/history/` and are not current authority.
 
-## Current release line
+## Frozen release
 
-RC19 (`0.5.0-rc19` / versionCode `39`) is the latest signed digitally qualified candidate, but it is physically rejected because a real Prepare run produced musically unusable separated audio. RC20 is the corrective successor line.
-
-The exact current worker/source/run status must be read from `docs/CURRENT_STATE.md`; this README intentionally does not duplicate volatile run IDs as release authority.
-
-Locked Android identity:
+GuitarLab `0.5.0-rc20` / versionCode `40` is the accepted personal-use baseline.
 
 - package: `studio.guitarlab.app`;
-- homologation certificate SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
+- final Android CI: #904 PASS;
+- exact signed APK and certificate identity: `docs/RELEASE_BASELINE.md`;
+- owner physical homologation: PASS on 2026-09-25;
+- target line: Samsung SM-X230 / Android 16 / API 36, with M-VAVE MK-300 USB where applicable;
+- remote separation: official PyTorch/Demucs `htdemucs_6s`, production worker frozen by immutable digest;
+- backup: direct Google Drive API v3.
+
+The exact hashes, producer SHAs, worker digest, model identity and qualification runs live in `docs/RELEASE_BASELINE.md`.
 
 ## Product model
 
 **Home → Prepare → Studio → Export → Backup / Activity / Settings**
 
-The product includes provider-backed source acquisition, cloud Demucs separation, project-managed backing/guitar references, Studio recording/editing/mixer/timing, study/master export, Activity/background state, direct Google Drive v3 backup/restore and tablet-focused responsive/accessibility behavior.
+The product includes provider-backed source acquisition, cloud Demucs separation, managed backing/guitar references, Studio recording/editing/mixer/timing, study/master export, Activity/background state, direct Drive v3 backup/restore and tablet-focused responsive/accessibility behavior.
 
-GBW is historical implementation provenance only. Legacy standalone GBW/H37/pre-unification migration is intentionally outside release scope.
+Studio remains locally usable without login for local work. Network-dependent acquisition/separation/backup surfaces expose their dependency.
 
-No tuner functionality is part of GuitarLab.
+GBW is historical implementation provenance only. Legacy standalone GBW/H37/pre-unification migration is outside supported scope.
 
-## Branch and CI policy
+**No tuner, pitch detection or tuning-detection feature is part of GuitarLab.**
 
-- `main` is canonical.
-- Ordinary documentation/source commits use `[skip ci]` unless a real gate is requested.
-- `[run ci]` runs the current Android software/API36 workflow.
-- `[run ci signed]` signs the exact tested unsigned release candidate.
-- `[run u4 cloud]` runs the controlled real-cloud transactional smoke.
-- `[run u7 cloud]` runs backend verification; controlled shadow/production mutation requires explicit authorization.
-- Broad existing coverage remains available. A proven unrelated flaky/cosmetic failure may be quarantined only with explicit evidence; protected integrity/audio/primary-flow/quota/credential/signing failures may not be quarantined.
+## Repository and materialization
 
-## Source materialization
+- canonical branch: `main`;
+- canonical materialization entrypoint: `scripts/materialize_ci_sources.sh`;
+- frozen source tail: **U12bx** via `scripts/materialize_ci_sources_u12bx.py`;
+- protected payloads: `.source-parts/`;
+- materialization is deterministic, hash/blob locked, idempotent and fail-closed.
 
-Large protected deltas are versioned under `.source-parts/` and materialized serially by `scripts/materialize_ci_sources.sh`.
+Do not rewrite old source payloads in place. A future runtime change begins a new corrective/materialization step.
 
-The current canonical tail is **U12bi**. Materialization remains deterministic, hash/blob verified, idempotent and fail-closed. It is not being refactored merely for cleanup before RC20.
+## CI and signing
 
-## Security and freeze
+Ordinary documentation/source commits use `[skip ci]` unless qualification is intentionally requested.
+
+- `[run ci]`: Android software + API36 qualification;
+- `[run ci signed]`: qualifies and signs the exact tested unsigned candidate;
+- `[run u4 cloud]`: controlled real-cloud transactional smoke;
+- `[run u7 cloud]`: backend verification/deploy workflow with explicit shadow/production authorization.
+
+The frozen baseline does not require recurring CI.
+
+## Security and maintenance
 
 Never commit keystores, private credentials, client secrets, refresh tokens or service-account keys.
 
-After final physical acceptance, the exact signed APK and digest-pinned worker become the frozen personal-use baseline. Rebuild only for an observed regression, real provider/platform deprecation, applicable high-risk vulnerability, credential exposure, unacceptable integrity/cost risk or an owner-requested feature.
+The accepted APK and backend digest remain frozen until a real maintenance trigger in `docs/PROJECT_IDENTITY.md` / D-090 / D-096 occurs or the owner requests a new feature. Future qualification is proportional under `docs/TEST_AND_HOMOLOGATION_POLICY.md`.

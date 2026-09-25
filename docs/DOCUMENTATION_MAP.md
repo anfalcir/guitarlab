@@ -1,79 +1,79 @@
 # Documentation map
 
-Updated: 2026-09-24
+Updated: 2026-09-25
 
 ## Authority rule
 
-Repository documentation is divided into **live authority**, **normative subsystem contracts** and **historical evidence**.
+The root of `docs/` contains **live documentation only**. Completed development plans, release campaigns, milestone reports, audits, candidate checklists and superseded release notes belong under `docs/history/`.
 
-Historical files intentionally preserve old candidate names, branches, hardware targets, gate language and statements such as “current” or “pending”. Those statements apply only to their dated context and never override the live authority set below.
+Historical files intentionally preserve old candidate names, states and words such as “current”, “open”, “pending” or “release-blocking”. Those statements apply only to their dated context.
 
-## Live authority
+## Live authority — read first
 
-Use these documents first for all new work:
-
-1. `PROJECT_IDENTITY.md` — stable personal-appliance identity, support boundary, proportional quality, freeze and maintenance policy.
-2. `CURRENT_STATE.md` — the only volatile ledger for current source/candidate/worker status and next action.
-3. `DECISIONS.md` — durable decisions; later numbered decisions supersede earlier ones.
+1. `PROJECT_IDENTITY.md` — stable product identity, support boundary, freeze and maintenance triggers.
+2. `CURRENT_STATE.md` — concise present-tense operational state.
+3. `RELEASE_BASELINE.md` — immutable exact identity of the accepted APK/backend baseline.
 4. `PRODUCT_REQUIREMENTS.md` — supported product behavior.
-5. `IMPLEMENTATION_ROADMAP.md` — current RC sequence and remaining milestones.
-6. `RC20_COMPLETION_PLAN.md` — remaining RC20 corrective work through freeze.
-7. `RC20_PHYSICAL_HOMOLOGATION.md` — focused acceptance checklist for the exact signed RC20 candidate.
-8. `TEST_AND_HOMOLOGATION_PLAN.md` — current automated vs physical qualification boundary.
-9. `CANDIDATE_IDENTITY_POLICY.md` — exact-source/signing/provenance contract.
-10. `CI_PIPELINE.md` — operational CI/signing/materialization contract.
+5. `ARCHITECTURE.md` — current technical boundaries.
+6. `DECISIONS.md` — durable numbered decisions; later decisions supersede earlier conflicting ones.
+7. `TEST_AND_HOMOLOGATION_POLICY.md` — proportional qualification/evidence-reuse policy for future maintenance.
+8. `CANDIDATE_IDENTITY_POLICY.md` — exact-source/build-once/sign-exactly provenance contract.
+9. `CI_PIPELINE.md` — operational CI/materialization/signing/backend controls.
+10. `PRODUCT_VISION.md` — product intent and scope guardrail.
 
-`README.md` is the repository entry point and points back to this set; it is not a second volatile status ledger.
-
-## Volatile state rule
-
-Version, run IDs, source SHA, worker digest, active blocker and next action belong only in `CURRENT_STATE.md`. Do not duplicate them into stable contracts or this map.
+`README.md` is the repository entry point and links to this authority set. It is not a second release ledger.
 
 ## Normative subsystem contracts
 
-These documents remain authoritative only when work touches their subsystem:
+These remain live only for their subsystem:
 
-- `ARCHITECTURE.md`;
-- `DRIVE_BACKUP_CONTRACT.md` for the retained direct Drive v3 transport/security/integrity contract;
-- `RECORDING_LATENCY_ARCHITECTURE.md` and `RECORDING_LATENCY_CONTRACT.md`;
+- `BACKUP_IDENTITY_CONTRACT.md`;
+- `DRIVE_BACKUP_CONTRACT.md`;
 - `MANAGED_MEDIA_POLICY.md`;
-- `CODEC_SUPPORT_MATRIX.md` and `MEDIA_IO_SUPPORT_CLAIM_RULE.md`;
 - `PROJECT_PORTABILITY_CONTRACT.md`;
-- `TIMELINE_INTERACTION_GUIDELINES.md`;
-- `STUDIO_WORKSPACE_GUIDELINES.md` and `STUDIO_OPTIONS_AND_MIXER.md`;
-- `UI_VISUAL_SYSTEM.md`, `UI_COPY_STYLE.md`, `TRANSIENT_FEEDBACK_CONTRACT.md`, `USER_GUIDE_POLICY.md`;
+- `CODEC_SUPPORT_MATRIX.md`;
+- `MEDIA_IO_SUPPORT_CLAIM_RULE.md`;
 - `OUTPUT_WORKFLOW_CONTRACT.md`;
-- `BACKUP_IDENTITY_CONTRACT.md` for the retained backup identity/revision invariant.
+- `RECORDING_LATENCY_ARCHITECTURE.md`;
+- `RECORDING_LATENCY_CONTRACT.md`;
+- `STUDIO_OPTIONS_AND_MIXER.md`;
+- `STUDIO_WORKSPACE_GUIDELINES.md`;
+- `TIMELINE_INTERACTION_GUIDELINES.md`;
+- `TRANSIENT_FEEDBACK_CONTRACT.md`;
+- `UI_COPY_STYLE.md`;
+- `UI_VISUAL_SYSTEM.md`;
+- `USER_GUIDE_POLICY.md`.
 
-A subsystem contract does not create a release gate for an unrelated change merely because the file exists.
+A subsystem contract does not create an unrelated release/maintenance gate merely because it exists.
 
-## Historical/superseded evidence
+## Archived RC20 closure set
 
-All superseded documentation now lives under [`history/`](history/README.md). It is preserved for traceability but is not current-state authority unless a live document explicitly cites a retained invariant.
+The final development/release campaign is preserved under `history/`, including:
 
-The historical directory includes:
+- `IMPLEMENTATION_ROADMAP_RC20_FINAL_2026-09-25.md`;
+- `RC20_COMPLETION_PLAN_FINAL_2026-09-25.md`;
+- `TEST_AND_HOMOLOGATION_PLAN_RC20_FINAL_2026-09-25.md`;
+- `RC20_PHYSICAL_HOMOLOGATION_FINAL_2026-09-25.md`;
+- `RELEASE_NOTES_0.5.0-rc20.md`;
+- `FINAL_DOCUMENTATION_AUDIT_2026-09-25.md`.
 
-- `history/U10_FINAL_DIGITAL_COHESION_GATE.md`;
-- `history/U11_FINAL_DIGITAL_RELEASE_GATE.md`;
-- `history/U11_SECURITY_DOCUMENTATION_AUDIT.md`;
-- closed unified/cohesion milestone plans and audits;
-- superseded `RELEASE_NOTES_*`;
-- `history/RC14_FINAL_PHYSICAL_HOMOLOGATION.md` and older candidate/checklist files;
-- `history/HISTORICAL_CANDIDATES.md`;
-- all `ALPHA*`, `M4_*`, `M5_*`, `M5C_*`, `M6_*`, `M7_*` milestone/checkpoint/checklist files;
-- dated documentation audits/consistency snapshots;
-- `history/PHYSICAL_EDITING_RECORDING_HARDENING_PLAN.md`;
-- `history/M8_GLOBAL_DIGITAL_REGRESSION.md`;
-- `history/GITLAB_CI_MIGRATION.md`;
-- archived pre-cleanup RC20/physical/test/CI plans;
-- H/U milestone-specific closure reports already absorbed by the current line.
+Older H/U/C/M/Alpha/RC plans, release notes, audits and forensic reports remain historical evidence only.
 
-Do not add a superseded plan back to the `docs/` root. Promote a retained invariant into a stable live contract instead.
+## Root cleanliness rule
 
-## Evidence reuse rule
+Do not add a development roadmap, temporary handoff, completion plan, release checklist, forensic report or superseded candidate note back to `docs/` root.
 
-Accepted evidence remains reusable unless a later source/backend/hardware change can materially invalidate it. A future change requalifies the affected path plus adjacent risk smoke, not the entire historical program by default.
+If future development reopens:
 
-## Producer identity rule
+1. create the new dated/identified plan under the appropriate work context;
+2. keep stable invariants in live contracts;
+3. on closure, archive the plan/report under `history/`;
+4. update only the live contracts actually changed by the new baseline.
 
-A documentation-only commit never retroactively changes an already-built APK or worker. Every promoted candidate remains bound to its exact producer SHA, APK hash, signer and, where applicable, immutable worker digest.
+## Evidence reuse
+
+Accepted evidence remains reusable unless a later source/backend/hardware change can materially invalidate it. Future work requalifies the affected path plus adjacent integration smoke, not the entire historical program by default.
+
+## Producer identity
+
+Documentation-only commits never retroactively change an already-built APK or worker. Frozen producer SHA, APK hashes, signer and worker digest are defined by `RELEASE_BASELINE.md`, not by the latest documentation commit on `main`.
