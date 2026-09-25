@@ -273,8 +273,8 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
     fun setCadence(value: BackupCadence) = updateSettings { settingsStore.setCadence(value) }
     fun setUnmeteredOnly(value: Boolean) = updateSettings { settingsStore.setUnmeteredOnly(value) }
     fun setChargingOnly(value: Boolean) = updateSettings { settingsStore.setChargingOnly(value) }
-    fun setRetentionDays(value: Int?) = updateSettings { settingsStore.setRetentionDays(value) }
-    fun setMaximumVersions(value: Int) = updateSettings { settingsStore.setMaximumVersions(value) }
+    fun setRetentionDays(value: Int?) = updateSettings(refreshCatalog = true) { settingsStore.setRetentionDays(value) }
+    fun setMaximumVersions(value: Int) = updateSettings(refreshCatalog = true) { settingsStore.setMaximumVersions(value) }
 
     fun backupAllNow() = runBackup(null, "Backup total") { service ->
         val settings = settingsStore.snapshot()
@@ -507,10 +507,14 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-    private fun updateSettings(change: () -> Unit) {
+    private fun updateSettings(
+        refreshCatalog: Boolean = false,
+        change: () -> Unit,
+    ) {
         change()
         BackupScheduler.sync(getApplication())
         _state.update { it.copy(settings = settingsStore.snapshot()) }
+        if (refreshCatalog && !_state.value.busy) refreshInternal(forceRemote = false)
     }
 
     private fun runBusy(
