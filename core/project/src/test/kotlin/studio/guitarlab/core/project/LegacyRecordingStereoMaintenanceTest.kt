@@ -37,6 +37,16 @@ class LegacyRecordingStereoMaintenanceTest {
     }
 
     @Test
+    fun legacyRecoveryIsIdempotent() {
+        val first = LegacyRecordingTakeRecoveryPolicy.recover(projectWithLegacyRecording())
+        val second = LegacyRecordingTakeRecoveryPolicy.recover(first)
+
+        assertEquals(first, second)
+        assertEquals(1, second.takes.size)
+        assertEquals(1, second.clips.count { it.takeId != null })
+    }
+
+    @Test
     fun projectCodecRecoversLegacyRecordingMetadataAfterPersistedStateDecode() {
         val codec = ProjectCodec()
         val serialized = codec.encode(projectWithLegacyRecording())
@@ -70,11 +80,17 @@ class LegacyRecordingStereoMaintenanceTest {
         assertEquals(2, separated.clips.size)
         assertEquals(2, separated.takes.size)
         separated.clips.forEach { clip ->
+            assertEquals(1_234L, clip.startFrame)
             assertEquals(9_615L, clip.sourceStartFrame)
             assertEquals(8_780_397L, clip.lengthFrames)
             assertEquals(8_790_012L, clip.editingTotalFrames)
             assertEquals(44_100, clip.editingSampleRateHz)
             assertEquals(1, clip.sourceChannelCount)
+            assertEquals("managed://media/source/recording-take-1790203123119.wav", clip.sourceUri)
+            assertEquals("media/source/recording-take-1790203123119.wav", clip.managedSourcePath)
+            assertEquals(-3f, clip.gainDb)
+            assertEquals(100L, clip.fadeInFrames)
+            assertEquals(200L, clip.fadeOutFrames)
         }
         assertEquals(setOf("left", "right"), separated.takes.map { it.trackId }.toSet())
         assertEquals(setOf("left-take", "right-take"), separated.clips.mapNotNull { it.takeId }.toSet())
@@ -158,9 +174,12 @@ class LegacyRecordingStereoMaintenanceTest {
             name = "Take 1",
             sourceUri = "managed://media/source/recording-take-1790203123119.wav",
             managedSourcePath = "media/source/recording-take-1790203123119.wav",
-            startFrame = 0L,
+            startFrame = 1_234L,
             sourceStartFrame = 9_615L,
             lengthFrames = 8_780_397L,
+            gainDb = -3f,
+            fadeInFrames = 100L,
+            fadeOutFrames = 200L,
             sourceFormat = "WAV",
             sourceSampleRateHz = 44_100,
             sourceChannelCount = 2,
