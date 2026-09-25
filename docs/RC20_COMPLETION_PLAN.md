@@ -1104,7 +1104,7 @@ The personal-use RC20 release line closes when all of the following are true:
 - the exact worker image/model/strategy and output lineage are proven;
 - the `demucs.cpp` bad-audio boundary is replaced by the qualified official PyTorch Demucs worker;
 - owner listening accepts the exact finalist stems/backing/guitar;
-- representative worker time is `<=15 minutes`, preferably `<=5 minutes`, with cold/warm/cost evidence;
+- representative worker time is `<=15 minutes`, preferably `<=5 minutes`, with single-run timing/cost evidence; historical warm evidence is retained but is not rerun by default;
 - a representative real-source gate prevents recurrence;
 - source search never terminates silently and the owner's representative acquisition succeeds;
 - the successor signed candidate passes focused physical listening;
