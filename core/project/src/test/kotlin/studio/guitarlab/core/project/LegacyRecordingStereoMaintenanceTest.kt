@@ -21,8 +21,8 @@ class LegacyRecordingStereoMaintenanceTest {
         val ordinary = legacy.clips.single().copy(
             id = "ordinary",
             name = "Imported guitar",
-            sourceUri = "managed://media/source/ordinary.wav",
-            managedSourcePath = "media/source/ordinary.wav",
+            sourceUri = "managed://media/source/media-id-take-1790203123119.wav",
+            managedSourcePath = "media/source/media-id-take-1790203123119.wav",
         )
         val recovered = LegacyRecordingTakeRecoveryPolicy.recover(legacy.copy(clips = legacy.clips + ordinary))
 
