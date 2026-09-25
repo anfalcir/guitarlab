@@ -112,10 +112,52 @@ diff --git a/app/src/androidTest/java/studio/guitarlab/app/UnifiedProjectShellIn
          composeRule.captureCohesionScreenshot("prepare-ready-dark")
          composeRule.onNodeWithText("Studio").performClick()
          composeRule.runOnIdle { check(openedStudio) }
+diff --git a/app/src/main/java/studio/guitarlab/app/ui/AppNavigationViewModel.kt b/app/src/main/java/studio/guitarlab/app/ui/AppNavigationViewModel.kt
+--- a/app/src/main/java/studio/guitarlab/app/ui/AppNavigationViewModel.kt
++++ b/app/src/main/java/studio/guitarlab/app/ui/AppNavigationViewModel.kt
+@@ -2,7 +2,9 @@ package studio.guitarlab.app.ui
+ 
+ import androidx.lifecycle.SavedStateHandle
+ import androidx.lifecycle.ViewModel
++import kotlinx.coroutines.flow.MutableStateFlow
+ import kotlinx.coroutines.flow.StateFlow
++import kotlinx.coroutines.flow.asStateFlow
+ import studio.guitarlab.core.model.GuitarProject
+ 
+ class AppNavigationViewModel(private val savedStateHandle: SavedStateHandle) : ViewModel() {
+@@ -11,6 +13,9 @@ class AppNavigationViewModel(private val savedStateHandle: SavedStateHandle) : V
+         AppRouteCodec.encode(AppScreen.Home),
+     )
+ 
++    private val _navigationEntry = MutableStateFlow(0L)
++    val navigationEntry: StateFlow<Long> = _navigationEntry.asStateFlow()
++
+     fun navigate(destination: AppScreen) {
+         val current = AppRouteCodec.decode(persistedRoute.value)
+         val destinationWorkspace = destination.projectWorkspaceContextOrNull()
+@@ -25,6 +30,10 @@ class AppNavigationViewModel(private val savedStateHandle: SavedStateHandle) : V
+         destinationWorkspace?.let { context ->
+             savedStateHandle[lastWorkspaceKey(context.projectId)] = context.workspace.code
+         }
++        // Bump before publishing the destination so a newly composed workspace sees the
++        // navigation-entry token that belongs to this exact transition. This also makes an
++        // explicit re-entry into the same encoded route observable.
++        _navigationEntry.value = _navigationEntry.value + 1L
+         savedStateHandle[ROUTE_KEY] = AppRouteCodec.encode(destination)
+     }
+ 
 diff --git a/app/src/main/java/studio/guitarlab/app/ui/GuitarLabApp.kt b/app/src/main/java/studio/guitarlab/app/ui/GuitarLabApp.kt
 --- a/app/src/main/java/studio/guitarlab/app/ui/GuitarLabApp.kt
 +++ b/app/src/main/java/studio/guitarlab/app/ui/GuitarLabApp.kt
-@@ -115,7 +115,9 @@ fun GuitarLabApp(
+@@ -38,6 +38,7 @@ fun GuitarLabApp(
+     onDeepLinkConsumed: () -> Unit = {},
+ ) {
+     val persistedRoute by navigationViewModel.persistedRoute.collectAsState()
++    val navigationEntry by navigationViewModel.navigationEntry.collectAsState()
+     val homeState by homeViewModel.state.collectAsState()
+     val context = LocalContext.current
+     val remoteCloudAuth = remember(context) { RemoteCloudAuthClient(context) }
+@@ -115,7 +116,9 @@ fun GuitarLabApp(
                      onResumeSeparationImport = { homeViewModel.resumeSeparationImport(current.projectId) },
                      onCancelSeparation = { homeViewModel.cancelSeparation(current.projectId) },
                      onPrepareReferences = { homeViewModel.prepareReferences(current.projectId) },
@@ -126,6 +168,14 @@ diff --git a/app/src/main/java/studio/guitarlab/app/ui/GuitarLabApp.kt b/app/src
                      initialCloudSession = remoteCloudAuth.currentSession(),
                  )
                  }
+@@ -126,6 +129,7 @@ fun GuitarLabApp(
+                 StudioShellScreen(
+                     projectId = current.projectId,
+                     shellProject = project,
++                    navigationEntry = navigationEntry,
+                     onBack = {
+                         homeViewModel.refresh()
+                         navigate(AppScreen.Home)
 diff --git a/app/src/main/java/studio/guitarlab/app/ui/HomeViewModel.kt b/app/src/main/java/studio/guitarlab/app/ui/HomeViewModel.kt
 --- a/app/src/main/java/studio/guitarlab/app/ui/HomeViewModel.kt
 +++ b/app/src/main/java/studio/guitarlab/app/ui/HomeViewModel.kt
@@ -208,6 +258,26 @@ diff --git a/app/src/main/java/studio/guitarlab/app/ui/StudioPlaceholderScreen.k
              peaks?.let {
                  if (trimming && trimControls != null) {
                      TrimWaveformEditor(
+diff --git a/app/src/main/java/studio/guitarlab/app/ui/StudioShellScreen.kt b/app/src/main/java/studio/guitarlab/app/ui/StudioShellScreen.kt
+--- a/app/src/main/java/studio/guitarlab/app/ui/StudioShellScreen.kt
++++ b/app/src/main/java/studio/guitarlab/app/ui/StudioShellScreen.kt
+@@ -57,6 +57,7 @@ import studio.guitarlab.core.project.TransportPolicy
+ fun StudioShellScreen(
+     projectId: String,
+     shellProject: GuitarProject,
++    navigationEntry: Long = 0L,
+     onBack: () -> Unit,
+     onPrepare: () -> Unit,
+     onOptions: () -> Unit,
+@@ -101,7 +102,7 @@ fun StudioShellScreen(
+         }
+     }
+ 
+-    LaunchedEffect(projectId) { viewModel.load(projectId) }
++    LaunchedEffect(projectId, navigationEntry) { viewModel.load(projectId) }
+     LaunchedEffect(projectId) {
+         ExternalControlHub.actions.collect { action ->
+             ExternalControlCommandDispatcher.dispatch(
 diff --git a/app/src/main/java/studio/guitarlab/app/ui/StudioViewModel.kt b/app/src/main/java/studio/guitarlab/app/ui/StudioViewModel.kt
 --- a/app/src/main/java/studio/guitarlab/app/ui/StudioViewModel.kt
 +++ b/app/src/main/java/studio/guitarlab/app/ui/StudioViewModel.kt
@@ -852,6 +922,32 @@ diff --git a/app/src/main/java/studio/guitarlab/app/ui/WaveformMini.kt b/app/src
              val amplitude = rawPeak.coerceIn(0f, 1f) * centerY
              val x = (index + 0.5f) * step
              drawLine(
+diff --git a/app/src/test/java/studio/guitarlab/app/ui/AppNavigationViewModelTest.kt b/app/src/test/java/studio/guitarlab/app/ui/AppNavigationViewModelTest.kt
+--- a/app/src/test/java/studio/guitarlab/app/ui/AppNavigationViewModelTest.kt
++++ b/app/src/test/java/studio/guitarlab/app/ui/AppNavigationViewModelTest.kt
+@@ -57,6 +57,22 @@ class AppNavigationViewModelTest {
+         assertEquals(AppScreen.Prepare(projectId), restored.returnFromSettings(projectId))
+     }
+ 
++    @Test
++    fun `navigation entry changes even when destination route is identical`() {
++        val navigation = AppNavigationViewModel(SavedStateHandle())
++        val destination = AppScreen.Studio("same-project")
++        val initial = navigation.navigationEntry.value
++
++        navigation.navigate(destination)
++        val first = navigation.navigationEntry.value
++        navigation.navigate(destination)
++        val second = navigation.navigationEntry.value
++
++        assertEquals(initial + 1L, first)
++        assertEquals(first + 1L, second)
++        assertEquals(destination, AppRouteCodec.decode(navigation.persistedRoute.value))
++    }
++
+     @Test
+     fun `new controller starts at Home`() {
+         val navigation = AppNavigationViewModel(SavedStateHandle())
 diff --git a/app/src/test/java/studio/guitarlab/app/ui/WaveformRenderReducerTest.kt b/app/src/test/java/studio/guitarlab/app/ui/WaveformRenderReducerTest.kt
 new file mode 100644
 --- /dev/null
