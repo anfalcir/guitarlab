@@ -9,7 +9,7 @@ class BackupCatalogFreshnessPolicyTest {
         assertTrue(BackupCatalogFreshnessPolicy.shouldRefresh(null, nowEpochMs = 10_000L, force = false))
         assertTrue(
             BackupCatalogFreshnessPolicy.shouldRefresh(
-                snapshot = BackupCatalogSnapshot(emptyList(), emptyMap(), emptyMap(), emptyMap(), 9_900L),
+                snapshot = BackupCatalogSnapshot(emptyList(), emptyMap(), emptyMap(), emptyMap(), emptyMap(), 9_900L),
                 nowEpochMs = 10_000L,
                 force = true,
             ),
@@ -17,7 +17,7 @@ class BackupCatalogFreshnessPolicyTest {
     }
 
     @Test fun recentDurableCatalogAvoidsImmediateRemoteReload() {
-        val snapshot = BackupCatalogSnapshot(emptyList(), emptyMap(), emptyMap(), emptyMap(), refreshedAtEpochMs = 100_000L)
+        val snapshot = BackupCatalogSnapshot(emptyList(), emptyMap(), emptyMap(), emptyMap(), emptyMap(), refreshedAtEpochMs = 100_000L)
         assertFalse(
             BackupCatalogFreshnessPolicy.shouldRefresh(
                 snapshot = snapshot,
@@ -33,6 +33,7 @@ class BackupCatalogFreshnessPolicyTest {
             reconciliations = emptyMap(),
             remoteTips = emptyMap(),
             localRevisions = mapOf("project-a" to "revision-a"),
+            manifestCreatedAtEpochMs = emptyMap(),
             refreshedAtEpochMs = 100_000L,
         )
 
@@ -41,7 +42,7 @@ class BackupCatalogFreshnessPolicyTest {
     }
 
     @Test fun staleClockRollbackOrExpiredCatalogRefreshes() {
-        val snapshot = BackupCatalogSnapshot(emptyList(), emptyMap(), emptyMap(), emptyMap(), refreshedAtEpochMs = 100_000L)
+        val snapshot = BackupCatalogSnapshot(emptyList(), emptyMap(), emptyMap(), emptyMap(), emptyMap(), refreshedAtEpochMs = 100_000L)
         assertTrue(
             BackupCatalogFreshnessPolicy.shouldRefresh(
                 snapshot = snapshot,
