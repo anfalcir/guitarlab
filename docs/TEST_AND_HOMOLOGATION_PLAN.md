@@ -143,3 +143,17 @@ Physical homologation should specifically replace/edit a backing, restore Base o
 ## U12bw signed waveform/reference candidate
 
 Install `GuitarLabStudio-0.5.0-rc20-U12bw-homologacao.apk` for physical validation. Producer commit: `99cd47022a9babd7accee39c4478fe7dbc2fd1d3`; signed APK SHA-256: `529834d908a0bf69c09182ebe08ca3a6269f7d776c57b37a76dbabcedae5c60f`. Validate: waveform refresh after media/reference replacement; visual alignment against playback across the song; trimmed/split clips; recorded takes; same-project re-entry after Prepare changes; always-visible prepared-reference restore button; Base-only, Guitar-only and both restore selections; preservation of takes, other tracks and mixer state. Final freeze waits for owner acceptance.
+
+
+## U12bx playback-presentation synchronization qualification
+
+The next Android qualification must cover the exact U12bx source:
+- before the AudioTimestamp-derived presentation origin, presented frames remain zero and the visible playhead stays at the requested start frame;
+- at 48 kHz, 100 ms of presentation time maps to 4,800 frames; a start at frame 240,000 therefore maps to frame 244,800;
+- presentation-derived progress is clamped to frames already accepted by AudioTrack;
+- seek/flush resets the presentation anchor before progress resumes;
+- playbackHeadPosition remains a bounded fallback when a stable AudioTimestamp cannot be obtained;
+- non-loop end/drain does not jump the visual cursor ahead of the presentation clock;
+- existing loop/start/seek transport regression and API36 coverage remain green.
+
+After software + API36 pass, produce a new exact-artifact signed RC20 homologation candidate. Physical acceptance must check strong transients from frame zero and mid-song seek, repeated Play/Stop, pause/resume semantics, loop behavior, and compare MK-300 USB with internal output only if needed for diagnosis. The acceptance criterion is no consistent perceptible offset between audible output, waveform and playhead in normal use. Final documentation/freeze remains pending owner acceptance.

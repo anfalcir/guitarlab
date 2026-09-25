@@ -7,7 +7,7 @@ This document describes current execution controls. Historical tail hashes, run 
 ## Source materialization
 
 - canonical entrypoint: `scripts/materialize_ci_sources.sh`;
-- current tail: U12bw via `scripts/materialize_ci_sources_u12bw.py`;
+- current tail: U12bx via `scripts/materialize_ci_sources_u12bx.py`;
 - protected deltas: `.source-parts/`;
 - required properties: deterministic, hash/blob locked, idempotent, semantic guards, reverse-apply validation and fail-closed drift handling.
 
@@ -119,3 +119,6 @@ The frozen APK/worker does not require recurring CI. Run this pipeline again onl
 
 
 - U12bw waveform/reference completion is source-materialized fail-closed. Waveform caches are v2 media/window-aware, the Studio reloads the same project id only when the persisted snapshot changed, static envelopes use exact source windows at 4096 bins with screen-resolution peak reduction, and Prepare exposes selective canonical Base/Guitar restoration. Qualification requires the normal software gate + API36 gate before signing.
+
+
+- U12bx playback-presentation clock is materialized fail-closed on top of U12bw. The Studio playhead now prefers a stable AudioTimestamp-derived presentation origin, remains anchored before the sink presentation origin, re-anchors after seek/flush, clamps to frames already accepted by AudioTrack, and retains playbackHeadPosition only as the fallback when a stable timestamp is unavailable. Recording latency compensation is unchanged.
