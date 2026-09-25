@@ -215,6 +215,7 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
                             busy = false,
                             busyLabel = null,
                             message = "Operação cancelada.",
+                            messageKind = TransientFeedbackKind.OPERATIONAL_STATUS,
                             error = null,
                         )
                     }
