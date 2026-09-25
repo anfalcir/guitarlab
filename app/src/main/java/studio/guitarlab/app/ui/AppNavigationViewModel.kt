@@ -2,7 +2,9 @@ package studio.guitarlab.app.ui
 
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import studio.guitarlab.core.model.GuitarProject
 
 class AppNavigationViewModel(private val savedStateHandle: SavedStateHandle) : ViewModel() {
@@ -10,6 +12,9 @@ class AppNavigationViewModel(private val savedStateHandle: SavedStateHandle) : V
         ROUTE_KEY,
         AppRouteCodec.encode(AppScreen.Home),
     )
+
+    private val _navigationEntry = MutableStateFlow(0L)
+    val navigationEntry: StateFlow<Long> = _navigationEntry.asStateFlow()
 
     fun navigate(destination: AppScreen) {
         val current = AppRouteCodec.decode(persistedRoute.value)
@@ -25,6 +30,10 @@ class AppNavigationViewModel(private val savedStateHandle: SavedStateHandle) : V
         destinationWorkspace?.let { context ->
             savedStateHandle[lastWorkspaceKey(context.projectId)] = context.workspace.code
         }
+        // Bump before publishing the destination so a newly composed workspace sees the
+        // navigation-entry token that belongs to this exact transition. This also makes an
+        // explicit re-entry into the same encoded route observable.
+        _navigationEntry.value = _navigationEntry.value + 1L
         savedStateHandle[ROUTE_KEY] = AppRouteCodec.encode(destination)
     }
 
