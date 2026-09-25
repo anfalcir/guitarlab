@@ -42,12 +42,12 @@ Broad suites may continue to run. A specific unrelated flaky/cosmetic failure ma
 - worker unit tests and exact engine/model/dependency identity;
 - structure/finiteness/hard audio-quality gates;
 - W3 exact contract plus independent quality acceptance;
-- selected CPU8 W4 runtime/cost/bundle evidence;
+- selected CPU8 W3/W4 runtime/cost/bundle evidence from one Cloud Run execution and one Demucs inference;
 - U7 digest-pinned shadow qualification;
 - post-cutover U4 transactional smoke;
 - secret/credential hygiene and retained vulnerability evidence.
 
-Stochastic numeric/hash differences are diagnostic under D-091. CPU4 and other matrices are optional.
+Stochastic numeric/hash differences are diagnostic under D-091. CPU4 and other matrices are optional. Warm-probe and standalone model-probe are diagnostic-only and default off in the normal RC20 gate.
 
 ### Android
 
@@ -64,7 +64,7 @@ Debug assembly, full screenshot matrices and isolated geometry are required only
 
 Automation cannot establish musical usefulness or target-device behavior completely.
 
-Before production cutover, the owner listens to the exact worker digest bundle. After Android signing, the owner performs final acceptance on the exact signed APK under `RC20_PHYSICAL_HOMOLOGATION.md`.
+D-092 explicitly waives the additional pre-cutover W5 owner-listening gate. After Android signing, the owner performs final acceptance on the exact signed APK under `RC20_PHYSICAL_HOMOLOGATION.md`.
 
 Do not manually repeat digitally proven claims unless physical behavior can differ materially.
 
@@ -78,7 +78,7 @@ RC20 keeps its current narrowly evidenced scanner exceptions; this policy does n
 
 A change invalidates evidence only for paths it can materially affect. Examples:
 
-- worker image/model/recipe change: repeat worker shadow, listening and cloud integration;
+- worker image/model/recipe change: repeat worker shadow and cloud integration; owner listening is repeated only if explicitly reinstated or required by a new observed audio-quality concern;
 - separation lifecycle/backend change: repeat U7/U4 and relevant Android recovery smoke;
 - search/acquisition change: repeat focused Android search and Prepare adjacency;
 - signing/build change: repeat artifact provenance/signing identity;
@@ -94,7 +94,7 @@ For a promoted candidate retain:
 - unsigned and signed APK SHA-256;
 - package/version/signer;
 - worker digest and engine/model/recipe;
-- owner listening decision;
+- owner-listening decision/waiver;
 - physical acceptance decision and included capabilities;
 - explicit quarantines or known non-blocking limitations.
 
