@@ -137,7 +137,7 @@ class DiagnosticBundleExporter(private val context: Context) {
                             .put("kind", binding.kind.name)
                             .put("trackId", binding.trackId)
                             .put("assetId", binding.assetId)
-                            .put("updatedAtEpochMs", binding.updatedAtEpochMs),
+                            .put("createdAtEpochMs", binding.createdAtEpochMs),
                     )
                 }
             }.toString(2).toByteArray()
