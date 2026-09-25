@@ -1149,3 +1149,8 @@ U12bn is source-materialized fail-closed. Digital Android/API36 qualification re
 - signed APK SHA-256 `e82fdc75896564ea10c28e072fd186913320eca293b6fad9ea4b7c8fa0468468`;
 - signer SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`;
 - remaining gate: consolidated physical homologation only; no rebuild is allowed before that validation.
+
+
+### U12bu post-candidate delta
+
+After the first signed RC20 physical candidate, the owner requested one additional frontend/support cleanup before physical acceptance. U12bu removes dead/redundant Settings surfaces and adds actionable cancellation to Activity, including Android and Firebase/Cloud orphan cleanup. The implementation is committed and source-materialized but deliberately has not triggered Android CI or produced a new APK. Therefore the earlier signed RC20 artifact remains historical pre-U12bu evidence, not the final physical artifact for the new HEAD.
