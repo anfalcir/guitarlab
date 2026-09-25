@@ -24,6 +24,8 @@ Updated: 2026-09-24
 
 - CI #888 API36 failure was workflow-shell compatibility, not app/test logic: the emulator booted and ADB became healthy, but `android-emulator-runner` executes its `script` via `/usr/bin/sh`; the injected block used Bash-only `[[ ... ]]` and `{1..30}`, causing exit code 2 before instrumented tests. U12bq converts that block to POSIX `sh` while preserving the explicit ADB/device/boot guards.
 
+- U12bq corrective qualification dispatched after CI #888 shell-compatibility failure. Signing remains deferred until the exact source passes Android CI/API36.
+
 ## Unified program progress
 - Stable product identity is governed by `PROJECT_IDENTITY.md` and D-090: private single-owner appliance, proportional gates, exact signed APK + digest-pinned worker freeze after physical acceptance, and maintenance only for a real trigger.
 - Product-scope override (2026-09-21): legacy project/backup migration is retired. The owner has only two legacy projects and accepts recreating them manually. U9 is retired; U8/U10/U11 no longer carry H37/GBW/pre-unification migration obligations. Current unified-line save/reopen, schema evolution, backup/restore and integrity guarantees remain mandatory.
