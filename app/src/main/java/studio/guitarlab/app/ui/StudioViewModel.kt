@@ -168,6 +168,7 @@ data class StudioUiState(
     val newTrackRolePromptId: String? = null,
     val clipStatus: String? = null,
     val transientNotice: String? = null,
+    val transientNoticeKind: TransientFeedbackKind = TransientFeedbackKind.WARNING,
     val preparedReferenceUpdateAvailable: Boolean = false,
 )
 
@@ -459,6 +460,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                     canUndo = projectHistory.canUndo,
                     canRedo = projectHistory.canRedo,
                     transientNotice = "A versão atual do Studio foi mantida.",
+                    transientNoticeKind = TransientFeedbackKind.ASYNC_COMPLETION,
                 )
             }.onFailure { error ->
                 _state.value = _state.value.copy(
@@ -1564,7 +1566,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
             lastTransientWarning = safe
             lastTransientWarningAtMs = now
         }
-        _state.value = _state.value.copy(transientNotice = safe)
+        _state.value = _state.value.copy(transientNotice = safe, transientNoticeKind = kind)
     }
 
     private fun postTransientWarning(message: String, fallback: String, cooldownMs: Long = 30_000L) =
@@ -1577,7 +1579,10 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
         val current = _state.value
         when (message) {
             current.error -> _state.value = current.copy(error = null)
-            current.transientNotice -> _state.value = current.copy(transientNotice = null)
+            current.transientNotice -> _state.value = current.copy(
+                transientNotice = null,
+                transientNoticeKind = TransientFeedbackKind.WARNING,
+            )
         }
     }
 
