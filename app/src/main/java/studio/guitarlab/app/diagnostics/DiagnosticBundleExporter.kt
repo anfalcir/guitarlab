@@ -165,7 +165,7 @@ class DiagnosticBundleExporter(private val context: Context) {
             .filter { projectId == null || it.nameWithoutExtension in allowedJobIds }
             .sortedBy { it.name }
             .forEach { file ->
-                val sanitized = runCatching { sanitizeJson(JSONObject(file.readText())) }.getOrNull()
+                val sanitized = runCatching { sanitizeJson(JSONObject(file.readText())) as? JSONObject }.getOrNull()
                 if (sanitized != null) entries["separation/manifests/${file.name}"] = sanitized.toString(2).toByteArray()
             }
 
@@ -199,8 +199,8 @@ class DiagnosticBundleExporter(private val context: Context) {
 
     private fun sanitize(value: String?): String? {
         if (value == null) return null
-        var result = value
-        SENSITIVE_PATTERNS.forEach { result = result.replace(it, "[REDACTED]") }
+        var result: String = value
+        SENSITIVE_PATTERNS.forEach { pattern -> result = result.replace(pattern, "[REDACTED]") }
         return result.take(8_192)
     }
 
