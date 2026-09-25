@@ -52,8 +52,12 @@ object StereoSeparationProjectPolicy {
             requireNotNull(project.takes.firstOrNull { it.id == takeId }) {
                 "Stereo source references a missing take: $takeId"
             }.also { take ->
-                require(take.trackId == source.trackId && take.clipId == source.id) {
+                require(take.trackId == source.trackId) {
                     "Stereo source take lineage is inconsistent."
+                }
+                val lineage = project.clips.filter { it.takeId == takeId }
+                require(lineage.size == 1 && lineage.single().id == source.id && take.clipId == source.id) {
+                    "Separe canais apenas antes de dividir temporalmente uma take."
                 }
             }
         }
