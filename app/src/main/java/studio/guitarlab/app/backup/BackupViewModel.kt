@@ -16,9 +16,11 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.UUID
+import studio.guitarlab.app.activity.ActivityCancellationRegistry
 import studio.guitarlab.app.activity.UnifiedActivityStore
 import studio.guitarlab.core.model.GuitarProject
 import studio.guitarlab.core.project.BackupRetentionPolicy
@@ -251,6 +253,7 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
             null,
             "Aplicando versão da nuvem",
         )
+        registerCurrentActivityOperation(operationId)
         requireDriveConnected()
         try {
             val restored = BackupOperationLock.withLock {
@@ -287,6 +290,7 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
     fun restoreVersion(version: BackupVersionDescriptor, onProjectsChanged: () -> Unit) = runBusy(null) {
         val operationId = UUID.randomUUID().toString()
         activityStore.record(operationId, version.projectId, UnifiedOperationKind.RESTORE, UnifiedOperationState.RUNNING, null, "Restaurando uma versão do projeto")
+        registerCurrentActivityOperation(operationId)
         requireDriveConnected()
         try {
             val explicitlyDeleted = deletedProjectStore.all().containsKey(version.projectId)
@@ -318,6 +322,7 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
     fun restoreLatestAll(onProjectsChanged: () -> Unit) = runBusy(null) {
         val operationId = UUID.randomUUID().toString()
         activityStore.record(operationId, null, UnifiedOperationKind.RESTORE, UnifiedOperationState.RUNNING, null, "Restaurando os projetos mais recentes")
+        registerCurrentActivityOperation(operationId)
         requireDriveConnected()
         try {
             val results = BackupOperationLock.withLock { unifiedDrive.restoreLatestAll() }
@@ -381,6 +386,7 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
         runBusy(successMessage = null, busyLabel = "$label em andamento…") {
             val operationId = UUID.randomUUID().toString()
             activityStore.record(operationId, projectId, UnifiedOperationKind.BACKUP, UnifiedOperationState.RUNNING, null, label)
+            registerCurrentActivityOperation(operationId)
             try {
                 requireDriveConnected()
                 val report = BackupOperationLock.withLock { action(unifiedDrive) }
@@ -468,6 +474,11 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
                     if (completedAt != null && settingsStore.snapshot().driveConnected) refresh()
                 }
         }
+    }
+
+    private suspend fun registerCurrentActivityOperation(operationId: String) {
+        val job = kotlinx.coroutines.currentCoroutineContext()[Job] ?: return
+        ActivityCancellationRegistry.register(operationId, job)
     }
 
     private companion object {
