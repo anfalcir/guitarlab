@@ -217,6 +217,11 @@ class RemoteSeparationTest {
                 events += "download:${reference.name}"
                 return BytesPayload(reference.name, bytes)
             }
+            override suspend fun persistAcceptedManifest(identity: RemoteJobIdentity, manifestBytes: ByteArray) {
+                assertEquals(i, identity)
+                assertEquals(manifestHash, sha(manifestBytes))
+                events += "persistManifest"
+            }
             override suspend fun cleanup(identity: RemoteJobIdentity) { events += "cleanup" }
         }
         val publisher = object : RemoteStemPublisher {
@@ -242,7 +247,7 @@ class RemoteSeparationTest {
         RemoteSeparationCoordinator(store, backend, transport, { manifest }, publisher).reconcile(i)
 
         assertEquals(
-            listOf("download:backing", "download:guitar", "publishReferences", "ack", "cleanup"),
+            listOf("persistManifest", "download:backing", "download:guitar", "publishReferences", "ack", "cleanup"),
             events,
         )
         assertEquals(RemoteJobState.IMPORTED, store.job.state)
