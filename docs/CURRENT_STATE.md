@@ -16,6 +16,8 @@ Updated: 2026-09-24
 
 - CI #886 exposed a Kotlin compile-only defect in `AcceptedRemoteManifestStore`: sanitized JSON was inferred as `Any?`. U12bo narrows it fail-closed to `JSONObject`; the parallel API36 job failed earlier in emulator/ADB startup and therefore produced no functional regression evidence. RC20 remains unsigned pending rerun.
 
+- U12bo corrective qualification dispatched after CI #886 compile failure; signing remains deferred until the exact corrected source passes unit/lint/build and API36 regression.
+
 ## Unified program progress
 - Stable product identity is governed by `PROJECT_IDENTITY.md` and D-090: private single-owner appliance, proportional gates, exact signed APK + digest-pinned worker freeze after physical acceptance, and maintenance only for a real trigger.
 - Product-scope override (2026-09-21): legacy project/backup migration is retired. The owner has only two legacy projects and accepts recreating them manually. U9 is retired; U8/U10/U11 no longer carry H37/GBW/pre-unification migration obligations. Current unified-line save/reopen, schema evolution, backup/restore and integrity guarantees remain mandatory.
