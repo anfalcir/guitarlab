@@ -44,6 +44,9 @@ data class BackupUiState(
     val reconciliations: Map<String, DriveReconciliation> = emptyMap(),
     val remoteTips: Map<String, List<BackupVersionDescriptor>> = emptyMap(),
     val authorizationRequired: Boolean = false,
+    val catalogRefreshing: Boolean = false,
+    val catalogUpdatedAtEpochMs: Long? = null,
+    val catalogFromCache: Boolean = false,
     val message: String? = null,
     val error: String? = null,
 )
@@ -56,77 +59,98 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
     private val confirmedRevisions = ConfirmedRevisionStore(application)
     private val unifiedDrive = UnifiedDriveProductionService(application)
     private val deletedProjectStore = DeletedProjectBackupStore(application)
+    private val catalogCache = BackupCatalogCacheStore(application)
+    private var refreshJob: Job? = null
     private val _state = MutableStateFlow(BackupUiState())
     val state: StateFlow<BackupUiState> = _state.asStateFlow()
     init {
-        refresh()
+        refreshInternal(forceRemote = false)
         observeAutomaticBackupCompletion()
     }
 
-    fun refresh() {
-        viewModelScope.launch {
-            _state.update { it.copy(loading = true, error = null) }
+    /** User-requested refresh always verifies Drive; re-entry may reuse a recent durable catalog. */
+    fun refresh() = refreshInternal(forceRemote = true)
+
+    private fun refreshInternal(forceRemote: Boolean) {
+        refreshJob?.cancel()
+        refreshJob = viewModelScope.launch {
             val settings = settingsStore.snapshot()
             val projects = withContext(Dispatchers.IO) { repository.list() }
-            var authRequired = false
-            val versions = if (settings.driveConnected) {
-                try {
-                    unifiedDrive.listCommittedVersions(retention(settings))
-                } catch (_: DriveAuthorizationRequiredException) {
-                    authRequired = true
-                    emptyList()
-                } catch (error: Throwable) {
-                    if (error is CancellationException) throw error
-                    _state.update {
-                        it.copy(
-                            error = error.message
-                                ?: "Não foi possível ler os backups do Google Drive.",
-                        )
-                    }
-                    emptyList()
-                }
-            } else {
-                emptyList()
-            }
+            val cached = catalogCache.load(settings)
+            val shouldRefreshRemote = settings.driveConnected &&
+                BackupCatalogFreshnessPolicy.shouldRefresh(cached, System.currentTimeMillis(), forceRemote)
 
-            val reconciliations = linkedMapOf<String, DriveReconciliation>()
-            val remoteTips = linkedMapOf<String, List<BackupVersionDescriptor>>()
-            if (settings.driveConnected && !authRequired) {
-                for (project in projects) {
-                    try {
-                        val reconciliation = unifiedDrive.reconciliation(project.id)
-                        reconciliations[project.id] = reconciliation
-                        if (
-                            reconciliation == DriveReconciliation.CONFLICT ||
-                                reconciliation == DriveReconciliation.DOWNLOAD_REMOTE
-                        ) {
-                            remoteTips[project.id] = unifiedDrive.currentRemoteTips(project.id)
-                        }
-                    } catch (_: DriveAuthorizationRequiredException) {
-                        authRequired = true
-                        break
-                    } catch (error: Throwable) {
-                        if (error is CancellationException) throw error
-                        _state.update {
-                            it.copy(
-                                error = error.message
-                                    ?: "Não foi possível reconciliar o estado do backup.",
-                            )
-                        }
-                    }
-                }
-            }
             _state.update { current ->
                 current.copy(
-                    loading = false,
-                    settings = settingsStore.snapshot(),
+                    loading = cached == null && shouldRefreshRemote,
+                    catalogRefreshing = shouldRefreshRemote,
+                    settings = settings,
                     localProjects = projects,
-                    versions = versions,
+                    versions = cached?.versions ?: if (settings.driveConnected) current.versions else emptyList(),
                     deletedProjects = deletedProjectStore.all(),
-                    reconciliations = reconciliations,
-                    remoteTips = remoteTips,
-                    authorizationRequired = authRequired,
+                    reconciliations = cached?.reconciliations ?: if (settings.driveConnected) current.reconciliations else emptyMap(),
+                    remoteTips = cached?.remoteTips ?: if (settings.driveConnected) current.remoteTips else emptyMap(),
+                    catalogUpdatedAtEpochMs = cached?.refreshedAtEpochMs ?: current.catalogUpdatedAtEpochMs,
+                    catalogFromCache = cached != null,
+                    authorizationRequired = false,
+                    error = null,
                 )
+            }
+
+            if (!settings.driveConnected || !shouldRefreshRemote) {
+                _state.update { it.copy(loading = false, catalogRefreshing = false) }
+                return@launch
+            }
+
+            try {
+                val remoteCatalog = unifiedDrive.loadCatalog(projects, retention(settings))
+                val refreshedAt = System.currentTimeMillis()
+                val snapshot = BackupCatalogSnapshot(
+                    versions = remoteCatalog.versions,
+                    reconciliations = remoteCatalog.reconciliations,
+                    remoteTips = remoteCatalog.remoteTips,
+                    refreshedAtEpochMs = refreshedAt,
+                )
+                catalogCache.save(settings, snapshot)
+                _state.update {
+                    it.copy(
+                        loading = false,
+                        catalogRefreshing = false,
+                        settings = settingsStore.snapshot(),
+                        localProjects = projects,
+                        versions = snapshot.versions,
+                        deletedProjects = deletedProjectStore.all(),
+                        reconciliations = snapshot.reconciliations,
+                        remoteTips = snapshot.remoteTips,
+                        catalogUpdatedAtEpochMs = refreshedAt,
+                        catalogFromCache = false,
+                        authorizationRequired = false,
+                        error = null,
+                    )
+                }
+            } catch (_: DriveAuthorizationRequiredException) {
+                _state.update {
+                    it.copy(
+                        loading = false,
+                        catalogRefreshing = false,
+                        authorizationRequired = true,
+                        error = if (cached == null) "Reconecte o Google Drive para atualizar o histórico de backups."
+                        else "A autorização do Google Drive expirou. O último histórico salvo continua disponível.",
+                    )
+                }
+            } catch (error: Throwable) {
+                if (error is CancellationException) throw error
+                _state.update {
+                    it.copy(
+                        loading = false,
+                        catalogRefreshing = false,
+                        error = if (cached == null) {
+                            error.message ?: "Não foi possível ler os backups do Google Drive."
+                        } else {
+                            "Não foi possível atualizar o Google Drive agora. O último histórico salvo continua disponível."
+                        },
+                    )
+                }
             }
         }
     }
