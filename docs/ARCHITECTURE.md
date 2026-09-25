@@ -5,7 +5,7 @@ Updated: 2026-09-25
 ## Repository and release boundary
 - `main` is canonical.
 - Product behavior is promoted after exact-source affected-path gates and, where required, residual physical validation on the owner's environment.
-- `.github/workflows/android-ci.yml` supports manual dispatch plus explicit `[run ci]` / `[run ci signed]` commit-message gates on `main`; ordinary `[skip ci]` commits remain inert.
+- `.github/workflows/android-ci.yml` supports manual dispatch plus explicit `[run ci]` / `[run ci signed]` commit-message gates on `main`; ordinary `[skip ci]` commits remain inert. Temporary maintenance-branch trigger exceptions must be removed before merge/promotion.
 - `CURRENT_STATE.md` records present-tense operational state and `RELEASE_BASELINE.md` records the immutable accepted artifact/backend identity. Any future physical acceptance occurs only on the exact signed APK intended for promotion.
 
 ## Module boundaries
@@ -30,6 +30,8 @@ Before publication, Cloud Run verifies output format, duration consistency, fini
 
 ## Timeline/editing
 Track/clip drag, trim, split, duplicate and deletion are deterministic project transactions. Split take lineage must remain valid when segments move or are deleted. Failed/stale drag is a no-op and may not partially mutate project/history/media state.
+
+Stereo channel separation is a project transaction, not only a media transform. The splitter's actual output sample rate/frame count becomes the derived mono editing bound. Existing take metadata is cloned into per-track lineage when unambiguous; a take shared by multiple temporal clips fails closed rather than being guessed. Derived/proxy outputs are discarded if project publication does not commit.
 
 ## Recording and synchronization
 Recording owns a dedicated `AudioRecord` input path and managed Float32 writer. Playback/backing and monitoring never feed the recording writer. Explicit input selection fails closed if Android cannot confirm the effective route.
@@ -83,10 +85,12 @@ The canonical Export workspace owns external delivery; editable `.guitarlab` per
 ## Lifecycle and persistence
 Durable creative state belongs in project persistence, not transient Composable state. Navigation/recreation and interrupted media operations are independently recoverable. Home library query state is presentation state and may be recreated without changing project data.
 
+Compatibility recovery is deliberately separated from persisted-byte identity. Cryptographic/revision validation decodes the persisted canonical project state first; only after that digest is accepted may narrow compatibility repair (such as strict legacy recorded-take recovery) alter the in-memory representation. Compatibility repair must be deterministic and idempotent.
+
 ## Build/release architecture
 `scripts/build_local.sh` is the local software gate when its environment is available. GitHub workflows provide controlled Android/API36/signing and cloud qualification. Required jobs are selected proportionally under `TEST_AND_HOMOLOGATION_POLICY.md`.
 
-Large deltas are materialized from `.source-parts` serially. The canonical entrypoint and current tail are identified in `CI_PIPELINE.md`. Protected blocks verify patch/archive identity and exact terminal Git blobs; the tail preserves `git diff --check`, semantic guards and reverse-apply/idempotence checks. Unexplained drift blocks the build.
+Large deltas are materialized from `.source-parts` serially. The canonical entrypoint and current tail are identified in `CI_PIPELINE.md`; the RC21 maintenance tail is `scripts/materialize_ci_sources_rc21.py`. Protected blocks verify patch/archive identity and exact terminal Git blobs; the tail preserves `git diff --check`, semantic guards and reverse-apply/idempotence checks. Unexplained drift blocks the build.
 
 ## Backup transport boundary — direct Drive v3 production path
 The protected backup domain remains transport-agnostic: project/revision identity, deduplication, retention and restore semantics are separated from transport. Direct Drive API v3 is the current backup transport.
@@ -95,8 +99,16 @@ Primary path: Android + Google Identity Services OAuth `drive.file` → Drive v3
 
 No Firebase/Cloud Run/Functions hop, service account, client secret or refresh-token custody is part of this backup architecture.
 
+### Backup catalog read model
+
+Drive heads/manifests remain the source of truth. The Android catalog path takes one remote head snapshot and derives retained version history, per-project reconciliation and remote tips from that same snapshot. Immutable descriptors and manifest timestamps already validated in a prior successful catalog may be reused to avoid downloading unchanged project-state objects.
+
+A bounded app-private metadata cache may accelerate screen entry, but it is not authority. It is scoped to Drive account + retention policy, bound to the current local project revision map, schema/integrity checked and discarded on mismatch/corruption. Every visible Backup-screen entry forces remote head verification; explicit user refresh also forces it.
+
+Automatic backup is owned by WorkManager and the production Drive service, not by the Backup Composable/ViewModel lifetime. Completion causes an immediate catalog reread only when the Backup screen is visible. Off-screen completion leaves the durable Drive state untouched and avoids a redundant network read; the next Backup-screen entry performs the required forced remote verification.
+
 ## Remote separation recovery
 
 The local durable store is recovery intent, not proof that a cloud job exists. When reconciliation finds no remote job, replayable pre-dispatch states are idempotently re-enqueued, cancellation requests terminalize locally, and states requiring an already-created remote job expire safely. Cancellation/worker retry exhaustion must end in a terminal local state. Restoration of `SOURCE_READY` is source-generation-aware and may not overwrite newer active work. Per-project observation prefers active work over a late terminal completion from an older generation.
 
-There is no active development plan in the live documentation root. RC20 is frozen; future runtime work begins only after a maintenance trigger or explicit owner-requested feature and is qualified under `TEST_AND_HOMOLOGATION_POLICY.md`. Closed plans and milestones remain historical evidence only.
+RC20 remains the accepted frozen baseline while RC21 is the active proportional maintenance candidate. RC21 was opened by an observed regression under the maintenance policy and is qualified only on affected/adjacent paths. Completed plans and older milestones remain historical evidence. Closed plans and milestones remain historical evidence only.
