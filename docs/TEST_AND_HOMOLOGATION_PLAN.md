@@ -103,3 +103,7 @@ For a promoted candidate retain:
 ## Freeze
 
 After final owner acceptance, do not run recurring qualification or rebuild for freshness alone. Reopen testing only with a maintenance trigger or owner-requested feature, and apply this same affected-path rule.
+
+
+## U12bn RC20 Android completion focus
+The next Android qualification must exercise the exact U12bn source and include focused coverage for persistent Prepare search terminal states/suggestion retry, local reference-binding repair, diagnostics navigation/export/redaction/checksums, accepted-manifest retention ordering, and adjacent Prepare → Studio behavior. The final signed artifact remains subject to the consolidated SM-X230/MK-300 physical campaign before freeze.
