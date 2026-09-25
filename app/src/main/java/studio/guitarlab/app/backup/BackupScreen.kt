@@ -33,14 +33,11 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -54,6 +51,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import java.text.DateFormat
 import java.util.Date
 import studio.guitarlab.app.ui.AppIconButton
+import studio.guitarlab.app.ui.AppTransientFeedbackHost
+import studio.guitarlab.app.ui.TransientFeedbackKind
 import studio.guitarlab.app.ui.ProductEmptyState
 import studio.guitarlab.app.ui.ProductSectionCard
 import studio.guitarlab.core.project.BackupVersionDescriptor
@@ -67,17 +66,9 @@ fun BackupScreen(
     viewModel: BackupViewModel = viewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    val snackbar = remember { SnackbarHostState() }
     val authorizationLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
         if (result.resultCode == Activity.RESULT_OK) viewModel.completeDriveConnection(result.data)
         else viewModel.authorizationCancelled()
-    }
-    LaunchedEffect(state.message, state.error) {
-        val message = state.error ?: state.message
-        if (message != null) {
-            snackbar.showSnackbar(message)
-            viewModel.clearMessage()
-        }
     }
     Box(Modifier.fillMaxSize()) {
         BackupScreenContent(
@@ -107,7 +98,13 @@ fun BackupScreen(
             onRestoreAll = { viewModel.restoreLatestAll(onProjectsChanged) },
             onDeleteCloudProject = viewModel::deleteCloudProject,
         )
-        SnackbarHost(snackbar, Modifier.align(Alignment.TopCenter).padding(top = 12.dp))
+        AppTransientFeedbackHost(
+            message = state.error ?: state.message,
+            kind = if (state.error != null) TransientFeedbackKind.ERROR else TransientFeedbackKind.ASYNC_COMPLETION,
+            onConsumed = viewModel::clearMessage,
+            modifier = Modifier.align(Alignment.TopCenter),
+            fallback = "Não foi possível concluir a operação de backup.",
+        )
         if (state.busy) {
             BackupBusyFeedback(state.busyLabel)
         }
@@ -184,7 +181,34 @@ fun BackupScreenContent(
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             AppIconButton(icon = Icons.Default.ArrowBack, contentDescription = "Voltar", onClick = onBack)
             Text("Backup e restauração", modifier = Modifier.weight(1f), style = MaterialTheme.typography.headlineSmall)
-            AppIconButton(icon = Icons.Default.Refresh, contentDescription = "Atualizar catálogo de backups", onClick = onRefresh, enabled = !state.busy)
+            AppIconButton(
+                icon = Icons.Default.Refresh,
+                contentDescription = "Atualizar catálogo de backups",
+                onClick = onRefresh,
+                enabled = !state.busy && !state.catalogRefreshing,
+            )
+        }
+        when {
+            state.catalogRefreshing && state.versions.isNotEmpty() -> {
+                Row(
+                    Modifier.fillMaxWidth().testTag("backup-catalog-background-refresh"),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    CircularProgressIndicator()
+                    Text("Atualizando histórico em segundo plano…", style = MaterialTheme.typography.bodySmall)
+                }
+            }
+            state.catalogUpdatedAtEpochMs != null -> {
+                val updated = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT)
+                    .format(Date(state.catalogUpdatedAtEpochMs))
+                Text(
+                    "Histórico atualizado em $updated${if (state.catalogFromCache) " · cache local" else ""}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.testTag("backup-catalog-freshness"),
+                )
+            }
         }
 
         LazyColumn(Modifier.fillMaxSize().testTag("backup-screen"), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -350,7 +374,7 @@ fun BackupScreenContent(
                 Text("Restaurar cria uma nova cópia local; nenhum projeto existente é sobrescrito.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
 
-            if (state.loading) {
+            if (state.loading && state.versions.isEmpty()) {
                 item { Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() } }
             } else if (!configured) {
                 item {
