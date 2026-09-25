@@ -7,7 +7,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 PREVIOUS = ROOT / "scripts/materialize_ci_sources_u12bx.py"
 PATCH = ROOT / ".source-parts/RC21IntegrityFeedbackBackup.patch"
-PATCH_BLOB = "ffcbe3a6d9f6ec8cfd714bba1b957142cfff6dff"
+PATCH_BLOB = "4e2f7d347c1ae9b8359d6890ea42c3ac4555bf1e"
 TARGETS = {
     "app/build.gradle.kts": ("2e89ebca930e7b7f960f746eb36adf24fb2bddda", "076c5e76779c30a2a78df6edbbf5f849950134f8"),
     "app/src/androidTest/java/studio/guitarlab/app/BackupCatalogCacheInstrumentedTest.kt": (None, "3e5d28c1751754aa0e54996a21913dc139bfe26e"),
@@ -31,6 +31,7 @@ TARGETS = {
     "core/project/src/main/kotlin/studio/guitarlab/core/project/UnifiedDriveProductionStorage.kt": ("1baf6a31cdcedadcd148658bd307785754e5b18b", "fe9024752d5944baba29d0c927f8a92f2ed9fac3"),
     "core/project/src/test/kotlin/studio/guitarlab/core/project/LegacyRecordingStereoMaintenanceTest.kt": (None, "46590131058f86981b196d8cab95e2f12d4e347f"),
     "core/project/src/test/kotlin/studio/guitarlab/core/project/UnifiedDriveProductionStorageTest.kt": ("41f958e91e13857bc7e3b7a4ec7eaef9371da450", "34d2df5ea6c7535c177c5484942b78d6ac00514a"),
+    "scripts/ci_run_api36_regression_groups.sh": ("6cf04756a6eee8d23097e059a32eaf60be9874ff", "9fd83e5a8124b42fa2febe5376748c3bd09cc5ea"),
 }
 
 
@@ -83,6 +84,7 @@ def verify() -> None:
     drive_test = (ROOT / "core/project/src/test/kotlin/studio/guitarlab/core/project/UnifiedDriveProductionStorageTest.kt").read_text(encoding="utf-8")
     feedback_test = (ROOT / "app/src/androidTest/java/studio/guitarlab/app/TransientFeedbackHostInstrumentedTest.kt").read_text(encoding="utf-8")
     cache_test = (ROOT / "app/src/androidTest/java/studio/guitarlab/app/BackupCatalogCacheInstrumentedTest.kt").read_text(encoding="utf-8")
+    api36_groups = (ROOT / "scripts/ci_run_api36_regression_groups.sh").read_text(encoding="utf-8")
 
     required = (
         (build, 'versionName = "0.5.0-rc21"'),
@@ -122,6 +124,8 @@ def verify() -> None:
         (drive_test, "legacyRecordingRestoreVerifiesPersistedDigestBeforeTakeRecovery"),
         (feedback_test, "asyncCompletionIsConsumedImmediatelyAndShownOnce"),
         (cache_test, "corruptedLocalCacheIsDiscardedInsteadOfBecomingCatalogTruth"),
+        (api36_groups, "BackupCatalogCacheInstrumentedTest"),
+        (api36_groups, "TransientFeedbackHostInstrumentedTest"),
     )
     for text_value, token in required:
         if token not in text_value:
