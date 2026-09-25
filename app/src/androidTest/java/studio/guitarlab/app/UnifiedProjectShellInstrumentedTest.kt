@@ -31,6 +31,8 @@ import studio.guitarlab.app.activity.UnifiedActivityViewModel
 import studio.guitarlab.app.ui.GuitarLabUserGuideDialog
 import studio.guitarlab.app.ui.HomeUiState
 import studio.guitarlab.app.ui.HomeViewModel
+import studio.guitarlab.app.ui.SourceSearchOutcome
+import studio.guitarlab.app.ui.SourceSearchTerminalState
 import studio.guitarlab.app.ui.StudioUserGuideDialog
 import studio.guitarlab.app.ui.NewProjectScreen
 import studio.guitarlab.app.ui.NewProjectSourceIntent
