@@ -22,9 +22,11 @@ internal object BackupCatalogFreshnessPolicy {
         snapshot: BackupCatalogSnapshot?,
         nowEpochMs: Long,
         force: Boolean,
+        currentLocalRevisions: Map<String, String>? = null,
         maxAgeMs: Long = DEFAULT_MAX_AGE_MS,
     ): Boolean {
         if (force || snapshot == null) return true
+        if (currentLocalRevisions != null && snapshot.localRevisions != currentLocalRevisions) return true
         if (snapshot.refreshedAtEpochMs <= 0L || nowEpochMs < snapshot.refreshedAtEpochMs) return true
         return nowEpochMs - snapshot.refreshedAtEpochMs >= maxAgeMs
     }
