@@ -11,20 +11,41 @@ GBW_WORKER_SA="gbw-worker@${GBW_GCP_PROJECT}.iam.gserviceaccount.com"
 GBW_TAG="$(git rev-parse --short=12 HEAD)"
 GBW_TAGGED_IMAGE="${GBW_IMAGE}:${GBW_TAG}"
 REGISTRY_HOST="${GBW_REGION}-docker.pkg.dev"
+GBW_PREQUALIFIED_IMAGE="${GBW_PREQUALIFIED_IMAGE:-}"
 
-echo "Configuring Docker authentication for ${REGISTRY_HOST}"
-gcloud auth configure-docker "${REGISTRY_HOST}" --quiet >/dev/null
+if [[ -n "$GBW_PREQUALIFIED_IMAGE" ]]; then
+  case "$GBW_PREQUALIFIED_IMAGE" in
+    "${GBW_IMAGE}"@sha256:[0-9a-f][0-9a-f]*) ;;
+    *)
+      echo "Prequalified image must be the exact remote-worker repository pinned by sha256 digest" >&2
+      exit 2
+      ;;
+  esac
+  digest="${GBW_PREQUALIFIED_IMAGE##*@}"
+  if [[ ! "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+    echo "Prequalified image digest is malformed: $digest" >&2
+    exit 2
+  fi
+  gcloud artifacts docker images describe "$GBW_PREQUALIFIED_IMAGE" \
+    --project "$GBW_GCP_PROJECT" \
+    --format='value(image_summary.digest)' >/dev/null
+  GBW_PINNED_IMAGE="$GBW_PREQUALIFIED_IMAGE"
+  echo "Promoting already-qualified immutable worker digest without rebuild"
+else
+  echo "Configuring Docker authentication for ${REGISTRY_HOST}"
+  gcloud auth configure-docker "${REGISTRY_HOST}" --quiet >/dev/null
 
-echo "Building RC20 worker locally on the authenticated GitHub runner"
-docker build --pull --no-cache \
-  --tag "${GBW_TAGGED_IMAGE}" \
-  cloud/remote-separation/worker
+  echo "Building RC20 worker locally on the authenticated GitHub runner"
+  docker build --pull --no-cache \
+    --tag "${GBW_TAGGED_IMAGE}" \
+    cloud/remote-separation/worker
 
-echo "Pushing RC20 worker to Artifact Registry"
-docker push "${GBW_TAGGED_IMAGE}"
+  echo "Pushing RC20 worker to Artifact Registry"
+  docker push "${GBW_TAGGED_IMAGE}"
 
-GBW_DIGEST="$(gcloud artifacts docker images describe "${GBW_IMAGE}:${GBW_TAG}" --project "$GBW_GCP_PROJECT" --format='value(image_summary.digest)')"
-GBW_PINNED_IMAGE="${GBW_IMAGE}@${GBW_DIGEST}"
+  GBW_DIGEST="$(gcloud artifacts docker images describe "${GBW_IMAGE}:${GBW_TAG}" --project "$GBW_GCP_PROJECT" --format='value(image_summary.digest)')"
+  GBW_PINNED_IMAGE="${GBW_IMAGE}@${GBW_DIGEST}"
+fi
 
 RUN_DEPLOY=(gcloud run jobs deploy)
 DELAY_ARGS=()
