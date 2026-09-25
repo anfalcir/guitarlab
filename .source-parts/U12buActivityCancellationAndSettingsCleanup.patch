@@ -1,0 +1,728 @@
+diff --git a/app/src/androidTest/java/studio/guitarlab/app/SettingsVisualHierarchyInstrumentedTest.kt b/app/src/androidTest/java/studio/guitarlab/app/SettingsVisualHierarchyInstrumentedTest.kt
+--- a/app/src/androidTest/java/studio/guitarlab/app/SettingsVisualHierarchyInstrumentedTest.kt
++++ b/app/src/androidTest/java/studio/guitarlab/app/SettingsVisualHierarchyInstrumentedTest.kt
+@@ -1,5 +1,6 @@
+ package studio.guitarlab.app
+ 
++import androidx.compose.ui.test.assertDoesNotExist
+ import androidx.compose.ui.test.assertIsDisplayed
+ import androidx.compose.ui.test.hasScrollAction
+ import androidx.compose.ui.test.hasTestTag
+@@ -38,6 +39,9 @@ class SettingsVisualHierarchyInstrumentedTest {
+         composeRule.onNodeWithTag("settings-external-control-toggle").assertIsDisplayed()
+         composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("Diagnóstico"))
+         composeRule.onNodeWithText("Diagnóstico").assertIsDisplayed()
++        composeRule.onNodeWithText("Projeto e Studio").assertDoesNotExist()
++        composeRule.onNodeWithText("Importação").assertDoesNotExist()
++        composeRule.onNodeWithText("Ver atividade").assertDoesNotExist()
+     }
+ 
+     @Test
+diff --git a/app/src/androidTest/java/studio/guitarlab/app/UnifiedProjectShellInstrumentedTest.kt b/app/src/androidTest/java/studio/guitarlab/app/UnifiedProjectShellInstrumentedTest.kt
+--- a/app/src/androidTest/java/studio/guitarlab/app/UnifiedProjectShellInstrumentedTest.kt
++++ b/app/src/androidTest/java/studio/guitarlab/app/UnifiedProjectShellInstrumentedTest.kt
+@@ -800,6 +800,39 @@ class UnifiedProjectShellInstrumentedTest {
+     )
+ 
+ 
++    @Test fun activityCancelTerminatesOrphanedActiveRecord() {
++        val application = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as android.app.Application
++        val store = UnifiedActivityStore(application)
++        val operationId = "test-activity-cancel-orphan"
++        store.remove(operationId)
++        try {
++            store.record(
++                operationId,
++                null,
++                UnifiedOperationKind.EXPORT,
++                UnifiedOperationState.RUNNING,
++                null,
++                "Exportação órfã em andamento",
++            )
++            val viewModel = UnifiedActivityViewModel(application)
++            composeRule.setContent {
++                GuitarLabTheme(darkTheme = true) {
++                    ActivityScreen(onBack = {}, viewModel = viewModel)
++                }
++            }
++
++            composeRule.onNodeWithTag("activity-cancel-$operationId").assertIsDisplayed().performClick()
++            composeRule.waitUntil(5_000) {
++                store.snapshot().firstOrNull { it.operationId == operationId }?.state == UnifiedOperationState.CANCELLED
++            }
++            composeRule.onNodeWithTag("activity-record-$operationId").assertIsDisplayed()
++            composeRule.onNodeWithText("Cancelada").assertIsDisplayed()
++            composeRule.onAllNodesWithTag("activity-cancel-$operationId").assertCountEquals(0)
++        } finally {
++            store.remove(operationId)
++        }
++    }
++
+     @Test fun activityClearHistoryRemovesAllTerminalRecordsButKeepsActiveWork() {
+         val application = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as android.app.Application
+         val store = UnifiedActivityStore(application)
+diff --git a/app/src/main/java/studio/guitarlab/app/activity/ActivityCancellationCoordinator.kt b/app/src/main/java/studio/guitarlab/app/activity/ActivityCancellationCoordinator.kt
+new file mode 100644
+--- /dev/null
++++ b/app/src/main/java/studio/guitarlab/app/activity/ActivityCancellationCoordinator.kt
+@@ -0,0 +1,107 @@
++package studio.guitarlab.app.activity
++
++import android.content.Context
++import studio.guitarlab.app.backup.BackupScheduler
++import studio.guitarlab.core.project.UnifiedOperationKind
++import studio.guitarlab.core.project.UnifiedOperationRecord
++import studio.guitarlab.platform.separation.RemoteSeparationClient
++import studio.guitarlab.platform.source.android.SourceAcquisitionClient
++
++data class ActivityCancellationResult(
++    val operationId: String,
++    val executorCancelled: Boolean,
++    val durableCancellationRequested: Boolean,
++    val message: String,
++)
++
++class ActivityCancellationCoordinator(context: Context) {
++    private val appContext = context.applicationContext
++    private val store = UnifiedActivityStore(appContext)
++    private val source = SourceAcquisitionClient(appContext)
++    private val separation = RemoteSeparationClient(appContext)
++
++    fun cancel(record: UnifiedOperationRecord): ActivityCancellationResult {
++        require(record.state.isActive) { "A atividade já terminou." }
++
++        val executorCancelled = ActivityCancellationRegistry.cancel(record.operationId)
++        var durableRequested = false
++        var durableDetail = "no-durable-owner"
++
++        when (record.kind) {
++            UnifiedOperationKind.SOURCE_ACQUISITION -> {
++                val projectId = record.projectId
++                if (projectId != null && source.cancel(projectId, record.operationId)) {
++                    durableRequested = true
++                    durableDetail = "source-workmanager+ytdlp"
++                } else {
++                    durableDetail = "source-local-or-orphan"
++                }
++            }
++
++            UnifiedOperationKind.SEPARATION -> {
++                val projectId = record.projectId
++                if (projectId != null && separation.cancelFromActivity(projectId, record.operationId)) {
++                    durableRequested = true
++                    durableDetail = "firebase-cloud-cancel-requested"
++                } else {
++                    durableDetail = "remote-cancel-not-requested"
++                }
++            }
++
++            UnifiedOperationKind.BACKUP -> {
++                if (record.operationId == AUTOMATIC_BACKUP_OPERATION_ID) {
++                    BackupScheduler.cancelAutomaticExecution(appContext)
++                    durableRequested = true
++                    durableDetail = "automatic-backup-workmanager"
++                } else {
++                    durableDetail = "manual-backup-local-or-orphan"
++                }
++            }
++
++            UnifiedOperationKind.RESTORE -> {
++                durableDetail = "restore-local-or-orphan"
++            }
++
++            UnifiedOperationKind.REFERENCE_PREPARATION -> {
++                durableDetail = "reference-local-or-orphan"
++            }
++
++            UnifiedOperationKind.EXPORT -> {
++                durableDetail = "export-local-or-orphan"
++            }
++        }
++
++        val summary = when (record.kind) {
++            UnifiedOperationKind.SEPARATION ->
++                if (durableRequested) "Cancelamento da separação solicitado" else "Atividade de separação órfã encerrada"
++            else -> "Operação cancelada pelo usuário"
++        }
++        store.cancelActive(
++            operationId = record.operationId,
++            summary = summary,
++            technicalDetail = buildString {
++                append("USER_CANCELLED_FROM_ACTIVITY")
++                append("; executorCancelled=").append(executorCancelled)
++                append("; durable=").append(durableDetail)
++            },
++        )
++
++        return ActivityCancellationResult(
++            operationId = record.operationId,
++            executorCancelled = executorCancelled,
++            durableCancellationRequested = durableRequested,
++            message = when {
++                record.kind == UnifiedOperationKind.SEPARATION && durableRequested ->
++                    "Cancelamento solicitado ao backend da separação."
++                durableRequested || executorCancelled ->
++                    "Cancelamento solicitado."
++                else ->
++                    "A atividade órfã foi encerrada localmente."
++            },
++        )
++    }
++
++    private companion object {
++        const val AUTOMATIC_BACKUP_OPERATION_ID = "automatic-backup"
++    }
++}
+diff --git a/app/src/main/java/studio/guitarlab/app/activity/ActivityCancellationRegistry.kt b/app/src/main/java/studio/guitarlab/app/activity/ActivityCancellationRegistry.kt
+new file mode 100644
+--- /dev/null
++++ b/app/src/main/java/studio/guitarlab/app/activity/ActivityCancellationRegistry.kt
+@@ -0,0 +1,35 @@
++package studio.guitarlab.app.activity
++
++import java.util.concurrent.ConcurrentHashMap
++import kotlinx.coroutines.CancellationException
++import kotlinx.coroutines.Job
++
++/**
++ * Process-local bridge between Activity and live coroutine jobs.
++ *
++ * Durable/background providers are cancelled separately. This registry only gives Activity a way
++ * to stop work that is still owned by an in-process ViewModel.
++ */
++object ActivityCancellationRegistry {
++    private val cancellers = ConcurrentHashMap<String, () -> Unit>()
++
++    fun register(operationId: String, job: Job) {
++        require(operationId.isNotBlank())
++        cancellers[operationId] = {
++            job.cancel(CancellationException("Cancelled from Activity"))
++        }
++        job.invokeOnCompletion {
++            cancellers.remove(operationId)
++        }
++    }
++
++    fun unregister(operationId: String) {
++        cancellers.remove(operationId)
++    }
++
++    fun cancel(operationId: String): Boolean =
++        cancellers.remove(operationId)?.let { cancel ->
++            cancel()
++            true
++        } ?: false
++}
+diff --git a/app/src/main/java/studio/guitarlab/app/activity/ActivityScreen.kt b/app/src/main/java/studio/guitarlab/app/activity/ActivityScreen.kt
+--- a/app/src/main/java/studio/guitarlab/app/activity/ActivityScreen.kt
++++ b/app/src/main/java/studio/guitarlab/app/activity/ActivityScreen.kt
+@@ -68,6 +68,14 @@ fun ActivityScreen(
+             style = MaterialTheme.typography.bodyMedium,
+             color = MaterialTheme.colorScheme.onSurfaceVariant,
+         )
++        state.message?.let { message ->
++            Text(
++                message,
++                modifier = Modifier.fillMaxWidth().testTag("activity-message"),
++                style = MaterialTheme.typography.bodySmall,
++                color = MaterialTheme.colorScheme.onSurfaceVariant,
++            )
++        }
+         if (state.historyCount > 0) {
+             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                 TextButton(
+@@ -86,7 +94,13 @@ fun ActivityScreen(
+                 state = listState,
+                 verticalArrangement = Arrangement.spacedBy(10.dp),
+             ) {
+-                items(state.records, key = { it.operationId }) { record -> ActivityRecordCard(record) }
++                items(state.records, key = { it.operationId }) { record ->
++                    ActivityRecordCard(
++                        record = record,
++                        cancelling = record.operationId in state.cancellingOperationIds,
++                        onCancel = { viewModel.cancel(record) },
++                    )
++                }
+             }
+         }
+     }
+@@ -103,7 +117,11 @@ private fun ActivityEmptyState(modifier: Modifier) {
+ }
+ 
+ @Composable
+-private fun ActivityRecordCard(record: UnifiedOperationRecord) {
++private fun ActivityRecordCard(
++    record: UnifiedOperationRecord,
++    cancelling: Boolean,
++    onCancel: () -> Unit,
++) {
+     val active = record.state.isActive
+     Card(Modifier.fillMaxWidth().testTag("activity-record-${record.operationId}")) {
+         Row(Modifier.fillMaxWidth().padding(14.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.Top) {
+@@ -148,6 +166,17 @@ private fun ActivityRecordCard(record: UnifiedOperationRecord) {
+                     style = MaterialTheme.typography.labelSmall,
+                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                 )
++                if (active) {
++                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
++                        TextButton(
++                            onClick = onCancel,
++                            enabled = !cancelling,
++                            modifier = Modifier.testTag("activity-cancel-${record.operationId}"),
++                        ) {
++                            Text(if (cancelling) "Cancelando…" else "Cancelar")
++                        }
++                    }
++                }
+             }
+         }
+     }
+diff --git a/app/src/main/java/studio/guitarlab/app/activity/UnifiedActivityStore.kt b/app/src/main/java/studio/guitarlab/app/activity/UnifiedActivityStore.kt
+--- a/app/src/main/java/studio/guitarlab/app/activity/UnifiedActivityStore.kt
++++ b/app/src/main/java/studio/guitarlab/app/activity/UnifiedActivityStore.kt
+@@ -44,6 +44,7 @@ class UnifiedActivityStore(context: Context) {
+                 .let(::bounded)
+             write(next)
+             _records.value = next
++            if (!record.state.isActive) ActivityCancellationRegistry.unregister(record.operationId)
+             journal.appendActivity(record)
+         }
+     }
+@@ -78,6 +79,26 @@ class UnifiedActivityStore(context: Context) {
+         }
+     }
+ 
++    fun cancelActive(
++        operationId: String,
++        summary: String = "Operação cancelada pelo usuário",
++        technicalDetail: String? = "USER_CANCELLED_FROM_ACTIVITY",
++        nowEpochMs: Long = System.currentTimeMillis(),
++    ): Boolean {
++        val current = _records.value.firstOrNull { it.operationId == operationId } ?: return false
++        if (!current.state.isActive) return false
++        upsert(
++            current.copy(
++                state = UnifiedOperationState.CANCELLED,
++                progressPercent = null,
++                updatedAtEpochMs = nowEpochMs,
++                summary = summary,
++                technicalDetail = technicalDetail,
++            ),
++        )
++        return true
++    }
++
+     fun clearHistory(): Int = synchronized(lock) {
+         val before = _records.value
+         val next = UnifiedActivityPolicy.clearHistory(before).let(::bounded)
+diff --git a/app/src/main/java/studio/guitarlab/app/activity/UnifiedActivityViewModel.kt b/app/src/main/java/studio/guitarlab/app/activity/UnifiedActivityViewModel.kt
+--- a/app/src/main/java/studio/guitarlab/app/activity/UnifiedActivityViewModel.kt
++++ b/app/src/main/java/studio/guitarlab/app/activity/UnifiedActivityViewModel.kt
+@@ -3,8 +3,12 @@ package studio.guitarlab.app.activity
+ import android.app.Application
+ import androidx.lifecycle.AndroidViewModel
+ import androidx.lifecycle.viewModelScope
++import kotlinx.coroutines.flow.MutableStateFlow
+ import kotlinx.coroutines.flow.SharingStarted
+ import kotlinx.coroutines.flow.StateFlow
++import kotlinx.coroutines.flow.combine
++import kotlinx.coroutines.flow.update
++import kotlinx.coroutines.launch
+ import kotlinx.coroutines.flow.map
+ import kotlinx.coroutines.flow.stateIn
+ import studio.guitarlab.core.project.UnifiedActivityPolicy
+@@ -14,22 +18,49 @@ data class UnifiedActivityUiState(
+     val records: List<UnifiedOperationRecord> = emptyList(),
+     val active: UnifiedOperationRecord? = null,
+     val historyCount: Int = 0,
++    val cancellingOperationIds: Set<String> = emptySet(),
++    val message: String? = null,
+ )
+ 
+ class UnifiedActivityViewModel(application: Application) : AndroidViewModel(application) {
+     private val store = UnifiedActivityStore(application)
+-    val state: StateFlow<UnifiedActivityUiState> = store.records
+-        .map { records ->
+-            val ordered = UnifiedActivityPolicy.ordered(records)
+-            UnifiedActivityUiState(
+-                records = ordered,
+-                active = ordered.firstOrNull { it.state.isActive },
+-                historyCount = ordered.count(UnifiedActivityPolicy::isHistorical),
+-            )
+-        }
+-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), UnifiedActivityUiState())
++    private val cancellation = ActivityCancellationCoordinator(application)
++    private val transient = MutableStateFlow(UnifiedActivityUiState())
++
++    val state: StateFlow<UnifiedActivityUiState> = combine(store.records, transient) { records, ui ->
++        val ordered = UnifiedActivityPolicy.ordered(records)
++        ui.copy(
++            records = ordered,
++            active = ordered.firstOrNull { it.state.isActive },
++            historyCount = ordered.count(UnifiedActivityPolicy::isHistorical),
++        )
++    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), UnifiedActivityUiState())
+ 
+     fun clearHistory() {
+         store.clearHistory()
+     }
++
++    fun cancel(record: UnifiedOperationRecord) {
++        if (!record.state.isActive || record.operationId in transient.value.cancellingOperationIds) return
++        transient.update {
++            it.copy(
++                cancellingOperationIds = it.cancellingOperationIds + record.operationId,
++                message = null,
++            )
++        }
++        viewModelScope.launch {
++            val message = runCatching { cancellation.cancel(record).message }
++                .getOrElse { error -> error.message ?: "Não foi possível cancelar a atividade." }
++            transient.update {
++                it.copy(
++                    cancellingOperationIds = it.cancellingOperationIds - record.operationId,
++                    message = message,
++                )
++            }
++        }
++    }
++
++    fun clearMessage() {
++        transient.update { it.copy(message = null) }
++    }
+ }
+diff --git a/app/src/main/java/studio/guitarlab/app/backup/BackupScheduler.kt b/app/src/main/java/studio/guitarlab/app/backup/BackupScheduler.kt
+--- a/app/src/main/java/studio/guitarlab/app/backup/BackupScheduler.kt
++++ b/app/src/main/java/studio/guitarlab/app/backup/BackupScheduler.kt
+@@ -50,6 +50,19 @@ object BackupScheduler {
+         WorkManager.getInstance(context.applicationContext).cancelUniqueWork(COALESCED_WORK)
+     }
+ 
++    /**
++     * Cancels the currently owned automatic/coalesced execution and immediately restores the
++     * periodic schedule from persisted settings so a manual Activity cleanup does not disable
++     * future backups.
++     */
++    fun cancelAutomaticExecution(context: Context) {
++        val appContext = context.applicationContext
++        val manager = WorkManager.getInstance(appContext)
++        manager.cancelUniqueWork(COALESCED_WORK)
++        manager.cancelUniqueWork(PERIODIC_WORK)
++        sync(appContext)
++    }
++
+     private fun constraints(settings: BackupSettingsSnapshot): Constraints = Constraints.Builder()
+         .setRequiredNetworkType(if (settings.unmeteredOnly) NetworkType.UNMETERED else NetworkType.CONNECTED)
+         .setRequiresCharging(settings.chargingOnly)
+diff --git a/app/src/main/java/studio/guitarlab/app/backup/BackupViewModel.kt b/app/src/main/java/studio/guitarlab/app/backup/BackupViewModel.kt
+--- a/app/src/main/java/studio/guitarlab/app/backup/BackupViewModel.kt
++++ b/app/src/main/java/studio/guitarlab/app/backup/BackupViewModel.kt
+@@ -16,9 +16,11 @@ import kotlinx.coroutines.flow.distinctUntilChanged
+ import kotlinx.coroutines.flow.drop
+ import kotlinx.coroutines.flow.map
+ import kotlinx.coroutines.flow.update
++import kotlinx.coroutines.Job
+ import kotlinx.coroutines.launch
+ import kotlinx.coroutines.withContext
+ import java.util.UUID
++import studio.guitarlab.app.activity.ActivityCancellationRegistry
+ import studio.guitarlab.app.activity.UnifiedActivityStore
+ import studio.guitarlab.core.model.GuitarProject
+ import studio.guitarlab.core.project.BackupRetentionPolicy
+@@ -149,7 +151,17 @@ class BackupViewModel(application: Application) : AndroidViewModel(application)
+                     }
+                 }
+             } catch (error: Throwable) {
+-                if (error is CancellationException) throw error
++                if (error is CancellationException) {
++                    _state.update {
++                        it.copy(
++                            busy = false,
++                            busyLabel = null,
++                            message = "Operação cancelada.",
++                            error = null,
++                        )
++                    }
++                    throw error
++                }
+                 fail(error)
+             }
+         }
+@@ -251,6 +263,7 @@ class BackupViewModel(application: Application) : AndroidViewModel(application)
+             null,
+             "Aplicando versão da nuvem",
+         )
++        registerCurrentActivityOperation(operationId)
+         requireDriveConnected()
+         try {
+             val restored = BackupOperationLock.withLock {
+@@ -287,6 +300,7 @@ class BackupViewModel(application: Application) : AndroidViewModel(application)
+     fun restoreVersion(version: BackupVersionDescriptor, onProjectsChanged: () -> Unit) = runBusy(null) {
+         val operationId = UUID.randomUUID().toString()
+         activityStore.record(operationId, version.projectId, UnifiedOperationKind.RESTORE, UnifiedOperationState.RUNNING, null, "Restaurando uma versão do projeto")
++        registerCurrentActivityOperation(operationId)
+         requireDriveConnected()
+         try {
+             val explicitlyDeleted = deletedProjectStore.all().containsKey(version.projectId)
+@@ -318,6 +332,7 @@ class BackupViewModel(application: Application) : AndroidViewModel(application)
+     fun restoreLatestAll(onProjectsChanged: () -> Unit) = runBusy(null) {
+         val operationId = UUID.randomUUID().toString()
+         activityStore.record(operationId, null, UnifiedOperationKind.RESTORE, UnifiedOperationState.RUNNING, null, "Restaurando os projetos mais recentes")
++        registerCurrentActivityOperation(operationId)
+         requireDriveConnected()
+         try {
+             val results = BackupOperationLock.withLock { unifiedDrive.restoreLatestAll() }
+@@ -381,6 +396,7 @@ class BackupViewModel(application: Application) : AndroidViewModel(application)
+         runBusy(successMessage = null, busyLabel = "$label em andamento…") {
+             val operationId = UUID.randomUUID().toString()
+             activityStore.record(operationId, projectId, UnifiedOperationKind.BACKUP, UnifiedOperationState.RUNNING, null, label)
++            registerCurrentActivityOperation(operationId)
+             try {
+                 requireDriveConnected()
+                 val report = BackupOperationLock.withLock { action(unifiedDrive) }
+@@ -470,6 +486,11 @@ class BackupViewModel(application: Application) : AndroidViewModel(application)
+         }
+     }
+ 
++    private suspend fun registerCurrentActivityOperation(operationId: String) {
++        val job = kotlinx.coroutines.currentCoroutineContext()[Job] ?: return
++        ActivityCancellationRegistry.register(operationId, job)
++    }
++
+     private companion object {
+         const val ACTIVE_OPERATION_STALE_MS = 30L * 60L * 1_000L
+     }
+diff --git a/app/src/main/java/studio/guitarlab/app/ui/GuitarLabApp.kt b/app/src/main/java/studio/guitarlab/app/ui/GuitarLabApp.kt
+--- a/app/src/main/java/studio/guitarlab/app/ui/GuitarLabApp.kt
++++ b/app/src/main/java/studio/guitarlab/app/ui/GuitarLabApp.kt
+@@ -155,7 +155,6 @@ fun GuitarLabApp(
+             onAudioDiagnostics = { navigate(AppScreen.AudioProbe(current.projectId)) },
+             onCodecDiagnostics = { navigate(AppScreen.CodecProbe(current.projectId)) },
+             onBackupSettings = { navigate(AppScreen.Backup(current.projectId)) },
+-            onActivity = { navigate(AppScreen.Activity()) },
+             onDiagnostics = { navigate(AppScreen.Diagnostics(current.projectId)) },
+         )
+         is AppScreen.Diagnostics -> DiagnosticsScreen(
+diff --git a/app/src/main/java/studio/guitarlab/app/ui/HomeViewModel.kt b/app/src/main/java/studio/guitarlab/app/ui/HomeViewModel.kt
+--- a/app/src/main/java/studio/guitarlab/app/ui/HomeViewModel.kt
++++ b/app/src/main/java/studio/guitarlab/app/ui/HomeViewModel.kt
+@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.update
+ import kotlinx.coroutines.launch
+ import kotlinx.coroutines.withContext
+ import kotlinx.coroutines.withTimeout
++import studio.guitarlab.app.activity.ActivityCancellationRegistry
+ import studio.guitarlab.app.activity.UnifiedActivityStore
+ import studio.guitarlab.app.backup.BackupScheduler
+ import studio.guitarlab.app.backup.ConfirmedRevisionStore
+@@ -262,7 +263,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
+         job?.let { current ->
+             val state = when {
+                 current.state == RemoteJobState.IMPORTED -> UnifiedOperationState.SUCCEEDED
+-                current.state == RemoteJobState.CANCELLED -> UnifiedOperationState.CANCELLED
++                current.state == RemoteJobState.CANCEL_REQUESTED || current.state == RemoteJobState.CANCELLED -> UnifiedOperationState.CANCELLED
+                 current.state == RemoteJobState.IMPORT_FAILED || current.state == RemoteJobState.FAILED || current.state == RemoteJobState.EXPIRED -> UnifiedOperationState.FAILED
+                 current.errorCode?.startsWith("RETRY:") == true -> UnifiedOperationState.RETRYING
+                 current.state == RemoteJobState.QUEUED || current.state == RemoteJobState.READY -> UnifiedOperationState.QUEUED
+@@ -574,6 +575,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
+                     error.message,
+                 )
+             } finally {
++                ActivityCancellationRegistry.unregister(operationId)
+                 if (sourceSearchOperationIds[projectId] == operationId) {
+                     sourceSearchOperationIds.remove(projectId)
+                     sourceSearchJobs.remove(projectId)
+@@ -583,6 +585,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
+                 }
+             }
+         }
++        sourceSearchJobs[projectId]?.let { ActivityCancellationRegistry.register(operationId, it) }
+     }
+ 
+     fun importSource(projectId: String, uri: Uri) {
+@@ -762,11 +765,13 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
+                 )
+                 _state.update { it.copy(error = error.message ?: "Não foi possível preparar a base e a guitarra de referência.") }
+             } finally {
++                ActivityCancellationRegistry.unregister(activityId)
+                 preparedReferenceJobs.remove(projectId)
+                 _state.update { it.copy(preparedReferenceBusyProjects = it.preparedReferenceBusyProjects - projectId) }
+             }
+         }
+         preparedReferenceJobs[projectId] = job
++        ActivityCancellationRegistry.register(activityId, job)
+     }
+ 
+     fun saveProjectPackage(projectId: String, uri: Uri) = launchExport(projectId, "Projeto GuitarLab") {
+@@ -818,9 +823,11 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
+                 activityStore.record(operationId, projectId, UnifiedOperationKind.EXPORT, UnifiedOperationState.FAILED, null, "Não foi possível concluir a exportação", error.message)
+                 _state.update { it.copy(exportBusy = false, exportOperationLabel = null, error = error.message ?: "Não foi possível exportar o projeto.") }
+             } finally {
++                ActivityCancellationRegistry.unregister(operationId)
+                 exportJob = null
+             }
+         }
++        exportJob?.let { ActivityCancellationRegistry.register(operationId, it) }
+     }
+ 
+     fun duplicateProject(project: GuitarProject) {
+diff --git a/app/src/main/java/studio/guitarlab/app/ui/SettingsScreen.kt b/app/src/main/java/studio/guitarlab/app/ui/SettingsScreen.kt
+--- a/app/src/main/java/studio/guitarlab/app/ui/SettingsScreen.kt
++++ b/app/src/main/java/studio/guitarlab/app/ui/SettingsScreen.kt
+@@ -52,7 +52,6 @@ import kotlinx.coroutines.withContext
+ import studio.guitarlab.app.backup.BackupSettingsStore
+ import studio.guitarlab.core.audio.LatencyFineAdjustmentPolicy
+ import studio.guitarlab.core.audio.MonitoringMode
+-import studio.guitarlab.core.codec.AudioImportFormatPolicy
+ import studio.guitarlab.core.project.FileProjectRepository
+ import studio.guitarlab.core.project.RecordingSampleRatePolicy
+ import studio.guitarlab.core.project.ExternalControlAction
+@@ -65,7 +64,6 @@ fun SettingsScreen(
+     onAudioDiagnostics: () -> Unit,
+     onCodecDiagnostics: () -> Unit,
+     onBackupSettings: () -> Unit = {},
+-    onActivity: () -> Unit = {},
+     onDiagnostics: () -> Unit = {},
+ ) {
+     val context = LocalContext.current
+@@ -403,40 +401,6 @@ fun SettingsScreen(
+                         actionLabel = "Abrir",
+                         onClick = onBackupSettings,
+                     )
+-                    SettingsActionRow(
+-                        title = "Ver atividade",
+-                        detail = "Fonte, separação, referências, exportações, backup e restauração em um único histórico.",
+-                        actionLabel = "Abrir",
+-                        onClick = onActivity,
+-                        testTag = "settings-open-activity",
+-                    )
+-                }
+-            }
+-
+-            item {
+-                OptionSection(
+-                    title = "Projeto e Studio",
+-                    subtitle = "Preferências que não precisam ocupar a área de edição.",
+-                ) {
+-                    OptionRow("Salvamento automático", "Ativo", "Alterações do projeto são salvas automaticamente.")
+-                    OptionRow("Mixer", "Abrir/fechar persistente", "Use o botão Mixer na barra do Studio. Um toque abre, outro fecha, e a visibilidade é mantida ao navegar pelo aplicativo.")
+-                    OptionRow("Novo projeto", "Perguntar sempre", "Projeto vazio ou template de guitarra")
+-                    if (projectId != null) {
+-                        Text(
+-                            "Para criar um Projeto portátil, Arquivos para estudo ou o Mix final do Studio, use Exportar no projeto.",
+-                            style = MaterialTheme.typography.bodySmall,
+-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+-                        )
+-                    }
+-                }
+-            }
+-
+-            item {
+-                OptionSection(
+-                    title = "Importação",
+-                    subtitle = "Os arquivos originais são preservados; quando necessário, o GuitarLab cria uma cópia otimizada para edição.",
+-                ) {
+-                    OptionRow("Importar áudio", AudioImportFormatPolicy.supportedExtensionsDescription, "WAV/FLAC/AIFF/MP3/AAC-M4A/OGG/Opus")
+                 }
+             }
+ 
+diff --git a/platform/separation/src/main/kotlin/studio/guitarlab/platform/separation/FirebaseRemoteRuntime.kt b/platform/separation/src/main/kotlin/studio/guitarlab/platform/separation/FirebaseRemoteRuntime.kt
+--- a/platform/separation/src/main/kotlin/studio/guitarlab/platform/separation/FirebaseRemoteRuntime.kt
++++ b/platform/separation/src/main/kotlin/studio/guitarlab/platform/separation/FirebaseRemoteRuntime.kt
+@@ -356,6 +356,27 @@ class RemoteSeparationClient(private val context: Context) {
+         scheduleCancel(requesting)
+     }
+ 
++    /**
++     * Activity may outlive the local durable job row after process/recovery edge cases.
++     * In that case we still own the authenticated remote job id, so enqueue a minimal
++     * Firebase cancellation request instead of leaving a cloud orphan behind.
++     */
++    fun cancelFromActivity(projectId: String, jobId: String): Boolean {
++        val store = FileRemoteJobStore(context)
++        val job = store.load(jobId)
++        if (job != null) {
++            if (job.identity.projectId != projectId) return false
++            cancel(projectId, jobId)
++            return true
++        }
++        WorkManager.getInstance(context.applicationContext).enqueueUniqueWork(
++            remoteActivityCancelWorkName(jobId),
++            ExistingWorkPolicy.REPLACE,
++            remoteActivityCancelRequest(projectId, jobId),
++        )
++        return true
++    }
++
+     fun closeProject(projectId: String) {
+         val store = FileRemoteJobStore(context)
+         val jobs = store.active().filter { it.identity.projectId == projectId }
+@@ -630,8 +651,31 @@ class RemoteCancelWorker(context: Context, params: WorkerParameters) : Coroutine
+ }
+ 
+ 
++
++class RemoteActivityOrphanCancelWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
++    override suspend fun doWork(): Result {
++        val jobId = inputData.getString("jobId").orEmpty()
++        if (jobId.isBlank()) return Result.failure()
++        return try {
++            val app = GuitarLabFirebase.app(applicationContext)
++            val auth = FirebaseAuth.getInstance(app)
++            requireStableRemoteUid(auth)
++            FirebaseFunctions.getInstance(app, "us-central1")
++                .getHttpsCallable("cancelRemoteSeparation")
++                .call(mapOf("jobId" to jobId))
++                .await()
++            Result.success()
++        } catch (cancelled: CancellationException) {
++            throw cancelled
++        } catch (_: Throwable) {
++            if (runAttemptCount < 4) Result.retry() else Result.failure()
++        }
++    }
++}
++
+ private fun remoteWorkName(jobId: String) = "guitarlab-separation:$jobId"
+ private fun remoteCancelWorkName(jobId: String) = "guitarlab-separation-cancel:$jobId"
++private fun remoteActivityCancelWorkName(jobId: String) = "guitarlab-separation-activity-cancel:$jobId"
+ private fun remoteRecoveryWorkName(projectId: String) = "guitarlab-separation-recovery:$projectId"
+ 
+ private fun remoteSeparationRequest(id: RemoteJobIdentity) =
+@@ -652,6 +696,15 @@ private fun remoteCancelRequest(id: RemoteJobIdentity) =
+         .addTag("guitarlab-separation-cancel:${id.projectId}")
+         .build()
+ 
++private fun remoteActivityCancelRequest(projectId: String, jobId: String) =
++    OneTimeWorkRequestBuilder<RemoteActivityOrphanCancelWorker>()
++        .setInputData(workDataOf("projectId" to projectId, "jobId" to jobId))
++        .setConstraints(networkConstraints())
++        .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
++        .addTag("guitarlab-separation-activity-cancel")
++        .addTag("guitarlab-separation-activity-cancel:$projectId")
++        .build()
++
+ private fun remoteRecoveryRequest(projectId: String) =
+     OneTimeWorkRequestBuilder<RemoteRecoveryProbeWorker>()
+         .setInputData(workDataOf("projectId" to projectId))
+diff --git a/platform/source-android/src/main/kotlin/studio/guitarlab/platform/source/android/SourceAcquisitionClient.kt b/platform/source-android/src/main/kotlin/studio/guitarlab/platform/source/android/SourceAcquisitionClient.kt
+--- a/platform/source-android/src/main/kotlin/studio/guitarlab/platform/source/android/SourceAcquisitionClient.kt
++++ b/platform/source-android/src/main/kotlin/studio/guitarlab/platform/source/android/SourceAcquisitionClient.kt
+@@ -66,10 +66,17 @@ class SourceAcquisitionClient(context: Context) {
+ 
+     fun cancel(projectId: String) {
+         val snapshot = operations.snapshot(projectId) ?: return
+-        if (snapshot.state !in setOf(SourceOperationState.RUNNING, SourceOperationState.RETRYING)) return
++        cancel(projectId, snapshot.operationId)
++    }
++
++    fun cancel(projectId: String, operationId: String): Boolean {
++        val snapshot = operations.snapshot(projectId) ?: return false
++        if (snapshot.operationId != operationId) return false
++        if (snapshot.state !in setOf(SourceOperationState.RUNNING, SourceOperationState.RETRYING)) return false
+         operations.markCancelled(projectId)
+         SourceAcquisitionWorker.cancel(appContext, projectId, snapshot.operationId)
+         AndroidSourceMedia.cleanup(appContext, snapshot.operationId)
++        return true
+     }
+ 
+     /** Close all local ownership before a project is physically deleted. */
