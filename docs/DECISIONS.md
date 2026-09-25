@@ -394,3 +394,16 @@ Consequences:
 - the full transactional U4 smoke does not run in shadow; it executes after production cutover inside the controlled production deploy so failure still triggers automatic rollback;
 - W5 workflow execution is removed under D-092;
 - this workflow-only consolidation does not modify worker image contents or the qualified Demucs recipe.
+
+
+## D-094 — Normal RC20 shadow qualification uses one Cloud Run execution and one Demucs inference
+
+After D-093 consolidated W3/W4, review found that the retained warm probe still executed Demucs a second time inside the same Cloud Run job. For the selected CPU8 production shape this repeated inference is no longer required in the normal qualification path because cold/warm behavior was already characterized and the owner accepted the current performance.
+
+Consequences:
+- the normal CPU8 W3/W4 shadow cell uses exactly one Cloud Run execution and one Demucs inference;
+- the optional CPU4 matrix cell, when explicitly requested, also uses one execution and one inference;
+- warm-probe and standalone model-probe capability may remain in the benchmark harness for targeted diagnostics, but both default off and are not release prerequisites;
+- the full U4 transactional smoke remains a separate post-cutover production execution because it validates Firebase/Firestore/Storage lifecycle, recovery, quota and ACK/purge rather than benchmark quality/performance;
+- standalone U4 must use the official RC20 checkpoint SHA-256 `34c22ccb381c6f9fdbf324f04e1e2fe21aaaf293f5ded163a162697ff9a02ddd`;
+- no worker-image or Demucs-recipe content changes are introduced by this orchestration refinement.
