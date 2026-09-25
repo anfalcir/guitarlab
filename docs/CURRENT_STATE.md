@@ -4,6 +4,8 @@ Updated: 2026-09-24
 
 - RC20 CI optimization (D-093): U7 shadow now uses one representative CPU8 Cloud Run benchmark as the combined W3/W4 gate; separate W3 Cloud Run parity and standalone model-probe executions are removed from the normal path, CPU4 remains opt-in, full U4 runs only after production cutover so automatic rollback remains available, and the waived W5 workflow is removed. This changes workflow orchestration only; it does not mutate the worker image or Demucs recipe.
 
+- RC20 CI integrity review (D-094): the consolidated CPU8 W3/W4 shadow gate now performs exactly one Cloud Run execution and one Demucs inference; warm/model probes default off, CPU4 remains explicit opt-in, and standalone U4 is aligned to official RC20 model SHA `34c22ccb…`. U4 remains separate only post-cutover because it validates transactional cloud lifecycle and preserves automatic rollback. Source materialization tail is U12bl.
+
 ## Unified program progress
 - Stable product identity is governed by `PROJECT_IDENTITY.md` and D-090: private single-owner appliance, proportional gates, exact signed APK + digest-pinned worker freeze after physical acceptance, and maintenance only for a real trigger.
 - Product-scope override (2026-09-21): legacy project/backup migration is retired. The owner has only two legacy projects and accepts recreating them manually. U9 is retired; U8/U10/U11 no longer carry H37/GBW/pre-unification migration obligations. Current unified-line save/reopen, schema evolution, backup/restore and integrity guarantees remain mandatory.
