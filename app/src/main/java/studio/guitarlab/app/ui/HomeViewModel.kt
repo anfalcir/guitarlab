@@ -34,6 +34,7 @@ import studio.guitarlab.core.project.ProjectLibraryQuery
 import studio.guitarlab.core.project.ProjectManagedMediaStore
 import studio.guitarlab.core.project.PreparedReferenceService
 import studio.guitarlab.core.project.PreparedReferenceBindingPolicy
+import studio.guitarlab.core.project.PreparedReferenceRestoreTarget
 import studio.guitarlab.core.project.ProjectRecordingMediaStore
 import studio.guitarlab.core.project.ProjectSampleRateFilter
 import studio.guitarlab.core.project.ProjectSortOrder
@@ -677,32 +678,42 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     fun cancelSeparation(projectId:String){separation.snapshotProject(projectId)?.let{separation.cancel(projectId,it.identity.jobId)};refreshSeparation(projectId)}
 
-    fun repairPreparedReferenceBindings(projectId: String) {
+    fun restorePreparedReferences(projectId: String, restoreBacking: Boolean, restoreGuitar: Boolean) {
+        val targets = buildSet {
+            if (restoreBacking) add(PreparedReferenceRestoreTarget.BACKING)
+            if (restoreGuitar) add(PreparedReferenceRestoreTarget.GUITAR)
+        }
+        if (targets.isEmpty()) return
         viewModelScope.launch {
             runCatching {
                 withContext(Dispatchers.IO) {
                     val project = repository.load(projectId) ?: error("Projeto não encontrado.")
-                    if (!PreparedReferenceBindingPolicy.bindingDiffersFromDesired(project)) return@withContext project
                     repository.save(
-                        PreparedReferenceBindingPolicy.applyUpdate(
+                        PreparedReferenceBindingPolicy.restoreSelected(
                             project = project,
+                            targets = targets,
                             now = System.currentTimeMillis(),
                         ),
                     )
                 }
             }.onSuccess {
+                BackupScheduler.enqueueCoalesced(getApplication())
+                val labels = buildList {
+                    if (PreparedReferenceRestoreTarget.BACKING in targets) add("base")
+                    if (PreparedReferenceRestoreTarget.GUITAR in targets) add("guitarra")
+                }.joinToString(" e ")
                 activityStore.record(
-                    operationId = "reference-repair-$projectId-${System.currentTimeMillis()}",
+                    operationId = "reference-restore-$projectId-${System.currentTimeMillis()}",
                     projectId = projectId,
                     kind = UnifiedOperationKind.REFERENCE_PREPARATION,
                     state = UnifiedOperationState.SUCCEEDED,
                     progressPercent = 100,
-                    summary = "Referências do Studio verificadas/recolocadas localmente",
-                    technicalDetail = "local-only; zero cloud/quota",
+                    summary = "Referências do Studio recolocadas: $labels",
+                    technicalDetail = "local-only; canonical prepared assets; zero cloud/quota",
                 )
                 _state.update { current ->
                     current.copy(
-                        message = "Referências recolocadas no Studio sem alterar gravações ou edições.",
+                        message = "Referências recolocadas no Studio: $labels.",
                         error = null,
                     )
                 }
