@@ -122,3 +122,19 @@ Before the next physical candidate is signed, Android qualification must additio
 ## U12bv signed frontend candidate
 
 Install `GuitarLabStudio-0.5.0-rc20-U12bv-homologacao.apk` for the final frontend physical validation. Producer commit: `833142435b2e2c1e74f39bf5cee85d8049595748`; signed APK SHA-256: `6e8d2af6dad105ba4f27a703747b4c04873cdb36d3affe29e18074b2816db838`. Validate the U12bu/U12bv Settings cleanup and Activity cancellation behavior; final documentation/freeze must wait for owner acceptance.
+
+
+## U12bw waveform/reference qualification
+
+The next Android candidate must qualify:
+- exact waveform frame-window generation, including non-divisible durations with no empty trailing bucket;
+- GLW2 cache hit/miss behavior across media replacement, trim/split window changes, resolution/algorithm changes and orphan pruning;
+- 4096-bin peak-preserving reduction to screen columns;
+- same-project reentry: unchanged persisted snapshot preserves resident state/Undo; externally changed snapshot reloads and clears stale history;
+- static timeline geometry remains frame-faithful without horizontal waveform padding or artificial clip-duration width;
+- aggregate and stereo channel envelopes stay coherent after edits, Undo/Redo, recording finalization and recovery;
+- Prepare always offers reference restoration when prepared assets exist;
+- modal can restore Base, Guitar or both; selected structural lanes return to canonical prepared media while unrelated tracks/takes/mixer/markers/sections and the unselected family remain intact;
+- restored reference media must naturally invalidate/regenerate only the affected waveform cache entries.
+
+Physical homologation should specifically replace/edit a backing, restore Base only, confirm the canonical audio and waveform return together, then repeat for Guitar and verify recorded takes are unchanged.
