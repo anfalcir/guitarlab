@@ -1,6 +1,6 @@
 # RC21 Maintenance Qualification — 2026-09-25
 
-Status: **UNSIGNED SOFTWARE/API36 PASS — SIGNED/PHYSICAL PROMOTION PENDING**
+Status: **SIGNED DIGITAL PASS — PHYSICAL PROMOTION PENDING**
 
 This record preserves the maintenance evidence for GuitarLab `0.5.0-rc21` / versionCode `41`. It is historical/candidate evidence; `../RELEASE_BASELINE.md` remains authoritative for the currently accepted RC20 release until RC21 is signed and accepted by the owner.
 
@@ -96,4 +96,15 @@ Before any signed RC21 run:
 3. remove/disable the temporary maintenance branch/trigger — required before signed dispatch;
 4. run the exact-source signed Android gate from `main`.
 
-RC20 remains the accepted baseline until the resulting signed RC21 APK passes proportional owner acceptance. Only then may `RELEASE_BASELINE.md` be promoted.
+Signed qualification then completed from canonical `main`:
+
+- producer: `52b9d66f450fc597f8367f5778334280ceeb521e`;
+- Android CI: **#912 / run 36197863467 — PASS**;
+- package/version: `studio.guitarlab.app` / `0.5.0-rc21` / code `41`;
+- unsigned APK SHA-256: `ef381b82c120e2d9038a7485a7eb4b28c7832489d07fa1658e946d0839cd2165`;
+- signed APK SHA-256: `7334fba11a64397e798afef99604dd2a6ebf1cf9f4dbd0d51c0c7f3c75321a6a`;
+- signer certificate SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`;
+- signed artifact id: `10890778538`;
+- artifact ZIP SHA-256: `92f42c75ee07e97814c5d4a8605034c24a99501fffdb2e959bcd132539d07c1a`.
+
+RC20 remains the accepted baseline until this exact signed RC21 APK passes proportional owner acceptance. Only then may `RELEASE_BASELINE.md` be promoted.
