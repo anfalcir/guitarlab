@@ -2,6 +2,7 @@ package studio.guitarlab.core.project
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import studio.guitarlab.core.model.AudioClip
@@ -73,6 +74,27 @@ class LegacyRecordingStereoMaintenanceTest {
         }
         assertEquals(setOf("left", "right"), separated.takes.map { it.trackId }.toSet())
         assertEquals(setOf("left-take", "right-take"), separated.clips.mapNotNull { it.takeId }.toSet())
+    }
+
+    @Test
+    fun temporalTakeLineageMustBeResolvedBeforeStereoChannelSeparation() {
+        val recovered = LegacyRecordingTakeRecoveryPolicy.recover(projectWithLegacyRecording())
+        val splitSibling = recovered.clips.single().copy(
+            id = "recording-sibling",
+            sourceStartFrame = 1_000L,
+            lengthFrames = 2_000L,
+            takeId = recovered.takes.single().id,
+        )
+        val splitProject = recovered.copy(clips = recovered.clips + splitSibling)
+
+        assertFailsWith<IllegalArgumentException> {
+            StereoSeparationProjectPolicy.separate(
+                splitProject, "recording", "left", "right",
+                "media/proxy/L.wav", "media/proxy/R.wav", 8_790_012L, 44_100,
+                StereoSeparationIds("lc", "rc", "lt", "rt"), 25L,
+            )
+        }
+        assertTrue(ProjectValidator.validate(recovered).isEmpty())
     }
 
     @Test
