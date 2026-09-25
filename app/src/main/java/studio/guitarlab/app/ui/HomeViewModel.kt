@@ -32,6 +32,7 @@ import studio.guitarlab.core.project.ProjectLibraryPolicy
 import studio.guitarlab.core.project.ProjectLibraryQuery
 import studio.guitarlab.core.project.ProjectManagedMediaStore
 import studio.guitarlab.core.project.PreparedReferenceService
+import studio.guitarlab.core.project.PreparedReferenceBindingPolicy
 import studio.guitarlab.core.project.ProjectRecordingMediaStore
 import studio.guitarlab.core.project.ProjectSampleRateFilter
 import studio.guitarlab.core.project.ProjectSortOrder
@@ -672,6 +673,35 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun cancelSeparation(projectId:String){separation.snapshotProject(projectId)?.let{separation.cancel(projectId,it.identity.jobId)};refreshSeparation(projectId)}
+
+    fun repairPreparedReferenceBindings(projectId: String) {
+        viewModelScope.launch {
+            runCatching {
+                withContext(Dispatchers.IO) {
+                    val project = repository.load(projectId) ?: error("Projeto não encontrado.")
+                    if (!PreparedReferenceBindingPolicy.bindingDiffersFromDesired(project)) return@withContext project
+                    repository.save(
+                        PreparedReferenceBindingPolicy.applyUpdate(
+                            project = project,
+                            now = System.currentTimeMillis(),
+                        ),
+                    )
+                }
+            }.onSuccess {
+                _state.update { current ->
+                    current.copy(
+                        message = "Referências recolocadas no Studio sem alterar gravações ou edições.",
+                        error = null,
+                    )
+                }
+                refresh()
+            }.onFailure { error ->
+                _state.update {
+                    it.copy(error = error.message ?: "Não foi possível recolocar as referências no Studio.")
+                }
+            }
+        }
+    }
 
     fun prepareReferences(projectId: String) {
         if (preparedReferenceJobs[projectId]?.isActive == true) return
