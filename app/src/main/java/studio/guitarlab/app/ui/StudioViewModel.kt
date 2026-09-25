@@ -1830,7 +1830,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                         RecordingRecoveryPublicationDecision.ALREADY_PUBLISHED -> {
                             runCatching { recordingMediaStore.markPublished(project.id, transactionId) }
                             val clip = latest.clips.firstOrNull { it.id == transactionId }
-                            Triple(latest, clip, clip?.let { loadWaveformForClip(latest, it) })
+                            Triple(latest, clip, clip?.let { loadWaveformEnvelope(latest, it) })
                         }
                         RecordingRecoveryPublicationDecision.RECOVERABLE -> {
                             val marker = requireNotNull(candidate.marker) { "Marker de recuperação ausente." }
