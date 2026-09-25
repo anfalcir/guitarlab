@@ -800,6 +800,39 @@ class UnifiedProjectShellInstrumentedTest {
     )
 
 
+    @Test fun activityCancelTerminatesOrphanedActiveRecord() {
+        val application = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as android.app.Application
+        val store = UnifiedActivityStore(application)
+        val operationId = "test-activity-cancel-orphan"
+        store.remove(operationId)
+        try {
+            store.record(
+                operationId,
+                null,
+                UnifiedOperationKind.EXPORT,
+                UnifiedOperationState.RUNNING,
+                null,
+                "Exportação órfã em andamento",
+            )
+            val viewModel = UnifiedActivityViewModel(application)
+            composeRule.setContent {
+                GuitarLabTheme(darkTheme = true) {
+                    ActivityScreen(onBack = {}, viewModel = viewModel)
+                }
+            }
+
+            composeRule.onNodeWithTag("activity-cancel-$operationId").assertIsDisplayed().performClick()
+            composeRule.waitUntil(5_000) {
+                store.snapshot().firstOrNull { it.operationId == operationId }?.state == UnifiedOperationState.CANCELLED
+            }
+            composeRule.onNodeWithTag("activity-record-$operationId").assertIsDisplayed()
+            composeRule.onNodeWithText("Cancelada").assertIsDisplayed()
+            composeRule.onAllNodesWithTag("activity-cancel-$operationId").assertCountEquals(0)
+        } finally {
+            store.remove(operationId)
+        }
+    }
+
     @Test fun activityClearHistoryRemovesAllTerminalRecordsButKeepsActiveWork() {
         val application = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as android.app.Application
         val store = UnifiedActivityStore(application)
