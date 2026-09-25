@@ -61,7 +61,24 @@ Incomplete uploads never appear in the restore catalog.
 
 ## Automatic backup
 
-Automatic backup runs only while Drive is connected and under the configured WorkManager network/power/storage/coalescing policy. Background authorization failure is fail-closed and requires owner reconnection in the UI.
+Automatic backup runs only while Drive is connected and under the configured WorkManager network/power/storage/coalescing policy. The worker owns backup execution independently of whether the Backup screen or its ViewModel exists.
+
+A successful worker run persists the authoritative Drive revision/head and durable Activity/settings result before any UI catalog refresh. If the Backup screen is currently visible, its observer may immediately re-read the catalog. If it is not visible, no redundant Drive read is performed; the next screen entry forces remote verification.
+
+Background authorization failure is fail-closed and requires owner reconnection in the UI. Cancellation propagates through the worker/service path and records a terminal cancelled state rather than creating a hidden retry loop.
+
+## Catalog and local metadata cache
+
+Remote Drive heads/manifests are the catalog source of truth. The current read path:
+
+1. lists remote heads once for the refresh;
+2. derives retained version history, current tips and reconciliation from that same snapshot;
+3. reuses previously validated immutable version descriptors/manifest timestamps when the same remote manifest SHA is still present;
+4. downloads project state only for newly observed or otherwise unresolved descriptors.
+
+The optional local catalog cache contains metadata only: no media, OAuth token, resumable-upload session or authoritative remote state. It is accepted only when its schema/integrity checks pass and its Drive-account label, retention policy and local project revision map match the current device state. Corruption or mismatch discards the cache.
+
+Cached versions may be painted immediately, including during a background refresh, but cache never suppresses the required remote check on visible Backup-screen entry or explicit user refresh. A failed remote refresh may leave the last validated cached view visible with an error/degradation message; it must not overwrite that cache with a partial/failed snapshot.
 
 ## Support boundary
 
@@ -73,6 +90,9 @@ Repeat focused provider-real evidence when transport, OAuth, upload, catalog, in
 
 - correct narrow consent scope;
 - first backup and unchanged idempotent retry;
+- one-snapshot catalog consistency and safe reuse of unchanged descriptor metadata;
+- cache invalidation on account/retention/local-revision/integrity mismatch;
+- automatic backup correctness with Backup UI absent and forced remote refresh on later entry;
 - interruption/process-death resume from server offset;
 - lost final response reconciliation;
 - size/hash/commit validation;
