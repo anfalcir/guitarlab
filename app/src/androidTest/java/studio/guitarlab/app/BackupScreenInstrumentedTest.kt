@@ -128,6 +128,28 @@ class BackupScreenInstrumentedTest {
     }
 
 
+    @Test fun emptyCatalogDoesNotClaimNoBackupsWhileRemoteRefreshIsRunning() {
+        compose.setContent {
+            GuitarLabTheme {
+                BackupScreenContent(
+                    state = configuredState().copy(
+                        loading = false,
+                        catalogRefreshing = true,
+                        versions = emptyList(),
+                    ),
+                    projectId = null,
+                    onBack = {}, onConnectDrive = {}, onDisconnectDrive = {}, onRefresh = {},
+                    onAutomaticEnabled = {}, onCadence = {}, onUnmeteredOnly = {}, onChargingOnly = {},
+                    onRetentionDays = {}, onMaximumVersions = {}, onBackupAll = {}, onBackupProject = {},
+                    onKeepLocal = { _, _ -> }, onUseCloud = {}, onRestoreVersion = {}, onRestoreAll = {},
+                )
+            }
+        }
+
+        compose.onNodeWithTag("backup-catalog-loading").assertIsDisplayed()
+        compose.onNodeWithTag("backup-catalog-empty").assertDoesNotExist()
+    }
+
     @Test fun cachedCatalogRemainsVisibleDuringBackgroundRefresh() {
         val cached = version("cached-version")
         compose.setContent {
