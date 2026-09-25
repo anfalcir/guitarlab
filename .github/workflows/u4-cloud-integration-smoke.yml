@@ -27,7 +27,7 @@ jobs:
       GBW_GCP_PROJECT: gbwapp-ef048
       GBW_BUCKET: gbwapp-ef048.firebasestorage.app
       GBW_REGION: us-central1
-      MODEL_SHA256: 09704f4ceae204e56e77d5eefd6ac71d7275be81fd507e6913371d59abcee856
+      MODEL_SHA256: 34c22ccb381c6f9fdbf324f04e1e2fe21aaaf293f5ded163a162697ff9a02ddd
       GBW_ALLOWED_UIDS: ${{ secrets.GBW_ALLOWED_UIDS }}
 
     steps:
