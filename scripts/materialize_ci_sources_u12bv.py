@@ -6,7 +6,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 PREVIOUS = ROOT / "scripts/materialize_ci_sources_u12bu.py"
 PATCH = ROOT / ".source-parts/U12bvSettingsTestAssertion.patch"
-PATCH_BLOB = "c0808029d7bbdb0877aa699d1ff7bd1335a3980f"
+PATCH_BLOB = "25f34d99cf516487b8565e9b92a39300e6d6f6c6"
 TARGET = ROOT / "app/src/androidTest/java/studio/guitarlab/app/SettingsVisualHierarchyInstrumentedTest.kt"
 BEFORE_BLOB = "79ca916734328b65be5ec8adfc7f2174c10380a6"
 AFTER_BLOB = "36543c47e4c8ee4da843b4d6a8a0d21c6bce651d"
