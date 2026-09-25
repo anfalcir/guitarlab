@@ -663,14 +663,15 @@ internal class UnifiedDriveProductionService(
         val temporary = kotlin.io.path.createTempFile("guitarlab-u8-state-", ".json").toFile()
         return try {
             remote.downloadAsset(identity, temporary)
-            val project = codec.decode(temporary.readText(Charsets.UTF_8))
-            require(project.id == manifest.projectId) {
+            val serialized = temporary.readText(Charsets.UTF_8)
+            val persistedProject = codec.decodePersistedState(serialized)
+            require(persistedProject.id == manifest.projectId) {
                 "Drive project.json identity does not match its manifest."
             }
-            require(UnifiedProjectRevision.sha256(project) == manifest.canonicalProjectStateSha256) {
+            require(UnifiedProjectRevision.sha256(persistedProject) == manifest.canonicalProjectStateSha256) {
                 "Drive project.json state digest does not match its manifest."
             }
-            project
+            codec.decode(serialized)
         } finally {
             temporary.delete()
         }
