@@ -609,7 +609,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                     refresh()
                 }
                 .onFailure { error ->
-                    if (error is kotlinx.coroutines.CancellationException) return@onFailure
+                    if (error is CancellationException) throw error
                     _state.update { it.copy(error = error.message ?: "Não foi possível importar a fonte.") }
                     refreshSourceOperation(projectId)
                 }
@@ -761,7 +761,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                     summary = "Referências prontas para o Studio",
                 )
                 refresh()
-            } catch (_: CancellationException) {
+            } catch (cancelled: CancellationException) {
                 activityStore.record(
                     operationId = activityId,
                     projectId = projectId,
@@ -771,6 +771,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                     summary = "Preparação de referências cancelada",
                 )
                 _state.update { it.copy(message = "Preparação de referências cancelada.", messageKind = TransientFeedbackKind.OPERATIONAL_STATUS) }
+                throw cancelled
             } catch (error: Throwable) {
                 activityStore.record(
                     operationId = activityId,
@@ -834,9 +835,10 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 val success = action()
                 activityStore.record(operationId, projectId, UnifiedOperationKind.EXPORT, UnifiedOperationState.SUCCEEDED, 100, success)
                 _state.update { it.copy(exportBusy = false, exportOperationLabel = null, message = success, messageKind = TransientFeedbackKind.ASYNC_COMPLETION) }
-            } catch (_: CancellationException) {
+            } catch (cancelled: CancellationException) {
                 activityStore.record(operationId, projectId, UnifiedOperationKind.EXPORT, UnifiedOperationState.CANCELLED, null, "Exportação cancelada")
                 _state.update { it.copy(exportBusy = false, exportOperationLabel = null, message = "Exportação cancelada.", messageKind = TransientFeedbackKind.OPERATIONAL_STATUS) }
+                throw cancelled
             } catch (error: Throwable) {
                 activityStore.record(operationId, projectId, UnifiedOperationKind.EXPORT, UnifiedOperationState.FAILED, null, "Não foi possível concluir a exportação", error.message)
                 _state.update { it.copy(exportBusy = false, exportOperationLabel = null, error = error.message ?: "Não foi possível exportar o projeto.") }
