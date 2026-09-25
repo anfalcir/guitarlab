@@ -16,6 +16,8 @@ Historical alpha/RC identities remain evidence only.
 
 A promoted candidate is bound to the exact `github.sha` whose source was materialized and qualified. Documentation prepared before the run must not guess or predeclare the producer SHA.
 
+A maintenance branch may qualify work before integration, but the promoted signed Android candidate is produced from canonical `main`. Temporary qualification-branch workflow exceptions are removed before merge/signing so the final producer provenance does not depend on a disposable branch.
+
 The release evidence must agree on exact producer SHA, package, versionName, versionCode, unsigned APK SHA-256, signed APK SHA-256, signer certificate and workflow/run identity.
 
 Any mismatch blocks delivery. A successful build from a different SHA, version or signer is a different candidate.
