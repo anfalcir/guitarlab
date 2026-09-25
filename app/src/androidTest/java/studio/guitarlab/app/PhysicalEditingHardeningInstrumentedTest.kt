@@ -31,6 +31,7 @@ import studio.guitarlab.core.model.ProjectFactory
 import studio.guitarlab.core.model.ProjectTemplate
 import studio.guitarlab.core.project.FileProjectRepository
 import studio.guitarlab.core.project.TimelineControlPolicy
+import studio.guitarlab.core.project.WaveformCacheIdentity
 import studio.guitarlab.core.project.WaveformCacheStore
 
 @RunWith(AndroidJUnit4::class)
@@ -64,9 +65,11 @@ class PhysicalEditingHardeningInstrumentedTest {
                 ),
             )
         repository.save(project)
+        val clip = project.clips.single()
         WaveformCacheStore(root).write(
             project.id,
-            "c1",
+            clip.id,
+            WaveformCacheIdentity.forClip(clip, targetPoints = 4096),
             WaveformEnvelope(List(160) { index -> if (index % 17 == 0) 0.9f else 0.25f }),
         )
 
