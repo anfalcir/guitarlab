@@ -214,7 +214,10 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
                 authorization.tokenFromResult(data) // validates the user-granted result
                 finishDriveConnection()
             } catch (error: Throwable) {
-                if (error is CancellationException) throw error
+                if (error is CancellationException) {
+                    clearBusyAfterCancellation()
+                    throw error
+                }
                 fail(error)
             }
         }
@@ -257,7 +260,10 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
                     )
                 }
             } catch (error: Throwable) {
-                if (error is CancellationException) throw error
+                if (error is CancellationException) {
+                    clearBusyAfterCancellation()
+                    throw error
+                }
                 fail(error)
             }
         }
@@ -326,7 +332,10 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
                 it.copy(message = "Versão da nuvem aplicada com segurança.")
             }
         } catch (error: Throwable) {
-            if (error is CancellationException) throw error
+            if (error is CancellationException) {
+                activityStore.record(operationId, version.projectId, UnifiedOperationKind.RESTORE, UnifiedOperationState.CANCELLED, null, "Aplicação da versão da nuvem cancelada")
+                throw error
+            }
             activityStore.record(
                 operationId,
                 version.projectId,
@@ -359,7 +368,10 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
             withContext(Dispatchers.Main) { onProjectsChanged() }
             _state.update { it.copy(message = "$success.") }
         } catch (error: Throwable) {
-            if (error is CancellationException) throw error
+            if (error is CancellationException) {
+                activityStore.record(operationId, version.projectId, UnifiedOperationKind.RESTORE, UnifiedOperationState.CANCELLED, null, "Restauração cancelada")
+                throw error
+            }
             activityStore.record(operationId, version.projectId, UnifiedOperationKind.RESTORE, UnifiedOperationState.FAILED, null, "Não foi possível restaurar o projeto", error.message)
             throw error
         }
@@ -394,7 +406,10 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
                 _state.update { it.copy(error = detail, message = summary) }
             }
         } catch (error: Throwable) {
-            if (error is CancellationException) throw error
+            if (error is CancellationException) {
+                activityStore.record(operationId, null, UnifiedOperationKind.RESTORE, UnifiedOperationState.CANCELLED, null, "Restauração total cancelada")
+                throw error
+            }
             activityStore.record(operationId, null, UnifiedOperationKind.RESTORE, UnifiedOperationState.FAILED, null, "Não foi possível restaurar os projetos", error.message)
             throw error
         }
@@ -405,7 +420,19 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
     private suspend fun finishDriveConnection() {
         val previousLabel = settingsStore.snapshot().driveAccountLabel
         val label = unifiedDrive.probeReadWriteDelete()
-        if (previousLabel != null && previousLabel != label) catalogCache.clear()
+        val accountChanged = previousLabel != null && previousLabel != label
+        if (accountChanged) {
+            catalogCache.clear()
+            _state.update {
+                it.copy(
+                    versions = emptyList(),
+                    reconciliations = emptyMap(),
+                    remoteTips = emptyMap(),
+                    catalogUpdatedAtEpochMs = null,
+                    catalogFromCache = false,
+                )
+            }
+        }
         settingsStore.setDriveConnected(label)
         BackupScheduler.sync(getApplication())
         _state.update {
@@ -457,7 +484,10 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
                     _state.update { it.copy(message = summary, error = failureDetail) }
                 }
             } catch (error: Throwable) {
-                if (error is CancellationException) throw error
+                if (error is CancellationException) {
+                    activityStore.record(operationId, projectId, UnifiedOperationKind.BACKUP, UnifiedOperationState.CANCELLED, null, "$label cancelado")
+                    throw error
+                }
                 activityStore.record(operationId, projectId, UnifiedOperationKind.BACKUP, UnifiedOperationState.FAILED, null, "Não foi possível concluir o backup", error.message)
                 throw error
             }
@@ -496,9 +526,23 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
                 _state.update { it.copy(busy = false, busyLabel = null, message = it.message ?: successMessage) }
                 refresh()
             } catch (error: Throwable) {
-                if (error is CancellationException) throw error
+                if (error is CancellationException) {
+                    clearBusyAfterCancellation()
+                    throw error
+                }
                 fail(error)
             }
+        }
+    }
+
+    private fun clearBusyAfterCancellation() {
+        _state.update {
+            it.copy(
+                busy = false,
+                busyLabel = null,
+                message = "Operação cancelada.",
+                error = null,
+            )
         }
     }
 
