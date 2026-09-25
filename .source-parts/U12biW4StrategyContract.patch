@@ -1,0 +1,48 @@
+diff --git a/scripts/u12_rc20_shadow_benchmark.sh b/scripts/u12_rc20_shadow_benchmark.sh
+index cdffef35b3d691e406450a50a372ca67a15af1d7..59d3b857fd9422cb921d4608d7daef7922ff0f85 100755
+--- a/scripts/u12_rc20_shadow_benchmark.sh
++++ b/scripts/u12_rc20_shadow_benchmark.sh
+@@ -9,6 +9,15 @@ GBW_REGION="${GBW_REGION:-us-central1}"
+ VARIANT="${GBW_W4_VARIANT:-cpu8-baseline}"
+ STRATEGY="${GBW_W4_STRATEGY:-cpu8_s1_o05}"
+ VCPU="${GBW_W4_VCPU:-8}"
++case "$STRATEGY" in
++  cpu8_s1_o05) EXPECTED_ENGINE_STRATEGY="pytorch-cpu-s1-o0.5-t8" ;;
++  cpu4_s1_o05) EXPECTED_ENGINE_STRATEGY="pytorch-cpu-s1-o0.5-t4" ;;
++  *)
++    echo "Unsupported W4 matrix strategy: $STRATEGY" >&2
++    exit 2
++    ;;
++esac
+ MEMORY_GIB="${GBW_W4_MEMORY_GIB:-16}"
+ MEMORY_RESOURCE="${GBW_W4_MEMORY_RESOURCE:-16Gi}"
+ WARM_PROBE="${GBW_W4_WARM_PROBE:-1}"
+@@ -144,9 +153,9 @@ gcloud storage cp "gs://${GBW_BUCKET}/${BUNDLE_PREFIX}/prepared/*.wav" "$ART
+   sha256sum -c SHA256SUMS
+ )
+ 
+-python3 - "$ARTIFACT_DIR/benchmark.json" "$GBW_PINNED_IMAGE" "$STRATEGY" "$WARM_PROBE" <<'PY'
++python3 - "$ARTIFACT_DIR/benchmark.json" "$GBW_PINNED_IMAGE" "$EXPECTED_ENGINE_STRATEGY" "$WARM_PROBE" <<'PY'
+ import json, sys
+-path, image, strategy, warm_required = sys.argv[1:]
++path, image, expected_engine_strategy, warm_required = sys.argv[1:]
+ data=json.load(open(path, encoding="utf-8"))
+ assert data["engine"]=="demucs-pytorch"
+ assert data["model"]=="htdemucs_6s"
+@@ -154,7 +163,7 @@ assert data["engine"]=="demucs-pytorch"
+ assert data["model"]=="htdemucs_6s"
+ assert data["modelSha256"]=="34c22ccb381c6f9fdbf324f04e1e2fe21aaaf293f5ded163a162697ff9a02ddd"
+-assert data["strategy"]==strategy
++assert data["strategy"]==expected_engine_strategy
+ assert data["device"]=="cpu" and data["shifts"]==1 and abs(float(data["overlap"])-0.5)<1e-12
+ assert data.get("imageIdentity")==image
+ assert not [row for row in data["qualityFindings"] if row.get("severity")=="reject"]
+@@ -187,6 +196,7 @@ execution=${EXECUTION}
+ fixture_sha256=${FIXTURE_SHA}
+ fixture_duration_seconds=180
+ variant=${VARIANT}
+ strategy=${STRATEGY}
++engine_strategy=${EXPECTED_ENGINE_STRATEGY}
+ vcpu=${VCPU}
+ memory_gib=${MEMORY_GIB}
+ cloud_wall_seconds=$((ENDED-STARTED))
