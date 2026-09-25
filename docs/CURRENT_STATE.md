@@ -4,7 +4,7 @@ Updated: 2026-09-25
 
 ## Status
 
-**RC21 MAINTENANCE CANDIDATE — SOFTWARE/API 36 PASS / MAIN INTEGRATED / SIGNING PENDING**
+**RC21 SIGNED MAINTENANCE CANDIDATE — DIGITAL PASS / PHYSICAL ACCEPTANCE PENDING**
 
 RC20 remains the currently accepted, physically homologated baseline recorded in `RELEASE_BASELINE.md`. RC21 is a proportional maintenance successor opened under the RC20 maintenance policy after owner-observed persistence/Studio and backup-feedback regressions. Implementation and serial hardening are complete; the unsigned Android qualification is green. RC21 does not replace RC20 until the exact signed RC21 APK passes residual owner acceptance.
 
@@ -20,7 +20,13 @@ RC20 remains the currently accepted, physically homologated baseline recorded in
 - Android CI: **#910 / run 36195905242 — PASS**;
 - Unit tests + Lint + APK build: PASS;
 - API 36 emulator regression: PASS;
-- signed homologation artifact: pending intentional qualification from canonical `main`.
+- signed producer: `52b9d66f450fc597f8367f5778334280ceeb521e`;
+- signed Android CI: **#912 / run 36197863467 — PASS**;
+- unsigned APK SHA-256: `ef381b82c120e2d9038a7485a7eb4b28c7832489d07fa1658e946d0839cd2165`;
+- signed APK SHA-256: `7334fba11a64397e798afef99604dd2a6ebf1cf9f4dbd0d51c0c7f3c75321a6a`;
+- signer certificate SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`;
+- signed artifact: `GuitarLabStudio-0.5.0-rc21-homologacao`, artifact id `10890778538`;
+- artifact ZIP SHA-256: `92f42c75ee07e97814c5d4a8605034c24a99501fffdb2e959bcd132539d07c1a`.
 
 ## RC21 maintenance scope
 
@@ -69,7 +75,7 @@ The underlying Drive v3 OAuth/transport/resumable-upload/commit/restore store is
 1. complete live documentation — DONE;
 2. merge the maintenance work into canonical `main` — DONE via PR #7;
 3. remove/disable the temporary maintenance branch and keep it out of CI triggers — DONE: workflow exception removed; ref neutralized to canonical `main` with no unique commits;
-4. run `[run ci signed]` from the exact canonical `main`;
+4. run `[run ci signed]` from the exact canonical `main` — DONE: CI #912 PASS;
 5. install that exact signed artifact on Samsung SM-X230 / Android 16;
 6. perform residual acceptance for the affected maintenance paths, including the legacy Studio recovery case and representative Drive backup/catalog/restore;
 7. after owner PASS, update `RELEASE_BASELINE.md` to RC21 and archive the final acceptance record.
