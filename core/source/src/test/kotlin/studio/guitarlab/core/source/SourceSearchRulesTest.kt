@@ -51,4 +51,42 @@ class SourceSearchRulesTest {
         assertTrue(SourceAcquisitionPolicy.retryableMessage("HTTP 503"))
         assertFalse(SourceAcquisitionPolicy.retryableMessage("arquivo não contém áudio"))
     }
+
+    @Test fun typoArtistProducesHighConfidenceSuggestion() {
+        val request = SourceSearchRequest("Memphys May Fire", "Misery")
+        val drafts = listOf(
+            SourceCandidateDraft(
+                SourceProvider.YOUTUBE,
+                "Misery (Official Audio)",
+                "Memphis May Fire - Topic",
+                "https://x/1",
+                automaticDownloadSupported = true,
+            ),
+            SourceCandidateDraft(
+                SourceProvider.BANDCAMP,
+                "Misery",
+                "Memphis May Fire",
+                "https://x/2",
+                automaticDownloadSupported = true,
+            ),
+        )
+
+        val suggestion = SourceSearchRules.suggestArtist(request, drafts)
+        assertEquals("Memphis May Fire", suggestion?.artist)
+        assertTrue((suggestion?.confidence ?: 0.0) >= 0.82)
+        assertEquals(2, suggestion?.supportCount)
+    }
+
+    @Test fun exactOrUnrelatedArtistDoesNotProduceSuggestion() {
+        val exact = SourceSearchRules.suggestArtist(
+            SourceSearchRequest("Memphis May Fire", "Misery"),
+            listOf(SourceCandidateDraft(SourceProvider.YOUTUBE, "Misery", "Memphis May Fire - Topic", "https://x/1")),
+        )
+        val unrelated = SourceSearchRules.suggestArtist(
+            SourceSearchRequest("Memphys May Fire", "Misery"),
+            listOf(SourceCandidateDraft(SourceProvider.YOUTUBE, "Misery", "Skillet - Topic", "https://x/2")),
+        )
+        assertEquals(null, exact)
+        assertEquals(null, unrelated)
+    }
 }
