@@ -73,6 +73,7 @@ import studio.guitarlab.core.project.TransportPolicy
 import studio.guitarlab.core.project.TransportState
 import studio.guitarlab.core.project.TrimControlPolicy
 import studio.guitarlab.core.project.TrimControlState
+import studio.guitarlab.core.project.WaveformCacheIdentity
 import studio.guitarlab.core.project.WaveformCacheStore
 import studio.guitarlab.core.project.ActiveTakePolicy
 import studio.guitarlab.core.project.GuitarAuditionMode
@@ -180,6 +181,11 @@ private data class StudioLoadOutcome(
     val waveforms: Map<String, List<Float>>,
     val waveformChannels: Map<String, List<List<Float>>>,
     val recoveryCandidates: List<RecordingRecoveryCandidate>,
+)
+
+private data class LoadedWaveformState(
+    val waveforms: Map<String, List<Float>>,
+    val waveformChannels: Map<String, List<List<Float>>>,
 )
 
 private data class RecordingProgressUpdate(
