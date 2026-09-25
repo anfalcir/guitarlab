@@ -59,6 +59,7 @@ fun UnifiedPrepareScreen(
     onSettings: () -> Unit = {},
     candidates: List<RankedSourceCandidate> = emptyList(),
     warnings: List<String> = emptyList(),
+    searchOutcome: SourceSearchOutcome? = null,
     searchBusy: Boolean = false,
     operation: SourceOperationSnapshot? = null,
     separationJob: DurableRemoteJob? = null,
@@ -194,6 +195,7 @@ fun UnifiedPrepareScreen(
                     onSongChange = { song = it },
                     candidates = candidates,
                     warnings = warnings,
+                    searchOutcome = searchOutcome,
                     searchBusy = searchBusy,
                     operation = operation,
                     sourceReplacementActive = sourceReplacementActive,
@@ -318,6 +320,7 @@ private fun SourceSelectionStep(
     onSongChange: (String) -> Unit,
     candidates: List<RankedSourceCandidate>,
     warnings: List<String>,
+    searchOutcome: SourceSearchOutcome?,
     searchBusy: Boolean,
     operation: SourceOperationSnapshot?,
     sourceReplacementActive: Boolean,
@@ -375,6 +378,55 @@ private fun SourceSelectionStep(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 LinearProgressIndicator(Modifier.fillMaxWidth())
+            }
+        }
+    } else if (searchOutcome != null) {
+        val terminalTag = searchOutcome.terminalState.name.lowercase()
+        Surface(
+            modifier = Modifier.fillMaxWidth().testTag("prepare-search-terminal-$terminalTag"),
+            tonalElevation = 1.dp,
+            shape = MaterialTheme.shapes.medium,
+        ) {
+            Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(searchOutcome.message, style = MaterialTheme.typography.bodyMedium)
+                when (searchOutcome.terminalState) {
+                    SourceSearchTerminalState.RESULTS -> {
+                        Text(
+                            if (searchOutcome.candidateCount == 1) "Resultado pronto para escolher." else "Resultados prontos para escolher.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    SourceSearchTerminalState.DID_YOU_MEAN -> {
+                        searchOutcome.suggestedArtist?.let { suggestion ->
+                            Text(
+                                "Você quis dizer “$suggestion”?",
+                                style = MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier.testTag("prepare-search-suggestion"),
+                            )
+                            Button(
+                                onClick = {
+                                    onArtistChange(suggestion)
+                                    onSongChange(searchOutcome.song)
+                                    onSearch(suggestion, searchOutcome.song)
+                                },
+                                modifier = Modifier.testTag("prepare-search-use-suggestion"),
+                            ) { Text("Usar “$suggestion” e pesquisar novamente") }
+                        }
+                    }
+                    SourceSearchTerminalState.NO_EXACT_MATCH,
+                    SourceSearchTerminalState.PROVIDER_FAILURE,
+                    SourceSearchTerminalState.TIMEOUT -> {
+                        OutlinedButton(
+                            onClick = {
+                                onArtistChange(searchOutcome.artist)
+                                onSongChange(searchOutcome.song)
+                                onSearch(searchOutcome.artist, searchOutcome.song)
+                            },
+                            modifier = Modifier.testTag("prepare-search-retry"),
+                        ) { Text("Pesquisar novamente") }
+                    }
+                }
             }
         }
     }
