@@ -7,7 +7,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 PREVIOUS = ROOT / "scripts/materialize_ci_sources_u12bv.py"
 PATCH = ROOT / ".source-parts/U12bwWaveformAndReferenceRestore.patch"
-PATCH_BLOB = "aa8e18c7071f90842e6d064f6c53d8e2f89035de"
+PATCH_BLOB = "02b758c2b15f51ab412f1d678744af87da21dd64"
 TARGETS = {
     "app/src/androidTest/java/studio/guitarlab/app/GuitarLabLifecycleInstrumentedTest.kt": ("6f60a15195e4f17b981fdafa30ac4f2399acf2ed", "b3c0fd1a3974a8a612e0af77401104826da6bc70"),
     "app/src/androidTest/java/studio/guitarlab/app/PhysicalEditingHardeningInstrumentedTest.kt": ("8d1ee2bb3965b079e106756586b8bf0ff0d08bbb", "019ba7aa969d4d37eaaa05aa28c4c44b7b633ba3"),
@@ -18,7 +18,7 @@ TARGETS = {
     "app/src/main/java/studio/guitarlab/app/ui/StudioViewModel.kt": ("673949b4773b005ac058597f859796b97cd875ee", "02c53da6409543e57e77be4522b2ea3e6a856fb3"),
     "app/src/main/java/studio/guitarlab/app/ui/UnifiedProjectWorkspaceScreen.kt": ("cbd645d5dbeb67df82290a2395bc8d6d3721f81b", "82e3640b3644d312fd66335d8eb505528b174935"),
     "app/src/main/java/studio/guitarlab/app/ui/WaveformMini.kt": ("3fb9ebc50a6dd55b4309314a8788ef604ae8a51f", "f0ab880f297374918faaf84f6450e86962253bdf"),
-    "app/src/test/java/studio/guitarlab/app/ui/WaveformRenderReducerTest.kt": (None, "da92ec5f141e62bf4e0064fc6109ef77058f1eb1"),
+    "app/src/test/java/studio/guitarlab/app/ui/WaveformRenderReducerTest.kt": (None, "d078949b88a51fa116ccea82b746296436a6d576"),
     "core/codec/src/main/kotlin/studio/guitarlab/core/codec/WaveformEnvelope.kt": ("c67dea4358e715d328c61edfe454ab9534316027", "61c43fdd6f58b93e48718ebd696ffa2154e4e46f"),
     "core/codec/src/test/kotlin/studio/guitarlab/core/codec/WaveformEnvelopeBuilderTest.kt": ("ea8126ee5492df6605e12a79f64584a72e3cf902", "92c9300471d7468b22cce68e403818ae7cc4fcdf"),
     "core/project/src/main/kotlin/studio/guitarlab/core/project/PreparedReferencePipeline.kt": ("f2304f650f2565b8aedf1a97f2289c466b112fa1", "69b97fe68c6545f7ebb73d53512b51bee9a448a9"),
