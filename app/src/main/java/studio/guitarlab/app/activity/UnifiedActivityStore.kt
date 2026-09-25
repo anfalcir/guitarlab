@@ -44,6 +44,7 @@ class UnifiedActivityStore(context: Context) {
                 .let(::bounded)
             write(next)
             _records.value = next
+            if (!record.state.isActive) ActivityCancellationRegistry.unregister(record.operationId)
             journal.appendActivity(record)
         }
     }
