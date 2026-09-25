@@ -58,6 +58,22 @@ class AppNavigationViewModelTest {
     }
 
     @Test
+    fun `navigation entry changes even when destination route is identical`() {
+        val navigation = AppNavigationViewModel(SavedStateHandle())
+        val destination = AppScreen.Studio("same-project")
+        val initial = navigation.navigationEntry.value
+
+        navigation.navigate(destination)
+        val first = navigation.navigationEntry.value
+        navigation.navigate(destination)
+        val second = navigation.navigationEntry.value
+
+        assertEquals(initial + 1L, first)
+        assertEquals(first + 1L, second)
+        assertEquals(destination, AppRouteCodec.decode(navigation.persistedRoute.value))
+    }
+
+    @Test
     fun `new controller starts at Home`() {
         val navigation = AppNavigationViewModel(SavedStateHandle())
 
