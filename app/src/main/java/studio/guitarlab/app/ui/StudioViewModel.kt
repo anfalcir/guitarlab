@@ -38,6 +38,7 @@ import studio.guitarlab.core.codec.AudioImportFormatPolicy
 import studio.guitarlab.core.codec.FileSeekableByteSource
 import studio.guitarlab.core.codec.WavMetadataReader
 import studio.guitarlab.core.codec.WavPcmDecoder
+import studio.guitarlab.core.codec.WaveformEnvelope
 import studio.guitarlab.core.codec.WaveformEnvelopeBuilder
 import studio.guitarlab.core.codec.StereoWavChannelSplitter
 import studio.guitarlab.core.codec.WavSampleRateConverter
@@ -2545,14 +2546,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
         }
 
     private fun loadWaveformForClip(project: GuitarProject, clip: AudioClip): List<Float> =
-        waveformCache.read(project.id, clip.id)?.peaks ?: run {
-            val path = editingMediaPathOrNull(clip) ?: return emptyList()
-            val envelope = FileSeekableByteSource(mediaStore.resolveEditable(project.id, path)).use { source ->
-                WaveformEnvelopeBuilder.build(WavPcmDecoder(source), WAVEFORM_POINTS)
-            }
-            waveformCache.write(project.id, clip.id, envelope)
-            envelope.peaks
-        }
+        loadWaveformEnvelope(project, clip)?.peaks.orEmpty()
 
     private fun friendlySelectedInputLabel(): String {
         val signature = audioRoutingStore.selectedInputSignature() ?: return "entrada automática"
@@ -2985,35 +2979,35 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
         return if (left != null && right != null) left to right else null
     }
 
-    private fun loadWaveformChannels(project: GuitarProject): Map<String, List<List<Float>>> = buildMap {
+    private fun loadWaveformState(project: GuitarProject): LoadedWaveformState {
+        val waveforms = linkedMapOf<String, List<Float>>()
+        val channels = linkedMapOf<String, List<List<Float>>>()
         project.clips.forEach { clip ->
-            val cached = waveformCache.read(project.id, clip.id)
-            if (cached != null && cached.channelPeaks.size > 1) {
-                put(clip.id, cached.channelPeaks)
-                return@forEach
-            }
-            if (clip.sourceChannelCount != 2) return@forEach
-            val managedPath = editingMediaPathOrNull(clip) ?: return@forEach
-            runCatching {
-                val file = mediaStore.resolveEditable(project.id, managedPath)
-                val envelope = FileSeekableByteSource(file).use { source -> WaveformEnvelopeBuilder.build(WavPcmDecoder(source), WAVEFORM_POINTS) }
-                waveformCache.write(project.id, clip.id, envelope)
-                if (envelope.channelPeaks.size == 2) put(clip.id, envelope.channelPeaks)
-            }
+            val envelope = loadWaveformEnvelope(project, clip) ?: return@forEach
+            waveforms[clip.id] = envelope.peaks
+            if (envelope.channelPeaks.size == 2) channels[clip.id] = envelope.channelPeaks
         }
+        waveformCache.prune(project.id, project.clips.mapTo(mutableSetOf()) { it.id })
+        return LoadedWaveformState(waveforms, channels)
     }
 
-    private fun loadWaveforms(project: GuitarProject): Map<String, List<Float>> = buildMap {
-        project.clips.forEach { clip ->
-            waveformCache.read(project.id, clip.id)?.let { put(clip.id, it.peaks); return@forEach }
-            val managedPath = editingMediaPathOrNull(clip) ?: return@forEach
-            runCatching {
-                val file = mediaStore.resolveEditable(project.id, managedPath)
-                val envelope = FileSeekableByteSource(file).use { source -> WaveformEnvelopeBuilder.build(WavPcmDecoder(source), WAVEFORM_POINTS) }
-                waveformCache.write(project.id, clip.id, envelope)
-                put(clip.id, envelope.peaks)
+    private fun loadWaveformEnvelope(project: GuitarProject, clip: AudioClip): WaveformEnvelope? {
+        val managedPath = editingMediaPathOrNull(clip) ?: return null
+        val identity = WaveformCacheIdentity.forClip(clip, WAVEFORM_POINTS)
+        waveformCache.read(project.id, clip.id, identity)?.let { return it }
+        return runCatching {
+            val file = mediaStore.resolveEditable(project.id, managedPath)
+            val envelope = FileSeekableByteSource(file).use { source ->
+                WaveformEnvelopeBuilder.build(
+                    decoder = WavPcmDecoder(source),
+                    targetPoints = WAVEFORM_POINTS,
+                    startFrame = clip.sourceStartFrame,
+                    frameCount = clip.lengthFrames,
+                )
             }
-        }
+            waveformCache.write(project.id, clip.id, identity, envelope)
+            envelope
+        }.getOrNull()
     }
 
     private fun editingMediaPath(clip: AudioClip): String = requireNotNull(editingMediaPathOrNull(clip)) {
@@ -3044,7 +3038,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
     private companion object {
         const val LIVE_WAVEFORM_UI_INTERVAL_MS = 33L
         const val LEVEL_GAIN_EPSILON_DB = 0.1f
-        const val WAVEFORM_POINTS = 320
+        const val WAVEFORM_POINTS = 4096
         const val TRACK_COLOR_COUNT = 20
     }
 }
