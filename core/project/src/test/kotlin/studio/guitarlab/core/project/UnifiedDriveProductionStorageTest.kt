@@ -61,7 +61,7 @@ class UnifiedDriveProductionStorageTest {
     @Test fun legacyRecordingRestoreVerifiesPersistedDigestBeforeTakeRecovery() {
         val root = Files.createTempDirectory("rc21-legacy-drive-restore").toFile()
         val base = ProjectFactory(idGenerator = { "legacy-drive" }, clock = { 1L })
-            .create("Legacy", ProjectTemplate.GUITAR)
+            .create("Legacy", ProjectTemplate.BLANK)
         val track = AudioTrack(
             id = "guitar-left",
             name = "Minha Guitarra E",
