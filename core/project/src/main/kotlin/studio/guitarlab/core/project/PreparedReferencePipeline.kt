@@ -292,6 +292,8 @@ class PreparedReferenceService(
     private fun sha256(bytes: ByteArray): String = MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
 }
 
+enum class PreparedReferenceRestoreTarget { BACKING, GUITAR }
+
 object PreparedReferenceBindingPolicy {
     fun updateAvailable(project: GuitarProject): Boolean {
         val desired = desired(project)
@@ -350,6 +352,63 @@ object PreparedReferenceBindingPolicy {
         )
     }
 
+    fun availableRestoreTargets(project: GuitarProject): Set<PreparedReferenceRestoreTarget> {
+        val desired = desired(project)
+        if (desired.isEmpty()) return emptySet()
+        return buildSet {
+            if (ReferenceBindingKind.BACKING in desired) add(PreparedReferenceRestoreTarget.BACKING)
+            if (desired.keys.any { it in GUITAR_BINDING_KINDS }) add(PreparedReferenceRestoreTarget.GUITAR)
+        }
+    }
+
+    /**
+     * Explicit user-owned restoration from the current canonical prepared assets.
+     *
+     * Unlike applyUpdate/repair, this intentionally resets clip-level edits for the selected
+     * reference family even when bindings already look consistent. Track mixer state, unrelated
+     * audio, takes, markers, sections and every unselected reference family are preserved.
+     */
+    fun restoreSelected(
+        project: GuitarProject,
+        targets: Set<PreparedReferenceRestoreTarget>,
+        now: Long,
+        idFactory: () -> String = { UUID.randomUUID().toString() },
+    ): GuitarProject {
+        require(targets.isNotEmpty()) { "Selecione ao menos uma referência para recolocar." }
+        val desired = desired(project)
+        require(desired.isNotEmpty()) { "Não há referências preparadas ativas." }
+        val available = availableRestoreTargets(project)
+        require(targets.all { it in available }) { "A referência selecionada não está disponível neste projeto." }
+
+        var next = project
+        if (PreparedReferenceRestoreTarget.BACKING in targets) {
+            next = restoreFamily(
+                project = next,
+                desired = desired.filterKeys { it == ReferenceBindingKind.BACKING },
+                familyKinds = setOf(ReferenceBindingKind.BACKING),
+                assetRole = AssetRole.REFERENCE_BACKING,
+                now = now,
+                idFactory = idFactory,
+            )
+        }
+        if (PreparedReferenceRestoreTarget.GUITAR in targets) {
+            next = restoreFamily(
+                project = next,
+                desired = desired.filterKeys { it in GUITAR_BINDING_KINDS },
+                familyKinds = GUITAR_BINDING_KINDS,
+                assetRole = AssetRole.REFERENCE_GUITAR,
+                now = now,
+                idFactory = idFactory,
+            )
+        }
+        return next.copy(
+            updatedAtEpochMs = now,
+            preparation = requireNotNull(next.preparation).copy(
+                acknowledgedReferenceRevisionId = desiredRevisionId(desired),
+            ),
+        )
+    }
+
     private fun desired(project: GuitarProject): Map<ReferenceBindingKind, ManagedAsset> {
         val prep = project.preparation ?: return emptyMap()
         val backing = prep.activeBackingAssetId?.let { id -> project.assets.singleOrNull { it.assetId == id && it.role == AssetRole.REFERENCE_BACKING } } ?: return emptyMap()
@@ -386,6 +445,76 @@ object PreparedReferenceBindingPolicy {
         }
     }
 
+    private fun restoreFamily(
+        project: GuitarProject,
+        desired: Map<ReferenceBindingKind, ManagedAsset>,
+        familyKinds: Set<ReferenceBindingKind>,
+        assetRole: AssetRole,
+        now: Long,
+        idFactory: () -> String,
+    ): GuitarProject {
+        require(desired.isNotEmpty()) { "A família de referência selecionada não está disponível." }
+        val targetTrackIds = familyKinds.mapNotNull { targetTrack(project, it)?.id }.toSet()
+        val preparedAssetIds = buildSet {
+            project.assets.filter { it.role == assetRole }.forEach { add(it.assetId) }
+            project.referenceBindings.filter { it.kind in familyKinds }.forEach { add(it.assetId) }
+        }
+        val retainedClips = project.clips.filterNot { clip ->
+            clip.trackId in targetTrackIds &&
+                preparedAssetIds.any { assetId -> clip.sourceUri == "guitarlab://asset/$assetId" }
+        }
+        val previousBindings = project.referenceBindings.associateBy { it.kind }
+        var next = project.copy(
+            clips = retainedClips,
+            referenceBindings = project.referenceBindings.filterNot { it.kind in familyKinds },
+        )
+        desired.forEach { (kind, asset) ->
+            val track = targetTrack(next, kind) ?: error("A pista de referência necessária não existe.")
+            val frameCount = requireNotNull(asset.frameCount) { "A referência preparada não possui duração válida." }
+            require(frameCount > 0L) { "A referência preparada está vazia." }
+            val clip = AudioClip(
+                id = idFactory(),
+                trackId = track.id,
+                name = when (kind) {
+                    ReferenceBindingKind.BACKING -> "Base preparada"
+                    ReferenceBindingKind.GUITAR_LEFT -> "Guitarra Ref. E"
+                    ReferenceBindingKind.GUITAR_RIGHT -> "Guitarra Ref. D"
+                    ReferenceBindingKind.GUITAR_REFERENCE -> "Guitarra de referência"
+                },
+                sourceUri = "guitarlab://asset/${asset.assetId}",
+                startFrame = 0L,
+                sourceStartFrame = 0L,
+                lengthFrames = frameCount,
+                gainDb = 0f,
+                muted = false,
+                managedSourcePath = asset.relativePath,
+                originUri = "prepared:${asset.assetId}",
+                sourceFormat = "wav",
+                sourceSampleRateHz = asset.sampleRateHz,
+                sourceChannelCount = asset.channelCount,
+                sourceBitsPerSample = 32,
+                sourceEncoding = "FLOAT32_LE",
+                sourceTotalFrames = frameCount,
+                editingSampleRateHz = asset.sampleRateHz,
+                editingTotalFrames = frameCount,
+                fadeInFrames = 0L,
+                fadeOutFrames = 0L,
+            )
+            val binding = ReferenceBinding(
+                bindingId = previousBindings[kind]?.bindingId ?: idFactory(),
+                trackId = track.id,
+                assetId = asset.assetId,
+                kind = kind,
+                createdAtEpochMs = now,
+            )
+            next = next.copy(
+                clips = next.clips + clip,
+                referenceBindings = next.referenceBindings + binding,
+            )
+        }
+        return next
+    }
+
     private fun bind(project: GuitarProject, kind: ReferenceBindingKind, asset: ManagedAsset, trackId: String, now: Long, idFactory: () -> String, replaceExisting: Boolean): GuitarProject {
         val oldBinding = project.referenceBindings.firstOrNull { it.kind == kind }
         val existingBoundClip = oldBinding?.let { binding -> project.clips.firstOrNull { it.trackId == trackId && it.sourceUri == "guitarlab://asset/${binding.assetId}" } }
@@ -411,4 +540,10 @@ object PreparedReferenceBindingPolicy {
         }
         return project.copy(referenceBindings = bindings, clips = clips)
     }
+
+    private val GUITAR_BINDING_KINDS = setOf(
+        ReferenceBindingKind.GUITAR_REFERENCE,
+        ReferenceBindingKind.GUITAR_LEFT,
+        ReferenceBindingKind.GUITAR_RIGHT,
+    )
 }
