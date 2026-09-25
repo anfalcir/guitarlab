@@ -93,6 +93,8 @@ import studio.guitarlab.core.project.TrackLevelAccumulator
 import studio.guitarlab.core.project.TrackLevelAdvisor
 import studio.guitarlab.core.project.TrackRoleAssignmentPolicy
 import studio.guitarlab.core.project.TakeManagementPolicy
+import studio.guitarlab.core.project.StereoSeparationIds
+import studio.guitarlab.core.project.StereoSeparationProjectPolicy
 import studio.guitarlab.platform.audio.android.AndroidStudioPlaybackEngine
 import studio.guitarlab.platform.audio.android.AndroidStudioRecordingEngine
 import studio.guitarlab.platform.audio.android.StudioRecordingConfig
@@ -626,7 +628,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                     var rightProxyPath: String? = null
                     var committed = false
                     try {
-                        StereoWavChannelSplitter.split(editingFile, leftTemp, rightTemp)
+                        val split = StereoWavChannelSplitter.split(editingFile, leftTemp, rightTemp)
                         val leftProxy = leftTemp.inputStream().buffered().use { mediaStore.ingestEditProxy(project.id, "${clip.name}-L.wav", it) }
                         leftProxyPath = leftProxy.relativePath
                         val rightProxy = rightTemp.inputStream().buffered().use { mediaStore.ingestEditProxy(project.id, "${clip.name}-R.wav", it) }
@@ -660,26 +662,23 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                                         }
                                     } + rightTrack
                                 }
-                                val leftClip = sourceClip.copy(
-                                    id = UUID.randomUUID().toString(), trackId = leftTrack.id,
-                                    name = "${sourceClip.name} · L", managedEditProxyPath = leftProxy.relativePath,
-                                    sourceChannelCount = 1, sourceBitsPerSample = 32,
-                                    sourceEncoding = "IEEE_FLOAT · canal L derivado",
-                                    editingSampleRateHz = sourceClip.editingSampleRateHz ?: sourceClip.sourceSampleRateHz,
-                                    editingTotalFrames = sourceClip.editingTotalFrames ?: sourceClip.lengthFrames,
-                                )
-                                val rightClip = sourceClip.copy(
-                                    id = UUID.randomUUID().toString(), trackId = rightTrack.id,
-                                    name = "${sourceClip.name} · R", managedEditProxyPath = rightProxy.relativePath,
-                                    sourceChannelCount = 1, sourceBitsPerSample = 32,
-                                    sourceEncoding = "IEEE_FLOAT · canal R derivado",
-                                    editingSampleRateHz = sourceClip.editingSampleRateHz ?: sourceClip.sourceSampleRateHz,
-                                    editingTotalFrames = sourceClip.editingTotalFrames ?: sourceClip.lengthFrames,
-                                )
-                                latest.copy(
-                                    tracks = tracks.sortedBy { it.order },
-                                    clips = latest.clips.filterNot { it.id == sourceClip.id } + leftClip + rightClip,
-                                    updatedAtEpochMs = System.currentTimeMillis(),
+                                val routingProject = latest.copy(tracks = tracks.sortedBy { it.order })
+                                StereoSeparationProjectPolicy.separate(
+                                    project = routingProject,
+                                    sourceClipId = sourceClip.id,
+                                    leftTrackId = leftTrack.id,
+                                    rightTrackId = rightTrack.id,
+                                    leftProxyPath = leftProxy.relativePath,
+                                    rightProxyPath = rightProxy.relativePath,
+                                    splitTotalFrames = split.totalFrames,
+                                    splitSampleRateHz = split.sampleRateHz,
+                                    ids = StereoSeparationIds(
+                                        leftClipId = UUID.randomUUID().toString(),
+                                        rightClipId = UUID.randomUUID().toString(),
+                                        leftTakeId = UUID.randomUUID().toString(),
+                                        rightTakeId = UUID.randomUUID().toString(),
+                                    ),
+                                    nowEpochMs = System.currentTimeMillis(),
                                 )
                             }.also { committed = true }
                         }
