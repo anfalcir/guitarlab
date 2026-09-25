@@ -37,10 +37,14 @@ class LegacyRecordingStereoMaintenanceTest {
     }
 
     @Test
-    fun projectCodecRecoversLegacyRecordingMetadataOnEveryRead() {
+    fun projectCodecRecoversLegacyRecordingMetadataAfterPersistedStateDecode() {
         val codec = ProjectCodec()
-        val restored = codec.decode(codec.encode(projectWithLegacyRecording()))
+        val serialized = codec.encode(projectWithLegacyRecording())
+        val persisted = codec.decodePersistedState(serialized)
+        val restored = codec.decode(serialized)
 
+        assertNull(persisted.clips.single().takeId)
+        assertTrue(persisted.takes.isEmpty())
         assertEquals("recording", restored.clips.single().takeId)
         assertEquals("recording", restored.takes.single().id)
         assertTrue(restored.takes.single().active)
