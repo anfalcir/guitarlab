@@ -51,6 +51,8 @@ Run U7 verification and the smallest representative shadow/production path requi
 
 Repeat focused provider-real evidence when OAuth, Drive transport, resumable upload, catalog/commit identity, retention or restore behavior changes. Unrelated Android/backend changes do not invalidate retained Drive evidence.
 
+A catalog/cache-only maintenance change does not automatically require replaying the entire destructive U8m campaign when OAuth, resumable transport, commit publication and restore store semantics are unchanged. In that case, retain U8m as transport/store authority and add focused real-provider evidence for the changed catalog/background orchestration, preferably as a representative target-device backup → catalog refresh → restore smoke.
+
 ### Signing/release candidate
 
 A promoted Android candidate must satisfy the build-once/sign-exactly contract in `CANDIDATE_IDENTITY_POLICY.md`. Physical acceptance, when required, occurs on the exact signed APK intended for promotion.
@@ -94,6 +96,10 @@ Historical plans may contain “pending/open/current” language from their own 
 ## Candidate invalidation
 
 A candidate is invalidated when source, materialized runtime bytes, package/version, unsigned APK, signer, relevant backend digest or another protected identity changes after qualification. A documentation-only commit does not retroactively change an already-built candidate.
+
+## Current maintenance application
+
+RC21 is the first post-freeze application of this policy. Its Android source changes completed Unit/Lint/build + API36 qualification on CI #910 / run 36195905242 at source `ad182678cb2704dc9bbfc622124b4f2ac121fea1`. The separation backend is unchanged and its RC20 evidence is reused. Signed qualification and affected-path physical acceptance remain required before RC21 can replace RC20.
 
 ## Frozen baseline
 
