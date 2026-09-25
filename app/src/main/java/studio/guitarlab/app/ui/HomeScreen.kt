@@ -45,8 +45,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -102,17 +100,11 @@ fun HomeScreen(
     var deleteProject by remember { mutableStateOf<GuitarProject?>(null) }
     var deleteHasActiveOperations by remember { mutableStateOf(false) }
     var helpDialogVisible by remember { mutableStateOf(false) }
-    val snackbar = remember { SnackbarHostState() }
     val projectListState = rememberLazyListState()
     val projectPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> if (uri != null) viewModel.importProject(uri, onOpenProject) }
 
     LaunchedEffect(state.libraryQuery) {
         if (state.projects.isNotEmpty()) projectListState.scrollToItem(0)
-    }
-
-    LaunchedEffect(state.message, state.error) {
-        val message = state.error ?: state.message
-        if (message != null) { snackbar.showSnackbar(AppTransientFeedbackPolicy.userSafe(message, "Não foi possível concluir a operação.")); viewModel.clearMessage() }
     }
 
     Box(Modifier.fillMaxSize()) {
@@ -236,7 +228,6 @@ fun HomeScreen(
                 }
             }
         }
-        SnackbarHost(snackbar, Modifier.align(Alignment.TopCenter).padding(top = 12.dp))
         if (state.exportBusy) Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.scrim.copy(alpha = 0.35f)) { Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() } }
     }
 
