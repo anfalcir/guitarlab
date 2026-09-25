@@ -160,13 +160,15 @@ class UnifiedDriveLocalRestoreValidator(
 
         val stateFile = File(stagingDirectory, PROJECT_FILE)
         require(stateFile.isFile) { "Restored project.json is missing." }
-        val project = codec.decode(stateFile.readText(Charsets.UTF_8))
-        require(project.id == plan.manifest.projectId) {
+        val serialized = stateFile.readText(Charsets.UTF_8)
+        val persistedProject = codec.decodePersistedState(serialized)
+        require(persistedProject.id == plan.manifest.projectId) {
             "Restored project identity does not match the manifest."
         }
-        require(UnifiedProjectRevision.sha256(project) == plan.manifest.canonicalProjectStateSha256) {
+        require(UnifiedProjectRevision.sha256(persistedProject) == plan.manifest.canonicalProjectStateSha256) {
             "Restored project state digest does not match the manifest."
         }
+        val project = codec.decode(serialized)
         val issues = ProjectValidator.validate(project)
         require(issues.isEmpty()) {
             "Restored project is invalid: ${issues.joinToString { it.code }}"
