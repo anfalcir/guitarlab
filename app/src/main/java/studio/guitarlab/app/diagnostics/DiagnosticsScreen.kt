@@ -224,6 +224,7 @@ fun DiagnosticsScreen(
             }
 
         }
+        }
         AppTransientFeedbackHost(
             message = status,
             kind = statusKind,
