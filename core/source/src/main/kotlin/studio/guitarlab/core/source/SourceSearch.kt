@@ -51,6 +51,12 @@ data class RankedSourceCandidate(
     val automaticDownloadSupported: Boolean = true,
 )
 
+data class SourceSearchSuggestion(
+    val artist: String,
+    val confidence: Double,
+    val supportCount: Int,
+)
+
 interface SourceSearchProviderClient {
     suspend fun search(request: SourceSearchRequest): List<SourceCandidateDraft>
 }
@@ -116,6 +122,44 @@ object SourceSearchRules {
         val rounded = seconds.toInt()
         if (rounded <= 0) return "duração desconhecida"
         return "${rounded / 60}:${(rounded % 60).toString().padStart(2, '0')}"
+    }
+
+    fun suggestArtist(request: SourceSearchRequest, drafts: List<SourceCandidateDraft>): SourceSearchSuggestion? {
+        val requested = normalize(request.artist)
+        if (requested.isBlank()) return null
+        val grouped = drafts
+            .asSequence()
+            .filter { titleMatchesSong(request.song, it.title) }
+            .mapNotNull { draft ->
+                val cleaned = draft.uploader
+                    .replace(Regex("""(?i)\s*[-–—]\s*topic\s*$"""), "")
+                    .replace(Regex("""(?i)\s*[-–—]\s*official\s*$"""), "")
+                    .trim()
+                    .takeIf { it.isNotBlank() }
+                    ?: return@mapNotNull null
+                val normalized = normalize(cleaned)
+                if (normalized.isBlank() || normalized == requested) return@mapNotNull null
+                Triple(normalized, cleaned, textSimilarity(request.artist, cleaned))
+            }
+            .filter { (_, _, similarity) -> similarity >= 0.74 }
+            .groupBy { it.first }
+
+        return grouped.values
+            .map { rows ->
+                val best = rows.maxBy { it.third }
+                SourceSearchSuggestion(
+                    artist = best.second,
+                    confidence = best.third,
+                    supportCount = rows.size,
+                )
+            }
+            .filter { it.confidence >= 0.82 || (it.supportCount >= 2 && it.confidence >= 0.76) }
+            .sortedWith(
+                compareByDescending<SourceSearchSuggestion> { it.supportCount }
+                    .thenByDescending { it.confidence }
+                    .thenBy { normalize(it.artist) },
+            )
+            .firstOrNull()
     }
 
     fun rank(request: SourceSearchRequest, drafts: List<SourceCandidateDraft>, limit: Int = 15): List<RankedSourceCandidate> {
