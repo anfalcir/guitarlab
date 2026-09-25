@@ -4,6 +4,23 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
+echo "::group::API36 device readiness"
+adb wait-for-device
+for attempt in $(seq 1 30); do
+  state="$(adb get-state 2>/dev/null || true)"
+  booted="$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r' || true)"
+  if [[ "$state" == "device" && "$booted" == "1" ]]; then
+    break
+  fi
+  sleep 2
+done
+test "$(adb get-state)" = "device"
+test "$(adb shell getprop sys.boot_completed | tr -d '\r')" = "1"
+adb shell settings put global window_animation_scale 0.0
+adb shell settings put global transition_animation_scale 0.0
+adb shell settings put global animator_duration_scale 0.0
+echo "::endgroup::"
+
 TOTAL_GROUPS=5
 GROUP_TIMEOUT_SECONDS="${API36_GROUP_TIMEOUT_SECONDS:-480}"
 HEARTBEAT_SECONDS="${API36_HEARTBEAT_SECONDS:-60}"
@@ -36,6 +53,7 @@ GROUP3_CLASSES=(
 GROUP4_CLASSES=(
   ActivityNotificationDeepLinkInstrumentedTest
   AndroidMasterAudioEncoderInstrumentedTest
+  DiagnosticSupportInstrumentedTest
   BackupScreenInstrumentedTest
   ProjectExportMediaStoreInstrumentedTest
   StudyExportInstrumentedTest
