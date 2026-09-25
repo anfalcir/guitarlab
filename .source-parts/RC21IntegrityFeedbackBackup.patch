@@ -523,7 +523,7 @@ diff --git a/app/src/main/java/studio/guitarlab/app/backup/BackupScreen.kt b/app
          if (state.busy) {
              BackupBusyFeedback(state.busyLabel)
          }
-@@ -184,7 +186,34 @@ fun BackupScreenContent(
+@@ -184,7 +186,44 @@ fun BackupScreenContent(
          Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
              AppIconButton(icon = Icons.Default.ArrowBack, contentDescription = "Voltar", onClick = onBack)
              Text("Backup e restauração", modifier = Modifier.weight(1f), style = MaterialTheme.typography.headlineSmall)
@@ -536,6 +536,16 @@ diff --git a/app/src/main/java/studio/guitarlab/app/backup/BackupScreen.kt b/app
 +            )
 +        }
 +        when {
++            state.catalogRefreshing && state.versions.isEmpty() -> {
++                Row(
++                    Modifier.fillMaxWidth().testTag("backup-catalog-loading"),
++                    verticalAlignment = Alignment.CenterVertically,
++                    horizontalArrangement = Arrangement.spacedBy(8.dp),
++                ) {
++                    CircularProgressIndicator()
++                    Text("Carregando histórico do Google Drive…", style = MaterialTheme.typography.bodySmall)
++                }
++            }
 +            state.catalogRefreshing && state.versions.isNotEmpty() -> {
 +                Row(
 +                    Modifier.fillMaxWidth().testTag("backup-catalog-background-refresh"),
@@ -559,7 +569,7 @@ diff --git a/app/src/main/java/studio/guitarlab/app/backup/BackupScreen.kt b/app
          }
  
          LazyColumn(Modifier.fillMaxSize().testTag("backup-screen"), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-@@ -350,8 +379,15 @@ fun BackupScreenContent(
+@@ -350,8 +389,14 @@ fun BackupScreenContent(
                  Text("Restaurar cria uma nova cópia local; nenhum projeto existente é sobrescrito.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
              }
  
@@ -567,12 +577,11 @@ diff --git a/app/src/main/java/studio/guitarlab/app/backup/BackupScreen.kt b/app
 -                item { Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() } }
 +            if ((state.loading || state.catalogRefreshing) && state.versions.isEmpty()) {
 +                item {
-+                    Box(
-+                        Modifier.fillMaxWidth().padding(24.dp).testTag("backup-catalog-loading"),
-+                        contentAlignment = Alignment.Center,
-+                    ) {
-+                        CircularProgressIndicator()
-+                    }
++                    Text(
++                        "Consultando as versões disponíveis…",
++                        style = MaterialTheme.typography.bodySmall,
++                        color = MaterialTheme.colorScheme.onSurfaceVariant,
++                    )
 +                }
              } else if (!configured) {
                  item {
