@@ -22,6 +22,7 @@ import kotlinx.coroutines.withContext
 import java.util.UUID
 import studio.guitarlab.app.activity.ActivityCancellationRegistry
 import studio.guitarlab.app.activity.UnifiedActivityStore
+import studio.guitarlab.app.ui.TransientFeedbackKind
 import studio.guitarlab.core.model.GuitarProject
 import studio.guitarlab.core.project.BackupRetentionPolicy
 import studio.guitarlab.core.project.BackupRevisionIdentity
@@ -49,6 +50,7 @@ data class BackupUiState(
     val catalogUpdatedAtEpochMs: Long? = null,
     val catalogFromCache: Boolean = false,
     val message: String? = null,
+    val messageKind: TransientFeedbackKind = TransientFeedbackKind.ASYNC_COMPLETION,
     val error: String? = null,
 )
 
@@ -195,7 +197,7 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
     ) {
         if (_state.value.busy) return
         refreshJob?.cancel()
-        _state.update { it.copy(busy = true, busyLabel = "Conectando ao Google Drive…", error = null, message = null) }
+        _state.update { it.copy(busy = true, busyLabel = "Conectando ao Google Drive…", error = null, message = null, messageKind = TransientFeedbackKind.ASYNC_COMPLETION) }
         viewModelScope.launch {
             try {
                 when (val result = authorization.request()) {
@@ -226,7 +228,7 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
     fun completeDriveConnection(data: Intent?) {
         if (_state.value.busy) return
         refreshJob?.cancel()
-        _state.update { it.copy(busy = true, busyLabel = "Validando a conexão…", error = null, message = null) }
+        _state.update { it.copy(busy = true, busyLabel = "Validando a conexão…", error = null, message = null, messageKind = TransientFeedbackKind.ASYNC_COMPLETION) }
         viewModelScope.launch {
             try {
                 authorization.tokenFromResult(data) // validates the user-granted result
@@ -246,7 +248,9 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
             it.copy(
                 busy = false,
                 busyLabel = null,
-                error = "A conexão com o Google Drive foi cancelada.",
+                error = null,
+                message = "Conexão com o Google Drive cancelada.",
+                messageKind = TransientFeedbackKind.OPERATIONAL_STATUS,
             )
         }
     }
@@ -254,7 +258,7 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
     fun disconnectDrive() {
         if (_state.value.busy) return
         refreshJob?.cancel()
-        _state.update { it.copy(busy = true, busyLabel = "Desconectando…", error = null, message = null) }
+        _state.update { it.copy(busy = true, busyLabel = "Desconectando…", error = null, message = null, messageKind = TransientFeedbackKind.ASYNC_COMPLETION) }
         viewModelScope.launch {
             try {
                 authorization.revoke()
@@ -434,7 +438,13 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-    fun clearMessage() = _state.update { it.copy(message = null, error = null) }
+    fun clearMessage() = _state.update {
+        it.copy(
+            message = null,
+            messageKind = TransientFeedbackKind.ASYNC_COMPLETION,
+            error = null,
+        )
+    }
 
     private suspend fun finishDriveConnection() {
         val previousLabel = settingsStore.snapshot().driveAccountLabel
@@ -479,7 +489,10 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
         }
         if (automaticBackupActive) {
             _state.update {
-                it.copy(message = "Já existe um backup automático em andamento. O catálogo será atualizado quando ele terminar.")
+                it.copy(
+                    message = "Já existe um backup automático em andamento. O catálogo será atualizado quando ele terminar.",
+                    messageKind = TransientFeedbackKind.WARNING,
+                )
             }
             return
         }
@@ -542,7 +555,7 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
         action: suspend () -> Unit,
     ) {
         if (_state.value.busy) return
-        _state.update { it.copy(busy = true, busyLabel = busyLabel, error = null, message = null) }
+        _state.update { it.copy(busy = true, busyLabel = busyLabel, error = null, message = null, messageKind = TransientFeedbackKind.ASYNC_COMPLETION) }
         viewModelScope.launch {
             try {
                 action()
@@ -564,6 +577,7 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
                 busy = false,
                 busyLabel = null,
                 message = "Operação cancelada.",
+                messageKind = TransientFeedbackKind.OPERATIONAL_STATUS,
                 error = null,
             )
         }
