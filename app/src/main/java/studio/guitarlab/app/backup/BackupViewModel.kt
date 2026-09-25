@@ -183,6 +183,7 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
         onResolution: (PendingIntent) -> Unit,
     ) {
         if (_state.value.busy) return
+        refreshJob?.cancel()
         _state.update { it.copy(busy = true, busyLabel = "Conectando ao Google Drive…", error = null, message = null) }
         viewModelScope.launch {
             try {
@@ -213,6 +214,7 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
 
     fun completeDriveConnection(data: Intent?) {
         if (_state.value.busy) return
+        refreshJob?.cancel()
         _state.update { it.copy(busy = true, busyLabel = "Validando a conexão…", error = null, message = null) }
         viewModelScope.launch {
             try {
@@ -240,6 +242,7 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
 
     fun disconnectDrive() {
         if (_state.value.busy) return
+        refreshJob?.cancel()
         _state.update { it.copy(busy = true, busyLabel = "Desconectando…", error = null, message = null) }
         viewModelScope.launch {
             try {
