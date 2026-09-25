@@ -859,7 +859,7 @@ new file mode 100644
 @@ -0,0 +1,22 @@
 +package studio.guitarlab.app.ui
 +
-+import kotlin.test.Test
++import org.junit.Test
 +import kotlin.test.assertEquals
 +
 +class WaveformRenderReducerTest {
