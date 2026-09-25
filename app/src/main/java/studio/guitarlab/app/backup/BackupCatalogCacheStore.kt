@@ -3,6 +3,7 @@ package studio.guitarlab.app.backup
 import android.content.Context
 import org.json.JSONArray
 import org.json.JSONObject
+import studio.guitarlab.core.project.BackupRevisionIdentity
 import studio.guitarlab.core.project.BackupVersionDescriptor
 import studio.guitarlab.core.project.DriveReconciliation
 
@@ -94,7 +95,7 @@ internal class BackupCatalogCacheStore(context: Context) {
                 localRevisions = localRevisions,
                 manifestCreatedAtEpochMs = manifestCreatedAtEpochMs,
                 refreshedAtEpochMs = root.getLong("refreshedAtEpochMs"),
-            )
+            ).takeIf(::isValidSnapshot)
         }.getOrNull()
     }
 
@@ -127,6 +128,35 @@ internal class BackupCatalogCacheStore(context: Context) {
     fun clear() {
         preferences.edit().remove(KEY_SNAPSHOT).apply()
     }
+
+    private fun isValidSnapshot(snapshot: BackupCatalogSnapshot): Boolean {
+        if (snapshot.refreshedAtEpochMs <= 0L) return false
+        if (snapshot.localRevisions.any { (projectId, revision) ->
+                projectId.isBlank() || !BackupRevisionIdentity.isValid(revision)
+            }) return false
+        if (snapshot.reconciliations.keys.any(String::isBlank)) return false
+        if (snapshot.manifestCreatedAtEpochMs.any { (sha256, createdAt) ->
+                !SHA256.matches(sha256) || createdAt < 0L
+            }) return false
+
+        val allVersions = snapshot.versions + snapshot.remoteTips.values.flatten()
+        if (allVersions.any { !isValidVersion(it) }) return false
+        if (allVersions.any { version ->
+                snapshot.manifestCreatedAtEpochMs[version.sha256.lowercase()] != version.backupCreatedAtEpochMs
+            }) return false
+        return true
+    }
+
+    private fun isValidVersion(version: BackupVersionDescriptor): Boolean =
+        version.formatVersion == 3 &&
+            version.projectId.isNotBlank() &&
+            version.projectName.isNotBlank() &&
+            version.projectUpdatedAtEpochMs >= 0L &&
+            version.backupCreatedAtEpochMs >= 0L &&
+            version.sizeBytes > 0L &&
+            SHA256.matches(version.sha256) &&
+            version.remoteId == "u8:${version.sha256}" &&
+            BackupRevisionIdentity.isValid(version.revisionId)
 
     private fun List<BackupVersionDescriptor>.toJson(): JSONArray = JSONArray().also { array ->
         forEach { version ->
@@ -169,5 +199,6 @@ internal class BackupCatalogCacheStore(context: Context) {
         const val KEY_SNAPSHOT = "snapshot"
         const val SCHEMA = 3
         const val NO_RETENTION = -1
+        val SHA256 = Regex("[0-9a-f]{64}")
     }
 }
