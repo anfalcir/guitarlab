@@ -62,6 +62,8 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
     private val deletedProjectStore = DeletedProjectBackupStore(application)
     private val catalogCache = BackupCatalogCacheStore(application)
     private var refreshJob: Job? = null
+    private var screenVisible = false
+    private var screenEnteredOnce = false
     private val _state = MutableStateFlow(BackupUiState())
     val state: StateFlow<BackupUiState> = _state.asStateFlow()
     init {
@@ -73,8 +75,17 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
     fun refresh() = refreshInternal(forceRemote = true)
 
     fun onScreenEntered() {
+        val returning = screenEnteredOnce && !screenVisible
+        screenVisible = true
+        screenEnteredOnce = true
+        if (returning) clearMessage()
         if (refreshJob?.isActive == true || _state.value.busy) return
         refreshInternal(forceRemote = false)
+    }
+
+    fun onScreenLeft() {
+        screenVisible = false
+        clearMessage()
     }
 
     private fun refreshInternal(forceRemote: Boolean) {
