@@ -398,7 +398,7 @@ class UnifiedProjectShellInstrumentedTest {
         }
 
         composeRule.onNodeWithTag("prepare-search-terminal-did_you_mean").performScrollTo().assertIsDisplayed()
-        composeRule.onNodeWithTag("prepare-search-suggestion").assertTextContains("Memphis May Fire")
+        composeRule.onNodeWithTag("prepare-search-suggestion").assertTextEquals("Você quis dizer “Memphis May Fire”?")
         composeRule.onNodeWithTag("prepare-search-use-suggestion").performClick()
         composeRule.runOnIdle {
             check(retriedArtist == "Memphis May Fire")
