@@ -608,7 +608,15 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
                 .distinctUntilChanged()
                 .drop(1)
                 .collect { completedAt ->
-                    if (completedAt != null && settingsStore.snapshot().driveConnected) refresh()
+                    // The worker already persisted the Drive truth. Re-read the catalog only while
+                    // this screen is visible; the next screen entry always forces a remote refresh.
+                    if (
+                        completedAt != null &&
+                            screenVisible &&
+                            settingsStore.snapshot().driveConnected
+                    ) {
+                        refresh()
+                    }
                 }
         }
     }
