@@ -126,6 +126,143 @@ class PreparedReferencePipelineTest {
         assertFalse(PreparedReferenceBindingPolicy.bindingDiffersFromDesired(repaired))
     }
 
+    @Test fun explicitRestoreIsAvailableEvenWhenBindingsAreHealthyAndBackingRestoreIsSelective() {
+        val fixture = fixture()
+        val prepared = fixture.service.prepare(fixture.projectId).project
+        assertFalse(PreparedReferenceBindingPolicy.bindingDiffersFromDesired(prepared))
+        assertEquals(
+            setOf(PreparedReferenceRestoreTarget.BACKING, PreparedReferenceRestoreTarget.GUITAR),
+            PreparedReferenceBindingPolicy.availableRestoreTargets(prepared),
+        )
+
+        val backingBinding = prepared.referenceBindings.single { it.kind == ReferenceBindingKind.BACKING }
+        val backingClip = prepared.clips.single {
+            it.trackId == backingBinding.trackId && it.sourceUri == "guitarlab://asset/${backingBinding.assetId}"
+        }
+        val guitarClipsBefore = prepared.clips.filter { clip ->
+            prepared.referenceBindings.any { binding ->
+                binding.kind != ReferenceBindingKind.BACKING &&
+                    binding.trackId == clip.trackId &&
+                    clip.sourceUri == "guitarlab://asset/${binding.assetId}"
+            }
+        }
+        val unrelated = AudioClip(
+            id = "user-backing-extra",
+            trackId = backingBinding.trackId,
+            name = "Áudio do usuário",
+            sourceUri = "managed://user-audio",
+            startFrame = 20,
+            sourceStartFrame = 2,
+            lengthFrames = 6,
+            gainDb = -2f,
+        )
+        val marker = TimelineMarker("restore-marker", "Entrada", 4)
+        val section = TimelineSection("restore-section", "Parte", 2, 18)
+        val tracks = prepared.tracks.map {
+            if (it.id == backingBinding.trackId) it.copy(gainDb = -5f, muted = true) else it
+        }
+        val damaged = prepared.copy(
+            tracks = tracks,
+            clips = prepared.clips.map {
+                if (it.id == backingClip.id) it.copy(
+                    startFrame = 9,
+                    sourceStartFrame = 3,
+                    lengthFrames = 7,
+                    gainDb = -12f,
+                    muted = true,
+                    fadeInFrames = 2,
+                    fadeOutFrames = 2,
+                ) else it
+            } + unrelated,
+            markers = listOf(marker),
+            sections = listOf(section),
+            masterGainDb = -3f,
+        )
+
+        val restored = PreparedReferenceBindingPolicy.restoreSelected(
+            damaged,
+            setOf(PreparedReferenceRestoreTarget.BACKING),
+            now = 2_000,
+        ) { "restore-${fixture.ids.incrementAndGet()}" }
+
+        val activeBackingId = restored.preparation!!.activeBackingAssetId!!
+        val activeBacking = restored.assets.single { it.assetId == activeBackingId }
+        val restoredBacking = restored.clips.single {
+            it.trackId == backingBinding.trackId && it.sourceUri == "guitarlab://asset/$activeBackingId"
+        }
+        assertEquals(0L, restoredBacking.startFrame)
+        assertEquals(0L, restoredBacking.sourceStartFrame)
+        assertEquals(activeBacking.frameCount, restoredBacking.lengthFrames)
+        assertEquals(0f, restoredBacking.gainDb)
+        assertFalse(restoredBacking.muted)
+        assertEquals(0L, restoredBacking.fadeInFrames)
+        assertEquals(0L, restoredBacking.fadeOutFrames)
+        assertTrue(restored.clips.contains(unrelated))
+        assertEquals(guitarClipsBefore, restored.clips.filter { it.id in guitarClipsBefore.map { clip -> clip.id } })
+        assertEquals(tracks, restored.tracks)
+        assertEquals(listOf(marker), restored.markers)
+        assertEquals(listOf(section), restored.sections)
+        assertEquals(-3f, restored.masterGainDb)
+    }
+
+    @Test fun guitarRestoreIsAtomicResetsPreparedClipEditsAndNeverDuplicates() {
+        val fixture = fixture()
+        val prepared = fixture.service.prepare(fixture.projectId).project
+        val guitarBindings = prepared.referenceBindings.filter {
+            it.kind == ReferenceBindingKind.GUITAR_REFERENCE ||
+                it.kind == ReferenceBindingKind.GUITAR_LEFT ||
+                it.kind == ReferenceBindingKind.GUITAR_RIGHT
+        }
+        assertTrue(guitarBindings.isNotEmpty())
+        val guitarAssetIds = guitarBindings.mapTo(mutableSetOf()) { it.assetId }
+        val damaged = prepared.copy(
+            clips = prepared.clips.map { clip ->
+                if (guitarAssetIds.any { clip.sourceUri == "guitarlab://asset/$it" }) {
+                    clip.copy(startFrame = 11, sourceStartFrame = 2, lengthFrames = 5, gainDb = -7f, muted = true, fadeInFrames = 1)
+                } else clip
+            },
+        )
+
+        val first = PreparedReferenceBindingPolicy.restoreSelected(
+            damaged,
+            setOf(PreparedReferenceRestoreTarget.GUITAR),
+            now = 2_100,
+        ) { "guitar-restore-${fixture.ids.incrementAndGet()}" }
+        val second = PreparedReferenceBindingPolicy.restoreSelected(
+            first,
+            setOf(PreparedReferenceRestoreTarget.GUITAR),
+            now = 2_200,
+        ) { "guitar-restore-${fixture.ids.incrementAndGet()}" }
+
+        val desiredGuitarBindings = second.referenceBindings.filter {
+            it.kind == ReferenceBindingKind.GUITAR_REFERENCE ||
+                it.kind == ReferenceBindingKind.GUITAR_LEFT ||
+                it.kind == ReferenceBindingKind.GUITAR_RIGHT
+        }
+        assertEquals(guitarBindings.size, desiredGuitarBindings.size)
+        desiredGuitarBindings.forEach { binding ->
+            val asset = second.assets.single { it.assetId == binding.assetId }
+            val clip = second.clips.single {
+                it.trackId == binding.trackId && it.sourceUri == "guitarlab://asset/${binding.assetId}"
+            }
+            assertEquals(0L, clip.startFrame)
+            assertEquals(0L, clip.sourceStartFrame)
+            assertEquals(asset.frameCount, clip.lengthFrames)
+            assertEquals(0f, clip.gainDb)
+            assertFalse(clip.muted)
+            assertEquals(0L, clip.fadeInFrames)
+            assertEquals(0L, clip.fadeOutFrames)
+        }
+        val backingBinding = second.referenceBindings.single { it.kind == ReferenceBindingKind.BACKING }
+        assertEquals(
+            1,
+            second.clips.count {
+                it.trackId == backingBinding.trackId && it.sourceUri == "guitarlab://asset/${backingBinding.assetId}"
+            },
+        )
+        assertFalse(PreparedReferenceBindingPolicy.bindingDiffersFromDesired(second))
+    }
+
     @Test fun newPreparationAutomaticallyFillsReferenceTracksThatUserCleared() {
         val fixture = fixture()
         val first = fixture.service.prepare(fixture.projectId).project
