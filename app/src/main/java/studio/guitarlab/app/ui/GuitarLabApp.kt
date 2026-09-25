@@ -115,7 +115,9 @@ fun GuitarLabApp(
                     onResumeSeparationImport = { homeViewModel.resumeSeparationImport(current.projectId) },
                     onCancelSeparation = { homeViewModel.cancelSeparation(current.projectId) },
                     onPrepareReferences = { homeViewModel.prepareReferences(current.projectId) },
-                    onRepairReferences = { homeViewModel.repairPreparedReferenceBindings(current.projectId) },
+                    onRestoreReferences = { backing, guitar ->
+                        homeViewModel.restorePreparedReferences(current.projectId, backing, guitar)
+                    },
                     initialCloudSession = remoteCloudAuth.currentSession(),
                 )
                 }
