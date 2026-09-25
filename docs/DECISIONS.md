@@ -318,7 +318,7 @@ RC19 physical forensics proved that the substituted `demucs.cpp`/GGML engine pro
 The RC20 worker is therefore reconstructed from the consolidated GBW Linux Demucs path: official PyTorch `htdemucs_6s`, float32 output, clip mode none, baseline shifts 1 and overlap 0.5. This does not authorize BS-RoFormer. Neither rejected `demucs.cpp` strategy (`mt4_omp2` non-finite or `single8` musically invalid) is eligible for production.
 
 Worker selection is multi-objective and fail-closed:
-- musical/stem quality and owner listening are mandatory;
+- structural/audio quality gates are mandatory; owner listening was an RC20 qualification aid until explicitly waived by the owner under D-092;
 - <=5 minutes for a representative three-to-four-minute song is optimal;
 - >5 and <=15 minutes is acceptable;
 - >15 minutes is an alert requiring resource/architecture review;
@@ -362,4 +362,20 @@ After physical acceptance, the exact signed APK and digest-pinned worker are fro
 
 U7 #156 proved that independent executions of the exact official Demucs contract can exceed a fixed numeric closeness envelope while both outputs remain structurally valid and pass the worker's quality gates. This is expected because `--shifts 1` applies a random shift; forcing a seed merely to satisfy CI would change the qualified runtime recipe.
 
-W3 therefore blocks on exact engine/model/config/source identity, frame/channel/finite-sample structure and independent quality rejection. It records stem/prepared hashes and all peak/RMS/DC/energy/shared-gain/energy-share deltas, including misses against the former 1% envelope, as evidence rather than vetoes. Musical usefulness remains protected by W5 owner listening on the exact candidate digest.
+W3 therefore blocks on exact engine/model/config/source identity, frame/channel/finite-sample structure and independent quality rejection. It records stem/prepared hashes and all peak/RMS/DC/energy/shared-gain/energy-share deltas, including misses against the former 1% envelope, as evidence rather than vetoes. D-092 supersedes the RC20-specific W5 owner-listening veto; technical quality/integrity gates remain mandatory.
+
+
+## D-092 — RC20 owner listening is waived; technical PyTorch qualification governs cutover
+
+On 2026-09-24 local time, after reviewing the already-qualified official PyTorch Demucs route and its W4 CPU8 result, the owner explicitly chose to keep the selected configuration and skip the additional W5 listening run against the private real-song fixture.
+
+Consequences:
+- W5 owner listening is **WAIVED BY OWNER**, not programmatically passed;
+- no claim is made that the unexecuted W5 real-source listening test passed;
+- W1/W2/W3/W4 hard technical gates remain mandatory, including engine/model/config identity, finiteness, stem structure, quality rejects, prepared-reference integrity, runtime contract, quota/recovery and lifecycle checks;
+- because U12bj changes worker-image content only to widen the fail-closed diagnostic bundle namespace from W4 to explicit W4+W5, the rebuilt digest still requires proportional shadow requalification before production cutover;
+- once that requalification passes, W6 may promote the exact qualified digest without a separate W5 musical artifact;
+- the temporary private MMF - Misery source is no longer needed by the active release path and must be removed from the repository HEAD;
+- final signed-APK physical homologation remains required for the application/hardware behaviors that are actually part of the freeze candidate.
+
+This decision supersedes only the RC20-specific requirement that W5 owner listening veto W6. It does not authorize a return to demucs.cpp, weakening of hard audio-integrity gates, or bypass of exact-digest qualification.
