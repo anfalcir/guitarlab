@@ -2,7 +2,7 @@ diff --git a/scripts/u12_rc20_shadow_benchmark.sh b/scripts/u12_rc20_shadow_benc
 index cdffef35b3d691e406450a50a372ca67a15af1d7..59d3b857fd9422cb921d4608d7daef7922ff0f85 100755
 --- a/scripts/u12_rc20_shadow_benchmark.sh
 +++ b/scripts/u12_rc20_shadow_benchmark.sh
-@@ -9,6 +9,15 @@ GBW_REGION="${GBW_REGION:-us-central1}"
+@@ -9,6 +9,14 @@ GBW_REGION="${GBW_REGION:-us-central1}"
  VARIANT="${GBW_W4_VARIANT:-cpu8-baseline}"
  STRATEGY="${GBW_W4_STRATEGY:-cpu8_s1_o05}"
  VCPU="${GBW_W4_VCPU:-8}"
@@ -17,7 +17,7 @@ index cdffef35b3d691e406450a50a372ca67a15af1d7..59d3b857fd9422cb921d4608d7daef79
  MEMORY_GIB="${GBW_W4_MEMORY_GIB:-16}"
  MEMORY_RESOURCE="${GBW_W4_MEMORY_RESOURCE:-16Gi}"
  WARM_PROBE="${GBW_W4_WARM_PROBE:-1}"
-@@ -144,9 +153,9 @@ gcloud storage cp "gs://${GBW_BUCKET}/${BUNDLE_PREFIX}/prepared/*.wav" "$ART
+@@ -124,14 +132,14 @@ gcloud storage cp "gs://${GBW_BUCKET}/${BUNDLE_PREFIX}/prepared/*.wav" "$ARTIFACT_DIR/prepared/" >/dev/null
    sha256sum -c SHA256SUMS
  )
  
@@ -29,15 +29,13 @@ index cdffef35b3d691e406450a50a372ca67a15af1d7..59d3b857fd9422cb921d4608d7daef79
  data=json.load(open(path, encoding="utf-8"))
  assert data["engine"]=="demucs-pytorch"
  assert data["model"]=="htdemucs_6s"
-@@ -154,7 +163,7 @@ assert data["engine"]=="demucs-pytorch"
- assert data["model"]=="htdemucs_6s"
  assert data["modelSha256"]=="34c22ccb381c6f9fdbf324f04e1e2fe21aaaf293f5ded163a162697ff9a02ddd"
 -assert data["strategy"]==strategy
 +assert data["strategy"]==expected_engine_strategy
  assert data["device"]=="cpu" and data["shifts"]==1 and abs(float(data["overlap"])-0.5)<1e-12
  assert data.get("imageIdentity")==image
  assert not [row for row in data["qualityFindings"] if row.get("severity")=="reject"]
-@@ -187,6 +196,7 @@ execution=${EXECUTION}
+@@ -162,7 +170,8 @@ execution=${EXECUTION}
  fixture_sha256=${FIXTURE_SHA}
  fixture_duration_seconds=180
  variant=${VARIANT}

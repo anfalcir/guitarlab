@@ -7,7 +7,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 PREVIOUS = ROOT / "scripts/materialize_ci_sources_u12bh.py"
 PATCH = ROOT / ".source-parts/U12biW4StrategyContract.patch"
-PATCH_BLOB = "b5f66facaac5376cea1da156b5fb70c1f1acb5b9"
+PATCH_BLOB = "3d1a8865fba4c85600405064fc4d79d05192dd95"
 TARGETS = {
     "scripts/u12_rc20_shadow_benchmark.sh": (
         "cdffef35b3d691e406450a50a372ca67a15af1d7",
