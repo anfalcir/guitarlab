@@ -9,7 +9,7 @@ class BackupCatalogFreshnessPolicyTest {
         assertTrue(BackupCatalogFreshnessPolicy.shouldRefresh(null, nowEpochMs = 10_000L, force = false))
         assertTrue(
             BackupCatalogFreshnessPolicy.shouldRefresh(
-                snapshot = BackupCatalogSnapshot(emptyList(), emptyMap(), emptyMap(), 9_900L),
+                snapshot = BackupCatalogSnapshot(emptyList(), emptyMap(), emptyMap(), emptyMap(), 9_900L),
                 nowEpochMs = 10_000L,
                 force = true,
             ),
@@ -17,7 +17,7 @@ class BackupCatalogFreshnessPolicyTest {
     }
 
     @Test fun recentDurableCatalogAvoidsImmediateRemoteReload() {
-        val snapshot = BackupCatalogSnapshot(emptyList(), emptyMap(), emptyMap(), refreshedAtEpochMs = 100_000L)
+        val snapshot = BackupCatalogSnapshot(emptyList(), emptyMap(), emptyMap(), emptyMap(), refreshedAtEpochMs = 100_000L)
         assertFalse(
             BackupCatalogFreshnessPolicy.shouldRefresh(
                 snapshot = snapshot,
@@ -27,8 +27,21 @@ class BackupCatalogFreshnessPolicyTest {
         )
     }
 
+    @Test fun localRevisionDriftIsDetectableWithoutDiscardingCachedVersionHistory() {
+        val snapshot = BackupCatalogSnapshot(
+            versions = emptyList(),
+            reconciliations = emptyMap(),
+            remoteTips = emptyMap(),
+            localRevisions = mapOf("project-a" to "revision-a"),
+            refreshedAtEpochMs = 100_000L,
+        )
+
+        assertTrue(snapshot.localRevisions != mapOf("project-a" to "revision-b"))
+        assertTrue(snapshot.localRevisions != mapOf("project-a" to "revision-a", "project-b" to "revision-b"))
+    }
+
     @Test fun staleClockRollbackOrExpiredCatalogRefreshes() {
-        val snapshot = BackupCatalogSnapshot(emptyList(), emptyMap(), emptyMap(), refreshedAtEpochMs = 100_000L)
+        val snapshot = BackupCatalogSnapshot(emptyList(), emptyMap(), emptyMap(), emptyMap(), refreshedAtEpochMs = 100_000L)
         assertTrue(
             BackupCatalogFreshnessPolicy.shouldRefresh(
                 snapshot = snapshot,
