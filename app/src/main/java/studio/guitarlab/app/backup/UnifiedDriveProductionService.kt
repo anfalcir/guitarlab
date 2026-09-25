@@ -79,6 +79,75 @@ internal class UnifiedDriveProductionService(
             nowEpochMs = nowEpochMs,
         ).run()
 
+    data class CatalogSnapshot(
+        val versions: List<BackupVersionDescriptor>,
+        val reconciliations: Map<String, DriveReconciliation>,
+        val remoteTips: Map<String, List<BackupVersionDescriptor>>,
+    )
+
+    /**
+     * Reads the Drive catalog once and derives version history plus local reconciliation from the
+     * same remote snapshot. The previous UI path re-listed heads once per local project, turning a
+     * screen refresh into N+1 Drive scans.
+     */
+    suspend fun loadCatalog(
+        localProjects: List<GuitarProject>,
+        retentionPolicy: BackupRetentionPolicy,
+    ): CatalogSnapshot {
+        val heads = remote.listAllHeads()
+        val headsByProject = heads.groupBy { it.descriptor.projectId }
+        val manifestBySha = linkedMapOf<String, studio.guitarlab.core.project.DriveProjectRevisionManifest>()
+        heads.forEach { head ->
+            if (head.descriptor.manifestSha256 !in manifestBySha) {
+                val manifest = remote.loadManifest(head.descriptor)
+                manifestBySha[manifest.manifestSha256] = manifest
+            }
+        }
+
+        val retained = DriveManifestRetentionPlanner.retained(
+            manifests = manifestBySha.values.toList(),
+            policy = retentionPolicy,
+            nowEpochMs = nowEpochMs(),
+        )
+        val descriptorCache = linkedMapOf<String, BackupVersionDescriptor>()
+
+        suspend fun describe(manifest: studio.guitarlab.core.project.DriveProjectRevisionManifest): BackupVersionDescriptor =
+            descriptorCache.getOrPut(manifest.manifestSha256) {
+                versionDescriptor(manifest, loadRemoteProject(manifest.projectStateAsset, manifest))
+            }
+
+        val versions = retained.map { describe(it) }
+            .distinctBy { it.deduplicationKey }
+            .sortedWith(
+                compareByDescending<BackupVersionDescriptor> { it.backupCreatedAtEpochMs }
+                    .thenByDescending { it.revisionId },
+            )
+
+        val reconciliations = linkedMapOf<String, DriveReconciliation>()
+        val remoteTips = linkedMapOf<String, List<BackupVersionDescriptor>>()
+        localProjects.forEach { project ->
+            val tips = currentTips(headsByProject[project.id].orEmpty())
+            val reconciliation = if (tips.size > 1) {
+                DriveReconciliation.CONFLICT
+            } else {
+                DriveConflictResolver.resolve(
+                    localRevisionId = BackupRevisionIdentity.forProject(project),
+                    confirmedRevisionId = confirmedRevisions.confirmedRevision(project.id),
+                    remoteRevisionId = tips.singleOrNull()?.descriptor?.revisionId,
+                )
+            }
+            reconciliations[project.id] = reconciliation
+            if (reconciliation == DriveReconciliation.CONFLICT || reconciliation == DriveReconciliation.DOWNLOAD_REMOTE) {
+                remoteTips[project.id] = tips.map { head ->
+                    val manifest = manifestBySha[head.descriptor.manifestSha256]
+                        ?: remote.loadManifest(head.descriptor).also { manifestBySha[it.manifestSha256] = it }
+                    describe(manifest)
+                }
+            }
+        }
+        return CatalogSnapshot(versions, reconciliations, remoteTips)
+    }
+
     suspend fun listCommittedVersions(
         retentionPolicy: BackupRetentionPolicy,
     ): List<BackupVersionDescriptor> {
