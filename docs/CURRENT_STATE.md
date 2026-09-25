@@ -28,6 +28,8 @@ Updated: 2026-09-24
 
 - CI #889 did not reach build or API36: the U12bq source-part itself was syntactically corrupt, and the fail-closed materializer correctly stopped both jobs. The patch was regenerated from the exact prior→current workflow diff and its blob hash realigned; no app/runtime behavior changed in this correction.
 
+- U12bq materializer repair requalification dispatched after CI #889; signing remains deferred until software gate and API36 both pass on the exact source.
+
 ## Unified program progress
 - Stable product identity is governed by `PROJECT_IDENTITY.md` and D-090: private single-owner appliance, proportional gates, exact signed APK + digest-pinned worker freeze after physical acceptance, and maintenance only for a real trigger.
 - Product-scope override (2026-09-21): legacy project/backup migration is retired. The owner has only two legacy projects and accepts recreating them manually. U9 is retired; U8/U10/U11 no longer carry H37/GBW/pre-unification migration obligations. Current unified-line save/reopen, schema evolution, backup/restore and integrity guarantees remain mandatory.
