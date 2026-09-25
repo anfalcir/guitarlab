@@ -1331,9 +1331,9 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                             runCatching { recordingMediaStore.markPublished(transaction) }
                         }
                     }
-                    Triple(persisted, clip, envelope.peaks)
+                    Triple(persisted, clip, envelope)
                 }
-            }.onSuccess { (saved, clip, peaks) ->
+            }.onSuccess { (saved, clip, envelope) ->
                 BackupScheduler.enqueueCoalesced(getApplication())
                 val state = _state.value
                 val end = TimelineControlPolicy.projectEndFrame(saved)
@@ -1367,7 +1367,12 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                 )
                 _state.value = state.copy(
                     project = saved,
-                    waveforms = state.waveforms + (clip.id to peaks),
+                    waveforms = state.waveforms + (clip.id to envelope.peaks),
+                    waveformChannels = if (envelope.channelPeaks.size == 2) {
+                        state.waveformChannels + (clip.id to envelope.channelPeaks)
+                    } else {
+                        state.waveformChannels - clip.id
+                    },
                     timelineControls = TimelineControlPolicy.normalizedForProject(state.timelineControls.copy(playheadFrame = clip.startFrame + clip.lengthFrames), end),
                     transport = state.transport.copy(mode = TransportMode.STOPPED),
                     recordingSession = RecordingSessionPolicy.reset(),
@@ -1877,20 +1882,29 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                                 envelope,
                             )
                             runCatching { recordingMediaStore.markPublished(saved.id, transactionId) }
-                            Triple(saved, clip, envelope.peaks)
+                            Triple(saved, clip, envelope)
                         }
                         RecordingRecoveryPublicationDecision.TARGET_TRACK_MISSING -> error("A pista original desta gravação não existe mais. O áudio foi preservado para suporte.")
                         RecordingRecoveryPublicationDecision.UNSAFE_PAYLOAD -> error(candidate.diagnosticReason ?: "A gravação interrompida não pôde ser validada com segurança.")
                     }
                 }
-            }.onSuccess { (saved, clip, peaks) ->
+            }.onSuccess { (saved, clip, envelope) ->
                 recoveryCandidatesById.remove(transactionId)
                 val nextItems = _state.value.recoveryItems.filterNot { it.transactionId == transactionId }
+                val currentWaveforms = _state.value.waveforms
+                val currentChannels = _state.value.waveformChannels
                 _state.value = _state.value.copy(
                     recoveryBusy = false,
                     recoveryItems = nextItems,
                     project = saved,
-                    waveforms = if (clip != null && peaks != null) _state.value.waveforms + (clip.id to peaks) else _state.value.waveforms,
+                    waveforms = if (clip != null && envelope != null) currentWaveforms + (clip.id to envelope.peaks) else currentWaveforms,
+                    waveformChannels = if (clip != null && envelope?.channelPeaks?.size == 2) {
+                        currentChannels + (clip.id to envelope.channelPeaks)
+                    } else if (clip != null) {
+                        currentChannels - clip.id
+                    } else {
+                        currentChannels
+                    },
                     transportEngineReady = playbackReadiness(saved).ready,
                     canUndo = projectHistory.canUndo,
                     canRedo = projectHistory.canRedo,
