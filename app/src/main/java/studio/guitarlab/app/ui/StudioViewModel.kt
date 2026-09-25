@@ -322,7 +322,8 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                     val pending = candidates.filter {
                         RecordingRecoveryPolicy.publicationDecision(project, it) != RecordingRecoveryPublicationDecision.ALREADY_PUBLISHED
                     }
-                    StudioLoadOutcome(project, loadWaveforms(project), loadWaveformChannels(project), pending)
+                    val waveformState = loadWaveformState(project)
+                    StudioLoadOutcome(project, waveformState.waveforms, waveformState.waveformChannels, pending)
                 }
             }.onSuccess { outcome ->
                 val project = outcome.project
@@ -362,7 +363,10 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                 val saved = saveLatest(project.id) { latest ->
                     PreparedReferenceBindingPolicy.applyUpdate(latest, System.currentTimeMillis())
                 }
-                withContext(Dispatchers.IO) { Triple(saved, loadWaveforms(saved), loadWaveformChannels(saved)) }
+                withContext(Dispatchers.IO) {
+                    val waveformState = loadWaveformState(saved)
+                    Triple(saved, waveformState.waveforms, waveformState.waveformChannels)
+                }
             }.onSuccess { (saved, waveforms, channels) ->
                 val state = _state.value
                 if (state.project?.id != saved.id) return@onSuccess
@@ -620,8 +624,8 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                                 )
                             }.also { committed = true }
                         }
-                        val waveforms = loadWaveforms(saved)
-                        Triple(saved, waveforms, loadWaveformChannels(saved))
+                        val waveformState = loadWaveformState(saved)
+                        Triple(saved, waveformState.waveforms, waveformState.waveformChannels)
                     } catch (error: Throwable) {
                         if (!committed) {
                             leftProxyPath?.let { mediaStore.discardUncommitted(project.id, it) }
