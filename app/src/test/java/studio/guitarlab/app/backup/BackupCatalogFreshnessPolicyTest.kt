@@ -37,8 +37,30 @@ class BackupCatalogFreshnessPolicyTest {
             refreshedAtEpochMs = 100_000L,
         )
 
-        assertTrue(snapshot.localRevisions != mapOf("project-a" to "revision-b"))
-        assertTrue(snapshot.localRevisions != mapOf("project-a" to "revision-a", "project-b" to "revision-b"))
+        assertTrue(
+            BackupCatalogFreshnessPolicy.shouldRefresh(
+                snapshot = snapshot,
+                nowEpochMs = 100_001L,
+                force = false,
+                currentLocalRevisions = mapOf("project-a" to "revision-b"),
+            ),
+        )
+        assertTrue(
+            BackupCatalogFreshnessPolicy.shouldRefresh(
+                snapshot = snapshot,
+                nowEpochMs = 100_001L,
+                force = false,
+                currentLocalRevisions = mapOf("project-a" to "revision-a", "project-b" to "revision-b"),
+            ),
+        )
+        assertFalse(
+            BackupCatalogFreshnessPolicy.shouldRefresh(
+                snapshot = snapshot,
+                nowEpochMs = 100_001L,
+                force = false,
+                currentLocalRevisions = snapshot.localRevisions,
+            ),
+        )
     }
 
     @Test fun staleClockRollbackOrExpiredCatalogRefreshes() {
