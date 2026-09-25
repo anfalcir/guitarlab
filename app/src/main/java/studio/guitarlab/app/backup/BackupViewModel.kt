@@ -85,9 +85,12 @@ class BackupViewModel(application: Application) : AndroidViewModel(application) 
             val cached = catalogCache.load(settings)
             val localRevisions = projects.associate { it.id to BackupRevisionIdentity.forProject(it) }
             val cachedMatchesLocal = cached != null && cached.localRevisions == localRevisions
-            val shouldRefreshRemote = settings.driveConnected && (
-                !cachedMatchesLocal ||
-                    BackupCatalogFreshnessPolicy.shouldRefresh(cached, System.currentTimeMillis(), forceRemote)
+            val shouldRefreshRemote = settings.driveConnected &&
+                BackupCatalogFreshnessPolicy.shouldRefresh(
+                    snapshot = cached,
+                    nowEpochMs = System.currentTimeMillis(),
+                    force = forceRemote,
+                    currentLocalRevisions = localRevisions,
                 )
 
             _state.update { current ->
