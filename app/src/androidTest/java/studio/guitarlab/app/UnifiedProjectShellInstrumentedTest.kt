@@ -175,16 +175,24 @@ class UnifiedProjectShellInstrumentedTest {
             ),
         )
         var openedStudio = false
+        var restored: Pair<Boolean, Boolean>? = null
         composeRule.setContent {
             GuitarLabTheme(darkTheme = true) {
                 UnifiedPrepareScreen(
                     project = project, projectId = project.id, onBack = {},
                     onStudio = { openedStudio = true }, onExport = {},
+                    onRestoreReferences = { backing, guitar -> restored = backing to guitar },
                 )
             }
         }
 
         composeRule.onNodeWithTag("prepare-references-ready").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithTag("prepare-restore-references").assertIsDisplayed().performClick()
+        composeRule.onNodeWithTag("restore-reference-dialog").assertIsDisplayed()
+        composeRule.onNodeWithTag("restore-reference-backing").assertIsDisplayed()
+        composeRule.onNodeWithTag("restore-reference-guitar").assertIsDisplayed().performClick()
+        composeRule.onNodeWithTag("restore-reference-confirm").performClick()
+        composeRule.runOnIdle { check(restored == (true to false)) }
         composeRule.captureCohesionScreenshot("prepare-ready-dark")
         composeRule.onNodeWithText("Studio").performClick()
         composeRule.runOnIdle { check(openedStudio) }
