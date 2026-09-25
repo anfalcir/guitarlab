@@ -1,7 +1,7 @@
 diff --git a/app/src/androidTest/java/studio/guitarlab/app/SettingsVisualHierarchyInstrumentedTest.kt b/app/src/androidTest/java/studio/guitarlab/app/SettingsVisualHierarchyInstrumentedTest.kt
 --- a/app/src/androidTest/java/studio/guitarlab/app/SettingsVisualHierarchyInstrumentedTest.kt
 +++ b/app/src/androidTest/java/studio/guitarlab/app/SettingsVisualHierarchyInstrumentedTest.kt
-@@ -1,11 +1,12 @@
+@@ -1,13 +1,14 @@
  package studio.guitarlab.app
  
 -import androidx.compose.ui.test.assertDoesNotExist
@@ -11,11 +11,14 @@ diff --git a/app/src/androidTest/java/studio/guitarlab/app/SettingsVisualHierarc
  import androidx.compose.ui.test.hasTestTag
  import androidx.compose.ui.test.hasText
  import androidx.compose.ui.test.junit4.createComposeRule
-+import androidx.compose.ui.test.onAllNodesWithText
  import androidx.compose.ui.test.onNodeWithTag
  import androidx.compose.ui.test.onNodeWithText
++import androidx.compose.ui.test.onAllNodesWithText
  import androidx.compose.ui.test.performClick
-@@ -34,9 +35,9 @@ class SettingsVisualHierarchyInstrumentedTest {
+ import androidx.compose.ui.test.performScrollToNode
+ import org.junit.Rule
+@@ -39,9 +40,9 @@ class SettingsVisualHierarchyInstrumentedTest {
+         composeRule.onNodeWithTag("settings-external-control-toggle").assertIsDisplayed()
          composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("Diagnóstico"))
          composeRule.onNodeWithText("Diagnóstico").assertIsDisplayed()
 -        composeRule.onNodeWithText("Projeto e Studio").assertDoesNotExist()
@@ -25,3 +28,5 @@ diff --git a/app/src/androidTest/java/studio/guitarlab/app/SettingsVisualHierarc
 +        composeRule.onAllNodesWithText("Importação").assertCountEquals(0)
 +        composeRule.onAllNodesWithText("Ver atividade").assertCountEquals(0)
      }
+ 
+     @Test
