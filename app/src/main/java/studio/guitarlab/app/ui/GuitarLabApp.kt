@@ -25,6 +25,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import studio.guitarlab.app.backup.BackupScreen
 import studio.guitarlab.app.activity.ActivityScreen
 import studio.guitarlab.app.activity.UnifiedActivityViewModel
+import studio.guitarlab.app.diagnostics.DiagnosticsScreen
 import studio.guitarlab.core.model.GuitarProject
 import studio.guitarlab.core.model.ProjectTemplate
 import studio.guitarlab.platform.separation.RemoteCloudAuthClient
@@ -155,6 +156,13 @@ fun GuitarLabApp(
             onCodecDiagnostics = { navigate(AppScreen.CodecProbe(current.projectId)) },
             onBackupSettings = { navigate(AppScreen.Backup(current.projectId)) },
             onActivity = { navigate(AppScreen.Activity()) },
+            onDiagnostics = { navigate(AppScreen.Diagnostics(current.projectId)) },
+        )
+        is AppScreen.Diagnostics -> DiagnosticsScreen(
+            projectId = current.projectId,
+            onBack = { navigate(AppScreen.Options(current.projectId)) },
+            onAudioDiagnostics = { navigate(AppScreen.AudioProbe(current.projectId)) },
+            onCodecDiagnostics = { navigate(AppScreen.CodecProbe(current.projectId)) },
         )
         is AppScreen.AudioProbe -> AudioProbeScreen(onBack = { navigate(AppScreen.Options(current.projectId)) })
         is AppScreen.CodecProbe -> CodecProbeScreen(onBack = { navigate(AppScreen.Options(current.projectId)) })
