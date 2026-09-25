@@ -5,15 +5,17 @@ Updated: 2026-09-24
 ## Contract
 `.github/workflows/android-ci.yml` supports manual `workflow_dispatch` and controlled `main` commit triggers. A commit containing `[run ci]` runs the software and API 36 gates; `[run ci signed]` additionally produces the signed homologation APK. Ordinary commits retain `[skip ci]` and do not consume hosted CI. This workstream is authorized to use and monitor the controlled triggers while executing the unified roadmap.
 
-Current release phase: **U12 ACTIVE**. RC18 (`0.5.0-rc18` / 38) is digitally qualified on producer `ee947c6fbbd8b24430d3a3faa04e27ef9a46856c` and awaits target-tablet physical acceptance. Android CI signed run `35990311091`, U7 verify run `35990311054`, isolated shadow run `35991484767`, controlled production deploy run `35992709966`, and U4 production smoke run `35994148711` passed. RC14 remains the previous physically tested fallback at producer `13c6f36e5e3c2bcf82cf21f885e8d7aa6c41ed34`.
+Current release phase: **U12 / RC20 corrective ACTIVE**. RC19 (`0.5.0-rc19` / 39) is the latest signed digitally qualified candidate, but physical acceptance is blocked by the Prepare audio-quality incident. RC20 is the successor line; read `CURRENT_STATE.md` for the exact current worker/run state.
 
-Authority layers:
-1. **software gate** — deterministic source materialization, JVM/unit/audio/DSP/persistence/migration tests, performance evidence, Lint, debug/release assembly and unsigned provenance;
-2. **API36 gate** — standard connected instrumentation plus isolated target-tablet geometry;
-3. **signed homologation** — signs the exact tested unsigned release artifact only after upstream gates pass.
+Operational workflow layers remain unchanged:
+1. **software gate** — deterministic source materialization, JVM/unit/audio/DSP/persistence regressions, performance evidence, Lint and APK assembly/provenance;
+2. **API36 gate** — connected instrumentation and target-tablet geometry currently implemented by the workflow;
+3. **signed homologation** — signs the exact tested unsigned release artifact only after required upstream gates pass.
+
+**Proportional interpretation:** the existing broad Android workflow is intentionally not being refactored before RC20 merely because it runs extra coverage. If a specific unrelated flaky/cosmetic assertion later blocks a candidate, it may be quarantined only with explicit evidence and rationale under D-090 / `PRODUCT_REQUIREMENTS.md`. Protected data/media integrity, audio, primary-flow, quota/cost, credential and signing failures remain blocking. The current narrow evidence-backed Trivy policy also remains in place for RC20; no generic vulnerability-reachability framework is introduced by this documentation change.
 
 ## Current source materialization
-`.source-parts/` + `scripts/materialize_ci_sources.sh` are source-of-truth build inputs. Unexpected drift fails closed by exact SHA-256/Git blob checks.
+`.source-parts/` + `scripts/materialize_ci_sources.sh` are source-of-truth build inputs. The current canonical tail is **U12bh** via `scripts/materialize_ci_sources_u12bh.py`. Unexpected drift fails closed by exact SHA-256/Git blob checks.
 
 The canonical entrypoint materializes the accepted source chain and the workflow additionally binds the exact candidate checkout/source identity. Historical tail labels describe their materialization block, not the current release version; qualification still requires exact source identity, `git diff --check`, semantic guards and the canonical software/API36/signing gates.
 
@@ -22,7 +24,7 @@ Historical U10/C8 source authority remains Android CI #781 and historical materi
 U8m then completed the separate provider-real acceptance gate through the same
 production vNext Drive transport/store. Result: `U8m PASS · r_1790095960 · cleanup 8/8/14`; sanitized report
 SHA-256 `84efb70615be8ef5939da538eee5f714f7311aa6d44dd5bb2cdd0b5e9e66b702`. This provider gate authorizes closure of U8 but is not a
-signed release promotion. RC14/Android run `35937621047` is the latest signed authority for the U12 physical campaign.
+signed release promotion. RC14 remains historical physically tested fallback evidence. RC19/Android CI #852 is the latest signed digital authority; it is not physically accepted.
 
 U10/C8 closure is recorded in `docs/U10_FINAL_DIGITAL_COHESION_GATE.md`. The
 #781 integration artifact digest is

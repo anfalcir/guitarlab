@@ -510,6 +510,7 @@ W3/W4 qualification evidence (2026-09-24):
 - U7 #154 / run `36071506915` correctly kept the gate closed: the full report contained ten additional CRITICAL findings inherited by the Debian 12/FFmpeg package closure, so the MiniZip exception alone passed while the other findings remained blocking. A same-date controlled scan of the digest-pinned Python 3.12.14 Debian 13 base reported zero CRITICAL findings; U12bf therefore updates only the pinned OS base from Bookworm to Trixie while preserving the engine/model/recipe;
 - U7 #155 / run `36072897237` passed build/publication/SBOM/scan on Debian 13 and reduced the full-image result to one NVD-scored CRITICAL: `CVE-2026-6653` in `libxml2`, with no fixed version. Red Hat and Ubuntu both rate the Linux finding MEDIUM. U12bg accepts only that exact CVE/package/status/no-fix/NVD-source/vendor-rating tuple and keeps the full finding visible in evidence;
 - U7 #156 / run `36073588591` passed the supply-chain gate and produced exact engine/model/config/source contracts with zero quality rejects on local/container and Cloud Run for digest `sha256:6a02516afc215a66731b7d3d4f258cc062ebaaa235cd5e67e92e94bdcc1f2abc`, then failed only because 46/84 numeric comparisons exceeded the prior envelope. Official Demucs `--shifts 1` deliberately chooses random shifts, so sample closeness across independent executions is not a deterministic runtime promise; all six energy-share deltas nevertheless stayed below one percentage point;
+- U7 #157 / run `36075604507` then proved the corrected D-091 W3 contract: backend/auth/supply-chain/runtime/U4 and W3 all passed. The CPU8 W4 Cloud Run execution itself completed and the downloaded bundle passed SHA256SUMS, but the local validator failed on a strategy-name assertion because the benchmark report exposes the canonical engine strategy (`pytorch-cpu-s1-o0.5-t8`) while the wrapper passes the matrix alias (`cpu8_s1_o05`). Artifact `u12-rc20-w4-shadow-f815e5dc...` / id `10840374632` was retained. This is a W4 validator-contract defect, not a demonstrated audio-quality failure; W5 remains blocked until the validator is corrected and W4 requalifies.
 - U12bh corrects W3 to veto contract, structure, finiteness and independent quality failures, while retaining every numeric/hash delta and prior-envelope miss as audit evidence. This preserves detection of broken separation without making expected stochastic variation a release blocker;
 - the next shadow qualification exercises the multi-stage non-root runtime, resolved dependency closure, CycloneDX SBOM, CRITICAL-vulnerability gate, isolated model-load probe and warm-cache CPU8 inference. CPU4 remains optional comparative evidence;
 - corrected W3 confirmation, CPU8 W4 confirmation and W5 owner musical listening remain **OPEN**. Production remains unchanged.
@@ -973,71 +974,74 @@ Cloud logs must remain free of secrets and authentication material.
 
 ## 18. Proportional test and qualification matrix
 
-Only tests covering changed code or the representative release path are mandatory for RC20. Existing broad regression remains valuable, but an unrelated flaky/cosmetic assertion may be quarantined with evidence rather than indefinitely block a personal-use candidate. No known data-loss, audio-integrity, primary-flow, quota/cost, credential or signing failure may be quarantined.
+Only tests covering changed code or the representative release path are mandatory for RC20. Existing broad regression remains valuable and may continue to execute unchanged; an unrelated flaky/cosmetic assertion may be quarantined with evidence rather than indefinitely block a personal-use candidate. No known data-loss, audio-integrity, primary-flow, quota/cost, credential or signing failure may be quarantined.
 
-### Unit/core
-- reference-binding repair semantics;
-- active-vs-historical diagnostic grouping;
-- journal serialization/rotation/redaction;
-- diagnostic ZIP integrity;
-- manifest audit persistence;
-- audio metric calculations.
-
-### Android/API 36
-- Ready state exposes `Recolocar referências no Studio` only when appropriate;
-- repair without restart;
-- no duplicate reference clips;
-- historical asset UI is unambiguous;
-- Settings diagnostics navigation;
-- ZIP export through SAF/share path;
-- process death/reopen preserves journal and accepted-manifest audit.
-
-### Worker/backend
-- structured log schema;
-- diagnostic replay isolation;
-- no secret leakage;
-- image/model/runtime evidence;
-- audio metric generation.
+### Mandatory RC20 worker/backend evidence
 - official PyTorch Demucs/GBW runner contract and dependency locks;
-- `demucs.cpp` is absent from the RC20 production path;
-- stem energy-distribution and systematic-DC rejection;
-- cold/warm performance breakdown and `<=15 min` release ceiling;
-- listening bundle generation for finalist images.
+- `demucs.cpp` absent from the RC20 production path;
+- exact engine/model/recipe/source identity;
+- frame/channel/finite-sample structure;
+- independent hard audio-quality acceptance, including systematic-DC rejection;
+- selected CPU8 cold/warm performance breakdown with the `<=15 min` release ceiling;
+- finalist listening bundle and owner musical acceptance;
+- no secret leakage;
+- digest-pinned shadow/runtime evidence.
 
-### Real cloud
-- forensic workflow against a known job;
-- standard U4 transactional smoke;
-- separate representative-audio quality gate;
-- no mutation in forensic mode.
+### Mandatory RC20 Android evidence
+- source search reaches a visible terminal result: results, no exact match, provider failure, timeout or explicit cancel/replacement;
+- provider failure is never collapsed into successful empty search;
+- relevant unit/Lint/build/API36 regression for the actual Android changes and adjacent primary flow;
+- save/reopen and Prepare → Studio handoff remain healthy where touched by the corrective.
+
+DID_YOU_MEAN-specific tests are required only if that optional enhancement ships in RC20.
+
+### Mandatory real-cloud evidence
+- U7 verify/shadow for the finalist backend;
+- controlled production cutover with rollback target preserved;
+- post-cutover U4 transactional smoke;
+- representative audio-quality evidence on the finalist digest;
+- no duplicate quota/job or broken ACK/purge behavior.
+
+### Conditional evidence — only if the optional feature ships or becomes necessary for a blocker
+- reference-binding repair/reinsertion tests;
+- active-vs-historical diagnostics grouping;
+- consolidated Settings diagnostics;
+- persistent journal serialization/rotation/redaction;
+- diagnostic ZIP integrity/export;
+- accepted-manifest audit persistence;
+- extended structured cloud logging;
+- alternative CPU/resource/hardware/duration matrices.
 
 ### Physical release minimum
-On SM-X230 / Android 16:
-- reproduce/retest real source;
-- confirm audible quality;
+On the exact signed RC20 APK on SM-X230 / Android 16:
+- reproduce/retest a representative real source;
+- confirm audible prepared-reference quality;
 - complete the owner's normal search/acquire → Prepare → Studio → save/reopen path;
 - confirm an interrupted/retried Prepare does not duplicate quota or lose project state;
-- verify logs identify the exact Cloud Run job/execution when troubleshooting is required.
+- approve the exact signed APK intended for freeze.
 
-Reference reinsertion, diagnostics ZIP, MK-300 and exhaustive duration/hardware matrices are follow-up acceptance only when the owner uses that capability or a related defect is observed.
+MK-300, Drive target-device smoke and other capability-specific checks are included when that capability is part of the frozen baseline being accepted or when the RC20 delta can materially affect it. Diagnostics ZIP/journal and exhaustive matrices are not prerequisites by themselves.
 
 ---
 
 ## 19. Release gates
 
-The RC20 personal homologation APK may be signed when:
+The RC20 **signed homologation candidate** may be produced when:
 
-1. F1 forensic report is complete;
-2. root-cause boundary is identified;
-3. Phase W official-Demucs worker reconstruction is implemented;
-4. exact finalist worker passes owner listening and the `<=15 min` performance ceiling;
-5. the owner's primary search/acquisition path reaches a visible terminal state; typo suggestion is desirable but not blocking when the correct query works and errors do not disappear silently;
-6. relevant unit/Lint/build/API 36 tests pass, with unrelated quarantines explicitly justified;
-7. U7 verify/shadow and the controlled production cutover pass for the backend change;
-8. U4 transactional smoke passes;
+1. F1/F2/F3 forensic work has identified the root-cause boundary;
+2. Phase W official-Demucs worker reconstruction is implemented;
+3. the exact finalist worker passes owner listening and the `<=15 min` performance ceiling;
+4. the owner's primary search/acquisition path reaches a visible terminal state; typo suggestion is desirable but not blocking when the correct query works and errors do not disappear silently;
+5. relevant unit/Lint/build/API 36 tests pass, with unrelated quarantines explicitly justified;
+6. U7 verify/shadow passes for the finalist digest;
+7. the controlled production cutover passes with the previous production digest retained as rollback target;
+8. post-cutover U4 transactional smoke passes;
 9. representative audio-quality evidence passes;
-10. physical listening and normal owner workflow acceptance pass.
+10. the exact qualified unsigned Android artifact is signed without recompilation and package/version/certificate/SHA evidence agrees.
 
-Studio reinsertion, Prepare diagnostics reorganization, consolidated Diagnostics, audit journal, diagnostic ZIP, extended structured observability and exhaustive matrices are not prerequisites for the signed personal homologation APK. They remain backlog items and become blocking only if needed to resolve an observed release-critical defect.
+**Final physical homologation occurs after step 10**, on that exact signed APK. It requires owner acceptance of the representative normal workflow and any capability-specific physical checks that are actually part of the frozen baseline.
+
+Studio reinsertion, Prepare diagnostics reorganization, consolidated Diagnostics, audit journal, diagnostic ZIP, extended structured observability and exhaustive matrices are not prerequisites for the signed personal homologation APK. They remain backlog items and become blocking only if shipped in RC20 or needed to resolve an observed release-critical defect.
 
 Any source change after RC19 freeze creates a new candidate identity:
 - target: `0.5.0-rc20`;

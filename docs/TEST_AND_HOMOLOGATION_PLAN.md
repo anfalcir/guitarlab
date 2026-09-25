@@ -2,7 +2,27 @@
 
 Updated: 2026-09-24
 
-## Current evidence boundary
+## Current RC20 qualification boundary
+
+RC19 (`0.5.0-rc19` / 39) is the latest signed digital candidate and is physically rejected because a real Prepare run produced unusable audio. RC20 is the only active successor line.
+
+For RC20, release-blocking qualification is limited to risks applicable to the changed path:
+
+- exact official Demucs worker/model/recipe identity, structural/finite output and owner listening acceptance;
+- selected CPU8 representative runtime within the current `<=15 min` ceiling;
+- search/acquisition must always reach a visible terminal state on the owner's normal path;
+- quota/idempotency/recovery/ACK-purge invariants for the affected cloud path;
+- relevant unit/Lint/build/API36 regression for the changed Android path;
+- exact unsigned provenance, locked signing identity and signed APK SHA-256;
+- physical acceptance **after signing**, on the exact signed APK intended for freeze.
+
+Existing broad Android regression, screenshots and geometry may continue to run unchanged. A proven unrelated flaky/cosmetic assertion may be quarantined with explicit evidence; protected integrity/audio/primary-flow/quota/credential/signing failures may not be quarantined. No workflow refactor is required unless the existing coverage becomes a real blocker.
+
+Studio reinsertion, diagnostics reorganization, persistent journal, diagnostic ZIP, extended cloud observability and exhaustive hardware/duration/resource matrices are not RC20 prerequisites unless they are explicitly shipped in the candidate or become necessary to resolve a release-critical defect.
+
+MK-300 physical checks are required when USB recording is part of the frozen capability being accepted or a related source change invalidates prior evidence. Drive provider semantics remain supported by U8m plus current regression; a representative target-device backup/restore smoke may be included in the final owner workflow without repeating the full destructive provider-real campaign.
+
+## Historical evidence boundary — retained for traceability
 
 The newest unified **technical DIGITAL PASS** is U10/C8 on Android CI #781 / run `35791192802`, exact source `2aa97aa8b2c3af91d35e7d48a0eeb89c2c330e63`.
 

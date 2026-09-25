@@ -1,12 +1,53 @@
 # U12 — Final Physical Homologation — GuitarLab
 
-Updated: 2026-09-23
-Status: **READY — RC11 DIGITAL PASS; FINAL TARGET-DEVICE HOMOLOGATION PENDING**
-Target candidate: `0.5.0-rc11` / versionCode `31` / producer `34cb60624b2fabf21cfe2c60003b04eac1597418`
+Updated: 2026-09-24
+Status: **RC20 SUCCESSOR ACTIVE — FINAL ACCEPTANCE MUST USE THE EXACT SIGNED CANDIDATE**
 Package: `studio.guitarlab.app`
 Target device: Samsung SM-X230 / Android 16 / API 36
-Audio hardware: M-VAVE MK-300 over USB
-Hardware loopback baseline: **OFF**
+Locked signer SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`
+
+## RC20 authoritative physical acceptance
+
+This section is the current U12 authority. The rc5–rc19 material retained later in this file is historical corrective evidence and does not create new RC20 gates unless this section or the active RC20 plan explicitly reactivates one.
+
+### Prerequisite
+
+Do not declare final physical PASS on an unsigned/pre-sign build. Before starting, `CURRENT_STATE.md` and signed-artifact evidence must identify the exact RC20 producer SHA, `0.5.0-rc20` / versionCode `40`, signed APK SHA-256, locked certificate and finalist production worker digest/model/recipe.
+
+The signed APK must be the exact tested unsigned release artifact after the no-recompile signing boundary.
+
+### Minimum owner workflow
+
+On that exact signed APK:
+
+- [ ] install/upgrade successfully without clearing data unless a clean install is explicitly being tested;
+- [ ] launch/open the intended current project successfully;
+- [ ] perform one representative normal source search/acquisition and observe an explicit terminal search state;
+- [ ] run Prepare on a representative real source and confirm backing/guitar references are musically usable;
+- [ ] verify interrupted/retried Prepare does not consume duplicate accepted-job quota or lose project state;
+- [ ] open Studio through the normal handoff and confirm the intended prepared references are usable;
+- [ ] save/close/reopen and confirm the project remains correct;
+- [ ] run a representative export if export is part of that session;
+- [ ] explicitly approve the exact signed APK for freeze.
+
+### Capability-specific physical checks
+
+Required only when the capability is part of the frozen baseline being accepted or the RC20 delta can materially affect it:
+
+- **MK-300 / USB recording:** correct selected/effective route, no silent tablet-mic fallback, no backing printed into the take with loopback OFF, usable monitoring/timing, safe disconnect/reconnect and a representative continuous recording/playback session.
+- **Drive backup/restore:** one representative target-device connect/backup/restore smoke. Existing U8m provider-real semantics remain reusable; do not repeat the entire destructive campaign without a real reason.
+
+### Explicitly non-blocking by default for RC20
+
+Unless shipped in RC20 or required to diagnose a release-critical defect: DID_YOU_MEAN beyond non-silent search, reference-reinsertion convenience, diagnostics reorganization, consolidated diagnostics, persistent audit journal, diagnostic ZIP, extended observability and exhaustive matrices do not block the signed personal appliance.
+
+### Acceptance and freeze
+
+U12 PASS requires no repeatable release-critical defect in the representative supported flow, explicit owner approval of the exact signed APK, and recorded APK/worker identities. After PASS, freeze the APK and worker under `PROJECT_IDENTITY.md` / D-090.
+
+## Historical corrective record — non-authoritative for RC20
+
+The sections below preserve rc5–rc19 findings and evidence. Their old “current”, “must” and candidate-binding language applies only to the dated candidate unless the RC20 authority above explicitly reuses it.
 
 ## Exact rc11 candidate binding
 - Android CI: #806 / run `35885021871` — PASS, including full API 36 regression and signed homologation;
