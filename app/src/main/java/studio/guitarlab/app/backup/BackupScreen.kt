@@ -378,8 +378,15 @@ fun BackupScreenContent(
                 Text("Restaurar cria uma nova cópia local; nenhum projeto existente é sobrescrito.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
 
-            if (state.loading && state.versions.isEmpty()) {
-                item { Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() } }
+            if ((state.loading || state.catalogRefreshing) && state.versions.isEmpty()) {
+                item {
+                    Box(
+                        Modifier.fillMaxWidth().padding(24.dp).testTag("backup-catalog-loading"),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        CircularProgressIndicator()
+                    }
+                }
             } else if (!configured) {
                 item {
                     ProductEmptyState(
