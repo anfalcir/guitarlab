@@ -1,6 +1,6 @@
 # Transient Feedback Contract
 
-Updated: 2026-09-24
+Updated: 2026-09-25
 
 This is the product contract for Toast/Snackbar-like feedback in GuitarLab. New features must use this contract instead of adding ad-hoc transient messages.
 
@@ -63,6 +63,14 @@ Before adding any transient message, answer:
 
 If #1 is yes and #2 is no, do not add a Snackbar/Toast.
 
+## Shared host and consumption semantics
+
+RC21 centralizes normal app transient presentation through `AppTransientFeedbackHost`. Screen/ViewModel-specific code classifies the event; the shared host sanitizes and displays only eligible transient kinds.
+
+An eligible event is consumed when it is handed to the host, not after the Snackbar's visual lifetime ends. This prevents a completion/error from being replayed later merely because the user navigated away while the Snackbar was still active. Persistent state and operation progress remain owned by their screen/Activity model and must not depend on the Snackbar queue.
+
+Home, Studio, Backup and Diagnostics use this boundary for their normal transient notices. A screen may still own a blocking dialog when explicit user choice is required.
+
 ## Qualification when affected
 Changes to the transient-feedback boundary require focused policy assertions that:
 - `OPERATIONAL_STATUS` is not Snackbar-eligible;
@@ -70,3 +78,5 @@ Changes to the transient-feedback boundary require focused policy assertions tha
 - semantic route labels remain unchanged;
 - representative low-level route identifiers are rejected/sanitized;
 - normal Studio display passes both notices and errors through the policy boundary.
+- eligible host events are consumed immediately enough to prevent delayed navigation replay;
+- representative Home/Backup/Diagnostics paths do not maintain competing ad-hoc Snackbar queues.
