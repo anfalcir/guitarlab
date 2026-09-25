@@ -580,29 +580,88 @@ private fun ReadyStep(
 
 @Composable
 private fun PrepareDiagnostics(project: GuitarProject, operation: SourceOperationSnapshot?, job: DurableRemoteJob?) {
+    val preparation = project.preparation
+    val activeSourceId = preparation?.sourceAssetId
+    val activeReferenceIds = setOfNotNull(preparation?.activeBackingAssetId, preparation?.activeGuitarAssetId)
+    val activeSource = activeSourceId?.let { id -> project.assets.firstOrNull { it.assetId == id } }
+    val activeReferences = project.assets.filter { it.assetId in activeReferenceIds }
+    val derivedReferenceChildren = project.assets.filter { asset ->
+        asset.provenance?.kind == "GUITAR_CHANNEL_SPLIT" &&
+            asset.provenance.inputAssetIds.any { it in activeReferenceIds }
+    }
+    val activeIds = buildSet {
+        activeSourceId?.let(::add)
+        addAll(activeReferenceIds)
+        addAll(derivedReferenceChildren.map { it.assetId })
+    }
+    val historical = project.assets.filter { it.assetId !in activeIds }
+
+    @Composable
+    fun assetLine(prefix: String, asset: studio.guitarlab.core.model.ManagedAsset, tag: String? = null) {
+        Text(
+            "$prefix • ${asset.format.uppercase()} • ${asset.byteSize / 1024} KB • SHA-256 ${asset.sha256.take(12)}…",
+            modifier = tag?.let { Modifier.testTag(it) } ?: Modifier,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+
     Surface(Modifier.fillMaxWidth().testTag("prepare-diagnostics"), tonalElevation = 1.dp, shape = MaterialTheme.shapes.medium) {
-        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Detalhes técnicos", style = MaterialTheme.typography.titleMedium)
-            operation?.let { Text("Operação de fonte: ${it.operationId}", style = MaterialTheme.typography.bodySmall) }
-            job?.let { Text("Processamento: ${it.identity.jobId}", style = MaterialTheme.typography.bodySmall) }
-            val roles = listOf(
-                AssetRole.SOURCE_ORIGINAL,
-                AssetRole.REFERENCE_BACKING,
-                AssetRole.REFERENCE_GUITAR,
-                AssetRole.STEM_DRUMS,
-                AssetRole.STEM_BASS,
-                AssetRole.STEM_GUITAR,
-                AssetRole.STEM_VOCALS,
-                AssetRole.STEM_PIANO,
-                AssetRole.STEM_OTHER,
-            )
-            roles.forEach { role ->
-                project.assets.filter { it.role == role }.forEach { asset ->
-                    Text(
-                        "${assetRoleLabel(role)} • ${asset.format.uppercase()} • ${asset.byteSize / 1024} KB • SHA-256 ${asset.sha256}",
-                        modifier = Modifier.testTag("prepare-asset-${role.name.lowercase()}"),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+
+            Text("Fonte ativa", style = MaterialTheme.typography.titleSmall)
+            if (activeSource != null) {
+                assetLine(
+                    "ACTIVE · Fonte original",
+                    activeSource,
+                    "prepare-asset-source_original",
+                )
+            } else {
+                Text("Nenhuma fonte ativa.", style = MaterialTheme.typography.bodySmall)
+            }
+
+            Text("Processamento mais recente", style = MaterialTheme.typography.titleSmall)
+            operation?.let {
+                Text("Aquisição · ${it.operationId} · ${it.state.name}", style = MaterialTheme.typography.bodySmall)
+            }
+            job?.let {
+                Text("Separação · ${it.identity.jobId} · ${it.state.name}", style = MaterialTheme.typography.bodySmall)
+                it.resultManifestSha256?.let { sha ->
+                    Text("Manifesto · SHA-256 ${sha.take(12)}…", style = MaterialTheme.typography.bodySmall)
+                }
+            }
+            if (operation == null && job == null) {
+                Text("Sem operação ativa ou recente carregada.", style = MaterialTheme.typography.bodySmall)
+            }
+
+            Text("Referências ativas", style = MaterialTheme.typography.titleSmall)
+            activeReferences.forEach { asset ->
+                assetLine(
+                    "ACTIVE · ${assetRoleLabel(asset.role)}",
+                    asset,
+                    "prepare-asset-${asset.role.name.lowercase()}",
+                )
+            }
+            derivedReferenceChildren.forEach { asset ->
+                val channel = asset.provenance?.parameters?.get("channel")?.lowercase()?.replaceFirstChar { it.uppercase() } ?: "Canal"
+                assetLine(
+                    "DERIVED CHANNEL · Guitarra de referência · $channel",
+                    asset,
+                    "prepare-asset-derived-${asset.assetId}",
+                )
+            }
+            if (activeReferences.isEmpty()) {
+                Text("Nenhuma referência ativa.", style = MaterialTheme.typography.bodySmall)
+            }
+
+            if (historical.isNotEmpty()) {
+                Text("Histórico / superseded", style = MaterialTheme.typography.titleSmall)
+                historical.sortedWith(compareBy({ it.role.name }, { it.createdAtEpochMs })).forEach { asset ->
+                    assetLine(
+                        "HISTORICAL · ${assetRoleLabel(asset.role)}",
+                        asset,
+                        "prepare-asset-history-${asset.assetId}",
                     )
                 }
             }
