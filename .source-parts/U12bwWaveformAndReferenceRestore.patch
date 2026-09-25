@@ -433,6 +433,15 @@ diff --git a/app/src/main/java/studio/guitarlab/app/ui/StudioViewModel.kt b/app/
                      timelineControls = TimelineControlPolicy.normalizedForProject(state.timelineControls.copy(playheadFrame = clip.startFrame + clip.lengthFrames), end),
                      transport = state.transport.copy(mode = TransportMode.STOPPED),
                      recordingSession = RecordingSessionPolicy.reset(),
+@@ -1746,7 +1830,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application)
+                         RecordingRecoveryPublicationDecision.ALREADY_PUBLISHED -> {
+                             runCatching { recordingMediaStore.markPublished(project.id, transactionId) }
+                             val clip = latest.clips.firstOrNull { it.id == transactionId }
+-                            Triple(latest, clip, clip?.let { loadWaveformForClip(latest, it) })
++                            Triple(latest, clip, clip?.let { loadWaveformEnvelope(latest, it) })
+                         }
+                         RecordingRecoveryPublicationDecision.RECOVERABLE -> {
+                             val marker = requireNotNull(candidate.marker) { "Marker de recuperação ausente." }
 @@ -1784,24 +1868,43 @@ class StudioViewModel(application: Application) : AndroidViewModel(application)
                              }
                              val clip = saved.clips.first { it.id == transactionId }
@@ -1332,7 +1341,7 @@ diff --git a/core/project/src/test/kotlin/studio/guitarlab/core/project/Prepared
 +            id = "backing-take-id",
 +            trackId = backingBinding.trackId,
 +            clipId = backingTakeClip.id,
-+            displayName = "Take preservado",
++            name = "Take preservado",
 +            createdAtEpochMs = 7,
 +            active = true,
 +        )
