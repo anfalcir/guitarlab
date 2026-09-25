@@ -7,7 +7,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 PREVIOUS = ROOT / "scripts/materialize_ci_sources_u12bx.py"
 PATCH = ROOT / ".source-parts/RC21IntegrityFeedbackBackup.patch"
-PATCH_BLOB = "4e2f7d347c1ae9b8359d6890ea42c3ac4555bf1e"
+PATCH_BLOB = "2d8a2893f99664e9f06cf50d6c143705d0f85de0"
 TARGETS = {
     "app/build.gradle.kts": ("2e89ebca930e7b7f960f746eb36adf24fb2bddda", "076c5e76779c30a2a78df6edbbf5f849950134f8"),
     "app/src/androidTest/java/studio/guitarlab/app/BackupCatalogCacheInstrumentedTest.kt": (None, "3e5d28c1751754aa0e54996a21913dc139bfe26e"),
@@ -24,7 +24,7 @@ TARGETS = {
     "app/src/main/java/studio/guitarlab/app/ui/HomeViewModel.kt": ("a7982d01296f6c61c05a860798e239279e9c5d80", "74cece9a4a00035b3b76810b3fab7935efe8f13a"),
     "app/src/main/java/studio/guitarlab/app/ui/StudioShellScreen.kt": ("6a9ab339ea86e4ccbe5f44b682ea9d5c2e551d17", "6cd72c76501aef0b3cabc5b5c9f6f3c6dfb1aa3e"),
     "app/src/main/java/studio/guitarlab/app/ui/StudioViewModel.kt": ("02c53da6409543e57e77be4522b2ea3e6a856fb3", "1c9e472debdf654de1b4b377ce3611c152812886"),
-    "app/src/test/java/studio/guitarlab/app/backup/BackupCatalogFreshnessPolicyTest.kt": (None, "fb7b65a73074d0c1692ff56f2abbee1650dd46ad"),
+    "app/src/test/java/studio/guitarlab/app/backup/BackupCatalogFreshnessPolicyTest.kt": (None, "73fec5f6d48afa46a7558c2de448207452c792fc"),
     "core/project/src/main/kotlin/studio/guitarlab/core/project/LegacyRecordingTakeRecoveryPolicy.kt": (None, "2ff6f0c579e931e3f368bf6b2cda51df6d4118c5"),
     "core/project/src/main/kotlin/studio/guitarlab/core/project/ProjectCodec.kt": ("b5800e0f98b019cf89082c1ccf02a6a2aa9878d6", "b7d7a31b94f95a70f0856fc28383204aae30dda4"),
     "core/project/src/main/kotlin/studio/guitarlab/core/project/StereoSeparationProjectPolicy.kt": (None, "68ba6691e66aed52c910d9333a7f2794a84d003d"),
