@@ -20,6 +20,8 @@ Updated: 2026-09-24
 
 - CI #887 exposed four local compile defects in the new diagnostics/Prepare UI (`JSONObject` narrowing, nullable sanitizer accumulator, Compose weight import resolution, cross-module provenance smart-cast) plus a repeated pre-test API36 ADB bootstrap failure. U12bp fixes all four compile defects and hardens API36 startup by excluding ADB state from the AVD cache, resetting the ADB server, waiting for a real `device` + `sys.boot_completed=1`, then disabling animations explicitly before the regression groups.
 
+- U12bp corrective qualification dispatched after CI #887. Signing remains deferred until unit/lint/build and API36 both pass on this exact source.
+
 ## Unified program progress
 - Stable product identity is governed by `PROJECT_IDENTITY.md` and D-090: private single-owner appliance, proportional gates, exact signed APK + digest-pinned worker freeze after physical acceptance, and maintenance only for a real trigger.
 - Product-scope override (2026-09-21): legacy project/backup migration is retired. The owner has only two legacy projects and accepts recreating them manually. U9 is retired; U8/U10/U11 no longer carry H37/GBW/pre-unification migration obligations. Current unified-line save/reopen, schema evolution, backup/restore and integrity guarantees remain mandatory.
