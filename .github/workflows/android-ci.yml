@@ -2,7 +2,7 @@ name: GuitarLab Android CI
 
 on:
   push:
-    branches: [main, u12-rc19-remote-recovery, u12-rc19-controlled-deploy, maintenance/rc21-integrity-feedback-backup]
+    branches: [main, u12-rc19-remote-recovery, u12-rc19-controlled-deploy]
   workflow_dispatch:
     inputs:
       signed_homologation:
