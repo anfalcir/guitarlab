@@ -407,3 +407,10 @@ Consequences:
 - the full U4 transactional smoke remains a separate post-cutover production execution because it validates Firebase/Firestore/Storage lifecycle, recovery, quota and ACK/purge rather than benchmark quality/performance;
 - standalone U4 must use the official RC20 checkpoint SHA-256 `34c22ccb381c6f9fdbf324f04e1e2fe21aaaf293f5ded163a162697ff9a02ddd`;
 - no worker-image or Demucs-recipe content changes are introduced by this orchestration refinement.
+
+
+## D-095 — W6 promotes the exact U7 #164 qualified digest without rebuilding
+
+U7 #164 / run `36085821470` passed on producer `aab87776f314fddc20028432371a9a5d268079c1` and qualified immutable worker digest `sha256:14e240cb01b71131cb049dd34e0df078614238da3514325f80126d56f8d5e698`. Production before W6 remains `sha256:a70bd221ab50ef092508781c609cbfbecfe6b71ba4c8a722fc5f087b09dbd550`.
+
+W6 therefore promotes that exact Artifact Registry digest. Production deploy must not rebuild or retag an equivalent worker as the promoted candidate. The deploy script accepts a production-only prequalified digest, validates the exact repository and sha256 shape plus registry existence, deploys it with the locked CPU8/16 GiB Demucs contract, then runs runtime verification and the full U4 transactional smoke. Failure restores the captured previous production image automatically. Shadow qualification continues to build/publish normally when a new worker image actually requires qualification.
