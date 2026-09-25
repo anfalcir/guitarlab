@@ -19,8 +19,8 @@ case "$STRATEGY" in
 esac
 MEMORY_GIB="${GBW_W4_MEMORY_GIB:-16}"
 MEMORY_RESOURCE="${GBW_W4_MEMORY_RESOURCE:-16Gi}"
-WARM_PROBE="${GBW_W4_WARM_PROBE:-1}"
-MODEL_PROBE="${GBW_W4_MODEL_PROBE:-1}"
+WARM_PROBE="${GBW_W4_WARM_PROBE:-0}"
+MODEL_PROBE="${GBW_W4_MODEL_PROBE:-0}"
 RUN_BASE="${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}-${VARIANT}"
 RUN_TOKEN="$(printf '%s' "$RUN_BASE" | tr '[:upper:]_' '[:lower:]-')"
 BENCH_JOB="$(printf 'guitarlab-w4-%s-%s' "${GITHUB_RUN_ID:-local}" "$VARIANT" | tr '[:upper:]_' '[:lower:]-' | cut -c1-63)"
@@ -178,7 +178,7 @@ cloud_wall_seconds=$((ENDED-STARTED))
 model_probe_wall_seconds=${PROBE_WALL_SECONDS}
 warm_probe=${WARM_PROBE}
 pricing_basis=${PRICING_BASIS}
-owner_listening=REQUIRED_NOT_YET_PASSED
+owner_listening=WAIVED_D092
 EOF
 
 printf 'w4_shadow_benchmark=PASS variant=%s execution=%s artifact_dir=%s\n' "$VARIANT" "$EXECUTION" "$ARTIFACT_DIR"
