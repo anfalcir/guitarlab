@@ -15,7 +15,7 @@ Operational workflow layers remain unchanged:
 **Proportional interpretation:** the existing broad Android workflow is intentionally not being refactored before RC20 merely because it runs extra coverage. If a specific unrelated flaky/cosmetic assertion later blocks a candidate, it may be quarantined only with explicit evidence and rationale under D-090 / `PRODUCT_REQUIREMENTS.md`. Protected data/media integrity, audio, primary-flow, quota/cost, credential and signing failures remain blocking. The current narrow evidence-backed Trivy policy also remains in place for RC20; no generic vulnerability-reachability framework is introduced by this documentation change.
 
 ## Current source materialization
-`.source-parts/` + `scripts/materialize_ci_sources.sh` are source-of-truth build inputs. The current canonical tail is **U12bh** via `scripts/materialize_ci_sources_u12bh.py`. Unexpected drift fails closed by exact SHA-256/Git blob checks.
+`.source-parts/` + `scripts/materialize_ci_sources.sh` are source-of-truth build inputs. The current canonical tail is **U12bi** via `scripts/materialize_ci_sources_u12bi.py`. Unexpected drift fails closed by exact SHA-256/Git blob checks.
 
 The canonical entrypoint materializes the accepted source chain and the workflow additionally binds the exact candidate checkout/source identity. Historical tail labels describe their materialization block, not the current release version; qualification still requires exact source identity, `git diff --check`, semantic guards and the canonical software/API36/signing gates.
 

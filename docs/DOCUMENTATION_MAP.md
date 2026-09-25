@@ -30,7 +30,7 @@ Use these documents first for all new work:
 - RC19 is not physically accepted because a real Prepare run produced musically unusable audio.
 - RC20 (`0.5.0-rc20` / planned versionCode `40`) is the corrective successor once its source is materialized and qualified.
 - The locked signer remains `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`.
-- The current source-materialization entrypoint ends at **U12bh** via `scripts/materialize_ci_sources_u12bh.py`.
+- The current source-materialization entrypoint ends at **U12bi** via `scripts/materialize_ci_sources_u12bi.py`.
 - Exact run IDs, source SHA, worker digest and next action belong in `CURRENT_STATE.md`.
 
 ## Normative subsystem contracts

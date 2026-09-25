@@ -61,7 +61,7 @@ No tuner functionality is part of GuitarLab.
 
 Large protected deltas are versioned under `.source-parts/` and materialized serially by `scripts/materialize_ci_sources.sh`.
 
-The current canonical tail is **U12bh**. Materialization remains deterministic, hash/blob verified, idempotent and fail-closed. It is not being refactored merely for cleanup before RC20.
+The current canonical tail is **U12bi**. Materialization remains deterministic, hash/blob verified, idempotent and fail-closed. It is not being refactored merely for cleanup before RC20.
 
 ## Security and freeze
 
