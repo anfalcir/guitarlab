@@ -89,4 +89,39 @@ class SourceDiscoveryTest {
         override suspend fun inspectUrl(url: String, provider: SourceProvider): SourceCandidateDraft =
             error("runtime unavailable")
     }
+
+    @Test
+    fun coordinatorDistinguishesHealthyEmptyFromProviderFailureAndSuggestion() = runBlocking {
+        val healthyNearMatch = object : studio.guitarlab.core.source.SourceSearchProviderClient {
+            override suspend fun search(request: SourceSearchRequest) = listOf(
+                SourceCandidateDraft(
+                    provider = SourceProvider.YOUTUBE,
+                    title = "Misery",
+                    uploader = "Memphis May Fire - Topic",
+                    url = "https://x/near",
+                    automaticDownloadSupported = true,
+                ),
+            )
+        }
+        val failing = object : studio.guitarlab.core.source.SourceSearchProviderClient {
+            override suspend fun search(request: SourceSearchRequest): List<SourceCandidateDraft> =
+                error("provider offline")
+        }
+
+        val mixed = SourceSearchCoordinator(listOf(healthyNearMatch, failing)).search(
+            SourceSearchRequest(artist = "Memphys May Fire", song = "Misery"),
+        )
+        assertEquals(1, mixed.providersSucceeded)
+        assertEquals(1, mixed.providersFailed)
+        assertEquals("Memphis May Fire", mixed.suggestedArtist)
+
+        val allFailed = SourceSearchCoordinator(listOf(failing)).search(
+            SourceSearchRequest(artist = "Memphys May Fire", song = "Misery"),
+        )
+        assertEquals(0, allFailed.providersSucceeded)
+        assertEquals(1, allFailed.providersFailed)
+        assertEquals(null, allFailed.suggestedArtist)
+        assertTrue(allFailed.warnings.isNotEmpty())
+    }
+
 }
