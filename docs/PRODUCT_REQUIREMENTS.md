@@ -1,6 +1,8 @@
 # Product Requirements
 
-Updated: 2026-09-20
+Updated: 2026-09-24
+
+Stable product identity, support boundaries, proportional quality, freeze policy and maintenance triggers are governed by `PROJECT_IDENTITY.md` and D-090.
 
 ## Projects and Home library
 - Create Blank or Guitar-template projects.
@@ -36,8 +38,8 @@ The approved successor product direction is governed by `UNIFIED_GUITARLAB_GBW_I
 - Prepared backing/reference media is project-managed and available to Studio without export/reimport.
 - A newer prepared reference never silently replaces a reference already used by Studio; rebind is explicit and non-destructive.
 - Study exports and Studio masters remain semantically distinct.
-- Long-running preparation, separation, import, backup, restore and migration operations are lifecycle-safe, idempotent and observable.
-- GBW legacy import is staging-first, integrity-validated and non-destructive.
+- Long-running preparation, separation, import, backup and restore operations are lifecycle-safe, idempotent and observable.
+- Standalone GBW/H37/pre-unification migration is historical and outside the supported release scope unless a later explicit decision reopens it.
 - No tuner, pitch/tuning conversion, BS-RoFormer or pitched-export scope is introduced by the unification.
 
 ### Unified managed assets
@@ -51,7 +53,7 @@ The approved successor product direction is governed by `UNIFIED_GUITARLAB_GBW_I
 - Immutable content-addressed media plus transactional project revision metadata is the target architecture.
 - Upload/restore is resumable where applicable, server-confirmed, checksum-validated and conflict-aware.
 - Restore stages and validates all required project/media state before atomic publication.
-- Legacy H37 and GBW backups remain migration sources until verified successor backup/restore succeeds.
+- Legacy H37/GBW backup discovery/import is outside current support scope; current unified backup/restore integrity remains mandatory.
 
 ## Tracks, roles and mixing
 - Built-in guitar-oriented roles plus user-defined roles.
