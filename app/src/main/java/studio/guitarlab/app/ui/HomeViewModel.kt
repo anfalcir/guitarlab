@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
+import studio.guitarlab.app.activity.ActivityCancellationRegistry
 import studio.guitarlab.app.activity.UnifiedActivityStore
 import studio.guitarlab.app.backup.BackupScheduler
 import studio.guitarlab.app.backup.ConfirmedRevisionStore
@@ -262,7 +263,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         job?.let { current ->
             val state = when {
                 current.state == RemoteJobState.IMPORTED -> UnifiedOperationState.SUCCEEDED
-                current.state == RemoteJobState.CANCELLED -> UnifiedOperationState.CANCELLED
+                current.state == RemoteJobState.CANCEL_REQUESTED || current.state == RemoteJobState.CANCELLED -> UnifiedOperationState.CANCELLED
                 current.state == RemoteJobState.IMPORT_FAILED || current.state == RemoteJobState.FAILED || current.state == RemoteJobState.EXPIRED -> UnifiedOperationState.FAILED
                 current.errorCode?.startsWith("RETRY:") == true -> UnifiedOperationState.RETRYING
                 current.state == RemoteJobState.QUEUED || current.state == RemoteJobState.READY -> UnifiedOperationState.QUEUED
@@ -574,6 +575,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                     error.message,
                 )
             } finally {
+                ActivityCancellationRegistry.unregister(operationId)
                 if (sourceSearchOperationIds[projectId] == operationId) {
                     sourceSearchOperationIds.remove(projectId)
                     sourceSearchJobs.remove(projectId)
@@ -583,6 +585,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 }
             }
         }
+        sourceSearchJobs[projectId]?.let { ActivityCancellationRegistry.register(operationId, it) }
     }
 
     fun importSource(projectId: String, uri: Uri) {
@@ -762,11 +765,13 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 )
                 _state.update { it.copy(error = error.message ?: "Não foi possível preparar a base e a guitarra de referência.") }
             } finally {
+                ActivityCancellationRegistry.unregister(activityId)
                 preparedReferenceJobs.remove(projectId)
                 _state.update { it.copy(preparedReferenceBusyProjects = it.preparedReferenceBusyProjects - projectId) }
             }
         }
         preparedReferenceJobs[projectId] = job
+        ActivityCancellationRegistry.register(activityId, job)
     }
 
     fun saveProjectPackage(projectId: String, uri: Uri) = launchExport(projectId, "Projeto GuitarLab") {
@@ -818,9 +823,11 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 activityStore.record(operationId, projectId, UnifiedOperationKind.EXPORT, UnifiedOperationState.FAILED, null, "Não foi possível concluir a exportação", error.message)
                 _state.update { it.copy(exportBusy = false, exportOperationLabel = null, error = error.message ?: "Não foi possível exportar o projeto.") }
             } finally {
+                ActivityCancellationRegistry.unregister(operationId)
                 exportJob = null
             }
         }
+        exportJob?.let { ActivityCancellationRegistry.register(operationId, it) }
     }
 
     fun duplicateProject(project: GuitarProject) {
