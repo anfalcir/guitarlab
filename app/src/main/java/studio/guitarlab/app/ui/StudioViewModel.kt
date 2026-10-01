@@ -1104,13 +1104,22 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
         )
         recordingProgressGeneration += 1L
         liveWaveform.clear()
+        val targetTrack = project.tracks.firstOrNull { it.id == target.trackId }
+            ?: return resetRecording("A pista armada não está mais disponível.")
+        val monitorUsesCue = targetTrack.outputRoute == TrackOutputRoute.CUE
+        val monitorOutput = if (monitorUsesCue) {
+            audioRoutingStore.resolveSelectedCueOutputDevice()
+        } else {
+            audioRoutingStore.resolveSelectedOutputDevice()
+        }
         val request = StudioRecordingRequest(
             temporaryFile = transaction.temporaryFile,
             preferredSampleRateHz = target.preferredSampleRateHz,
             preferredInputDevice = selectedInput,
             preferredInputRequested = !selectedInputSignature.isNullOrBlank(),
             monitoringMode = audioRoutingStore.monitoringMode(),
-            preferredOutputDevice = audioRoutingStore.resolveSelectedOutputDevice(),
+            preferredOutputDevice = monitorOutput,
+            preferredOutputRequired = monitorUsesCue,
         )
         runCatching {
             recordingEngine.start(request, recordingListener)
