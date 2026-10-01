@@ -116,7 +116,7 @@ def verify() -> None:
         (settings, '"Saída secundária / CUE"', "settings cue selector"),
         (settings, "cueOutputChoices", "low-latency CUE selector source"),
         (settings, '"Seleção e disponibilidade"', "selection availability copy"),
-        (settings, '"Bluetooth não é oferecido para CUE sincronizado."', "Bluetooth CUE exclusion copy"),
+        (settings, "Bluetooth não é oferecido para CUE sincronizado.", "Bluetooth CUE exclusion copy"),
         (mixer, '"Saída CUE da pista', "mixer cue accessibility"),
         (mixer, "Icons.Default.Headphones", "headphone icon"),
         (mixer_test, "assertIsNotEnabled()", "transport-locked CUE test"),
