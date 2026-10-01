@@ -1,6 +1,6 @@
 # Test and Homologation Policy
 
-Updated: 2026-09-25
+Updated: 2026-10-01
 
 ## Purpose
 
@@ -40,6 +40,8 @@ Run the software gate and affected API 36 instrumented regression. Add target-de
 ### Playback/recording/audio timing
 
 Run deterministic core/audio tests, Android integration and relevant API 36 coverage. Target SM-X230/MK-300 validation is required when route, timestamp, buffering, capture, monitoring, latency or audible/visual synchronization can materially change.
+
+For dual-output/CUE changes, digital gates must cover backward-compatible project persistence, per-track routing policy, same-endpoint rejection, missing-route behavior, bounded drift policy, Mixer accessibility and both Play/REC integration. Physical acceptance must then verify the actual intended MAIN + CUE hardware combination because Android/HAL routing of two simultaneous physical outputs cannot be proven by emulator CI.
 
 Never introduce a hidden fixed timing fudge merely to satisfy a visual observation; prefer device/sink timing evidence and bounded fallback.
 
@@ -97,9 +99,11 @@ Historical plans may contain “pending/open/current” language from their own 
 
 A candidate is invalidated when source, materialized runtime bytes, package/version, unsigned APK, signer, relevant backend digest or another protected identity changes after qualification. A documentation-only commit does not retroactively change an already-built candidate.
 
-## Current maintenance application
+## Current feature application
 
-RC21 is the first post-freeze application of this policy. Its Android source changes completed Unit/Lint/build + API36 qualification on CI #910 / run 36195905242 at source `ad182678cb2704dc9bbfc622124b4f2ac121fea1`. The separation backend is unchanged and its RC20 evidence is reused. Signed qualification and affected-path physical acceptance remain required before RC21 can replace RC20.
+RC22 is an owner-requested post-freeze feature under D-090/D-096 and supersedes RC21 as the active Android candidate. It adds per-track MAIN/CUE monitoring and therefore reopens playback/routing/monitoring qualification but does not reopen the frozen Demucs worker or unrelated Drive transport semantics. RC20 remains the accepted baseline until an exact signed RC22 candidate completes the required affected-path physical validation.
+
+RC21's already-qualified persistence/backup/feedback changes are inherited by RC22 because RC22 is built from the canonical RC21-integrated `main`; their prior evidence remains supporting evidence for unaffected paths.
 
 ## Frozen baseline
 
