@@ -22,14 +22,17 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.FiberManualRecord
 import androidx.compose.material.icons.filled.Headphones
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
-import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -84,33 +87,35 @@ fun MixerDock(
     onMasterGainCommit: (Float) -> Unit,
     onClearTrackClip: (String) -> Unit,
     onClearMasterClip: () -> Unit,
-    expanded: Boolean = false,
+    minimal: Boolean = false,
+    onOpenLevelAnalysis: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val fontScale = LocalDensity.current.fontScale.coerceAtLeast(1f)
-    val dockHeight = (if (expanded) 400.dp else 352.dp) + (176.dp * (fontScale - 1f))
+    val dockHeight = (if (minimal) 172.dp else 252.dp) + ((if (minimal) 48.dp else 96.dp) * (fontScale - 1f))
     Surface(
         modifier = modifier.fillMaxWidth().height(dockHeight).testTag("mixer-dock"),
         shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
         color = MaterialTheme.colorScheme.surface,
         tonalElevation = 3.dp,
     ) {
-        Column(Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 8.dp)) {
+        Column(Modifier.fillMaxSize().padding(horizontal = 8.dp, vertical = 0.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth().weight(1f),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 LazyRow(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxHeight()
                         .testTag("mixer-track-scroll"),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
                     userScrollEnabled = true,
                 ) {
                     items(tracks.sortedBy { it.order }, key = { it.id }) { track ->
                         MixerTrackStrip(
                             track = track,
+                            minimal = minimal,
                             auditionMode = auditionMode,
                             selected = track.id == selectedTrackId,
                             mixControlsEnabled = mixControlsEnabled,
@@ -132,6 +137,9 @@ fun MixerDock(
                 }
 
                 MasterStrip(
+                    minimal = minimal,
+                    levelsEnabled = structuralControlsEnabled,
+                    onOpenLevelAnalysis = onOpenLevelAnalysis,
                     gainDb = masterGainDb,
                     meter = masterMeter,
                     clipLatched = masterClipLatched,
@@ -148,6 +156,7 @@ fun MixerDock(
 @Composable
 private fun MixerTrackStrip(
     track: AudioTrack,
+    minimal: Boolean = false,
     auditionMode: GuitarAuditionMode,
     selected: Boolean,
     mixControlsEnabled: Boolean,
@@ -167,13 +176,14 @@ private fun MixerTrackStrip(
 ) {
     var gainDraft by remember(track.id, track.gainDb) { mutableFloatStateOf(track.gainDb) }
     var panDraft by remember(track.id, track.pan) { mutableFloatStateOf(track.pan) }
+    var detailsVisible by remember(track.id) { mutableStateOf(false) }
     val accent = track.resolvedStudioColor()
     val auditionState = GuitarAuditionPolicy.trackState(track.roleId, auditionMode)
     val borderColor = if (selected) accent else MaterialTheme.colorScheme.outline.copy(alpha = 0.55f)
 
     Surface(
         modifier = Modifier
-            .width(168.dp + 80.dp * (LocalDensity.current.fontScale.coerceAtLeast(1f) - 1f))
+            .width(200.dp + 80.dp * (LocalDensity.current.fontScale.coerceAtLeast(1f) - 1f))
             .fillMaxHeight()
             .testTag("mixer-track-strip-${track.id}")
             .clip(RoundedCornerShape(8.dp))
@@ -183,10 +193,12 @@ private fun MixerTrackStrip(
         border = BorderStroke(if (selected) 1.5.dp else 1.dp, borderColor),
     ) {
         Column(
-            Modifier.fillMaxHeight().padding(horizontal = 10.dp, vertical = 6.dp),
-            verticalArrangement = Arrangement.spacedBy(2.dp),
+            Modifier.fillMaxHeight().padding(horizontal = 4.dp, vertical = 6.dp),
+            verticalArrangement = Arrangement.spacedBy(0.dp),
         ) {
-            Row(Modifier.height(40.dp * LocalDensity.current.fontScale.coerceAtLeast(1f)), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.fillMaxWidth().height(48.dp * LocalDensity.current.fontScale.coerceAtLeast(1f))
+                .clickable { onSelect(); if (minimal) detailsVisible = true }
+                .semantics { contentDescription = if (minimal) "Detalhes da pista ${track.name}" else "Selecionar pista ${track.name}" }, verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.size(7.dp).background(accent, RoundedCornerShape(4.dp)))
                 Text(
                     track.name,
@@ -195,26 +207,21 @@ private fun MixerTrackStrip(
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
+                if (minimal) {
+                    Text(track.pan.formatPan(), Modifier.padding(horizontal = 4.dp), style = MaterialTheme.typography.labelSmall)
+                }
                 if (auditionState != GuitarAuditionTrackState.UNAFFECTED) {
                     val included = auditionState == GuitarAuditionTrackState.INCLUDED
-                    val comparisonColor = if (included) StudioComparisonActive else StudioComparisonHidden
-                    Surface(
-                        shape = RoundedCornerShape(4.dp),
-                        color = comparisonColor.copy(alpha = 0.16f),
-                        border = BorderStroke(1.25.dp, comparisonColor.copy(alpha = 0.95f)),
-                        modifier = Modifier.semantics { stateDescription = if (included) "Incluída na comparação" else "Oculta pela comparação" },
-                    ) {
-                        Text(
-                            if (included) "ATIVA" else "OCULTA",
-                            modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = comparisonColor,
-                        )
-                    }
+                    Text(if (included) "●" else "○", Modifier.semantics {
+                        stateDescription = if (included) "Incluída na comparação" else "Oculta pela comparação"
+                    }, color = if (included) StudioComparisonActive else StudioComparisonHidden)
                 }
+                if (minimal && clipLatched) Text("!", color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.semantics { stateDescription = "Clipping da pista ${track.name}" })
+
             }
 
-            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
                 MixerStateButton(
                     label = "M",
                     active = track.muted,
@@ -231,8 +238,6 @@ private fun MixerTrackStrip(
                     contentDescription = "Solo da pista ${track.name}",
                     onClick = onToggleSolo,
                 )
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 MixerCueButton(
                     active = track.outputRoute != TrackOutputRoute.MAIN,
                     activeColor = MaterialTheme.colorScheme.tertiary,
@@ -248,7 +253,7 @@ private fun MixerTrackStrip(
                 )
             }
 
-            MeterPair(
+            if (minimal) CompactMeter(meter, accent) else MeterPair(
                 meter = meter,
                 accent = accent,
                 clipLatched = clipLatched,
@@ -268,7 +273,7 @@ private fun MixerTrackStrip(
                 contentDescription = "Volume da pista ${track.name}",
             )
 
-            BipolarPanSlider(
+            if (!minimal) BipolarPanSlider(
                 value = panDraft,
                 accent = accent,
                 enabled = mixControlsEnabled,
@@ -281,10 +286,35 @@ private fun MixerTrackStrip(
             )
         }
     }
+    if (detailsVisible && minimal) {
+        AlertDialog(
+            modifier = Modifier.testTag("mixer-track-details"),
+            onDismissRequest = { detailsVisible = false },
+            title = { Text("Controles da pista") },
+            text = {
+                Box(Modifier.height(252.dp + 96.dp * (LocalDensity.current.fontScale.coerceAtLeast(1f) - 1f))) {
+                    MixerTrackStrip(
+                        track = track, auditionMode = auditionMode, selected = selected,
+                        mixControlsEnabled = mixControlsEnabled, structuralControlsEnabled = structuralControlsEnabled,
+                        meter = meter, clipLatched = clipLatched, onSelect = onSelect,
+                        onGainPreview = onGainPreview, onGainCommit = onGainCommit,
+                        onPanPreview = onPanPreview, onPanCommit = onPanCommit,
+                        onToggleMute = onToggleMute, onToggleSolo = onToggleSolo,
+                        onToggleCue = onToggleCue, onToggleArm = onToggleArm, onClearClip = onClearClip,
+                    )
+                }
+            },
+            confirmButton = { TextButton(onClick = { detailsVisible = false }) { Text("Fechar") } },
+        )
+    }
+
 }
 
 @Composable
 private fun MasterStrip(
+    minimal: Boolean,
+    levelsEnabled: Boolean,
+    onOpenLevelAnalysis: () -> Unit,
     gainDb: Float,
     meter: MeterBallisticsState,
     clipLatched: Boolean,
@@ -296,22 +326,27 @@ private fun MasterStrip(
     var gainDraft by remember(gainDb) { mutableFloatStateOf(gainDb) }
     val accent = MaterialTheme.colorScheme.secondary
     Surface(
-        modifier = Modifier.width(156.dp + 80.dp * (LocalDensity.current.fontScale.coerceAtLeast(1f) - 1f)).fillMaxHeight().testTag("mixer-master-strip"),
+        modifier = Modifier.width(144.dp + 80.dp * (LocalDensity.current.fontScale.coerceAtLeast(1f) - 1f)).fillMaxHeight().testTag("mixer-master-strip"),
         shape = RoundedCornerShape(8.dp),
         color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.30f),
         border = BorderStroke(1.5.dp, accent.copy(alpha = 0.78f)),
     ) {
         Column(
             Modifier.fillMaxHeight().padding(horizontal = 8.dp, vertical = 6.dp),
-            verticalArrangement = Arrangement.spacedBy(2.dp),
+            verticalArrangement = Arrangement.spacedBy(0.dp),
         ) {
-            Text("MASTER", style = MaterialTheme.typography.labelLarge)
-            Text("Saída principal", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            MeterPair(
-                meter = meter,
-                accent = accent,
-                clipLatched = clipLatched,
-                onClearClip = onClearClip,
+            Row(Modifier.fillMaxWidth().height(48.dp * LocalDensity.current.fontScale.coerceAtLeast(1f)), verticalAlignment = Alignment.CenterVertically) {
+                Text("MASTER", Modifier.weight(1f), style = MaterialTheme.typography.labelLarge)
+                if (minimal && clipLatched) Box(
+                    Modifier.size(48.dp).clickable(role = Role.Button, onClick = onClearClip)
+                        .semantics { contentDescription = "Limpar clipping do master" },
+                    contentAlignment = Alignment.Center,
+                ) { Text("CLIP", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error) }
+            }
+            TextButton(onClick = onOpenLevelAnalysis, enabled = levelsEnabled,
+                modifier = Modifier.fillMaxWidth().height(48.dp).testTag("open-all-level-analysis")) { Text("Níveis") }
+            if (minimal) CompactMeter(meter, accent) else MeterPair(
+                meter = meter, accent = accent, clipLatched = clipLatched, onClearClip = onClearClip,
                 clipContentDescription = "Limpar clipping do master",
             )
 
@@ -354,7 +389,7 @@ private fun MixerStateButton(
         contentAlignment = Alignment.Center,
     ) {
         Surface(
-            modifier = Modifier.size(width = 38.dp, height = 30.dp),
+            modifier = Modifier.size(46.dp).testTag("mixer-button-face-$contentDescription"),
             shape = RoundedCornerShape(8.dp),
             color = if (active) activeColor.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surface.copy(alpha = 0.44f),
             border = BorderStroke(if (active) 1.5.dp else 1.dp, border),
@@ -388,7 +423,7 @@ private fun MixerCueButton(
         contentAlignment = Alignment.Center,
     ) {
         Surface(
-            modifier = Modifier.size(width = 38.dp, height = 30.dp),
+            modifier = Modifier.size(46.dp).testTag("mixer-button-face-$contentDescription"),
             shape = RoundedCornerShape(8.dp),
             color = if (active) activeColor.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surface.copy(alpha = 0.44f),
             border = BorderStroke(if (active) 1.5.dp else 1.dp, border),
@@ -425,7 +460,7 @@ private fun MixerArmButton(
         contentAlignment = Alignment.Center,
     ) {
         Surface(
-            modifier = Modifier.size(width = 38.dp, height = 30.dp),
+            modifier = Modifier.size(46.dp).testTag("mixer-button-face-$contentDescription"),
             shape = RoundedCornerShape(8.dp),
             color = if (active) vivid.copy(alpha = 0.14f) else MaterialTheme.colorScheme.surface.copy(alpha = 0.44f),
             border = BorderStroke(if (active) 1.5.dp else 1.dp, if (active) vivid else vivid.copy(alpha = 0.18f)),
@@ -444,115 +479,75 @@ private fun MixerArmButton(
 
 @Composable
 private fun LabeledVolumeSlider(
-    value: Float,
-    accent: Color,
-    enabled: Boolean,
-    onValueChange: (Float) -> Unit,
-    onValueChangeFinished: () -> Unit,
-    contentDescription: String,
-    label: String = "VOL",
+    value: Float, accent: Color, enabled: Boolean,
+    onValueChange: (Float) -> Unit, onValueChangeFinished: () -> Unit,
+    contentDescription: String, label: String = "VOL",
 ) {
-    LabeledSliderFrame(label = label, valueLabel = "${value.formatDb()} dB") {
+    DenseMixerSlider(label, "${value.formatDb()} dB", value, -60f..12f, accent, enabled,
+        onValueChange = { raw -> onValueChange((if (abs(raw) <= 0.8f) 0f else raw).coerceIn(-60f, 12f)) },
+        onValueChangeFinished = onValueChangeFinished, contentDescription = contentDescription)
+}
+
+@Composable
+private fun BipolarPanSlider(
+    value: Float, accent: Color, enabled: Boolean,
+    onValueChange: (Float) -> Unit, onValueChangeFinished: () -> Unit, contentDescription: String,
+) {
+    DenseMixerSlider("PAN", value.formatPan(), value, -1f..1f, accent, enabled,
+        onValueChange = { raw -> onValueChange((if (abs(raw) <= 0.035f) 0f else raw).coerceIn(-1f, 1f)) },
+        onValueChangeFinished = onValueChangeFinished, contentDescription = contentDescription, bipolar = true)
+}
+
+/** Keep Material Slider gesture/keyboard/accessibility behavior; only replace its bulky drawing. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun DenseMixerSlider(
+    label: String, valueLabel: String, value: Float, range: ClosedFloatingPointRange<Float>,
+    accent: Color, enabled: Boolean, onValueChange: (Float) -> Unit,
+    onValueChangeFinished: () -> Unit, contentDescription: String, bipolar: Boolean = false,
+) {
+    Row(Modifier.fillMaxWidth().height(48.dp), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.width(54.dp * LocalDensity.current.fontScale.coerceAtLeast(1f))) {
+            Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(valueLabel, style = MaterialTheme.typography.labelSmall, maxLines = 1)
+        }
+        val tint = if (enabled) accent else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
         Slider(
-            value = value,
-            onValueChange = { raw ->
-                val snapped = if (abs(raw) <= 0.8f) 0f else raw
-                onValueChange(snapped.coerceIn(-60f, 12f))
+            value = value, onValueChange = onValueChange, onValueChangeFinished = onValueChangeFinished,
+            valueRange = range, enabled = enabled,
+            // Material Slider expands horizontal semantics by 10dp per side. Reserve that
+            // inside the channel so its accessible target remains reachable at either scroll end.
+            modifier = Modifier.weight(1f).height(48.dp).padding(horizontal = 10.dp)
+                .semantics { this.contentDescription = contentDescription },
+            thumb = {
+                // Slider measures its interactive height from the thumb layout. Keep that 48dp
+                // while centering the original compact 20dp drawing inside it.
+                Box(Modifier.size(width = 6.dp, height = 48.dp), contentAlignment = Alignment.Center) {
+                    Box(Modifier.size(width = 6.dp, height = 20.dp).background(tint, RoundedCornerShape(3.dp)))
+                }
             },
-            onValueChangeFinished = onValueChangeFinished,
-            valueRange = -60f..12f,
-            enabled = enabled,
-            colors = SliderDefaults.colors(
-                thumbColor = accent,
-                activeTrackColor = accent.copy(alpha = 0.88f),
-                inactiveTrackColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.34f),
-                disabledThumbColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.42f),
-                disabledActiveTrackColor = accent.copy(alpha = 0.30f),
-                disabledInactiveTrackColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.20f),
-            ),
-            modifier = Modifier.fillMaxWidth().height(48.dp).semantics { this.contentDescription = contentDescription },
+            track = {
+                BoxWithConstraints(Modifier.fillMaxWidth().height(4.dp).background(MaterialTheme.colorScheme.outline.copy(alpha = 0.3f), RoundedCornerShape(2.dp))) {
+                    val fraction = ((value - range.start) / (range.endInclusive - range.start)).coerceIn(0f, 1f)
+                    val start = if (bipolar) minOf(0.5f, fraction) else 0f
+                    val width = if (bipolar) abs(fraction - 0.5f) else fraction
+                    Box(Modifier.offset(x = maxWidth * start).width(maxWidth * width).fillMaxHeight().background(tint, RoundedCornerShape(2.dp)))
+                    if (bipolar) Box(Modifier.offset(x = maxWidth / 2 - 1.dp).width(2.dp).height(4.dp).background(MaterialTheme.colorScheme.onSurface))
+                }
+            },
         )
     }
 }
 
 @Composable
-private fun BipolarPanSlider(
-    value: Float,
-    accent: Color,
-    enabled: Boolean,
-    onValueChange: (Float) -> Unit,
-    onValueChangeFinished: () -> Unit,
-    contentDescription: String,
-) {
-    LabeledSliderFrame(label = "PAN", valueLabel = value.formatPan()) {
-        BoxWithConstraints(Modifier.fillMaxWidth().height(48.dp)) {
-            val center = maxWidth / 2
-            val directionalWidth = (maxWidth / 2) * abs(value.coerceIn(-1f, 1f))
-            val fillStart = if (value < 0f) center - directionalWidth else center
-            Box(
-                Modifier.align(Alignment.CenterStart)
-                    .offset(x = 0.dp)
-                    .fillMaxWidth()
-                    .height(4.dp)
-                    .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.32f), RoundedCornerShape(3.dp)),
-            )
-            if (directionalWidth > 0.dp) {
-                Box(
-                    Modifier.align(Alignment.CenterStart)
-                        .offset(x = fillStart)
-                        .width(directionalWidth)
-                        .height(4.dp)
-                        .background(accent.copy(alpha = 0.92f), RoundedCornerShape(3.dp)),
-                )
-            }
-            Box(
-                Modifier.align(Alignment.CenterStart)
-                    .offset(x = center - 1.dp)
-                    .width(2.dp)
-                    .height(14.dp)
-                    .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.62f), RoundedCornerShape(1.dp)),
-            )
-            Slider(
-                value = value,
-                onValueChange = { raw ->
-                    val snapped = if (abs(raw) <= 0.035f) 0f else raw
-                    onValueChange(snapped.coerceIn(-1f, 1f))
-                },
-                onValueChangeFinished = onValueChangeFinished,
-                valueRange = -1f..1f,
-                enabled = enabled,
-                colors = SliderDefaults.colors(
-                    thumbColor = accent,
-                    activeTrackColor = Color.Transparent,
-                    inactiveTrackColor = Color.Transparent,
-                    disabledThumbColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.42f),
-                    disabledActiveTrackColor = Color.Transparent,
-                    disabledInactiveTrackColor = Color.Transparent,
-                ),
-                modifier = Modifier.fillMaxWidth().height(48.dp).semantics { this.contentDescription = contentDescription },
-            )
-        }
-    }
-}
-
-@Composable
-private fun LabeledSliderFrame(
-    label: String,
-    valueLabel: String,
-    slider: @Composable () -> Unit,
-) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(8.dp),
-        color = MaterialTheme.colorScheme.background.copy(alpha = 0.34f),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
-    ) {
-        Column(Modifier.padding(horizontal = 7.dp, vertical = 1.dp)) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text(valueLabel, style = MaterialTheme.typography.labelSmall, maxLines = 1)
-            }
-            slider()
+private fun CompactMeter(meter: MeterBallisticsState, accent: Color) {
+    Row(Modifier.fillMaxWidth().height(16.dp).semantics {
+        contentDescription = "Peak ${meter.peak.formatDbfs()} dBFS, RMS ${meter.rms.formatDbfs()} dBFS"
+    }, verticalAlignment = Alignment.CenterVertically) {
+        BoxWithConstraints(Modifier.fillMaxWidth().height(4.dp).background(MaterialTheme.colorScheme.outline.copy(alpha = 0.25f))) {
+            Box(Modifier.fillMaxWidth(meter.peak.coerceIn(0f, 1f)).fillMaxHeight().background(accent))
+            val heldX = (maxWidth * meter.heldPeak.coerceIn(0f, 1f)).coerceAtMost(maxWidth - 2.dp)
+            Box(Modifier.offset(x = heldX).width(2.dp).fillMaxHeight().background(MaterialTheme.colorScheme.onSurface))
         }
     }
 }

@@ -1,0 +1,743 @@
+diff --git a/app/build.gradle.kts b/app/build.gradle.kts
+index d32bed6..95d0025 100644
+--- a/app/build.gradle.kts
++++ b/app/build.gradle.kts
+@@ -11,8 +11,8 @@ android {
+         applicationId = "studio.guitarlab.app"
+         minSdk = 26
+         targetSdk = 36
+-        versionCode = 44
+-        versionName = "0.5.0-rc24"
++        versionCode = 45
++        versionName = "0.5.0-rc25"
+         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+     }
+ 
+diff --git a/app/src/androidTest/java/studio/guitarlab/app/PracticeWorkflowInstrumentedTest.kt b/app/src/androidTest/java/studio/guitarlab/app/PracticeWorkflowInstrumentedTest.kt
+index 867caad..0830eaa 100644
+--- a/app/src/androidTest/java/studio/guitarlab/app/PracticeWorkflowInstrumentedTest.kt
++++ b/app/src/androidTest/java/studio/guitarlab/app/PracticeWorkflowInstrumentedTest.kt
+@@ -17,6 +17,7 @@ import org.junit.runner.RunWith
+ import studio.guitarlab.app.ui.AppNavigationViewModel
+ import studio.guitarlab.app.ui.AppRouteCodec
+ import studio.guitarlab.app.ui.AppScreen
++import studio.guitarlab.app.ui.StudioAudioRoutingStore
+ import studio.guitarlab.app.ui.StudioViewModel
+ import studio.guitarlab.core.model.ProjectFactory
+ import studio.guitarlab.core.model.ProjectTemplate
+@@ -92,6 +93,33 @@ class PracticeWorkflowInstrumentedTest {
+         }
+     }
+ 
++    @Test
++    fun unavailableCueLeavesTrackAndHistoryOnMain() {
++        val context = instrumentation.targetContext
++        val routing = StudioAudioRoutingStore(context)
++        val priorCue = routing.selectedCueOutputSignature()
++        val repository = FileProjectRepository(context.filesDir)
++        val project = ProjectFactory().create("CUE indisponível", ProjectTemplate.GUITAR)
++        repository.save(project)
++        try {
++            routing.selectCueOutput(null)
++            navigation().navigate(AppScreen.Studio(project.id))
++            waitForStudioProject(project.id)
++            val before = studio().state.value
++            val track = before.project!!.tracks.first()
++            studio().toggleTrackCue(track.id)
++            composeRule.waitForIdle()
++            val after = studio().state.value
++            assertEquals("Rejected CUE must not remove the track from MAIN", track.outputRoute,
++                after.project!!.tracks.first { it.id == track.id }.outputRoute)
++            assertEquals(before.canUndo, after.canUndo)
++            assertEquals(project, repository.load(project.id))
++        } finally {
++            routing.selectCueOutput(priorCue)
++            repository.delete(project.id)
++        }
++    }
++
+     private fun waitUntilEnabled(text: String) {
+         composeRule.waitUntil(timeoutMillis = UI_TIMEOUT_MS) {
+             runCatching { composeRule.onNodeWithText(text).assertIsEnabled() }.isSuccess
+diff --git a/app/src/main/java/studio/guitarlab/app/ui/CueSelectionGate.kt b/app/src/main/java/studio/guitarlab/app/ui/CueSelectionGate.kt
+new file mode 100644
+index 0000000..819ef50
+--- /dev/null
++++ b/app/src/main/java/studio/guitarlab/app/ui/CueSelectionGate.kt
+@@ -0,0 +1,9 @@
++package studio.guitarlab.app.ui
++
++/** UI-thread generation gate: cancelled or replaced preflights cannot commit a selection. */
++internal class CueSelectionGate {
++    private var generation = 0L
++    fun begin(): Long = ++generation
++    fun invalidate() { ++generation }
++    fun accepts(ticket: Long): Boolean = ticket == generation
++}
+diff --git a/app/src/main/java/studio/guitarlab/app/ui/SettingsScreen.kt b/app/src/main/java/studio/guitarlab/app/ui/SettingsScreen.kt
+index b0b2d2b..40a1109 100644
+--- a/app/src/main/java/studio/guitarlab/app/ui/SettingsScreen.kt
++++ b/app/src/main/java/studio/guitarlab/app/ui/SettingsScreen.kt
+@@ -46,6 +46,10 @@ import androidx.compose.ui.Modifier
+ import androidx.compose.ui.platform.LocalContext
+ import androidx.compose.ui.platform.testTag
+ import androidx.compose.ui.unit.dp
++import kotlinx.coroutines.Job
++import kotlinx.coroutines.runInterruptible
++import kotlinx.coroutines.isActive
++import studio.guitarlab.platform.audio.android.AndroidCueRouteVerifier
+ import kotlinx.coroutines.Dispatchers
+ import kotlinx.coroutines.launch
+ import kotlinx.coroutines.withContext
+@@ -82,13 +86,17 @@ fun SettingsScreen(
+     val latencyEngine = remember(context) { AndroidLatencyCalibrationEngine(context) }
+     val projectRepository = remember(context) { FileProjectRepository(context.filesDir) }
+     val scope = rememberCoroutineScope()
++    var cueVerificationJob by remember { mutableStateOf<Job?>(null) }
++    var cueVerifying by remember { mutableStateOf(false) }
++    var cueVerificationStatus by remember { mutableStateOf<String?>(null) }
++    val cueSelectionGate = remember { CueSelectionGate() }
+     val remoteCloudAuth = remember(context) { RemoteCloudAuthClient(context) }
+     var remoteCloudSession by remember { mutableStateOf(remoteCloudAuth.currentSession()) }
+     var cloudLoginDialogVisible by remember { mutableStateOf(false) }
+     var cloudAuthMessage by remember { mutableStateOf<String?>(null) }
+     var calibrating by remember { mutableStateOf(false) }
+     var digitalVerifying by remember { mutableStateOf(false) }
+-    val latencyBusy = calibrating || digitalVerifying
++    val latencyBusy = calibrating || digitalVerifying || cueVerifying
+     var calibrationStatus by remember { mutableStateOf<String?>(null) }
+     var calibrationProgress by remember { mutableStateOf(0 to 0) }
+     var pendingCalibration by remember { mutableStateOf(false) }
+@@ -235,6 +243,10 @@ fun SettingsScreen(
+     }
+ 
+     fun refreshAudioDevices() {
++        cueSelectionGate.invalidate()
++        cueVerificationJob?.cancel()
++        cueVerifying = false
++        cueVerificationStatus = null
+         inputChoices = routingStore.inputChoices()
+         outputChoices = routingStore.outputChoices()
+         cueOutputChoices = routingStore.cueOutputChoices()
+@@ -309,9 +321,16 @@ fun SettingsScreen(
+                         selectedSignature = selectedOutput,
+                         choices = outputChoices,
+                         onSelect = { signature ->
++                            cueSelectionGate.invalidate()
++                            cueVerificationJob?.cancel()
++                            cueVerifying = false
++                            cueVerificationStatus = null
++                            selectedCueOutput = null
++                            routingStore.selectCueOutput(null)
+                             selectedOutput = signature
+                             routingStore.selectOutput(signature)
+-                            if (signature == null || signature == selectedCueOutput) {
++                            cueOutputChoices = routingStore.cueOutputChoices()
++                            if (signature == null || cueOutputChoices.none { it.signature == selectedCueOutput }) {
+                                 selectedCueOutput = null
+                                 routingStore.selectCueOutput(null)
+                             }
+@@ -321,22 +340,59 @@ fun SettingsScreen(
+                         title = "Saída secundária / CUE",
+                         selectedSignature = selectedCueOutput,
+                         choices = if (selectedOutput == null) emptyList() else cueOutputChoices.filterNot { it.signature == selectedOutput },
+-                        nullLabel = "Desativada",
++                        nullLabel = if (cueVerifying) "Verificando…" else "Desativada",
+                         nullDetail = if (selectedOutput == null) {
+                             "Selecione primeiro uma saída principal explícita."
++                        } else if (outputChoices.firstOrNull { it.signature == selectedOutput }?.let(StudioAudioRoutePolicy::cueEligible) != true) {
++                            "CUE sincronizado exige duas saídas de baixa latência; Bluetooth pode ser usado sozinho como saída principal."
+                         } else {
+                             "Selecione uma saída secundária de baixa latência. Bluetooth não é oferecido para CUE sincronizado."
+                         },
+                         onSelect = { signature ->
+-                            if (selectedOutput == null || signature == selectedOutput) {
+-                                selectedCueOutput = null
+-                                routingStore.selectCueOutput(null)
+-                            } else {
+-                                selectedCueOutput = signature
+-                                routingStore.selectCueOutput(signature)
++                            cueVerificationJob?.cancel()
++                            cueVerifying = false
++                            val ticket = cueSelectionGate.begin()
++                            selectedCueOutput = null
++                            routingStore.selectCueOutput(null)
++                            cueVerificationStatus = null
++                            val mainSignature = selectedOutput
++                            if (signature != null && mainSignature != null && signature != mainSignature && !calibrating && !digitalVerifying) {
++                                cueVerificationStatus = "Verificando saídas e sincronização…"
++                                cueVerifying = true
++                                val probeSampleRateHz = calibrationSampleRateHz ?: 48000
++                                cueVerificationJob = scope.launch {
++                                    try {
++                                        val validationJob = coroutineContext[Job]!!
++                                        val failure = runInterruptible(Dispatchers.IO) {
++                                            runCatching {
++                                                val main = routingStore.resolveSelectedOutputDevice()
++                                                val cue = routingStore.resolveCandidateCueOutputDevice(signature)
++                                                if (main == null || cue == null) "Uma das saídas selecionadas não está disponível."
++                                                else AndroidCueRouteVerifier.verifyDevices(main, cue, probeSampleRateHz) { validationJob.isActive }
++                                            }.getOrElse { "Não foi possível verificar as saídas selecionadas." }
++                                        }
++                                        if (cueSelectionGate.accepts(ticket) && selectedOutput == mainSignature && routingStore.selectedOutputSignature() == mainSignature) {
++                                            val stillAvailable = routingStore.cueOutputChoices().any { it.signature == signature }
++                                            if (failure == null && stillAvailable) {
++                                                routingStore.selectCueOutput(signature)
++                                                selectedCueOutput = signature
++                                                cueVerificationStatus = "CUE verificado: rotas distintas e clocks sincronizados."
++                                            } else {
++                                                cueVerificationStatus = "CUE desativado. ${failure ?: "A saída foi desconectada durante a verificação."}"
++                                            }
++                                        }
++                                    } finally {
++                                        if (cueSelectionGate.accepts(ticket)) cueVerifying = false
++                                    }
++                                }
++                            } else if (signature != null && (calibrating || digitalVerifying)) {
++                                cueVerificationStatus = "Aguarde o diagnóstico de latência antes de verificar CUE."
+                             }
+                         },
+                     )
++                    cueVerificationStatus?.let {
++                        Text(it, modifier = Modifier.testTag("cue_verification_status"), style = MaterialTheme.typography.bodySmall)
++                    }
+                     MonitoringSelector(
+                         mode = monitoringMode,
+                         onSelect = { mode ->
+diff --git a/app/src/main/java/studio/guitarlab/app/ui/StudioAudioRoutePolicy.kt b/app/src/main/java/studio/guitarlab/app/ui/StudioAudioRoutePolicy.kt
+index 4d56684..f346389 100644
+--- a/app/src/main/java/studio/guitarlab/app/ui/StudioAudioRoutePolicy.kt
++++ b/app/src/main/java/studio/guitarlab/app/ui/StudioAudioRoutePolicy.kt
+@@ -34,8 +34,17 @@ internal object StudioAudioRoutePolicy {
+     fun canonicalInputSignature(raw: List<StudioAudioDeviceChoice>, storedSignature: String): String? =
+         canonicalSignatureFor(canonicalizeInputs(raw), storedSignature)
+ 
+-    fun canonicalSignature(raw: List<StudioAudioDeviceChoice>, storedSignature: String): String? =
+-        canonicalSignatureFor(canonicalizeOutputs(raw), storedSignature)
++    fun canonicalSignature(raw: List<StudioAudioDeviceChoice>, storedSignature: String): String? {
++        val outputs = canonicalizeOutputs(raw)
++        canonicalSignatureFor(outputs, storedSignature)?.let { return it }
++        val old = raw.singleOrNull { it.signature == storedSignature || storedSignature in it.legacySignatures }
++            ?.takeIf { it.type == BLUETOOTH_SCO_TYPE } ?: return null
++        // Migrate a call-profile selection only to one matching physical media destination.
++        return outputs.filter { it.transportFamily == BLUETOOTH_FAMILY &&
++            normalize(it.productName) == normalize(old.productName) &&
++            (old.address.isBlank() || it.address.isBlank() || normalize(it.address) == normalize(old.address))
++        }.singleOrNull()?.signature
++    }
+ 
+     fun candidateInputIdsFor(raw: List<StudioAudioDeviceChoice>, selectedSignature: String): List<Int> =
+         candidateIdsForCanonical(canonicalizeInputs(raw), selectedSignature)
+@@ -64,7 +73,8 @@ internal object StudioAudioRoutePolicy {
+     }
+ 
+     private fun canonicalize(raw: List<StudioAudioDeviceChoice>, direction: Direction): List<StudioAudioDeviceChoice> {
+-        val visible = raw.filterNot { it.transportFamily == HIDDEN_SYSTEM_FAMILY }
++        val visible = raw.filterNot { it.transportFamily == HIDDEN_SYSTEM_FAMILY ||
++            (direction == Direction.OUTPUT && it.type == BLUETOOTH_SCO_TYPE) }
+         val grouped = linkedMapOf<String, MutableList<StudioAudioDeviceChoice>>()
+         visible.forEach { choice -> grouped.getOrPut(groupKey(choice, direction)) { mutableListOf() } += choice }
+         return grouped.values.map { mergePhysicalGroup(it, direction) }.sortedBy { it.label.lowercase() }
+@@ -147,6 +157,8 @@ internal object StudioAudioRoutePolicy {
+ 
+     private enum class Direction(val id: String) { INPUT("in"), OUTPUT("out") }
+ 
++    private const val BLUETOOTH_SCO_TYPE = 7 // AudioDeviceInfo.TYPE_BLUETOOTH_SCO; calls, not media playback.
++
+     const val USB_FAMILY = "usb"
+     const val WIRED_FAMILY = "wired"
+     const val BLUETOOTH_FAMILY = "bluetooth"
+diff --git a/app/src/main/java/studio/guitarlab/app/ui/StudioAudioRoutingStore.kt b/app/src/main/java/studio/guitarlab/app/ui/StudioAudioRoutingStore.kt
+index 6608f5a..85adc30 100644
+--- a/app/src/main/java/studio/guitarlab/app/ui/StudioAudioRoutingStore.kt
++++ b/app/src/main/java/studio/guitarlab/app/ui/StudioAudioRoutingStore.kt
+@@ -34,8 +34,12 @@ class StudioAudioRoutingStore(context: Context) {
+ 
+     fun outputChoices(): List<StudioAudioDeviceChoice> = StudioAudioRoutePolicy.canonicalizeOutputs(rawOutputChoices())
+ 
+-    fun cueOutputChoices(): List<StudioAudioDeviceChoice> =
+-        outputChoices().filter(StudioAudioRoutePolicy::cueEligible)
++    fun cueOutputChoices(): List<StudioAudioDeviceChoice> {
++        val outputs = outputChoices()
++        val main = outputs.firstOrNull { it.signature == selectedOutputSignature() }
++        if (main == null || !StudioAudioRoutePolicy.cueEligible(main)) return emptyList()
++        return outputs.filter { StudioAudioRoutePolicy.cueEligible(it) && it.signature != main.signature }
++    }
+ 
+     fun selectedInputSignature(): String? {
+         val stored = preferences.getString(KEY_INPUT_SIGNATURE, null) ?: return null
+@@ -161,6 +165,12 @@ class StudioAudioRoutingStore(context: Context) {
+         return resolveOutputDevice(selected, CUE_OUTPUT_ROUTE_CACHE)
+     }
+ 
++    /** Resolves a candidate without persisting it; selection is committed only after preflight. */
++    fun resolveCandidateCueOutputDevice(signature: String): AudioDeviceInfo? {
++        if (cueOutputChoices().none { it.signature == signature }) return null
++        return resolveOutputDevice(signature, CUE_OUTPUT_ROUTE_CACHE)
++    }
++
+     private fun resolveOutputDevice(
+         selectedSignature: String,
+         routeCache: ConcurrentHashMap<String, Int>,
+diff --git a/app/src/main/java/studio/guitarlab/app/ui/StudioUserGuideDialog.kt b/app/src/main/java/studio/guitarlab/app/ui/StudioUserGuideDialog.kt
+index 6ba0066..604a520 100644
+--- a/app/src/main/java/studio/guitarlab/app/ui/StudioUserGuideDialog.kt
++++ b/app/src/main/java/studio/guitarlab/app/ui/StudioUserGuideDialog.kt
+@@ -58,7 +58,7 @@ private object GuitarLabGuideContent {
+         GuideSectionContent(
+             GuideArea.STUDIO,
+             "Studio · gravação e Mixer",
+-            "Arme a pista correta antes de REC. A contagem aparece sem deslocar o layout; durante a gravação, waveform, Peak e RMS acompanham a take. A entrada selecionada precisa ser confirmada pelo Android: o GuitarLab não troca silenciosamente para o microfone do aparelho. Stop e REC finalizam pela mesma rotina segura. No Mixer, volume, pan, Mute, Solo, fone/CUE e Arm mudam a monitoração sem apagar o áudio original. Com o transporte parado, o botão de fone envia qualquer pista para a saída secundária. Durante Play/REC essa rota fica travada para manter a sessão consistente. Se MAIN e CUE não puderem ser confirmadas como rotas físicas distintas e sincronizadas, CUE fica silencioso em vez de vazar para MAIN ou atrasar a saída principal.",
++            "Arme a pista correta antes de REC. A contagem aparece sem deslocar o layout; durante a gravação, waveform, Peak e RMS acompanham a take. A entrada selecionada precisa ser confirmada pelo Android: o GuitarLab não troca silenciosamente para o microfone do aparelho. Stop e REC finalizam pela mesma rotina segura. No Mixer, volume, pan, Mute, Solo, fone/CUE e Arm mudam a monitoração sem apagar o áudio original. Com o transporte parado e uma saída CUE configurada, o botão de fone envia a pista para a saída secundária. Sem configuração válida, a pista continua em MAIN. Durante Play/REC essa rota fica travada para manter a sessão consistente. Se MAIN e CUE não puderem ser confirmadas como rotas físicas distintas e sincronizadas, CUE fica silencioso em vez de vazar para MAIN ou atrasar a saída principal.",
+         ),
+         GuideSectionContent(
+             GuideArea.STUDIO,
+@@ -83,7 +83,7 @@ private object GuitarLabGuideContent {
+         GuideSectionContent(
+             GuideArea.SETTINGS,
+             "Opções e diagnósticos",
+-            "Em Opções, configure áudio e gravação, saída principal, saída secundária/CUE, monitoramento, sample rate, sincronização/calibração, controle externo quando habilitado, Conta e nuvem e preferências do aplicativo. CUE exige uma MAIN explícita e uma segunda rota física distinta. Diagnósticos mostram detalhes técnicos apenas quando eles ajudam a investigar um problema. Calibração digital não substitui a verificação física da latência da rota USB.",
++            "Em Opções, configure áudio e gravação, saída principal, saída secundária/CUE, monitoramento, sample rate, sincronização/calibração, controle externo quando habilitado, Conta e nuvem e preferências do aplicativo. CUE exige uma MAIN explícita e uma segunda saída de baixa latência. Ao escolher a saída secundária, aguarde Verificando: um teste silencioso confirma as rotas e a sincronização antes de salvar. Se falhar, CUE permanece desativado e a tela explica o motivo. Bluetooth usa o perfil de mídia como MAIN; o perfil de telefonia não aparece nas saídas. A segurança das rotas continua sendo verificada durante a reprodução. Diagnósticos mostram detalhes técnicos apenas quando eles ajudam a investigar um problema. Calibração digital não substitui a verificação física da latência da rota USB.",
+         ),
+     )
+ 
+diff --git a/app/src/main/java/studio/guitarlab/app/ui/StudioViewModel.kt b/app/src/main/java/studio/guitarlab/app/ui/StudioViewModel.kt
+index e7594f8..a51bf87 100644
+--- a/app/src/main/java/studio/guitarlab/app/ui/StudioViewModel.kt
++++ b/app/src/main/java/studio/guitarlab/app/ui/StudioViewModel.kt
+@@ -1635,10 +1635,21 @@ class StudioViewModel(application: Application) : AndroidViewModel(application)
+         val state = _state.value
+         val project = state.project ?: return
+         if (!structuralEditingAllowed(state)) return
++        val target = project.tracks.firstOrNull { it.id == trackId } ?: return
++        if (target.outputRoute == TrackOutputRoute.MAIN && audioRoutingStore.routeHealth().effectiveCueOutput == null) {
++            postTransientWarning(
++                "Configure duas saídas distintas de baixa latência em Opções antes de ativar CUE. A pista continua na saída principal.",
++                "CUE indisponível; a pista continua na saída principal.",
++            )
++            return
++        }
+         viewModelScope.launch {
+             runCatching {
+                 saveLatest(project.id) { latest ->
+                     val target = latest.tracks.firstOrNull { it.id == trackId } ?: return@saveLatest latest
++                    check(target.outputRoute != TrackOutputRoute.MAIN || audioRoutingStore.routeHealth().effectiveCueOutput != null) {
++                        "A saída CUE ficou indisponível; a pista continua na saída principal."
++                    }
+                     val updated = target.copy(
+                         outputRoute = TrackOutputRoutingPolicy.toggleExclusiveCue(target.outputRoute),
+                     )
+diff --git a/app/src/test/java/studio/guitarlab/app/ui/CueSelectionGateTest.kt b/app/src/test/java/studio/guitarlab/app/ui/CueSelectionGateTest.kt
+new file mode 100644
+index 0000000..03fe392
+--- /dev/null
++++ b/app/src/test/java/studio/guitarlab/app/ui/CueSelectionGateTest.kt
+@@ -0,0 +1,21 @@
++package studio.guitarlab.app.ui
++
++import org.junit.Test
++import kotlin.test.assertFalse
++import kotlin.test.assertTrue
++
++class CueSelectionGateTest {
++    @Test fun onlyLatestSelectionMayCommit() {
++        val gate = CueSelectionGate()
++        val first = gate.begin()
++        val second = gate.begin()
++        assertFalse(gate.accepts(first))
++        assertTrue(gate.accepts(second))
++    }
++    @Test fun disablingOrChangingMainInvalidatesPendingResult() {
++        val gate = CueSelectionGate()
++        val pending = gate.begin()
++        gate.invalidate()
++        assertFalse(gate.accepts(pending))
++    }
++}
+diff --git a/app/src/test/java/studio/guitarlab/app/ui/StudioAudioRoutePolicyTest.kt b/app/src/test/java/studio/guitarlab/app/ui/StudioAudioRoutePolicyTest.kt
+index e3d90e7..6f614c3 100644
+--- a/app/src/test/java/studio/guitarlab/app/ui/StudioAudioRoutePolicyTest.kt
++++ b/app/src/test/java/studio/guitarlab/app/ui/StudioAudioRoutePolicyTest.kt
+@@ -2,6 +2,7 @@ package studio.guitarlab.app.ui
+ 
+ import org.junit.Assert.assertEquals
+ import org.junit.Assert.assertFalse
++import org.junit.Assert.assertNull
+ import org.junit.Assert.assertNotEquals
+ import org.junit.Assert.assertTrue
+ import org.junit.Test
+@@ -93,14 +94,27 @@ class StudioAudioRoutePolicyTest {
+     }
+ 
+     @Test
+-    fun nonUsbProfilesAreNeverCollapsedByMatchingLabel() {
+-        val a2dp = choice(id = 7, type = 8, family = "type:8", signature = "a2dp")
+-        val sco = choice(id = 8, type = 7, family = "type:7", signature = "sco")
+-
+-        val result = StudioAudioRoutePolicy.canonicalizeOutputs(listOf(a2dp, sco))
++    fun mediaOutputsHideScoAndPreserveStereoEndpointAndLegacyMigration() {
++        val a2dp = choice(id = 7, type = 8, family = StudioAudioRoutePolicy.BLUETOOTH_FAMILY,
++            signature = "a2dp", channels = listOf(2), rates = listOf(44_100, 48_000), address = "AA:BB")
++        val sco = choice(id = 8, type = 7, family = StudioAudioRoutePolicy.BLUETOOTH_FAMILY,
++            signature = "sco", channels = listOf(1), rates = listOf(8000, 16000), address = "aa:bb")
++        val raw = listOf(sco, a2dp)
++        assertEquals(listOf(a2dp), StudioAudioRoutePolicy.canonicalizeOutputs(raw))
++        assertEquals("a2dp", StudioAudioRoutePolicy.canonicalSignature(raw, "sco"))
++        assertEquals(listOf(7), StudioAudioRoutePolicy.candidateIdsFor(raw, "a2dp"))
++        assertTrue("Recording input profiles must remain available", StudioAudioRoutePolicy.canonicalizeInputs(raw).any { it.type == 7 })
++    }
+ 
+-        assertEquals(2, result.size)
+-        assertEquals(setOf("a2dp", "sco"), result.map { it.signature }.toSet())
++    @Test
++    fun scoMigrationNeverGuessesBetweenDistinctHeadsetsAndMonoUsbRemainsVisible() {
++        val sco = choice(id = 1, type = 7, family = StudioAudioRoutePolicy.BLUETOOTH_FAMILY, signature = "sco")
++        val first = choice(id = 2, type = 8, family = StudioAudioRoutePolicy.BLUETOOTH_FAMILY, signature = "one", address = "A")
++        val second = choice(id = 3, type = 8, family = StudioAudioRoutePolicy.BLUETOOTH_FAMILY, signature = "two", address = "B")
++        assertNull(StudioAudioRoutePolicy.canonicalSignature(listOf(sco, first, second), "sco"))
++        assertTrue(StudioAudioRoutePolicy.canonicalizeOutputs(listOf(sco)).isEmpty())
++        val usb = choice(id = 4, type = 11, channels = listOf(1))
++        assertEquals(listOf(1), StudioAudioRoutePolicy.canonicalizeOutputs(listOf(usb)).single().channelCounts)
+     }
+ 
+     @Test
+diff --git a/core/audio/src/main/kotlin/studio/guitarlab/core/audio/CueStartupProbe.kt b/core/audio/src/main/kotlin/studio/guitarlab/core/audio/CueStartupProbe.kt
+new file mode 100644
+index 0000000..b62cf9d
+--- /dev/null
++++ b/core/audio/src/main/kotlin/studio/guitarlab/core/audio/CueStartupProbe.kt
+@@ -0,0 +1,62 @@
++package studio.guitarlab.core.audio
++
++/** Platform adapter must feed zeroes non-blockingly; never supply project audio during admission. */
++interface CueProbeOutput {
++    fun feedSilence(): Int
++    fun routedDeviceId(): Int?
++    fun clockObservation(): AudioClockObservation?
++}
++
++enum class CueStartupFailure { CANCELLED, WRITE_FAILED, ROUTE_UNCONFIRMED, ROUTE_CHANGED, CLOCK_UNSTABLE, OFFSET_EXCEEDED }
++
++/** Interleaved bounded warmup: both sinks remain fed while independent timestamps advance. */
++object CueStartupProbe {
++    const val TIMEOUT_NS = 1_500_000_000L
++    private const val POLL_MS = 8L
++    private const val MAX_OBSERVATIONS = 12
++
++    fun verify(
++        main: CueProbeOutput, cue: CueProbeOutput,
++        expectedMainId: Int, expectedCueId: Int, sampleRateHz: Int,
++        nowNs: () -> Long, sleepMs: (Long) -> Unit, keepRunning: () -> Boolean,
++    ): CueStartupFailure? {
++        require(sampleRateHz > 0 && expectedMainId != expectedCueId)
++        val started = nowNs()
++        var routesConfirmed = false
++        val mainClock = ArrayList<AudioClockObservation>()
++        val cueClock = ArrayList<AudioClockObservation>()
++        fun collect(target: MutableList<AudioClockObservation>, sample: AudioClockObservation?): Boolean {
++            if (sample == null || sample.framePosition < 0 || sample.nanoTime <= 0) return true
++            val previous = target.lastOrNull()
++            if (previous != null) {
++                if (sample.framePosition < previous.framePosition || sample.nanoTime < previous.nanoTime) return false
++                if (sample.framePosition == previous.framePosition || sample.nanoTime == previous.nanoTime) return true
++            }
++            target += sample
++            if (target.size > MAX_OBSERVATIONS) target.removeAt(0)
++            return true
++        }
++        while (nowNs() - started < TIMEOUT_NS) {
++            if (!keepRunning()) return CueStartupFailure.CANCELLED
++            // Zero/partial writes are normal during startup. Retry next poll, never block either sink.
++            if (main.feedSilence() < 0 || cue.feedSilence() < 0) return CueStartupFailure.WRITE_FAILED
++            val distinct = CueRouteSafetyPolicy.routedPairMatches(expectedMainId, expectedCueId,
++                main.routedDeviceId(), cue.routedDeviceId())
++            if (!distinct && routesConfirmed) return CueStartupFailure.ROUTE_CHANGED
++            if (distinct) {
++                routesConfirmed = true
++                if (!collect(mainClock, main.clockObservation()) || !collect(cueClock, cue.clockObservation())) {
++                    return CueStartupFailure.CLOCK_UNSTABLE
++                }
++                val mainAnchor = AudioClockAnchorPolicy.estimate(mainClock, sampleRateHz, 4_000_000L)
++                val cueAnchor = AudioClockAnchorPolicy.estimate(cueClock, sampleRateHz, 4_000_000L)
++                if (mainAnchor != null && cueAnchor != null && mainAnchor.observations >= 3 && cueAnchor.observations >= 3) {
++                    return if (CueRouteSafetyPolicy.initialOffsetWithinLimit(mainAnchor.streamOriginMonotonicNs,
++                            cueAnchor.streamOriginMonotonicNs)) null else CueStartupFailure.OFFSET_EXCEEDED
++                }
++            }
++            sleepMs(POLL_MS)
++        }
++        return if (routesConfirmed) CueStartupFailure.CLOCK_UNSTABLE else CueStartupFailure.ROUTE_UNCONFIRMED
++    }
++}
+diff --git a/core/audio/src/test/kotlin/studio/guitarlab/core/audio/CueStartupProbeTest.kt b/core/audio/src/test/kotlin/studio/guitarlab/core/audio/CueStartupProbeTest.kt
+new file mode 100644
+index 0000000..0fb8b71
+--- /dev/null
++++ b/core/audio/src/test/kotlin/studio/guitarlab/core/audio/CueStartupProbeTest.kt
+@@ -0,0 +1,59 @@
++package studio.guitarlab.core.audio
++
++import org.junit.Assert.*
++import org.junit.Test
++
++class CueStartupProbeTest {
++    private class Fixture {
++        var elapsed = 0L
++        var mainFeeds = 0
++        var cueFeeds = 0
++        var cueOffset = 0L
++        var converges = false
++        var missingRoute = false
++        var staleClock = false
++        var cueWrite = 512
++        private fun sink(id: Int) = object : CueProbeOutput {
++            override fun feedSilence(): Int {
++                if (id == 1) mainFeeds++ else cueFeeds++
++                return if (id == 1) 512 else cueWrite
++            }
++            override fun routedDeviceId(): Int? = if (missingRoute) null else if (id == 2 && converges && elapsed >= 64_000_000) 1 else id
++            override fun clockObservation(): AudioClockObservation? {
++                if (elapsed < 200_000_000) return null
++                // Driver publishes one fresh timestamp every 64 ms, not every polling iteration.
++                val frames = if (staleClock) 3072L else elapsed / 64_000_000 * 3072
++                return AudioClockObservation(frames, 1_000_000_000 + frames * 1_000_000_000 / 48_000 + if (id == 2) cueOffset else 0)
++            }
++        }
++        fun verify(cancelAt: Long = Long.MAX_VALUE) = CueStartupProbe.verify(sink(1), sink(2), 1, 2, 48_000,
++            nowNs = { 1_000_000_000 + elapsed }, sleepMs = { elapsed += it * 1_000_000 }, keepRunning = { elapsed < cancelAt })
++    }
++
++    @Test fun keepsBothStreamsFedAcrossDelayedAndRepeatedTimestamps() {
++        val f = Fixture()
++        assertNull(f.verify())
++        assertTrue(f.elapsed >= 320_000_000)
++        assertEquals(f.mainFeeds, f.cueFeeds)
++        assertTrue(f.mainFeeds > 30)
++    }
++    @Test fun partialAndZeroStartupWritesAreRetriedWithoutBlocking() {
++        val f = Fixture().apply { cueWrite = 0 }
++        // Hardware timestamps are authoritative; a full queue may legitimately accept zero.
++        assertNull(f.verify())
++    }
++    @Test fun missingOrConvergedRoutesNeverAdmitCue() {
++        assertEquals(CueStartupFailure.ROUTE_UNCONFIRMED, Fixture().apply { missingRoute = true }.verify())
++        assertEquals(CueStartupFailure.ROUTE_CHANGED, Fixture().apply { converges = true }.verify())
++    }
++    @Test fun staleClockAndLargeOffsetRemainRejected() {
++        assertEquals(CueStartupFailure.CLOCK_UNSTABLE, Fixture().apply { staleClock = true }.verify())
++        assertEquals(CueStartupFailure.OFFSET_EXCEEDED, Fixture().apply { cueOffset = 30_000_000 }.verify())
++    }
++    @Test fun cancellationAndWriteErrorsExitWithinTheBound() {
++        val f = Fixture()
++        assertEquals(CueStartupFailure.CANCELLED, f.verify(cancelAt = 80_000_000))
++        assertTrue(f.elapsed < 100_000_000)
++        assertEquals(CueStartupFailure.WRITE_FAILED, Fixture().apply { cueWrite = -1 }.verify())
++    }
++}
+diff --git a/platform/audio-android/src/main/kotlin/studio/guitarlab/platform/audio/android/AndroidCueRouteVerifier.kt b/platform/audio-android/src/main/kotlin/studio/guitarlab/platform/audio/android/AndroidCueRouteVerifier.kt
+new file mode 100644
+index 0000000..c07015d
+--- /dev/null
++++ b/platform/audio-android/src/main/kotlin/studio/guitarlab/platform/audio/android/AndroidCueRouteVerifier.kt
+@@ -0,0 +1,99 @@
++package studio.guitarlab.platform.audio.android
++
++import android.media.AudioAttributes
++import android.media.AudioDeviceInfo
++import android.media.AudioFormat
++import android.media.AudioTrack
++import android.media.AudioTimestamp
++import studio.guitarlab.core.audio.AudioClockObservation
++import studio.guitarlab.core.audio.CueProbeOutput
++import studio.guitarlab.core.audio.CueStartupProbe
++import studio.guitarlab.core.audio.CueStartupFailure
++
++/** Silent output-only preflight. Does not measure acoustic or input round-trip latency. */
++object AndroidCueRouteVerifier {
++    @Synchronized
++    fun verifyDevices(main: AudioDeviceInfo, cue: AudioDeviceInfo, sampleRateHz: Int, keepRunning: () -> Boolean): String? {
++        var mainTrack: AudioTrack? = null
++        var cueTrack: AudioTrack? = null
++        return try {
++            if (!keepRunning()) return "Verificação cancelada."
++            if (main.id == cue.id) return "MAIN e CUE precisam usar saídas distintas."
++            fun create(device: AudioDeviceInfo): AudioTrack {
++                val track = AudioTrack.Builder()
++                    .setAudioAttributes(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA).setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).build())
++                    .setAudioFormat(AudioFormat.Builder().setEncoding(AudioFormat.ENCODING_PCM_FLOAT).setSampleRate(sampleRateHz).setChannelMask(AudioFormat.CHANNEL_OUT_STEREO).build())
++                    .setTransferMode(AudioTrack.MODE_STREAM)
++                    .setBufferSizeInBytes(maxOf(32768, AudioTrack.getMinBufferSize(sampleRateHz, AudioFormat.CHANNEL_OUT_STEREO, AudioFormat.ENCODING_PCM_FLOAT)))
++                    .build()
++                try {
++                    check(track.state == AudioTrack.STATE_INITIALIZED && track.setPreferredDevice(device))
++                    return track
++                } catch (failure: Exception) {
++                    track.release()
++                    throw failure
++                }
++            }
++            mainTrack = create(main)
++            cueTrack = create(cue)
++            verifyTracks(mainTrack, cueTrack, main, cue, sampleRateHz, keepRunning)
++        } catch (_: RuntimeException) {
++            "O Android não conseguiu abrir as duas saídas selecionadas."
++        } finally {
++            runCatching { mainTrack?.release() }
++            runCatching { cueTrack?.release() }
++        }
++    }
++
++    fun verifyTracks(mainTrack: AudioTrack, cueTrack: AudioTrack, expectedMain: AudioDeviceInfo,
++        expectedCue: AudioDeviceInfo, sampleRateHz: Int, keepRunning: () -> Boolean): String? {
++        val silence = FloatArray(512 * 2)
++        fun adapter(track: AudioTrack) = object : CueProbeOutput {
++            override fun feedSilence(): Int = track.write(silence, 0, silence.size, AudioTrack.WRITE_NON_BLOCKING)
++            override fun routedDeviceId(): Int? = track.routedDevice?.id
++            override fun clockObservation(): AudioClockObservation? {
++                val timestamp = AudioTimestamp()
++                return if (track.getTimestamp(timestamp)) AudioClockObservation(timestamp.framePosition, timestamp.nanoTime) else null
++            }
++        }
++        return try {
++            mainTrack.setVolume(0f)
++            cueTrack.setVolume(0f)
++            // Prefill before starting; polling then feeds both streams throughout timestamp warmup.
++            repeat(8) {
++                if (mainTrack.write(silence, 0, silence.size, AudioTrack.WRITE_NON_BLOCKING) < 0 ||
++                    cueTrack.write(silence, 0, silence.size, AudioTrack.WRITE_NON_BLOCKING) < 0) {
++                    return "O Android recusou o buffer silencioso de verificação MAIN/CUE."
++                }
++            }
++            mainTrack.play()
++            cueTrack.play()
++            when (CueStartupProbe.verify(
++                main = adapter(mainTrack), cue = adapter(cueTrack), expectedMainId = expectedMain.id,
++                expectedCueId = expectedCue.id, sampleRateHz = sampleRateHz,
++                nowNs = System::nanoTime, sleepMs = { Thread.sleep(it) },
++                keepRunning = { keepRunning() && !Thread.currentThread().isInterrupted },
++            )) {
++                null -> null
++                CueStartupFailure.CANCELLED -> "A verificação MAIN/CUE foi cancelada."
++                CueStartupFailure.WRITE_FAILED -> "O Android recusou o fluxo silencioso de verificação MAIN/CUE."
++                CueStartupFailure.ROUTE_UNCONFIRMED -> "O Android não confirmou duas saídas físicas distintas para MAIN/CUE."
++                CueStartupFailure.ROUTE_CHANGED -> "As rotas MAIN/CUE mudaram ou convergiram durante a verificação."
++                CueStartupFailure.CLOCK_UNSTABLE -> "Os clocks MAIN/CUE não avançaram de forma estável durante a verificação."
++                CueStartupFailure.OFFSET_EXCEEDED -> "O offset inicial entre MAIN e CUE excedeu 12 ms."
++            }
++        } catch (_: InterruptedException) {
++            Thread.currentThread().interrupt()
++            "A verificação silenciosa MAIN/CUE foi interrompida; CUE permaneceu silencioso."
++        } catch (_: RuntimeException) {
++            "O Android não conseguiu comprovar sincronização inicial entre MAIN e CUE."
++        } finally {
++            runCatching { mainTrack.pause() }
++            runCatching { mainTrack.flush() }
++            runCatching { cueTrack.pause() }
++            runCatching { cueTrack.flush() }
++            runCatching { mainTrack.setVolume(1f) }
++            runCatching { cueTrack.setVolume(1f) }
++        }
++    }
++}
+diff --git a/platform/audio-android/src/main/kotlin/studio/guitarlab/platform/audio/android/AndroidStudioPlaybackEngine.kt b/platform/audio-android/src/main/kotlin/studio/guitarlab/platform/audio/android/AndroidStudioPlaybackEngine.kt
+index 661356a..e431b2d 100644
+--- a/platform/audio-android/src/main/kotlin/studio/guitarlab/platform/audio/android/AndroidStudioPlaybackEngine.kt
++++ b/platform/audio-android/src/main/kotlin/studio/guitarlab/platform/audio/android/AndroidStudioPlaybackEngine.kt
+@@ -665,79 +665,12 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
+     }
+ 
+     private fun primeAndVerifyDualRoutes(
+-        mainTrack: AudioTrack,
+-        cueTrack: AudioTrack,
+-        expectedMain: AudioDeviceInfo,
+-        expectedCue: AudioDeviceInfo,
+-        sampleRateHz: Int,
+-    ): String? {
+-        val silence = FloatArray(CUE_ROUTE_PROBE_FRAMES * 2)
+-        return try {
+-            mainTrack.setVolume(0f)
+-            cueTrack.setVolume(0f)
+-            mainTrack.play()
+-            cueTrack.play()
+-            if (mainTrack.write(silence, 0, silence.size, AudioTrack.WRITE_BLOCKING) <= 0) {
+-                return "A saída principal não avançou durante a verificação silenciosa; CUE permaneceu bloqueado."
+-            }
+-            if (cueTrack.write(silence, 0, silence.size, AudioTrack.WRITE_BLOCKING) <= 0) {
+-                return "A saída CUE não avançou durante a verificação silenciosa."
+-            }
+-            val deadline = System.nanoTime() + CUE_ROUTE_PROBE_TIMEOUT_NS
+-            var verified = false
+-            while (System.nanoTime() < deadline && !verified) {
+-                val mainRouted = mainTrack.routedDevice
+-                val cueRouted = cueTrack.routedDevice
+-                verified = CueRouteSafetyPolicy.routedPairMatches(
+-                    expectedMainDeviceId = expectedMain.id,
+-                    expectedCueDeviceId = expectedCue.id,
+-                    actualMainDeviceId = mainRouted?.id,
+-                    actualCueDeviceId = cueRouted?.id,
+-                )
+-                if (!verified) Thread.sleep(CUE_ROUTE_PROBE_POLL_MS)
+-            }
+-            if (!verified) {
+-                return "Não foi possível confirmar MAIN e CUE em endpoints físicos distintos; CUE permaneceu silencioso."
+-            }
+-
+-            val mainAnchor = stablePlaybackClockAnchor(
+-                track = mainTrack,
+-                sampleRateHz = sampleRateHz,
+-                maxJitterNs = CUE_CLOCK_MAX_JITTER_NS,
+-            )
+-            val cueAnchor = stablePlaybackClockAnchor(
+-                track = cueTrack,
+-                sampleRateHz = sampleRateHz,
+-                maxJitterNs = CUE_CLOCK_MAX_JITTER_NS,
+-            )
+-            if (mainAnchor == null || cueAnchor == null ||
+-                mainAnchor.observations < CUE_CLOCK_MIN_OBSERVATIONS ||
+-                cueAnchor.observations < CUE_CLOCK_MIN_OBSERVATIONS
+-            ) {
+-                return "Os clocks de apresentação MAIN/CUE não produziram evidência estável suficiente; CUE permaneceu silencioso."
+-            }
+-            if (!CueRouteSafetyPolicy.initialOffsetWithinLimit(
+-                    mainStreamOriginNs = mainAnchor.streamOriginMonotonicNs,
+-                    cueStreamOriginNs = cueAnchor.streamOriginMonotonicNs,
+-                )
+-            ) {
+-                return "O offset inicial entre MAIN e CUE excedeu 12 ms; CUE foi silenciado para preservar sincronização."
+-            }
+-            null
+-        } catch (_: InterruptedException) {
+-            Thread.currentThread().interrupt()
+-            "A verificação silenciosa MAIN/CUE foi interrompida; CUE permaneceu silencioso."
+-        } catch (_: RuntimeException) {
+-            "O Android não conseguiu comprovar sincronização inicial entre MAIN e CUE."
+-        } finally {
+-            runCatching { mainTrack.pause() }
+-            runCatching { mainTrack.flush() }
+-            runCatching { cueTrack.pause() }
+-            runCatching { cueTrack.flush() }
+-            runCatching { mainTrack.setVolume(1f) }
+-            runCatching { cueTrack.setVolume(1f) }
+-        }
+-    }
++        mainTrack: AudioTrack, cueTrack: AudioTrack, expectedMain: AudioDeviceInfo,
++        expectedCue: AudioDeviceInfo, sampleRateHz: Int,
++    ): String? = AndroidCueRouteVerifier.verifyTracks(
++        mainTrack, cueTrack, expectedMain, expectedCue, sampleRateHz,
++        keepRunning = { running },
++    )
+ 
+     private fun cueRouteStillSafe(
+         mainTrack: AudioTrack,
+@@ -812,11 +745,6 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
+         const val NO_PENDING_SEEK = Long.MIN_VALUE
+         const val CLOCK_ANCHOR_SAMPLES = 6
+         const val CLOCK_ANCHOR_POLL_MS = 3L
+-        const val CUE_ROUTE_PROBE_FRAMES = 2_048
+-        const val CUE_ROUTE_PROBE_POLL_MS = 8L
+-        const val CUE_ROUTE_PROBE_TIMEOUT_NS = 220_000_000L
+-        const val CUE_CLOCK_MAX_JITTER_NS = 4_000_000L
+-        const val CUE_CLOCK_MIN_OBSERVATIONS = 3
+         const val CUE_DRIFT_CONSECUTIVE_LIMIT = 3
+     }
+ }

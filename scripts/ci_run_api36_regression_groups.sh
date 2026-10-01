@@ -360,7 +360,8 @@ run_group() {
   tests="$(count_testcases "$dest/results")"
 
   if ! verify_executed_classes "$slug" "${expected_classes[@]}"; then
-    status=1
+    # Coverage is still mandatory, but must not overwrite timeout or the original test exit code.
+    if [[ "$status" -eq 0 ]]; then status=1; fi
   fi
 
   if [[ "$status" -eq 0 ]]; then

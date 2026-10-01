@@ -58,17 +58,17 @@ private object GuitarLabGuideContent {
         GuideSectionContent(
             GuideArea.STUDIO,
             "Studio · gravação e Mixer",
-            "Arme a pista correta antes de REC. A contagem aparece sem deslocar o layout; durante a gravação, waveform, Peak e RMS acompanham a take. A entrada selecionada precisa ser confirmada pelo Android: o GuitarLab não troca silenciosamente para o microfone do aparelho. Stop e REC finalizam pela mesma rotina segura. No Mixer, volume, pan, Mute, Solo, fone/CUE e Arm mudam a monitoração sem apagar o áudio original. Com o transporte parado, o botão de fone envia qualquer pista para a saída secundária. Durante Play/REC essa rota fica travada para manter a sessão consistente. Se MAIN e CUE não puderem ser confirmadas como rotas físicas distintas e sincronizadas, CUE fica silencioso em vez de vazar para MAIN ou atrasar a saída principal.",
+            "Arme a pista correta antes de REC. A contagem aparece sem deslocar o layout; durante a gravação, waveform, Peak e RMS acompanham a take. A entrada selecionada precisa ser confirmada pelo Android: o GuitarLab não troca silenciosamente para o microfone do aparelho. Stop e REC finalizam pela mesma rotina segura. No Mixer, volume, pan, Mute, Solo, fone/CUE e Arm mudam a monitoração sem apagar o áudio original. Com o transporte parado e uma saída CUE configurada, o botão de fone envia a pista para a saída secundária. Sem configuração válida, a pista continua em MAIN. Durante Play/REC essa rota fica travada para manter a sessão consistente. Se MAIN e CUE não puderem ser confirmadas como rotas físicas distintas e sincronizadas, CUE fica silencioso em vez de vazar para MAIN ou atrasar a saída principal.",
         ),
         GuideSectionContent(
             GuideArea.STUDIO,
             "Studio · prática e referências",
-            "Comparação, Ajustes e Timeline ficam na barra de transporte e abrem painéis sem ocupar uma barra abaixo das pistas. Na Comparação, alterne entre Desativado, Referência, Minha e Ambas; o indicador R, M ou 2 no botão mostra o modo ativo. Ajustes abre Níveis; Timeline reúne marcadores e seções. Loop, Comparação, marcadores e seções ajudam a estudar trechos. Quando uma nova preparação produz outra base ou guitarra de referência, o Studio não troca a referência usada por uma sessão existente sem sua escolha: você pode manter a atual ou atualizar explicitamente, preservando gravações, takes e edições.",
+            "Comparação e Timeline ficam na barra de transporte e abrem painéis sem ocupar uma barra abaixo das pistas. Na Comparação, alterne entre Desativado, Referência, Minha e Ambas; o indicador R, M ou 2 no botão mostra o modo ativo. Níveis fica no Master do Mixer; Timeline reúne marcadores e seções em uma lista vertical. Loop, Comparação, marcadores e seções ajudam a estudar trechos. Quando uma nova preparação produz outra base ou guitarra de referência, o Studio não troca a referência usada por uma sessão existente sem sua escolha: você pode manter a atual ou atualizar explicitamente, preservando gravações, takes e edições.",
         ),
         GuideSectionContent(
             GuideArea.STUDIO,
             "Studio · espaço e Mixer",
-            "Mostrar/Ocultar Mixer preserva sua preferência. Na barra de transporte, Fixar Mixer alterna entre o dock que reserva espaço próprio e o modo flutuante. Altura do Mixer alterna entre compacto e ampliado; fixação e altura são lembradas entre sessões. Mesmo compacto, o Mixer mantém Mute, Solo, fone/CUE, REC Arm, PK, RMS, clipping, volume e pan. As pistas rolam horizontalmente; o Master tem sua própria coluna fixa.",
+            "Mostrar/Ocultar Mixer preserva sua preferência e sempre abre o dock fixado no rodapé. Na barra de transporte, alterne Mixer mínimo/completo; o modo escolhido é lembrado. Os dois modos mostram Mute, Solo, fone/CUE, REC Arm e volume em canais estreitos. O completo também mostra PK, RMS, clipping e pan; no mínimo, toque no nome da pista para abrir os controles completos, ajustar pan ou limpar clipping. As pistas rolam horizontalmente; o Master tem sua própria coluna fixa e o botão Níveis.",
         ),
         GuideSectionContent(
             GuideArea.EXPORT,
@@ -83,7 +83,7 @@ private object GuitarLabGuideContent {
         GuideSectionContent(
             GuideArea.SETTINGS,
             "Opções e diagnósticos",
-            "Em Opções, configure áudio e gravação, saída principal, saída secundária/CUE, monitoramento, sample rate, sincronização/calibração, controle externo quando habilitado, Conta e nuvem e preferências do aplicativo. CUE exige uma MAIN explícita e uma segunda rota física distinta. Diagnósticos mostram detalhes técnicos apenas quando eles ajudam a investigar um problema. Calibração digital não substitui a verificação física da latência da rota USB.",
+            "Em Opções, configure áudio e gravação, saída principal, saída secundária/CUE, monitoramento, sample rate, sincronização/calibração, controle externo quando habilitado, Conta e nuvem e preferências do aplicativo. CUE exige uma MAIN explícita e uma segunda saída de baixa latência. Ao escolher a saída secundária, aguarde Verificando: um teste silencioso confirma as rotas e a sincronização antes de salvar. Se falhar, CUE permanece desativado e a tela explica o motivo. Bluetooth usa o perfil de mídia como MAIN; o perfil de telefonia não aparece nas saídas. A segurança das rotas continua sendo verificada durante a reprodução. Diagnósticos mostram detalhes técnicos apenas quando eles ajudam a investigar um problema. Calibração digital não substitui a verificação física da latência da rota USB.",
         ),
     )
 

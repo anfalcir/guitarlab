@@ -17,6 +17,7 @@ import org.junit.runner.RunWith
 import studio.guitarlab.app.ui.AppNavigationViewModel
 import studio.guitarlab.app.ui.AppRouteCodec
 import studio.guitarlab.app.ui.AppScreen
+import studio.guitarlab.app.ui.StudioAudioRoutingStore
 import studio.guitarlab.app.ui.StudioViewModel
 import studio.guitarlab.core.model.ProjectFactory
 import studio.guitarlab.core.model.ProjectTemplate
@@ -89,6 +90,33 @@ class PracticeWorkflowInstrumentedTest {
             composeRule.onNodeWithTag("transport-record").assertIsEnabled()
         } finally {
             runCatching { repository.delete(project.id) }
+        }
+    }
+
+    @Test
+    fun unavailableCueLeavesTrackAndHistoryOnMain() {
+        val context = instrumentation.targetContext
+        val routing = StudioAudioRoutingStore(context)
+        val priorCue = routing.selectedCueOutputSignature()
+        val repository = FileProjectRepository(context.filesDir)
+        val project = ProjectFactory().create("CUE indisponível", ProjectTemplate.GUITAR)
+        repository.save(project)
+        try {
+            routing.selectCueOutput(null)
+            navigation().navigate(AppScreen.Studio(project.id))
+            waitForStudioProject(project.id)
+            val before = studio().state.value
+            val track = before.project!!.tracks.first()
+            studio().toggleTrackCue(track.id)
+            composeRule.waitForIdle()
+            val after = studio().state.value
+            assertEquals("Rejected CUE must not remove the track from MAIN", track.outputRoute,
+                after.project!!.tracks.first { it.id == track.id }.outputRoute)
+            assertEquals(before.canUndo, after.canUndo)
+            assertEquals(project, repository.load(project.id))
+        } finally {
+            routing.selectCueOutput(priorCue)
+            repository.delete(project.id)
         }
     }
 

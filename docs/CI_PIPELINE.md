@@ -117,6 +117,16 @@ The accepted RC20 runtime remains represented by the historical U12bx tail. The 
 
 The RC21 unsigned qualification authority is Android CI **#910 / run 36195905242** on source `ad182678cb2704dc9bbfc622124b4f2ac121fea1`: Unit/Lint/APK build PASS and API 36 regression PASS. Canonical integration is PR #7 / merge `2617fe1f1f2351a17389f165ed5d5a8e834e16a2`. The exact post-integration signed authority is Android CI **#912 / run 36197863467** on `main` producer `52b9d66f450fc597f8367f5778334280ceeb521e`; the workflow signed the tested unsigned APK without recompiling and verified package/version/certificate identity.
 
-## Active RC23 Studio UI qualification
+## Historical RC23 Studio UI qualification
 
 The terminal source stage is `scripts/materialize_ci_sources_rc23.py`, after RC22. Its payload/terminal blobs seal the navbar, narrow Mixer, preferences, guide and affected tests without rewriting prior stages. RC23 is versionName `0.5.0-rc23`, versionCode `43`. Focused API36 additions run in Studio/practice and target-tablet geometry groups; the existing software and broader adjacent regressions remain enabled. The temporary `feature/studio-space-layout` push trigger was retired after successful branch qualification (#938) and before canonical integration/signing.
+
+## Active RC24 Studio density qualification
+
+Terminal stage: `scripts/materialize_ci_sources_rc24.py`, after immutable RC23. Candidate `0.5.0-rc24` / `44`. Qualification branch `feature/studio-density-rc24` temporarily participates in push CI; remove it before canonical signing. Existing focused Studio/practice/tablet groups execute updated tests, including populated audio lanes and complete/minimum screenshot artifacts. Local shell/source reconstruction checks do not substitute Android compile, Lint or API36 execution. The owner reports workflow completion; no polling/monitoring.
+
+## RC25 output/CUE startup qualification
+
+RC25 follows immutable RC24 with `.source-parts/RC25OutputCueCorrection.patch` and `scripts/materialize_ci_sources_rc25.py`. Temporary `feature/audio-routes-rc25` qualification trigger is independent of RC24's branch; both are retired before canonical signing. Existing software gate includes core-audio and app unit tests; existing practice regression includes unavailable-CUE history preservation. No workflow execution monitoring or result predeclaration.
+
+RC25 branch qualification PASS: Android CI #946 / run 36934260224 on 854aeee0da730d2011e1141fc50a69d59bb13d58. Terminal source stage RC25f includes bounded geometry tests, compact Slider interaction and separate navbar viewport/content layouts. Retire RC24/RC25 temporary push exceptions before integration. Signed producer must run on canonical main and its exact signed identity is recorded only after successful completion. No workflow monitoring.

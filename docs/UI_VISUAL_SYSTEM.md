@@ -38,7 +38,7 @@ An action:
 - is contained by the semantic group that owns it.
 
 ## Studio action navbar contract
-`Comparação`, `Ajustes` and `Timeline` remain independent action families, presented as fixed-size icon triggers in the existing transport navbar. Their shared controls open in anchored overlays and do not reserve a second permanent row. No trigger changes location/size when a mode, disabled state, Mixer visibility or pin state changes.
+`Comparação` and `Timeline` remain independent action families, presented as fixed-size icon triggers in the existing transport navbar. Their shared controls open in anchored overlays and do not reserve a second permanent row. No trigger changes location/size when a mode, disabled state, Mixer visibility or minimum/complete state changes.
 
 Neutral closed triggers reduce persistent color noise. Comparison's active mode uses blue plus a fixed R/M/2 indicator and accessible state description. Panels preserve semantic grouping and local overflow for narrow windows or larger fonts. Comparison remains open during repeated audition changes. Narrow viewports scroll the same navbar row; no capability disappears.
 
@@ -182,3 +182,7 @@ Backup/restore must use the same page/section/status language as the rest of Gui
 
 ## Visual qualification when affected
 Changes to shared shell, layout, typography, shapes, colors or responsive behavior require focused semantic geometry and screenshot review for the affected surfaces and representative reference-device conditions. Do not replay the historical full screenshot matrix for unrelated audio/backend/search logic changes. Existing accepted screenshots remain evidence until a visual change invalidates them.
+
+## RC24 density correction
+
+Owner video rejected RC23 ergonomics despite digital PASS. Equal navbar side slots preserve absolute transport centering. Níveis moves to Master; pin and arbitrary expanded-height controls are retired. Menu content uses vertical lists, not horizontal toolbar fragments. Track buttons visibly fill 46 of their 48 dp targets and touch regions are contiguous, never overlapping. Thin slider drawings with integrated readouts replace stacked framed controls. Complete/minimum heights are 252/172 dp at font scale 1.0; channel width is 200 dp. Large fonts expand geometry. The same details strip and domain callbacks serve the minimum mode. Automated fit assertions are necessary but do not certify physical comfort; inspect filled-project captures and obtain owner acceptance.

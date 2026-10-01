@@ -1,0 +1,40 @@
+diff --git a/app/src/androidTest/java/studio/guitarlab/app/MixerDockInstrumentedTest.kt b/app/src/androidTest/java/studio/guitarlab/app/MixerDockInstrumentedTest.kt
+--- a/app/src/androidTest/java/studio/guitarlab/app/MixerDockInstrumentedTest.kt
++++ b/app/src/androidTest/java/studio/guitarlab/app/MixerDockInstrumentedTest.kt
+@@ -2,7 +2,6 @@
+ 
+ import android.util.Log
+ import androidx.compose.ui.geometry.Rect
+-import androidx.compose.ui.layout.positionInRoot
+ import androidx.compose.ui.semantics.SemanticsActions
+ import androidx.compose.ui.test.performSemanticsAction
+ import androidx.compose.ui.test.SemanticsNodeInteraction
+@@ -296,17 +295,23 @@
+             assertTrue("$action must be vertically inside the dock: $node / $dock",
+                 node.top >= dock.top - 1f && node.bottom <= dock.bottom + 1f)
+             val density = InstrumentationRegistry.getInstrumentation().targetContext.resources.displayMetrics.density
+-            assertTrue("$action retains 48dp touch width", node.width >= 48f * density - 1f)
+-            assertTrue("$action retains 48dp touch height", node.height >= 48f * density - 1f)
++            val touch = control.fetchSemanticsNode().touchBoundsInRoot
++            Log.i("MixerGeometryTest", "$action fullSemantics=$node effectiveTouch=$touch dock=$dock")
++            assertTrue("$action retains 48dp touch width: $touch", touch.width >= 48f * density - 1f)
++            assertTrue("$action retains 48dp touch height: $touch", touch.height >= 48f * density - 1f)
++            assertTrue("$action touch target stays inside dock: $touch / $dock",
++                touch.top >= dock.top - 1f && touch.bottom <= dock.bottom + 1f)
+         }
+         composeRule.captureCohesionScreenshot("rc24-mixer-large-font")
+     }
+ 
+     /** Full layout bounds: clipped semantics bounds would hide the very defect this test checks. */
+     private fun unclippedBounds(node: SemanticsNodeInteraction): Rect {
+-        val coordinates = node.fetchSemanticsNode().layoutInfo.coordinates
+-        val origin = coordinates.positionInRoot()
+-        return Rect(origin.x, origin.y, origin.x + coordinates.size.width, origin.y + coordinates.size.height)
++        val semantics = node.fetchSemanticsNode()
++        val origin = semantics.positionInRoot
++        // Semantics coordinates include the target modifiers; layoutInfo.coordinates is the
++        // inner drawing layout (20dp for the custom thumb), not the interactive node bounds.
++        return Rect(origin.x, origin.y, origin.x + semantics.size.width, origin.y + semantics.size.height)
+     }
+ 
+     /** Finite ScrollBy calls, with subpixel tolerance and explicit no-progress failure. */
