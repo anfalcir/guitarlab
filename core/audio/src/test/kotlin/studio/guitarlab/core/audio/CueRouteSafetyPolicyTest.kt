@@ -46,4 +46,12 @@ class CueRouteSafetyPolicyTest {
         assertFalse(CueRouteSafetyPolicy.driftExceeded(100_000, 102_400, 48_000))
         assertTrue(CueRouteSafetyPolicy.driftExceeded(100_000, 102_401, 48_000))
     }
+    @Test
+    fun secondarySinkMayNeverBackPressureMain() {
+        assertTrue(CueRouteSafetyPolicy.secondaryWriteComplete(2048, 2048))
+        assertFalse(CueRouteSafetyPolicy.secondaryWriteComplete(2048, 1024))
+        assertFalse(CueRouteSafetyPolicy.secondaryWriteComplete(2048, 0))
+        assertFalse(CueRouteSafetyPolicy.secondaryWriteComplete(2048, -3))
+    }
+
 }
