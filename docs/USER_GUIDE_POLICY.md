@@ -1,6 +1,6 @@
 # User Guide Policy
 
-Updated: 2026-09-25
+Updated: 2026-10-01
 
 ## Purpose
 
@@ -20,7 +20,7 @@ The guide should describe, at the level needed for normal use:
 - prepared Base/Guitar references and local reference restoration;
 - recording target/REC Arm, recording and takes;
 - timeline/trim/split/loop/practice behavior;
-- Mixer and audition modes;
+- Mixer, audition modes and per-track MAIN/CUE headphone routing;
 - `Exportar`;
 - Activity/cancellation where useful;
 - backup/restore and account/cloud dependency at a high level;
