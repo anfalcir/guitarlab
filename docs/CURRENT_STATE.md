@@ -4,7 +4,7 @@ Updated: 2026-10-01
 
 ## Status
 
-**RC22 DUAL-OUTPUT/CUE FEATURE CANDIDATE — BRANCH DIGITAL QUALIFICATION PASSED / READY FOR CANONICAL MAIN INTEGRATION**
+**RC22 DUAL-OUTPUT/CUE FEATURE CANDIDATE — INTEGRATED IN MAIN / CANONICAL REQUALIFICATION REQUESTED**
 
 RC20 remains the currently accepted, physically homologated baseline recorded in `RELEASE_BASELINE.md`. RC22 is an explicit owner-requested successor candidate built on the RC21-integrated Android source. It adds per-track MAIN/CUE monitoring and therefore reopens only the affected Android playback/routing/monitoring paths plus adjacent persistence/UI coverage. The frozen Demucs backend and unrelated Drive transport evidence are unchanged.
 
@@ -98,16 +98,18 @@ RC21 reached signed digital-candidate state, but RC22 now supersedes it as the a
 - CI #922 / run `36876106290`: the pre-clock-offset hardening graph passed Unit tests, Android Lint and APK assembly; API36 was still running when the final clock-sync gap was identified. Because runtime bytes changed afterward, #922 is supporting evidence only and cannot qualify the final RC22 candidate.
 - Final hardening adds stable dual-AudioTimestamp preflight, a 12 ms initial-offset admission limit, tighter continuous drift bounds and a longer silent probe.
 - CI #932 / run `36893687913` on source SHA `7524b37665a01af484f4297e4537d97f5a62a180`: **PASS** — software gate green (unit tests, performance evidence, Android Lint, debug/release assembly) and API 36 instrumented regression green. Signed homologation job was intentionally skipped because this was a normal `[run ci]` branch qualification.
-- The temporary `feature/dual-output-cue-routing` workflow trigger was retired after #932; the next authoritative gate is canonical `main` after integration.
+- The temporary `feature/dual-output-cue-routing` workflow trigger was retired after #932.
+- PR #8 integrated RC22 into canonical `main` at merge commit `754fc4b8379843abd0494c5054bb856151db475f`.
+- CI #933 / run `36895822376`: **FAIL before materialization/build/tests** in `Diff sanity`. The aggregate merge diff exposed structural context-line whitespace inside the stored `.source-parts/RC22DualOutputCueRouting.patch` payload plus one Markdown hard-break in `README.md`; no runtime source test failed. The generic whitespace gate now excludes stored unified-diff payload text while materializer hash/`git apply --check`/idempotence checks remain authoritative, and the README whitespace was corrected.
+- A fresh canonical-main qualification is now required on the corrected CI preflight.
 
 ## Qualification state and remaining promotion gates
 
 Branch digital qualification passed on the exact corrected RC22 runtime/source graph in CI #932. Remaining gates are:
 
-1. integrate the qualified RC22 branch into canonical `main`;
-2. rerun the canonical-main software/API36 qualification on the integrated graph;
-3. run signed exact-artifact qualification from canonical `main`;
-4. perform residual affected-path physical validation on the exact signed RC22 APK before RC20 is superseded as the accepted physical baseline.
+1. rerun the canonical-main software/API36 qualification after the #933 preflight corrective;
+2. run signed exact-artifact qualification from canonical `main`;
+3. perform residual affected-path physical validation on the exact signed RC22 APK before RC20 is superseded as the accepted physical baseline.
 
 Because this feature changes simultaneous physical audio routing, final support for a concrete MAIN+CUE device combination additionally requires residual physical validation on the exact signed RC22 APK. CI cannot prove Samsung/Android HAL behavior for two physical outputs.
 
