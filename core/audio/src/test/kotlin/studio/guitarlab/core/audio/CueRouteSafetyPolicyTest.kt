@@ -54,4 +54,13 @@ class CueRouteSafetyPolicyTest {
         assertFalse(CueRouteSafetyPolicy.secondaryWriteComplete(2048, -3))
     }
 
+    @Test
+    fun initialPresentationOffsetIsBoundedAndOverflowSafe() {
+        val limit = CueRouteSafetyPolicy.DEFAULT_INITIAL_OFFSET_LIMIT_NS
+        assertTrue(CueRouteSafetyPolicy.initialOffsetWithinLimit(1_000_000_000L, 1_000_000_000L + limit))
+        assertTrue(CueRouteSafetyPolicy.initialOffsetWithinLimit(1_000_000_000L + limit, 1_000_000_000L))
+        assertFalse(CueRouteSafetyPolicy.initialOffsetWithinLimit(1_000_000_000L, 1_000_000_000L + limit + 1L))
+        assertFalse(CueRouteSafetyPolicy.initialOffsetWithinLimit(Long.MIN_VALUE, Long.MAX_VALUE))
+    }
+
 }
