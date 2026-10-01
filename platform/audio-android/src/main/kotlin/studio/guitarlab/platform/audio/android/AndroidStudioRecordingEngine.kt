@@ -28,6 +28,7 @@ data class StudioRecordingRequest(
     val preferredInputRequested: Boolean = false,
     val monitoringMode: MonitoringMode = MonitoringMode.AUTO,
     val preferredOutputDevice: AudioDeviceInfo? = null,
+    val preferredOutputRequired: Boolean = false,
 )
 
 data class StudioRecordingConfig(
@@ -151,12 +152,26 @@ class AndroidStudioRecordingEngine(context: Context) : AutoCloseable {
                 outputTransport = transportOf(request.preferredOutputDevice),
             )
             if (shouldMonitor && stopReason == StudioRecordingStopReason.USER_STOP) {
-                monitor = openMonitor(opened.sampleRateHz, request.preferredOutputDevice)
+                monitor = if (request.preferredOutputRequired && request.preferredOutputDevice == null) {
+                    null
+                } else {
+                    openMonitor(opened.sampleRateHz, request.preferredOutputDevice)
+                }
                 if (monitor == null) {
                     listener.onWarning("O monitoramento por software não pôde ser aberto; a gravação continuará sem retorno pelo app.")
                 } else {
                     activeMonitor = monitor
                     monitor.play()
+                    if (request.preferredOutputRequired &&
+                        !confirmMonitorRoute(monitor, request.preferredOutputDevice)
+                    ) {
+                        runCatching { monitor.pause() }
+                        runCatching { monitor.flush() }
+                        runCatching { monitor.release() }
+                        monitor = null
+                        activeMonitor = null
+                        listener.onWarning("A saída de monitoramento selecionada não foi confirmada; o retorno foi silenciado para evitar fallback.")
+                    }
                 }
             }
 
