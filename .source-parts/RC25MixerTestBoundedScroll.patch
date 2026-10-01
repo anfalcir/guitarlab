@@ -1,0 +1,96 @@
+diff --git a/app/src/androidTest/java/studio/guitarlab/app/MixerDockInstrumentedTest.kt b/app/src/androidTest/java/studio/guitarlab/app/MixerDockInstrumentedTest.kt
+index 19407b5..ea96cfe 100644
+--- a/app/src/androidTest/java/studio/guitarlab/app/MixerDockInstrumentedTest.kt
++++ b/app/src/androidTest/java/studio/guitarlab/app/MixerDockInstrumentedTest.kt
+@@ -1,5 +1,11 @@
+ package studio.guitarlab.app
+ 
++import android.util.Log
++import androidx.compose.ui.geometry.Rect
++import androidx.compose.ui.layout.positionInRoot
++import androidx.compose.ui.semantics.SemanticsActions
++import androidx.compose.ui.test.performSemanticsAction
++import androidx.compose.ui.test.SemanticsNodeInteraction
+ import androidx.compose.ui.geometry.Offset
+ import androidx.compose.runtime.CompositionLocalProvider
+ import androidx.compose.runtime.mutableStateOf
+@@ -273,19 +279,60 @@ class MixerDockInstrumentedTest {
+                 }
+             }
+         }
+-        val before = composeRule.onNodeWithTag("mixer-track-strip-${track.id}").fetchSemanticsNode().boundsInRoot
++        Log.i("MixerGeometryTest", "large-font: initial geometry")
++        val strip = composeRule.onNodeWithTag("mixer-track-strip-${track.id}")
++        val before = unclippedBounds(strip)
++        Log.i("MixerGeometryTest", "large-font: set scale 1.5")
+         composeRule.runOnIdle { fontScale.value = 1.5f }
+-        val after = composeRule.onNodeWithTag("mixer-track-strip-${track.id}").fetchSemanticsNode().boundsInRoot
++        val after = unclippedBounds(strip)
++        Log.i("MixerGeometryTest", "large-font: geometry $before -> $after")
+         assertTrue("Larger fonts must increase channel width", after.width > before.width)
+         assertTrue("Larger fonts must increase channel height", after.height > before.height)
+         listOf("Mute", "Solo", "Saída CUE", "Gravação", "Volume", "Pan").forEach { action ->
+-            val node = composeRule.onNodeWithContentDescription("$action da pista ${track.name}")
+-                .performScrollTo().assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+-            assertTrue("$action must be inside the dock", node.bottom <= after.bottom + 1f)
++            val control = composeRule.onNodeWithContentDescription("$action da pista ${track.name}")
++            scrollMixerControlIntoView(control, action)
++            val node = unclippedBounds(control.assertIsDisplayed())
++            val dock = unclippedBounds(composeRule.onNodeWithTag("mixer-dock"))
++            assertTrue("$action must be vertically inside the dock: $node / $dock",
++                node.top >= dock.top - 1f && node.bottom <= dock.bottom + 1f)
++            val density = InstrumentationRegistry.getInstrumentation().targetContext.resources.displayMetrics.density
++            assertTrue("$action retains 48dp touch width", node.width >= 48f * density - 1f)
++            assertTrue("$action retains 48dp touch height", node.height >= 48f * density - 1f)
+         }
+         composeRule.captureCohesionScreenshot("rc24-mixer-large-font")
+     }
+ 
++    /** Full layout bounds: clipped semantics bounds would hide the very defect this test checks. */
++    private fun unclippedBounds(node: SemanticsNodeInteraction): Rect {
++        val coordinates = node.fetchSemanticsNode().layoutInfo.coordinates
++        val origin = coordinates.positionInRoot()
++        return Rect(origin.x, origin.y, origin.x + coordinates.size.width, origin.y + coordinates.size.height)
++    }
++
++    /** Finite ScrollBy calls, with subpixel tolerance and explicit no-progress failure. */
++    private fun scrollMixerControlIntoView(control: SemanticsNodeInteraction, label: String) {
++        val scroller = composeRule.onNodeWithTag("mixer-track-scroll")
++        repeat(12) { attempt ->
++            val viewport = scroller.fetchSemanticsNode().boundsInRoot
++            val before = unclippedBounds(control)
++            Log.i("MixerGeometryTest", "$label attempt=$attempt target=$before viewport=$viewport")
++            assertTrue("$label target exceeds horizontal viewport: $before / $viewport", before.width <= viewport.width + 1f)
++            val delta = when {
++                before.left < viewport.left - 1f -> before.left - viewport.left
++                before.right > viewport.right + 1f -> before.right - viewport.right
++                else -> return
++            }
++            scroller.performSemanticsAction(SemanticsActions.ScrollBy) { scroll -> scroll(delta, 0f) }
++            composeRule.waitForIdle()
++            val after = unclippedBounds(control)
++            val aligned = after.left >= viewport.left - 1f && after.right <= viewport.right + 1f
++            if (aligned) return
++            assertTrue("$label scrolling made no progress: delta=$delta before=$before after=$after viewport=$viewport",
++                kotlin.math.abs(after.left - before.left) > 0.5f)
++        }
++        throw AssertionError("$label did not become fully visible after 12 bounded scroll attempts")
++    }
++
+     @Test
+     fun minimalRetainsFourActionsAndGainWhileDetailsExposePanAndClipping() {
+         val minimal = mutableStateOf(false)
+diff --git a/scripts/ci_run_api36_regression_groups.sh b/scripts/ci_run_api36_regression_groups.sh
+index 90a8fd5..47f3768 100755
+--- a/scripts/ci_run_api36_regression_groups.sh
++++ b/scripts/ci_run_api36_regression_groups.sh
+@@ -360,7 +360,8 @@ run_group() {
+   tests="$(count_testcases "$dest/results")"
+ 
+   if ! verify_executed_classes "$slug" "${expected_classes[@]}"; then
+-    status=1
++    # Coverage is still mandatory, but must not overwrite timeout or the original test exit code.
++    if [[ "$status" -eq 0 ]]; then status=1; fi
+   fi
+ 
+   if [[ "$status" -eq 0 ]]; then
