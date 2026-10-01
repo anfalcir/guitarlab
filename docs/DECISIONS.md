@@ -1,6 +1,6 @@
 # Architectural and Product Decisions
 
-Updated: 2026-09-24
+Updated: 2026-10-01
 
 This log records durable decisions that must survive chat/context loss. Later numbered decisions supersede earlier ones. Milestone-specific wording is historical unless a current live document retains the invariant; D-090 governs the proportional release and maintenance interpretation of every earlier decision.
 
@@ -448,3 +448,20 @@ Consequences:
 - normal transient Error/Warning/Async Completion presentation is centralized through the shared host and eligible events are consumed on handoff to prevent delayed replay after navigation;
 - RC20 remains the accepted frozen baseline until the exact RC21 signed APK completes residual owner acceptance. Opening this maintenance candidate does not rewrite RC20 release identity or reopen the unchanged Demucs worker.
 
+## D-098 — Per-track MAIN/CUE routing is explicit and fail-closed
+
+The owner explicitly requested a secondary audio output so any Studio track can be monitored independently from the main speakers, for example Backing + My Guitar on MAIN and reference guitars on headphones/CUE. This is a supported RC22 feature, not a diagnostic-only experiment.
+
+Consequences:
+- each track persists `TrackOutputRoute` with backward-compatible default `MAIN`; the engine supports `MAIN`, `CUE` and `MAIN_AND_CUE`;
+- the initial mixer headphone control toggles exclusive MAIN ↔ CUE for clear user intent, while `MAIN_AND_CUE` remains an internal capability for future explicit UX;
+- Options exposes one recording input, one MAIN output and one optional CUE output;
+- CUE requires MAIN to be explicitly selected and requires a different explicit live output endpoint; it never inherits Android automatic routing;
+- route acceptance is not sufficient by itself: playback verifies effective MAIN/CUE routing before audible use and continues checking that the routes remain distinct;
+- if CUE is unavailable, rejected, lost, converges onto MAIN or crosses the bounded drift safety guard, CUE is silenced instead of leaking into MAIN; MAIN continues when safe;
+- the dual-bus engine is used by ordinary Play and backing playback during recording; software monitoring of an armed CUE track also requires the selected CUE route and fails closed without affecting captured input;
+- CUE state is monitoring/playback metadata and does not exclude a track from Studio Master export;
+- the existing fail-closed selected-input recording contract, managed-media integrity, backup/restore and recording-writer isolation remain unchanged;
+- digital qualification proves persistence, routing policy, materialization, build/Lint and API36 integration; physical support for a specific two-output hardware combination is claimed only after target-device validation on the exact signed candidate.
+
+This decision supersedes D-021 only where D-021 said the current scope exposes one main output. Stable semantic signatures and the prohibition on persisting ephemeral Android device IDs remain in force.
