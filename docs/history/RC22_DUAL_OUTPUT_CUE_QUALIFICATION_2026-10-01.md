@@ -1,6 +1,6 @@
 # RC22 Dual-Output/CUE Qualification — 2026-10-01
 
-Status: **CANONICAL MAIN DIGITAL PASS — SIGNED QUALIFICATION PENDING**
+Status: **SIGNED DIGITAL PASS — PHYSICAL MAIN/CUE VALIDATION PENDING**
 
 This record preserves the branch-level digital qualification evidence for GuitarLab `0.5.0-rc22` / versionCode `42`. RC20 remains the accepted physically homologated baseline until an exact signed RC22 artifact completes the remaining canonical-main and physical acceptance gates.
 
@@ -66,12 +66,24 @@ The final runtime preserves explicit real 48x48dp interactive targets where intr
 
 #934 closes the canonical unsigned digital gate after the #933 diff-sanity corrective. Runtime/source behavior remains the RC22 graph previously qualified on the feature branch; the only intervening changes were CI preflight/documentation corrections.
 
-## Remaining gates
+## Signed canonical qualification
 
-Branch qualification is not release promotion. The remaining sequence is:
+- Android CI #935 / run `36900296551`: **PASS**;
+- producer SHA: `1fd0e6d712954098ab6cc48ab2894ffe0b44abc4`;
+- compared with #934 canonical source SHA `0fc668197d6ebfd3a13f0ef97e3cc65bc846df7c`, the signed-trigger commits changed documentation only; runtime/source bytes were unchanged;
+- Unit tests + Lint + APK build: PASS;
+- API 36 emulator regression: PASS;
+- Signed homologation APK: PASS;
+- artifact: `GuitarLabStudio-0.5.0-rc22-homologacao`;
+- artifact id: `11182016667`;
+- signed APK SHA-256: `da0aed1f2f2f48fbb21c7440f7c14ef69b33a2cef79059992c7b058467af2037`;
+- signing certificate SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`;
+- package: `studio.guitarlab.app`;
+- versionName: `0.5.0-rc22`;
+- versionCode: `42`.
 
-1. run signed exact-artifact qualification from canonical `main`;
-2. physically validate the affected MAIN+CUE paths on the exact signed RC22 APK using the target Android 16 device and actual distinct physical outputs;
-3. only then consider superseding RC20 in `RELEASE_BASELINE.md`.
+## Remaining gate
+
+The digital qualification is complete. The only remaining acceptance gate for RC22 is residual physical validation of the affected MAIN+CUE paths on the exact signed APK above, using the target Android 16 device and actual distinct physical outputs. Only after that should RC20 be superseded in `RELEASE_BASELINE.md`.
 
 CI cannot prove the Samsung/Android audio HAL behavior of two simultaneous physical outputs. RC20 therefore remains the accepted physical baseline until that residual validation is completed.
