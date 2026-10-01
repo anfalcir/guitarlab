@@ -69,6 +69,12 @@ RC21 reached signed digital-candidate state, but RC22 now supersedes it as the a
 - project compatibility tests prove legacy default MAIN and CUE round-trip;
 - live CUE routing is not an export-exclusion flag: Studio Master continues to render the project mix/timeline independently of physical monitoring assignment.
 
+## Qualification chronology
+
+- CI #913 / run `36865931256`: FAIL — recording backing path referenced an unresolved CUE signature; source corrected.
+- CI #914–#917: superseded/cancelled by newer hardened source/materializer revisions.
+- CI #918 / run `36873594654`: FAIL-CLOSED in RC22 materializer guard because the new content-aware routing test file was referenced before being loaded by `verify()`; runtime source was not the cause. Guard corrected without changing runtime bytes.
+
 ## Qualification required before merge/promotion
 
 Digital qualification must pass on the exact corrected RC22 source:
