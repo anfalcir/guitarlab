@@ -346,7 +346,7 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
                     val mainPresented = playbackHeadDelta(playbackHead(audioTrack), clockHeadBase)
                     val cuePresented = playbackHeadDelta(playbackHead(activeCue), cueClockHeadBase)
                     val driftFrames = abs(mainPresented - cuePresented)
-                    val driftLimit = max(CUE_MIN_DRIFT_LIMIT_FRAMES, request.sampleRateHz / CUE_DRIFT_DIVISOR)
+                    val driftLimit = max(CUE_MIN_DRIFT_LIMIT_FRAMES, (request.sampleRateHz / CUE_DRIFT_DIVISOR).toLong())
                     cueDriftViolationCount = if (driftFrames > driftLimit) cueDriftViolationCount + 1 else 0
                     if (!routeSafe || cueDriftViolationCount >= CUE_DRIFT_CONSECUTIVE_LIMIT) {
                         val reason = if (!routeSafe) {
@@ -578,6 +578,8 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
             reportCueSuppressed(request, listener, failure)
             return null
         }
+        val explicitMain = requireNotNull(main)
+        val explicitCue = requireNotNull(cue)
 
         val cueTrack = runCatching {
             AudioTrack.Builder()
@@ -605,13 +607,13 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
             reportCueSuppressed(request, listener, "O Android não conseguiu abrir a saída CUE.")
             return null
         }
-        if (!runCatching { cueTrack.setPreferredDevice(cue) }.getOrDefault(false)) {
+        if (!runCatching { cueTrack.setPreferredDevice(explicitCue) }.getOrDefault(false)) {
             runCatching { cueTrack.release() }
             reportCueSuppressed(request, listener, "O Android recusou a rota CUE solicitada.")
             return null
         }
 
-        if (!primeAndVerifyDualRoutes(mainTrack, cueTrack, main, cue)) {
+        if (!primeAndVerifyDualRoutes(mainTrack, cueTrack, explicitMain, explicitCue)) {
             runCatching { cueTrack.release() }
             reportCueSuppressed(
                 request,
@@ -626,11 +628,11 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
                 requestedPreferredOutput = true,
                 usingPreferredOutput = true,
                 fellBackToAuto = false,
-                deviceLabel = main.productName?.toString(),
+                deviceLabel = explicitMain.productName?.toString(),
                 requestedPreferredCueOutput = true,
                 usingPreferredCueOutput = true,
                 cueSuppressed = false,
-                cueDeviceLabel = cue.productName?.toString(),
+                cueDeviceLabel = explicitCue.productName?.toString(),
             )
         )
         return cueTrack
@@ -656,8 +658,10 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
                 val mainRouted = mainTrack.routedDevice
                 val cueRouted = cueTrack.routedDevice
                 verified =
-                    mainRouted?.id == expectedMain.id &&
-                    cueRouted?.id == expectedCue.id &&
+                    mainRouted != null &&
+                    cueRouted != null &&
+                    mainRouted.id == expectedMain.id &&
+                    cueRouted.id == expectedCue.id &&
                     mainRouted.id != cueRouted.id
                 if (!verified) Thread.sleep(CUE_ROUTE_PROBE_POLL_MS)
             }
