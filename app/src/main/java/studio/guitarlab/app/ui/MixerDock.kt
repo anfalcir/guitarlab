@@ -86,7 +86,7 @@ fun MixerDock(
     modifier: Modifier = Modifier,
 ) {
     Surface(
-        modifier = modifier.fillMaxWidth().height(294.dp),
+        modifier = modifier.fillMaxWidth().height(316.dp),
         shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
         color = MaterialTheme.colorScheme.surface,
         tonalElevation = 3.dp,
