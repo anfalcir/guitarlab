@@ -20,9 +20,9 @@ Portable `.guitarlab` save remains semantically distinct from external Study Exp
 ## Mixer
 Mixer is a bottom dock with horizontally scrollable track strips and fixed Master. Gain/pan may preview live and are persisted on completed gestures. Pan is bipolar. Mute/Solo/CUE/REC Arm remain distinct. REC Arm is the persisted recording-target state used by the recording coordinator.
 
-Each track persists an output-route value with backward-compatible default `MAIN`. The engine contract supports `MAIN`, `CUE` and `MAIN_AND_CUE`; the first user-facing headphone control intentionally toggles exclusive MAIN ↔ CUE. The route is restored with the project, applied to normal playback and backing playback during recording, and does not destructively change clips/takes.
+Each track persists an output-route value with backward-compatible default `MAIN`. The engine contract supports `MAIN`, `CUE` and `MAIN_AND_CUE`; the first user-facing headphone control intentionally toggles exclusive MAIN ↔ CUE. Route changes are accepted only while the transport is stopped, so Play/REC cannot leave track metadata and live-monitor routing out of sync. The route is restored with the project, applied to normal playback and backing playback during recording, and does not destructively change clips/takes.
 
-CUE is a monitoring/playback bus, not an export exclusion flag. Studio Master export continues to render the project timeline/mix semantics independently of the live physical CUE assignment.
+CUE is a secondary monitoring/playback bus. Its writer is non-blocking relative to MAIN: if the secondary sink cannot accept a complete render chunk, CUE is silenced rather than allowed to stall the primary output. CUE is not an export exclusion flag. Studio Master export continues to render the project timeline/mix semantics independently of the live physical CUE assignment.
 
 ## Timeline/track UI
 - track names: canonical 1–24 chars;
