@@ -516,7 +516,7 @@ index 351de1c..550cd23 100644
      )
  
 diff --git a/app/src/main/java/studio/guitarlab/app/ui/StudioViewModel.kt b/app/src/main/java/studio/guitarlab/app/ui/StudioViewModel.kt
-index 1c9e472..979fccc 100644
+index 1c9e472..d5e60dd 100644
 --- a/app/src/main/java/studio/guitarlab/app/ui/StudioViewModel.kt
 +++ b/app/src/main/java/studio/guitarlab/app/ui/StudioViewModel.kt
 @@ -50,6 +50,8 @@ import studio.guitarlab.core.model.ChannelLayout
@@ -675,7 +675,15 @@ index 1c9e472..979fccc 100644
                      }
                  }
  
-@@ -2693,10 +2760,22 @@ class StudioViewModel(application: Application) : AndroidViewModel(application)
+@@ -2684,6 +2751,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application)
+         }
+         if (clips.isEmpty()) return false
+         val outputSignature = audioRoutingStore.selectedOutputSignature()
++        val cueOutputSignature = audioRoutingStore.selectedCueOutputSignature()
+         val request = StudioPlaybackRequest(
+             sampleRateHz = sampleRateHz,
+             startFrame = state.recordingSession.timelineStartFrame.coerceAtMost(end),
+@@ -2693,10 +2761,22 @@ class StudioViewModel(application: Application) : AndroidViewModel(application)
              loopEndFrame = state.timelineControls.loopEndFrame,
              clips = clips,
              trackMixes = project.tracks.map {
@@ -699,7 +707,7 @@ index 1c9e472..979fccc 100644
              masterGainDb = project.masterGainDb,
          )
          return runCatching {
-@@ -2743,6 +2822,17 @@ class StudioViewModel(application: Application) : AndroidViewModel(application)
+@@ -2743,6 +2823,17 @@ class StudioViewModel(application: Application) : AndroidViewModel(application)
                              PunchRecordingPolicy.plan(region, captureBeforeBackingFrames)
                          }
                      }
@@ -717,7 +725,7 @@ index 1c9e472..979fccc 100644
                  }
  
                  override fun onPosition(frame: Long) {
-@@ -2939,6 +3029,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application)
+@@ -2939,6 +3030,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application)
              trackMixDrafts[track.id] = TrackMixDraft(track.gainDb, track.pan)
              playbackEngine.setTrackMix(track.id, track.gainDb, track.pan)
              playbackEngine.setTrackAudibility(track.id, track.muted, track.solo)
