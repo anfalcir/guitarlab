@@ -1,9 +1,11 @@
 # Studio Options, Export and Mixer Contract
 
-Updated: 2026-09-25
+Updated: 2026-10-01
 
 ## Options
-Options owns low-frequency setup and diagnostics: input route, main output, monitoring, Studio preferences, import capability information and diagnostic tools. These controls stay out of the timeline.
+Options owns low-frequency setup and diagnostics: input route, main output, secondary/CUE output, monitoring, Studio preferences, import capability information and diagnostic tools. These controls stay out of the timeline.
+
+MAIN may remain Android-selected for ordinary single-output work. CUE is explicit-only: it can be selected only when MAIN is explicit, must resolve to a different live endpoint and has no automatic fallback. If CUE cannot be opened or its effective route can no longer be proven distinct from MAIN, the CUE bus is silenced while MAIN continues whenever safe.
 
 Project persistence and final-audio export are **not** Options actions.
 
@@ -16,7 +18,11 @@ Studio exposes Mixer, Help, Options, Export and Home using the shared project-sh
 Portable `.guitarlab` save remains semantically distinct from external Study Export and Studio Master delivery. The canonical Export workspace owns output/format selection; Studio/Home entry points navigate there and do not maintain a second modal chooser. Sample rate follows established project/render policy without unnecessary codec knobs.
 
 ## Mixer
-Mixer is a bottom dock with horizontally scrollable track strips and fixed Master. Gain/pan may preview live and are persisted on completed gestures. Pan is bipolar. Mute/Solo/REC Arm remain distinct. REC Arm is the persisted recording-target state used by the recording coordinator.
+Mixer is a bottom dock with horizontally scrollable track strips and fixed Master. Gain/pan may preview live and are persisted on completed gestures. Pan is bipolar. Mute/Solo/CUE/REC Arm remain distinct. REC Arm is the persisted recording-target state used by the recording coordinator.
+
+Each track persists an output-route value with backward-compatible default `MAIN`. The engine contract supports `MAIN`, `CUE` and `MAIN_AND_CUE`; the first user-facing headphone control intentionally toggles exclusive MAIN ↔ CUE. The route is restored with the project, applied to normal playback and backing playback during recording, and does not destructively change clips/takes.
+
+CUE is a monitoring/playback bus, not an export exclusion flag. Studio Master export continues to render the project timeline/mix semantics independently of the live physical CUE assignment.
 
 ## Timeline/track UI
 - track names: canonical 1–24 chars;
