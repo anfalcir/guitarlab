@@ -340,11 +340,13 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
                 writtenFramesSinceClockBase += writtenFrames
 
                 cueTrack?.let { activeCue ->
+                    // CUE is deliberately non-blocking: a slow/blocked secondary sink may be
+                    // silenced, but it may never stall the render loop feeding MAIN.
                     val cueWrite = runCatching {
-                        activeCue.write(cueMix, 0, sampleCount, AudioTrack.WRITE_BLOCKING)
+                        activeCue.write(cueMix, 0, sampleCount, AudioTrack.WRITE_NON_BLOCKING)
                     }.getOrDefault(AudioTrack.ERROR_INVALID_OPERATION)
-                    val cueFrames = cueWrite / 2
-                    val routeSafe = cueWrite > 0 && cueFrames == writtenFrames && cueRouteStillSafe(audioTrack, activeCue, request)
+                    val writeComplete = CueRouteSafetyPolicy.secondaryWriteComplete(sampleCount, cueWrite)
+                    val routeSafe = cueRouteStillSafe(audioTrack, activeCue, request)
                     val mainPresented = playbackHeadDelta(playbackHead(audioTrack), clockHeadBase)
                     val cuePresented = playbackHeadDelta(playbackHead(activeCue), cueClockHeadBase)
                     val driftUnsafe = CueRouteSafetyPolicy.driftExceeded(
@@ -353,11 +355,14 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
                         sampleRateHz = request.sampleRateHz,
                     )
                     cueDriftViolationCount = if (driftUnsafe) cueDriftViolationCount + 1 else 0
-                    if (!routeSafe || cueDriftViolationCount >= CUE_DRIFT_CONSECUTIVE_LIMIT) {
-                        val reason = if (!routeSafe) {
-                            "A rota CUE mudou, convergiu para a saída principal ou deixou de avançar."
-                        } else {
-                            "A saída CUE excedeu o limite de deriva segura em relação à saída principal."
+                    if (!writeComplete || !routeSafe || cueDriftViolationCount >= CUE_DRIFT_CONSECUTIVE_LIMIT) {
+                        val reason = when {
+                            !writeComplete ->
+                                "A saída CUE não acompanhou o fluxo em tempo real; foi silenciada para não bloquear a saída principal."
+                            !routeSafe ->
+                                "A rota CUE mudou, convergiu para a saída principal ou deixou de ser confirmada."
+                            else ->
+                                "A saída CUE excedeu o limite de deriva segura em relação à saída principal."
                         }
                         runCatching { activeCue.pause() }
                         runCatching { activeCue.flush() }
