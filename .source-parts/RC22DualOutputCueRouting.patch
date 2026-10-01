@@ -291,22 +291,41 @@ index f55a090..7cf7410 100644
  private fun MixerArmButton(
      active: Boolean,
 diff --git a/app/src/main/java/studio/guitarlab/app/ui/SettingsScreen.kt b/app/src/main/java/studio/guitarlab/app/ui/SettingsScreen.kt
-index e4c982b..4f53241 100644
+index e4c982b..b0b2d2b 100644
 --- a/app/src/main/java/studio/guitarlab/app/ui/SettingsScreen.kt
 +++ b/app/src/main/java/studio/guitarlab/app/ui/SettingsScreen.kt
-@@ -75,6 +75,7 @@ fun SettingsScreen(
+@@ -73,8 +73,10 @@ fun SettingsScreen(
+     val backupSettings = remember(context) { BackupSettingsStore(context).snapshot() }
+     var inputChoices by remember { mutableStateOf(routingStore.inputChoices()) }
      var outputChoices by remember { mutableStateOf(routingStore.outputChoices()) }
++    var cueOutputChoices by remember { mutableStateOf(routingStore.cueOutputChoices()) }
      var selectedInput by remember { mutableStateOf(routingStore.selectedInputSignature()) }
      var selectedOutput by remember { mutableStateOf(routingStore.selectedOutputSignature()) }
 +    var selectedCueOutput by remember { mutableStateOf(routingStore.selectedCueOutputSignature()) }
      var monitoringMode by remember { mutableStateOf(routingStore.monitoringMode()) }
      val latencyStore = remember(context) { StudioLatencyCalibrationStore(context) }
      val latencyEngine = remember(context) { AndroidLatencyCalibrationEngine(context) }
-@@ -242,6 +243,14 @@ fun SettingsScreen(
+@@ -181,6 +183,7 @@ fun SettingsScreen(
+     LaunchedEffect(Unit) {
+         inputChoices = routingStore.inputChoices()
+         outputChoices = routingStore.outputChoices()
++        cueOutputChoices = routingStore.cueOutputChoices()
+     }
+ 
+     LaunchedEffect(projectId) {
+@@ -234,6 +237,7 @@ fun SettingsScreen(
+     fun refreshAudioDevices() {
+         inputChoices = routingStore.inputChoices()
+         outputChoices = routingStore.outputChoices()
++        cueOutputChoices = routingStore.cueOutputChoices()
+         if (selectedInput != null && inputChoices.none { it.signature == selectedInput }) {
+             selectedInput = null
+             routingStore.selectInput(null)
+@@ -242,6 +246,14 @@ fun SettingsScreen(
              selectedOutput = null
              routingStore.selectOutput(null)
          }
-+        if (selectedCueOutput != null && outputChoices.none { it.signature == selectedCueOutput }) {
++        if (selectedCueOutput != null && cueOutputChoices.none { it.signature == selectedCueOutput }) {
 +            selectedCueOutput = null
 +            routingStore.selectCueOutput(null)
 +        }
@@ -317,7 +336,7 @@ index e4c982b..4f53241 100644
      }
  
      val routeHealth = routingStore.routeHealth()
-@@ -281,7 +290,7 @@ fun SettingsScreen(
+@@ -281,7 +293,7 @@ fun SettingsScreen(
              item {
                  OptionSection(
                      title = "Áudio",
@@ -326,7 +345,7 @@ index e4c982b..4f53241 100644
                  ) {
                      AudioDeviceSelector(
                          title = "Entrada de gravação",
-@@ -299,6 +308,30 @@ fun SettingsScreen(
+@@ -299,6 +311,30 @@ fun SettingsScreen(
                          onSelect = { signature ->
                              selectedOutput = signature
                              routingStore.selectOutput(signature)
@@ -339,12 +358,12 @@ index e4c982b..4f53241 100644
 +                    AudioDeviceSelector(
 +                        title = "Saída secundária / CUE",
 +                        selectedSignature = selectedCueOutput,
-+                        choices = if (selectedOutput == null) emptyList() else outputChoices.filterNot { it.signature == selectedOutput },
++                        choices = if (selectedOutput == null) emptyList() else cueOutputChoices.filterNot { it.signature == selectedOutput },
 +                        nullLabel = "Desativada",
 +                        nullDetail = if (selectedOutput == null) {
 +                            "Selecione primeiro uma saída principal explícita."
 +                        } else {
-+                            "Pistas com fone/CUE ficam silenciosas até uma saída secundária explícita ser selecionada."
++                            "Selecione uma saída secundária de baixa latência. Bluetooth não é oferecido para CUE sincronizado."
 +                        },
 +                        onSelect = { signature ->
 +                            if (selectedOutput == null || signature == selectedOutput) {
@@ -357,7 +376,7 @@ index e4c982b..4f53241 100644
                          },
                      )
                      MonitoringSelector(
-@@ -314,11 +347,13 @@ fun SettingsScreen(
+@@ -314,11 +350,13 @@ fun SettingsScreen(
                          color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.24f),
                      ) {
                          Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
@@ -373,7 +392,7 @@ index e4c982b..4f53241 100644
                          }
                      }
                      val storedCalibration = calibrationSampleRateHz?.let { rate ->
-@@ -763,10 +798,12 @@ private fun AudioDeviceSelector(
+@@ -763,10 +801,12 @@ private fun AudioDeviceSelector(
      title: String,
      selectedSignature: String?,
      choices: List<StudioAudioDeviceChoice>,
@@ -387,7 +406,7 @@ index e4c982b..4f53241 100644
      Surface(
          modifier = Modifier.fillMaxWidth(),
          shape = RoundedCornerShape(8.dp),
-@@ -780,15 +817,15 @@ private fun AudioDeviceSelector(
+@@ -780,15 +820,15 @@ private fun AudioDeviceSelector(
              Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                  Text(title, style = MaterialTheme.typography.bodyMedium)
                  Text(
@@ -405,8 +424,38 @@ index e4c982b..4f53241 100644
                      choices.forEach { choice ->
                          DropdownMenuItem(text = { Text(choice.label) }, onClick = { menuOpen = false; onSelect(choice.signature) })
                      }
+diff --git a/app/src/main/java/studio/guitarlab/app/ui/StudioAudioRoutePolicy.kt b/app/src/main/java/studio/guitarlab/app/ui/StudioAudioRoutePolicy.kt
+index fab0520..4d56684 100644
+--- a/app/src/main/java/studio/guitarlab/app/ui/StudioAudioRoutePolicy.kt
++++ b/app/src/main/java/studio/guitarlab/app/ui/StudioAudioRoutePolicy.kt
+@@ -43,6 +43,15 @@ internal object StudioAudioRoutePolicy {
+     fun candidateIdsFor(raw: List<StudioAudioDeviceChoice>, selectedSignature: String): List<Int> =
+         candidateIdsForCanonical(canonicalizeOutputs(raw), selectedSignature)
+ 
++    /**
++     * Synchronized CUE intentionally excludes Bluetooth. Android may report a healthy route while
++     * the wireless transport still adds large/variable presentation latency that cannot be
++     * aligned robustly to a wired/USB MAIN path.
++     */
++    fun cueEligible(choice: StudioAudioDeviceChoice): Boolean =
++        choice.transportFamily != BLUETOOTH_FAMILY &&
++            choice.transportFamily != HIDDEN_SYSTEM_FAMILY
++
+     fun compatibilityScore(choice: StudioAudioDeviceChoice): Int {
+         var score = 0
+         if (choice.channelCounts.isEmpty() || 2 in choice.channelCounts) score += 80
+@@ -139,6 +148,9 @@ internal object StudioAudioRoutePolicy {
+     private enum class Direction(val id: String) { INPUT("in"), OUTPUT("out") }
+ 
+     const val USB_FAMILY = "usb"
++    const val WIRED_FAMILY = "wired"
++    const val BLUETOOTH_FAMILY = "bluetooth"
++    const val HDMI_FAMILY = "hdmi"
+     const val BUILTIN_SPEAKER_FAMILY = "builtin-speaker"
+     const val BUILTIN_MIC_FAMILY = "builtin-mic"
+     const val HIDDEN_SYSTEM_FAMILY = "hidden-system"
 diff --git a/app/src/main/java/studio/guitarlab/app/ui/StudioAudioRoutingStore.kt b/app/src/main/java/studio/guitarlab/app/ui/StudioAudioRoutingStore.kt
-index c22242d..862dc29 100644
+index c22242d..0cc89a4 100644
 --- a/app/src/main/java/studio/guitarlab/app/ui/StudioAudioRoutingStore.kt
 +++ b/app/src/main/java/studio/guitarlab/app/ui/StudioAudioRoutingStore.kt
 @@ -14,10 +14,13 @@ import studio.guitarlab.core.audio.MonitoringMode
@@ -424,7 +473,17 @@ index c22242d..862dc29 100644
          it.transportFamily == StudioAudioRoutePolicy.USB_FAMILY
      }
  }
-@@ -48,10 +51,20 @@ class StudioAudioRoutingStore(context: Context) {
+@@ -31,6 +34,9 @@ class StudioAudioRoutingStore(context: Context) {
+ 
+     fun outputChoices(): List<StudioAudioDeviceChoice> = StudioAudioRoutePolicy.canonicalizeOutputs(rawOutputChoices())
+ 
++    fun cueOutputChoices(): List<StudioAudioDeviceChoice> =
++        outputChoices().filter(StudioAudioRoutePolicy::cueEligible)
++
+     fun selectedInputSignature(): String? {
+         val stored = preferences.getString(KEY_INPUT_SIGNATURE, null) ?: return null
+         val raw = rawInputChoices()
+@@ -48,10 +54,20 @@ class StudioAudioRoutingStore(context: Context) {
          return stored
      }
  
@@ -448,19 +507,19 @@ index c22242d..862dc29 100644
          return canonical
      }
  
-@@ -65,6 +78,11 @@ class StudioAudioRoutingStore(context: Context) {
+@@ -65,6 +81,11 @@ class StudioAudioRoutingStore(context: Context) {
          outputChoices().firstOrNull { it.signature == signature }?.let { "${it.transportFamily}:${it.label}" } ?: "saída-selecionada-indisponível"
      }
  
 +    /** Sanitized semantic identity of the explicit secondary/CUE route. */
 +    fun selectedCueOutputDiagnosticIdentity(): String? = selectedCueOutputSignature()?.let { signature ->
-+        outputChoices().firstOrNull { it.signature == signature }?.let { "${it.transportFamily}:${it.label}" } ?: "cue-selecionado-indisponível"
++        cueOutputChoices().firstOrNull { it.signature == signature }?.let { "${it.transportFamily}:${it.label}" } ?: "cue-selecionado-indisponível"
 +    }
 +
      fun selectInput(signature: String?) {
          preferences.edit().putString(KEY_INPUT_SIGNATURE, signature).apply()
      }
-@@ -73,6 +91,10 @@ class StudioAudioRoutingStore(context: Context) {
+@@ -73,6 +94,10 @@ class StudioAudioRoutingStore(context: Context) {
          preferences.edit().putString(KEY_OUTPUT_SIGNATURE, signature).apply()
      }
  
@@ -471,7 +530,7 @@ index c22242d..862dc29 100644
      fun monitoringMode(): MonitoringMode {
          val stored = preferences.getString(KEY_MONITORING_MODE, MonitoringMode.AUTO.name)
          return runCatching { MonitoringMode.valueOf(stored ?: MonitoringMode.AUTO.name) }.getOrDefault(MonitoringMode.AUTO)
-@@ -84,6 +106,7 @@ class StudioAudioRoutingStore(context: Context) {
+@@ -84,6 +109,7 @@ class StudioAudioRoutingStore(context: Context) {
  
      fun resolveSelectedInputDeviceId(): Int? = resolveSelectedInputDevice()?.id
      fun resolveSelectedOutputDeviceId(): Int? = resolveSelectedOutputDevice()?.id
@@ -479,7 +538,7 @@ index c22242d..862dc29 100644
  
      fun resolveSelectedInputDevice(): AudioDeviceInfo? {
          val stored = selectedInputSignature() ?: return null
-@@ -113,27 +136,44 @@ class StudioAudioRoutingStore(context: Context) {
+@@ -113,27 +139,45 @@ class StudioAudioRoutingStore(context: Context) {
       * AudioRouting.routedDevice; endpoint ordering is never used as a correctness signal.
       */
      fun resolveSelectedOutputDevice(): AudioDeviceInfo? {
@@ -496,6 +555,7 @@ index c22242d..862dc29 100644
 +        val selected = selectedCueOutputSignature() ?: return null
 +        val main = selectedOutputSignature() ?: return null
 +        if (selected == main) return null
++        if (cueOutputChoices().none { it.signature == selected }) return null
 +        return resolveOutputDevice(selected, CUE_OUTPUT_ROUTE_CACHE)
 +    }
 +
@@ -530,7 +590,7 @@ index c22242d..862dc29 100644
          return resolved
      }
  
-@@ -145,16 +185,33 @@ class StudioAudioRoutingStore(context: Context) {
+@@ -145,16 +189,33 @@ class StudioAudioRoutingStore(context: Context) {
          return outputChoices().none { it.signature == selected }
      }
  
@@ -538,7 +598,7 @@ index c22242d..862dc29 100644
 +        val selected = selectedCueOutputSignature() ?: return false
 +        val main = selectedOutputSignature() ?: return true
 +        if (selected == main) return true
-+        return outputChoices().none { it.signature == selected }
++        return cueOutputChoices().none { it.signature == selected }
 +    }
 +
      fun routeHealth(): StudioRouteHealth {
@@ -552,7 +612,7 @@ index c22242d..862dc29 100644
 +                (selectedOutput != null && selectedCueOutput != selectedOutput)
 +        val cueOutput = selectedCueOutput
 +            ?.takeIf { cueDistinct }
-+            ?.let { signature -> outputChoices().firstOrNull { it.signature == signature } }
++            ?.let { signature -> cueOutputChoices().firstOrNull { it.signature == signature } }
          return StudioRouteHealth(
 -            selectedInputAvailable = selectedInputSignature().isNullOrBlank() || input != null,
 +            selectedInputAvailable = selectedInput.isNullOrBlank() || input != null,
@@ -565,7 +625,44 @@ index c22242d..862dc29 100644
          )
      }
  
-@@ -316,11 +373,13 @@ class StudioAudioRoutingStore(context: Context) {
+@@ -275,6 +336,9 @@ class StudioAudioRoutingStore(context: Context) {
+ 
+     private fun outputTransportFamily(type: Int, product: String): String = when {
+         type in USB_DEVICE_TYPES -> StudioAudioRoutePolicy.USB_FAMILY
++        type in BLUETOOTH_OUTPUT_TYPES -> StudioAudioRoutePolicy.BLUETOOTH_FAMILY
++        type in WIRED_OUTPUT_TYPES -> StudioAudioRoutePolicy.WIRED_FAMILY
++        type in HDMI_OUTPUT_TYPES -> StudioAudioRoutePolicy.HDMI_FAMILY
+         type == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER || type == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER_SAFE -> StudioAudioRoutePolicy.BUILTIN_SPEAKER_FAMILY
+         type == AudioDeviceInfo.TYPE_REMOTE_SUBMIX || type == AudioDeviceInfo.TYPE_TELEPHONY -> StudioAudioRoutePolicy.HIDDEN_SYSTEM_FAMILY
+         type == AudioDeviceInfo.TYPE_BUS && isThisAndroidDevice(product) -> StudioAudioRoutePolicy.BUILTIN_SPEAKER_FAMILY
+@@ -312,15 +376,40 @@ class StudioAudioRoutingStore(context: Context) {
+         AudioDeviceInfo.TYPE_USB_HEADSET,
+     )
+ 
++    private val BLUETOOTH_OUTPUT_TYPES = setOf(
++        AudioDeviceInfo.TYPE_BLUETOOTH_A2DP,
++        AudioDeviceInfo.TYPE_BLUETOOTH_SCO,
++        AudioDeviceInfo.TYPE_HEARING_AID,
++        AudioDeviceInfo.TYPE_BLE_HEADSET,
++        AudioDeviceInfo.TYPE_BLE_SPEAKER,
++        AudioDeviceInfo.TYPE_BLE_BROADCAST,
++    )
++
++    private val WIRED_OUTPUT_TYPES = setOf(
++        AudioDeviceInfo.TYPE_WIRED_HEADSET,
++        AudioDeviceInfo.TYPE_WIRED_HEADPHONES,
++        AudioDeviceInfo.TYPE_LINE_ANALOG,
++        AudioDeviceInfo.TYPE_LINE_DIGITAL,
++        AudioDeviceInfo.TYPE_AUX_LINE,
++    )
++
++    private val HDMI_OUTPUT_TYPES = setOf(
++        AudioDeviceInfo.TYPE_HDMI,
++        AudioDeviceInfo.TYPE_HDMI_ARC,
++        AudioDeviceInfo.TYPE_HDMI_EARC,
++    )
++
+     private companion object {
          const val PREFS_NAME = "studio_audio_routing"
          const val KEY_INPUT_SIGNATURE = "input_signature"
          const val KEY_OUTPUT_SIGNATURE = "output_signature"
@@ -811,6 +908,36 @@ index 1c9e472..8fac1d6 100644
          }
          playbackEngine.setMasterGainDb(saved.masterGainDb)
          val state = _state.value
+diff --git a/app/src/test/java/studio/guitarlab/app/ui/StudioAudioRoutePolicyTest.kt b/app/src/test/java/studio/guitarlab/app/ui/StudioAudioRoutePolicyTest.kt
+index 460e2d0..e3d90e7 100644
+--- a/app/src/test/java/studio/guitarlab/app/ui/StudioAudioRoutePolicyTest.kt
++++ b/app/src/test/java/studio/guitarlab/app/ui/StudioAudioRoutePolicyTest.kt
+@@ -1,6 +1,7 @@
+ package studio.guitarlab.app.ui
+ 
+ import org.junit.Assert.assertEquals
++import org.junit.Assert.assertFalse
+ import org.junit.Assert.assertNotEquals
+ import org.junit.Assert.assertTrue
+ import org.junit.Test
+@@ -102,6 +103,17 @@ class StudioAudioRoutePolicyTest {
+         assertEquals(setOf("a2dp", "sco"), result.map { it.signature }.toSet())
+     }
+ 
++    @Test
++    fun synchronizedCueRejectsBluetoothButAllowsLowLatencyPhysicalRoutes() {
++        val bluetooth = choice(id = 7, type = 8, family = StudioAudioRoutePolicy.BLUETOOTH_FAMILY, signature = "bt")
++        val wired = choice(id = 8, type = 4, family = StudioAudioRoutePolicy.WIRED_FAMILY, signature = "wired")
++        val usb = choice(id = 9, type = 11, family = StudioAudioRoutePolicy.USB_FAMILY, signature = "usb")
++
++        assertFalse(StudioAudioRoutePolicy.cueEligible(bluetooth))
++        assertTrue(StudioAudioRoutePolicy.cueEligible(wired))
++        assertTrue(StudioAudioRoutePolicy.cueEligible(usb))
++    }
++
+     @Test
+     fun compatibilityRankingPrefersStudioStereo48kEndpointWithoutDependingOnOrder() {
+         val weak = choice(id = 1, type = 11, rates = listOf(44_100), channels = listOf(1))
 diff --git a/core/audio/src/main/kotlin/studio/guitarlab/core/audio/CueRouteSafetyPolicy.kt b/core/audio/src/main/kotlin/studio/guitarlab/core/audio/CueRouteSafetyPolicy.kt
 new file mode 100644
 index 0000000..e6a3e44
