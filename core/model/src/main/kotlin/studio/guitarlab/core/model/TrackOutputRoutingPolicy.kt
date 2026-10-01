@@ -16,4 +16,11 @@ object TrackOutputRoutingPolicy {
 
     fun toggleExclusiveCue(route: TrackOutputRoute): TrackOutputRoute =
         if (route == TrackOutputRoute.MAIN) TrackOutputRoute.CUE else TrackOutputRoute.MAIN
+
+    fun playbackNeedsCue(
+        routeByTrackId: Map<String, TrackOutputRoute>,
+        playbackTrackIds: Iterable<String>,
+    ): Boolean = playbackTrackIds.any { trackId ->
+        routeByTrackId[trackId]?.let(::sendsToCue) == true
+    }
 }
