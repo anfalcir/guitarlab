@@ -110,7 +110,9 @@ The currently implemented format set includes WAV PCM, FLAC, AIFF/AIFC PCM, MP3,
 - Studio supports a primary MAIN output and an optional explicit secondary CUE output for per-track monitoring/playback routing.
 - Each track persists a backward-compatible output route; legacy projects default to MAIN.
 - The mixer headphone/CUE control may route any track to the secondary bus; the first UI contract is exclusive MAIN ↔ CUE while the engine retains MAIN_AND_CUE capability for future controlled use.
+- Per-track output-route changes are allowed only with transport stopped; Play/REC uses a stable routing snapshot.
 - CUE requires an explicit MAIN route, a resolvable secondary device and live proof that MAIN/CUE are distinct endpoints. CUE never falls back silently to MAIN.
+- CUE output writes may not block MAIN. Secondary backpressure/partial writes suppress CUE fail-closed instead of stalling the primary render loop.
 - If the CUE route is lost, rejected, converges with MAIN or exceeds the bounded synchronization guard, CUE is silenced and the user receives explicit feedback; safe MAIN playback continues.
 - Playback/backing/monitoring return must never feed the recording writer.
 - Record uses visible 3-second countdown plus zero-time revalidation of permission, route, project and exactly one armed track.
