@@ -259,6 +259,8 @@ class MixerDockInstrumentedTest {
     @Test
     fun largeFontsGrowChannelsWithoutClippingPanOrShrinkingTargets() {
         val fontScale = mutableStateOf(1f)
+        val gainPreviews = AtomicInteger(0)
+        val gainCommits = AtomicInteger(0)
         val track = AudioTrack(id = "large-font", name = "Guitarra de referência E", order = 0)
         composeRule.setContent {
             val density = LocalDensity.current
@@ -269,7 +271,7 @@ class MixerDockInstrumentedTest {
                         mixControlsEnabled = true, structuralControlsEnabled = true,
                         masterGainDb = 0f, masterMeter = MeterBallisticsState(), trackMeters = emptyMap(),
                         masterClipLatched = true, trackClipLatched = setOf(track.id),
-                        onSelectTrack = {}, onGainPreview = { _, _ -> }, onGainCommit = { _, _ -> },
+                        onSelectTrack = {}, onGainPreview = { _, _ -> gainPreviews.incrementAndGet() }, onGainCommit = { _, _ -> gainCommits.incrementAndGet() },
                         onPanPreview = { _, _ -> }, onPanCommit = { _, _ -> },
                         onToggleMute = {}, onToggleSolo = {}, onToggleCue = {}, onToggleArm = {},
                         onMasterGainPreview = {}, onMasterGainCommit = {},
@@ -302,6 +304,13 @@ class MixerDockInstrumentedTest {
             assertTrue("$action touch target stays inside dock: $touch / $dock",
                 touch.top >= dock.top - 1f && touch.bottom <= dock.bottom + 1f)
         }
+        val volume = composeRule.onNodeWithContentDescription("Volume da pista ${track.name}")
+        scrollMixerControlIntoView(volume, "Volume touch test")
+        // Touch above the 20dp visual thumb, inside the actual 48dp interactive height.
+        volume.performTouchInput { click(Offset(center.x, height * 0.1f)) }
+        composeRule.waitForIdle()
+        assertTrue("Touch above the drawn thumb must update volume", gainPreviews.get() > 0)
+        assertTrue("Touch above the drawn thumb must commit volume", gainCommits.get() > 0)
         composeRule.captureCohesionScreenshot("rc24-mixer-large-font")
     }
 

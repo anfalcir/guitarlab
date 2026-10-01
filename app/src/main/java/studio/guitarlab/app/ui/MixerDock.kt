@@ -515,8 +515,17 @@ private fun DenseMixerSlider(
         Slider(
             value = value, onValueChange = onValueChange, onValueChangeFinished = onValueChangeFinished,
             valueRange = range, enabled = enabled,
-            modifier = Modifier.weight(1f).height(48.dp).semantics { this.contentDescription = contentDescription },
-            thumb = { Box(Modifier.size(width = 6.dp, height = 20.dp).background(tint, RoundedCornerShape(3.dp))) },
+            // Material Slider expands horizontal semantics by 10dp per side. Reserve that
+            // inside the channel so its accessible target remains reachable at either scroll end.
+            modifier = Modifier.weight(1f).height(48.dp).padding(horizontal = 10.dp)
+                .semantics { this.contentDescription = contentDescription },
+            thumb = {
+                // Slider measures its interactive height from the thumb layout. Keep that 48dp
+                // while centering the original compact 20dp drawing inside it.
+                Box(Modifier.size(width = 6.dp, height = 48.dp), contentAlignment = Alignment.Center) {
+                    Box(Modifier.size(width = 6.dp, height = 20.dp).background(tint, RoundedCornerShape(3.dp)))
+                }
+            },
             track = {
                 BoxWithConstraints(Modifier.fillMaxWidth().height(4.dp).background(MaterialTheme.colorScheme.outline.copy(alpha = 0.3f), RoundedCornerShape(2.dp))) {
                     val fraction = ((value - range.start) / (range.endInclusive - range.start)).coerceIn(0f, 1f)
