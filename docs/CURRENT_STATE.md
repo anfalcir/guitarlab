@@ -26,6 +26,8 @@ RC21 reached signed digital-candidate state, but RC22 now supersedes it as the a
 - initial qualification CI #913 / run `36865931256`: **FAIL** because `StudioViewModel.kt` referenced `cueOutputSignature` without resolving it inside backing playback during recording;
 - corrective source and payload were applied; final hardening makes CUE transport-stable, non-blocking relative to MAIN and restricted to low-latency secondary routes. The exact hash-reconciled source is now under final branch qualification before integration. CI #923 isolated one API36 accessibility defect: expanded CUE/Arm touch targets overlapped in the Mixer; the row spacing was corrected and the RC22 payload/materializer were re-sealed to that fix.
 
+- API36 #923 isolated one Mixer accessibility regression: expanded CUE/Arm touch targets overlapped; spacing was corrected and the RC22 payload/materializer re-locked before the next qualification.
+
 ## RC22 feature scope
 
 ### Per-track routing
