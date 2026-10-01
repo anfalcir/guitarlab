@@ -14,10 +14,21 @@ index 5e3343d..5b8556b 100644
      }
  
 diff --git a/app/src/androidTest/java/studio/guitarlab/app/MixerDockInstrumentedTest.kt b/app/src/androidTest/java/studio/guitarlab/app/MixerDockInstrumentedTest.kt
-index 142bc73..3ab754e 100644
+index 142bc73..0e446c4 100644
 --- a/app/src/androidTest/java/studio/guitarlab/app/MixerDockInstrumentedTest.kt
 +++ b/app/src/androidTest/java/studio/guitarlab/app/MixerDockInstrumentedTest.kt
-@@ -20,7 +20,6 @@ import androidx.compose.ui.test.swipe
+@@ -1,6 +1,10 @@
+ package studio.guitarlab.app
+ 
+ import androidx.compose.ui.geometry.Offset
++import androidx.compose.runtime.CompositionLocalProvider
++import androidx.compose.runtime.mutableStateOf
++import androidx.compose.ui.platform.LocalDensity
++import androidx.compose.ui.unit.Density
+ import androidx.compose.ui.semantics.Role
+ import androidx.compose.ui.semantics.SemanticsProperties
+ import androidx.compose.ui.test.SemanticsMatcher
+@@ -20,7 +24,6 @@ import androidx.compose.ui.test.swipe
  import androidx.test.ext.junit.runners.AndroidJUnit4
  import androidx.test.platform.app.InstrumentationRegistry
  import java.util.concurrent.atomic.AtomicInteger
@@ -25,7 +36,7 @@ index 142bc73..3ab754e 100644
  import org.junit.Assert.assertEquals
  import org.junit.Assert.assertTrue
  import org.junit.Rule
-@@ -37,7 +36,7 @@ class MixerDockInstrumentedTest {
+@@ -37,7 +40,7 @@ class MixerDockInstrumentedTest {
      val composeRule = createComposeRule()
  
      @Test
@@ -34,7 +45,7 @@ index 142bc73..3ab754e 100644
          val muteClicks = AtomicInteger(0)
          val soloClicks = AtomicInteger(0)
          val cueClicks = AtomicInteger(0)
-@@ -112,38 +111,28 @@ class MixerDockInstrumentedTest {
+@@ -112,38 +115,28 @@ class MixerDockInstrumentedTest {
          assertEquals(1, masterClipClicks.get())
  
          val density = InstrumentationRegistry.getInstrumentation().targetContext.resources.displayMetrics.density
@@ -94,6 +105,46 @@ index 142bc73..3ab754e 100644
      }
      @Test
      fun cueRoutingIsDisabledWhenStructuralTransportEditsAreLocked() {
+@@ -246,4 +239,39 @@ class MixerDockInstrumentedTest {
+         assertEquals(masterBefore.right, masterAfter.right, 1f)
+     }
+ 
++    @Test
++    fun largeFontsGrowChannelsWithoutClippingPanOrShrinkingTargets() {
++        val fontScale = mutableStateOf(1f)
++        val track = AudioTrack(id = "large-font", name = "Guitarra de referência E", order = 0)
++        composeRule.setContent {
++            val density = LocalDensity.current
++            CompositionLocalProvider(LocalDensity provides Density(density.density, fontScale.value)) {
++                GuitarLabTheme(darkTheme = true) {
++                    MixerDock(
++                        tracks = listOf(track), selectedTrackId = track.id,
++                        mixControlsEnabled = true, structuralControlsEnabled = true,
++                        masterGainDb = 0f, masterMeter = MeterBallisticsState(), trackMeters = emptyMap(),
++                        masterClipLatched = true, trackClipLatched = setOf(track.id),
++                        onSelectTrack = {}, onGainPreview = { _, _ -> }, onGainCommit = { _, _ -> },
++                        onPanPreview = { _, _ -> }, onPanCommit = { _, _ -> },
++                        onToggleMute = {}, onToggleSolo = {}, onToggleCue = {}, onToggleArm = {},
++                        onMasterGainPreview = {}, onMasterGainCommit = {},
++                        onClearTrackClip = {}, onClearMasterClip = {},
++                    )
++                }
++            }
++        }
++        val before = composeRule.onNodeWithTag("mixer-track-strip-${track.id}").fetchSemanticsNode().boundsInRoot
++        composeRule.runOnIdle { fontScale.value = 1.5f }
++        val after = composeRule.onNodeWithTag("mixer-track-strip-${track.id}").fetchSemanticsNode().boundsInRoot
++        assertTrue("Larger fonts must increase channel width", after.width > before.width)
++        assertTrue("Larger fonts must increase channel height", after.height > before.height)
++        listOf("Mute", "Solo", "Saída CUE", "Gravação", "Volume", "Pan").forEach { action ->
++            val node = composeRule.onNodeWithContentDescription("$action da pista ${track.name}")
++                .performScrollTo().assertIsDisplayed().fetchSemanticsNode().boundsInRoot
++            assertTrue("$action must be inside the dock", node.bottom <= after.bottom + 1f)
++        }
++        captureCohesionScreenshot("rc23-mixer-large-font")
++    }
++
+ }
 diff --git a/app/src/androidTest/java/studio/guitarlab/app/PracticeWorkflowInstrumentedTest.kt b/app/src/androidTest/java/studio/guitarlab/app/PracticeWorkflowInstrumentedTest.kt
 index 829268a..867caad 100644
 --- a/app/src/androidTest/java/studio/guitarlab/app/PracticeWorkflowInstrumentedTest.kt
@@ -117,15 +168,17 @@ index 829268a..867caad 100644
              // TransportBar owns the REC button interaction contract in TransportBarInstrumentedTest.
 diff --git a/app/src/androidTest/java/studio/guitarlab/app/StudioMixerTabletInstrumentedTest.kt b/app/src/androidTest/java/studio/guitarlab/app/StudioMixerTabletInstrumentedTest.kt
 new file mode 100644
-index 0000000..8eeafc2
+index 0000000..9f82ff4
 --- /dev/null
 +++ b/app/src/androidTest/java/studio/guitarlab/app/StudioMixerTabletInstrumentedTest.kt
-@@ -0,0 +1,66 @@
+@@ -0,0 +1,78 @@
 +package studio.guitarlab.app
 +
 +import androidx.compose.ui.test.assertIsDisplayed
 +import androidx.compose.ui.test.junit4.createAndroidComposeRule
 +import androidx.compose.ui.test.onNodeWithTag
++import androidx.compose.ui.test.onAllNodesWithTag
++import androidx.compose.ui.semantics.SemanticsProperties
 +import androidx.compose.ui.test.performClick
 +import androidx.lifecycle.ViewModelProvider
 +import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -164,8 +217,18 @@ index 0000000..8eeafc2
 +                ViewModelProvider(activity)[AppNavigationViewModel::class.java].navigate(AppScreen.Studio(project.id))
 +            }
 +            compose.waitUntil(20_000) {
-+                runCatching { compose.onNodeWithTag("mixer-master-strip").assertIsDisplayed() }.isSuccess
++                runCatching { compose.onNodeWithTag("studio-loaded").assertIsDisplayed() }.isSuccess
 +            }
++            // A restored Studio composition may retain workspace preferences from a prior entry;
++            // use the actual controls to normalize this test's explicitly requested dock state.
++            if (compose.onAllNodesWithTag("mixer-master-strip").fetchSemanticsNodes().isEmpty()) {
++                compose.onNodeWithTag("studio-mixer-toggle").performClick()
++            }
++            val pin = compose.onNodeWithTag("studio-mixer-pin")
++            if (pin.fetchSemanticsNode().config[SemanticsProperties.StateDescription] != "Fixado") pin.performClick()
++            val height = compose.onNodeWithTag("studio-mixer-height")
++            if (height.fetchSemanticsNode().config[SemanticsProperties.StateDescription] != "Compacto") height.performClick()
++            compose.waitForIdle()
 +            val scroller = compose.onNodeWithTag("mixer-track-scroll").fetchSemanticsNode().boundsInRoot
 +            project.tracks.forEach { track ->
 +                val bounds = compose.onNodeWithTag("mixer-track-strip-${track.id}").assertIsDisplayed().fetchSemanticsNode().boundsInRoot

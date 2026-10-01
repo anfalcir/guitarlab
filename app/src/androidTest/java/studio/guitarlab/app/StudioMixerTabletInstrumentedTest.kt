@@ -3,6 +3,8 @@ package studio.guitarlab.app
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.performClick
 import androidx.lifecycle.ViewModelProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -41,8 +43,18 @@ class StudioMixerTabletInstrumentedTest {
                 ViewModelProvider(activity)[AppNavigationViewModel::class.java].navigate(AppScreen.Studio(project.id))
             }
             compose.waitUntil(20_000) {
-                runCatching { compose.onNodeWithTag("mixer-master-strip").assertIsDisplayed() }.isSuccess
+                runCatching { compose.onNodeWithTag("studio-loaded").assertIsDisplayed() }.isSuccess
             }
+            // A restored Studio composition may retain workspace preferences from a prior entry;
+            // use the actual controls to normalize this test's explicitly requested dock state.
+            if (compose.onAllNodesWithTag("mixer-master-strip").fetchSemanticsNodes().isEmpty()) {
+                compose.onNodeWithTag("studio-mixer-toggle").performClick()
+            }
+            val pin = compose.onNodeWithTag("studio-mixer-pin")
+            if (pin.fetchSemanticsNode().config[SemanticsProperties.StateDescription] != "Fixado") pin.performClick()
+            val height = compose.onNodeWithTag("studio-mixer-height")
+            if (height.fetchSemanticsNode().config[SemanticsProperties.StateDescription] != "Compacto") height.performClick()
+            compose.waitForIdle()
             val scroller = compose.onNodeWithTag("mixer-track-scroll").fetchSemanticsNode().boundsInRoot
             project.tracks.forEach { track ->
                 val bounds = compose.onNodeWithTag("mixer-track-strip-${track.id}").assertIsDisplayed().fetchSemanticsNode().boundsInRoot

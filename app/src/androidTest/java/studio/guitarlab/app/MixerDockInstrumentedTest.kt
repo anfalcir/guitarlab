@@ -1,6 +1,10 @@
 package studio.guitarlab.app
 
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
@@ -233,6 +237,41 @@ class MixerDockInstrumentedTest {
         val masterAfter = composeRule.onNodeWithTag("mixer-master-strip").fetchSemanticsNode().boundsInRoot
         assertEquals(masterBefore.left, masterAfter.left, 1f)
         assertEquals(masterBefore.right, masterAfter.right, 1f)
+    }
+
+    @Test
+    fun largeFontsGrowChannelsWithoutClippingPanOrShrinkingTargets() {
+        val fontScale = mutableStateOf(1f)
+        val track = AudioTrack(id = "large-font", name = "Guitarra de referência E", order = 0)
+        composeRule.setContent {
+            val density = LocalDensity.current
+            CompositionLocalProvider(LocalDensity provides Density(density.density, fontScale.value)) {
+                GuitarLabTheme(darkTheme = true) {
+                    MixerDock(
+                        tracks = listOf(track), selectedTrackId = track.id,
+                        mixControlsEnabled = true, structuralControlsEnabled = true,
+                        masterGainDb = 0f, masterMeter = MeterBallisticsState(), trackMeters = emptyMap(),
+                        masterClipLatched = true, trackClipLatched = setOf(track.id),
+                        onSelectTrack = {}, onGainPreview = { _, _ -> }, onGainCommit = { _, _ -> },
+                        onPanPreview = { _, _ -> }, onPanCommit = { _, _ -> },
+                        onToggleMute = {}, onToggleSolo = {}, onToggleCue = {}, onToggleArm = {},
+                        onMasterGainPreview = {}, onMasterGainCommit = {},
+                        onClearTrackClip = {}, onClearMasterClip = {},
+                    )
+                }
+            }
+        }
+        val before = composeRule.onNodeWithTag("mixer-track-strip-${track.id}").fetchSemanticsNode().boundsInRoot
+        composeRule.runOnIdle { fontScale.value = 1.5f }
+        val after = composeRule.onNodeWithTag("mixer-track-strip-${track.id}").fetchSemanticsNode().boundsInRoot
+        assertTrue("Larger fonts must increase channel width", after.width > before.width)
+        assertTrue("Larger fonts must increase channel height", after.height > before.height)
+        listOf("Mute", "Solo", "Saída CUE", "Gravação", "Volume", "Pan").forEach { action ->
+            val node = composeRule.onNodeWithContentDescription("$action da pista ${track.name}")
+                .performScrollTo().assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+            assertTrue("$action must be inside the dock", node.bottom <= after.bottom + 1f)
+        }
+        captureCohesionScreenshot("rc23-mixer-large-font")
     }
 
 }
