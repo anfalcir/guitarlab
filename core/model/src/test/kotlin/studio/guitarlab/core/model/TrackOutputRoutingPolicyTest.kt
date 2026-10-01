@@ -24,4 +24,18 @@ class TrackOutputRoutingPolicyTest {
         assertEquals(TrackOutputRoute.MAIN, TrackOutputRoutingPolicy.toggleExclusiveCue(TrackOutputRoute.CUE))
         assertEquals(TrackOutputRoute.MAIN, TrackOutputRoutingPolicy.toggleExclusiveCue(TrackOutputRoute.MAIN_AND_CUE))
     }
+    @Test
+    fun cueSinkOpensOnlyWhenPlaybackContentBelongsToCueRoute() {
+        val routes = mapOf(
+            "backing" to TrackOutputRoute.MAIN,
+            "reference" to TrackOutputRoute.CUE,
+            "empty-cue" to TrackOutputRoute.CUE,
+        )
+
+        assertFalse(TrackOutputRoutingPolicy.playbackNeedsCue(routes, listOf("backing")))
+        assertTrue(TrackOutputRoutingPolicy.playbackNeedsCue(routes, listOf("backing", "reference")))
+        assertFalse(TrackOutputRoutingPolicy.playbackNeedsCue(routes, emptyList()))
+        assertFalse(TrackOutputRoutingPolicy.playbackNeedsCue(routes, listOf("missing")))
+    }
+
 }
