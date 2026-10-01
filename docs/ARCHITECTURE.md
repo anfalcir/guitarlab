@@ -1,6 +1,6 @@
 # GuitarLab Architecture
 
-Updated: 2026-09-25
+Updated: 2026-10-01
 
 ## Repository and release boundary
 - `main` is canonical.
@@ -81,6 +81,15 @@ Home is the project-library/navigation surface. Studio remains the creative edit
 
 ## Output and mixing
 The canonical Export workspace owns external delivery; editable `.guitarlab` persistence is distinct from WAV/FLAC/MP3 master delivery. Home/Studio export entry points route to that single workspace. Mixer state is persisted where applicable and playback/export must respect gain/pan/mute/solo/master behavior.
+
+Live Studio playback has two logical stereo buses:
+`track render → per-track gain/pan/audibility → MAIN and/or CUE bus → independent Android output sinks`.
+
+Track output routing is durable project metadata with `MAIN` as the compatibility default. MAIN is the normal master/monitor sink. CUE is an optional secondary monitoring sink and is fail-closed: it requires an explicit MAIN selection, an explicit distinct CUE selection, successful endpoint opening and effective-route confirmation. Runtime routing is rechecked while streaming; route convergence/loss suppresses CUE rather than leaking its tracks to MAIN. A bounded presented-frame drift guard also suppresses CUE if two independently clocked devices diverge beyond the safety envelope.
+
+Normal Play and backing playback during REC use the same dual-bus playback engine. Software monitoring of the armed input follows that track's exclusive MAIN/CUE state when monitoring is enabled; a required CUE monitor route is verified and silenced on fallback while capture continues. The recording writer remains input-only and never consumes playback/CUE data.
+
+CUE assignment is intentionally not part of offline Master Export exclusion semantics. Export renders project mix state; physical monitoring assignments do not delete or omit a track from the deliverable.
 
 ## Lifecycle and persistence
 Durable creative state belongs in project persistence, not transient Composable state. Navigation/recreation and interrupted media operations are independently recoverable. Home library query state is presentation state and may be recreated without changing project data.
