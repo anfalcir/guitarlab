@@ -12,10 +12,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CompareArrows
-import androidx.compose.material.icons.filled.Height
-import androidx.compose.material.icons.filled.PushPin
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Timeline
-import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -35,17 +34,15 @@ import studio.guitarlab.core.project.GuitarAuditionMode
 
 /** Fixed slots; only the available viewport, never operation state, changes layout. */
 enum class StudioActionPanel(val label: String) {
-    COMPARISON("Comparação"), ADJUSTMENTS("Ajustes"), TIMELINE("Timeline"),
+    COMPARISON("Comparação"), TIMELINE("Timeline"),
 }
 
 @Composable
 fun StudioWorkspaceBar(
     auditionMode: GuitarAuditionMode,
     mixerVisible: Boolean,
-    mixerPinned: Boolean,
-    mixerExpanded: Boolean,
-    onToggleMixerPin: () -> Unit,
-    onToggleMixerHeight: () -> Unit,
+    mixerMinimal: Boolean,
+    onToggleMixerMode: () -> Unit,
     panelContent: @Composable (StudioActionPanel) -> Unit,
     transportContent: @Composable () -> Unit,
     modifier: Modifier = Modifier,
@@ -55,21 +52,20 @@ fun StudioWorkspaceBar(
         BoxWithConstraints(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp)) {
             val viewportWidth = maxWidth
             // At tablet widths the transport has its own centered slot. Small screens scroll
-            // the SAME row; controls never wrap or disappear when recording/comparing/pinning.
+            // the SAME row; controls never wrap or disappear when recording/comparing/changing Mixer mode.
             Row(
                 Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
                     .width(viewportWidth.coerceAtLeast(664.dp)),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                Row(Modifier.width(104.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     StudioActionPanel.entries.forEach { panel ->
                         Box {
                             val active = panel == StudioActionPanel.COMPARISON && auditionMode != GuitarAuditionMode.MIXER
                             AppIconButton(
                                 icon = when (panel) {
                                     StudioActionPanel.COMPARISON -> Icons.Default.CompareArrows
-                                    StudioActionPanel.ADJUSTMENTS -> Icons.Default.Tune
                                     StudioActionPanel.TIMELINE -> Icons.Default.Timeline
                                 },
                                 contentDescription = panel.label,
@@ -103,31 +99,21 @@ fun StudioWorkspaceBar(
                             DropdownMenu(
                                 expanded = openPanel == panel,
                                 onDismissRequest = { openPanel = null },
-                                modifier = Modifier.width(viewportWidth.coerceAtMost(480.dp))
+                                modifier = Modifier.width(viewportWidth.coerceAtMost(if (panel == StudioActionPanel.COMPARISON) 240.dp else 320.dp))
                                     .testTag("studio-panel-${panel.name.lowercase()}"),
                             ) { panelContent(panel) }
                         }
                     }
                 }
                 Box(Modifier.weight(1f), contentAlignment = Alignment.Center) { transportContent() }
-                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                Box(Modifier.width(104.dp), contentAlignment = Alignment.CenterEnd) {
                     AppIconButton(
-                        icon = Icons.Default.PushPin,
-                        contentDescription = "Fixar Mixer",
+                        icon = if (mixerMinimal) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                        contentDescription = if (mixerMinimal) "Mostrar Mixer completo" else "Mostrar Mixer mínimo",
                         enabled = mixerVisible,
-                        tint = if (mixerPinned) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                        onClick = onToggleMixerPin,
-                        modifier = Modifier.testTag("studio-mixer-pin").semantics {
-                            stateDescription = if (mixerPinned) "Fixado" else "Flutuante"
-                        },
-                    )
-                    AppIconButton(
-                        icon = Icons.Default.Height,
-                        contentDescription = "Altura do Mixer",
-                        enabled = mixerVisible,
-                        onClick = onToggleMixerHeight,
-                        modifier = Modifier.testTag("studio-mixer-height").semantics {
-                            stateDescription = if (mixerExpanded) "Ampliado" else "Compacto"
+                        onClick = onToggleMixerMode,
+                        modifier = Modifier.testTag("studio-mixer-mode").semantics {
+                            stateDescription = if (mixerMinimal) "Mínimo" else "Completo"
                         },
                     )
                 }

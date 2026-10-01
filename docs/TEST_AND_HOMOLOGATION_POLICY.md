@@ -101,9 +101,9 @@ A candidate is invalidated when source, materialized runtime bytes, package/vers
 
 ## Current feature application
 
-RC22 is an owner-requested post-freeze feature under D-090/D-096 and supersedes RC21 as the active Android candidate. It adds per-track MAIN/CUE monitoring and therefore reopens playback/routing/monitoring qualification but does not reopen the frozen Demucs worker or unrelated Drive transport semantics. RC20 remains the accepted baseline until an exact signed RC22 candidate completes the required affected-path physical validation.
+RC24 is an owner-requested UI correction after RC23 physical UX rejection. It reopens affected Studio menu/Mixer/preference/layout qualification, including real pointer/slider interaction, large-font/overflow behavior and populated timeline evidence. Existing routing/recording/audio regressions remain applicable; audio engine, frozen Demucs and unrelated Drive transport are unchanged. RC23 digital PASS is not physical UX acceptance. RC20 remains the accepted baseline until exact successor artifact acceptance.
 
-RC21's already-qualified persistence/backup/feedback changes are inherited by RC22 because RC22 is built from the canonical RC21-integrated `main`; their prior evidence remains supporting evidence for unaffected paths.
+Automated geometry must establish useful workspace density, not only control existence: inline non-overlapping touch regions with near-target visible faces, complete/minimum height budgets, a third full waveform lane with complete Mixer on target-tablet geometry, menu contents fitting without horizontal scrolling, and stable navbar slots. Inspect CI screenshots of five managed-audio clips in complete/minimum/hidden states before declaring digital UI qualification complete. Owner physical acceptance remains a distinct step.
 
 ## Frozen baseline
 

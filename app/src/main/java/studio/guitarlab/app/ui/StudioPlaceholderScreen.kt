@@ -520,12 +520,46 @@ internal fun PracticeControls(
     }
 
     if (panel != null) {
-        val actions = when (panel) {
-            StudioActionPanel.COMPARISON -> comparisonContent
-            StudioActionPanel.ADJUSTMENTS -> adjustmentsContent
-            StudioActionPanel.TIMELINE -> timelineContent
+        // Navbar panels have their own vertical layout, not a clipped horizontal toolbar.
+        Column(modifier.fillMaxWidth()) {
+            Text(panel.label, Modifier.padding(horizontal = 16.dp, vertical = 8.dp), style = MaterialTheme.typography.titleSmall)
+            if (panel == StudioActionPanel.COMPARISON) {
+                GuitarAuditionMode.entries.forEach { mode ->
+                    val label = when (mode) {
+                        GuitarAuditionMode.MIXER -> "Desativado"
+                        GuitarAuditionMode.REFERENCE -> "Referência"
+                        GuitarAuditionMode.MY_GUITAR -> "Minha"
+                        GuitarAuditionMode.BOTH -> "Ambas"
+                    }
+                    DropdownMenuItem(
+                        text = { Text(label) }, onClick = { onAuditionMode(mode) },
+                        modifier = Modifier.fillMaxWidth().semantics { selected = mode == auditionMode },
+                        trailingIcon = { if (mode == auditionMode) Text("✓") },
+                    )
+                }
+            } else {
+                DropdownMenuItem(text = { Text("+ Marcador") }, onClick = onAddMarker, enabled = enabled)
+                DropdownMenuItem(
+                    text = {
+                        Column {
+                            Text("Criar seção do loop")
+                            if (!loopEnabled) Text("Defina e ative um loop primeiro", style = MaterialTheme.typography.labelSmall)
+                        }
+                    }, onClick = onAddSection, enabled = enabled && loopEnabled,
+                )
+                DropdownMenuItem(text = { Text("Auto seções") }, onClick = onSuggestSections, enabled = enabled && suggestions == 0)
+                if (suggestions > 0) {
+                    DropdownMenuItem(text = { Text("Aplicar") }, onClick = onAcceptSections, enabled = enabled)
+                    DropdownMenuItem(text = { Text("Descartar") }, onClick = onDiscardSections, enabled = enabled)
+                }
+                androidx.compose.material3.HorizontalDivider()
+                DropdownMenuItem(
+                    text = { Text("Limpar seções", color = MaterialTheme.colorScheme.error) },
+                    onClick = { confirmClearSections = true },
+                    enabled = enabled && (project.sections.isNotEmpty() || suggestions > 0),
+                )
+            }
         }
-        PracticeControlGroup(panel.label, modifier.fillMaxWidth(), actions, horizontalScroll = true)
     } else if (docked) {
         SegmentedPracticeBar(
             modifier = modifier.fillMaxWidth(),

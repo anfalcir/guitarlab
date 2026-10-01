@@ -24,27 +24,28 @@ class StudioUiPreferencesStoreInstrumentedTest {
         }
     }
     @Test
-    fun pinAndHeightPersistIndependentlyOfVisibility() {
+    fun minimumPersistsIndependentlyAndLegacyHeightStartsComplete() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
-        val store = StudioUiPreferencesStore(context)
-        val previousVisible = store.mixerVisible()
-        val previousPinned = store.mixerPinned()
-        val previousExpanded = store.mixerExpanded()
+        val raw = context.getSharedPreferences("studio_ui_preferences", android.content.Context.MODE_PRIVATE)
+        val previous = raw.all
         try {
-            store.setMixerPinned(true)
-            store.setMixerExpanded(true)
+            raw.edit().clear().putBoolean("mixer_expanded", false).putBoolean("mixer_dock_pinned", false)
+                .putBoolean("mixer_pinned", true).commit()
+            val store = StudioUiPreferencesStore(context)
+            assertTrue("Legacy visibility must survive", store.mixerVisible())
+            assertFalse("Old height flag must not hide controls on upgrade", store.mixerMinimal())
+            store.setMixerMinimal(true)
             store.setMixerVisible(false)
-            val reopened = StudioUiPreferencesStore(context)
-            assertFalse(reopened.mixerVisible())
-            assertTrue(reopened.mixerPinned())
-            assertTrue(reopened.mixerExpanded())
-            reopened.setMixerPinned(false)
-            assertFalse(StudioUiPreferencesStore(context).mixerPinned())
+            assertTrue(StudioUiPreferencesStore(context).mixerMinimal())
+            assertFalse(StudioUiPreferencesStore(context).mixerVisible())
+            store.setMixerVisible(true)
+            assertTrue(StudioUiPreferencesStore(context).mixerMinimal())
+            assertFalse(raw.contains("mixer_dock_pinned"))
+            assertFalse(raw.contains("mixer_expanded"))
         } finally {
-            store.setMixerVisible(previousVisible)
-            store.setMixerPinned(previousPinned)
-            store.setMixerExpanded(previousExpanded)
+            raw.edit().clear().also { editor ->
+                previous.forEach { (key, value) -> if (value is Boolean) editor.putBoolean(key, value) }
+            }.commit()
         }
     }
-
 }

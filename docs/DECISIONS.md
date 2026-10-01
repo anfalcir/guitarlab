@@ -482,3 +482,13 @@ The owner requested removal of the persistent Comparison/Adjustments/Timeline ro
 - normative older practice-bar layout provisions are superseded by this decision only where they conflict; prior evidence is retained, and affected geometry/interaction is requalified.
 
 Reference rationale: Logic Pro for iPad documents complete per-channel volume/pan/mute/solo/record/level controls (https://support.apple.com/en-lamr/guide/logicpro-ipad/lpipfc8ea6fc/ipados); Cubase documents channel-width zoom independent of section height (https://www.steinberg.help/r/cubase-pro/15.0/en/cubase_nuendo/topics/mixconsole/mixconsole_functions_menu_r.html). The 168 dp / two-row touchscreen adaptation is a GuitarLab design decision; references do not certify its physical ergonomics.
+
+## D-100 — Correct RC23 density using owner-device evidence
+
+Date: 2026-10-01. Supersedes D-099 presentation/pinning/height choices and the floating presentation in D-022; visibility and all domain/audio contracts remain applicable.
+
+Owner video `141016.mp4` rejects the delivered RC23 presentation: excessive dock height, off-center two-row buttons, bulky sliders, unused Master space, uniform-width clipped/empty menus and redundant Pin/Height controls. Software PASS did not establish UX acceptance.
+
+Implement fixed Comparison/Timeline navbar slots with balanced side groups, Master-owned Níveis and one minimum/complete toggle. Mixer always docks. Complete/minimum heights are 252/172 dp; four 48 dp targets with 46 dp faces fit one row in 200 dp channels. All state buttons remain direct even in minimum; full pan/meters/clip reset remain available through the shared complete details strip. No engine changes or alternative mix state.
+
+Proportional regression covers actual target/face geometry, slider commits, full/minimum details, transport locks, horizontal overflow, large fonts, old preference upgrade, menu fit and filled five-track tablet screenshots with explicit timeline height recovery. Existing Loop→REC and adjacent regression remain. RC24 is a new exact-source candidate; RC23 evidence/payload remains immutable and physical rejection is recorded separately from digital PASS. Do not monitor workflow execution; wait for owner-reported result before consulting completed evidence.

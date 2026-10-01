@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Text
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -33,49 +34,50 @@ class StudioWorkspaceBarInstrumentedTest {
     fun navbarSlotsStayFixedWhileModesMixerAndPanelsChange() {
         val mode = mutableStateOf(GuitarAuditionMode.MIXER)
         val visible = mutableStateOf(true)
-        val pinned = mutableStateOf(true)
-        val expanded = mutableStateOf(false)
+        val minimal = mutableStateOf(false)
         compose.setContent {
             GuitarLabTheme(darkTheme = true) {
                 StudioWorkspaceBar(
                     auditionMode = mode.value, mixerVisible = visible.value,
-                    mixerPinned = pinned.value, mixerExpanded = expanded.value,
-                    onToggleMixerPin = { pinned.value = !pinned.value },
-                    onToggleMixerHeight = { expanded.value = !expanded.value },
+                    mixerMinimal = minimal.value,
+                    onToggleMixerMode = { minimal.value = !minimal.value },
                     panelContent = { Text(it.label) },
-                    transportContent = { Text("Transport") },
+                    transportContent = { Text("Transport", Modifier.testTag("test-transport")) },
                 )
             }
         }
-        val tags = listOf("studio-action-comparison", "studio-action-adjustments", "studio-action-timeline", "studio-mixer-pin", "studio-mixer-height")
+        val tags = listOf("studio-action-comparison", "studio-action-timeline", "studio-mixer-mode")
         fun bounds() = tags.map { tag ->
             compose.onNodeWithTag(tag).performScrollTo().fetchSemanticsNode().boundsInRoot
         }
         val before = bounds()
+        val navbar = compose.onNodeWithTag("studio-workspace-bar").fetchSemanticsNode().boundsInRoot
+        val transport = compose.onNodeWithTag("test-transport").fetchSemanticsNode().boundsInRoot
+        assertEquals("Transport must be centered on the viewport", navbar.center.x, transport.center.x, 1f)
+        compose.onNodeWithTag("studio-mixer-mode").performScrollTo().performClick()
+        assertEquals(before, bounds())
         compose.runOnIdle {
             mode.value = GuitarAuditionMode.BOTH
             visible.value = false
-            pinned.value = false
-            expanded.value = true
+            minimal.value = true
         }
         assertEquals(before, bounds())
-        compose.onNodeWithTag("studio-mixer-pin").assertIsNotEnabled()
+        compose.onNodeWithTag("studio-mixer-mode").assertIsNotEnabled()
         compose.onNodeWithTag("studio-action-comparison").performScrollTo().performClick()
         compose.onNodeWithTag("studio-panel-comparison").assertIsDisplayed()
         assertEquals(before, bounds())
-        compose.captureCohesionScreenshot("rc23-navbar-comparison")
+        compose.captureCohesionScreenshot("rc24-navbar-comparison")
     }
 
     @Test
-    fun comparisonRemainsOpenAcrossAuditionChangesAndAdjustmentsUsesExistingAction() {
+    fun comparisonRemainsOpenAndTimelineActionsFitWithoutHorizontalScrolling() {
         val mode = mutableStateOf(GuitarAuditionMode.MIXER)
-        var levelClicks = 0
         val project = ProjectFactory().create("Studio menus", ProjectTemplate.BLANK)
         compose.setContent {
             GuitarLabTheme(darkTheme = false) {
                 StudioWorkspaceBar(
-                    auditionMode = mode.value, mixerVisible = true, mixerPinned = true, mixerExpanded = false,
-                    onToggleMixerPin = {}, onToggleMixerHeight = {}, transportContent = { Text("Transport") },
+                    auditionMode = mode.value, mixerVisible = true, mixerMinimal = false,
+                    onToggleMixerMode = {}, transportContent = { Text("Transport", Modifier.testTag("test-transport")) },
                     panelContent = { panel ->
                         PracticeControls(
                             project = project, auditionMode = mode.value, suggestions = 0,
@@ -83,7 +85,7 @@ class StudioWorkspaceBarInstrumentedTest {
                             onAuditionMode = { mode.value = it }, onAddMarker = {}, onAddSection = {},
                             onSuggestSections = {}, onAcceptSections = {}, onDiscardSections = {}, onClearSections = {},
                             onLoopSection = {}, onRemoveMarker = {}, onRemoveSection = {},
-                            onOpenLevelAnalysis = { levelClicks++ }, panel = panel,
+                            onOpenLevelAnalysis = {}, panel = panel,
                         )
                     },
                 )
@@ -98,9 +100,16 @@ class StudioWorkspaceBarInstrumentedTest {
         // Dismiss through the real platform back action before opening a different anchored menu.
         androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK)
         compose.waitForIdle()
-        compose.onNodeWithTag("studio-action-adjustments").performScrollTo().performClick()
-        compose.onNodeWithTag("open-all-level-analysis").assertIsDisplayed().performClick()
-        assertEquals(1, levelClicks)
+        compose.onNodeWithTag("studio-action-timeline").performScrollTo().performClick()
+        val menu = compose.onNodeWithTag("studio-panel-timeline").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+        listOf("+ Marcador", "Criar seção do loop", "Auto seções", "Limpar seções").forEach { label ->
+            val action = compose.onNodeWithText(label).assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+            org.junit.Assert.assertTrue("$label must fit fully in the menu", action.left >= menu.left && action.right <= menu.right)
+        }
+        compose.onNodeWithText("Criar seção do loop").assertIsNotEnabled()
+        compose.onNodeWithText("Defina e ative um loop primeiro").assertIsDisplayed()
+        compose.captureCohesionScreenshot("rc24-navbar-timeline")
+
     }
 
     @Test
@@ -110,15 +119,15 @@ class StudioWorkspaceBarInstrumentedTest {
                 Box(Modifier.width(320.dp)) {
                     StudioWorkspaceBar(
                         auditionMode = GuitarAuditionMode.REFERENCE, mixerVisible = true,
-                        mixerPinned = true, mixerExpanded = false,
-                        onToggleMixerPin = {}, onToggleMixerHeight = {},
-                        panelContent = { Text(it.label) }, transportContent = { Text("Transport") },
+                        mixerMinimal = false,
+                        onToggleMixerMode = {},
+                        panelContent = { Text(it.label) }, transportContent = { Text("Transport", Modifier.testTag("test-transport")) },
                     )
                 }
             }
         }
         val first = compose.onNodeWithTag("studio-action-comparison").performScrollTo().assertIsDisplayed().fetchSemanticsNode().boundsInRoot
-        val last = compose.onNodeWithTag("studio-mixer-height").performScrollTo().assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+        val last = compose.onNodeWithTag("studio-mixer-mode").performScrollTo().assertIsDisplayed().fetchSemanticsNode().boundsInRoot
         assertEquals(first.top, last.top, 1f)
         assertEquals(first.height, last.height, 1f)
     }

@@ -66,8 +66,7 @@ fun StudioShellScreen(
     ExternalControlHub.initialize(context)
     val uiPreferences = remember(context) { StudioUiPreferencesStore(context) }
     var mixerVisible by rememberSaveable { mutableStateOf(uiPreferences.mixerVisible()) }
-    var mixerPinned by rememberSaveable { mutableStateOf(uiPreferences.mixerPinned()) }
-    var mixerExpanded by rememberSaveable { mutableStateOf(uiPreferences.mixerExpanded()) }
+    var mixerMinimal by rememberSaveable { mutableStateOf(uiPreferences.mixerMinimal()) }
     var selectedTrackId by rememberSaveable(projectId) { mutableStateOf<String?>(null) }
     var helpDialogVisible by rememberSaveable(projectId) { mutableStateOf(false) }
     var allLevelsDialogVisible by rememberSaveable(projectId) { mutableStateOf(false) }
@@ -160,7 +159,8 @@ fun StudioShellScreen(
                 onMasterGainCommit = viewModel::commitMasterGainDb,
                 onClearTrackClip = viewModel::clearTrackClipIndicator,
                 onClearMasterClip = viewModel::clearMasterClipIndicator,
-                expanded = mixerExpanded,
+                minimal = mixerMinimal,
+                onOpenLevelAnalysis = { allLevelsDialogVisible = true },
             )
         }
     }
@@ -208,15 +208,10 @@ fun StudioShellScreen(
                 StudioWorkspaceBar(
                     auditionMode = state.guitarAuditionMode,
                     mixerVisible = mixerVisible,
-                    mixerPinned = mixerPinned,
-                    mixerExpanded = mixerExpanded,
-                    onToggleMixerPin = {
-                        mixerPinned = !mixerPinned
-                        uiPreferences.setMixerPinned(mixerPinned)
-                    },
-                    onToggleMixerHeight = {
-                        mixerExpanded = !mixerExpanded
-                        uiPreferences.setMixerExpanded(mixerExpanded)
+                    mixerMinimal = mixerMinimal,
+                    onToggleMixerMode = {
+                        mixerMinimal = !mixerMinimal
+                        uiPreferences.setMixerMinimal(mixerMinimal)
                     },
                     panelContent = { panel ->
                         val actionProject = state.project
@@ -293,10 +288,7 @@ fun StudioShellScreen(
                     )
                 }
 
-                if (mixerPinned) renderMixer()
-            }
-            if (!mixerPinned) {
-                Box(Modifier.align(Alignment.BottomCenter)) { renderMixer() }
+                renderMixer()
             }
 
             }

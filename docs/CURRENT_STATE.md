@@ -4,9 +4,9 @@ Updated: 2026-10-01
 
 ## Status
 
-**RC23 STUDIO NAVBAR / NARROW MIXER — SIGNED DIGITAL PASS / OWNER TABLET VALIDATION PENDING**
+**RC24 STUDIO DENSITY CORRECTION — IMPLEMENTED / DIGITAL QUALIFICATION PENDING**
 
-RC23 is integrated into canonical `main` and its exact signed APK is ready for the owner's tablet validation. RC20 remains the physically accepted frozen baseline in `RELEASE_BASELINE.md`. RC23 retains the RC22 MAIN/CUE implementation; residual physical acceptance of any simultaneous MAIN/CUE hardware combination remains separate from digital CI.
+Owner video `141016.mp4` rejected RC23 layout ergonomics. RC24 corrects navbar/menus/Mixer density on a qualification branch; digital and physical results are not predeclared. RC20 remains the physically accepted frozen baseline in `RELEASE_BASELINE.md`. RC23 retains the RC22 MAIN/CUE implementation; residual physical acceptance of any simultaneous MAIN/CUE hardware combination remains separate from digital CI.
 
 ## Exact signed RC23 identity
 
@@ -23,25 +23,22 @@ RC23 is integrated into canonical `main` and its exact signed APK is ready for t
 - signing verifies APK Signature Scheme v2 and signs the exact tested unsigned release artifact without rebuilding;
 - local downloaded APK checksum matches `SHA256SUMS.txt` and `BUILD_IDENTITY.txt`; certificate/package/version verification is evidenced by the successful signing job.
 
-## Implemented behavior and digital evidence
+## RC24 implementation and pending qualification
 
-- Comparison/Adjustments/Timeline open existing shared action families from stable slots in the transport navbar; no permanent practice row remains;
-- enabling/disabling modes, closing/pinning Mixer and changing transport do not resize/reorder navbar slots;
-- complete Mixer channels are 168 dp instead of 232 dp, using two rows of 48 dp Mute/Solo/CUE/REC targets;
-- PK/RMS/peak hold/CLIP, full-width gain/pan sliders and the separate fixed Master are retained;
-- visibility, pinning and expanded height persist independently; fixed/docked mode is the default;
-- D-099, normative subsystem contracts and shared in-app help describe the new interaction;
-- immutable RC23 materialization follows RC22; cold reconstruction, repeated execution, reverse application and terminal blob checks pass;
-- CI #938 qualified the corrected branch source; canonical CI #939 passed software (unit tests, Lint, APK build), API36 regression and signed-artifact identity gates;
-- corrected full-app tablet capture was inspected: five complete channels and separate Master are visible, the Mixer is fixed, and the practice row is absent. The prior loading-frame image is superseded;
-- the temporary branch workflow trigger was retired before integration;
-- full chronology/artifact evidence: `history/RC23_STUDIO_LAYOUT_QUALIFICATION_2026-10-01.md`.
+- versionName `0.5.0-rc24`, versionCode `44`; no producer SHA or signed artifact declared before qualification;
+- Comparison/Timeline vertical panels; balanced fixed navbar slots; Níveis in Master;
+- fixed Mixer only; complete/minimum 252/172 dp, 200 dp channels, contiguous four-button row with 46 dp faces inside 48 dp targets;
+- complete controls preserved; minimum retains all four buttons and gain, with shared complete details for pan/meter/clip reset;
+- legacy visibility retained; new minimum preference defaults complete and persists independently;
+- D-100 and subsystem/guide docs updated; immutable RC24 stage follows RC23;
+- focused tests cover visual/target bounds, menu fit, minimum/details pan commits, preference upgrade and filled five-track tablet geometry/captures;
+- local materialization/diff checks are recorded in `history/RC24_STUDIO_DENSITY_2026-10-01.md`; Android compile/Lint/instrumentation and screenshot review await CI evidence.
 
-## Remaining owner acceptance
+## Next action
 
-Install the exact RC23 signed APK over the current same-package/signer installation. Check the existing project on SM-X230 / Android 16: five-channel readability, fixed Mixer preference after reopening, Comparison A/B use, Níveis, Timeline actions, gain/pan/Mute/Solo/CUE/Arm access, and ordinary playback/recording. Digital evidence does not predeclare physical ergonomics or simultaneous physical MAIN/CUE acceptance.
+Owner reports qualification workflow result. Then inspect completed evidence and filled-project screenshots, fix any failure, remove temporary branch trigger before canonical integration and qualify/sign the exact canonical candidate. Physical acceptance on SM-X230 / Android 16 remains required; RC20 stays accepted. RC23 digital PASS and delivered artifact identity above remain historical, not UX acceptance.
 
-No recurring workflow monitoring is performed: the owner verifies completion and reports results. Documentation-only updates do not change the signed producer or artifact identity, and do not reopen the frozen Demucs backend.
+No workflow execution monitoring is performed. This Android UI correction does not reopen the frozen backend or change MAIN/CUE/audio algorithms.
 
 ## Predecessors
 

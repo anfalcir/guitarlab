@@ -9,12 +9,14 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.click
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.performClick
@@ -96,10 +98,10 @@ class MixerDockInstrumentedTest {
         cue.assert(buttonRole).assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "Desativado")).assertIsEnabled().assert(hasClickAction())
         arm.assert(buttonRole).assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "Desarmada")).assertIsEnabled().assert(hasClickAction())
 
-        mute.performScrollTo().assertIsDisplayed().performClick()
-        solo.performScrollTo().assertIsDisplayed().performClick()
-        cue.performScrollTo().assertIsDisplayed().performClick()
-        arm.performScrollTo().assertIsDisplayed().performClick()
+        mute.performScrollTo().assertIsDisplayed().performTouchInput { click() }
+        solo.performScrollTo().assertIsDisplayed().performTouchInput { click() }
+        cue.performScrollTo().assertIsDisplayed().performTouchInput { click() }
+        arm.performScrollTo().assertIsDisplayed().performTouchInput { click() }
         composeRule.onNodeWithContentDescription("Limpar clipping da pista Teste")
             .performScrollTo()
             .assertIsDisplayed()
@@ -126,16 +128,25 @@ class MixerDockInstrumentedTest {
         }
         rectangles.forEachIndexed { i, first ->
             rectangles.drop(i + 1).forEach { second ->
-                assertTrue("2x2 state targets must not overlap", !first.overlaps(second))
+                assertTrue("Inline state targets must not overlap", !first.overlaps(second))
             }
         }
+        rectangles.zipWithNext().forEach { (first, second) ->
+            assertEquals("All four actions share one row", first.top, second.top, 1f)
+            assertEquals("No wasted gap between touch regions", first.right, second.left, 1f)
+        }
+        listOf("Mute", "Solo", "Saída CUE", "Gravação").forEach { action ->
+            val face = composeRule.onNodeWithTag("mixer-button-face-$action da pista Teste", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+            assertEquals("Visible button nearly fills its touch region", 46f * density, face.width, 1f)
+            assertEquals(46f * density, face.height, 1f)
+        }
         val strip = composeRule.onNodeWithTag("mixer-track-strip-${track.id}").fetchSemanticsNode().boundsInRoot
-        assertEquals("Narrow channel width", 168f * density, strip.width, 1f)
+        assertEquals("Narrow channel width", 200f * density, strip.width, 1f)
         val volume = composeRule.onNodeWithContentDescription("Volume da pista Teste").performScrollTo().assertIsDisplayed().fetchSemanticsNode().boundsInRoot
         val pan = composeRule.onNodeWithContentDescription("Pan da pista Teste").performScrollTo().assertIsDisplayed().fetchSemanticsNode().boundsInRoot
         assertTrue("Volume and pan targets must not overlap", !volume.overlaps(pan))
         assertTrue("Pan must stay fully inside the dock", pan.bottom <= composeRule.onNodeWithTag("mixer-dock").fetchSemanticsNode().boundsInRoot.bottom)
-        composeRule.captureCohesionScreenshot("rc23-mixer-narrow-clipping")
+        composeRule.captureCohesionScreenshot("rc24-mixer-narrow-clipping")
 
     }
     @Test
@@ -174,6 +185,7 @@ class MixerDockInstrumentedTest {
         composeRule.onNodeWithContentDescription("Solo da pista Route locked").assertIsEnabled()
         composeRule.onNodeWithContentDescription("Saída CUE da pista Route locked").assertIsNotEnabled()
         composeRule.onNodeWithContentDescription("Gravação da pista Route locked").assertIsNotEnabled()
+        composeRule.onNodeWithTag("open-all-level-analysis").assertIsNotEnabled()
     }
 
     @Test
@@ -271,7 +283,62 @@ class MixerDockInstrumentedTest {
                 .performScrollTo().assertIsDisplayed().fetchSemanticsNode().boundsInRoot
             assertTrue("$action must be inside the dock", node.bottom <= after.bottom + 1f)
         }
-        composeRule.captureCohesionScreenshot("rc23-mixer-large-font")
+        composeRule.captureCohesionScreenshot("rc24-mixer-large-font")
+    }
+
+    @Test
+    fun minimalRetainsFourActionsAndGainWhileDetailsExposePanAndClipping() {
+        val minimal = mutableStateOf(false)
+        val track = mutableStateOf(AudioTrack(id = "modes", name = "Minha guitarra", pan = -1f, gainDb = -6f, order = 0))
+        var panCommits = 0
+        var gainCommits = 0
+        var clipResets = 0
+        var levelClicks = 0
+        composeRule.setContent {
+            GuitarLabTheme(darkTheme = true) {
+                MixerDock(
+                    tracks = listOf(track.value), selectedTrackId = track.value.id,
+                    minimal = minimal.value, onOpenLevelAnalysis = { levelClicks++ },
+                    mixControlsEnabled = true, structuralControlsEnabled = true,
+                    masterGainDb = 0f, masterMeter = MeterBallisticsState(), trackMeters = emptyMap(),
+                    masterClipLatched = false, trackClipLatched = setOf(track.value.id),
+                    onSelectTrack = {}, onGainPreview = { _, _ -> },
+                    onGainCommit = { _, value -> track.value = track.value.copy(gainDb = value); gainCommits++ },
+                    onPanPreview = { _, _ -> },
+                    onPanCommit = { _, value -> track.value = track.value.copy(pan = value); panCommits++ },
+                    onToggleMute = {}, onToggleSolo = {}, onToggleCue = {}, onToggleArm = {},
+                    onMasterGainPreview = {}, onMasterGainCommit = {},
+                    onClearTrackClip = { clipResets++ }, onClearMasterClip = {},
+                )
+            }
+        }
+        val full = composeRule.onNodeWithTag("mixer-dock").fetchSemanticsNode().boundsInRoot
+        composeRule.onNodeWithContentDescription("Volume da pista Minha guitarra").performTouchInput {
+            swipe(Offset(width * 0.2f, height / 2f), Offset(width * 0.9f, height / 2f), 250L)
+        }
+        assertTrue("Thin slider must commit gain", gainCommits > 0 && track.value.gainDb > -6f)
+        val committedGain = track.value.gainDb
+        composeRule.runOnIdle { minimal.value = true }
+        val compact = composeRule.onNodeWithTag("mixer-dock").fetchSemanticsNode().boundsInRoot
+        assertTrue("Minimum must recover substantial timeline space", compact.height < full.height * 0.72f)
+        listOf("Mute", "Solo", "Saída CUE", "Gravação", "Volume").forEach { action ->
+            composeRule.onNodeWithContentDescription("$action da pista Minha guitarra").assertIsDisplayed()
+        }
+        composeRule.onNodeWithTag("open-all-level-analysis").performClick()
+        assertEquals(1, levelClicks)
+        composeRule.onNodeWithContentDescription("Detalhes da pista Minha guitarra").performClick()
+        composeRule.onNodeWithTag("mixer-track-details").assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("Pan da pista Minha guitarra").performTouchInput {
+            swipe(Offset(width * 0.15f, height / 2f), Offset(width * 0.85f, height / 2f), 250L)
+        }
+        assertTrue("Pan must preview and commit from minimum details", panCommits > 0 && track.value.pan > -1f)
+        composeRule.onNodeWithContentDescription("Limpar clipping da pista Minha guitarra").performClick()
+        assertEquals(1, clipResets)
+        composeRule.onNodeWithText("Fechar").performClick()
+        composeRule.runOnIdle { minimal.value = false }
+        composeRule.onNodeWithContentDescription("Pan da pista Minha guitarra").assertIsDisplayed()
+        assertEquals("Changing presentation must preserve committed gain", committedGain, track.value.gainDb, 0f)
+        composeRule.captureCohesionScreenshot("rc24-mixer-complete-after-minimum")
     }
 
 }
