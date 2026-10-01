@@ -24,7 +24,7 @@ RC21 reached signed digital-candidate state, but RC22 now supersedes it as the a
 - the 22 terminal source/test blobs were cross-checked against the branch source graph with zero mismatches before qualification;
 - low-latency/Bluetooth eligibility hardening is sealed in the RC22 materializer;
 - initial qualification CI #913 / run `36865931256`: **FAIL** because `StudioViewModel.kt` referenced `cueOutputSignature` without resolving it inside backing playback during recording;
-- corrective source and payload were applied; final hardening makes CUE transport-stable, non-blocking relative to MAIN and restricted to low-latency secondary routes. The exact hash-reconciled source is now under final branch qualification before integration.
+- corrective source and payload were applied; final hardening makes CUE transport-stable, non-blocking relative to MAIN and restricted to low-latency secondary routes. The exact hash-reconciled source is now under final branch qualification before integration. CI #923 isolated one API36 accessibility defect: expanded CUE/Arm touch targets overlapped in the Mixer; the row spacing was corrected and the RC22 payload/materializer were re-sealed to that fix.
 
 ## RC22 feature scope
 
