@@ -1978,9 +1978,10 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
         if (!candidate.safePlayable || frames <= 0L || current.recordingSession.active) return
         stopPlaybackSession()
         val outputSignature = audioRoutingStore.selectedOutputSignature()
-        val cuePlaybackRequested = clips.any { clip ->
-            tracks[clip.trackId]?.let { TrackOutputRoutingPolicy.sendsToCue(it.outputRoute) } == true
-        }
+        val cuePlaybackRequested = TrackOutputRoutingPolicy.playbackNeedsCue(
+            routeByTrackId = tracks.mapValues { it.value.outputRoute },
+            playbackTrackIds = clips.map { it.trackId },
+        )
         val request = StudioPlaybackRequest(
             sampleRateHz = rate,
             startFrame = 0L,
@@ -2504,9 +2505,10 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
         )
         val tracksById = project.tracks.associateBy { it.id }
         val playableClips = ActiveTakePolicy.audibleClips(project).filterNot { it.muted }
-        val cuePlaybackRequested = playableClips.any { clip ->
-            tracksById[clip.trackId]?.let { TrackOutputRoutingPolicy.sendsToCue(it.outputRoute) } == true
-        }
+        val cuePlaybackRequested = TrackOutputRoutingPolicy.playbackNeedsCue(
+            routeByTrackId = tracksById.mapValues { it.value.outputRoute },
+            playbackTrackIds = playableClips.map { it.trackId },
+        )
         val selectedOutputSignature = audioRoutingStore.selectedOutputSignature()
         val preferredOutput = audioRoutingStore.resolveSelectedOutputDevice()
         val preferredCueOutput = audioRoutingStore.resolveSelectedCueOutputDevice()
@@ -2761,9 +2763,10 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
             return false
         }
         if (clips.isEmpty()) return false
-        val cuePlaybackRequested = clips.any { clip ->
-            tracksById[clip.trackId]?.let { TrackOutputRoutingPolicy.sendsToCue(it.outputRoute) } == true
-        }
+        val cuePlaybackRequested = TrackOutputRoutingPolicy.playbackNeedsCue(
+            routeByTrackId = tracksById.mapValues { it.value.outputRoute },
+            playbackTrackIds = clips.map { it.trackId },
+        )
         val outputSignature = audioRoutingStore.selectedOutputSignature()
         val request = StudioPlaybackRequest(
             sampleRateHz = sampleRateHz,
