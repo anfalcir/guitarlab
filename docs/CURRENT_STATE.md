@@ -19,8 +19,10 @@ RC21 reached signed digital-candidate state, but RC22 now supersedes it as the a
 - base canonical `main`: `ba2227bfb28afcc3d95602bcb622a05f27457141`;
 - source materialization tail: `scripts/materialize_ci_sources_rc22.py`;
 - protected payload: `.source-parts/RC22DualOutputCueRouting.patch`;
+- current protected payload blob: `d51194e69487819fdba77d1f6ce7594b516e3dda`;
+- low-latency/Bluetooth eligibility hardening is sealed in the RC22 materializer;
 - initial qualification CI #913 / run `36865931256`: **FAIL** because `StudioViewModel.kt` referenced `cueOutputSignature` without resolving it inside backing playback during recording;
-- corrective source and payload were applied; final hardening now also makes CUE transport-stable and non-blocking relative to MAIN. The hash-reconciled full qualification is requested before integration.
+- corrective source and payload were applied; final hardening makes CUE transport-stable, non-blocking relative to MAIN and restricted to low-latency secondary routes. The exact hash-reconciled source is now under final branch qualification before integration.
 
 ## RC22 feature scope
 
