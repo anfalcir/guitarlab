@@ -4,7 +4,7 @@ Updated: 2026-10-01
 
 ## Status
 
-**RC22 DUAL-OUTPUT/CUE FEATURE CANDIDATE — INTEGRATED IN MAIN / CANONICAL REQUALIFICATION REQUESTED**
+**RC22 DUAL-OUTPUT/CUE FEATURE CANDIDATE — CANONICAL MAIN DIGITAL PASS / SIGNED QUALIFICATION REQUESTED**
 
 RC20 remains the currently accepted, physically homologated baseline recorded in `RELEASE_BASELINE.md`. RC22 is an explicit owner-requested successor candidate built on the RC21-integrated Android source. It adds per-track MAIN/CUE monitoring and therefore reopens only the affected Android playback/routing/monitoring paths plus adjacent persistence/UI coverage. The frozen Demucs backend and unrelated Drive transport evidence are unchanged.
 
@@ -101,15 +101,15 @@ RC21 reached signed digital-candidate state, but RC22 now supersedes it as the a
 - The temporary `feature/dual-output-cue-routing` workflow trigger was retired after #932.
 - PR #8 integrated RC22 into canonical `main` at merge commit `754fc4b8379843abd0494c5054bb856151db475f`.
 - CI #933 / run `36895822376`: **FAIL before materialization/build/tests** in `Diff sanity`. The aggregate merge diff exposed structural context-line whitespace inside the stored `.source-parts/RC22DualOutputCueRouting.patch` payload plus one Markdown hard-break in `README.md`; no runtime source test failed. The generic whitespace gate now excludes stored unified-diff payload text while materializer hash/`git apply --check`/idempotence checks remain authoritative, and the README whitespace was corrected.
-- A fresh canonical-main qualification is now required on the corrected CI preflight.
+- CI #934 / run `36898048823` on canonical-main SHA `0fc668197d6ebfd3a13f0ef97e3cc65bc846df7c`: **PASS** — software gate and API 36 emulator regression both green; signed job intentionally skipped for this normal `[run ci]` qualification.
+- The next release gate is signed exact-artifact qualification from canonical `main`; RC20 remains the accepted physical baseline until that signed RC22 artifact also passes residual physical MAIN+CUE validation.
 
 ## Qualification state and remaining promotion gates
 
 Branch digital qualification passed on the exact corrected RC22 runtime/source graph in CI #932. Remaining gates are:
 
-1. rerun the canonical-main software/API36 qualification after the #933 preflight corrective;
-2. run signed exact-artifact qualification from canonical `main`;
-3. perform residual affected-path physical validation on the exact signed RC22 APK before RC20 is superseded as the accepted physical baseline.
+1. run signed exact-artifact qualification from canonical `main`;
+2. perform residual affected-path physical validation on the exact signed RC22 APK before RC20 is superseded as the accepted physical baseline.
 
 Because this feature changes simultaneous physical audio routing, final support for a concrete MAIN+CUE device combination additionally requires residual physical validation on the exact signed RC22 APK. CI cannot prove Samsung/Android HAL behavior for two physical outputs.
 
