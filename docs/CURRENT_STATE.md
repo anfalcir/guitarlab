@@ -74,6 +74,7 @@ RC21 reached signed digital-candidate state, but RC22 now supersedes it as the a
 - CI #913 / run `36865931256`: FAIL — recording backing path referenced an unresolved CUE signature; source corrected.
 - CI #914–#917: superseded/cancelled by newer hardened source/materializer revisions.
 - CI #918 / run `36873594654`: FAIL-CLOSED in RC22 materializer guard because the new content-aware routing test file was referenced before being loaded by `verify()`; runtime source was not the cause. Guard corrected without changing runtime bytes.
+- CI #919 / run `36873872006`: FAIL-CLOSED in a copy guard that incorrectly required a quote immediately before the Bluetooth sentence; routing behavior/runtime bytes were unchanged. Guard made copy-stable.
 
 ## Qualification required before merge/promotion
 
