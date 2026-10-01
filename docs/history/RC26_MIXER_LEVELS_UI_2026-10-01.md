@@ -1,6 +1,6 @@
 # RC26 — Studio Mixer / Níveis presentation refinement
 
-Date: 2026-10-01  
+Date: 2026-10-01
 Status: SOURCE PRE-GATE
 
 ## Owner-approved contract
