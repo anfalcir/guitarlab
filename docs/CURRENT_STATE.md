@@ -4,7 +4,7 @@ Updated: 2026-10-01
 
 ## Status
 
-**RC22 DUAL-OUTPUT/CUE FEATURE CANDIDATE — FINAL SOURCE SEALED / DIGITAL QUALIFICATION REQUESTED**
+**RC22 DUAL-OUTPUT/CUE FEATURE CANDIDATE — EXPLICIT 48DP MIXER TARGETS SEALED / REQUALIFICATION REQUESTED**
 
 RC20 remains the currently accepted, physically homologated baseline recorded in `RELEASE_BASELINE.md`. RC22 is an explicit owner-requested successor candidate built on the RC21-integrated Android source. It adds per-track MAIN/CUE monitoring and therefore reopens only the affected Android playback/routing/monitoring paths plus adjacent persistence/UI coverage. The frozen Demucs backend and unrelated Drive transport evidence are unchanged.
 
@@ -29,6 +29,8 @@ RC21 reached signed digital-candidate state, but RC22 now supersedes it as the a
 - API36 #923 isolated one Mixer accessibility regression: expanded CUE/Arm touch targets overlapped; spacing was corrected and the RC22 payload/materializer re-locked before the next qualification.
 
 - API36 #925 proved the 12 dp visual-gap fix was still insufficient because Compose minimum-touch expansion overlapped CUE/Arm. Mixer state controls now use explicit 48×48 dp clickable containers with compact visuals inside, eliminating framework-dependent hitbox overlap.
+
+- API36 #925 confirmed the remaining failure was still Mixer CUE/Arm target geometry. RC22 now uses explicit 48x48dp semantic/click targets around the 38x30dp visuals, eliminating dependence on implicit Compose touch-target expansion; payload and materializer are re-locked.
 
 ## RC22 feature scope
 
