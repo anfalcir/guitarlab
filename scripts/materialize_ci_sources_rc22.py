@@ -73,6 +73,7 @@ def verify() -> None:
     build = (ROOT / "app/build.gradle.kts").read_text(encoding="utf-8")
     model = (ROOT / "core/model/src/main/kotlin/studio/guitarlab/core/model/ProjectModels.kt").read_text(encoding="utf-8")
     track_policy = (ROOT / "core/model/src/main/kotlin/studio/guitarlab/core/model/TrackOutputRoutingPolicy.kt").read_text(encoding="utf-8")
+    track_policy_test = (ROOT / "core/model/src/test/kotlin/studio/guitarlab/core/model/TrackOutputRoutingPolicyTest.kt").read_text(encoding="utf-8")
     cue_policy = (ROOT / "core/audio/src/main/kotlin/studio/guitarlab/core/audio/CueRouteSafetyPolicy.kt").read_text(encoding="utf-8")
     playback = (ROOT / "platform/audio-android/src/main/kotlin/studio/guitarlab/platform/audio/android/AndroidStudioPlaybackEngine.kt").read_text(encoding="utf-8")
     recording = (ROOT / "platform/audio-android/src/main/kotlin/studio/guitarlab/platform/audio/android/AndroidStudioRecordingEngine.kt").read_text(encoding="utf-8")
