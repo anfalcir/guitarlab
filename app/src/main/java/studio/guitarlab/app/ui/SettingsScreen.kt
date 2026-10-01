@@ -308,7 +308,7 @@ fun SettingsScreen(
                         onSelect = { signature ->
                             selectedOutput = signature
                             routingStore.selectOutput(signature)
-                            if (signature != null && signature == selectedCueOutput) {
+                            if (signature == null || signature == selectedCueOutput) {
                                 selectedCueOutput = null
                                 routingStore.selectCueOutput(null)
                             }
@@ -317,11 +317,15 @@ fun SettingsScreen(
                     AudioDeviceSelector(
                         title = "Saída secundária / CUE",
                         selectedSignature = selectedCueOutput,
-                        choices = outputChoices.filterNot { it.signature == selectedOutput },
+                        choices = if (selectedOutput == null) emptyList() else outputChoices.filterNot { it.signature == selectedOutput },
                         nullLabel = "Desativada",
-                        nullDetail = "Pistas com fone/CUE ficam silenciosas até uma saída secundária explícita ser selecionada.",
+                        nullDetail = if (selectedOutput == null) {
+                            "Selecione primeiro uma saída principal explícita."
+                        } else {
+                            "Pistas com fone/CUE ficam silenciosas até uma saída secundária explícita ser selecionada."
+                        },
                         onSelect = { signature ->
-                            if (signature == selectedOutput) {
+                            if (selectedOutput == null || signature == selectedOutput) {
                                 selectedCueOutput = null
                                 routingStore.selectCueOutput(null)
                             } else {
