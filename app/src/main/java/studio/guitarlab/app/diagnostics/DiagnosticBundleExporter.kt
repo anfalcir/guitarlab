@@ -67,12 +67,16 @@ class DiagnosticBundleExporter(private val context: Context) {
         entries["audio-route.json"] = JSONObject()
             .put("selectedInput", routing.selectedInputDiagnosticIdentity())
             .put("selectedOutput", routing.selectedOutputDiagnosticIdentity())
+            .put("selectedCueOutput", routing.selectedCueOutputDiagnosticIdentity())
             .put("monitoringMode", routing.monitoringMode().name)
             .put("selectedInputAvailable", routeHealth.selectedInputAvailable)
             .put("selectedOutputAvailable", routeHealth.selectedOutputAvailable)
+            .put("selectedCueOutputAvailable", routeHealth.selectedCueOutputAvailable)
+            .put("cueOutputDistinctFromMain", routeHealth.cueOutputDistinctFromMain)
             .put("usbDeviceDetected", routeHealth.usbDeviceDetected)
             .put("effectiveInput", routeHealth.effectiveInput?.let { "${it.transportFamily}:${it.label}" })
             .put("effectiveOutput", routeHealth.effectiveOutput?.let { "${it.transportFamily}:${it.label}" })
+            .put("effectiveCueOutput", routeHealth.effectiveCueOutput?.let { "${it.transportFamily}:${it.label}" })
             .toString(2).toByteArray()
 
         entries["activity.json"] = JSONArray().also { array ->
