@@ -1978,10 +1978,6 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
         if (!candidate.safePlayable || frames <= 0L || current.recordingSession.active) return
         stopPlaybackSession()
         val outputSignature = audioRoutingStore.selectedOutputSignature()
-        val cuePlaybackRequested = TrackOutputRoutingPolicy.playbackNeedsCue(
-            routeByTrackId = tracks.mapValues { it.value.outputRoute },
-            playbackTrackIds = clips.map { it.trackId },
-        )
         val request = StudioPlaybackRequest(
             sampleRateHz = rate,
             startFrame = 0L,
@@ -2121,6 +2117,10 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
         }
         val end = clips.maxOf { it.startFrame + it.lengthFrames }.coerceAtLeast(1L)
         val tracks = project.tracks.associateBy { it.id }
+        val cuePlaybackRequested = TrackOutputRoutingPolicy.playbackNeedsCue(
+            routeByTrackId = tracks.mapValues { it.value.outputRoute },
+            playbackTrackIds = clips.map { it.trackId },
+        )
         val playbackClips = runCatching {
             clips.map { clip ->
                 StudioPlaybackClip(
