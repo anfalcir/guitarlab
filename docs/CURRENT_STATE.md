@@ -19,7 +19,7 @@ RC21 reached signed digital-candidate state, but RC22 now supersedes it as the a
 - base canonical `main`: `ba2227bfb28afcc3d95602bcb622a05f27457141`;
 - source materialization tail: `scripts/materialize_ci_sources_rc22.py`;
 - protected payload: `.source-parts/RC22DualOutputCueRouting.patch`;
-- current protected payload blob: `d51194e69487819fdba77d1f6ce7594b516e3dda`;
+- current protected payload blob: `d77250f2120c4adcd6bc8e6c9efd6372837c4dc7`;
 - low-latency/Bluetooth eligibility hardening is sealed in the RC22 materializer;
 - initial qualification CI #913 / run `36865931256`: **FAIL** because `StudioViewModel.kt` referenced `cueOutputSignature` without resolving it inside backing playback during recording;
 - corrective source and payload were applied; final hardening makes CUE transport-stable, non-blocking relative to MAIN and restricted to low-latency secondary routes. The exact hash-reconciled source is now under final branch qualification before integration.
@@ -75,6 +75,8 @@ RC21 reached signed digital-candidate state, but RC22 now supersedes it as the a
 - CI #914–#917: superseded/cancelled by newer hardened source/materializer revisions.
 - CI #918 / run `36873594654`: FAIL-CLOSED in RC22 materializer guard because the new content-aware routing test file was referenced before being loaded by `verify()`; runtime source was not the cause. Guard corrected without changing runtime bytes.
 - CI #919 / run `36873872006`: FAIL-CLOSED in a copy guard that incorrectly required a quote immediately before the Bluetooth sentence; routing behavior/runtime bytes were unchanged. Guard made copy-stable.
+- CI #920 / run `36874120837`: FAIL at Kotlin compile because content-aware CUE admission had been inserted into two auxiliary playback paths before their local `tracks/clips` context was defined; the current HEAD moves those calculations into the correct take/playback scopes and removes the unresolved symbols.
+- After the #920 corrective, the RC22 payload was rebuilt from canonical `main` to the exact current 22-file source set; materializer terminal hashes and `PATCH_BLOB` were cross-checked with zero mismatches before this rerun.
 
 ## Qualification required before merge/promotion
 
