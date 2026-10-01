@@ -2751,6 +2751,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
         }
         if (clips.isEmpty()) return false
         val outputSignature = audioRoutingStore.selectedOutputSignature()
+        val cueOutputSignature = audioRoutingStore.selectedCueOutputSignature()
         val request = StudioPlaybackRequest(
             sampleRateHz = sampleRateHz,
             startFrame = state.recordingSession.timelineStartFrame.coerceAtMost(end),
