@@ -4,7 +4,7 @@ Updated: 2026-10-01
 
 ## Status
 
-**RC22 DUAL-OUTPUT/CUE FEATURE CANDIDATE — MIXER CLIP SEMANTICS CORRECTED / REQUALIFICATION REQUESTED**
+**RC22 DUAL-OUTPUT/CUE FEATURE CANDIDATE — REAL 48DP MIXER CLIP TARGET SEALED / REQUALIFICATION REQUESTED**
 
 RC20 remains the currently accepted, physically homologated baseline recorded in `RELEASE_BASELINE.md`. RC22 is an explicit owner-requested successor candidate built on the RC21-integrated Android source. It adds per-track MAIN/CUE monitoring and therefore reopens only the affected Android playback/routing/monitoring paths plus adjacent persistence/UI coverage. The frozen Demucs backend and unrelated Drive transport evidence are unchanged.
 
@@ -35,6 +35,8 @@ RC21 reached signed digital-candidate state, but RC22 now supersedes it as the a
 - API36 #927 proved the 48x48dp control targets themselves are correct, but exposed a secondary layout regression: the taller control row clipped the per-track CLIP action vertically, so its callback did not fire. The Mixer dock height was increased to preserve the full meter/slider action surface while retaining explicit 48dp targets; payload and materializer were re-locked.
 
 - API36 #928 confirmed the 48dp Mixer targets and vertical-space corrections, but the per-track CLIP callback still did not fire through the previous small Surface semantics path. Mixer CLIP now exposes an explicit deterministic accessibility OnClick action backed by the same real callback; the RC22 payload and materializer hashes were re-locked.
+
+- API36 #929 still failed at the per-track CLIP callback (line 106), proving that an explicit semantics OnClick alone was insufficient. The temporary semantic-action duplication was removed and CLIP now uses a real 48x48dp clickable target with a compact 38x24dp visual, matching the robust target strategy used for Mixer state controls; payload and materializer hashes were re-locked.
 
 ## RC22 feature scope
 
