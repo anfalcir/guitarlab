@@ -49,3 +49,11 @@ Run 36930756056 at 6be00fdc: build/unit/Lint PASS. All five MixerDockInstrumente
 RC25e tags the existing inner row without changing layout, and compares unclipped semantic slot coordinates relative to that row across mode, visibility and panel changes. Transport must remain centered in the content row and fixed through those changes. The existing actual 1920x1200 tablet test now separately requires viewport centering of the real transport and unchanged transport bounds across Mixer mode changes. Reachability/one-line tests remain. No navbar dimensions or positions changed.
 
 Local PASS: Kotlin grammar, whitespace, isolated reconstruction, terminal contents, reverse patch and idempotence. New Android qualification pending. Prior payloads immutable; workflow is not monitored.
+
+## CI #945 — distinct navbar scroll layout nodes
+
+Run 36932647654 at e61e8437: build/unit/Lint PASS; fixed-navbar center assertion reports content expected center=508px, transport actual center=872px. 508px is half the 1016px viewport; 872px is half the fixed 1743px row. RC25e tagged a single Row whose modifier chain also contains horizontalScroll: its semantic node exposes the outer viewport bounds despite the inner row's larger width. Relative-coordinate testing alone therefore still used the wrong content width.
+
+RC25f separates the scroll viewport into an outer Box with horizontalScroll and the fixed-width content into its own child Row. The Row retains 664dp minimum width, 104dp side slots, spacing and weighted centered transport. Separate nodes expose viewport and content sizes independently; geometry logs record both. Tests retain fixed slots across state/panel changes, content centering on phone and viewport centering on actual tablet. Narrow reachability and row coverage checks remain.
+
+Local PASS: Kotlin grammar, whitespace, isolated reconstruction from RC25e, terminal contents, reverse applicability and idempotence. New Android run pending; payload history immutable. Previous assertion failure was coordinate identity, not evidence of a displaced transport. No workflow monitoring.

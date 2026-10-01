@@ -1,5 +1,6 @@
 package studio.guitarlab.app
 
+import android.util.Log
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.width
@@ -61,6 +62,9 @@ class StudioWorkspaceBarInstrumentedTest {
         val before = bounds()
         val row = compose.onNodeWithTag("studio-workspace-row").fetchSemanticsNode()
         val transport = contentBounds("test-transport")
+        val viewport = compose.onNodeWithTag("studio-workspace-viewport").fetchSemanticsNode()
+        Log.i("WorkspaceGeometryTest", "viewport=${viewport.size} content=${row.size} transport=$transport")
+        org.junit.Assert.assertTrue("Content row must cover the viewport", row.size.width >= viewport.size.width)
         assertEquals("Transport must be centered in the fixed content row", row.size.width / 2f, transport.center.x, 1f)
         compose.onNodeWithTag("studio-mixer-mode").performScrollTo().performClick()
         assertEquals(before, bounds())
