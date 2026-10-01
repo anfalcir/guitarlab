@@ -8,6 +8,7 @@ import studio.guitarlab.core.model.ChannelLayout
 import studio.guitarlab.core.model.GuitarProject
 import studio.guitarlab.core.model.RecordingTake
 import studio.guitarlab.core.model.ProjectTemplate
+import studio.guitarlab.core.model.TrackOutputRoute
 
 class ProjectCodecCompatibilityTest {
     private val codec = ProjectCodec()
@@ -70,6 +71,51 @@ class ProjectCodecCompatibilityTest {
         val restored = codec.decode(codec.encode(project))
         assertEquals(1_200L, restored.takes.single().fineAdjustmentFrames)
         assertEquals(12_000L, restored.clips.single().startFrame)
+    }
+
+    @Test
+    fun legacyTrackWithoutOutputRouteDefaultsToMain() {
+        val legacy = """
+            {
+              "schemaVersion": 2,
+              "id": "legacy-route",
+              "name": "Legacy route",
+              "template": "BLANK",
+              "createdAtEpochMs": 1,
+              "updatedAtEpochMs": 1,
+              "tracks": [
+                {
+                  "id": "track",
+                  "name": "Reference",
+                  "order": 0
+                }
+              ]
+            }
+        """.trimIndent()
+
+        assertEquals(TrackOutputRoute.MAIN, codec.decode(legacy).tracks.single().outputRoute)
+    }
+
+    @Test
+    fun cueOutputRouteRoundTripsWithoutChangingSchemaCompatibility() {
+        val project = GuitarProject(
+            id = "cue-route",
+            name = "Cue route",
+            template = ProjectTemplate.GUITAR,
+            createdAtEpochMs = 1,
+            updatedAtEpochMs = 2,
+            tracks = listOf(
+                AudioTrack(
+                    id = "reference",
+                    name = "Reference",
+                    outputRoute = TrackOutputRoute.CUE,
+                    order = 0,
+                )
+            ),
+        )
+
+        val restored = codec.decode(codec.encode(project))
+        assertEquals(TrackOutputRoute.CUE, restored.tracks.single().outputRoute)
     }
 
 }
