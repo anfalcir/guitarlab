@@ -1979,7 +1979,6 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
         if (!candidate.safePlayable || frames <= 0L || current.recordingSession.active) return
         stopPlaybackSession()
         val outputSignature = audioRoutingStore.selectedOutputSignature()
-        val cueOutputSignature = audioRoutingStore.selectedCueOutputSignature()
         val request = StudioPlaybackRequest(
             sampleRateHz = rate,
             startFrame = 0L,
@@ -2138,7 +2137,6 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
         }
         stopPlaybackSession()
         val outputSignature = audioRoutingStore.selectedOutputSignature()
-        val cueOutputSignature = audioRoutingStore.selectedCueOutputSignature()
         val request = StudioPlaybackRequest(
             sampleRateHz = sampleRate,
             startFrame = clips.minOf { it.startFrame },
