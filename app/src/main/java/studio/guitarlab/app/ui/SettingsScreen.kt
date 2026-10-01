@@ -73,6 +73,7 @@ fun SettingsScreen(
     val backupSettings = remember(context) { BackupSettingsStore(context).snapshot() }
     var inputChoices by remember { mutableStateOf(routingStore.inputChoices()) }
     var outputChoices by remember { mutableStateOf(routingStore.outputChoices()) }
+    var cueOutputChoices by remember { mutableStateOf(routingStore.cueOutputChoices()) }
     var selectedInput by remember { mutableStateOf(routingStore.selectedInputSignature()) }
     var selectedOutput by remember { mutableStateOf(routingStore.selectedOutputSignature()) }
     var selectedCueOutput by remember { mutableStateOf(routingStore.selectedCueOutputSignature()) }
@@ -182,6 +183,7 @@ fun SettingsScreen(
     LaunchedEffect(Unit) {
         inputChoices = routingStore.inputChoices()
         outputChoices = routingStore.outputChoices()
+        cueOutputChoices = routingStore.cueOutputChoices()
     }
 
     LaunchedEffect(projectId) {
@@ -235,6 +237,7 @@ fun SettingsScreen(
     fun refreshAudioDevices() {
         inputChoices = routingStore.inputChoices()
         outputChoices = routingStore.outputChoices()
+        cueOutputChoices = routingStore.cueOutputChoices()
         if (selectedInput != null && inputChoices.none { it.signature == selectedInput }) {
             selectedInput = null
             routingStore.selectInput(null)
@@ -243,7 +246,7 @@ fun SettingsScreen(
             selectedOutput = null
             routingStore.selectOutput(null)
         }
-        if (selectedCueOutput != null && outputChoices.none { it.signature == selectedCueOutput }) {
+        if (selectedCueOutput != null && cueOutputChoices.none { it.signature == selectedCueOutput }) {
             selectedCueOutput = null
             routingStore.selectCueOutput(null)
         }
@@ -317,12 +320,12 @@ fun SettingsScreen(
                     AudioDeviceSelector(
                         title = "Saída secundária / CUE",
                         selectedSignature = selectedCueOutput,
-                        choices = if (selectedOutput == null) emptyList() else outputChoices.filterNot { it.signature == selectedOutput },
+                        choices = if (selectedOutput == null) emptyList() else cueOutputChoices.filterNot { it.signature == selectedOutput },
                         nullLabel = "Desativada",
                         nullDetail = if (selectedOutput == null) {
                             "Selecione primeiro uma saída principal explícita."
                         } else {
-                            "Pistas com fone/CUE ficam silenciosas até uma saída secundária explícita ser selecionada."
+                            "Selecione uma saída secundária de baixa latência. Bluetooth não é oferecido para CUE sincronizado."
                         },
                         onSelect = { signature ->
                             if (selectedOutput == null || signature == selectedOutput) {
