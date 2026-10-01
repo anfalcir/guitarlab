@@ -21,8 +21,8 @@ data class CueRouteAdmission(
  */
 object CueRouteSafetyPolicy {
     const val DEFAULT_INITIAL_OFFSET_LIMIT_NS = 12_000_000L
-    private const val MIN_DRIFT_LIMIT_FRAMES = 2_048L
-    private const val DRIFT_DIVISOR = 20
+    private const val MIN_DRIFT_LIMIT_FRAMES = 512L
+    private const val DRIFT_DIVISOR = 64
 
     fun admit(
         cueRequested: Boolean,
