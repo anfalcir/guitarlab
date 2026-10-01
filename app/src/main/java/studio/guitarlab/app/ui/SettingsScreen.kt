@@ -347,7 +347,7 @@ fun SettingsScreen(
                         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.24f),
                     ) {
                         Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                            Text("Rota efetiva", style = MaterialTheme.typography.titleSmall)
+                            Text("Seleção e disponibilidade", style = MaterialTheme.typography.titleSmall)
                             Text("Entrada: ${routeHealth.effectiveInput?.let(::audioCapabilities) ?: if (selectedInput == null) "Automática" else "Selecionada, mas indisponível"}", style = MaterialTheme.typography.bodySmall)
                             Text("Saída principal: ${routeHealth.effectiveOutput?.let(::audioCapabilities) ?: if (selectedOutput == null) "Automática" else "Selecionada, mas indisponível"}", style = MaterialTheme.typography.bodySmall)
                             Text("Saída CUE: ${routeHealth.effectiveCueOutput?.let(::audioCapabilities) ?: if (selectedCueOutput == null) "Desativada" else "Selecionada, mas indisponível"}", style = MaterialTheme.typography.bodySmall)
