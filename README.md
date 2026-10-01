@@ -3,7 +3,7 @@
 Private, single-owner Android guitar preparation, study, recording, mixing, export and backup appliance.
 
 Updated: 2026-10-01
-Release state: **RC20 ACCEPTED / RC23 STUDIO NAVBAR / NARROW MIXER CANDIDATE — BRANCH DIGITAL PASS / SIGNED QUALIFICATION REQUESTED**
+Release state: **RC20 ACCEPTED / RC23 STUDIO NAVBAR / NARROW MIXER — SIGNED DIGITAL PASS / TABLET VALIDATION PENDING**
 
 ## Start here
 
@@ -33,7 +33,7 @@ GuitarLab `0.5.0-rc20` / versionCode `40` remains the accepted personal-use base
 - remote separation: official PyTorch/Demucs `htdemucs_6s`, production worker frozen by immutable digest;
 - backup: direct Google Drive API v3.
 
-The active RC22 feature adds an optional secondary CUE output and a headphone button per track. MAIN/CUE routing is fail-closed and is a live monitoring choice, not a Master Export exclusion control.
+The inherited RC22 feature adds an optional secondary CUE output and a headphone button per track. MAIN/CUE routing is fail-closed and is a live monitoring choice, not a Master Export exclusion control.
 
 ## Product model
 
@@ -50,7 +50,7 @@ GBW is historical implementation provenance only. Legacy standalone GBW/H37/pre-
 ## Repository and materialization
 
 - canonical branch: `main`;
-- RC23 review branch: `feature/studio-space-layout` (branch qualification completed; canonical integration/signing follows);
+- RC23 integrated review: PR #9; exact signed identity in `docs/CURRENT_STATE.md`;
 - canonical materialization entrypoint: `scripts/materialize_ci_sources.sh`;
 - active candidate tail: **RC23StudioSpaceLayout** via `scripts/materialize_ci_sources_rc23.py`;
 - protected payloads: `.source-parts/`;
@@ -67,10 +67,10 @@ Ordinary documentation/source commits use `[skip ci]` unless qualification is in
 - `[run u4 cloud]`: controlled real-cloud transactional smoke;
 - `[run u7 cloud]`: backend verification/deploy workflow with explicit shadow/production authorization.
 
-The accepted RC20 baseline does not require recurring CI. RC23 qualification is active because the owner requested stable navbar geometry and narrower complete Mixer channels.
+The accepted RC20 baseline does not require recurring CI. RC23 signed digital qualification is complete; owner tablet validation follows the requested stable navbar geometry and narrower complete Mixer changes.
 
 ## Security and maintenance
 
 Never commit keystores, private credentials, client secrets, refresh tokens or service-account keys.
 
-The accepted RC20 APK and backend digest remain frozen until a successor is promoted. RC22 requalifies only the Android paths that its MAIN/CUE routing can materially affect plus adjacent integration coverage. The separation backend is unchanged.
+The accepted RC20 APK and backend digest remain frozen until a successor is promoted. RC23 has passed canonical Android software/API36/signing qualification for the Studio layout and adjacent integration paths; owner tablet validation remains pending. The separation backend is unchanged.

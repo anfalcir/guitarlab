@@ -46,9 +46,9 @@ These remain live only for their subsystem:
 
 A subsystem contract does not create an unrelated release/maintenance gate merely because it exists.
 
-## Active RC22 feature evidence
+## Active RC23 candidate evidence
 
-The live contracts above define current behavior. RC22 qualification evidence belongs under `history/` once the candidate is digitally closed. RC21 remains predecessor evidence, including:
+The live contracts above define current behavior. Signed RC23 digital closure is in `history/RC23_STUDIO_LAYOUT_QUALIFICATION_2026-10-01.md`; RC22 signed qualification is in `history/RC22_DUAL_OUTPUT_CUE_QUALIFICATION_2026-10-01.md`. RC21 remains predecessor evidence, including:
 
 - `RC21_MAINTENANCE_QUALIFICATION_2026-09-25.md`;
 - `RELEASE_NOTES_0.5.0-rc21.md`.
@@ -87,4 +87,4 @@ Accepted evidence remains reusable unless a later source/backend/hardware change
 
 Documentation-only commits never retroactively change an already-built APK or worker. The accepted producer SHA, APK hashes, signer and worker digest are defined by `RELEASE_BASELINE.md`, not by the latest documentation commit on `main`.
 
-During an active successor candidate such as RC22, `CURRENT_STATE.md` may identify a qualified unsigned source and later a signed candidate while `RELEASE_BASELINE.md` intentionally continues to identify the last accepted release. Promotion updates the baseline only after owner acceptance.
+During an active successor candidate such as RC23, `CURRENT_STATE.md` may identify a qualified unsigned source and later a signed candidate while `RELEASE_BASELINE.md` intentionally continues to identify the last accepted release. Promotion updates the baseline only after owner acceptance.
