@@ -1970,6 +1970,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
         if (!candidate.safePlayable || frames <= 0L || current.recordingSession.active) return
         stopPlaybackSession()
         val outputSignature = audioRoutingStore.selectedOutputSignature()
+        val cueOutputSignature = audioRoutingStore.selectedCueOutputSignature()
         val request = StudioPlaybackRequest(
             sampleRateHz = rate,
             startFrame = 0L,
@@ -2750,10 +2751,22 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
             loopEndFrame = state.timelineControls.loopEndFrame,
             clips = clips,
             trackMixes = project.tracks.map {
-                StudioPlaybackTrackMix(trackId = it.id, roleId = it.roleId, gainDb = it.gainDb, pan = it.pan, muted = it.muted, solo = it.solo)
+                StudioPlaybackTrackMix(
+                    trackId = it.id,
+                    roleId = it.roleId,
+                    gainDb = it.gainDb,
+                    pan = it.pan,
+                    muted = it.muted,
+                    solo = it.solo,
+                    outputRoute = it.outputRoute,
+                )
             },
             preferredOutputDevice = audioRoutingStore.resolveSelectedOutputDevice(),
             preferredOutputRequested = !outputSignature.isNullOrBlank(),
+            preferredCueOutputDevice = audioRoutingStore.resolveSelectedCueOutputDevice(),
+            preferredCueOutputRequested =
+                !cueOutputSignature.isNullOrBlank() ||
+                    project.tracks.any { TrackOutputRoutingPolicy.sendsToCue(it.outputRoute) },
             masterGainDb = project.masterGainDb,
         )
         return runCatching {
@@ -2798,6 +2811,17 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                         val captureBeforeBackingFrames = (-activeRecordingClockOffsetFrames).coerceAtLeast(0L)
                         activePunchPlan = activePunchRegion?.let { region ->
                             PunchRecordingPolicy.plan(region, captureBeforeBackingFrames)
+                        }
+                    }
+                    if (status.cueSuppressed) {
+                        viewModelScope.launch {
+                            val current = _state.value
+                            if (current.recordingSession.phase == RecordingSessionPhase.CAPTURING) {
+                                postTransientWarning(
+                                    "CUE foi silenciado durante a gravação para impedir vazamento no MAIN. ${status.cueFailureReason ?: "Rota secundária não confirmada."}",
+                                    "CUE foi silenciado durante a gravação; o take continua normalmente.",
+                                )
+                            }
                         }
                     }
                 }
