@@ -812,7 +812,7 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
         const val NO_PENDING_SEEK = Long.MIN_VALUE
         const val CLOCK_ANCHOR_SAMPLES = 6
         const val CLOCK_ANCHOR_POLL_MS = 3L
-        const val CUE_ROUTE_PROBE_FRAMES = 256
+        const val CUE_ROUTE_PROBE_FRAMES = 2_048
         const val CUE_ROUTE_PROBE_POLL_MS = 8L
         const val CUE_ROUTE_PROBE_TIMEOUT_NS = 220_000_000L
         const val CUE_CLOCK_MAX_JITTER_NS = 4_000_000L
