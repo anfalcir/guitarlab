@@ -113,9 +113,22 @@ class MixerDockInstrumentedTest {
         val density = InstrumentationRegistry.getInstrumentation().targetContext.resources.displayMetrics.density
         val minimumCenterDistancePx = 48f * density - 1f
 
-        assertTrue("Mute/Solo expanded touch targets must not overlap", abs(soloCenter.x - muteCenter.x) >= minimumCenterDistancePx)
-        assertTrue("Solo/CUE expanded touch targets must not overlap", abs(cueCenter.x - soloCenter.x) >= minimumCenterDistancePx)
-        assertTrue("CUE/Arm expanded touch targets must not overlap", abs(armCenter.x - cueCenter.x) >= minimumCenterDistancePx)
+        val muteSoloDistancePx = abs(soloCenter.x - muteCenter.x)
+        val soloCueDistancePx = abs(cueCenter.x - soloCenter.x)
+        val cueArmDistancePx = abs(armCenter.x - cueCenter.x)
+
+        assertTrue(
+            "Mute/Solo expanded touch targets must not overlap: distance=$muteSoloDistancePx minimum=$minimumCenterDistancePx",
+            muteSoloDistancePx >= minimumCenterDistancePx,
+        )
+        assertTrue(
+            "Solo/CUE expanded touch targets must not overlap: distance=$soloCueDistancePx minimum=$minimumCenterDistancePx",
+            soloCueDistancePx >= minimumCenterDistancePx,
+        )
+        assertTrue(
+            "CUE/Arm expanded touch targets must not overlap: distance=$cueArmDistancePx minimum=$minimumCenterDistancePx",
+            cueArmDistancePx >= minimumCenterDistancePx,
+        )
     }
     @Test
     fun cueRoutingIsDisabledWhenStructuralTransportEditsAreLocked() {
