@@ -183,7 +183,7 @@ index 2d4fba8..8f91a6b 100644
              val outputSignature = routingStore.selectedOutputSignature()
              listOf(44_100, 48_000, 88_200, 96_000).forEach { rate ->
 diff --git a/app/src/main/java/studio/guitarlab/app/ui/MixerDock.kt b/app/src/main/java/studio/guitarlab/app/ui/MixerDock.kt
-index f55a090..fe54464 100644
+index f55a090..c17c9c5 100644
 --- a/app/src/main/java/studio/guitarlab/app/ui/MixerDock.kt
 +++ b/app/src/main/java/studio/guitarlab/app/ui/MixerDock.kt
 @@ -21,6 +21,7 @@ import androidx.compose.foundation.lazy.items
@@ -210,6 +210,15 @@ index f55a090..fe54464 100644
      onToggleArm: (String) -> Unit,
      onMasterGainPreview: (Float) -> Unit,
      onMasterGainCommit: (Float) -> Unit,
+@@ -83,7 +86,7 @@ fun MixerDock(
+     modifier: Modifier = Modifier,
+ ) {
+     Surface(
+-        modifier = modifier.fillMaxWidth().height(294.dp),
++        modifier = modifier.fillMaxWidth().height(316.dp),
+         shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
+         color = MaterialTheme.colorScheme.surface,
+         tonalElevation = 3.dp,
 @@ -124,6 +127,7 @@ fun MixerDock(
                              onPanCommit = { onPanCommit(track.id, it) },
                              onToggleMute = { onToggleMute(track.id) },
