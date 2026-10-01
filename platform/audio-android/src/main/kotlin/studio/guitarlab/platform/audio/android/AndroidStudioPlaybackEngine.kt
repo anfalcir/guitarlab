@@ -16,6 +16,8 @@ import kotlin.math.sqrt
 import studio.guitarlab.core.audio.AudioClockAnchor
 import studio.guitarlab.core.audio.AudioClockAnchorPolicy
 import studio.guitarlab.core.audio.AudioClockObservation
+import studio.guitarlab.core.audio.CueRouteBlockReason
+import studio.guitarlab.core.audio.CueRouteSafetyPolicy
 import studio.guitarlab.core.audio.PlaybackClockPolicy
 import studio.guitarlab.core.model.TrackOutputRoute
 import studio.guitarlab.core.model.TrackOutputRoutingPolicy
@@ -345,9 +347,12 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
                     val routeSafe = cueWrite > 0 && cueFrames == writtenFrames && cueRouteStillSafe(audioTrack, activeCue, request)
                     val mainPresented = playbackHeadDelta(playbackHead(audioTrack), clockHeadBase)
                     val cuePresented = playbackHeadDelta(playbackHead(activeCue), cueClockHeadBase)
-                    val driftFrames = abs(mainPresented - cuePresented)
-                    val driftLimit = max(CUE_MIN_DRIFT_LIMIT_FRAMES, (request.sampleRateHz / CUE_DRIFT_DIVISOR).toLong())
-                    cueDriftViolationCount = if (driftFrames > driftLimit) cueDriftViolationCount + 1 else 0
+                    val driftUnsafe = CueRouteSafetyPolicy.driftExceeded(
+                        mainPresentedFrames = mainPresented,
+                        cuePresentedFrames = cuePresented,
+                        sampleRateHz = request.sampleRateHz,
+                    )
+                    cueDriftViolationCount = if (driftUnsafe) cueDriftViolationCount + 1 else 0
                     if (!routeSafe || cueDriftViolationCount >= CUE_DRIFT_CONSECUTIVE_LIMIT) {
                         val reason = if (!routeSafe) {
                             "A rota CUE mudou, convergiu para a saída principal ou deixou de avançar."
@@ -563,18 +568,26 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
 
         val main = request.preferredOutputDevice
         val cue = request.preferredCueOutputDevice
-        val failure = when {
-            !request.preferredOutputRequested || main == null ->
-                "CUE exige uma saída principal explícita para impedir convergência silenciosa de rotas."
-            !mainPreferredAccepted ->
-                "A saída principal explícita não foi aceita pelo Android; CUE foi bloqueado."
-            cue == null ->
-                "A saída CUE selecionada não está disponível."
-            cue.id == main.id ->
-                "MAIN e CUE resolveram para o mesmo endpoint físico."
-            else -> null
-        }
-        if (failure != null) {
+        val admission = CueRouteSafetyPolicy.admit(
+            cueRequested = true,
+            mainRequested = request.preferredOutputRequested,
+            mainAccepted = mainPreferredAccepted,
+            mainDeviceId = main?.id,
+            cueDeviceId = cue?.id,
+        )
+        if (!admission.allowed) {
+            val failure = when (admission.blockReason) {
+                CueRouteBlockReason.MAIN_NOT_EXPLICIT ->
+                    "CUE exige uma saída principal explícita para impedir convergência silenciosa de rotas."
+                CueRouteBlockReason.MAIN_NOT_ACCEPTED ->
+                    "A saída principal explícita não foi aceita pelo Android; CUE foi bloqueado."
+                CueRouteBlockReason.CUE_UNAVAILABLE ->
+                    "Nenhuma saída CUE explícita e disponível pôde ser resolvida."
+                CueRouteBlockReason.SAME_ENDPOINT ->
+                    "MAIN e CUE resolveram para o mesmo endpoint físico."
+                CueRouteBlockReason.NOT_REQUESTED, null ->
+                    "A saída CUE não foi solicitada."
+            }
             reportCueSuppressed(request, listener, failure)
             return null
         }
@@ -657,12 +670,12 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
             while (System.nanoTime() < deadline && !verified) {
                 val mainRouted = mainTrack.routedDevice
                 val cueRouted = cueTrack.routedDevice
-                verified =
-                    mainRouted != null &&
-                    cueRouted != null &&
-                    mainRouted.id == expectedMain.id &&
-                    cueRouted.id == expectedCue.id &&
-                    mainRouted.id != cueRouted.id
+                verified = CueRouteSafetyPolicy.routedPairMatches(
+                    expectedMainDeviceId = expectedMain.id,
+                    expectedCueDeviceId = expectedCue.id,
+                    actualMainDeviceId = mainRouted?.id,
+                    actualCueDeviceId = cueRouted?.id,
+                )
                 if (!verified) Thread.sleep(CUE_ROUTE_PROBE_POLL_MS)
             }
             verified
@@ -690,9 +703,12 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
         val expectedCue = request.preferredCueOutputDevice ?: return false
         val mainRouted = mainTrack.routedDevice ?: return false
         val cueRouted = cueTrack.routedDevice ?: return false
-        return mainRouted.id == expectedMain.id &&
-            cueRouted.id == expectedCue.id &&
-            mainRouted.id != cueRouted.id
+        return CueRouteSafetyPolicy.routedPairMatches(
+            expectedMainDeviceId = expectedMain.id,
+            expectedCueDeviceId = expectedCue.id,
+            actualMainDeviceId = mainRouted.id,
+            actualCueDeviceId = cueRouted.id,
+        )
     }
 
     private fun reportCueSuppressed(
@@ -754,8 +770,6 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
         const val CUE_ROUTE_PROBE_FRAMES = 256
         const val CUE_ROUTE_PROBE_POLL_MS = 8L
         const val CUE_ROUTE_PROBE_TIMEOUT_NS = 220_000_000L
-        const val CUE_DRIFT_DIVISOR = 20
-        const val CUE_MIN_DRIFT_LIMIT_FRAMES = 2_048L
         const val CUE_DRIFT_CONSECUTIVE_LIMIT = 3
     }
 }
