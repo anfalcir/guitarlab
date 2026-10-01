@@ -37,13 +37,14 @@ RC21 reached signed digital-candidate state, but RC22 now supersedes it as the a
 
 - Options exposes recording input, MAIN output and optional secondary/CUE output;
 - CUE is explicit-only and requires an explicit MAIN selection;
+- synchronized CUE exposes only low-latency secondary routes; Bluetooth is intentionally excluded;
 - MAIN and CUE must resolve to different physical Android endpoints;
 - no ephemeral Android device ID is persisted; durable selection continues to use stable semantic signatures;
 - if MAIN becomes automatic or CUE becomes unavailable/same-route, CUE is disabled/fails closed.
 
 ### Playback and recording
 
-- normal Play renders independent MAIN and CUE buses from the same project timeline;
+- normal Play renders independent MAIN and CUE buses from the same project timeline, opening the CUE sink only when currently playable content is routed there;
 - backing playback during REC uses the same dual-bus engine;
 - when software monitoring is enabled, the armed track's exclusive MAIN/CUE state selects the required monitor output;
 - the recording writer remains input-only: playback/CUE audio never enters the recorded file;
