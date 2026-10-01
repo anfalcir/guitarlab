@@ -4,7 +4,7 @@ Updated: 2026-10-01
 
 ## Status
 
-**RC22 DUAL-OUTPUT/CUE FEATURE CANDIDATE — FINAL HARDENING SEALED / DIGITAL REQUALIFICATION REQUESTED**
+**RC22 DUAL-OUTPUT/CUE FEATURE CANDIDATE — CLOCK-SYNC HARDENING IMPLEMENTED / FINAL RESEAL PENDING**
 
 RC20 remains the currently accepted, physically homologated baseline recorded in `RELEASE_BASELINE.md`. RC22 is an explicit owner-requested successor candidate built on the RC21-integrated Android source. It adds per-track MAIN/CUE monitoring and therefore reopens only the affected Android playback/routing/monitoring paths plus adjacent persistence/UI coverage. The frozen Demucs backend and unrelated Drive transport evidence are unchanged.
 
@@ -19,7 +19,7 @@ RC21 reached signed digital-candidate state, but RC22 now supersedes it as the a
 - base canonical `main`: `ba2227bfb28afcc3d95602bcb622a05f27457141`;
 - source materialization tail: `scripts/materialize_ci_sources_rc22.py`;
 - protected payload: `.source-parts/RC22DualOutputCueRouting.patch`;
-- current protected payload blob: `d77250f2120c4adcd6bc8e6c9efd6372837c4dc7`;
+- protected payload/materializer are being re-sealed to the final clock-synchronization hardening; the prior blob is no longer candidate authority;
 - low-latency/Bluetooth eligibility hardening is sealed in the RC22 materializer;
 - initial qualification CI #913 / run `36865931256`: **FAIL** because `StudioViewModel.kt` referenced `cueOutputSignature` without resolving it inside backing playback during recording;
 - corrective source and payload were applied; final hardening makes CUE transport-stable, non-blocking relative to MAIN and restricted to low-latency secondary routes. The exact hash-reconciled source is now under final branch qualification before integration.
@@ -50,10 +50,10 @@ RC21 reached signed digital-candidate state, but RC22 now supersedes it as the a
 - backing playback during REC uses the same dual-bus engine;
 - when software monitoring is enabled, the armed track's exclusive MAIN/CUE state selects the required monitor output;
 - the recording writer remains input-only: playback/CUE audio never enters the recorded file;
-- before audible CUE use, the engine silently primes and verifies distinct effective routes;
-- during playback it rechecks routing and monitors presented-frame drift;
+- before audible CUE use, the engine silently primes both sinks, verifies distinct effective routes and requires stable AudioTimestamp-derived presentation clocks; CUE is admitted only when the initial MAIN↔CUE presentation-origin offset is at most 12 ms;
+- during playback it rechecks routing and monitors presented-frame drift with a musically tighter guard (750 frames at 48 kHz, about 15.6 ms; 689 frames at 44.1 kHz); three consecutive violations suppress CUE;
 - CUE writes are non-blocking relative to MAIN; a partial/zero/error secondary write is treated as backpressure and suppresses CUE instead of stalling the primary render loop;
-- if CUE is rejected, disconnected, converges with MAIN, cannot keep up or crosses the bounded drift guard, only CUE is suppressed and the user receives explicit feedback.
+- if CUE is rejected, disconnected, converges with MAIN, lacks stable clock evidence, begins more than 12 ms offset, cannot keep up or crosses the continuous drift guard, only CUE is suppressed and the user receives explicit feedback. MAIN is never delayed to rescue an unsafe CUE route.
 
 ### Mixer, diagnostics and help
 
@@ -77,6 +77,8 @@ RC21 reached signed digital-candidate state, but RC22 now supersedes it as the a
 - CI #919 / run `36873872006`: FAIL-CLOSED in a copy guard that incorrectly required a quote immediately before the Bluetooth sentence; routing behavior/runtime bytes were unchanged. Guard made copy-stable.
 - CI #920 / run `36874120837`: FAIL at Kotlin compile because content-aware CUE admission had been inserted into two auxiliary playback paths before their local `tracks/clips` context was defined; the current HEAD moves those calculations into the correct take/playback scopes and removes the unresolved symbols.
 - After the #920 corrective, the RC22 payload was rebuilt from canonical `main` to the exact current 22-file source set; materializer terminal hashes and `PATCH_BLOB` were cross-checked with zero mismatches before this rerun.
+- CI #922 / run `36876106290`: the pre-clock-offset hardening graph passed Unit tests, Android Lint and APK assembly; API36 was still running when the final clock-sync gap was identified. Because runtime bytes changed afterward, #922 is supporting evidence only and cannot qualify the final RC22 candidate.
+- Final hardening adds stable dual-AudioTimestamp preflight, a 12 ms initial-offset admission limit, tighter continuous drift bounds and a longer silent probe; these bytes require a fresh exact-source qualification.
 
 ## Qualification required before merge/promotion
 
