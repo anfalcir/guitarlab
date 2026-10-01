@@ -9,6 +9,7 @@ import androidx.compose.ui.test.performClick
 import androidx.lifecycle.ViewModelProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import androidx.test.uiautomator.UiDevice
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -62,11 +63,17 @@ class StudioMixerTabletInstrumentedTest {
             }
             val master = compose.onNodeWithTag("mixer-master-strip").fetchSemanticsNode().boundsInRoot
             assertTrue("Master must own a separate non-overlapping column", master.left >= scroller.right)
+            // Compose semantics can precede the actual SurfaceFlinger frame during load/toggle.
+            // Wait for accessibility/window quiescence before full-display artifact capture.
+            UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).waitForIdle()
             compose.captureCohesionScreenshot("rc23-studio-five-channels-pinned")
             val navbar = compose.onNodeWithTag("studio-workspace-bar").fetchSemanticsNode().boundsInRoot
             compose.onNodeWithTag("studio-mixer-toggle").performClick()
             val closedNavbar = compose.onNodeWithTag("studio-workspace-bar").fetchSemanticsNode().boundsInRoot
             assertTrue("Closing Mixer must not resize or move navbar", navbar == closedNavbar)
+            // Compose semantics can precede the actual SurfaceFlinger frame during load/toggle.
+            // Wait for accessibility/window quiescence before full-display artifact capture.
+            UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).waitForIdle()
             compose.captureCohesionScreenshot("rc23-studio-mixer-closed")
         } finally {
             preferences.setMixerVisible(oldVisible)

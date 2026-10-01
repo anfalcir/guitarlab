@@ -4,7 +4,7 @@ Updated: 2026-10-01
 
 ## Status
 
-**RC23 STUDIO NAVBAR / NARROW MIXER — IMPLEMENTED, DIGITAL QUALIFICATION PENDING**
+**RC23 STUDIO NAVBAR / NARROW MIXER — BRANCH DIGITAL PASS / CANONICAL SIGNED QUALIFICATION REQUESTED**
 
 The owner requested stable navbar slots and narrower complete Mixer channels. RC23 builds on canonical `main` `58ea3b5bd99e0a54db6ecb510e26e84530b652d5`; it preserves the RC22 MAIN/CUE audio/domain implementation. RC20 remains the accepted physical baseline in `RELEASE_BASELINE.md`. RC22's digital qualification and residual physical MAIN/CUE validation are preserved below as predecessor evidence, not an RC23 pass.
 
@@ -19,14 +19,18 @@ The owner requested stable navbar slots and narrower complete Mixer channels. RC
 - fixed/docked Mixer is retained, with independent durable visibility/pinning/height;
 - test additions cover navbar state geometry, actual panel actions, narrow access, persisted preferences, complete channel targets/sliders and five-channel tablet fit/screenshots;
 - local exact-source/materialization checks and remote Unit/Lint/build/API36 results must be recorded after execution; no pending result is a pass;
-- a temporary branch push trigger is used only for qualification and must be retired before integration;
+- the temporary branch push trigger was retired before integration;
 - final signed-candidate provenance follows `CANDIDATE_IDENTITY_POLICY.md`; no RC23 APK is yet declared qualified or accepted.
 
 ## RC23 qualification evidence
 
 - CI #937 / run `36910864961`, producer `726b85642f4d35daa212eaeb8e599037014ba4fc`: software gate PASS (unit tests, Lint, APK build); API36 gate FAILED before instrumented execution at `compileDebugAndroidTestKotlin`.
 - Root cause: five new screenshot calls omitted the `ComposeTestRule` receiver in Mixer/WorkspaceBar/Tablet test classes. Calls now use `composeRule.captureCohesionScreenshot` or `compose.captureCohesionScreenshot` as appropriate. Runtime bytes are unchanged; tests and the RC23 protected payload/terminal hashes are corrected.
-- A new `[run ci]` execution is requested for the correction. By owner instruction, workflow execution is not monitored; its result must be supplied before qualification/integration continues.
+- CI #938 / run `36912170713`, producer `922e1c0523355ac34f50b2701c205c55d56cc451`: **PASS** — software gate and API36 regression both passed; signing intentionally skipped for branch qualification.
+- Target-tablet semantic geometry proved five complete 168 dp default channels plus a separate Master, and stable navbar geometry after closing Mixer. Inspection of the five published RC23 screenshots found that the pinned full-app capture sampled the loading frame; its test now waits for UIAutomator accessibility/window quiescence before full-display capture. Functional geometry PASS is retained; that loading PNG is not evidence of the pinned Mixer appearance. Runtime/UI source bytes are unchanged by this evidence synchronization correction.
+- The temporary branch trigger is removed before integration. Canonical `main` qualification/signing is requested with `[run ci signed]`; it repeats the API36 suite and corrected screenshot evidence, and signs the exact tested unsigned release APK without rebuilding.
+- By owner instruction, the new workflow is not monitored; its result must be supplied before signed-artifact verification/delivery continues. No final producer/hash/signer is guessed.
+- Local repeated and cold RC22→RC23 materialization passed after resealing the corrected test; all 13 terminal blob identities and protected payload agree.
 
 ## Predecessor RC22 evidence
 

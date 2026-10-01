@@ -3,7 +3,7 @@
 Private, single-owner Android guitar preparation, study, recording, mixing, export and backup appliance.
 
 Updated: 2026-10-01
-Release state: **RC20 ACCEPTED / RC23 STUDIO NAVBAR / NARROW MIXER CANDIDATE — QUALIFICATION ACTIVE**
+Release state: **RC20 ACCEPTED / RC23 STUDIO NAVBAR / NARROW MIXER CANDIDATE — BRANCH DIGITAL PASS / SIGNED QUALIFICATION REQUESTED**
 
 ## Start here
 
@@ -50,7 +50,7 @@ GBW is historical implementation provenance only. Legacy standalone GBW/H37/pre-
 ## Repository and materialization
 
 - canonical branch: `main`;
-- active RC23 development branch: `feature/studio-space-layout`;
+- RC23 review branch: `feature/studio-space-layout` (branch qualification completed; canonical integration/signing follows);
 - canonical materialization entrypoint: `scripts/materialize_ci_sources.sh`;
 - active candidate tail: **RC23StudioSpaceLayout** via `scripts/materialize_ci_sources_rc23.py`;
 - protected payloads: `.source-parts/`;

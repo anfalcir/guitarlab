@@ -168,10 +168,10 @@ index 829268a..867caad 100644
              // TransportBar owns the REC button interaction contract in TransportBarInstrumentedTest.
 diff --git a/app/src/androidTest/java/studio/guitarlab/app/StudioMixerTabletInstrumentedTest.kt b/app/src/androidTest/java/studio/guitarlab/app/StudioMixerTabletInstrumentedTest.kt
 new file mode 100644
-index 0000000..4bb1812
+index 0000000..207b938
 --- /dev/null
 +++ b/app/src/androidTest/java/studio/guitarlab/app/StudioMixerTabletInstrumentedTest.kt
-@@ -0,0 +1,78 @@
+@@ -0,0 +1,85 @@
 +package studio.guitarlab.app
 +
 +import androidx.compose.ui.test.assertIsDisplayed
@@ -183,6 +183,7 @@ index 0000000..4bb1812
 +import androidx.lifecycle.ViewModelProvider
 +import androidx.test.ext.junit.runners.AndroidJUnit4
 +import androidx.test.platform.app.InstrumentationRegistry
++import androidx.test.uiautomator.UiDevice
 +import org.junit.Assert.assertTrue
 +import org.junit.Rule
 +import org.junit.Test
@@ -236,11 +237,17 @@ index 0000000..4bb1812
 +            }
 +            val master = compose.onNodeWithTag("mixer-master-strip").fetchSemanticsNode().boundsInRoot
 +            assertTrue("Master must own a separate non-overlapping column", master.left >= scroller.right)
++            // Compose semantics can precede the actual SurfaceFlinger frame during load/toggle.
++            // Wait for accessibility/window quiescence before full-display artifact capture.
++            UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).waitForIdle()
 +            compose.captureCohesionScreenshot("rc23-studio-five-channels-pinned")
 +            val navbar = compose.onNodeWithTag("studio-workspace-bar").fetchSemanticsNode().boundsInRoot
 +            compose.onNodeWithTag("studio-mixer-toggle").performClick()
 +            val closedNavbar = compose.onNodeWithTag("studio-workspace-bar").fetchSemanticsNode().boundsInRoot
 +            assertTrue("Closing Mixer must not resize or move navbar", navbar == closedNavbar)
++            // Compose semantics can precede the actual SurfaceFlinger frame during load/toggle.
++            // Wait for accessibility/window quiescence before full-display artifact capture.
++            UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).waitForIdle()
 +            compose.captureCohesionScreenshot("rc23-studio-mixer-closed")
 +        } finally {
 +            preferences.setMixerVisible(oldVisible)
