@@ -4,7 +4,7 @@ Updated: 2026-10-01
 
 ## Status
 
-**RC22 DUAL-OUTPUT/CUE FEATURE CANDIDATE — VIEWPORT-SAFE MIXER REGRESSION SEALED / REQUALIFICATION REQUESTED**
+**RC22 DUAL-OUTPUT/CUE FEATURE CANDIDATE — BRANCH DIGITAL QUALIFICATION PASSED / READY FOR CANONICAL MAIN INTEGRATION**
 
 RC20 remains the currently accepted, physically homologated baseline recorded in `RELEASE_BASELINE.md`. RC22 is an explicit owner-requested successor candidate built on the RC21-integrated Android source. It adds per-track MAIN/CUE monitoring and therefore reopens only the affected Android playback/routing/monitoring paths plus adjacent persistence/UI coverage. The frozen Demucs backend and unrelated Drive transport evidence are unchanged.
 
@@ -19,8 +19,8 @@ RC21 reached signed digital-candidate state, but RC22 now supersedes it as the a
 - base canonical `main`: `ba2227bfb28afcc3d95602bcb622a05f27457141`;
 - source materialization tail: `scripts/materialize_ci_sources_rc22.py`;
 - protected payload: `.source-parts/RC22DualOutputCueRouting.patch`;
-- final protected payload blob: `7839c931d6a3ca894a1c58fc58fecb3db3391d9b`;
-- final RC22 materializer blob: `14e79d48507640b0e1015e6556b7eca6ee252fbb`;
+- final protected payload blob: `2eb746e7b015b794deb025d361f834f97318464c`;
+- final RC22 materializer blob: `8d8a6ec5e36ef2a5f4d38ea043ae4cc085043785`;
 - the 22 terminal source/test blobs were cross-checked against the branch source graph with zero mismatches before qualification;
 - low-latency/Bluetooth eligibility hardening is sealed in the RC22 materializer;
 - initial qualification CI #913 / run `36865931256`: **FAIL** because `StudioViewModel.kt` referenced `cueOutputSignature` without resolving it inside backing playback during recording;
@@ -96,19 +96,18 @@ RC21 reached signed digital-candidate state, but RC22 now supersedes it as the a
 - CI #920 / run `36874120837`: FAIL at Kotlin compile because content-aware CUE admission had been inserted into two auxiliary playback paths before their local `tracks/clips` context was defined; the current HEAD moves those calculations into the correct take/playback scopes and removes the unresolved symbols.
 - After the #920 corrective, the RC22 payload was rebuilt from canonical `main` to the exact current 22-file source set; materializer terminal hashes and `PATCH_BLOB` were cross-checked with zero mismatches before this rerun.
 - CI #922 / run `36876106290`: the pre-clock-offset hardening graph passed Unit tests, Android Lint and APK assembly; API36 was still running when the final clock-sync gap was identified. Because runtime bytes changed afterward, #922 is supporting evidence only and cannot qualify the final RC22 candidate.
-- Final hardening adds stable dual-AudioTimestamp preflight, a 12 ms initial-offset admission limit, tighter continuous drift bounds and a longer silent probe; these bytes require a fresh exact-source qualification.
+- Final hardening adds stable dual-AudioTimestamp preflight, a 12 ms initial-offset admission limit, tighter continuous drift bounds and a longer silent probe.
+- CI #932 / run `36893687913` on source SHA `7524b37665a01af484f4297e4537d97f5a62a180`: **PASS** — software gate green (unit tests, performance evidence, Android Lint, debug/release assembly) and API 36 instrumented regression green. Signed homologation job was intentionally skipped because this was a normal `[run ci]` branch qualification.
+- The temporary `feature/dual-output-cue-routing` workflow trigger was retired after #932; the next authoritative gate is canonical `main` after integration.
 
-## Qualification required before merge/promotion
+## Qualification state and remaining promotion gates
 
-Digital qualification must pass on the exact corrected RC22 source:
+Branch digital qualification passed on the exact corrected RC22 runtime/source graph in CI #932. Remaining gates are:
 
-1. deterministic RC22 materialization and reverse-apply/idempotence;
-2. JVM/unit tests including routing and project compatibility;
-3. Android Lint;
-4. debug/release assembly and unsigned candidate staging;
-5. API 36 representative instrumented regression, including Mixer accessibility;
-6. canonical-main integration only after the branch qualification is green;
-7. signed exact-artifact qualification from canonical `main`.
+1. integrate the qualified RC22 branch into canonical `main`;
+2. rerun the canonical-main software/API36 qualification on the integrated graph;
+3. run signed exact-artifact qualification from canonical `main`;
+4. perform residual affected-path physical validation on the exact signed RC22 APK before RC20 is superseded as the accepted physical baseline.
 
 Because this feature changes simultaneous physical audio routing, final support for a concrete MAIN+CUE device combination additionally requires residual physical validation on the exact signed RC22 APK. CI cannot prove Samsung/Android HAL behavior for two physical outputs.
 
