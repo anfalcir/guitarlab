@@ -1,6 +1,6 @@
 # Product Requirements
 
-Updated: 2026-09-25
+Updated: 2026-10-01
 
 Stable product identity, support boundaries, proportional quality, freeze policy and maintenance triggers are governed by `PROJECT_IDENTITY.md` and D-090.
 
@@ -107,6 +107,11 @@ The currently implemented format set includes WAV PCM, FLAC, AIFF/AIFC PCM, MP3,
 - Safe microphone permission/privacy handling.
 - Production playback/capture distinct from diagnostics.
 - Explicit selected input fails closed unless Android confirms the effective route; microphone fallback is forbidden.
+- Studio supports a primary MAIN output and an optional explicit secondary CUE output for per-track monitoring/playback routing.
+- Each track persists a backward-compatible output route; legacy projects default to MAIN.
+- The mixer headphone/CUE control may route any track to the secondary bus; the first UI contract is exclusive MAIN ↔ CUE while the engine retains MAIN_AND_CUE capability for future controlled use.
+- CUE requires an explicit MAIN route, a resolvable secondary device and live proof that MAIN/CUE are distinct endpoints. CUE never falls back silently to MAIN.
+- If the CUE route is lost, rejected, converges with MAIN or exceeds the bounded synchronization guard, CUE is silenced and the user receives explicit feedback; safe MAIN playback continues.
 - Playback/backing/monitoring return must never feed the recording writer.
 - Record uses visible 3-second countdown plus zero-time revalidation of permission, route, project and exactly one armed track.
 - Finalized takes enter immutable managed storage transactionally; zero-frame attempts create no clip.
