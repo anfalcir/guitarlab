@@ -7,7 +7,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 PREVIOUS = ROOT / "scripts/materialize_ci_sources_rc21.py"
 PATCH = ROOT / ".source-parts/RC22DualOutputCueRouting.patch"
-PATCH_BLOB = "1df6fa9b9cda93fce314863e0a78cf27422b7924"
+PATCH_BLOB = "d4e1812cef885c49832b3d4f2d02e4a4a15a8f8a"
 TARGETS = {
     "app/build.gradle.kts": ("076c5e76779c30a2a78df6edbbf5f849950134f8", "5e3343d00d2259fca4f57dadcbb9652355398fba"),
     "app/src/androidTest/java/studio/guitarlab/app/MixerDockInstrumentedTest.kt": ("bf81aa9414a376679634f8ddf3f0b9bbf58fde5d", "1d31d6326e9a194ff335edd46a3089e339409703"),
@@ -19,7 +19,7 @@ TARGETS = {
     "app/src/main/java/studio/guitarlab/app/ui/StudioAudioRoutingStore.kt": ("c22242d284fe0891ccba526b30d04ee93a31692a", "862dc29cd00b872b34fb9b6240f12eba8d03448b"),
     "app/src/main/java/studio/guitarlab/app/ui/StudioShellScreen.kt": ("6cd72c76501aef0b3cabc5b5c9f6f3c6dfb1aa3e", "40ec9b20efcf86325ff09e1c5cc2b8871e1a8833"),
     "app/src/main/java/studio/guitarlab/app/ui/StudioUserGuideDialog.kt": ("351de1cef1549091f3a08da2ab2d8a4d252721ae", "550cd23b9298c51c3c25cc8ed99c6ba01b0185f2"),
-    "app/src/main/java/studio/guitarlab/app/ui/StudioViewModel.kt": ("1c9e472debdf654de1b4b377ce3611c152812886", "979fccc7d1ab8874f8c40c064ecde5519ab5f834"),
+    "app/src/main/java/studio/guitarlab/app/ui/StudioViewModel.kt": ("1c9e472debdf654de1b4b377ce3611c152812886", "0320177b86b398c3a67021c08a907cc96394bceb"),
     "core/audio/src/main/kotlin/studio/guitarlab/core/audio/CueRouteSafetyPolicy.kt": (None, "89e3b4dcbcbae5fb6007984b4ddf0c2f60eb4d94"),
     "core/audio/src/test/kotlin/studio/guitarlab/core/audio/CueRouteSafetyPolicyTest.kt": (None, "6edbc1ee60cb2c3fe7af9a72bc81b4c076896697"),
     "core/model/src/main/kotlin/studio/guitarlab/core/model/ProjectModels.kt": ("6a0ccb1e2f9b41694fd815486dab3e0251c2a1e0", "86fea2a477c6e930cbbccb1152009a20ee8181b1"),
