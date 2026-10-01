@@ -1,6 +1,6 @@
 # RC22 Dual-Output/CUE Qualification — 2026-10-01
 
-Status: **BRANCH DIGITAL PASS — CANONICAL MAIN INTEGRATED / REQUALIFICATION PENDING**
+Status: **CANONICAL MAIN DIGITAL PASS — SIGNED QUALIFICATION PENDING**
 
 This record preserves the branch-level digital qualification evidence for GuitarLab `0.5.0-rc22` / versionCode `42`. RC20 remains the accepted physically homologated baseline until an exact signed RC22 artifact completes the remaining canonical-main and physical acceptance gates.
 
@@ -53,13 +53,25 @@ The final runtime preserves explicit real 48x48dp interactive targets where intr
 - no Kotlin/Java/runtime source failed qualification in #933 because materialization, compilation and tests were never reached;
 - canonical CI now excludes stored `.source-parts/*.patch` payload text from the generic whitespace preflight while retaining hash/`git apply --check`/idempotence validation in the materializer; the README trailing whitespace was removed.
 
+## Canonical main digital qualification
+
+- Android CI #934 / run `36898048823`: **PASS**;
+- exact canonical-main source SHA: `0fc668197d6ebfd3a13f0ef97e3cc65bc846df7c`;
+- Unit tests + Lint + APK build: PASS;
+- API 36 emulator regression: PASS;
+- signed homologation job: intentionally skipped because #934 was a normal `[run ci]` qualification;
+- software-gate artifact id: `11181285696`, digest `sha256:6cb8834c22868dd2b018ad97808c1fdb571fb228e43f779f363bb117aa820c79`;
+- Android integration artifact id: `11181067950`, digest `sha256:4355ac345cae9f372f30d6ea6590e06f31072c1d3c52c6835d7d5e505fd742e4`;
+- exact source snapshot artifact id: `11179942870`, digest `sha256:b14fb2c816d9ee5716f642d3a4c219f64854ed7fe88a2be8de956dfed36bf13b`.
+
+#934 closes the canonical unsigned digital gate after the #933 diff-sanity corrective. Runtime/source behavior remains the RC22 graph previously qualified on the feature branch; the only intervening changes were CI preflight/documentation corrections.
+
 ## Remaining gates
 
 Branch qualification is not release promotion. The remaining sequence is:
 
-1. rerun the canonical-main software/API36 qualification after the #933 preflight corrective;
-2. run signed exact-artifact qualification from canonical `main`;
-3. physically validate the affected MAIN+CUE paths on the exact signed RC22 APK using the target Android 16 device and actual distinct physical outputs;
-4. only then consider superseding RC20 in `RELEASE_BASELINE.md`.
+1. run signed exact-artifact qualification from canonical `main`;
+2. physically validate the affected MAIN+CUE paths on the exact signed RC22 APK using the target Android 16 device and actual distinct physical outputs;
+3. only then consider superseding RC20 in `RELEASE_BASELINE.md`.
 
 CI cannot prove the Samsung/Android audio HAL behavior of two simultaneous physical outputs. RC20 therefore remains the accepted physical baseline until that residual validation is completed.
