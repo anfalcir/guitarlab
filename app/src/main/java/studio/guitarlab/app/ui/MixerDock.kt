@@ -51,6 +51,7 @@ import studio.guitarlab.app.ui.theme.StudioRecord
 import studio.guitarlab.app.ui.theme.StudioSolo
 import studio.guitarlab.core.audio.MeterBallisticsState
 import studio.guitarlab.core.model.AudioTrack
+import studio.guitarlab.core.model.TrackOutputRoute
 import studio.guitarlab.core.project.GuitarAuditionMode
 import studio.guitarlab.core.project.GuitarAuditionPolicy
 import studio.guitarlab.core.project.GuitarAuditionTrackState
@@ -74,6 +75,7 @@ fun MixerDock(
     onPanCommit: (String, Float) -> Unit,
     onToggleMute: (String) -> Unit,
     onToggleSolo: (String) -> Unit,
+    onToggleCue: (String) -> Unit,
     onToggleArm: (String) -> Unit,
     onMasterGainPreview: (Float) -> Unit,
     onMasterGainCommit: (Float) -> Unit,
@@ -124,6 +126,7 @@ fun MixerDock(
                             onPanCommit = { onPanCommit(track.id, it) },
                             onToggleMute = { onToggleMute(track.id) },
                             onToggleSolo = { onToggleSolo(track.id) },
+                            onToggleCue = { onToggleCue(track.id) },
                             onToggleArm = { onToggleArm(track.id) },
                             onClearClip = { onClearTrackClip(track.id) },
                         )
@@ -160,6 +163,7 @@ private fun MixerTrackStrip(
     onPanCommit: (Float) -> Unit,
     onToggleMute: () -> Unit,
     onToggleSolo: () -> Unit,
+    onToggleCue: () -> Unit,
     onToggleArm: () -> Unit,
     onClearClip: () -> Unit,
 ) {
@@ -171,7 +175,7 @@ private fun MixerTrackStrip(
 
     Surface(
         modifier = Modifier
-            .width(184.dp)
+            .width(216.dp)
             .fillMaxHeight()
             .testTag("mixer-track-strip-${track.id}")
             .clip(RoundedCornerShape(8.dp))
@@ -227,6 +231,14 @@ private fun MixerTrackStrip(
                     enabled = mixControlsEnabled,
                     contentDescription = "Solo da pista ${track.name}",
                     onClick = onToggleSolo,
+                )
+                MixerStateButton(
+                    label = "🎧",
+                    active = track.outputRoute != TrackOutputRoute.MAIN,
+                    activeColor = MaterialTheme.colorScheme.tertiary,
+                    enabled = mixControlsEnabled,
+                    contentDescription = "Saída CUE da pista ${track.name}",
+                    onClick = onToggleCue,
                 )
                 MixerArmButton(
                     active = track.armed,
