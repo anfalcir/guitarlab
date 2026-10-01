@@ -41,6 +41,8 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import kotlin.math.abs
@@ -599,7 +601,14 @@ private fun MeterRow(
             Surface(
                 modifier = Modifier.clip(RoundedCornerShape(4.dp))
                     .clickable(role = Role.Button, onClick = onClearClip)
-                    .semantics { contentDescription = clipContentDescription ?: "Limpar indicador de clipping" },
+                    .semantics {
+                        contentDescription = clipContentDescription ?: "Limpar indicador de clipping"
+                        role = Role.Button
+                        onClick {
+                            onClearClip()
+                            true
+                        }
+                    },
                 shape = RoundedCornerShape(4.dp),
                 color = MaterialTheme.colorScheme.error.copy(alpha = 0.16f),
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.error),
