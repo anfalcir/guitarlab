@@ -1634,7 +1634,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
     fun toggleTrackCue(trackId: String) {
         val state = _state.value
         val project = state.project ?: return
-        if (state.importing || state.editingClip || state.historyBusy || state.trimControls != null) return
+        if (!structuralEditingAllowed(state)) return
         viewModelScope.launch {
             runCatching {
                 saveLatest(project.id) { latest ->
@@ -1649,7 +1649,6 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                 }
             }.onSuccess { saved ->
                 val route = saved.tracks.firstOrNull { it.id == trackId }?.outputRoute ?: TrackOutputRoute.MAIN
-                playbackEngine.setTrackOutputRoute(trackId, route)
                 applySavedProject(
                     saved,
                     if (route == TrackOutputRoute.CUE) "Pista enviada para a saída CUE" else "Pista enviada para a saída principal",
@@ -2493,7 +2492,6 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
         val tracksById = project.tracks.associateBy { it.id }
         val selectedOutputSignature = audioRoutingStore.selectedOutputSignature()
         val preferredOutput = audioRoutingStore.resolveSelectedOutputDevice()
-        val selectedCueOutputSignature = audioRoutingStore.selectedCueOutputSignature()
         val preferredCueOutput = audioRoutingStore.resolveSelectedCueOutputDevice()
         val request = runCatching {
             StudioPlaybackRequest(
@@ -2507,8 +2505,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                 preferredOutputRequested = !selectedOutputSignature.isNullOrBlank(),
                 preferredCueOutputDevice = preferredCueOutput,
                 preferredCueOutputRequested =
-                    !selectedCueOutputSignature.isNullOrBlank() ||
-                        project.tracks.any { TrackOutputRoutingPolicy.sendsToCue(it.outputRoute) },
+                    project.tracks.any { TrackOutputRoutingPolicy.sendsToCue(it.outputRoute) },
                 masterGainDb = project.masterGainDb,
                 auditionMode = current.guitarAuditionMode,
                 repeatLoop = false,
@@ -2750,7 +2747,6 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
         }
         if (clips.isEmpty()) return false
         val outputSignature = audioRoutingStore.selectedOutputSignature()
-        val cueOutputSignature = audioRoutingStore.selectedCueOutputSignature()
         val request = StudioPlaybackRequest(
             sampleRateHz = sampleRateHz,
             startFrame = state.recordingSession.timelineStartFrame.coerceAtMost(end),
@@ -2774,8 +2770,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
             preferredOutputRequested = !outputSignature.isNullOrBlank(),
             preferredCueOutputDevice = audioRoutingStore.resolveSelectedCueOutputDevice(),
             preferredCueOutputRequested =
-                !cueOutputSignature.isNullOrBlank() ||
-                    project.tracks.any { TrackOutputRoutingPolicy.sendsToCue(it.outputRoute) },
+                project.tracks.any { TrackOutputRoutingPolicy.sendsToCue(it.outputRoute) },
             masterGainDb = project.masterGainDb,
         )
         return runCatching {
