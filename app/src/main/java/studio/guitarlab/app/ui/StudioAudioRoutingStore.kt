@@ -146,7 +146,8 @@ class StudioAudioRoutingStore(context: Context) {
      */
     fun resolveSelectedCueOutputDevice(): AudioDeviceInfo? {
         val selected = selectedCueOutputSignature() ?: return null
-        if (selected == selectedOutputSignature()) return null
+        val main = selectedOutputSignature() ?: return null
+        if (selected == main) return null
         return resolveOutputDevice(selected, CUE_OUTPUT_ROUTE_CACHE)
     }
 
@@ -186,7 +187,8 @@ class StudioAudioRoutingStore(context: Context) {
 
     fun isSelectedCueOutputUnavailable(): Boolean {
         val selected = selectedCueOutputSignature() ?: return false
-        if (selected == selectedOutputSignature()) return true
+        val main = selectedOutputSignature() ?: return true
+        if (selected == main) return true
         return outputChoices().none { it.signature == selected }
     }
 
@@ -196,7 +198,9 @@ class StudioAudioRoutingStore(context: Context) {
         val selectedOutput = selectedOutputSignature()
         val output = selectedOutput?.let { signature -> outputChoices().firstOrNull { it.signature == signature } }
         val selectedCueOutput = selectedCueOutputSignature()
-        val cueDistinct = selectedCueOutput == null || selectedCueOutput != selectedOutput
+        val cueDistinct =
+            selectedCueOutput == null ||
+                (selectedOutput != null && selectedCueOutput != selectedOutput)
         val cueOutput = selectedCueOutput
             ?.takeIf { cueDistinct }
             ?.let { signature -> outputChoices().firstOrNull { it.signature == signature } }
