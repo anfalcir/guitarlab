@@ -14,6 +14,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipe
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -92,11 +93,15 @@ class MixerDockInstrumentedTest {
         cue.assert(buttonRole).assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "Desativado")).assertIsEnabled().assert(hasClickAction())
         arm.assert(buttonRole).assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "Desarmada")).assertIsEnabled().assert(hasClickAction())
 
-        mute.performClick()
-        solo.performClick()
-        cue.performClick()
-        arm.performClick()
-        composeRule.onNodeWithContentDescription("Limpar clipping da pista Teste").assert(buttonRole).performClick()
+        mute.performScrollTo().assertIsDisplayed().performClick()
+        solo.performScrollTo().assertIsDisplayed().performClick()
+        cue.performScrollTo().assertIsDisplayed().performClick()
+        arm.performScrollTo().assertIsDisplayed().performClick()
+        composeRule.onNodeWithContentDescription("Limpar clipping da pista Teste")
+            .performScrollTo()
+            .assertIsDisplayed()
+            .assert(buttonRole)
+            .performClick()
         composeRule.onNodeWithContentDescription("Limpar clipping do master").assert(buttonRole).performClick()
 
         assertEquals(1, muteClicks.get())
@@ -106,16 +111,26 @@ class MixerDockInstrumentedTest {
         assertEquals(1, trackClipClicks.get())
         assertEquals(1, masterClipClicks.get())
 
-        val muteCenter = mute.fetchSemanticsNode().boundsInRoot.center
-        val soloCenter = solo.fetchSemanticsNode().boundsInRoot.center
-        val cueCenter = cue.fetchSemanticsNode().boundsInRoot.center
-        val armCenter = arm.fetchSemanticsNode().boundsInRoot.center
         val density = InstrumentationRegistry.getInstrumentation().targetContext.resources.displayMetrics.density
         val minimumCenterDistancePx = 48f * density - 1f
 
-        val muteSoloDistancePx = abs(soloCenter.x - muteCenter.x)
-        val soloCueDistancePx = abs(cueCenter.x - soloCenter.x)
-        val cueArmDistancePx = abs(armCenter.x - cueCenter.x)
+        mute.performScrollTo().assertIsDisplayed()
+        solo.assertIsDisplayed()
+        val muteSoloDistancePx = abs(
+            solo.fetchSemanticsNode().boundsInRoot.center.x - mute.fetchSemanticsNode().boundsInRoot.center.x,
+        )
+
+        cue.performScrollTo().assertIsDisplayed()
+        solo.assertIsDisplayed()
+        val soloCueDistancePx = abs(
+            cue.fetchSemanticsNode().boundsInRoot.center.x - solo.fetchSemanticsNode().boundsInRoot.center.x,
+        )
+
+        arm.performScrollTo().assertIsDisplayed()
+        cue.assertIsDisplayed()
+        val cueArmDistancePx = abs(
+            arm.fetchSemanticsNode().boundsInRoot.center.x - cue.fetchSemanticsNode().boundsInRoot.center.x,
+        )
 
         assertTrue(
             "Mute/Solo expanded touch targets must not overlap: distance=$muteSoloDistancePx minimum=$minimumCenterDistancePx",
