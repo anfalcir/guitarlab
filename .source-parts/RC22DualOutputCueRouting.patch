@@ -1,5 +1,4 @@
 diff --git a/app/build.gradle.kts b/app/build.gradle.kts
-index 076c5e7..5e3343d 100644
 --- a/app/build.gradle.kts
 +++ b/app/build.gradle.kts
 @@ -11,8 +11,8 @@ android {
@@ -14,7 +13,6 @@ index 076c5e7..5e3343d 100644
      }
  
 diff --git a/app/src/androidTest/java/studio/guitarlab/app/MixerDockInstrumentedTest.kt b/app/src/androidTest/java/studio/guitarlab/app/MixerDockInstrumentedTest.kt
-index bf81aa9..1231ebc 100644
 --- a/app/src/androidTest/java/studio/guitarlab/app/MixerDockInstrumentedTest.kt
 +++ b/app/src/androidTest/java/studio/guitarlab/app/MixerDockInstrumentedTest.kt
 @@ -6,6 +6,7 @@ import androidx.compose.ui.semantics.SemanticsProperties
@@ -130,7 +128,6 @@ index bf81aa9..1231ebc 100644
                      onMasterGainPreview = {},
                      onMasterGainCommit = {},
 diff --git a/app/src/main/java/studio/guitarlab/app/diagnostics/DiagnosticBundleExporter.kt b/app/src/main/java/studio/guitarlab/app/diagnostics/DiagnosticBundleExporter.kt
-index f13441d..74c1743 100644
 --- a/app/src/main/java/studio/guitarlab/app/diagnostics/DiagnosticBundleExporter.kt
 +++ b/app/src/main/java/studio/guitarlab/app/diagnostics/DiagnosticBundleExporter.kt
 @@ -67,12 +67,16 @@ class DiagnosticBundleExporter(private val context: Context) {
@@ -151,7 +148,6 @@ index f13441d..74c1743 100644
  
          entries["activity.json"] = JSONArray().also { array ->
 diff --git a/app/src/main/java/studio/guitarlab/app/diagnostics/DiagnosticsScreen.kt b/app/src/main/java/studio/guitarlab/app/diagnostics/DiagnosticsScreen.kt
-index a0bb842..52379c7 100644
 --- a/app/src/main/java/studio/guitarlab/app/diagnostics/DiagnosticsScreen.kt
 +++ b/app/src/main/java/studio/guitarlab/app/diagnostics/DiagnosticsScreen.kt
 @@ -128,9 +128,11 @@ fun DiagnosticsScreen(
@@ -169,7 +165,6 @@ index a0bb842..52379c7 100644
                      DiagnosticLine("Monitoramento", routing.monitoringMode().name)
                      Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
 diff --git a/app/src/main/java/studio/guitarlab/app/ui/AudioProbeViewModel.kt b/app/src/main/java/studio/guitarlab/app/ui/AudioProbeViewModel.kt
-index 2d4fba8..8f91a6b 100644
 --- a/app/src/main/java/studio/guitarlab/app/ui/AudioProbeViewModel.kt
 +++ b/app/src/main/java/studio/guitarlab/app/ui/AudioProbeViewModel.kt
 @@ -120,7 +120,8 @@ class AudioProbeViewModel(application: Application) : AndroidViewModel(applicati
@@ -183,7 +178,6 @@ index 2d4fba8..8f91a6b 100644
              val outputSignature = routingStore.selectedOutputSignature()
              listOf(44_100, 48_000, 88_200, 96_000).forEach { rate ->
 diff --git a/app/src/main/java/studio/guitarlab/app/ui/MixerDock.kt b/app/src/main/java/studio/guitarlab/app/ui/MixerDock.kt
-index f55a090..7cf7410 100644
 --- a/app/src/main/java/studio/guitarlab/app/ui/MixerDock.kt
 +++ b/app/src/main/java/studio/guitarlab/app/ui/MixerDock.kt
 @@ -21,6 +21,7 @@ import androidx.compose.foundation.lazy.items
@@ -291,7 +285,6 @@ index f55a090..7cf7410 100644
  private fun MixerArmButton(
      active: Boolean,
 diff --git a/app/src/main/java/studio/guitarlab/app/ui/SettingsScreen.kt b/app/src/main/java/studio/guitarlab/app/ui/SettingsScreen.kt
-index e4c982b..b0b2d2b 100644
 --- a/app/src/main/java/studio/guitarlab/app/ui/SettingsScreen.kt
 +++ b/app/src/main/java/studio/guitarlab/app/ui/SettingsScreen.kt
 @@ -73,8 +73,10 @@ fun SettingsScreen(
@@ -425,7 +418,6 @@ index e4c982b..b0b2d2b 100644
                          DropdownMenuItem(text = { Text(choice.label) }, onClick = { menuOpen = false; onSelect(choice.signature) })
                      }
 diff --git a/app/src/main/java/studio/guitarlab/app/ui/StudioAudioRoutePolicy.kt b/app/src/main/java/studio/guitarlab/app/ui/StudioAudioRoutePolicy.kt
-index fab0520..4d56684 100644
 --- a/app/src/main/java/studio/guitarlab/app/ui/StudioAudioRoutePolicy.kt
 +++ b/app/src/main/java/studio/guitarlab/app/ui/StudioAudioRoutePolicy.kt
 @@ -43,6 +43,15 @@ internal object StudioAudioRoutePolicy {
@@ -455,7 +447,6 @@ index fab0520..4d56684 100644
      const val BUILTIN_MIC_FAMILY = "builtin-mic"
      const val HIDDEN_SYSTEM_FAMILY = "hidden-system"
 diff --git a/app/src/main/java/studio/guitarlab/app/ui/StudioAudioRoutingStore.kt b/app/src/main/java/studio/guitarlab/app/ui/StudioAudioRoutingStore.kt
-index c22242d..6608f5a 100644
 --- a/app/src/main/java/studio/guitarlab/app/ui/StudioAudioRoutingStore.kt
 +++ b/app/src/main/java/studio/guitarlab/app/ui/StudioAudioRoutingStore.kt
 @@ -14,10 +14,13 @@ import studio.guitarlab.core.audio.MonitoringMode
@@ -683,7 +674,6 @@ index c22242d..6608f5a 100644
      }
  }
 diff --git a/app/src/main/java/studio/guitarlab/app/ui/StudioShellScreen.kt b/app/src/main/java/studio/guitarlab/app/ui/StudioShellScreen.kt
-index 6cd72c7..40ec9b2 100644
 --- a/app/src/main/java/studio/guitarlab/app/ui/StudioShellScreen.kt
 +++ b/app/src/main/java/studio/guitarlab/app/ui/StudioShellScreen.kt
 @@ -242,6 +242,7 @@ fun StudioShellScreen(
@@ -695,7 +685,6 @@ index 6cd72c7..40ec9b2 100644
                      onMasterGainPreview = viewModel::previewMasterGainDb,
                      onMasterGainCommit = viewModel::commitMasterGainDb,
 diff --git a/app/src/main/java/studio/guitarlab/app/ui/StudioUserGuideDialog.kt b/app/src/main/java/studio/guitarlab/app/ui/StudioUserGuideDialog.kt
-index 351de1c..f36fb2a 100644
 --- a/app/src/main/java/studio/guitarlab/app/ui/StudioUserGuideDialog.kt
 +++ b/app/src/main/java/studio/guitarlab/app/ui/StudioUserGuideDialog.kt
 @@ -58,7 +58,7 @@ private object GuitarLabGuideContent {
@@ -717,7 +706,6 @@ index 351de1c..f36fb2a 100644
      )
  
 diff --git a/app/src/main/java/studio/guitarlab/app/ui/StudioViewModel.kt b/app/src/main/java/studio/guitarlab/app/ui/StudioViewModel.kt
-index 1c9e472..e7594f8 100644
 --- a/app/src/main/java/studio/guitarlab/app/ui/StudioViewModel.kt
 +++ b/app/src/main/java/studio/guitarlab/app/ui/StudioViewModel.kt
 @@ -50,6 +50,8 @@ import studio.guitarlab.core.model.ChannelLayout
@@ -970,7 +958,6 @@ index 1c9e472..e7594f8 100644
          playbackEngine.setMasterGainDb(saved.masterGainDb)
          val state = _state.value
 diff --git a/app/src/test/java/studio/guitarlab/app/ui/StudioAudioRoutePolicyTest.kt b/app/src/test/java/studio/guitarlab/app/ui/StudioAudioRoutePolicyTest.kt
-index 460e2d0..e3d90e7 100644
 --- a/app/src/test/java/studio/guitarlab/app/ui/StudioAudioRoutePolicyTest.kt
 +++ b/app/src/test/java/studio/guitarlab/app/ui/StudioAudioRoutePolicyTest.kt
 @@ -1,6 +1,7 @@
@@ -1001,7 +988,6 @@ index 460e2d0..e3d90e7 100644
          val weak = choice(id = 1, type = 11, rates = listOf(44_100), channels = listOf(1))
 diff --git a/core/audio/src/main/kotlin/studio/guitarlab/core/audio/CueRouteSafetyPolicy.kt b/core/audio/src/main/kotlin/studio/guitarlab/core/audio/CueRouteSafetyPolicy.kt
 new file mode 100644
-index 0000000..e6a3e44
 --- /dev/null
 +++ b/core/audio/src/main/kotlin/studio/guitarlab/core/audio/CueRouteSafetyPolicy.kt
 @@ -0,0 +1,66 @@
@@ -1073,7 +1059,6 @@ index 0000000..e6a3e44
 +}
 diff --git a/core/audio/src/test/kotlin/studio/guitarlab/core/audio/CueRouteSafetyPolicyTest.kt b/core/audio/src/test/kotlin/studio/guitarlab/core/audio/CueRouteSafetyPolicyTest.kt
 new file mode 100644
-index 0000000..9dbebd1
 --- /dev/null
 +++ b/core/audio/src/test/kotlin/studio/guitarlab/core/audio/CueRouteSafetyPolicyTest.kt
 @@ -0,0 +1,57 @@
@@ -1135,7 +1120,6 @@ index 0000000..9dbebd1
 +
 +}
 diff --git a/core/model/src/main/kotlin/studio/guitarlab/core/model/ProjectModels.kt b/core/model/src/main/kotlin/studio/guitarlab/core/model/ProjectModels.kt
-index 6a0ccb1..86fea2a 100644
 --- a/core/model/src/main/kotlin/studio/guitarlab/core/model/ProjectModels.kt
 +++ b/core/model/src/main/kotlin/studio/guitarlab/core/model/ProjectModels.kt
 @@ -7,6 +7,7 @@ const val CURRENT_PROJECT_SCHEMA_VERSION: Int = 2
@@ -1156,7 +1140,6 @@ index 6a0ccb1..86fea2a 100644
  /**
 diff --git a/core/model/src/main/kotlin/studio/guitarlab/core/model/TrackOutputRoutingPolicy.kt b/core/model/src/main/kotlin/studio/guitarlab/core/model/TrackOutputRoutingPolicy.kt
 new file mode 100644
-index 0000000..c4642fa
 --- /dev/null
 +++ b/core/model/src/main/kotlin/studio/guitarlab/core/model/TrackOutputRoutingPolicy.kt
 @@ -0,0 +1,26 @@
@@ -1188,7 +1171,6 @@ index 0000000..c4642fa
 +}
 diff --git a/core/model/src/test/kotlin/studio/guitarlab/core/model/TrackOutputRoutingPolicyTest.kt b/core/model/src/test/kotlin/studio/guitarlab/core/model/TrackOutputRoutingPolicyTest.kt
 new file mode 100644
-index 0000000..da2e209
 --- /dev/null
 +++ b/core/model/src/test/kotlin/studio/guitarlab/core/model/TrackOutputRoutingPolicyTest.kt
 @@ -0,0 +1,41 @@
@@ -1234,7 +1216,6 @@ index 0000000..da2e209
 +
 +}
 diff --git a/core/project/src/test/kotlin/studio/guitarlab/core/project/ProjectCodecCompatibilityTest.kt b/core/project/src/test/kotlin/studio/guitarlab/core/project/ProjectCodecCompatibilityTest.kt
-index dcc828a..5b06cf3 100644
 --- a/core/project/src/test/kotlin/studio/guitarlab/core/project/ProjectCodecCompatibilityTest.kt
 +++ b/core/project/src/test/kotlin/studio/guitarlab/core/project/ProjectCodecCompatibilityTest.kt
 @@ -8,6 +8,7 @@ import studio.guitarlab.core.model.ChannelLayout
@@ -1296,7 +1277,6 @@ index dcc828a..5b06cf3 100644
 +
  }
 diff --git a/platform/audio-android/src/main/kotlin/studio/guitarlab/platform/audio/android/AndroidStudioPlaybackEngine.kt b/platform/audio-android/src/main/kotlin/studio/guitarlab/platform/audio/android/AndroidStudioPlaybackEngine.kt
-index b8a3a42..21001f0 100644
 --- a/platform/audio-android/src/main/kotlin/studio/guitarlab/platform/audio/android/AndroidStudioPlaybackEngine.kt
 +++ b/platform/audio-android/src/main/kotlin/studio/guitarlab/platform/audio/android/AndroidStudioPlaybackEngine.kt
 @@ -16,7 +16,11 @@ import kotlin.math.sqrt
@@ -1767,7 +1747,6 @@ index b8a3a42..21001f0 100644
      }
  }
 diff --git a/platform/audio-android/src/main/kotlin/studio/guitarlab/platform/audio/android/AndroidStudioRecordingEngine.kt b/platform/audio-android/src/main/kotlin/studio/guitarlab/platform/audio/android/AndroidStudioRecordingEngine.kt
-index 50dd319..4f8d594 100644
 --- a/platform/audio-android/src/main/kotlin/studio/guitarlab/platform/audio/android/AndroidStudioRecordingEngine.kt
 +++ b/platform/audio-android/src/main/kotlin/studio/guitarlab/platform/audio/android/AndroidStudioRecordingEngine.kt
 @@ -28,6 +28,7 @@ data class StudioRecordingRequest(
@@ -1889,7 +1868,6 @@ index 50dd319..4f8d594 100644
          const val ROUTE_CONFIRM_TIMEOUT_NS = 750_000_000L
          const val CLOCK_ANCHOR_SAMPLES = 6
 diff --git a/platform/audio-android/src/test/kotlin/studio/guitarlab/platform/audio/android/RecordingInputRoutePolicyTest.kt b/platform/audio-android/src/test/kotlin/studio/guitarlab/platform/audio/android/RecordingInputRoutePolicyTest.kt
-index 71649fa..16fb515 100644
 --- a/platform/audio-android/src/test/kotlin/studio/guitarlab/platform/audio/android/RecordingInputRoutePolicyTest.kt
 +++ b/platform/audio-android/src/test/kotlin/studio/guitarlab/platform/audio/android/RecordingInputRoutePolicyTest.kt
 @@ -14,4 +14,13 @@ class RecordingInputRoutePolicyTest {
