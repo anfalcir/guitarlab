@@ -1,0 +1,655 @@
+diff --git a/app/src/androidTest/java/studio/guitarlab/app/StudioWorkspaceBarInstrumentedTest.kt b/app/src/androidTest/java/studio/guitarlab/app/StudioWorkspaceBarInstrumentedTest.kt
+--- a/app/src/androidTest/java/studio/guitarlab/app/StudioWorkspaceBarInstrumentedTest.kt
++++ b/app/src/androidTest/java/studio/guitarlab/app/StudioWorkspaceBarInstrumentedTest.kt
+@@ -37,111 +37,118 @@
+         val mode = mutableStateOf(GuitarAuditionMode.MIXER)
+         val visible = mutableStateOf(true)
+         val minimal = mutableStateOf(false)
+-        compose.setContent {
+-            GuitarLabTheme(darkTheme = true) {
+-                StudioWorkspaceBar(
+-                    auditionMode = mode.value, mixerVisible = visible.value,
+-                    mixerMinimal = minimal.value,
+-                    onToggleMixerMode = { minimal.value = !minimal.value },
+-                    panelContent = { Text(it.label) },
+-                    transportContent = { Text("Transport", Modifier.testTag("test-transport")) },
+-                )
+-            }
+-        }
+-        val tags = listOf("studio-action-comparison", "studio-action-timeline", "studio-mixer-mode")
+-        // Compare in content coordinates: physical scroll position and clipped viewport bounds
+-        // are not slot positions. Narrow screens intentionally scroll this fixed-width row.
+-        fun contentBounds(tag: String): Rect {
+-            val row = compose.onNodeWithTag("studio-workspace-row").fetchSemanticsNode()
+-            val node = compose.onNodeWithTag(tag).fetchSemanticsNode()
+-            val x = node.positionInRoot.x - row.positionInRoot.x
+-            val y = node.positionInRoot.y - row.positionInRoot.y
+-            return Rect(x, y, x + node.size.width, y + node.size.height)
+-        }
+-        fun bounds() = tags.map(::contentBounds)
+-        val before = bounds()
+-        val row = compose.onNodeWithTag("studio-workspace-row").fetchSemanticsNode()
+-        val transport = contentBounds("test-transport")
+-        val viewport = compose.onNodeWithTag("studio-workspace-viewport").fetchSemanticsNode()
+-        Log.i("WorkspaceGeometryTest", "viewport=${viewport.size} content=${row.size} transport=$transport")
+-        org.junit.Assert.assertTrue("Content row must cover the viewport", row.size.width >= viewport.size.width)
+-        assertEquals("Transport must be centered in the fixed content row", row.size.width / 2f, transport.center.x, 1f)
+-        compose.onNodeWithTag("studio-mixer-mode").performScrollTo().performClick()
+-        assertEquals(before, bounds())
+-        compose.runOnIdle {
+-            mode.value = GuitarAuditionMode.BOTH
+-            visible.value = false
+-            minimal.value = true
+-        }
+-        assertEquals(before, bounds())
+-        compose.onNodeWithTag("studio-mixer-mode").assertIsNotEnabled()
+-        compose.onNodeWithTag("studio-action-comparison").performScrollTo().performClick()
+-        compose.onNodeWithTag("studio-panel-comparison").assertIsDisplayed()
+-        assertEquals(before, bounds())
+-        assertEquals("Transport slot stays fixed when modes and panels change", transport, contentBounds("test-transport"))
+-        compose.captureCohesionScreenshot("rc24-navbar-comparison")
+-    }
+-
+-    @Test
+-    fun comparisonRemainsOpenAndTimelineActionsFitWithoutHorizontalScrolling() {
+-        val mode = mutableStateOf(GuitarAuditionMode.MIXER)
+-        val project = ProjectFactory().create("Studio menus", ProjectTemplate.BLANK)
+-        compose.setContent {
+-            GuitarLabTheme(darkTheme = false) {
+-                StudioWorkspaceBar(
+-                    auditionMode = mode.value, mixerVisible = true, mixerMinimal = false,
+-                    onToggleMixerMode = {}, transportContent = { Text("Transport", Modifier.testTag("test-transport")) },
+-                    panelContent = { panel ->
+-                        PracticeControls(
+-                            project = project, auditionMode = mode.value, suggestions = 0,
+-                            enabled = true, loopEnabled = false,
+-                            onAuditionMode = { mode.value = it }, onAddMarker = {}, onAddSection = {},
+-                            onSuggestSections = {}, onAcceptSections = {}, onDiscardSections = {}, onClearSections = {},
+-                            onLoopSection = {}, onRemoveMarker = {}, onRemoveSection = {},
+-                            onOpenLevelAnalysis = {}, panel = panel,
+-                        )
+-                    },
+-                )
+-            }
+-        }
+-        compose.onNodeWithTag("studio-action-comparison").performScrollTo().performClick()
+-        compose.onNodeWithText("Referência").performScrollTo().performClick()
+-        compose.onNodeWithText("Minha").performScrollTo().performClick()
+-        compose.onNodeWithText("Ambas").performScrollTo().performClick()
+-        assertEquals(GuitarAuditionMode.BOTH, mode.value)
+-        compose.onNodeWithTag("studio-panel-comparison").assertIsDisplayed()
+-        // Dismiss through the real platform back action before opening a different anchored menu.
+-        androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK)
+-        compose.waitForIdle()
+-        compose.onNodeWithTag("studio-action-timeline").performScrollTo().performClick()
+-        val menu = compose.onNodeWithTag("studio-panel-timeline").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+-        listOf("+ Marcador", "Criar seção do loop", "Auto seções", "Limpar seções").forEach { label ->
+-            val action = compose.onNodeWithText(label).assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+-            org.junit.Assert.assertTrue("$label must fit fully in the menu", action.left >= menu.left && action.right <= menu.right)
+-        }
+-        compose.onNodeWithText("Criar seção do loop").assertIsNotEnabled()
+-        compose.onNodeWithText("Defina e ative um loop primeiro").assertIsDisplayed()
+-        compose.captureCohesionScreenshot("rc24-navbar-timeline")
+-
+-    }
+-
+-    @Test
+-    fun narrowViewportKeepsEverySlotReachableWithoutWrapping() {
+-        compose.setContent {
+-            GuitarLabTheme {
+-                Box(Modifier.width(320.dp)) {
+-                    StudioWorkspaceBar(
+-                        auditionMode = GuitarAuditionMode.REFERENCE, mixerVisible = true,
+-                        mixerMinimal = false,
+-                        onToggleMixerMode = {},
+-                        panelContent = { Text(it.label) }, transportContent = { Text("Transport", Modifier.testTag("test-transport")) },
+-                    )
+-                }
+-            }
+-        }
+-        val first = compose.onNodeWithTag("studio-action-comparison").performScrollTo().assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+-        val last = compose.onNodeWithTag("studio-mixer-mode").performScrollTo().assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+-        assertEquals(first.top, last.top, 1f)
++        var levelClicks = 0
++        compose.setContent {
++            GuitarLabTheme(darkTheme = true) {
++                StudioWorkspaceBar(
++                    auditionMode = mode.value, mixerVisible = visible.value,
++                    mixerMinimal = minimal.value,
++                    onToggleMixerMode = { minimal.value = !minimal.value },
++                    onOpenLevelAnalysis = { levelClicks++ },
++                    panelContent = { Text(it.label) },
++                    transportContent = { Text("Transport", Modifier.testTag("test-transport")) },
++                )
++            }
++        }
++        val tags = listOf("studio-action-comparison", "studio-action-timeline", "studio-action-levels", "studio-mixer-mode")
++        // Compare in content coordinates: physical scroll position and clipped viewport bounds
++        // are not slot positions. Narrow screens intentionally scroll this fixed-width row.
++        fun contentBounds(tag: String): Rect {
++            val row = compose.onNodeWithTag("studio-workspace-row").fetchSemanticsNode()
++            val node = compose.onNodeWithTag(tag).fetchSemanticsNode()
++            val x = node.positionInRoot.x - row.positionInRoot.x
++            val y = node.positionInRoot.y - row.positionInRoot.y
++            return Rect(x, y, x + node.size.width, y + node.size.height)
++        }
++        fun bounds() = tags.map(::contentBounds)
++        val before = bounds()
++        val row = compose.onNodeWithTag("studio-workspace-row").fetchSemanticsNode()
++        val transport = contentBounds("test-transport")
++        val viewport = compose.onNodeWithTag("studio-workspace-viewport").fetchSemanticsNode()
++        Log.i("WorkspaceGeometryTest", "viewport=${viewport.size} content=${row.size} transport=$transport")
++        org.junit.Assert.assertTrue("Content row must cover the viewport", row.size.width >= viewport.size.width)
++        assertEquals("Transport must be centered in the fixed content row", row.size.width / 2f, transport.center.x, 1f)
++        compose.onNodeWithTag("studio-mixer-mode").performScrollTo().performClick()
++        assertEquals(before, bounds())
++        compose.runOnIdle {
++            mode.value = GuitarAuditionMode.BOTH
++            visible.value = false
++            minimal.value = true
++        }
++        assertEquals(before, bounds())
++        compose.onNodeWithTag("studio-mixer-mode").assertIsNotEnabled()
++        compose.onNodeWithTag("studio-action-levels").performScrollTo().performClick()
++        assertEquals("Níveis must open directly instead of reusing a panel", 1, levelClicks)
++        compose.onNodeWithTag("studio-action-comparison").performScrollTo().performClick()
++        compose.onNodeWithTag("studio-panel-comparison").assertIsDisplayed()
++        assertEquals(before, bounds())
++        assertEquals("Transport slot stays fixed when modes and panels change", transport, contentBounds("test-transport"))
++        compose.captureCohesionScreenshot("rc24-navbar-comparison")
++    }
++
++    @Test
++    fun comparisonRemainsOpenAndTimelineActionsFitWithoutHorizontalScrolling() {
++        val mode = mutableStateOf(GuitarAuditionMode.MIXER)
++        val project = ProjectFactory().create("Studio menus", ProjectTemplate.BLANK)
++        compose.setContent {
++            GuitarLabTheme(darkTheme = false) {
++                StudioWorkspaceBar(
++                    auditionMode = mode.value, mixerVisible = true, mixerMinimal = false,
++                    onToggleMixerMode = {}, transportContent = { Text("Transport", Modifier.testTag("test-transport")) },
++                    panelContent = { panel ->
++                        PracticeControls(
++                            project = project, auditionMode = mode.value, suggestions = 0,
++                            enabled = true, loopEnabled = false,
++                            onAuditionMode = { mode.value = it }, onAddMarker = {}, onAddSection = {},
++                            onSuggestSections = {}, onAcceptSections = {}, onDiscardSections = {}, onClearSections = {},
++                            onLoopSection = {}, onRemoveMarker = {}, onRemoveSection = {},
++                            onOpenLevelAnalysis = {}, panel = panel,
++                        )
++                    },
++                )
++            }
++        }
++        compose.onNodeWithTag("studio-action-comparison").performScrollTo().performClick()
++        compose.onNodeWithText("Referência").performScrollTo().performClick()
++        compose.onNodeWithText("Minha").performScrollTo().performClick()
++        compose.onNodeWithText("Ambas").performScrollTo().performClick()
++        assertEquals(GuitarAuditionMode.BOTH, mode.value)
++        compose.onNodeWithTag("studio-panel-comparison").assertIsDisplayed()
++        // Dismiss through the real platform back action before opening a different anchored menu.
++        androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK)
++        compose.waitForIdle()
++        compose.onNodeWithTag("studio-action-timeline").performScrollTo().performClick()
++        val menu = compose.onNodeWithTag("studio-panel-timeline").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
++        listOf("+ Marcador", "Criar seção do loop", "Auto seções", "Limpar seções").forEach { label ->
++            val action = compose.onNodeWithText(label).assertIsDisplayed().fetchSemanticsNode().boundsInRoot
++            org.junit.Assert.assertTrue("$label must fit fully in the menu", action.left >= menu.left && action.right <= menu.right)
++        }
++        compose.onNodeWithText("Criar seção do loop").assertIsNotEnabled()
++        compose.onNodeWithText("Defina e ative um loop primeiro").assertIsDisplayed()
++        compose.captureCohesionScreenshot("rc24-navbar-timeline")
++
++    }
++
++    @Test
++    fun narrowViewportKeepsEverySlotReachableWithoutWrapping() {
++        compose.setContent {
++            GuitarLabTheme {
++                Box(Modifier.width(320.dp)) {
++                    StudioWorkspaceBar(
++                        auditionMode = GuitarAuditionMode.REFERENCE, mixerVisible = true,
++                        mixerMinimal = false,
++                        onToggleMixerMode = {},
++                        panelContent = { Text(it.label) }, transportContent = { Text("Transport", Modifier.testTag("test-transport")) },
++                    )
++                }
++            }
++        }
++        val first = compose.onNodeWithTag("studio-action-comparison").performScrollTo().assertIsDisplayed().fetchSemanticsNode().boundsInRoot
++        val levels = compose.onNodeWithTag("studio-action-levels").performScrollTo().assertIsDisplayed().fetchSemanticsNode().boundsInRoot
++        val last = compose.onNodeWithTag("studio-mixer-mode").performScrollTo().assertIsDisplayed().fetchSemanticsNode().boundsInRoot
++        assertEquals(first.top, levels.top, 1f)
++        assertEquals(first.top, last.top, 1f)
++        assertEquals(first.height, levels.height, 1f)
+         assertEquals(first.height, last.height, 1f)
+     }
+ }
+diff --git a/app/src/androidTest/java/studio/guitarlab/app/StudioMixerTabletInstrumentedTest.kt b/app/src/androidTest/java/studio/guitarlab/app/StudioMixerTabletInstrumentedTest.kt
+--- a/app/src/androidTest/java/studio/guitarlab/app/StudioMixerTabletInstrumentedTest.kt
++++ b/app/src/androidTest/java/studio/guitarlab/app/StudioMixerTabletInstrumentedTest.kt
+@@ -111,10 +111,10 @@
+             assertTrue("Minimum recovers at least 72dp", minimumDock.height <= fullDock.height - 72f * density)
+             assertTrue("Mode switch leaves navbar fixed", navbar == compose.onNodeWithTag("studio-workspace-bar").fetchSemanticsNode().boundsInRoot)
+             assertEquals("Mixer mode leaves tablet transport fixed", transport, compose.onNodeWithTag("studio-navigation").fetchSemanticsNode().boundsInRoot)
+-            compose.onNodeWithTag("open-all-level-analysis").assertIsDisplayed()
+-            UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).waitForIdle()
+-            compose.captureCohesionScreenshot("rc24-studio-five-audio-channels-minimum")
+-            compose.onNodeWithTag("open-all-level-analysis").performClick()
++            compose.onNodeWithTag("studio-action-levels").assertIsDisplayed()
++            UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).waitForIdle()
++            compose.captureCohesionScreenshot("rc24-studio-five-audio-channels-minimum")
++            compose.onNodeWithTag("studio-action-levels").performClick()
+             compose.onNodeWithTag("all-levels-dialog").assertIsDisplayed()
+             InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK)
+             compose.waitForIdle()
+diff --git a/app/src/androidTest/java/studio/guitarlab/app/MixerDockInstrumentedTest.kt b/app/src/androidTest/java/studio/guitarlab/app/MixerDockInstrumentedTest.kt
+--- a/app/src/androidTest/java/studio/guitarlab/app/MixerDockInstrumentedTest.kt
++++ b/app/src/androidTest/java/studio/guitarlab/app/MixerDockInstrumentedTest.kt
+@@ -190,203 +190,209 @@
+         composeRule.onNodeWithContentDescription("Solo da pista Route locked").assertIsEnabled()
+         composeRule.onNodeWithContentDescription("Saída CUE da pista Route locked").assertIsNotEnabled()
+         composeRule.onNodeWithContentDescription("Gravação da pista Route locked").assertIsNotEnabled()
+-        composeRule.onNodeWithTag("open-all-level-analysis").assertIsNotEnabled()
+-    }
+-
+-    @Test
+-    fun overflowingTracksSwipeHorizontallyWhileMasterRemainsAnchored() {
+-        val tracks = List(10) { index -> AudioTrack(id = "overflow-$index", name = "Track $index", order = index) }
+-        composeRule.setContent {
+-            GuitarLabTheme(darkTheme = true) {
+-                MixerDock(
+-                    tracks = tracks,
+-                    selectedTrackId = tracks.first().id,
+-                    mixControlsEnabled = true,
+-                    structuralControlsEnabled = true,
+-                    masterGainDb = 0f,
+-                    masterMeter = MeterBallisticsState(),
+-                    trackMeters = emptyMap(),
+-                    masterClipLatched = false,
+-                    trackClipLatched = emptySet(),
+-                    onSelectTrack = {},
+-                    onGainPreview = { _, _ -> },
+-                    onGainCommit = { _, _ -> },
+-                    onPanPreview = { _, _ -> },
+-                    onPanCommit = { _, _ -> },
+-                    onToggleMute = {},
+-                    onToggleSolo = {},
+-                    onToggleCue = {},
+-                    onToggleArm = {},
+-                    onMasterGainPreview = {},
+-                    onMasterGainCommit = {},
+-                    onClearTrackClip = {},
+-                    onClearMasterClip = {},
+-                )
+-            }
+-        }
+-
+-        val master = composeRule.onNodeWithTag("mixer-master-strip").assertIsDisplayed()
+-        val masterBefore = master.fetchSemanticsNode().boundsInRoot
+-        val scroller = composeRule.onNodeWithTag("mixer-track-scroll").assertIsDisplayed()
+-        val scrollerBounds = scroller.fetchSemanticsNode().boundsInRoot
+-        val swipeStart = Offset(scrollerBounds.width * 0.90f, scrollerBounds.height * 0.08f)
+-        val swipeEnd = Offset(scrollerBounds.width * 0.10f, scrollerBounds.height * 0.08f)
+-        var lastTrackVisible = false
+-        repeat(20) {
+-            if (!lastTrackVisible) {
+-                // Swipe through the strip header band instead of centerY. The center crosses the
+-                // volume/pan sliders, which legitimately consume horizontal gestures. A user
+-                // scrolls the Mixer from non-slider chrome such as the track header.
+-                scroller.performTouchInput { swipe(swipeStart, swipeEnd, durationMillis = 220L) }
+-                composeRule.waitForIdle()
+-                val candidates = composeRule.onAllNodesWithTag("mixer-track-strip-overflow-9")
+-                    .fetchSemanticsNodes()
+-                lastTrackVisible = candidates.any { node ->
+-                    val bounds = node.boundsInRoot
+-                    bounds.right > scrollerBounds.left && bounds.left < scrollerBounds.right
+-                }
+-            }
+-        }
+-        assertTrue(
+-            "Last mixer track must be reachable by repeated physical horizontal swipe regardless of viewport width",
+-            lastTrackVisible,
+-        )
+-        val masterAfter = composeRule.onNodeWithTag("mixer-master-strip").fetchSemanticsNode().boundsInRoot
+-        assertEquals(masterBefore.left, masterAfter.left, 1f)
+-        assertEquals(masterBefore.right, masterAfter.right, 1f)
+-    }
+-
+-    @Test
+-    fun largeFontsGrowChannelsWithoutClippingPanOrShrinkingTargets() {
+-        val fontScale = mutableStateOf(1f)
+-        val gainPreviews = AtomicInteger(0)
+-        val gainCommits = AtomicInteger(0)
+-        val track = AudioTrack(id = "large-font", name = "Guitarra de referência E", order = 0)
+-        composeRule.setContent {
+-            val density = LocalDensity.current
+-            CompositionLocalProvider(LocalDensity provides Density(density.density, fontScale.value)) {
+-                GuitarLabTheme(darkTheme = true) {
+-                    MixerDock(
+-                        tracks = listOf(track), selectedTrackId = track.id,
+-                        mixControlsEnabled = true, structuralControlsEnabled = true,
+-                        masterGainDb = 0f, masterMeter = MeterBallisticsState(), trackMeters = emptyMap(),
+-                        masterClipLatched = true, trackClipLatched = setOf(track.id),
+-                        onSelectTrack = {}, onGainPreview = { _, _ -> gainPreviews.incrementAndGet() }, onGainCommit = { _, _ -> gainCommits.incrementAndGet() },
+-                        onPanPreview = { _, _ -> }, onPanCommit = { _, _ -> },
+-                        onToggleMute = {}, onToggleSolo = {}, onToggleCue = {}, onToggleArm = {},
+-                        onMasterGainPreview = {}, onMasterGainCommit = {},
+-                        onClearTrackClip = {}, onClearMasterClip = {},
+-                    )
+-                }
+-            }
+-        }
+-        Log.i("MixerGeometryTest", "large-font: initial geometry")
+-        val strip = composeRule.onNodeWithTag("mixer-track-strip-${track.id}")
+-        val before = unclippedBounds(strip)
+-        Log.i("MixerGeometryTest", "large-font: set scale 1.5")
+-        composeRule.runOnIdle { fontScale.value = 1.5f }
+-        val after = unclippedBounds(strip)
+-        Log.i("MixerGeometryTest", "large-font: geometry $before -> $after")
+-        assertTrue("Larger fonts must increase channel width", after.width > before.width)
+-        assertTrue("Larger fonts must increase channel height", after.height > before.height)
+-        listOf("Mute", "Solo", "Saída CUE", "Gravação", "Volume", "Pan").forEach { action ->
+-            val control = composeRule.onNodeWithContentDescription("$action da pista ${track.name}")
+-            scrollMixerControlIntoView(control, action)
+-            val node = unclippedBounds(control.assertIsDisplayed())
+-            val dock = unclippedBounds(composeRule.onNodeWithTag("mixer-dock"))
+-            assertTrue("$action must be vertically inside the dock: $node / $dock",
+-                node.top >= dock.top - 1f && node.bottom <= dock.bottom + 1f)
+-            val density = InstrumentationRegistry.getInstrumentation().targetContext.resources.displayMetrics.density
+-            val touch = control.fetchSemanticsNode().touchBoundsInRoot
+-            Log.i("MixerGeometryTest", "$action fullSemantics=$node effectiveTouch=$touch dock=$dock")
+-            assertTrue("$action retains 48dp touch width: $touch", touch.width >= 48f * density - 1f)
+-            assertTrue("$action retains 48dp touch height: $touch", touch.height >= 48f * density - 1f)
+-            assertTrue("$action touch target stays inside dock: $touch / $dock",
+-                touch.top >= dock.top - 1f && touch.bottom <= dock.bottom + 1f)
+-        }
+-        val volume = composeRule.onNodeWithContentDescription("Volume da pista ${track.name}")
+-        scrollMixerControlIntoView(volume, "Volume touch test")
+-        // Touch above the 20dp visual thumb, inside the actual 48dp interactive height.
+-        volume.performTouchInput { click(Offset(center.x, height * 0.1f)) }
+-        composeRule.waitForIdle()
+-        assertTrue("Touch above the drawn thumb must update volume", gainPreviews.get() > 0)
+-        assertTrue("Touch above the drawn thumb must commit volume", gainCommits.get() > 0)
+-        composeRule.captureCohesionScreenshot("rc24-mixer-large-font")
+-    }
+-
+-    /** Full layout bounds: clipped semantics bounds would hide the very defect this test checks. */
+-    private fun unclippedBounds(node: SemanticsNodeInteraction): Rect {
+-        val semantics = node.fetchSemanticsNode()
+-        val origin = semantics.positionInRoot
+-        // Semantics coordinates include the target modifiers; layoutInfo.coordinates is the
+-        // inner drawing layout (20dp for the custom thumb), not the interactive node bounds.
+-        return Rect(origin.x, origin.y, origin.x + semantics.size.width, origin.y + semantics.size.height)
+-    }
+-
+-    /** Finite ScrollBy calls, with subpixel tolerance and explicit no-progress failure. */
+-    private fun scrollMixerControlIntoView(control: SemanticsNodeInteraction, label: String) {
+-        val scroller = composeRule.onNodeWithTag("mixer-track-scroll")
+-        repeat(12) { attempt ->
+-            val viewport = scroller.fetchSemanticsNode().boundsInRoot
+-            val before = unclippedBounds(control)
+-            Log.i("MixerGeometryTest", "$label attempt=$attempt target=$before viewport=$viewport")
+-            assertTrue("$label target exceeds horizontal viewport: $before / $viewport", before.width <= viewport.width + 1f)
+-            val delta = when {
+-                before.left < viewport.left - 1f -> before.left - viewport.left
+-                before.right > viewport.right + 1f -> before.right - viewport.right
+-                else -> return
+-            }
+-            scroller.performSemanticsAction(SemanticsActions.ScrollBy) { scroll -> scroll(delta, 0f) }
+-            composeRule.waitForIdle()
+-            val after = unclippedBounds(control)
+-            val aligned = after.left >= viewport.left - 1f && after.right <= viewport.right + 1f
+-            if (aligned) return
+-            assertTrue("$label scrolling made no progress: delta=$delta before=$before after=$after viewport=$viewport",
+-                kotlin.math.abs(after.left - before.left) > 0.5f)
+-        }
+-        throw AssertionError("$label did not become fully visible after 12 bounded scroll attempts")
+-    }
+-
+-    @Test
+-    fun minimalRetainsFourActionsAndGainWhileDetailsExposePanAndClipping() {
+-        val minimal = mutableStateOf(false)
+-        val track = mutableStateOf(AudioTrack(id = "modes", name = "Minha guitarra", pan = -1f, gainDb = -6f, order = 0))
+-        var panCommits = 0
+-        var gainCommits = 0
+-        var clipResets = 0
+-        var levelClicks = 0
+-        composeRule.setContent {
+-            GuitarLabTheme(darkTheme = true) {
+-                MixerDock(
+-                    tracks = listOf(track.value), selectedTrackId = track.value.id,
+-                    minimal = minimal.value, onOpenLevelAnalysis = { levelClicks++ },
+-                    mixControlsEnabled = true, structuralControlsEnabled = true,
+-                    masterGainDb = 0f, masterMeter = MeterBallisticsState(), trackMeters = emptyMap(),
+-                    masterClipLatched = false, trackClipLatched = setOf(track.value.id),
+-                    onSelectTrack = {}, onGainPreview = { _, _ -> },
+-                    onGainCommit = { _, value -> track.value = track.value.copy(gainDb = value); gainCommits++ },
+-                    onPanPreview = { _, _ -> },
+-                    onPanCommit = { _, value -> track.value = track.value.copy(pan = value); panCommits++ },
+-                    onToggleMute = {}, onToggleSolo = {}, onToggleCue = {}, onToggleArm = {},
+-                    onMasterGainPreview = {}, onMasterGainCommit = {},
+-                    onClearTrackClip = { clipResets++ }, onClearMasterClip = {},
+-                )
+-            }
+-        }
+-        val full = composeRule.onNodeWithTag("mixer-dock").fetchSemanticsNode().boundsInRoot
+-        composeRule.onNodeWithContentDescription("Volume da pista Minha guitarra").performTouchInput {
+-            swipe(Offset(width * 0.2f, height / 2f), Offset(width * 0.9f, height / 2f), 250L)
+-        }
+-        assertTrue("Thin slider must commit gain", gainCommits > 0 && track.value.gainDb > -6f)
+-        val committedGain = track.value.gainDb
+-        composeRule.runOnIdle { minimal.value = true }
+-        val compact = composeRule.onNodeWithTag("mixer-dock").fetchSemanticsNode().boundsInRoot
+-        assertTrue("Minimum must recover substantial timeline space", compact.height < full.height * 0.72f)
+-        listOf("Mute", "Solo", "Saída CUE", "Gravação", "Volume").forEach { action ->
+-            composeRule.onNodeWithContentDescription("$action da pista Minha guitarra").assertIsDisplayed()
+-        }
+-        composeRule.onNodeWithTag("open-all-level-analysis").performClick()
+-        assertEquals(1, levelClicks)
++    }
++
++    @Test
++    fun overflowingTracksSwipeHorizontallyWhileMasterRemainsAnchored() {
++        val tracks = List(10) { index -> AudioTrack(id = "overflow-$index", name = "Track $index", order = index) }
++        composeRule.setContent {
++            GuitarLabTheme(darkTheme = true) {
++                MixerDock(
++                    tracks = tracks,
++                    selectedTrackId = tracks.first().id,
++                    mixControlsEnabled = true,
++                    structuralControlsEnabled = true,
++                    masterGainDb = 0f,
++                    masterMeter = MeterBallisticsState(),
++                    trackMeters = emptyMap(),
++                    masterClipLatched = false,
++                    trackClipLatched = emptySet(),
++                    onSelectTrack = {},
++                    onGainPreview = { _, _ -> },
++                    onGainCommit = { _, _ -> },
++                    onPanPreview = { _, _ -> },
++                    onPanCommit = { _, _ -> },
++                    onToggleMute = {},
++                    onToggleSolo = {},
++                    onToggleCue = {},
++                    onToggleArm = {},
++                    onMasterGainPreview = {},
++                    onMasterGainCommit = {},
++                    onClearTrackClip = {},
++                    onClearMasterClip = {},
++                )
++            }
++        }
++
++        val master = composeRule.onNodeWithTag("mixer-master-strip").assertIsDisplayed()
++        val masterBefore = master.fetchSemanticsNode().boundsInRoot
++        val scroller = composeRule.onNodeWithTag("mixer-track-scroll").assertIsDisplayed()
++        val scrollerBounds = scroller.fetchSemanticsNode().boundsInRoot
++        val swipeStart = Offset(scrollerBounds.width * 0.90f, scrollerBounds.height * 0.08f)
++        val swipeEnd = Offset(scrollerBounds.width * 0.10f, scrollerBounds.height * 0.08f)
++        var lastTrackVisible = false
++        repeat(20) {
++            if (!lastTrackVisible) {
++                // Swipe through the strip header band instead of centerY. The center crosses the
++                // volume/pan sliders, which legitimately consume horizontal gestures. A user
++                // scrolls the Mixer from non-slider chrome such as the track header.
++                scroller.performTouchInput { swipe(swipeStart, swipeEnd, durationMillis = 220L) }
++                composeRule.waitForIdle()
++                val candidates = composeRule.onAllNodesWithTag("mixer-track-strip-overflow-9")
++                    .fetchSemanticsNodes()
++                lastTrackVisible = candidates.any { node ->
++                    val bounds = node.boundsInRoot
++                    bounds.right > scrollerBounds.left && bounds.left < scrollerBounds.right
++                }
++            }
++        }
++        assertTrue(
++            "Last mixer track must be reachable by repeated physical horizontal swipe regardless of viewport width",
++            lastTrackVisible,
++        )
++        val masterAfter = composeRule.onNodeWithTag("mixer-master-strip").fetchSemanticsNode().boundsInRoot
++        assertEquals(masterBefore.left, masterAfter.left, 1f)
++        assertEquals(masterBefore.right, masterAfter.right, 1f)
++    }
++
++    @Test
++    fun largeFontsGrowChannelsWithoutClippingPanOrShrinkingTargets() {
++        val fontScale = mutableStateOf(1f)
++        val gainPreviews = AtomicInteger(0)
++        val gainCommits = AtomicInteger(0)
++        val track = AudioTrack(id = "large-font", name = "Guitarra de referência E", order = 0)
++        composeRule.setContent {
++            val density = LocalDensity.current
++            CompositionLocalProvider(LocalDensity provides Density(density.density, fontScale.value)) {
++                GuitarLabTheme(darkTheme = true) {
++                    MixerDock(
++                        tracks = listOf(track), selectedTrackId = track.id,
++                        mixControlsEnabled = true, structuralControlsEnabled = true,
++                        masterGainDb = 0f, masterMeter = MeterBallisticsState(), trackMeters = emptyMap(),
++                        masterClipLatched = true, trackClipLatched = setOf(track.id),
++                        onSelectTrack = {}, onGainPreview = { _, _ -> gainPreviews.incrementAndGet() }, onGainCommit = { _, _ -> gainCommits.incrementAndGet() },
++                        onPanPreview = { _, _ -> }, onPanCommit = { _, _ -> },
++                        onToggleMute = {}, onToggleSolo = {}, onToggleCue = {}, onToggleArm = {},
++                        onMasterGainPreview = {}, onMasterGainCommit = {},
++                        onClearTrackClip = {}, onClearMasterClip = {},
++                    )
++                }
++            }
++        }
++        Log.i("MixerGeometryTest", "large-font: initial geometry")
++        val strip = composeRule.onNodeWithTag("mixer-track-strip-${track.id}")
++        val before = unclippedBounds(strip)
++        Log.i("MixerGeometryTest", "large-font: set scale 1.5")
++        composeRule.runOnIdle { fontScale.value = 1.5f }
++        val after = unclippedBounds(strip)
++        Log.i("MixerGeometryTest", "large-font: geometry $before -> $after")
++        assertTrue("Larger fonts must increase channel width", after.width > before.width)
++        assertTrue("Larger fonts must increase channel height", after.height > before.height)
++        listOf("Mute", "Solo", "Saída CUE", "Gravação", "Volume", "Pan").forEach { action ->
++            val control = composeRule.onNodeWithContentDescription("$action da pista ${track.name}")
++            scrollMixerControlIntoView(control, action)
++            val node = unclippedBounds(control.assertIsDisplayed())
++            val dock = unclippedBounds(composeRule.onNodeWithTag("mixer-dock"))
++            assertTrue("$action must be vertically inside the dock: $node / $dock",
++                node.top >= dock.top - 1f && node.bottom <= dock.bottom + 1f)
++            val density = InstrumentationRegistry.getInstrumentation().targetContext.resources.displayMetrics.density
++            val touch = control.fetchSemanticsNode().touchBoundsInRoot
++            Log.i("MixerGeometryTest", "$action fullSemantics=$node effectiveTouch=$touch dock=$dock")
++            assertTrue("$action retains 48dp touch width: $touch", touch.width >= 48f * density - 1f)
++            assertTrue("$action retains 48dp touch height: $touch", touch.height >= 48f * density - 1f)
++            assertTrue("$action touch target stays inside dock: $touch / $dock",
++                touch.top >= dock.top - 1f && touch.bottom <= dock.bottom + 1f)
++        }
++        val volume = composeRule.onNodeWithContentDescription("Volume da pista ${track.name}")
++        scrollMixerControlIntoView(volume, "Volume touch test")
++        // Touch above the 20dp visual thumb, inside the actual 48dp interactive height.
++        volume.performTouchInput { click(Offset(center.x, height * 0.1f)) }
++        composeRule.waitForIdle()
++        assertTrue("Touch above the drawn thumb must update volume", gainPreviews.get() > 0)
++        assertTrue("Touch above the drawn thumb must commit volume", gainCommits.get() > 0)
++        composeRule.captureCohesionScreenshot("rc24-mixer-large-font")
++    }
++
++    /** Full layout bounds: clipped semantics bounds would hide the very defect this test checks. */
++    private fun unclippedBounds(node: SemanticsNodeInteraction): Rect {
++        val semantics = node.fetchSemanticsNode()
++        val origin = semantics.positionInRoot
++        // Semantics coordinates include the target modifiers; layoutInfo.coordinates is the
++        // inner drawing layout (20dp for the custom thumb), not the interactive node bounds.
++        return Rect(origin.x, origin.y, origin.x + semantics.size.width, origin.y + semantics.size.height)
++    }
++
++    /** Finite ScrollBy calls, with subpixel tolerance and explicit no-progress failure. */
++    private fun scrollMixerControlIntoView(control: SemanticsNodeInteraction, label: String) {
++        val scroller = composeRule.onNodeWithTag("mixer-track-scroll")
++        repeat(12) { attempt ->
++            val viewport = scroller.fetchSemanticsNode().boundsInRoot
++            val before = unclippedBounds(control)
++            Log.i("MixerGeometryTest", "$label attempt=$attempt target=$before viewport=$viewport")
++            assertTrue("$label target exceeds horizontal viewport: $before / $viewport", before.width <= viewport.width + 1f)
++            val delta = when {
++                before.left < viewport.left - 1f -> before.left - viewport.left
++                before.right > viewport.right + 1f -> before.right - viewport.right
++                else -> return
++            }
++            scroller.performSemanticsAction(SemanticsActions.ScrollBy) { scroll -> scroll(delta, 0f) }
++            composeRule.waitForIdle()
++            val after = unclippedBounds(control)
++            val aligned = after.left >= viewport.left - 1f && after.right <= viewport.right + 1f
++            if (aligned) return
++            assertTrue("$label scrolling made no progress: delta=$delta before=$before after=$after viewport=$viewport",
++                kotlin.math.abs(after.left - before.left) > 0.5f)
++        }
++        throw AssertionError("$label did not become fully visible after 12 bounded scroll attempts")
++    }
++
++    @Test
++    fun minimalRetainsFourActionsAndGainWhileDetailsExposePanAndClipping() {
++        val minimal = mutableStateOf(false)
++        val track = mutableStateOf(AudioTrack(id = "modes", name = "Minha guitarra", pan = -1f, gainDb = -6f, order = 0))
++        var panCommits = 0
++        var gainCommits = 0
++        var clipResets = 0
++        composeRule.setContent {
++            GuitarLabTheme(darkTheme = true) {
++                MixerDock(
++                    tracks = listOf(track.value), selectedTrackId = track.value.id,
++                    minimal = minimal.value,
++                    mixControlsEnabled = true, structuralControlsEnabled = true,
++                    masterGainDb = 0f, masterMeter = MeterBallisticsState(), trackMeters = emptyMap(),
++                    masterClipLatched = false, trackClipLatched = setOf(track.value.id),
++                    onSelectTrack = {}, onGainPreview = { _, _ -> },
++                    onGainCommit = { _, value -> track.value = track.value.copy(gainDb = value); gainCommits++ },
++                    onPanPreview = { _, _ -> },
++                    onPanCommit = { _, value -> track.value = track.value.copy(pan = value); panCommits++ },
++                    onToggleMute = {}, onToggleSolo = {}, onToggleCue = {}, onToggleArm = {},
++                    onMasterGainPreview = {}, onMasterGainCommit = {},
++                    onClearTrackClip = { clipResets++ }, onClearMasterClip = {},
++                )
++            }
++        }
++        val full = composeRule.onNodeWithTag("mixer-dock").fetchSemanticsNode().boundsInRoot
++        val density = InstrumentationRegistry.getInstrumentation().targetContext.resources.displayMetrics.density
++        val trackStrip = composeRule.onNodeWithTag("mixer-track-strip-${track.value.id}").fetchSemanticsNode().boundsInRoot
++        val trackMeters = composeRule.onNodeWithTag("mixer-track-meters-${track.value.id}").fetchSemanticsNode().boundsInRoot
++        assertTrue("Track PK/RMS must use the strip full inner width", trackMeters.width >= trackStrip.width - 10f * density)
++        val masterStrip = composeRule.onNodeWithTag("mixer-master-strip").fetchSemanticsNode().boundsInRoot
++        val masterMeters = composeRule.onNodeWithTag("mixer-master-meters").fetchSemanticsNode().boundsInRoot
++        assertTrue("Master PK/RMS must use the full inner width", masterMeters.width >= masterStrip.width - 18f * density)
++        val masterVolume = composeRule.onNodeWithTag("mixer-master-volume").fetchSemanticsNode().boundsInRoot
++        assertTrue("Master volume control must span the useful card width", masterVolume.width >= masterStrip.width - 18f * density)
++        composeRule.onNodeWithTag("mixer-master-volume-readout").assertIsDisplayed()
++        composeRule.onNodeWithContentDescription("Volume da pista Minha guitarra").performTouchInput {
++            swipe(Offset(width * 0.2f, height / 2f), Offset(width * 0.9f, height / 2f), 250L)
++        }
++        assertTrue("Thin slider must commit gain", gainCommits > 0 && track.value.gainDb > -6f)
++        val committedGain = track.value.gainDb
++        composeRule.runOnIdle { minimal.value = true }
++        val compact = composeRule.onNodeWithTag("mixer-dock").fetchSemanticsNode().boundsInRoot
++        assertTrue("Minimum must recover substantial timeline space", compact.height < full.height * 0.72f)
++        listOf("Mute", "Solo", "Saída CUE", "Gravação", "Volume").forEach { action ->
++            composeRule.onNodeWithContentDescription("$action da pista Minha guitarra").assertIsDisplayed()
++        }
+         composeRule.onNodeWithContentDescription("Detalhes da pista Minha guitarra").performClick()
+         composeRule.onNodeWithTag("mixer-track-details").assertIsDisplayed()
+         composeRule.onNodeWithContentDescription("Pan da pista Minha guitarra").performTouchInput {

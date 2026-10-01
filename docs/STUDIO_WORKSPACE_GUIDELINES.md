@@ -40,18 +40,18 @@ Wide/landscape dialogs use balanced columns for track properties and source meta
 - applying Trim records one metadata edit; cancel is a no-op; Undo/Redo and save/reopen preserve the retained region.
 
 ## Practice controls + Mixer
-Comparison/Timeline is one reusable control surface, not two independent implementations.
+Comparison/Timeline remains one reusable panel-control surface; Níveis is a direct sibling navbar action that opens level analysis without an intermediate panel.
 
 Each track strip may expose Mute, Solo, headphone/CUE and REC Arm as distinct accessible state controls. The headphone target must meet the same touch-target/non-overlap rules as neighboring controls and must expose state semantics. Its first UX contract is exclusive MAIN ↔ CUE; activating it never implies mute, solo, recording-arm or export exclusion. Unlike gain/pan/mute/solo, output routing is transport-stable: the headphone control is disabled during Play/REC and becomes editable again when the transport is stopped.
-- Comparison and Timeline have fixed icon slots in the transport navbar and open one shared `PracticeControls` action family in anchored overlays;
+- Comparison, Timeline and Níveis have fixed icon slots in the transport navbar; Comparison/Timeline open anchored overlays and Níveis opens the level-analysis modal directly;
 - the old practice row is absent from both timeline flow and Mixer header;
 - comparison stays open during A/B switching; the navbar's R/M/2 indicator occupies a fixed area;
 - unavailable actions remain disabled, never removed; opening/closing/changing Mixer mode or starting transport never changes navbar geometry;
 - narrow screens scroll the same navbar row instead of wrapping state-dependent controls;
 - channels are 200 dp with four contiguous 48 dp targets in one row; complete/minimum docks are 252/172 dp, with no arbitrary expanded blank area;
-- Mixer is always docked/fixed; visibility and minimum/complete mode persist independently; Níveis is in Master;
+- Mixer is always docked/fixed; visibility and minimum/complete mode persist independently; Master does not duplicate the Níveis action;
 - the dock always reserves space and never overlays timeline lanes;
-- Master owns its own column; horizontal overflow never draws tracks beneath it;
+- Master owns its own column; horizontal overflow never draws tracks beneath it; PK/RMS use the available inner width and Master volume uses a wide slider with one-line `VOL +dB` readout below;
 - geometry coverage checks all four 48 dp targets, CLIP, slider separation, and five fully visible default channels on the 1920×1200 / 240 dpi tablet viewport.
 
 ## Recording stop semantics

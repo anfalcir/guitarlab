@@ -14,6 +14,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CompareArrows
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Timeline
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.MaterialTheme
@@ -43,6 +44,8 @@ fun StudioWorkspaceBar(
     mixerVisible: Boolean,
     mixerMinimal: Boolean,
     onToggleMixerMode: () -> Unit,
+    levelsEnabled: Boolean = true,
+    onOpenLevelAnalysis: () -> Unit = {},
     panelContent: @Composable (StudioActionPanel) -> Unit,
     transportContent: @Composable () -> Unit,
     modifier: Modifier = Modifier,
@@ -62,7 +65,7 @@ fun StudioWorkspaceBar(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    Row(Modifier.width(104.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Row(Modifier.width(152.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                         StudioActionPanel.entries.forEach { panel ->
                             Box {
                                 val active = panel == StudioActionPanel.COMPARISON && auditionMode != GuitarAuditionMode.MIXER
@@ -107,9 +110,20 @@ fun StudioWorkspaceBar(
                                 ) { panelContent(panel) }
                             }
                         }
+                        AppIconButton(
+                            icon = Icons.Default.Speed,
+                            contentDescription = "Níveis",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            enabled = levelsEnabled,
+                            onClick = {
+                                openPanel = null
+                                onOpenLevelAnalysis()
+                            },
+                            modifier = Modifier.testTag("studio-action-levels"),
+                        )
                     }
                     Box(Modifier.weight(1f), contentAlignment = Alignment.Center) { transportContent() }
-                    Box(Modifier.width(104.dp), contentAlignment = Alignment.CenterEnd) {
+                    Box(Modifier.width(152.dp), contentAlignment = Alignment.CenterEnd) {
                         AppIconButton(
                             icon = if (mixerMinimal) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
                             contentDescription = if (mixerMinimal) "Mostrar Mixer completo" else "Mostrar Mixer mínimo",

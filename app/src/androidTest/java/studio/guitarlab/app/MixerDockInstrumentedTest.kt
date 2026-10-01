@@ -190,7 +190,6 @@ class MixerDockInstrumentedTest {
         composeRule.onNodeWithContentDescription("Solo da pista Route locked").assertIsEnabled()
         composeRule.onNodeWithContentDescription("Saída CUE da pista Route locked").assertIsNotEnabled()
         composeRule.onNodeWithContentDescription("Gravação da pista Route locked").assertIsNotEnabled()
-        composeRule.onNodeWithTag("open-all-level-analysis").assertIsNotEnabled()
     }
 
     @Test
@@ -354,12 +353,11 @@ class MixerDockInstrumentedTest {
         var panCommits = 0
         var gainCommits = 0
         var clipResets = 0
-        var levelClicks = 0
         composeRule.setContent {
             GuitarLabTheme(darkTheme = true) {
                 MixerDock(
                     tracks = listOf(track.value), selectedTrackId = track.value.id,
-                    minimal = minimal.value, onOpenLevelAnalysis = { levelClicks++ },
+                    minimal = minimal.value,
                     mixControlsEnabled = true, structuralControlsEnabled = true,
                     masterGainDb = 0f, masterMeter = MeterBallisticsState(), trackMeters = emptyMap(),
                     masterClipLatched = false, trackClipLatched = setOf(track.value.id),
@@ -374,6 +372,16 @@ class MixerDockInstrumentedTest {
             }
         }
         val full = composeRule.onNodeWithTag("mixer-dock").fetchSemanticsNode().boundsInRoot
+        val density = InstrumentationRegistry.getInstrumentation().targetContext.resources.displayMetrics.density
+        val trackStrip = composeRule.onNodeWithTag("mixer-track-strip-${track.value.id}").fetchSemanticsNode().boundsInRoot
+        val trackMeters = composeRule.onNodeWithTag("mixer-track-meters-${track.value.id}").fetchSemanticsNode().boundsInRoot
+        assertTrue("Track PK/RMS must use the strip full inner width", trackMeters.width >= trackStrip.width - 10f * density)
+        val masterStrip = composeRule.onNodeWithTag("mixer-master-strip").fetchSemanticsNode().boundsInRoot
+        val masterMeters = composeRule.onNodeWithTag("mixer-master-meters").fetchSemanticsNode().boundsInRoot
+        assertTrue("Master PK/RMS must use the full inner width", masterMeters.width >= masterStrip.width - 18f * density)
+        val masterVolume = composeRule.onNodeWithTag("mixer-master-volume").fetchSemanticsNode().boundsInRoot
+        assertTrue("Master volume control must span the useful card width", masterVolume.width >= masterStrip.width - 18f * density)
+        composeRule.onNodeWithTag("mixer-master-volume-readout").assertIsDisplayed()
         composeRule.onNodeWithContentDescription("Volume da pista Minha guitarra").performTouchInput {
             swipe(Offset(width * 0.2f, height / 2f), Offset(width * 0.9f, height / 2f), 250L)
         }
@@ -385,8 +393,6 @@ class MixerDockInstrumentedTest {
         listOf("Mute", "Solo", "Saída CUE", "Gravação", "Volume").forEach { action ->
             composeRule.onNodeWithContentDescription("$action da pista Minha guitarra").assertIsDisplayed()
         }
-        composeRule.onNodeWithTag("open-all-level-analysis").performClick()
-        assertEquals(1, levelClicks)
         composeRule.onNodeWithContentDescription("Detalhes da pista Minha guitarra").performClick()
         composeRule.onNodeWithTag("mixer-track-details").assertIsDisplayed()
         composeRule.onNodeWithContentDescription("Pan da pista Minha guitarra").performTouchInput {

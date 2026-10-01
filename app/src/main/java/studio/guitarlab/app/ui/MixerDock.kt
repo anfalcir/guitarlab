@@ -88,7 +88,6 @@ fun MixerDock(
     onClearTrackClip: (String) -> Unit,
     onClearMasterClip: () -> Unit,
     minimal: Boolean = false,
-    onOpenLevelAnalysis: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val fontScale = LocalDensity.current.fontScale.coerceAtLeast(1f)
@@ -138,8 +137,6 @@ fun MixerDock(
 
                 MasterStrip(
                     minimal = minimal,
-                    levelsEnabled = structuralControlsEnabled,
-                    onOpenLevelAnalysis = onOpenLevelAnalysis,
                     gainDb = masterGainDb,
                     meter = masterMeter,
                     clipLatched = masterClipLatched,
@@ -216,8 +213,15 @@ private fun MixerTrackStrip(
                         stateDescription = if (included) "Incluída na comparação" else "Oculta pela comparação"
                     }, color = if (included) StudioComparisonActive else StudioComparisonHidden)
                 }
-                if (minimal && clipLatched) Text("!", color = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.semantics { stateDescription = "Clipping da pista ${track.name}" })
+                if (minimal && clipLatched) {
+                    Text("!", color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.semantics { stateDescription = "Clipping da pista ${track.name}" })
+                } else if (clipLatched) {
+                    MixerClipButton(
+                        contentDescription = "Limpar clipping da pista ${track.name}",
+                        onClick = onClearClip,
+                    )
+                }
 
             }
 
@@ -253,13 +257,15 @@ private fun MixerTrackStrip(
                 )
             }
 
-            if (minimal) CompactMeter(meter, accent) else MeterPair(
-                meter = meter,
-                accent = accent,
-                clipLatched = clipLatched,
-                onClearClip = onClearClip,
-                clipContentDescription = "Limpar clipping da pista ${track.name}",
-            )
+            if (minimal) {
+                CompactMeter(meter, accent)
+            } else {
+                MeterPair(
+                    meter = meter,
+                    accent = accent,
+                    modifier = Modifier.fillMaxWidth().testTag("mixer-track-meters-${track.id}"),
+                )
+            }
 
             LabeledVolumeSlider(
                 value = gainDraft,
@@ -313,8 +319,6 @@ private fun MixerTrackStrip(
 @Composable
 private fun MasterStrip(
     minimal: Boolean,
-    levelsEnabled: Boolean,
-    onOpenLevelAnalysis: () -> Unit,
     gainDb: Float,
     meter: MeterBallisticsState,
     clipLatched: Boolean,
@@ -333,28 +337,31 @@ private fun MasterStrip(
     ) {
         Column(
             Modifier.fillMaxHeight().padding(horizontal = 8.dp, vertical = 6.dp),
-            verticalArrangement = Arrangement.spacedBy(0.dp),
+            verticalArrangement = Arrangement.SpaceBetween,
         ) {
             Row(Modifier.fillMaxWidth().height(48.dp * LocalDensity.current.fontScale.coerceAtLeast(1f)), verticalAlignment = Alignment.CenterVertically) {
                 Text("MASTER", Modifier.weight(1f), style = MaterialTheme.typography.labelLarge)
-                if (minimal && clipLatched) Box(
-                    Modifier.size(48.dp).clickable(role = Role.Button, onClick = onClearClip)
-                        .semantics { contentDescription = "Limpar clipping do master" },
-                    contentAlignment = Alignment.Center,
-                ) { Text("CLIP", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error) }
+                if (clipLatched) {
+                    MixerClipButton(
+                        contentDescription = "Limpar clipping do master",
+                        onClick = onClearClip,
+                    )
+                }
             }
-            TextButton(onClick = onOpenLevelAnalysis, enabled = levelsEnabled,
-                modifier = Modifier.fillMaxWidth().height(48.dp).testTag("open-all-level-analysis")) { Text("Níveis") }
-            if (minimal) CompactMeter(meter, accent) else MeterPair(
-                meter = meter, accent = accent, clipLatched = clipLatched, onClearClip = onClearClip,
-                clipContentDescription = "Limpar clipping do master",
-            )
+            if (minimal) {
+                CompactMeter(meter, accent)
+            } else {
+                MeterPair(
+                    meter = meter,
+                    accent = accent,
+                    modifier = Modifier.fillMaxWidth().testTag("mixer-master-meters"),
+                )
+            }
 
-            LabeledVolumeSlider(
+            MasterVolumeSlider(
                 value = gainDraft,
                 accent = accent,
                 enabled = enabled,
-                label = "MASTER",
                 onValueChange = { value ->
                     gainDraft = value
                     onGainPreview(value)
@@ -362,6 +369,29 @@ private fun MasterStrip(
                 onValueChangeFinished = { onGainCommit(gainDraft) },
                 contentDescription = "Volume do master",
             )
+        }
+    }
+}
+
+@Composable
+private fun MixerClipButton(
+    contentDescription: String,
+    onClick: () -> Unit,
+) {
+    Box(
+        Modifier.size(48.dp).clickable(role = Role.Button, onClick = onClick)
+            .semantics { this.contentDescription = contentDescription },
+        contentAlignment = Alignment.Center,
+    ) {
+        Surface(
+            modifier = Modifier.size(width = 38.dp, height = 24.dp),
+            shape = RoundedCornerShape(4.dp),
+            color = MaterialTheme.colorScheme.error.copy(alpha = 0.16f),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.error),
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Text("CLIP", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
+            }
         }
     }
 }
@@ -488,6 +518,59 @@ private fun LabeledVolumeSlider(
         onValueChangeFinished = onValueChangeFinished, contentDescription = contentDescription)
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun MasterVolumeSlider(
+    value: Float,
+    accent: Color,
+    enabled: Boolean,
+    onValueChange: (Float) -> Unit,
+    onValueChangeFinished: () -> Unit,
+    contentDescription: String,
+) {
+    val tint = if (enabled) accent else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+    Column(
+        Modifier.fillMaxWidth().height(68.dp).testTag("mixer-master-volume"),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Slider(
+            value = value,
+            onValueChange = { raw ->
+                onValueChange((if (abs(raw) <= 0.8f) 0f else raw).coerceIn(-60f, 12f))
+            },
+            onValueChangeFinished = onValueChangeFinished,
+            valueRange = -60f..12f,
+            enabled = enabled,
+            modifier = Modifier.fillMaxWidth().height(48.dp).padding(horizontal = 10.dp)
+                .testTag("mixer-master-volume-slider")
+                .semantics { this.contentDescription = contentDescription },
+            thumb = {
+                Box(Modifier.size(width = 6.dp, height = 48.dp), contentAlignment = Alignment.Center) {
+                    Box(Modifier.size(width = 6.dp, height = 20.dp).background(tint, RoundedCornerShape(3.dp)))
+                }
+            },
+            track = {
+                BoxWithConstraints(
+                    Modifier.fillMaxWidth().height(4.dp)
+                        .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.3f), RoundedCornerShape(2.dp)),
+                ) {
+                    val fraction = ((value + 60f) / 72f).coerceIn(0f, 1f)
+                    Box(
+                        Modifier.fillMaxWidth(fraction).fillMaxHeight()
+                            .background(tint, RoundedCornerShape(2.dp)),
+                    )
+                }
+            },
+        )
+        Text(
+            "VOL ${value.formatDb()} dB",
+            modifier = Modifier.testTag("mixer-master-volume-readout"),
+            style = MaterialTheme.typography.labelSmall,
+            maxLines = 1,
+        )
+    }
+}
+
 @Composable
 private fun BipolarPanSlider(
     value: Float, accent: Color, enabled: Boolean,
@@ -556,45 +639,20 @@ private fun CompactMeter(meter: MeterBallisticsState, accent: Color) {
 private fun MeterPair(
     meter: MeterBallisticsState,
     accent: Color,
-    clipLatched: Boolean,
-    onClearClip: () -> Unit,
-    clipContentDescription: String,
+    modifier: Modifier = Modifier,
 ) {
-    Row(
-        Modifier.fillMaxWidth().height(48.dp * LocalDensity.current.fontScale.coerceAtLeast(1f)),
-        verticalAlignment = Alignment.CenterVertically,
+    Column(
+        modifier.fillMaxWidth().height(48.dp * LocalDensity.current.fontScale.coerceAtLeast(1f)),
+        verticalArrangement = Arrangement.Center,
     ) {
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            MeterRow("PK", meter.peak, accent, meter.heldPeak)
-            MeterRow("RMS", meter.rms, accent)
-        }
-        // Always reserve this slot: latching CLIP must not resize meters or neighboring controls.
-        Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) {
-            if (clipLatched) {
-                Box(
-                    Modifier.size(48.dp).clickable(role = Role.Button, onClick = onClearClip)
-                        .semantics { contentDescription = clipContentDescription },
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Surface(
-                        modifier = Modifier.size(width = 38.dp, height = 24.dp),
-                        shape = RoundedCornerShape(4.dp),
-                        color = MaterialTheme.colorScheme.error.copy(alpha = 0.16f),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.error),
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Text("CLIP", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
-                        }
-                    }
-                }
-            }
-        }
+        MeterRow("PK", meter.peak, accent, meter.heldPeak)
+        MeterRow("RMS", meter.rms, accent)
     }
 }
 
 @Composable
 private fun MeterRow(label: String, value: Float, accent: Color, heldPeak: Float? = null) {
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
         Text(label, modifier = Modifier.width(28.dp * LocalDensity.current.fontScale.coerceAtLeast(1f)), style = MaterialTheme.typography.labelSmall)
         BoxWithConstraints(
             Modifier.weight(1f).height(8.dp).background(MaterialTheme.colorScheme.background.copy(alpha = 0.78f), RoundedCornerShape(4.dp)),

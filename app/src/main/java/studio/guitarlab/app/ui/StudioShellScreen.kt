@@ -160,7 +160,6 @@ fun StudioShellScreen(
                 onClearTrackClip = viewModel::clearTrackClipIndicator,
                 onClearMasterClip = viewModel::clearMasterClipIndicator,
                 minimal = mixerMinimal,
-                onOpenLevelAnalysis = { allLevelsDialogVisible = true },
             )
         }
     }
@@ -213,6 +212,8 @@ fun StudioShellScreen(
                         mixerMinimal = !mixerMinimal
                         uiPreferences.setMixerMinimal(mixerMinimal)
                     },
+                    levelsEnabled = structuralControlsEnabled,
+                    onOpenLevelAnalysis = { allLevelsDialogVisible = true },
                     panelContent = { panel ->
                         val actionProject = state.project
                         if (actionProject != null) {

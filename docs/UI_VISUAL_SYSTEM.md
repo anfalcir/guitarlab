@@ -38,7 +38,7 @@ An action:
 - is contained by the semantic group that owns it.
 
 ## Studio action navbar contract
-`Comparação` and `Timeline` remain independent action families, presented as fixed-size icon triggers in the existing transport navbar. Their shared controls open in anchored overlays and do not reserve a second permanent row. No trigger changes location/size when a mode, disabled state, Mixer visibility or minimum/complete state changes.
+`Comparação`, `Timeline` and `Níveis` occupy three fixed-size icon triggers in the existing transport navbar. Comparison/Timeline open anchored overlays; Níveis is a direct action that opens level analysis. The Níveis icon must remain visually distinct from the top-bar Mixer toggle and Options/settings iconography. No trigger changes location/size when a mode, disabled state, Mixer visibility or minimum/complete state changes.
 
 Neutral closed triggers reduce persistent color noise. Comparison's active mode uses blue plus a fixed R/M/2 indicator and accessible state description. Panels preserve semantic grouping and local overflow for narrow windows or larger fonts. Comparison remains open during repeated audition changes. Narrow viewports scroll the same navbar row; no capability disappears.
 
@@ -186,3 +186,7 @@ Changes to shared shell, layout, typography, shapes, colors or responsive behavi
 ## RC24 density correction
 
 Owner video rejected RC23 ergonomics despite digital PASS. Equal navbar side slots preserve absolute transport centering. Níveis moves to Master; pin and arbitrary expanded-height controls are retired. Menu content uses vertical lists, not horizontal toolbar fragments. Track buttons visibly fill 46 of their 48 dp targets and touch regions are contiguous, never overlapping. Thin slider drawings with integrated readouts replace stacked framed controls. Complete/minimum heights are 252/172 dp at font scale 1.0; channel width is 200 dp. Large fonts expand geometry. The same details strip and domain callbacks serve the minimum mode. Automated fit assertions are necessary but do not certify physical comfort; inspect filled-project captures and obtain owner acceptance.
+
+## RC26 Mixer/levels refinement
+
+Owner-approved RC26 presentation keeps the accepted RC25 shell geometry while making three focused changes: Níveis becomes the third left-side navbar action and uses a distinct gauge/speedometer symbol; track and Master PK/RMS rows consume the full inner strip width with CLIP reset moved to the header; Master drops the redundant Níveis text button and uses a wider volume slider whose one-line `VOL +dB` readout sits below it. Left/right navbar reservations remain equal so transport stays centered. Channel widths and 252/172 dp dock heights remain unchanged.

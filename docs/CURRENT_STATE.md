@@ -4,24 +4,21 @@ Updated: 2026-10-01
 
 ## Status
 
-**RC25 STUDIO / OUTPUT / CUE — DIGITAL QUALIFICATION PASS; CANONICAL SIGNING PENDING**
+**RC26 STUDIO MIXER / LEVELS UI — SOURCE CANDIDATE; DIGITAL QUALIFICATION PENDING**
 
-RC25 qualifies inherited RC24 Studio ergonomics and output/CUE corrections. Android CI **#946 / run 36934260224** on source **854aeee0da730d2011e1141fc50a69d59bb13d58** passed Unit/Lint/APK build and all API36 regression groups, including actual tablet geometry. Filled five-channel complete/minimum screenshots and Comparison/Timeline captures were inspected. RC20 remains the physically accepted frozen baseline; simultaneous MAIN/CUE device acceptance remains pending owner testing. No RC25 signed APK identity is declared before its canonical producer succeeds.
+RC25 is canonically signed and digitally qualified. Android CI **#947 / run 36936451831** on source **a17b5f63dbb394bc257c3b6d33fb079205014559** produced the verified `0.5.0-rc25` / 45 homologation APK after the full software and API36 gates. RC26 is the owner-requested Studio presentation successor: Níveis moves to a third navbar button, PK/RMS gain the full useful strip width, and Master receives a wide volume control with its readout below. RC20 remains the physically accepted frozen baseline; RC26 has no qualification claim before its new gate passes.
 
-## Exact signed RC23 identity
+## Exact signed RC25 identity
 
-- producer/merge SHA: `b39be540f56fa700338602408a7be92d9076e10b`;
-- integrated PR: https://github.com/anfalcir/guitarlab/pull/9;
-- signed authority: Android CI **#939 / run `36914477871`** — https://github.com/anfalcir/guitarlab/actions/runs/36914477871;
+- producer/merge SHA: `a17b5f63dbb394bc257c3b6d33fb079205014559`;
+- signed authority: Android CI **#947 / run `36936451831`** — https://github.com/anfalcir/guitarlab/actions/runs/36936451831;
 - package: `studio.guitarlab.app`;
-- versionName: `0.5.0-rc23`; versionCode: `43`;
-- delivered filename: `GuitarLabStudio-0.5.0-rc23-homologacao.apk`;
-- signed APK bytes: `80133832`;
-- unsigned APK SHA-256: `219f7c4f9c5323ec0879dedb8e07b80421b919e52a79aedf5f019669e38bfd12`;
-- signed APK SHA-256: `d2630d935c255a543f122b5226edb96bf9bbe10badca6b02308c94fd8f95f3ee`;
+- versionName: `0.5.0-rc25`; versionCode: `45`;
+- delivered filename: `GuitarLabStudio-0.5.0-rc25-homologacao.apk`;
+- unsigned APK SHA-256: `756cc4c2c34614fd142a8c7f25a2538125c27c93f7c9682d39c3a75e2a0bd307`;
+- signed APK SHA-256: `edbc376ab0ff600e0296894efdde8050704517a39eff655f8f225e4a8fdfb808`;
 - signer certificate SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`;
-- signing verifies APK Signature Scheme v2 and signs the exact tested unsigned release artifact without rebuilding;
-- local downloaded APK checksum matches `SHA256SUMS.txt` and `BUILD_IDENTITY.txt`; certificate/package/version verification is evidenced by the successful signing job.
+- signing verifies the exact tested release artifact after software/API36 qualification; physical successor acceptance remains separate.
 
 ## Inherited RC24 implementation qualified through RC25
 
@@ -43,11 +40,22 @@ RC25 qualifies inherited RC24 Studio ergonomics and output/CUE corrections. Andr
 - pure fake-clock tests, Bluetooth/migration unit tests and unavailable-CUE instrumented regression added;
 - qualification report: `history/RC25_OUTPUT_CUE_CORRECTION_2026-10-01.md`; Android/software PASS at CI #946; physical pair acceptance pending.
 
+## RC26 Studio Mixer / Níveis correction
+
+- candidate `0.5.0-rc26` / `46`, based on canonical signed RC25 source;
+- exactly three left navbar actions: Comparação, Timeline, Níveis; Níveis opens level analysis directly with distinct gauge iconography;
+- balanced 152 dp left/right navbar reservations preserve transport centering;
+- Master no longer owns a Níveis text button;
+- complete track/Master PK/RMS use full inner width; CLIP reset remains in headers;
+- Master volume is wide and uses one-line `VOL +dB` readout below;
+- dock heights (252/172 dp), channel/Master widths and all audio/domain behavior remain unchanged;
+- deterministic materialization tail: `scripts/materialize_ci_sources_rc26.py`; prior payloads remain immutable.
+
 ## Next action
 
-Integrate the digitally qualified RC25 into canonical main after retiring RC24/RC25 temporary push triggers; trigger `[run ci signed]` there. Stop after trigger without monitoring. After the owner reports completion, verify the signed APK/package/version/certificate/provenance, deliver it, and validate Studio usability and intended physical MAIN/CUE devices.
+Run the exact RC26 source through the controlled `[run ci]` software + API36 gate and review the affected filled-tablet/navbar/Mixer captures. Do not declare a signed RC26 artifact or physical acceptance before that gate succeeds.
 
-No workflow execution monitoring is performed. This Android UI correction does not reopen the frozen backend or change MAIN/CUE/audio algorithms.
+No backend, Demucs, backup or MAIN/CUE algorithm is reopened by this presentation-only correction.
 
 ## Predecessors
 

@@ -1,0 +1,656 @@
+diff --git a/docs/STUDIO_WORKSPACE_GUIDELINES.md b/docs/STUDIO_WORKSPACE_GUIDELINES.md
+--- a/docs/STUDIO_WORKSPACE_GUIDELINES.md
++++ b/docs/STUDIO_WORKSPACE_GUIDELINES.md
+@@ -40,18 +40,18 @@
+ - applying Trim records one metadata edit; cancel is a no-op; Undo/Redo and save/reopen preserve the retained region.
+ 
+ ## Practice controls + Mixer
+-Comparison/Timeline is one reusable control surface, not two independent implementations.
+-
+-Each track strip may expose Mute, Solo, headphone/CUE and REC Arm as distinct accessible state controls. The headphone target must meet the same touch-target/non-overlap rules as neighboring controls and must expose state semantics. Its first UX contract is exclusive MAIN ↔ CUE; activating it never implies mute, solo, recording-arm or export exclusion. Unlike gain/pan/mute/solo, output routing is transport-stable: the headphone control is disabled during Play/REC and becomes editable again when the transport is stopped.
+-- Comparison and Timeline have fixed icon slots in the transport navbar and open one shared `PracticeControls` action family in anchored overlays;
+-- the old practice row is absent from both timeline flow and Mixer header;
+-- comparison stays open during A/B switching; the navbar's R/M/2 indicator occupies a fixed area;
+-- unavailable actions remain disabled, never removed; opening/closing/changing Mixer mode or starting transport never changes navbar geometry;
+-- narrow screens scroll the same navbar row instead of wrapping state-dependent controls;
+-- channels are 200 dp with four contiguous 48 dp targets in one row; complete/minimum docks are 252/172 dp, with no arbitrary expanded blank area;
+-- Mixer is always docked/fixed; visibility and minimum/complete mode persist independently; Níveis is in Master;
+-- the dock always reserves space and never overlays timeline lanes;
+-- Master owns its own column; horizontal overflow never draws tracks beneath it;
++Comparison/Timeline remains one reusable panel-control surface; Níveis is a direct sibling navbar action that opens level analysis without an intermediate panel.
++
++Each track strip may expose Mute, Solo, headphone/CUE and REC Arm as distinct accessible state controls. The headphone target must meet the same touch-target/non-overlap rules as neighboring controls and must expose state semantics. Its first UX contract is exclusive MAIN ↔ CUE; activating it never implies mute, solo, recording-arm or export exclusion. Unlike gain/pan/mute/solo, output routing is transport-stable: the headphone control is disabled during Play/REC and becomes editable again when the transport is stopped.
++- Comparison, Timeline and Níveis have fixed icon slots in the transport navbar; Comparison/Timeline open anchored overlays and Níveis opens the level-analysis modal directly;
++- the old practice row is absent from both timeline flow and Mixer header;
++- comparison stays open during A/B switching; the navbar's R/M/2 indicator occupies a fixed area;
++- unavailable actions remain disabled, never removed; opening/closing/changing Mixer mode or starting transport never changes navbar geometry;
++- narrow screens scroll the same navbar row instead of wrapping state-dependent controls;
++- channels are 200 dp with four contiguous 48 dp targets in one row; complete/minimum docks are 252/172 dp, with no arbitrary expanded blank area;
++- Mixer is always docked/fixed; visibility and minimum/complete mode persist independently; Master does not duplicate the Níveis action;
++- the dock always reserves space and never overlays timeline lanes;
++- Master owns its own column; horizontal overflow never draws tracks beneath it; PK/RMS use the available inner width and Master volume uses a wide slider with one-line `VOL +dB` readout below;
+ - geometry coverage checks all four 48 dp targets, CLIP, slider separation, and five fully visible default channels on the 1920×1200 / 240 dpi tablet viewport.
+ 
+ ## Recording stop semantics
+diff --git a/docs/STUDIO_OPTIONS_AND_MIXER.md b/docs/STUDIO_OPTIONS_AND_MIXER.md
+--- a/docs/STUDIO_OPTIONS_AND_MIXER.md
++++ b/docs/STUDIO_OPTIONS_AND_MIXER.md
+@@ -10,21 +10,21 @@
+ Project persistence and final-audio export are **not** Options actions.
+ 
+ ## Studio global actions
+-Studio exposes Mixer, Help, Options, Export and Home using the shared project-shell navigation language. Comparison and Timeline use fixed-size transport-navbar triggers. Equal reserved left/right groups keep transport centered on the viewport. A single fixed mode slot switches Mixer minimum/complete; it is disabled, not removed, when hidden. Menus are anchored vertical lists with their own bounded width (Comparison 240 dp, Timeline 320 dp), not reused scrolling toolbars. Comparison stays open for repeated A/B choices. Timeline keeps creation and destructive cleanup separate and explains the missing-loop prerequisite. Níveis belongs to the fixed Master. No redundant Adjustments or Pin trigger remains. Narrow windows scroll the same single navbar row.
+-
+-`Ajuda` opens the same shared `StudioUserGuideDialog` implementation used by the Home entry point; there is no second guide implementation/copy.
+-
+-## Project persistence and Export
+-Portable `.guitarlab` save remains semantically distinct from external Study Export and Studio Master delivery. The canonical Export workspace owns output/format selection; Studio/Home entry points navigate there and do not maintain a second modal chooser. Sample rate follows established project/render policy without unnecessary codec knobs.
+-
+-## Mixer
+-Mixer always reserves its own bottom layout space: visibility and minimum/complete mode are durable, independent preferences. Default and upgrades start complete. Legacy `mixer_visible`/`mixer_pinned` visibility is retained; RC23 floating/expanded flags are not mapped to minimum because both old heights exposed complete controls. A mode write retires those obsolete flags.
+-
+-At normal font scale channels are 200 dp (original 232 dp), with all four Mute/Solo/CUE/REC targets contiguous in one centered row: 48×48 dp touch regions and 46×46 dp visible faces. Channel padding is 4 dp per side. Master is a separate fixed 144 dp column; channels scroll horizontally without covering it. Font scaling grows channel width and header/meter height rather than overlapping touch regions.
+-
+-Complete height is 252 dp, down from RC23's 352 dp (28.4%). All four state controls, PK/RMS/numeric readings/peak hold/CLIP reset, gain and bipolar pan are exposed. Gain and pan each use a single 48 dp row combining labels/readout with a thin Material Slider drawing; gesture, keyboard and accessibility behavior remains Material-owned. CLIP retains a reserved target so latching does not move meters.
+-
+-Minimum height is 172 dp. It retains all four direct state controls, gain/readout, a compact peak/hold meter with accessible PK/RMS readings, pan value and clipping indication. Tapping the track name opens the same complete strip implementation in a details dialog, exposing pan and CLIP reset with the same domain callbacks/transport locks. Master retains Níveis, gain and compact metering; clipping is reset from its header. Mode changes never issue audio commands. Gains/pans preview live and commit on gesture completion; no separate mix model exists for minimum/details.
++Studio exposes Mixer, Help, Options, Export and Home using the shared project-shell navigation language. Comparison, Timeline and Níveis use three fixed-size transport-navbar triggers. Comparison and Timeline keep their anchored vertical panels (240 dp and 320 dp); Níveis opens the all-tracks level-analysis modal directly. Equal reserved left/right groups keep transport centered on the viewport. A single fixed mode slot switches Mixer minimum/complete; it is disabled, not removed, when hidden. Comparison stays open for repeated A/B choices. Timeline keeps creation and destructive cleanup separate and explains the missing-loop prerequisite. No redundant Adjustments, Master-level Níveis button or Pin trigger remains. Narrow windows scroll the same single navbar row.
++
++`Ajuda` opens the same shared `StudioUserGuideDialog` implementation used by the Home entry point; there is no second guide implementation/copy.
++
++## Project persistence and Export
++Portable `.guitarlab` save remains semantically distinct from external Study Export and Studio Master delivery. The canonical Export workspace owns output/format selection; Studio/Home entry points navigate there and do not maintain a second modal chooser. Sample rate follows established project/render policy without unnecessary codec knobs.
++
++## Mixer
++Mixer always reserves its own bottom layout space: visibility and minimum/complete mode are durable, independent preferences. Default and upgrades start complete. Legacy `mixer_visible`/`mixer_pinned` visibility is retained; RC23 floating/expanded flags are not mapped to minimum because both old heights exposed complete controls. A mode write retires those obsolete flags.
++
++At normal font scale channels are 200 dp (original 232 dp), with all four Mute/Solo/CUE/REC targets contiguous in one centered row: 48×48 dp touch regions and 46×46 dp visible faces. Channel padding is 4 dp per side. Master is a separate fixed 144 dp column; channels scroll horizontally without covering it. Font scaling grows channel width and header/meter height rather than overlapping touch regions.
++
++Complete height is 252 dp, down from RC23's 352 dp (28.4%). All four state controls, PK/RMS/numeric readings/peak hold/CLIP reset, gain and bipolar pan are exposed. Gain and pan each use a single 48 dp row combining labels/readout with a thin Material Slider drawing; gesture, keyboard and accessibility behavior remains Material-owned. PK/RMS consume the full inner strip width; CLIP reset moves to the strip header so clipping never steals permanent meter width.
++
++Minimum height is 172 dp. It retains all four direct state controls, gain/readout, a compact peak/hold meter with accessible PK/RMS readings, pan value and clipping indication. Tapping the track name opens the same complete strip implementation in a details dialog, exposing pan and CLIP reset with the same domain callbacks/transport locks. Master retains gain and compact metering but no Níveis button; its wide volume slider places `VOL` and the dB value together on one line below the slider. Clipping resets from the header. Mode changes never issue audio commands. Gains/pans preview live and commit on gesture completion; no separate mix model exists for minimum/details.
+ 
+ Each track persists an output-route value with backward-compatible default `MAIN`. The engine contract supports `MAIN`, `CUE` and `MAIN_AND_CUE`; the first user-facing headphone control intentionally toggles exclusive MAIN ↔ CUE. New MAIN→CUE activation requires an available explicit low-latency pair; rejection preserves MAIN and history. Returning CUE→MAIN remains possible even when a device disappears. Route changes are accepted only while the transport is stopped, so Play/REC cannot leave track metadata and live-monitor routing out of sync. The route is restored with the project, applied to normal playback and backing playback during recording, and does not destructively change clips/takes.
+ 
+diff --git a/docs/UI_VISUAL_SYSTEM.md b/docs/UI_VISUAL_SYSTEM.md
+--- a/docs/UI_VISUAL_SYSTEM.md
++++ b/docs/UI_VISUAL_SYSTEM.md
+@@ -38,151 +38,155 @@
+ - is contained by the semantic group that owns it.
+ 
+ ## Studio action navbar contract
+-`Comparação` and `Timeline` remain independent action families, presented as fixed-size icon triggers in the existing transport navbar. Their shared controls open in anchored overlays and do not reserve a second permanent row. No trigger changes location/size when a mode, disabled state, Mixer visibility or minimum/complete state changes.
+-
+-Neutral closed triggers reduce persistent color noise. Comparison's active mode uses blue plus a fixed R/M/2 indicator and accessible state description. Panels preserve semantic grouping and local overflow for narrow windows or larger fonts. Comparison remains open during repeated audition changes. Narrow viewports scroll the same navbar row; no capability disappears.
+-
+-## Screen-by-screen application
+-### Home
+-- squared major hero/project surfaces;
+-- project rows use small-radius bordered hardware panels;
+-- Help/Options and row actions use visible square icon controls.
+-
+-### Novo Projeto
+-- template choices use compact rounded rectangles rather than soft cards;
+-- create/back actions follow the shared control geometry.
+-
+-### Studio top bar and transport
+-- transport container follows major-panel geometry;
+-- all icon controls use visible square chassis;
+-- recording/loop colors remain semantic, not decorative.
+-
+-### Timeline / track workspace
+-- track, clip, drag, trim and add-track surfaces use the common 6/8/10dp vocabulary;
+-- track color selection uses rounded squares;
+-- timeline semantic colors remain stable.
+-
+-### Mixer
+-- strip/master surfaces retain clear rectangular module boundaries;
+-- buttons and meters remain visually distinct from labels/readouts;
+-- MASTER remains structurally separate and fixed.
+-
+-### Options
+-- each option category is a bordered major panel;
+-- category title/subtitle live in a header band with an accent rail;
+-- individual settings use internal 8dp rows;
+-- dropdown trigger buttons remain visually actionable.
+-
+-### Audio diagnostics
+-- diagnostic cards and device selectors use major/internal panel geometry;
+-- action buttons retain obvious button chassis.
+-
+-### Codec diagnostics
+-- inherits global compact Material3 shapes and stronger outlines;
+-- actions remain visually separated from status copy.
+-
+-### Track settings / level analysis / help dialogs and Export panels
+-- major dialog/panel geometry capped at 10dp;
+-- nested sections use 8dp;
+-- actions use 6dp/default compact control shape;
+-- destructive actions remain color-semantic.
+-
+-## Accessibility and robustness
+-- touch targets are not reduced merely to achieve compact appearance;
+-- selected/disabled state must not rely on color alone;
+-- text scaling must not cause cross-group overlap;
+-- narrow layouts must preserve discoverability rather than clipping;
+-- borders/outlines must remain visible against both dark and light surfaces;
+-- headings and labels must stay non-actionable unless explicitly designed as a control.
+-
+-## Prohibited regressions
+-- pill-shaped general buttons/cards returning through ad-hoc local styling;
+-- group titles visually indistinguishable from buttons;
+-- one semantic group visually bleeding into another;
+-- hidden controls used as a workaround for insufficient width;
+-- circular controls used solely as decoration;
+-- per-screen shape systems that diverge from the 6/8/10dp contract without a documented semantic reason.
+-
+-
+-## Settings information hierarchy
+-Settings is a configuration surface, not a wall of primary CTAs.
+-- On wide/tablet layouts, keep the readable Settings column centered and bounded rather than stretching controls edge-to-edge.
+-- A section groups related information once; avoid unnecessary card-within-card chrome for read-only rows.
+-- Secondary actions should be compact trailing actions on wide layouts and may stack/full-width only when narrow width requires it.
+-- Filled primary buttons are reserved for genuinely primary/committing actions, not routine diagnostics or toggles.
+-- Maintain at least 48 dp action height and preserve clear labels/semantics.
+-- Dense control sets such as latency increments must remain fully visible without hidden horizontal carousels when a compact grid can represent the same choices.
+-
+-
+-## Unified project-shell contract
+-Prepare, Studio and Export are workspaces of one project and must share project-level chrome.
+-
+-Shared shell responsibilities:
+-- project identity/name;
+-- return to project library;
+-- adaptive Prepare / Studio / Export navigation;
+-- project-level status/activity indicator;
+-- project overflow/actions;
+-- consistent missing/loading/error presentation.
+-
+-Studio transport/mixer controls remain specialized inner chrome. They may not replace the shared project navigation language.
+-
+-Wide/tablet:
+-- stable compact workspace navigation;
+-- preserve Studio timeline width and transport ergonomics;
+-- avoid duplicate full-width navigation rows.
+-
+-Narrow/phone:
+-- same destinations in a compact adaptive treatment;
+-- no capability disappears solely because width is reduced.
+-
+-## Shared product primitives
+-Use reusable visual components for:
+-- project page scaffold;
+-- section/card;
+-- status chip;
+-- operation/progress panel;
+-- empty state;
+-- recoverable error/blocked state;
+-- destructive confirmation;
+-- source/result card;
+-- project-media row;
+-- cloud/sync status.
+-
+-Per-screen reimplementation of these primitives is a regression risk.
+-
+-## Prepare
+-Prepare is a progressive journey, not a dashboard of unrelated technical panels.
+-
+-Visual hierarchy:
+-- one active step is primary;
+-- completed steps collapse to compact summaries;
+-- the next safe action is visually dominant;
+-- technical detail is secondary/expandable;
+-- accepted source controls collapse behind an explicit “Trocar fonte” action;
+-- automatic post-stem reference generation appears as progress, not a redundant confirmation button.
+-
+-## Export
+-Export is the only external-delivery workspace.
+-
+-Its hierarchy is:
+-- Projeto portátil;
+-- Arquivos para estudo;
+-- Mix final do Studio.
+-
+-Home/Studio may link to Export but must not reproduce a competing format-selection dialog.
+-
+-## Activity
+-Activity uses the same status/progress components as Prepare/Export/Backup.
+-
+-The user sees semantic operation states, not raw backend enums. Provider/job IDs belong in diagnostics/details.
+-
+-## Backup and cloud
+-Backup/restore must use the same page/section/status language as the rest of GuitarLab. It must not read visually as a separate utility app.
+-
+-## Visual qualification when affected
+-Changes to shared shell, layout, typography, shapes, colors or responsive behavior require focused semantic geometry and screenshot review for the affected surfaces and representative reference-device conditions. Do not replay the historical full screenshot matrix for unrelated audio/backend/search logic changes. Existing accepted screenshots remain evidence until a visual change invalidates them.
+-
+-## RC24 density correction
+-
+-Owner video rejected RC23 ergonomics despite digital PASS. Equal navbar side slots preserve absolute transport centering. Níveis moves to Master; pin and arbitrary expanded-height controls are retired. Menu content uses vertical lists, not horizontal toolbar fragments. Track buttons visibly fill 46 of their 48 dp targets and touch regions are contiguous, never overlapping. Thin slider drawings with integrated readouts replace stacked framed controls. Complete/minimum heights are 252/172 dp at font scale 1.0; channel width is 200 dp. Large fonts expand geometry. The same details strip and domain callbacks serve the minimum mode. Automated fit assertions are necessary but do not certify physical comfort; inspect filled-project captures and obtain owner acceptance.
++`Comparação`, `Timeline` and `Níveis` occupy three fixed-size icon triggers in the existing transport navbar. Comparison/Timeline open anchored overlays; Níveis is a direct action that opens level analysis. The Níveis icon must remain visually distinct from the top-bar Mixer toggle and Options/settings iconography. No trigger changes location/size when a mode, disabled state, Mixer visibility or minimum/complete state changes.
++
++Neutral closed triggers reduce persistent color noise. Comparison's active mode uses blue plus a fixed R/M/2 indicator and accessible state description. Panels preserve semantic grouping and local overflow for narrow windows or larger fonts. Comparison remains open during repeated audition changes. Narrow viewports scroll the same navbar row; no capability disappears.
++
++## Screen-by-screen application
++### Home
++- squared major hero/project surfaces;
++- project rows use small-radius bordered hardware panels;
++- Help/Options and row actions use visible square icon controls.
++
++### Novo Projeto
++- template choices use compact rounded rectangles rather than soft cards;
++- create/back actions follow the shared control geometry.
++
++### Studio top bar and transport
++- transport container follows major-panel geometry;
++- all icon controls use visible square chassis;
++- recording/loop colors remain semantic, not decorative.
++
++### Timeline / track workspace
++- track, clip, drag, trim and add-track surfaces use the common 6/8/10dp vocabulary;
++- track color selection uses rounded squares;
++- timeline semantic colors remain stable.
++
++### Mixer
++- strip/master surfaces retain clear rectangular module boundaries;
++- buttons and meters remain visually distinct from labels/readouts;
++- MASTER remains structurally separate and fixed.
++
++### Options
++- each option category is a bordered major panel;
++- category title/subtitle live in a header band with an accent rail;
++- individual settings use internal 8dp rows;
++- dropdown trigger buttons remain visually actionable.
++
++### Audio diagnostics
++- diagnostic cards and device selectors use major/internal panel geometry;
++- action buttons retain obvious button chassis.
++
++### Codec diagnostics
++- inherits global compact Material3 shapes and stronger outlines;
++- actions remain visually separated from status copy.
++
++### Track settings / level analysis / help dialogs and Export panels
++- major dialog/panel geometry capped at 10dp;
++- nested sections use 8dp;
++- actions use 6dp/default compact control shape;
++- destructive actions remain color-semantic.
++
++## Accessibility and robustness
++- touch targets are not reduced merely to achieve compact appearance;
++- selected/disabled state must not rely on color alone;
++- text scaling must not cause cross-group overlap;
++- narrow layouts must preserve discoverability rather than clipping;
++- borders/outlines must remain visible against both dark and light surfaces;
++- headings and labels must stay non-actionable unless explicitly designed as a control.
++
++## Prohibited regressions
++- pill-shaped general buttons/cards returning through ad-hoc local styling;
++- group titles visually indistinguishable from buttons;
++- one semantic group visually bleeding into another;
++- hidden controls used as a workaround for insufficient width;
++- circular controls used solely as decoration;
++- per-screen shape systems that diverge from the 6/8/10dp contract without a documented semantic reason.
++
++
++## Settings information hierarchy
++Settings is a configuration surface, not a wall of primary CTAs.
++- On wide/tablet layouts, keep the readable Settings column centered and bounded rather than stretching controls edge-to-edge.
++- A section groups related information once; avoid unnecessary card-within-card chrome for read-only rows.
++- Secondary actions should be compact trailing actions on wide layouts and may stack/full-width only when narrow width requires it.
++- Filled primary buttons are reserved for genuinely primary/committing actions, not routine diagnostics or toggles.
++- Maintain at least 48 dp action height and preserve clear labels/semantics.
++- Dense control sets such as latency increments must remain fully visible without hidden horizontal carousels when a compact grid can represent the same choices.
++
++
++## Unified project-shell contract
++Prepare, Studio and Export are workspaces of one project and must share project-level chrome.
++
++Shared shell responsibilities:
++- project identity/name;
++- return to project library;
++- adaptive Prepare / Studio / Export navigation;
++- project-level status/activity indicator;
++- project overflow/actions;
++- consistent missing/loading/error presentation.
++
++Studio transport/mixer controls remain specialized inner chrome. They may not replace the shared project navigation language.
++
++Wide/tablet:
++- stable compact workspace navigation;
++- preserve Studio timeline width and transport ergonomics;
++- avoid duplicate full-width navigation rows.
++
++Narrow/phone:
++- same destinations in a compact adaptive treatment;
++- no capability disappears solely because width is reduced.
++
++## Shared product primitives
++Use reusable visual components for:
++- project page scaffold;
++- section/card;
++- status chip;
++- operation/progress panel;
++- empty state;
++- recoverable error/blocked state;
++- destructive confirmation;
++- source/result card;
++- project-media row;
++- cloud/sync status.
++
++Per-screen reimplementation of these primitives is a regression risk.
++
++## Prepare
++Prepare is a progressive journey, not a dashboard of unrelated technical panels.
++
++Visual hierarchy:
++- one active step is primary;
++- completed steps collapse to compact summaries;
++- the next safe action is visually dominant;
++- technical detail is secondary/expandable;
++- accepted source controls collapse behind an explicit “Trocar fonte” action;
++- automatic post-stem reference generation appears as progress, not a redundant confirmation button.
++
++## Export
++Export is the only external-delivery workspace.
++
++Its hierarchy is:
++- Projeto portátil;
++- Arquivos para estudo;
++- Mix final do Studio.
++
++Home/Studio may link to Export but must not reproduce a competing format-selection dialog.
++
++## Activity
++Activity uses the same status/progress components as Prepare/Export/Backup.
++
++The user sees semantic operation states, not raw backend enums. Provider/job IDs belong in diagnostics/details.
++
++## Backup and cloud
++Backup/restore must use the same page/section/status language as the rest of GuitarLab. It must not read visually as a separate utility app.
++
++## Visual qualification when affected
++Changes to shared shell, layout, typography, shapes, colors or responsive behavior require focused semantic geometry and screenshot review for the affected surfaces and representative reference-device conditions. Do not replay the historical full screenshot matrix for unrelated audio/backend/search logic changes. Existing accepted screenshots remain evidence until a visual change invalidates them.
++
++## RC24 density correction
++
++Owner video rejected RC23 ergonomics despite digital PASS. Equal navbar side slots preserve absolute transport centering. Níveis moves to Master; pin and arbitrary expanded-height controls are retired. Menu content uses vertical lists, not horizontal toolbar fragments. Track buttons visibly fill 46 of their 48 dp targets and touch regions are contiguous, never overlapping. Thin slider drawings with integrated readouts replace stacked framed controls. Complete/minimum heights are 252/172 dp at font scale 1.0; channel width is 200 dp. Large fonts expand geometry. The same details strip and domain callbacks serve the minimum mode. Automated fit assertions are necessary but do not certify physical comfort; inspect filled-project captures and obtain owner acceptance.
++
++## RC26 Mixer/levels refinement
++
++Owner-approved RC26 presentation keeps the accepted RC25 shell geometry while making three focused changes: Níveis becomes the third left-side navbar action and uses a distinct gauge/speedometer symbol; track and Master PK/RMS rows consume the full inner strip width with CLIP reset moved to the header; Master drops the redundant Níveis text button and uses a wider volume slider whose one-line `VOL +dB` readout sits below it. Left/right navbar reservations remain equal so transport stays centered. Channel widths and 252/172 dp dock heights remain unchanged.
+diff --git a/docs/DECISIONS.md b/docs/DECISIONS.md
+--- a/docs/DECISIONS.md
++++ b/docs/DECISIONS.md
+@@ -500,3 +500,16 @@
+ RC22 startup supplied only 2048 frames (~43 ms at 48 kHz), then sampled six timestamps 3 ms apart for each sink sequentially without feeding either stream. Replace this with bounded interleaved continuous zero feed and independent advancing observations. Preserve 4 ms jitter, three observations, distinct actual endpoints, 12 ms offset, non-blocking runtime CUE and drift rejection. Slow/stale/error/converged/cancelled cases are executable fake-clock regressions. Preferred-device selection cannot certify hardware support; physical speaker+wired acceptance is pending. RC25 follows immutable RC24 and preserves its UI revision; no workflow monitoring.
+ 
+ A seleção secundária é validada imediatamente em Opções: mostra “Verificando”, abre duas saídas com buffers zerados e volume zero e somente persiste CUE depois de comprovar rotas distintas e clocks estáveis. Falhas mantêm CUE desativado e mostram a causa. Nova seleção, desativação, alteração de MAIN, atualização da lista e saída da tela cancelam/inutilizam resultados pendentes. Diagnósticos de latência não rodam em paralelo com esse teste. O teste usa a taxa do projeto disponível (48 kHz fora do projeto); mede evidência de apresentação relativa, não latência acústica/round-trip. Play/REC ainda verifica os streams reais e mudanças posteriores; uma aprovação anterior não garante suporte permanente do hardware.
++
++## D-102 — Níveis is a third navbar action and Master prioritizes metering/gain
++
++2026-10-01. Owner-approved Studio refinement supersedes D-100 only for Níveis placement and Master presentation.
++
++- the left transport-navbar group contains exactly three actions in order: Comparação, Timeline, Níveis;
++- Níveis opens the all-tracks level-analysis modal directly and uses a gauge/speedometer icon that is not reused by the visible Mixer toggle or Options/settings actions;
++- left/right navbar reservations stay equal, preserving absolute transport centering and the existing narrow-screen horizontal-scroll contract;
++- the Master strip no longer contains a Níveis text button;
++- track and Master PK/RMS rows use the available inner strip width; CLIP reset remains directly accessible from the strip header instead of reserving meter width;
++- Master uses a wide volume slider with a single-line `VOL +dB` readout below it;
++- track width, Master width, complete/minimum dock heights, audio/mix state, level-analysis domain behavior and MAIN/CUE routing are unchanged;
++- affected navbar/Mixer geometry and direct Níveis opening receive focused API36 regression and screenshot review before qualification.
+diff --git a/docs/CURRENT_STATE.md b/docs/CURRENT_STATE.md
+--- a/docs/CURRENT_STATE.md
++++ b/docs/CURRENT_STATE.md
+@@ -4,50 +4,58 @@
+ 
+ ## Status
+ 
+-**RC25 STUDIO / OUTPUT / CUE — DIGITAL QUALIFICATION PASS; CANONICAL SIGNING PENDING**
+-
+-RC25 qualifies inherited RC24 Studio ergonomics and output/CUE corrections. Android CI **#946 / run 36934260224** on source **854aeee0da730d2011e1141fc50a69d59bb13d58** passed Unit/Lint/APK build and all API36 regression groups, including actual tablet geometry. Filled five-channel complete/minimum screenshots and Comparison/Timeline captures were inspected. RC20 remains the physically accepted frozen baseline; simultaneous MAIN/CUE device acceptance remains pending owner testing. No RC25 signed APK identity is declared before its canonical producer succeeds.
+-
+-## Exact signed RC23 identity
+-
+-- producer/merge SHA: `b39be540f56fa700338602408a7be92d9076e10b`;
+-- integrated PR: https://github.com/anfalcir/guitarlab/pull/9;
+-- signed authority: Android CI **#939 / run `36914477871`** — https://github.com/anfalcir/guitarlab/actions/runs/36914477871;
+-- package: `studio.guitarlab.app`;
+-- versionName: `0.5.0-rc23`; versionCode: `43`;
+-- delivered filename: `GuitarLabStudio-0.5.0-rc23-homologacao.apk`;
+-- signed APK bytes: `80133832`;
+-- unsigned APK SHA-256: `219f7c4f9c5323ec0879dedb8e07b80421b919e52a79aedf5f019669e38bfd12`;
+-- signed APK SHA-256: `d2630d935c255a543f122b5226edb96bf9bbe10badca6b02308c94fd8f95f3ee`;
+-- signer certificate SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`;
+-- signing verifies APK Signature Scheme v2 and signs the exact tested unsigned release artifact without rebuilding;
+-- local downloaded APK checksum matches `SHA256SUMS.txt` and `BUILD_IDENTITY.txt`; certificate/package/version verification is evidenced by the successful signing job.
+-
+-## Inherited RC24 implementation qualified through RC25
+-
+-- versionName `0.5.0-rc24`, versionCode `44`; no producer SHA or signed artifact declared before qualification;
+-- Comparison/Timeline vertical panels; balanced fixed navbar slots; Níveis in Master;
+-- fixed Mixer only; complete/minimum 252/172 dp, 200 dp channels, contiguous four-button row with 46 dp faces inside 48 dp targets;
+-- complete controls preserved; minimum retains all four buttons and gain, with shared complete details for pan/meter/clip reset;
+-- legacy visibility retained; new minimum preference defaults complete and persists independently;
+-- D-100 and subsystem/guide docs updated; immutable RC24 stage follows RC23;
+-- focused tests cover visual/target bounds, menu fit, minimum/details pan commits, preference upgrade and filled five-track tablet geometry/captures;
+-- local materialization/diff checks are recorded in `history/RC24_STUDIO_DENSITY_2026-10-01.md`; Android compile/Lint/instrumentation and screenshot review are qualified through RC25 CI #946.
+-
+-## RC25 correction
+-
+-- candidate `0.5.0-rc25` / `45`, based on RC24 qualification source `3279b8ba7217d27ee7c22aea6c56477044bb3054`;
+-- hide SCO from media outputs, preserve A2DP stereo, migrate old selection only with unambiguous identity; recording inputs and mono USB preserved;
+-- CUE options require both low-latency destinations; missing configuration blocks new activation without changing track/history;
+-- bounded continuously fed interleaved startup replaces drained/sequential clock sampling; all actual-route/clock/offset/runtime safety guards retained;
+-- pure fake-clock tests, Bluetooth/migration unit tests and unavailable-CUE instrumented regression added;
+-- qualification report: `history/RC25_OUTPUT_CUE_CORRECTION_2026-10-01.md`; Android/software PASS at CI #946; physical pair acceptance pending.
+-
+-## Next action
+-
+-Integrate the digitally qualified RC25 into canonical main after retiring RC24/RC25 temporary push triggers; trigger `[run ci signed]` there. Stop after trigger without monitoring. After the owner reports completion, verify the signed APK/package/version/certificate/provenance, deliver it, and validate Studio usability and intended physical MAIN/CUE devices.
+-
+-No workflow execution monitoring is performed. This Android UI correction does not reopen the frozen backend or change MAIN/CUE/audio algorithms.
++**RC26 STUDIO MIXER / LEVELS UI — SOURCE CANDIDATE; DIGITAL QUALIFICATION PENDING**
++
++RC25 is canonically signed and digitally qualified. Android CI **#947 / run 36936451831** on source **a17b5f63dbb394bc257c3b6d33fb079205014559** produced the verified `0.5.0-rc25` / 45 homologation APK after the full software and API36 gates. RC26 is the owner-requested Studio presentation successor: Níveis moves to a third navbar button, PK/RMS gain the full useful strip width, and Master receives a wide volume control with its readout below. RC20 remains the physically accepted frozen baseline; RC26 has no qualification claim before its new gate passes.
++
++## Exact signed RC25 identity
++
++- producer/merge SHA: `a17b5f63dbb394bc257c3b6d33fb079205014559`;
++- signed authority: Android CI **#947 / run `36936451831`** — https://github.com/anfalcir/guitarlab/actions/runs/36936451831;
++- package: `studio.guitarlab.app`;
++- versionName: `0.5.0-rc25`; versionCode: `45`;
++- delivered filename: `GuitarLabStudio-0.5.0-rc25-homologacao.apk`;
++- unsigned APK SHA-256: `756cc4c2c34614fd142a8c7f25a2538125c27c93f7c9682d39c3a75e2a0bd307`;
++- signed APK SHA-256: `edbc376ab0ff600e0296894efdde8050704517a39eff655f8f225e4a8fdfb808`;
++- signer certificate SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`;
++- signing verifies the exact tested release artifact after software/API36 qualification; physical successor acceptance remains separate.
++
++## Inherited RC24 implementation qualified through RC25
++
++- versionName `0.5.0-rc24`, versionCode `44`; no producer SHA or signed artifact declared before qualification;
++- Comparison/Timeline vertical panels; balanced fixed navbar slots; Níveis in Master;
++- fixed Mixer only; complete/minimum 252/172 dp, 200 dp channels, contiguous four-button row with 46 dp faces inside 48 dp targets;
++- complete controls preserved; minimum retains all four buttons and gain, with shared complete details for pan/meter/clip reset;
++- legacy visibility retained; new minimum preference defaults complete and persists independently;
++- D-100 and subsystem/guide docs updated; immutable RC24 stage follows RC23;
++- focused tests cover visual/target bounds, menu fit, minimum/details pan commits, preference upgrade and filled five-track tablet geometry/captures;
++- local materialization/diff checks are recorded in `history/RC24_STUDIO_DENSITY_2026-10-01.md`; Android compile/Lint/instrumentation and screenshot review are qualified through RC25 CI #946.
++
++## RC25 correction
++
++- candidate `0.5.0-rc25` / `45`, based on RC24 qualification source `3279b8ba7217d27ee7c22aea6c56477044bb3054`;
++- hide SCO from media outputs, preserve A2DP stereo, migrate old selection only with unambiguous identity; recording inputs and mono USB preserved;
++- CUE options require both low-latency destinations; missing configuration blocks new activation without changing track/history;
++- bounded continuously fed interleaved startup replaces drained/sequential clock sampling; all actual-route/clock/offset/runtime safety guards retained;
++- pure fake-clock tests, Bluetooth/migration unit tests and unavailable-CUE instrumented regression added;
++- qualification report: `history/RC25_OUTPUT_CUE_CORRECTION_2026-10-01.md`; Android/software PASS at CI #946; physical pair acceptance pending.
++
++## RC26 Studio Mixer / Níveis correction
++
++- candidate `0.5.0-rc26` / `46`, based on canonical signed RC25 source;
++- exactly three left navbar actions: Comparação, Timeline, Níveis; Níveis opens level analysis directly with distinct gauge iconography;
++- balanced 152 dp left/right navbar reservations preserve transport centering;
++- Master no longer owns a Níveis text button;
++- complete track/Master PK/RMS use full inner width; CLIP reset remains in headers;
++- Master volume is wide and uses one-line `VOL +dB` readout below;
++- dock heights (252/172 dp), channel/Master widths and all audio/domain behavior remain unchanged;
++- deterministic materialization tail: `scripts/materialize_ci_sources_rc26.py`; prior payloads remain immutable.
++
++## Next action
++
++Run the exact RC26 source through the controlled `[run ci]` software + API36 gate and review the affected filled-tablet/navbar/Mixer captures. Do not declare a signed RC26 artifact or physical acceptance before that gate succeeds.
++
++No backend, Demucs, backup or MAIN/CUE algorithm is reopened by this presentation-only correction.
+ 
+ ## Predecessors
+ 
+diff --git a/README.md b/README.md
+--- a/README.md
++++ b/README.md
+@@ -3,74 +3,74 @@
+ Private, single-owner Android guitar preparation, study, recording, mixing, export and backup appliance.
+ 
+ Updated: 2026-10-01
+-Release state: **RC20 ACCEPTED / RC25 OUTPUT/CUE CORRECTION — QUALIFICATION PENDING**
+-
+-## Start here
+-
+-For the current product, read:
+-
+-1. `docs/PROJECT_IDENTITY.md`
+-2. `docs/CURRENT_STATE.md`
+-3. `docs/RELEASE_BASELINE.md`
+-4. `docs/PRODUCT_REQUIREMENTS.md`
+-5. `docs/ARCHITECTURE.md`
+-6. `docs/DECISIONS.md`
+-7. `docs/TEST_AND_HOMOLOGATION_POLICY.md`
+-8. `docs/CANDIDATE_IDENTITY_POLICY.md`
+-9. `docs/CI_PIPELINE.md`
+-10. `docs/DOCUMENTATION_MAP.md`
+-
+-Completed roadmaps, milestone plans, candidate checklists, release campaigns and audits are under `docs/history/` and are not current authority.
+-
+-## Accepted baseline and active candidate
+-
+-GuitarLab `0.5.0-rc20` / versionCode `40` remains the accepted personal-use baseline. The active successor is `0.5.0-rc25` / versionCode `45`, inheriting RC24 Studio density correction and addressing Bluetooth media output/CUE startup evidence.
+-
+-- package: `studio.guitarlab.app`;
+-- accepted baseline identity and signer: `docs/RELEASE_BASELINE.md`;
+-- active candidate details and qualification state: `docs/CURRENT_STATE.md`;
+-- target line: Samsung SM-X230 / Android 16 / API 36, with M-VAVE MK-300 USB where applicable;
+-- remote separation: official PyTorch/Demucs `htdemucs_6s`, production worker frozen by immutable digest;
+-- backup: direct Google Drive API v3.
+-
+-The inherited RC22 feature adds an optional secondary CUE output and a headphone button per track. MAIN/CUE routing is fail-closed and is a live monitoring choice, not a Master Export exclusion control.
+-
+-## Product model
+-
+-**Home → Prepare → Studio → Export → Backup / Activity / Settings**
+-
+-The product includes provider-backed source acquisition, cloud Demucs separation, managed backing/guitar references, Studio recording/editing/mixer/timing, per-track MAIN/CUE monitoring, study/master export, Activity/background state, direct Drive v3 backup/restore and tablet-focused responsive/accessibility behavior.
+-
+-Studio remains locally usable without login for local work. Network-dependent acquisition/separation/backup surfaces expose their dependency.
+-
+-GBW is historical implementation provenance only. Legacy standalone GBW/H37/pre-unification migration is outside supported scope.
+-
+-**No tuner, pitch detection or tuning-detection feature is part of GuitarLab.**
+-
+-## Repository and materialization
+-
+-- canonical branch: `main`;
+-- RC23 integrated review: PR #9; exact signed identity in `docs/CURRENT_STATE.md`;
+-- canonical materialization entrypoint: `scripts/materialize_ci_sources.sh`;
+-- active candidate tail: **RC25OutputCueCorrection** via `scripts/materialize_ci_sources_rc25.py`;
+-- protected payloads: `.source-parts/`;
+-- materialization is deterministic, hash/blob locked, idempotent and fail-closed.
+-
+-Do not rewrite old source payloads in place. A future runtime change begins a new corrective/materialization step.
+-
+-## CI and signing
+-
+-Ordinary documentation/source commits use `[skip ci]` unless qualification is intentionally requested.
+-
+-- `[run ci]`: Android software + API36 qualification;
+-- `[run ci signed]`: qualifies and signs the exact tested unsigned candidate;
+-- `[run u4 cloud]`: controlled real-cloud transactional smoke;
+-- `[run u7 cloud]`: backend verification/deploy workflow with explicit shadow/production authorization.
+-
+-The accepted RC20 baseline does not require recurring CI. RC23 signed digital evidence remains historical; RC24 UI correction awaits digital qualification, visual review and owner tablet acceptance.
+-
+-## Security and maintenance
+-
+-Never commit keystores, private credentials, client secrets, refresh tokens or service-account keys.
+-
+-The accepted RC20 APK and backend digest remain frozen until a successor is promoted. RC24 must qualify the corrected Studio layout and adjacent integration paths; no signed artifact or physical acceptance is predeclared. The separation backend is unchanged.
++Release state: **RC20 ACCEPTED / RC25 SIGNED DIGITAL / RC26 STUDIO MIXER UI — QUALIFICATION PENDING**
++
++## Start here
++
++For the current product, read:
++
++1. `docs/PROJECT_IDENTITY.md`
++2. `docs/CURRENT_STATE.md`
++3. `docs/RELEASE_BASELINE.md`
++4. `docs/PRODUCT_REQUIREMENTS.md`
++5. `docs/ARCHITECTURE.md`
++6. `docs/DECISIONS.md`
++7. `docs/TEST_AND_HOMOLOGATION_POLICY.md`
++8. `docs/CANDIDATE_IDENTITY_POLICY.md`
++9. `docs/CI_PIPELINE.md`
++10. `docs/DOCUMENTATION_MAP.md`
++
++Completed roadmaps, milestone plans, candidate checklists, release campaigns and audits are under `docs/history/` and are not current authority.
++
++## Accepted baseline and active candidate
++
++GuitarLab `0.5.0-rc20` / versionCode `40` remains the accepted personal-use baseline. RC25 is the current signed digitally qualified successor. The active source candidate is `0.5.0-rc26` / versionCode `46`, refining Studio Mixer metering, Master volume presentation and direct Níveis access without changing audio behavior.
++
++- package: `studio.guitarlab.app`;
++- accepted baseline identity and signer: `docs/RELEASE_BASELINE.md`;
++- active candidate details and qualification state: `docs/CURRENT_STATE.md`;
++- target line: Samsung SM-X230 / Android 16 / API 36, with M-VAVE MK-300 USB where applicable;
++- remote separation: official PyTorch/Demucs `htdemucs_6s`, production worker frozen by immutable digest;
++- backup: direct Google Drive API v3.
++
++The inherited RC22 feature adds an optional secondary CUE output and a headphone button per track. MAIN/CUE routing is fail-closed and is a live monitoring choice, not a Master Export exclusion control.
++
++## Product model
++
++**Home → Prepare → Studio → Export → Backup / Activity / Settings**
++
++The product includes provider-backed source acquisition, cloud Demucs separation, managed backing/guitar references, Studio recording/editing/mixer/timing, per-track MAIN/CUE monitoring, study/master export, Activity/background state, direct Drive v3 backup/restore and tablet-focused responsive/accessibility behavior.
++
++Studio remains locally usable without login for local work. Network-dependent acquisition/separation/backup surfaces expose their dependency.
++
++GBW is historical implementation provenance only. Legacy standalone GBW/H37/pre-unification migration is outside supported scope.
++
++**No tuner, pitch detection or tuning-detection feature is part of GuitarLab.**
++
++## Repository and materialization
++
++- canonical branch: `main`;
++- RC23 integrated review: PR #9; exact signed identity in `docs/CURRENT_STATE.md`;
++- canonical materialization entrypoint: `scripts/materialize_ci_sources.sh`;
++- active candidate tail: **RC26MixerLevelsLayout** via `scripts/materialize_ci_sources_rc26.py`;
++- protected payloads: `.source-parts/`;
++- materialization is deterministic, hash/blob locked, idempotent and fail-closed.
++
++Do not rewrite old source payloads in place. A future runtime change begins a new corrective/materialization step.
++
++## CI and signing
++
++Ordinary documentation/source commits use `[skip ci]` unless qualification is intentionally requested.
++
++- `[run ci]`: Android software + API36 qualification;
++- `[run ci signed]`: qualifies and signs the exact tested unsigned candidate;
++- `[run u4 cloud]`: controlled real-cloud transactional smoke;
++- `[run u7 cloud]`: backend verification/deploy workflow with explicit shadow/production authorization.
++
++The accepted RC20 baseline does not require recurring CI. RC25 signed digital evidence remains retained; RC26 requires proportional software/API36 and visual qualification because it changes Studio navbar/Mixer geometry.
++
++## Security and maintenance
++
++Never commit keystores, private credentials, client secrets, refresh tokens or service-account keys.
++
++The accepted RC20 APK and backend digest remain frozen until a successor is promoted. RC26 must qualify the affected Studio navbar/Mixer geometry before any signed or physical-successor claim. The separation backend and audio routing algorithms are unchanged.

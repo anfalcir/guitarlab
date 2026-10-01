@@ -500,3 +500,16 @@ Proportional regression covers actual target/face geometry, slider commits, full
 RC22 startup supplied only 2048 frames (~43 ms at 48 kHz), then sampled six timestamps 3 ms apart for each sink sequentially without feeding either stream. Replace this with bounded interleaved continuous zero feed and independent advancing observations. Preserve 4 ms jitter, three observations, distinct actual endpoints, 12 ms offset, non-blocking runtime CUE and drift rejection. Slow/stale/error/converged/cancelled cases are executable fake-clock regressions. Preferred-device selection cannot certify hardware support; physical speaker+wired acceptance is pending. RC25 follows immutable RC24 and preserves its UI revision; no workflow monitoring.
 
 A seleção secundária é validada imediatamente em Opções: mostra “Verificando”, abre duas saídas com buffers zerados e volume zero e somente persiste CUE depois de comprovar rotas distintas e clocks estáveis. Falhas mantêm CUE desativado e mostram a causa. Nova seleção, desativação, alteração de MAIN, atualização da lista e saída da tela cancelam/inutilizam resultados pendentes. Diagnósticos de latência não rodam em paralelo com esse teste. O teste usa a taxa do projeto disponível (48 kHz fora do projeto); mede evidência de apresentação relativa, não latência acústica/round-trip. Play/REC ainda verifica os streams reais e mudanças posteriores; uma aprovação anterior não garante suporte permanente do hardware.
+
+## D-102 — Níveis is a third navbar action and Master prioritizes metering/gain
+
+2026-10-01. Owner-approved Studio refinement supersedes D-100 only for Níveis placement and Master presentation.
+
+- the left transport-navbar group contains exactly three actions in order: Comparação, Timeline, Níveis;
+- Níveis opens the all-tracks level-analysis modal directly and uses a gauge/speedometer icon that is not reused by the visible Mixer toggle or Options/settings actions;
+- left/right navbar reservations stay equal, preserving absolute transport centering and the existing narrow-screen horizontal-scroll contract;
+- the Master strip no longer contains a Níveis text button;
+- track and Master PK/RMS rows use the available inner strip width; CLIP reset remains directly accessible from the strip header instead of reserving meter width;
+- Master uses a wide volume slider with a single-line `VOL +dB` readout below it;
+- track width, Master width, complete/minimum dock heights, audio/mix state, level-analysis domain behavior and MAIN/CUE routing are unchanged;
+- affected navbar/Mixer geometry and direct Níveis opening receive focused API36 regression and screenshot review before qualification.

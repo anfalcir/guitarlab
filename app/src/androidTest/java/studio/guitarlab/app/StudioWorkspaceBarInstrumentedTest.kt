@@ -37,18 +37,20 @@ class StudioWorkspaceBarInstrumentedTest {
         val mode = mutableStateOf(GuitarAuditionMode.MIXER)
         val visible = mutableStateOf(true)
         val minimal = mutableStateOf(false)
+        var levelClicks = 0
         compose.setContent {
             GuitarLabTheme(darkTheme = true) {
                 StudioWorkspaceBar(
                     auditionMode = mode.value, mixerVisible = visible.value,
                     mixerMinimal = minimal.value,
                     onToggleMixerMode = { minimal.value = !minimal.value },
+                    onOpenLevelAnalysis = { levelClicks++ },
                     panelContent = { Text(it.label) },
                     transportContent = { Text("Transport", Modifier.testTag("test-transport")) },
                 )
             }
         }
-        val tags = listOf("studio-action-comparison", "studio-action-timeline", "studio-mixer-mode")
+        val tags = listOf("studio-action-comparison", "studio-action-timeline", "studio-action-levels", "studio-mixer-mode")
         // Compare in content coordinates: physical scroll position and clipped viewport bounds
         // are not slot positions. Narrow screens intentionally scroll this fixed-width row.
         fun contentBounds(tag: String): Rect {
@@ -75,6 +77,8 @@ class StudioWorkspaceBarInstrumentedTest {
         }
         assertEquals(before, bounds())
         compose.onNodeWithTag("studio-mixer-mode").assertIsNotEnabled()
+        compose.onNodeWithTag("studio-action-levels").performScrollTo().performClick()
+        assertEquals("Níveis must open directly instead of reusing a panel", 1, levelClicks)
         compose.onNodeWithTag("studio-action-comparison").performScrollTo().performClick()
         compose.onNodeWithTag("studio-panel-comparison").assertIsDisplayed()
         assertEquals(before, bounds())
@@ -140,8 +144,11 @@ class StudioWorkspaceBarInstrumentedTest {
             }
         }
         val first = compose.onNodeWithTag("studio-action-comparison").performScrollTo().assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+        val levels = compose.onNodeWithTag("studio-action-levels").performScrollTo().assertIsDisplayed().fetchSemanticsNode().boundsInRoot
         val last = compose.onNodeWithTag("studio-mixer-mode").performScrollTo().assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+        assertEquals(first.top, levels.top, 1f)
         assertEquals(first.top, last.top, 1f)
+        assertEquals(first.height, levels.height, 1f)
         assertEquals(first.height, last.height, 1f)
     }
 }

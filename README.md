@@ -3,7 +3,7 @@
 Private, single-owner Android guitar preparation, study, recording, mixing, export and backup appliance.
 
 Updated: 2026-10-01
-Release state: **RC20 ACCEPTED / RC25 OUTPUT/CUE CORRECTION — QUALIFICATION PENDING**
+Release state: **RC20 ACCEPTED / RC25 SIGNED DIGITAL / RC26 STUDIO MIXER UI — QUALIFICATION PENDING**
 
 ## Start here
 
@@ -24,7 +24,7 @@ Completed roadmaps, milestone plans, candidate checklists, release campaigns and
 
 ## Accepted baseline and active candidate
 
-GuitarLab `0.5.0-rc20` / versionCode `40` remains the accepted personal-use baseline. The active successor is `0.5.0-rc25` / versionCode `45`, inheriting RC24 Studio density correction and addressing Bluetooth media output/CUE startup evidence.
+GuitarLab `0.5.0-rc20` / versionCode `40` remains the accepted personal-use baseline. RC25 is the current signed digitally qualified successor. The active source candidate is `0.5.0-rc26` / versionCode `46`, refining Studio Mixer metering, Master volume presentation and direct Níveis access without changing audio behavior.
 
 - package: `studio.guitarlab.app`;
 - accepted baseline identity and signer: `docs/RELEASE_BASELINE.md`;
@@ -52,7 +52,7 @@ GBW is historical implementation provenance only. Legacy standalone GBW/H37/pre-
 - canonical branch: `main`;
 - RC23 integrated review: PR #9; exact signed identity in `docs/CURRENT_STATE.md`;
 - canonical materialization entrypoint: `scripts/materialize_ci_sources.sh`;
-- active candidate tail: **RC25OutputCueCorrection** via `scripts/materialize_ci_sources_rc25.py`;
+- active candidate tail: **RC26MixerLevelsLayout** via `scripts/materialize_ci_sources_rc26.py`;
 - protected payloads: `.source-parts/`;
 - materialization is deterministic, hash/blob locked, idempotent and fail-closed.
 
@@ -67,10 +67,10 @@ Ordinary documentation/source commits use `[skip ci]` unless qualification is in
 - `[run u4 cloud]`: controlled real-cloud transactional smoke;
 - `[run u7 cloud]`: backend verification/deploy workflow with explicit shadow/production authorization.
 
-The accepted RC20 baseline does not require recurring CI. RC23 signed digital evidence remains historical; RC24 UI correction awaits digital qualification, visual review and owner tablet acceptance.
+The accepted RC20 baseline does not require recurring CI. RC25 signed digital evidence remains retained; RC26 requires proportional software/API36 and visual qualification because it changes Studio navbar/Mixer geometry.
 
 ## Security and maintenance
 
 Never commit keystores, private credentials, client secrets, refresh tokens or service-account keys.
 
-The accepted RC20 APK and backend digest remain frozen until a successor is promoted. RC24 must qualify the corrected Studio layout and adjacent integration paths; no signed artifact or physical acceptance is predeclared. The separation backend is unchanged.
+The accepted RC20 APK and backend digest remain frozen until a successor is promoted. RC26 must qualify the affected Studio navbar/Mixer geometry before any signed or physical-successor claim. The separation backend and audio routing algorithms are unchanged.
