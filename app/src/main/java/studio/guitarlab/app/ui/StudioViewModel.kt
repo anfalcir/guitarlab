@@ -1645,6 +1645,12 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                     saved,
                     if (route == TrackOutputRoute.CUE) "Pista enviada para a saída CUE" else "Pista enviada para a saída principal",
                 )
+                if (TrackOutputRoutingPolicy.sendsToCue(route) && audioRoutingStore.resolveSelectedCueOutputDevice() == null) {
+                    postTransientWarning(
+                        "A pista está marcada para CUE, mas nenhuma saída secundária válida está disponível; ela ficará silenciosa fora do MAIN.",
+                        "A pista CUE ficará silenciosa até uma saída secundária válida ser selecionada.",
+                    )
+                }
             }.onFailure { error ->
                 _state.value = _state.value.copy(error = error.message ?: "Não foi possível atualizar a saída da pista.")
             }
@@ -2491,7 +2497,9 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                 preferredOutputDevice = preferredOutput,
                 preferredOutputRequested = !selectedOutputSignature.isNullOrBlank(),
                 preferredCueOutputDevice = preferredCueOutput,
-                preferredCueOutputRequested = !selectedCueOutputSignature.isNullOrBlank(),
+                preferredCueOutputRequested =
+                    !selectedCueOutputSignature.isNullOrBlank() ||
+                        project.tracks.any { TrackOutputRoutingPolicy.sendsToCue(it.outputRoute) },
                 masterGainDb = project.masterGainDb,
                 auditionMode = current.guitarAuditionMode,
                 repeatLoop = false,
