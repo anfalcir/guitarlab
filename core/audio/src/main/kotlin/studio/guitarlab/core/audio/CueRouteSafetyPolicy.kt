@@ -55,4 +55,12 @@ object CueRouteSafetyPolicy {
 
     fun driftExceeded(mainPresentedFrames: Long, cuePresentedFrames: Long, sampleRateHz: Int): Boolean =
         kotlin.math.abs(mainPresentedFrames - cuePresentedFrames) > driftLimitFrames(sampleRateHz)
+
+    /**
+     * CUE is a secondary sink and may never back-pressure MAIN. The render loop therefore writes
+     * CUE in non-blocking mode and keeps it active only when one call accepts the complete chunk.
+     * Partial/zero/error writes are treated as secondary-sink backpressure and fail closed.
+     */
+    fun secondaryWriteComplete(requestedSamples: Int, writtenSamples: Int): Boolean =
+        requestedSamples > 0 && writtenSamples == requestedSamples
 }
