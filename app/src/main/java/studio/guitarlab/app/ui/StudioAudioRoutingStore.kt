@@ -61,8 +61,14 @@ class StudioAudioRoutingStore(context: Context) {
      * Secondary output is explicit-only. A null value means CUE is disabled, never "automatic".
      * MAIN and CUE may not resolve to the same canonical physical route.
      */
-    fun selectedCueOutputSignature(): String? =
-        selectedCanonicalOutputSignature(KEY_CUE_OUTPUT_SIGNATURE)
+    fun selectedCueOutputSignature(): String? {
+        val selected = selectedCanonicalOutputSignature(KEY_CUE_OUTPUT_SIGNATURE) ?: return null
+        if (cueOutputChoices().none { it.signature == selected }) {
+            preferences.edit().remove(KEY_CUE_OUTPUT_SIGNATURE).apply()
+            return null
+        }
+        return selected
+    }
 
     private fun selectedCanonicalOutputSignature(key: String): String? {
         val stored = preferences.getString(key, null) ?: return null
