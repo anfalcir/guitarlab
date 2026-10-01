@@ -4,7 +4,7 @@ Updated: 2026-10-01
 
 ## Status
 
-**RC22 DUAL-OUTPUT/CUE FEATURE CANDIDATE — MIXER 48DP CLEARANCE HARDENED / REQUALIFICATION REQUESTED**
+**RC22 DUAL-OUTPUT/CUE FEATURE CANDIDATE — VIEWPORT-SAFE MIXER REGRESSION SEALED / REQUALIFICATION REQUESTED**
 
 RC20 remains the currently accepted, physically homologated baseline recorded in `RELEASE_BASELINE.md`. RC22 is an explicit owner-requested successor candidate built on the RC21-integrated Android source. It adds per-track MAIN/CUE monitoring and therefore reopens only the affected Android playback/routing/monitoring paths plus adjacent persistence/UI coverage. The frozen Demucs backend and unrelated Drive transport evidence are unchanged.
 
@@ -39,6 +39,8 @@ RC21 reached signed digital-candidate state, but RC22 now supersedes it as the a
 - API36 #929 still failed at the per-track CLIP callback (line 106), proving that an explicit semantics OnClick alone was insufficient. The temporary semantic-action duplication was removed and CLIP now uses a real 48x48dp clickable target with a compact 38x24dp visual, matching the robust target strategy used for Mixer state controls; payload and materializer hashes were re-locked.
 
 - API36 #930 proved the per-track CLIP callback is now fixed and isolated the only remaining failure to CUE/Arm center spacing. Mixer track strips were widened from 232dp to 252dp and the four 48dp state controls now use 12dp spacing, so their centers have deliberate clearance instead of relying on near-threshold packing. The instrumented test now reports measured/minimum distances on failure; RC22 payload and materializer hashes were re-locked.
+
+- API36 #931 failed at the Arm callback after the prior strip widening, revealing a viewport artifact rather than a control-overlap defect: the wider 252dp strip pushed Arm outside the narrow LazyRow viewport used by the regression harness. The strip was restored to the compact 232dp/4dp layout, while the instrumented accessibility test now scrolls each state control into view before clicking or measuring adjacent 48dp targets. This preserves density, keeps the real 48dp hit targets, and validates behavior under horizontal scrolling. RC22 payload/materializer were re-locked.
 
 ## RC22 feature scope
 
