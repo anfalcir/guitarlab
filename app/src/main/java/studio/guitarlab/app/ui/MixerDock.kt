@@ -41,8 +41,6 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
-import androidx.compose.ui.semantics.onClick
-import androidx.compose.ui.semantics.role
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import kotlin.math.abs
@@ -598,27 +596,27 @@ private fun MeterRow(
             }
         }
         if (clipLatched && onClearClip != null) {
-            Surface(
-                modifier = Modifier.clip(RoundedCornerShape(4.dp))
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
                     .clickable(role = Role.Button, onClick = onClearClip)
-                    .semantics {
-                        contentDescription = clipContentDescription ?: "Limpar indicador de clipping"
-                        role = Role.Button
-                        onClick {
-                            onClearClip()
-                            true
-                        }
-                    },
-                shape = RoundedCornerShape(4.dp),
-                color = MaterialTheme.colorScheme.error.copy(alpha = 0.16f),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.error),
+                    .semantics { contentDescription = clipContentDescription ?: "Limpar indicador de clipping" },
+                contentAlignment = Alignment.Center,
             ) {
-                Text(
-                    "CLIP",
-                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.error,
-                )
+                Surface(
+                    modifier = Modifier.size(width = 38.dp, height = 24.dp),
+                    shape = RoundedCornerShape(4.dp),
+                    color = MaterialTheme.colorScheme.error.copy(alpha = 0.16f),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.error),
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(
+                            "CLIP",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
+                }
             }
         } else {
             Text(value.formatDbfs(), modifier = Modifier.width(38.dp), style = MaterialTheme.typography.labelSmall)
