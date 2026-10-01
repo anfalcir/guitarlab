@@ -28,6 +28,8 @@ RC21 reached signed digital-candidate state, but RC22 now supersedes it as the a
 
 - API36 #923 isolated one Mixer accessibility regression: expanded CUE/Arm touch targets overlapped; spacing was corrected and the RC22 payload/materializer re-locked before the next qualification.
 
+- API36 #925 proved the 12 dp visual-gap fix was still insufficient because Compose minimum-touch expansion overlapped CUE/Arm. Mixer state controls now use explicit 48×48 dp clickable containers with compact visuals inside, eliminating framework-dependent hitbox overlap.
+
 ## RC22 feature scope
 
 ### Per-track routing
