@@ -4,7 +4,7 @@ Updated: 2026-10-01
 
 ## Status
 
-**RC22 DUAL-OUTPUT/CUE FEATURE CANDIDATE — CLOCK-SYNC HARDENING IMPLEMENTED / FINAL RESEAL PENDING**
+**RC22 DUAL-OUTPUT/CUE FEATURE CANDIDATE — FINAL SOURCE SEALED / DIGITAL QUALIFICATION REQUESTED**
 
 RC20 remains the currently accepted, physically homologated baseline recorded in `RELEASE_BASELINE.md`. RC22 is an explicit owner-requested successor candidate built on the RC21-integrated Android source. It adds per-track MAIN/CUE monitoring and therefore reopens only the affected Android playback/routing/monitoring paths plus adjacent persistence/UI coverage. The frozen Demucs backend and unrelated Drive transport evidence are unchanged.
 
@@ -19,7 +19,9 @@ RC21 reached signed digital-candidate state, but RC22 now supersedes it as the a
 - base canonical `main`: `ba2227bfb28afcc3d95602bcb622a05f27457141`;
 - source materialization tail: `scripts/materialize_ci_sources_rc22.py`;
 - protected payload: `.source-parts/RC22DualOutputCueRouting.patch`;
-- protected payload/materializer are being re-sealed to the final clock-synchronization hardening; the prior blob is no longer candidate authority;
+- final protected payload blob: `7839c931d6a3ca894a1c58fc58fecb3db3391d9b`;
+- final RC22 materializer blob: `14e79d48507640b0e1015e6556b7eca6ee252fbb`;
+- the 22 terminal source/test blobs were cross-checked against the branch source graph with zero mismatches before qualification;
 - low-latency/Bluetooth eligibility hardening is sealed in the RC22 materializer;
 - initial qualification CI #913 / run `36865931256`: **FAIL** because `StudioViewModel.kt` referenced `cueOutputSignature` without resolving it inside backing playback during recording;
 - corrective source and payload were applied; final hardening makes CUE transport-stable, non-blocking relative to MAIN and restricted to low-latency secondary routes. The exact hash-reconciled source is now under final branch qualification before integration.
