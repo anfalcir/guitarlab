@@ -40,11 +40,11 @@ class CueRouteSafetyPolicyTest {
     }
 
     @Test
-    fun driftGuardUsesAtLeastAboutFiftyMillisecondsAtCommonRates() {
-        assertEquals(2_400L, CueRouteSafetyPolicy.driftLimitFrames(48_000))
-        assertEquals(2_205L, CueRouteSafetyPolicy.driftLimitFrames(44_100))
-        assertFalse(CueRouteSafetyPolicy.driftExceeded(100_000, 102_400, 48_000))
-        assertTrue(CueRouteSafetyPolicy.driftExceeded(100_000, 102_401, 48_000))
+    fun driftGuardStaysWithinMusicallyTightWindowAtCommonRates() {
+        assertEquals(750L, CueRouteSafetyPolicy.driftLimitFrames(48_000))
+        assertEquals(689L, CueRouteSafetyPolicy.driftLimitFrames(44_100))
+        assertFalse(CueRouteSafetyPolicy.driftExceeded(100_000, 100_750, 48_000))
+        assertTrue(CueRouteSafetyPolicy.driftExceeded(100_000, 100_751, 48_000))
     }
     @Test
     fun secondarySinkMayNeverBackPressureMain() {
