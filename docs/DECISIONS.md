@@ -459,8 +459,8 @@ Consequences:
 - Options exposes one recording input, one MAIN output and one optional CUE output;
 - CUE requires MAIN to be explicitly selected and requires a different explicit low-latency live output endpoint; it never inherits Android automatic routing and synchronized CUE deliberately excludes Bluetooth;
 - the secondary sink is opened only when the current playback content includes a CUE-routed track, avoiding idle dual-device streams from empty CUE tracks;
-- route acceptance is not sufficient by itself: playback verifies effective MAIN/CUE routing before audible use and continues checking that the routes remain distinct;
-- if CUE is unavailable, rejected, lost, converges onto MAIN, cannot accept a complete non-blocking render chunk or crosses the bounded drift safety guard, CUE is silenced instead of leaking into MAIN or stalling it; MAIN continues when safe;
+- route acceptance is not sufficient by itself: playback verifies effective MAIN/CUE routing and stable `AudioTimestamp` clocks before audible use, rejects an initial presentation-origin offset above 12 ms, and continues checking that the routes remain distinct and within the continuous drift envelope;
+- if CUE is unavailable, rejected, lost, converges onto MAIN, lacks stable clock evidence, starts outside the 12 ms alignment limit, cannot accept a complete non-blocking render chunk or repeatedly crosses the continuous drift safety guard, CUE is silenced instead of leaking into MAIN or stalling it; MAIN continues when safe and is never delayed merely to rescue CUE;
 - the dual-bus engine is used by ordinary Play and backing playback during recording; software monitoring of an armed CUE track also requires the selected CUE route and fails closed without affecting captured input;
 - CUE state is monitoring/playback metadata and does not exclude a track from Studio Master export;
 - the existing fail-closed selected-input recording contract, managed-media integrity, backup/restore and recording-writer isolation remain unchanged;
