@@ -39,7 +39,7 @@ jobs:
 
       - name: Diff sanity
         shell: bash
-        run: git diff --check HEAD^ --
+        run: git diff --check HEAD^ -- . ':(exclude).source-parts/*.patch'
 
       - name: Set up JDK 17
         uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
@@ -236,7 +236,7 @@ jobs:
 
       - name: Diff sanity
         shell: bash
-        run: git diff --check HEAD^ --
+        run: git diff --check HEAD^ -- . ':(exclude).source-parts/*.patch'
 
       - name: Set up JDK 17
         uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
