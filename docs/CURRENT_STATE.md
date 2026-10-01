@@ -29,6 +29,7 @@ RC21 reached signed digital-candidate state, but RC22 now supersedes it as the a
 - every track persists `TrackOutputRoute` with backward-compatible default `MAIN`;
 - engine contract supports `MAIN`, `CUE` and `MAIN_AND_CUE`;
 - the first mixer headphone button intentionally toggles exclusive MAIN ↔ CUE;
+- route changes are stopped-state operations; the CUE control is disabled during Play/REC so an active session cannot acquire inconsistent monitor routing;
 - projects created before RC22 reopen with every pre-existing track routed to MAIN;
 - CUE is monitoring/playback metadata and does not destructively modify media.
 
@@ -48,7 +49,8 @@ RC21 reached signed digital-candidate state, but RC22 now supersedes it as the a
 - the recording writer remains input-only: playback/CUE audio never enters the recorded file;
 - before audible CUE use, the engine silently primes and verifies distinct effective routes;
 - during playback it rechecks routing and monitors presented-frame drift;
-- if CUE is rejected, disconnected, converges with MAIN or crosses the bounded drift guard, only CUE is suppressed and the user receives explicit feedback.
+- CUE writes are non-blocking relative to MAIN; a partial/zero/error secondary write is treated as backpressure and suppresses CUE instead of stalling the primary render loop;
+- if CUE is rejected, disconnected, converges with MAIN, cannot keep up or crosses the bounded drift guard, only CUE is suppressed and the user receives explicit feedback.
 
 ### Mixer, diagnostics and help
 
