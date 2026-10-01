@@ -57,3 +57,7 @@ Run 36932647654 at e61e8437: build/unit/Lint PASS; fixed-navbar center assertion
 RC25f separates the scroll viewport into an outer Box with horizontalScroll and the fixed-width content into its own child Row. The Row retains 664dp minimum width, 104dp side slots, spacing and weighted centered transport. Separate nodes expose viewport and content sizes independently; geometry logs record both. Tests retain fixed slots across state/panel changes, content centering on phone and viewport centering on actual tablet. Narrow reachability and row coverage checks remain.
 
 Local PASS: Kotlin grammar, whitespace, isolated reconstruction from RC25e, terminal contents, reverse applicability and idempotence. New Android run pending; payload history immutable. Previous assertion failure was coordinate identity, not evidence of a displaced transport. No workflow monitoring.
+
+## Digital qualification PASS — CI #946
+
+Run 36934260224 / source 854aeee0da730d2011e1141fc50a69d59bb13d58 completed successfully. Unit/Lint/APK build and all API36 regression groups PASS, including five-channel tablet geometry, fixed navbar, mixer targets/large-font/off-thumb behavior and unavailable-CUE history preservation. Filled complete/minimum Mixer and Comparison/Timeline screenshots inspected from the integration artifact. Main/CUE physical pair support remains unproven by emulator; owner acceptance pending. Temporary RC24/RC25 push triggers retired for canonical integration. Signed artifact identity pending canonical producer.

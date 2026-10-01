@@ -4,9 +4,9 @@ Updated: 2026-10-01
 
 ## Status
 
-**RC25 BLUETOOTH OUTPUT / CUE STARTUP CORRECTION — DIGITAL QUALIFICATION PENDING**
+**RC25 STUDIO / OUTPUT / CUE — DIGITAL QUALIFICATION PASS; CANONICAL SIGNING PENDING**
 
-Owner video `141016.mp4` rejected RC23 layout ergonomics. RC24 corrects navbar/menus/Mixer density on its qualification branch; RC25 inherits that source and corrects new routing evidence. Neither pending workflow is monitored and no results are predeclared. RC20 remains the physically accepted frozen baseline in `RELEASE_BASELINE.md`. RC23 retains the RC22 MAIN/CUE implementation; residual physical acceptance of any simultaneous MAIN/CUE hardware combination remains separate from digital CI.
+RC25 qualifies inherited RC24 Studio ergonomics and output/CUE corrections. Android CI **#946 / run 36934260224** on source **854aeee0da730d2011e1141fc50a69d59bb13d58** passed Unit/Lint/APK build and all API36 regression groups, including actual tablet geometry. Filled five-channel complete/minimum screenshots and Comparison/Timeline captures were inspected. RC20 remains the physically accepted frozen baseline; simultaneous MAIN/CUE device acceptance remains pending owner testing. No RC25 signed APK identity is declared before its canonical producer succeeds.
 
 ## Exact signed RC23 identity
 
@@ -23,7 +23,7 @@ Owner video `141016.mp4` rejected RC23 layout ergonomics. RC24 corrects navbar/m
 - signing verifies APK Signature Scheme v2 and signs the exact tested unsigned release artifact without rebuilding;
 - local downloaded APK checksum matches `SHA256SUMS.txt` and `BUILD_IDENTITY.txt`; certificate/package/version verification is evidenced by the successful signing job.
 
-## Inherited RC24 implementation and pending qualification
+## Inherited RC24 implementation qualified through RC25
 
 - versionName `0.5.0-rc24`, versionCode `44`; no producer SHA or signed artifact declared before qualification;
 - Comparison/Timeline vertical panels; balanced fixed navbar slots; Níveis in Master;
@@ -32,7 +32,7 @@ Owner video `141016.mp4` rejected RC23 layout ergonomics. RC24 corrects navbar/m
 - legacy visibility retained; new minimum preference defaults complete and persists independently;
 - D-100 and subsystem/guide docs updated; immutable RC24 stage follows RC23;
 - focused tests cover visual/target bounds, menu fit, minimum/details pan commits, preference upgrade and filled five-track tablet geometry/captures;
-- local materialization/diff checks are recorded in `history/RC24_STUDIO_DENSITY_2026-10-01.md`; Android compile/Lint/instrumentation and screenshot review await CI evidence.
+- local materialization/diff checks are recorded in `history/RC24_STUDIO_DENSITY_2026-10-01.md`; Android compile/Lint/instrumentation and screenshot review are qualified through RC25 CI #946.
 
 ## RC25 correction
 
@@ -41,11 +41,11 @@ Owner video `141016.mp4` rejected RC23 layout ergonomics. RC24 corrects navbar/m
 - CUE options require both low-latency destinations; missing configuration blocks new activation without changing track/history;
 - bounded continuously fed interleaved startup replaces drained/sequential clock sampling; all actual-route/clock/offset/runtime safety guards retained;
 - pure fake-clock tests, Bluetooth/migration unit tests and unavailable-CUE instrumented regression added;
-- qualification report: `history/RC25_OUTPUT_CUE_CORRECTION_2026-10-01.md`; Android/software results and physical pair acceptance pending.
+- qualification report: `history/RC25_OUTPUT_CUE_CORRECTION_2026-10-01.md`; Android/software PASS at CI #946; physical pair acceptance pending.
 
 ## Next action
 
-Owner reports qualification workflow result. Then inspect completed evidence and filled-project screenshots, fix any failure, remove temporary branch trigger before canonical integration and qualify/sign the exact canonical candidate. Physical acceptance on SM-X230 / Android 16 remains required; RC20 stays accepted. RC23 digital PASS and delivered artifact identity above remain historical, not UX acceptance.
+Integrate the digitally qualified RC25 into canonical main after retiring RC24/RC25 temporary push triggers; trigger `[run ci signed]` there. Stop after trigger without monitoring. After the owner reports completion, verify the signed APK/package/version/certificate/provenance, deliver it, and validate Studio usability and intended physical MAIN/CUE devices.
 
 No workflow execution monitoring is performed. This Android UI correction does not reopen the frozen backend or change MAIN/CUE/audio algorithms.
 
@@ -62,3 +62,5 @@ RC25 CI #943: build/unit/Lint PASS; bounded mixer test identifies Volume semanti
 RC25 CI #944: build/unit/Lint PASS; all five mixer component tests PASS, including large font/off-thumb interaction. Failure advances to fixed-navbar test applying tablet viewport centering to a scrolled phone row. RC25e separates content-relative fixed-slot checks from actual-tablet viewport centering and adds transport invariance to tablet coverage. Navbar geometry unchanged; new Android qualification pending.
 
 RC25 CI #945: build/unit/Lint PASS; navbar regression still read viewport width from a shared scroll/content layout node. RC25f gives the scroll Box and fixed child Row separate layout/semantic identities, retains dimensions and verifies both geometry sizes. Tablet centering and fixed-slot tests remain. New Android qualification pending.
+
+RC25 digital authority: https://github.com/anfalcir/guitarlab/actions/runs/36934260224 (CI #946), source 854aeee0da730d2011e1141fc50a69d59bb13d58. Terminal stage materialize_ci_sources_rc25f.py; previous payloads immutable. Canonical signing pending.

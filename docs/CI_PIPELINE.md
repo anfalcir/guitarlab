@@ -128,3 +128,5 @@ Terminal stage: `scripts/materialize_ci_sources_rc24.py`, after immutable RC23. 
 ## RC25 output/CUE startup qualification
 
 RC25 follows immutable RC24 with `.source-parts/RC25OutputCueCorrection.patch` and `scripts/materialize_ci_sources_rc25.py`. Temporary `feature/audio-routes-rc25` qualification trigger is independent of RC24's branch; both are retired before canonical signing. Existing software gate includes core-audio and app unit tests; existing practice regression includes unavailable-CUE history preservation. No workflow execution monitoring or result predeclaration.
+
+RC25 branch qualification PASS: Android CI #946 / run 36934260224 on 854aeee0da730d2011e1141fc50a69d59bb13d58. Terminal source stage RC25f includes bounded geometry tests, compact Slider interaction and separate navbar viewport/content layouts. Retire RC24/RC25 temporary push exceptions before integration. Signed producer must run on canonical main and its exact signed identity is recorded only after successful completion. No workflow monitoring.
