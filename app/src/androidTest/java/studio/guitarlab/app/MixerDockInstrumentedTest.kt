@@ -38,6 +38,7 @@ class MixerDockInstrumentedTest {
     fun mixerStateControlsExposeRoleStateCallbacksAndNonOverlapping48dpCenters() {
         val muteClicks = AtomicInteger(0)
         val soloClicks = AtomicInteger(0)
+        val cueClicks = AtomicInteger(0)
         val armClicks = AtomicInteger(0)
         val trackClipClicks = AtomicInteger(0)
         val masterClipClicks = AtomicInteger(0)
@@ -69,6 +70,7 @@ class MixerDockInstrumentedTest {
                     onPanCommit = { _, _ -> },
                     onToggleMute = { muteClicks.incrementAndGet() },
                     onToggleSolo = { soloClicks.incrementAndGet() },
+                    onToggleCue = { cueClicks.incrementAndGet() },
                     onToggleArm = { armClicks.incrementAndGet() },
                     onMasterGainPreview = {},
                     onMasterGainCommit = {},
@@ -80,33 +82,39 @@ class MixerDockInstrumentedTest {
 
         val mute = composeRule.onNodeWithContentDescription("Mute da pista Teste")
         val solo = composeRule.onNodeWithContentDescription("Solo da pista Teste")
+        val cue = composeRule.onNodeWithContentDescription("Saída CUE da pista Teste")
         val arm = composeRule.onNodeWithContentDescription("Gravação da pista Teste")
 
         val buttonRole = SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Button)
         mute.assert(buttonRole).assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "Desativado")).assertIsEnabled().assert(hasClickAction())
         solo.assert(buttonRole).assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "Ativado")).assertIsEnabled().assert(hasClickAction())
+        cue.assert(buttonRole).assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "Desativado")).assertIsEnabled().assert(hasClickAction())
         arm.assert(buttonRole).assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "Desarmada")).assertIsEnabled().assert(hasClickAction())
 
         mute.performClick()
         solo.performClick()
+        cue.performClick()
         arm.performClick()
         composeRule.onNodeWithContentDescription("Limpar clipping da pista Teste").assert(buttonRole).performClick()
         composeRule.onNodeWithContentDescription("Limpar clipping do master").assert(buttonRole).performClick()
 
         assertEquals(1, muteClicks.get())
         assertEquals(1, soloClicks.get())
+        assertEquals(1, cueClicks.get())
         assertEquals(1, armClicks.get())
         assertEquals(1, trackClipClicks.get())
         assertEquals(1, masterClipClicks.get())
 
         val muteCenter = mute.fetchSemanticsNode().boundsInRoot.center
         val soloCenter = solo.fetchSemanticsNode().boundsInRoot.center
+        val cueCenter = cue.fetchSemanticsNode().boundsInRoot.center
         val armCenter = arm.fetchSemanticsNode().boundsInRoot.center
         val density = InstrumentationRegistry.getInstrumentation().targetContext.resources.displayMetrics.density
         val minimumCenterDistancePx = 48f * density - 1f
 
         assertTrue("Mute/Solo expanded touch targets must not overlap", abs(soloCenter.x - muteCenter.x) >= minimumCenterDistancePx)
-        assertTrue("Solo/Arm expanded touch targets must not overlap", abs(armCenter.x - soloCenter.x) >= minimumCenterDistancePx)
+        assertTrue("Solo/CUE expanded touch targets must not overlap", abs(cueCenter.x - soloCenter.x) >= minimumCenterDistancePx)
+        assertTrue("CUE/Arm expanded touch targets must not overlap", abs(armCenter.x - cueCenter.x) >= minimumCenterDistancePx)
     }
     @Test
     fun overflowingTracksSwipeHorizontallyWhileMasterRemainsAnchored() {
@@ -130,6 +138,7 @@ class MixerDockInstrumentedTest {
                     onPanCommit = { _, _ -> },
                     onToggleMute = {},
                     onToggleSolo = {},
+                    onToggleCue = {},
                     onToggleArm = {},
                     onMasterGainPreview = {},
                     onMasterGainCommit = {},
