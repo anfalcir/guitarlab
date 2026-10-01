@@ -111,7 +111,8 @@ The currently implemented format set includes WAV PCM, FLAC, AIFF/AIFC PCM, MP3,
 - Each track persists a backward-compatible output route; legacy projects default to MAIN.
 - The mixer headphone/CUE control may route any track to the secondary bus; the first UI contract is exclusive MAIN ↔ CUE while the engine retains MAIN_AND_CUE capability for future controlled use.
 - Per-track output-route changes are allowed only with transport stopped; Play/REC uses a stable routing snapshot.
-- CUE requires an explicit MAIN route, a resolvable secondary device and live proof that MAIN/CUE are distinct endpoints. CUE never falls back silently to MAIN.
+- CUE requires an explicit MAIN route, a resolvable low-latency secondary device and live proof that MAIN/CUE are distinct endpoints. Bluetooth is excluded from synchronized CUE because its presentation latency is not suitable for the alignment contract. CUE never falls back silently to MAIN.
+- The secondary CUE sink is opened only when playable content is assigned to a CUE-routed track; empty CUE tracks do not create an idle secondary stream.
 - CUE output writes may not block MAIN. Secondary backpressure/partial writes suppress CUE fail-closed instead of stalling the primary render loop.
 - If the CUE route is lost, rejected, converges with MAIN or exceeds the bounded synchronization guard, CUE is silenced and the user receives explicit feedback; safe MAIN playback continues.
 - Playback/backing/monitoring return must never feed the recording writer.
