@@ -176,7 +176,7 @@ private fun MixerTrackStrip(
 
     Surface(
         modifier = Modifier
-            .width(232.dp)
+            .width(252.dp)
             .fillMaxHeight()
             .testTag("mixer-track-strip-${track.id}")
             .clip(RoundedCornerShape(8.dp))
@@ -216,7 +216,7 @@ private fun MixerTrackStrip(
                 }
             }
 
-            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 MixerStateButton(
                     label = "M",
                     active = track.muted,
