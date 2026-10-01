@@ -4,7 +4,7 @@ Updated: 2026-10-01
 
 ## Status
 
-**RC22 DUAL-OUTPUT/CUE FEATURE CANDIDATE — CANONICAL MAIN DIGITAL PASS / SIGNED QUALIFICATION REQUESTED**
+**RC22 DUAL-OUTPUT/CUE FEATURE CANDIDATE — SIGNED DIGITAL PASS / PHYSICAL MAIN+CUE VALIDATION PENDING**
 
 RC20 remains the currently accepted, physically homologated baseline recorded in `RELEASE_BASELINE.md`. RC22 is an explicit owner-requested successor candidate built on the RC21-integrated Android source. It adds per-track MAIN/CUE monitoring and therefore reopens only the affected Android playback/routing/monitoring paths plus adjacent persistence/UI coverage. The frozen Demucs backend and unrelated Drive transport evidence are unchanged.
 
