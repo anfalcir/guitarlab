@@ -72,6 +72,11 @@ internal object RecordingInputRoutePolicy {
         !explicit || (preferredDeviceId != null && routedDeviceId == preferredDeviceId)
 }
 
+internal object RecordingMonitorRoutePolicy {
+    fun accepts(required: Boolean, preferredDeviceId: Int?, routedDeviceId: Int?): Boolean =
+        !required || (preferredDeviceId != null && routedDeviceId == preferredDeviceId)
+}
+
 /** Android M5 capture engine. Final media ownership/commit remains in core:project. */
 class AndroidStudioRecordingEngine(context: Context) : AutoCloseable {
     private val appContext = context.applicationContext
@@ -208,7 +213,11 @@ class AndroidStudioRecordingEngine(context: Context) : AutoCloseable {
                     val currentMonitor = monitor
                     val expectedMonitor = request.preferredOutputDevice
                     if (currentMonitor != null &&
-                        (expectedMonitor == null || currentMonitor.routedDevice?.id != expectedMonitor.id)
+                        !RecordingMonitorRoutePolicy.accepts(
+                            required = true,
+                            preferredDeviceId = expectedMonitor?.id,
+                            routedDeviceId = currentMonitor.routedDevice?.id,
+                        )
                     ) {
                         runCatching { currentMonitor.pause() }
                         runCatching { currentMonitor.flush() }
@@ -398,7 +407,11 @@ class AndroidStudioRecordingEngine(context: Context) : AutoCloseable {
             }
             routed = track.routedDevice
         }
-        return routed?.id == expected.id
+        return RecordingMonitorRoutePolicy.accepts(
+            required = true,
+            preferredDeviceId = expected.id,
+            routedDeviceId = routed?.id,
+        )
     }
 
     private fun awaitRoutedInput(recorder: AudioRecord, expected: AudioDeviceInfo?): AudioDeviceInfo? {
