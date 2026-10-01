@@ -50,6 +50,8 @@ import studio.guitarlab.core.model.ChannelLayout
 import studio.guitarlab.core.model.GuitarProject
 import studio.guitarlab.core.model.RoleSource
 import studio.guitarlab.core.model.TrackNamePolicy
+import studio.guitarlab.core.model.TrackOutputRoute
+import studio.guitarlab.core.model.TrackOutputRoutingPolicy
 import studio.guitarlab.core.project.FileProjectRepository
 import studio.guitarlab.core.project.ProjectClipEditor
 import studio.guitarlab.core.project.ProjectTrackEditor
@@ -325,6 +327,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                         trackMixDrafts[track.id] = TrackMixDraft(track.gainDb, track.pan)
                         playbackEngine.setTrackMix(track.id, track.gainDb, track.pan)
                         playbackEngine.setTrackAudibility(track.id, track.muted, track.solo)
+                        playbackEngine.setTrackOutputRoute(track.id, track.outputRoute)
                     }
                     playbackEngine.setMasterGainDb(latest.masterGainDb)
                     recoveryCandidatesById.clear()
@@ -1619,6 +1622,35 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
 
     fun toggleTrackSolo(trackId: String) = editTrackAudibility(trackId, toggleMute = false)
 
+    fun toggleTrackCue(trackId: String) {
+        val state = _state.value
+        val project = state.project ?: return
+        if (state.importing || state.editingClip || state.historyBusy || state.trimControls != null) return
+        viewModelScope.launch {
+            runCatching {
+                saveLatest(project.id) { latest ->
+                    val target = latest.tracks.firstOrNull { it.id == trackId } ?: return@saveLatest latest
+                    val updated = target.copy(
+                        outputRoute = TrackOutputRoutingPolicy.toggleExclusiveCue(target.outputRoute),
+                    )
+                    latest.copy(
+                        tracks = latest.tracks.map { if (it.id == trackId) updated else it },
+                        updatedAtEpochMs = System.currentTimeMillis(),
+                    )
+                }
+            }.onSuccess { saved ->
+                val route = saved.tracks.firstOrNull { it.id == trackId }?.outputRoute ?: TrackOutputRoute.MAIN
+                playbackEngine.setTrackOutputRoute(trackId, route)
+                applySavedProject(
+                    saved,
+                    if (route == TrackOutputRoute.CUE) "Pista enviada para a saída CUE" else "Pista enviada para a saída principal",
+                )
+            }.onFailure { error ->
+                _state.value = _state.value.copy(error = error.message ?: "Não foi possível atualizar a saída da pista.")
+            }
+        }
+    }
+
     fun toggleTrackArmed(trackId: String) {
         editTrackStructural("Armar gravação atualizado", trackId) { it.copy(armed = !it.armed) }
     }
@@ -2446,6 +2478,8 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
         val tracksById = project.tracks.associateBy { it.id }
         val selectedOutputSignature = audioRoutingStore.selectedOutputSignature()
         val preferredOutput = audioRoutingStore.resolveSelectedOutputDevice()
+        val selectedCueOutputSignature = audioRoutingStore.selectedCueOutputSignature()
+        val preferredCueOutput = audioRoutingStore.resolveSelectedCueOutputDevice()
         val request = runCatching {
             StudioPlaybackRequest(
                 sampleRateHz = readiness.sampleRateHz,
@@ -2456,6 +2490,8 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                 loopEndFrame = current.timelineControls.loopEndFrame,
                 preferredOutputDevice = preferredOutput,
                 preferredOutputRequested = !selectedOutputSignature.isNullOrBlank(),
+                preferredCueOutputDevice = preferredCueOutput,
+                preferredCueOutputRequested = !selectedCueOutputSignature.isNullOrBlank(),
                 masterGainDb = project.masterGainDb,
                 auditionMode = current.guitarAuditionMode,
                 repeatLoop = false,
@@ -2467,6 +2503,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                         pan = track.pan,
                         muted = track.muted,
                         solo = track.solo,
+                        outputRoute = track.outputRoute,
                     )
                 },
                 clips = ActiveTakePolicy.audibleClips(project).mapNotNull { clip ->
@@ -2556,15 +2593,27 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                 }
 
                 override fun onRouting(status: StudioPlaybackRoutingStatus) {
-                    if (!status.fellBackToAuto) return
-                    activePlaybackRouteState = activePlaybackRouteState?.let { AudioRouteSessionPolicy.lost(it, "selected output route fell back") }
-                    viewModelScope.launch {
-                        val state = _state.value
-                        if (sessionId != playbackSessionId || state.transport.mode != TransportMode.PLAYING) return@launch
-                        postTransientWarning(
-                            "A saída selecionada ficou indisponível; o GuitarLab usou a saída automática.",
-                            "A saída selecionada ficou indisponível; o GuitarLab usou a saída automática.",
-                        )
+                    if (status.fellBackToAuto) {
+                        activePlaybackRouteState = activePlaybackRouteState?.let { AudioRouteSessionPolicy.lost(it, "selected output route fell back") }
+                        viewModelScope.launch {
+                            val state = _state.value
+                            if (sessionId != playbackSessionId || state.transport.mode != TransportMode.PLAYING) return@launch
+                            postTransientWarning(
+                                "A saída principal selecionada ficou indisponível; o GuitarLab usou a saída automática.",
+                                "A saída principal selecionada ficou indisponível; o GuitarLab usou a saída automática.",
+                            )
+                        }
+                    }
+                    if (status.cueSuppressed) {
+                        viewModelScope.launch {
+                            val state = _state.value
+                            if (sessionId != playbackSessionId || state.transport.mode != TransportMode.PLAYING) return@launch
+                            val detail = status.cueFailureReason ?: "A saída secundária não pôde ser confirmada."
+                            postTransientWarning(
+                                "CUE foi silenciado para impedir vazamento para a saída principal. $detail",
+                                "CUE foi silenciado para impedir vazamento para a saída principal.",
+                            )
+                        }
                     }
                 }
 
@@ -2939,6 +2988,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
             trackMixDrafts[track.id] = TrackMixDraft(track.gainDb, track.pan)
             playbackEngine.setTrackMix(track.id, track.gainDb, track.pan)
             playbackEngine.setTrackAudibility(track.id, track.muted, track.solo)
+            playbackEngine.setTrackOutputRoute(track.id, track.outputRoute)
         }
         playbackEngine.setMasterGainDb(saved.masterGainDb)
         val state = _state.value
