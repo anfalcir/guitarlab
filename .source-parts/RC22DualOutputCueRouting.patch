@@ -14,10 +14,10 @@ index 076c5e7..5e3343d 100644
      }
  
 diff --git a/app/src/androidTest/java/studio/guitarlab/app/MixerDockInstrumentedTest.kt b/app/src/androidTest/java/studio/guitarlab/app/MixerDockInstrumentedTest.kt
-index bf81aa9..39d6afd 100644
+index bf81aa9..142bc73 100644
 --- a/app/src/androidTest/java/studio/guitarlab/app/MixerDockInstrumentedTest.kt
 +++ b/app/src/androidTest/java/studio/guitarlab/app/MixerDockInstrumentedTest.kt
-@@ -6,6 +6,7 @@ import androidx.compose.ui.semantics.SemanticsProperties
+@@ -6,13 +6,15 @@ import androidx.compose.ui.semantics.SemanticsProperties
  import androidx.compose.ui.test.SemanticsMatcher
  import androidx.compose.ui.test.assert
  import androidx.compose.ui.test.assertIsEnabled
@@ -25,7 +25,15 @@ index bf81aa9..39d6afd 100644
  import androidx.compose.ui.test.assertIsDisplayed
  import androidx.compose.ui.test.hasClickAction
  import androidx.compose.ui.test.junit4.createComposeRule
-@@ -38,6 +39,7 @@ class MixerDockInstrumentedTest {
+ import androidx.compose.ui.test.onNodeWithContentDescription
+ import androidx.compose.ui.test.onNodeWithTag
+ import androidx.compose.ui.test.onAllNodesWithTag
+ import androidx.compose.ui.test.performClick
++import androidx.compose.ui.test.performScrollTo
+ import androidx.compose.ui.test.performTouchInput
+ import androidx.compose.ui.test.swipe
+ import androidx.test.ext.junit.runners.AndroidJUnit4
+@@ -38,6 +40,7 @@ class MixerDockInstrumentedTest {
      fun mixerStateControlsExposeRoleStateCallbacksAndNonOverlapping48dpCenters() {
          val muteClicks = AtomicInteger(0)
          val soloClicks = AtomicInteger(0)
@@ -33,7 +41,7 @@ index bf81aa9..39d6afd 100644
          val armClicks = AtomicInteger(0)
          val trackClipClicks = AtomicInteger(0)
          val masterClipClicks = AtomicInteger(0)
-@@ -69,6 +71,7 @@ class MixerDockInstrumentedTest {
+@@ -69,6 +72,7 @@ class MixerDockInstrumentedTest {
                      onPanCommit = { _, _ -> },
                      onToggleMute = { muteClicks.incrementAndGet() },
                      onToggleSolo = { soloClicks.incrementAndGet() },
@@ -41,7 +49,7 @@ index bf81aa9..39d6afd 100644
                      onToggleArm = { armClicks.incrementAndGet() },
                      onMasterGainPreview = {},
                      onMasterGainCommit = {},
-@@ -80,34 +83,91 @@ class MixerDockInstrumentedTest {
+@@ -80,34 +84,105 @@ class MixerDockInstrumentedTest {
  
          val mute = composeRule.onNodeWithContentDescription("Mute da pista Teste")
          val solo = composeRule.onNodeWithContentDescription("Solo da pista Teste")
@@ -54,11 +62,19 @@ index bf81aa9..39d6afd 100644
 +        cue.assert(buttonRole).assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "Desativado")).assertIsEnabled().assert(hasClickAction())
          arm.assert(buttonRole).assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "Desarmada")).assertIsEnabled().assert(hasClickAction())
  
-         mute.performClick()
-         solo.performClick()
-+        cue.performClick()
-         arm.performClick()
-         composeRule.onNodeWithContentDescription("Limpar clipping da pista Teste").assert(buttonRole).performClick()
+-        mute.performClick()
+-        solo.performClick()
+-        arm.performClick()
+-        composeRule.onNodeWithContentDescription("Limpar clipping da pista Teste").assert(buttonRole).performClick()
++        mute.performScrollTo().assertIsDisplayed().performClick()
++        solo.performScrollTo().assertIsDisplayed().performClick()
++        cue.performScrollTo().assertIsDisplayed().performClick()
++        arm.performScrollTo().assertIsDisplayed().performClick()
++        composeRule.onNodeWithContentDescription("Limpar clipping da pista Teste")
++            .performScrollTo()
++            .assertIsDisplayed()
++            .assert(buttonRole)
++            .performClick()
          composeRule.onNodeWithContentDescription("Limpar clipping do master").assert(buttonRole).performClick()
  
          assertEquals(1, muteClicks.get())
@@ -68,18 +84,31 @@ index bf81aa9..39d6afd 100644
          assertEquals(1, trackClipClicks.get())
          assertEquals(1, masterClipClicks.get())
  
-         val muteCenter = mute.fetchSemanticsNode().boundsInRoot.center
-         val soloCenter = solo.fetchSemanticsNode().boundsInRoot.center
-+        val cueCenter = cue.fetchSemanticsNode().boundsInRoot.center
-         val armCenter = arm.fetchSemanticsNode().boundsInRoot.center
+-        val muteCenter = mute.fetchSemanticsNode().boundsInRoot.center
+-        val soloCenter = solo.fetchSemanticsNode().boundsInRoot.center
+-        val armCenter = arm.fetchSemanticsNode().boundsInRoot.center
          val density = InstrumentationRegistry.getInstrumentation().targetContext.resources.displayMetrics.density
          val minimumCenterDistancePx = 48f * density - 1f
  
 -        assertTrue("Mute/Solo expanded touch targets must not overlap", abs(soloCenter.x - muteCenter.x) >= minimumCenterDistancePx)
 -        assertTrue("Solo/Arm expanded touch targets must not overlap", abs(armCenter.x - soloCenter.x) >= minimumCenterDistancePx)
-+        val muteSoloDistancePx = abs(soloCenter.x - muteCenter.x)
-+        val soloCueDistancePx = abs(cueCenter.x - soloCenter.x)
-+        val cueArmDistancePx = abs(armCenter.x - cueCenter.x)
++        mute.performScrollTo().assertIsDisplayed()
++        solo.assertIsDisplayed()
++        val muteSoloDistancePx = abs(
++            solo.fetchSemanticsNode().boundsInRoot.center.x - mute.fetchSemanticsNode().boundsInRoot.center.x,
++        )
++
++        cue.performScrollTo().assertIsDisplayed()
++        solo.assertIsDisplayed()
++        val soloCueDistancePx = abs(
++            cue.fetchSemanticsNode().boundsInRoot.center.x - solo.fetchSemanticsNode().boundsInRoot.center.x,
++        )
++
++        arm.performScrollTo().assertIsDisplayed()
++        cue.assertIsDisplayed()
++        val cueArmDistancePx = abs(
++            arm.fetchSemanticsNode().boundsInRoot.center.x - cue.fetchSemanticsNode().boundsInRoot.center.x,
++        )
 +
 +        assertTrue(
 +            "Mute/Solo expanded touch targets must not overlap: distance=$muteSoloDistancePx minimum=$minimumCenterDistancePx",
@@ -93,7 +122,7 @@ index bf81aa9..39d6afd 100644
 +            "CUE/Arm expanded touch targets must not overlap: distance=$cueArmDistancePx minimum=$minimumCenterDistancePx",
 +            cueArmDistancePx >= minimumCenterDistancePx,
 +        )
-     }
++    }
 +    @Test
 +    fun cueRoutingIsDisabledWhenStructuralTransportEditsAreLocked() {
 +        val track = AudioTrack(id = "route-locked", name = "Route locked", order = 0)
@@ -130,12 +159,12 @@ index bf81aa9..39d6afd 100644
 +        composeRule.onNodeWithContentDescription("Solo da pista Route locked").assertIsEnabled()
 +        composeRule.onNodeWithContentDescription("Saída CUE da pista Route locked").assertIsNotEnabled()
 +        composeRule.onNodeWithContentDescription("Gravação da pista Route locked").assertIsNotEnabled()
-+    }
+     }
 +
      @Test
      fun overflowingTracksSwipeHorizontallyWhileMasterRemainsAnchored() {
          val tracks = List(10) { index -> AudioTrack(id = "overflow-$index", name = "Track $index", order = index) }
-@@ -130,6 +190,7 @@ class MixerDockInstrumentedTest {
+@@ -130,6 +205,7 @@ class MixerDockInstrumentedTest {
                      onPanCommit = { _, _ -> },
                      onToggleMute = {},
                      onToggleSolo = {},
@@ -197,7 +226,7 @@ index 2d4fba8..8f91a6b 100644
              val outputSignature = routingStore.selectedOutputSignature()
              listOf(44_100, 48_000, 88_200, 96_000).forEach { rate ->
 diff --git a/app/src/main/java/studio/guitarlab/app/ui/MixerDock.kt b/app/src/main/java/studio/guitarlab/app/ui/MixerDock.kt
-index f55a090..36dc7d1 100644
+index f55a090..0debce0 100644
 --- a/app/src/main/java/studio/guitarlab/app/ui/MixerDock.kt
 +++ b/app/src/main/java/studio/guitarlab/app/ui/MixerDock.kt
 @@ -21,6 +21,7 @@ import androidx.compose.foundation.lazy.items
@@ -254,7 +283,7 @@ index f55a090..36dc7d1 100644
      Surface(
          modifier = Modifier
 -            .width(184.dp)
-+            .width(252.dp)
++            .width(232.dp)
              .fillMaxHeight()
              .testTag("mixer-track-strip-${track.id}")
              .clip(RoundedCornerShape(8.dp))
@@ -263,7 +292,7 @@ index f55a090..36dc7d1 100644
              }
  
 -            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
++            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                  MixerStateButton(
                      label = "M",
                      active = track.muted,
