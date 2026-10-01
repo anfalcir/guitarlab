@@ -11,8 +11,8 @@ android {
         applicationId = "studio.guitarlab.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 41
-        versionName = "0.5.0-rc21"
+        versionCode = 42
+        versionName = "0.5.0-rc22"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
