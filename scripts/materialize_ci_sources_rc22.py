@@ -1,0 +1,142 @@
+#!/usr/bin/env python3
+from __future__ import annotations
+
+import subprocess
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+PREVIOUS = ROOT / "scripts/materialize_ci_sources_rc21.py"
+PATCH = ROOT / ".source-parts/RC22DualOutputCueRouting.patch"
+PATCH_BLOB = "1df6fa9b9cda93fce314863e0a78cf27422b7924"
+TARGETS = {
+    "app/build.gradle.kts": ("076c5e76779c30a2a78df6edbbf5f849950134f8", "5e3343d00d2259fca4f57dadcbb9652355398fba"),
+    "app/src/androidTest/java/studio/guitarlab/app/MixerDockInstrumentedTest.kt": ("bf81aa9414a376679634f8ddf3f0b9bbf58fde5d", "1d31d6326e9a194ff335edd46a3089e339409703"),
+    "app/src/main/java/studio/guitarlab/app/diagnostics/DiagnosticBundleExporter.kt": ("f13441dec13ca4a09271fe0fd4df0a75e3a4e54d", "74c17436f3f7b7fc168abcf27679cdffebd334e9"),
+    "app/src/main/java/studio/guitarlab/app/diagnostics/DiagnosticsScreen.kt": ("a0bb842418119c781c7f8832219d037d94e68490", "52379c7fe5518d619f58ca7326fa2899194ff1c3"),
+    "app/src/main/java/studio/guitarlab/app/ui/AudioProbeViewModel.kt": ("2d4fba816d70ee023b513d46a517c248c2a6e540", "8f91a6bf3a5339eb30ae5e97afe4c2baac40e39a"),
+    "app/src/main/java/studio/guitarlab/app/ui/MixerDock.kt": ("f55a09065866f8588e1e9c709595c3060a28e1f5", "c7900bc1a4343ca18aa88287a1d70eebe553d2b4"),
+    "app/src/main/java/studio/guitarlab/app/ui/SettingsScreen.kt": ("e4c982b4039d00e412901eb0ed75a58b94b298fa", "2f4389f27bbcb179f7ab10deca2f2233b52bcc63"),
+    "app/src/main/java/studio/guitarlab/app/ui/StudioAudioRoutingStore.kt": ("c22242d284fe0891ccba526b30d04ee93a31692a", "862dc29cd00b872b34fb9b6240f12eba8d03448b"),
+    "app/src/main/java/studio/guitarlab/app/ui/StudioShellScreen.kt": ("6cd72c76501aef0b3cabc5b5c9f6f3c6dfb1aa3e", "40ec9b20efcf86325ff09e1c5cc2b8871e1a8833"),
+    "app/src/main/java/studio/guitarlab/app/ui/StudioUserGuideDialog.kt": ("351de1cef1549091f3a08da2ab2d8a4d252721ae", "550cd23b9298c51c3c25cc8ed99c6ba01b0185f2"),
+    "app/src/main/java/studio/guitarlab/app/ui/StudioViewModel.kt": ("1c9e472debdf654de1b4b377ce3611c152812886", "979fccc7d1ab8874f8c40c064ecde5519ab5f834"),
+    "core/audio/src/main/kotlin/studio/guitarlab/core/audio/CueRouteSafetyPolicy.kt": (None, "89e3b4dcbcbae5fb6007984b4ddf0c2f60eb4d94"),
+    "core/audio/src/test/kotlin/studio/guitarlab/core/audio/CueRouteSafetyPolicyTest.kt": (None, "6edbc1ee60cb2c3fe7af9a72bc81b4c076896697"),
+    "core/model/src/main/kotlin/studio/guitarlab/core/model/ProjectModels.kt": ("6a0ccb1e2f9b41694fd815486dab3e0251c2a1e0", "86fea2a477c6e930cbbccb1152009a20ee8181b1"),
+    "core/model/src/main/kotlin/studio/guitarlab/core/model/TrackOutputRoutingPolicy.kt": (None, "6c2aaa8f0fdbbb9a95e6253c9cddcf236abe7525"),
+    "core/model/src/test/kotlin/studio/guitarlab/core/model/TrackOutputRoutingPolicyTest.kt": (None, "83efbeeab48b0d4ce739326f3311dbeed4c64a2c"),
+    "core/project/src/test/kotlin/studio/guitarlab/core/project/ProjectCodecCompatibilityTest.kt": ("dcc828a0c57ad6a1f5f379170f817e1ea2146332", "5b06cf31025e7b70471302fb00f068838fbe1879"),
+    "platform/audio-android/src/main/kotlin/studio/guitarlab/platform/audio/android/AndroidStudioPlaybackEngine.kt": ("b8a3a427d051965fafaef4904a5fcfa9e56253c1", "7931224bf53c54e2ea443d752bc8b1e00e9916dd"),
+    "platform/audio-android/src/main/kotlin/studio/guitarlab/platform/audio/android/AndroidStudioRecordingEngine.kt": ("50dd319428389cc5128b72263c56e5c0f60a3897", "4f8d5947c598da2d6bd324af8d7f073a0dfc39e0"),
+    "platform/audio-android/src/test/kotlin/studio/guitarlab/platform/audio/android/RecordingInputRoutePolicyTest.kt": ("71649fa5210d518df8fe7e8545f7b0cbe668bbc4", "16fb515b50857c334e953f59028960dd796c9657"),
+}
+
+
+def out(*args: str) -> str:
+    return subprocess.check_output(list(args), cwd=ROOT, text=True).strip()
+
+
+def run(*args: str) -> None:
+    subprocess.run(list(args), cwd=ROOT, check=True)
+
+
+def blob(path: Path) -> str:
+    return out("git", "hash-object", str(path))
+
+
+def ready() -> bool:
+    return all(
+        (ROOT / rel).is_file() and blob(ROOT / rel) == after
+        for rel, (_, after) in TARGETS.items()
+    )
+
+
+def baseline_ready() -> bool:
+    return all(
+        (not (ROOT / rel).exists())
+        if before is None
+        else ((ROOT / rel).is_file() and blob(ROOT / rel) == before)
+        for rel, (before, _) in TARGETS.items()
+    )
+
+
+def require(text: str, token: str, label: str) -> None:
+    if token not in text:
+        raise SystemExit(f"RC22 semantic guard failed ({label}): {token}")
+
+
+def verify() -> None:
+    run("git", "diff", "--check")
+
+    build = (ROOT / "app/build.gradle.kts").read_text(encoding="utf-8")
+    model = (ROOT / "core/model/src/main/kotlin/studio/guitarlab/core/model/ProjectModels.kt").read_text(encoding="utf-8")
+    track_policy = (ROOT / "core/model/src/main/kotlin/studio/guitarlab/core/model/TrackOutputRoutingPolicy.kt").read_text(encoding="utf-8")
+    cue_policy = (ROOT / "core/audio/src/main/kotlin/studio/guitarlab/core/audio/CueRouteSafetyPolicy.kt").read_text(encoding="utf-8")
+    playback = (ROOT / "platform/audio-android/src/main/kotlin/studio/guitarlab/platform/audio/android/AndroidStudioPlaybackEngine.kt").read_text(encoding="utf-8")
+    recording = (ROOT / "platform/audio-android/src/main/kotlin/studio/guitarlab/platform/audio/android/AndroidStudioRecordingEngine.kt").read_text(encoding="utf-8")
+    routing = (ROOT / "app/src/main/java/studio/guitarlab/app/ui/StudioAudioRoutingStore.kt").read_text(encoding="utf-8")
+    settings = (ROOT / "app/src/main/java/studio/guitarlab/app/ui/SettingsScreen.kt").read_text(encoding="utf-8")
+    mixer = (ROOT / "app/src/main/java/studio/guitarlab/app/ui/MixerDock.kt").read_text(encoding="utf-8")
+    studio = (ROOT / "app/src/main/java/studio/guitarlab/app/ui/StudioViewModel.kt").read_text(encoding="utf-8")
+    guide = (ROOT / "app/src/main/java/studio/guitarlab/app/ui/StudioUserGuideDialog.kt").read_text(encoding="utf-8")
+    codec_test = (ROOT / "core/project/src/test/kotlin/studio/guitarlab/core/project/ProjectCodecCompatibilityTest.kt").read_text(encoding="utf-8")
+    cue_test = (ROOT / "core/audio/src/test/kotlin/studio/guitarlab/core/audio/CueRouteSafetyPolicyTest.kt").read_text(encoding="utf-8")
+    mixer_test = (ROOT / "app/src/androidTest/java/studio/guitarlab/app/MixerDockInstrumentedTest.kt").read_text(encoding="utf-8")
+
+    guards = (
+        (build, 'versionName = "0.5.0-rc22"', "version name"),
+        (build, "versionCode = 42", "version code"),
+        (model, "enum class TrackOutputRoute { MAIN, CUE, MAIN_AND_CUE }", "route model"),
+        (model, "val outputRoute: TrackOutputRoute = TrackOutputRoute.MAIN", "backward-compatible route default"),
+        (track_policy, "fun toggleExclusiveCue", "track routing policy"),
+        (cue_policy, "object CueRouteSafetyPolicy", "cue safety policy"),
+        (cue_policy, "CueRouteBlockReason.SAME_ENDPOINT", "same-endpoint guard"),
+        (playback, "val preferredCueOutputDevice: AudioDeviceInfo? = null", "cue request"),
+        (playback, "primeAndVerifyDualRoutes", "silent dual-route verification"),
+        (playback, "cueRouteStillSafe", "runtime route verification"),
+        (playback, "CueRouteSafetyPolicy.driftExceeded", "runtime drift guard"),
+        (recording, "val preferredOutputRequired: Boolean = false", "required live-monitor route"),
+        (recording, "RecordingMonitorRoutePolicy.accepts", "live-monitor fail closed"),
+        (routing, "fun selectedCueOutputSignature()", "persisted cue route"),
+        (routing, "fun resolveSelectedCueOutputDevice()", "cue endpoint resolver"),
+        (settings, '"Saída secundária / CUE"', "settings cue selector"),
+        (mixer, '"Saída CUE da pista', "mixer cue accessibility"),
+        (studio, "fun toggleTrackCue(trackId: String)", "studio cue command"),
+        (studio, "preferredCueOutputRequested =", "studio cue playback integration"),
+        (guide, "fone/CUE", "in-app guide"),
+        (codec_test, "legacyTrackWithoutOutputRouteDefaultsToMain", "project compatibility test"),
+        (cue_test, "cueAdmissionRequiresTwoExplicitDistinctResolvedEndpoints", "cue safety tests"),
+        (mixer_test, '"Saída CUE da pista Teste"', "mixer instrumented test"),
+    )
+    for text_value, token, label in guards:
+        require(text_value, token, label)
+
+    if "KEY_CUE_OUTPUT_SIGNATURE" not in routing:
+        raise SystemExit("RC22 semantic guard failed: CUE signature key missing")
+    if "selectedOutputSignature() ?: return null" not in routing:
+        raise SystemExit("RC22 semantic guard failed: explicit MAIN requirement missing")
+    if "outputRoute = it.outputRoute" not in studio:
+        raise SystemExit("RC22 semantic guard failed: recording/playback route propagation missing")
+
+
+if not PATCH.is_file() or blob(PATCH) != PATCH_BLOB:
+    raise SystemExit("RC22 patch blob mismatch")
+
+if ready():
+    verify()
+    run("git", "apply", "--check", "--reverse", str(PATCH))
+    print("Source chain already materialized through RC22 dual-output/CUE")
+    raise SystemExit(0)
+
+if not PREVIOUS.is_file():
+    raise SystemExit("Missing RC21 materializer")
+run("python3", str(PREVIOUS))
+if not baseline_ready():
+    raise SystemExit("RC22 baseline blob mismatch after RC21")
+run("git", "apply", "--check", str(PATCH))
+run("git", "apply", str(PATCH))
+if not ready():
+    raise SystemExit("RC22 terminal blob mismatch")
+verify()
+run("git", "apply", "--check", "--reverse", str(PATCH))
+print("Source chain materialized through RC22 dual-output/CUE")
