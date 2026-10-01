@@ -7,7 +7,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 PREVIOUS = ROOT / "scripts/materialize_ci_sources_rc21.py"
 PATCH = ROOT / ".source-parts/RC22DualOutputCueRouting.patch"
-PATCH_BLOB = "d0d1ecbbfe3f8e7453a85973771ca316120e7707"
+PATCH_BLOB = "d77250f2120c4adcd6bc8e6c9efd6372837c4dc7"
 TARGETS = {
     "app/build.gradle.kts": ("076c5e76779c30a2a78df6edbbf5f849950134f8", "5e3343d00d2259fca4f57dadcbb9652355398fba"),
     "app/src/androidTest/java/studio/guitarlab/app/MixerDockInstrumentedTest.kt": ("bf81aa9414a376679634f8ddf3f0b9bbf58fde5d", "1231ebcf48ba39bb336b4d1e087c55bbb87ca014"),
@@ -20,7 +20,7 @@ TARGETS = {
     "app/src/main/java/studio/guitarlab/app/ui/StudioAudioRoutingStore.kt": ("c22242d284fe0891ccba526b30d04ee93a31692a", "6608f5a828ad2c098bd713556e447cee5898eb1a"),
     "app/src/main/java/studio/guitarlab/app/ui/StudioShellScreen.kt": ("6cd72c76501aef0b3cabc5b5c9f6f3c6dfb1aa3e", "40ec9b20efcf86325ff09e1c5cc2b8871e1a8833"),
     "app/src/main/java/studio/guitarlab/app/ui/StudioUserGuideDialog.kt": ("351de1cef1549091f3a08da2ab2d8a4d252721ae", "f36fb2a951aa8a7140b4616bce0b99f022342d13"),
-    "app/src/main/java/studio/guitarlab/app/ui/StudioViewModel.kt": ("1c9e472debdf654de1b4b377ce3611c152812886", "3b36f268d5c10336fba7e64ca2e73c64d468098b"),
+    "app/src/main/java/studio/guitarlab/app/ui/StudioViewModel.kt": ("1c9e472debdf654de1b4b377ce3611c152812886", "e7594f890144197d8dceeb300183ecaa37e958d2"),
     "app/src/test/java/studio/guitarlab/app/ui/StudioAudioRoutePolicyTest.kt": ("460e2d04263a9529afb3dd572d4f7237365c3b4c", "e3d90e7ce0a162f36df6e3fde514dc0df40f97fa"),
     "core/audio/src/main/kotlin/studio/guitarlab/core/audio/CueRouteSafetyPolicy.kt": (None, "e6a3e44aac493a268811eb72589a673d10353dc8"),
     "core/audio/src/test/kotlin/studio/guitarlab/core/audio/CueRouteSafetyPolicyTest.kt": (None, "9dbebd1905a8afb69223467bad1499395ba30b60"),
@@ -124,6 +124,7 @@ def verify() -> None:
         (studio, "if (!structuralEditingAllowed(state)) return", "transport-stable cue command"),
         (studio, "preferredCueOutputRequested =", "studio cue playback integration"),
         (studio, "TrackOutputRoutingPolicy.playbackNeedsCue", "content-aware Studio CUE request"),
+        (studio, "val cuePlaybackRequested = TrackOutputRoutingPolicy.playbackNeedsCue(", "cue request declaration stability"),
         (guide, "fone/CUE", "in-app guide"),
         (guide, "Durante Play/REC essa rota fica travada", "stopped-only guide"),
         (codec_test, "legacyTrackWithoutOutputRouteDefaultsToMain", "project compatibility test"),
