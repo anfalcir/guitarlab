@@ -14,10 +14,13 @@ import studio.guitarlab.core.audio.MonitoringMode
 data class StudioRouteHealth(
     val selectedInputAvailable: Boolean,
     val selectedOutputAvailable: Boolean,
+    val selectedCueOutputAvailable: Boolean,
+    val cueOutputDistinctFromMain: Boolean,
     val effectiveInput: StudioAudioDeviceChoice?,
     val effectiveOutput: StudioAudioDeviceChoice?,
+    val effectiveCueOutput: StudioAudioDeviceChoice?,
 ) {
-    val usbDeviceDetected: Boolean get() = listOfNotNull(effectiveInput, effectiveOutput).any {
+    val usbDeviceDetected: Boolean get() = listOfNotNull(effectiveInput, effectiveOutput, effectiveCueOutput).any {
         it.transportFamily == StudioAudioRoutePolicy.USB_FAMILY
     }
 }
@@ -48,10 +51,20 @@ class StudioAudioRoutingStore(context: Context) {
         return stored
     }
 
-    fun selectedOutputSignature(): String? {
-        val stored = preferences.getString(KEY_OUTPUT_SIGNATURE, null) ?: return null
+    fun selectedOutputSignature(): String? =
+        selectedCanonicalOutputSignature(KEY_OUTPUT_SIGNATURE)
+
+    /**
+     * Secondary output is explicit-only. A null value means CUE is disabled, never "automatic".
+     * MAIN and CUE may not resolve to the same canonical physical route.
+     */
+    fun selectedCueOutputSignature(): String? =
+        selectedCanonicalOutputSignature(KEY_CUE_OUTPUT_SIGNATURE)
+
+    private fun selectedCanonicalOutputSignature(key: String): String? {
+        val stored = preferences.getString(key, null) ?: return null
         val canonical = StudioAudioRoutePolicy.canonicalSignature(rawOutputChoices(), stored) ?: return stored
-        if (canonical != stored) preferences.edit().putString(KEY_OUTPUT_SIGNATURE, canonical).apply()
+        if (canonical != stored) preferences.edit().putString(key, canonical).apply()
         return canonical
     }
 
@@ -65,12 +78,21 @@ class StudioAudioRoutingStore(context: Context) {
         outputChoices().firstOrNull { it.signature == signature }?.let { "${it.transportFamily}:${it.label}" } ?: "saída-selecionada-indisponível"
     }
 
+    /** Sanitized semantic identity of the explicit secondary/CUE route. */
+    fun selectedCueOutputDiagnosticIdentity(): String? = selectedCueOutputSignature()?.let { signature ->
+        outputChoices().firstOrNull { it.signature == signature }?.let { "${it.transportFamily}:${it.label}" } ?: "cue-selecionado-indisponível"
+    }
+
     fun selectInput(signature: String?) {
         preferences.edit().putString(KEY_INPUT_SIGNATURE, signature).apply()
     }
 
     fun selectOutput(signature: String?) {
         preferences.edit().putString(KEY_OUTPUT_SIGNATURE, signature).apply()
+    }
+
+    fun selectCueOutput(signature: String?) {
+        preferences.edit().putString(KEY_CUE_OUTPUT_SIGNATURE, signature).apply()
     }
 
     fun monitoringMode(): MonitoringMode {
@@ -84,6 +106,7 @@ class StudioAudioRoutingStore(context: Context) {
 
     fun resolveSelectedInputDeviceId(): Int? = resolveSelectedInputDevice()?.id
     fun resolveSelectedOutputDeviceId(): Int? = resolveSelectedOutputDevice()?.id
+    fun resolveSelectedCueOutputDeviceId(): Int? = resolveSelectedCueOutputDevice()?.id
 
     fun resolveSelectedInputDevice(): AudioDeviceInfo? {
         val stored = selectedInputSignature() ?: return null
@@ -113,19 +136,35 @@ class StudioAudioRoutingStore(context: Context) {
      * AudioRouting.routedDevice; endpoint ordering is never used as a correctness signal.
      */
     fun resolveSelectedOutputDevice(): AudioDeviceInfo? {
-        val stored = preferences.getString(KEY_OUTPUT_SIGNATURE, null) ?: return null
+        val selected = selectedOutputSignature() ?: return null
+        return resolveOutputDevice(selected, OUTPUT_ROUTE_CACHE)
+    }
+
+    /**
+     * CUE is fail-closed: it exists only when explicitly selected, physically resolvable and
+     * canonically distinct from MAIN. There is deliberately no automatic CUE fallback.
+     */
+    fun resolveSelectedCueOutputDevice(): AudioDeviceInfo? {
+        val selected = selectedCueOutputSignature() ?: return null
+        if (selected == selectedOutputSignature()) return null
+        return resolveOutputDevice(selected, CUE_OUTPUT_ROUTE_CACHE)
+    }
+
+    private fun resolveOutputDevice(
+        selectedSignature: String,
+        routeCache: ConcurrentHashMap<String, Int>,
+    ): AudioDeviceInfo? {
         val devices = audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS).toList()
         val raw = devices.map { toChoice(it, RouteDirection.OUTPUT) }
-        val canonical = StudioAudioRoutePolicy.canonicalSignature(raw, stored) ?: return null
-        if (canonical != stored) preferences.edit().putString(KEY_OUTPUT_SIGNATURE, canonical).apply()
+        val canonical = StudioAudioRoutePolicy.canonicalSignature(raw, selectedSignature) ?: return null
         val candidateIds = StudioAudioRoutePolicy.candidateIdsFor(raw, canonical).toSet()
         if (candidateIds.isEmpty()) return null
         val candidates = devices.filter { it.id in candidateIds }
         if (candidates.size == 1) return candidates.first()
 
-        OUTPUT_ROUTE_CACHE[canonical]?.let { cachedId ->
+        routeCache[canonical]?.let { cachedId ->
             candidates.firstOrNull { it.id == cachedId }?.let { return it }
-            OUTPUT_ROUTE_CACHE.remove(canonical, cachedId)
+            routeCache.remove(canonical, cachedId)
         }
 
         val choicesById = raw.associateBy { it.deviceId }
@@ -133,7 +172,7 @@ class StudioAudioRoutingStore(context: Context) {
             choicesById[device.id]?.let(StudioAudioRoutePolicy::compatibilityScore) ?: 0
         }
         val resolved = probeRoutableOutput(ordered, candidateIds)
-        if (resolved != null) OUTPUT_ROUTE_CACHE[canonical] = resolved.id
+        if (resolved != null) routeCache[canonical] = resolved.id
         return resolved
     }
 
@@ -145,16 +184,30 @@ class StudioAudioRoutingStore(context: Context) {
         return outputChoices().none { it.signature == selected }
     }
 
+    fun isSelectedCueOutputUnavailable(): Boolean {
+        val selected = selectedCueOutputSignature() ?: return false
+        if (selected == selectedOutputSignature()) return true
+        return outputChoices().none { it.signature == selected }
+    }
+
     fun routeHealth(): StudioRouteHealth {
         val selectedInput = selectedInputSignature()
         val input = selectedInput?.let { signature -> inputChoices().firstOrNull { it.signature == signature } }
         val selectedOutput = selectedOutputSignature()
         val output = selectedOutput?.let { signature -> outputChoices().firstOrNull { it.signature == signature } }
+        val selectedCueOutput = selectedCueOutputSignature()
+        val cueDistinct = selectedCueOutput == null || selectedCueOutput != selectedOutput
+        val cueOutput = selectedCueOutput
+            ?.takeIf { cueDistinct }
+            ?.let { signature -> outputChoices().firstOrNull { it.signature == signature } }
         return StudioRouteHealth(
-            selectedInputAvailable = selectedInputSignature().isNullOrBlank() || input != null,
+            selectedInputAvailable = selectedInput.isNullOrBlank() || input != null,
             selectedOutputAvailable = selectedOutput.isNullOrBlank() || output != null,
+            selectedCueOutputAvailable = selectedCueOutput.isNullOrBlank() || (cueOutput != null && cueDistinct),
+            cueOutputDistinctFromMain = cueDistinct,
             effectiveInput = input,
             effectiveOutput = output,
+            effectiveCueOutput = cueOutput,
         )
     }
 
@@ -316,11 +369,13 @@ class StudioAudioRoutingStore(context: Context) {
         const val PREFS_NAME = "studio_audio_routing"
         const val KEY_INPUT_SIGNATURE = "input_signature"
         const val KEY_OUTPUT_SIGNATURE = "output_signature"
+        const val KEY_CUE_OUTPUT_SIGNATURE = "cue_output_signature"
         const val KEY_MONITORING_MODE = "monitoring_mode"
         const val PROBE_FRAMES = 256
         const val PROBE_POLL_MS = 8L
         const val PROBE_TIMEOUT_NS = 160_000_000L
         val INPUT_ROUTE_CACHE = ConcurrentHashMap<String, Int>()
         val OUTPUT_ROUTE_CACHE = ConcurrentHashMap<String, Int>()
+        val CUE_OUTPUT_ROUTE_CACHE = ConcurrentHashMap<String, Int>()
     }
 }
