@@ -183,7 +183,7 @@ index 2d4fba8..8f91a6b 100644
              val outputSignature = routingStore.selectedOutputSignature()
              listOf(44_100, 48_000, 88_200, 96_000).forEach { rate ->
 diff --git a/app/src/main/java/studio/guitarlab/app/ui/MixerDock.kt b/app/src/main/java/studio/guitarlab/app/ui/MixerDock.kt
-index f55a090..c17c9c5 100644
+index f55a090..167526b 100644
 --- a/app/src/main/java/studio/guitarlab/app/ui/MixerDock.kt
 +++ b/app/src/main/java/studio/guitarlab/app/ui/MixerDock.kt
 @@ -21,6 +21,7 @@ import androidx.compose.foundation.lazy.items
@@ -194,7 +194,16 @@ index f55a090..c17c9c5 100644
  import androidx.compose.material3.Icon
  import androidx.compose.material3.MaterialTheme
  import androidx.compose.material3.Slider
-@@ -51,6 +52,7 @@ import studio.guitarlab.app.ui.theme.StudioRecord
+@@ -40,6 +41,8 @@ import androidx.compose.ui.semantics.Role
+ import androidx.compose.ui.semantics.contentDescription
+ import androidx.compose.ui.semantics.semantics
+ import androidx.compose.ui.semantics.stateDescription
++import androidx.compose.ui.semantics.onClick
++import androidx.compose.ui.semantics.role
+ import androidx.compose.ui.platform.testTag
+ import androidx.compose.ui.unit.dp
+ import kotlin.math.abs
+@@ -51,6 +54,7 @@ import studio.guitarlab.app.ui.theme.StudioRecord
  import studio.guitarlab.app.ui.theme.StudioSolo
  import studio.guitarlab.core.audio.MeterBallisticsState
  import studio.guitarlab.core.model.AudioTrack
@@ -202,7 +211,7 @@ index f55a090..c17c9c5 100644
  import studio.guitarlab.core.project.GuitarAuditionMode
  import studio.guitarlab.core.project.GuitarAuditionPolicy
  import studio.guitarlab.core.project.GuitarAuditionTrackState
-@@ -74,6 +76,7 @@ fun MixerDock(
+@@ -74,6 +78,7 @@ fun MixerDock(
      onPanCommit: (String, Float) -> Unit,
      onToggleMute: (String) -> Unit,
      onToggleSolo: (String) -> Unit,
@@ -210,7 +219,7 @@ index f55a090..c17c9c5 100644
      onToggleArm: (String) -> Unit,
      onMasterGainPreview: (Float) -> Unit,
      onMasterGainCommit: (Float) -> Unit,
-@@ -83,7 +86,7 @@ fun MixerDock(
+@@ -83,7 +88,7 @@ fun MixerDock(
      modifier: Modifier = Modifier,
  ) {
      Surface(
@@ -219,7 +228,7 @@ index f55a090..c17c9c5 100644
          shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
          color = MaterialTheme.colorScheme.surface,
          tonalElevation = 3.dp,
-@@ -124,6 +127,7 @@ fun MixerDock(
+@@ -124,6 +129,7 @@ fun MixerDock(
                              onPanCommit = { onPanCommit(track.id, it) },
                              onToggleMute = { onToggleMute(track.id) },
                              onToggleSolo = { onToggleSolo(track.id) },
@@ -227,7 +236,7 @@ index f55a090..c17c9c5 100644
                              onToggleArm = { onToggleArm(track.id) },
                              onClearClip = { onClearTrackClip(track.id) },
                          )
-@@ -160,6 +164,7 @@ private fun MixerTrackStrip(
+@@ -160,6 +166,7 @@ private fun MixerTrackStrip(
      onPanCommit: (Float) -> Unit,
      onToggleMute: () -> Unit,
      onToggleSolo: () -> Unit,
@@ -235,7 +244,7 @@ index f55a090..c17c9c5 100644
      onToggleArm: () -> Unit,
      onClearClip: () -> Unit,
  ) {
-@@ -171,7 +176,7 @@ private fun MixerTrackStrip(
+@@ -171,7 +178,7 @@ private fun MixerTrackStrip(
  
      Surface(
          modifier = Modifier
@@ -244,7 +253,7 @@ index f55a090..c17c9c5 100644
              .fillMaxHeight()
              .testTag("mixer-track-strip-${track.id}")
              .clip(RoundedCornerShape(8.dp))
-@@ -211,7 +216,7 @@ private fun MixerTrackStrip(
+@@ -211,7 +218,7 @@ private fun MixerTrackStrip(
                  }
              }
  
@@ -253,7 +262,7 @@ index f55a090..c17c9c5 100644
                  MixerStateButton(
                      label = "M",
                      active = track.muted,
-@@ -228,6 +233,13 @@ private fun MixerTrackStrip(
+@@ -228,6 +235,13 @@ private fun MixerTrackStrip(
                      contentDescription = "Solo da pista ${track.name}",
                      onClick = onToggleSolo,
                  )
@@ -267,7 +276,7 @@ index f55a090..c17c9c5 100644
                  MixerArmButton(
                      active = track.armed,
                      enabled = structuralControlsEnabled,
-@@ -336,20 +348,64 @@ private fun MixerStateButton(
+@@ -336,20 +350,64 @@ private fun MixerStateButton(
      val inactive = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.58f)
      val border = if (active) activeColor else MaterialTheme.colorScheme.outline.copy(alpha = 0.55f)
      val foreground = if (active) activeColor else inactive
@@ -340,7 +349,7 @@ index f55a090..c17c9c5 100644
          }
      }
  }
-@@ -363,25 +419,30 @@ private fun MixerArmButton(
+@@ -363,25 +421,30 @@ private fun MixerArmButton(
  ) {
      val vivid = StudioRecord
      val dim = vivid.copy(alpha = if (enabled) 0.27f else 0.16f)
@@ -384,6 +393,22 @@ index f55a090..c17c9c5 100644
          }
      }
  }
+@@ -538,7 +601,14 @@ private fun MeterRow(
+             Surface(
+                 modifier = Modifier.clip(RoundedCornerShape(4.dp))
+                     .clickable(role = Role.Button, onClick = onClearClip)
+-                    .semantics { contentDescription = clipContentDescription ?: "Limpar indicador de clipping" },
++                    .semantics {
++                        contentDescription = clipContentDescription ?: "Limpar indicador de clipping"
++                        role = Role.Button
++                        onClick {
++                            onClearClip()
++                            true
++                        }
++                    },
+                 shape = RoundedCornerShape(4.dp),
+                 color = MaterialTheme.colorScheme.error.copy(alpha = 0.16f),
+                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.error),
 diff --git a/app/src/main/java/studio/guitarlab/app/ui/SettingsScreen.kt b/app/src/main/java/studio/guitarlab/app/ui/SettingsScreen.kt
 index e4c982b..b0b2d2b 100644
 --- a/app/src/main/java/studio/guitarlab/app/ui/SettingsScreen.kt
