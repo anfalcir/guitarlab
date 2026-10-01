@@ -63,7 +63,12 @@ private object GuitarLabGuideContent {
         GuideSectionContent(
             GuideArea.STUDIO,
             "Studio · prática e referências",
-            "Loop, Comparação, marcadores e seções ajudam a estudar trechos. Quando uma nova preparação produz outra base ou guitarra de referência, o Studio não troca a referência usada por uma sessão existente sem sua escolha: você pode manter a atual ou atualizar explicitamente, preservando gravações, takes e edições.",
+            "Comparação, Ajustes e Timeline ficam na barra de transporte e abrem painéis sem ocupar uma barra abaixo das pistas. Na Comparação, alterne entre Desativado, Referência, Minha e Ambas; o indicador R, M ou 2 no botão mostra o modo ativo. Ajustes abre Níveis; Timeline reúne marcadores e seções. Loop, Comparação, marcadores e seções ajudam a estudar trechos. Quando uma nova preparação produz outra base ou guitarra de referência, o Studio não troca a referência usada por uma sessão existente sem sua escolha: você pode manter a atual ou atualizar explicitamente, preservando gravações, takes e edições.",
+        ),
+        GuideSectionContent(
+            GuideArea.STUDIO,
+            "Studio · espaço e Mixer",
+            "Mostrar/Ocultar Mixer preserva sua preferência. Na barra de transporte, Fixar Mixer alterna entre o dock que reserva espaço próprio e o modo flutuante. Altura do Mixer alterna entre compacto e ampliado; fixação e altura são lembradas entre sessões. Mesmo compacto, o Mixer mantém Mute, Solo, fone/CUE, REC Arm, PK, RMS, clipping, volume e pan. As pistas rolam horizontalmente; o Master tem sua própria coluna fixa.",
         ),
         GuideSectionContent(
             GuideArea.EXPORT,

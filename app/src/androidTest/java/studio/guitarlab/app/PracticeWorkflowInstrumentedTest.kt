@@ -46,6 +46,7 @@ class PracticeWorkflowInstrumentedTest {
             composeRule.waitForIdle()
 
             assertEquals(RecordingSessionPhase.IDLE, studio().state.value.recordingSession.phase)
+            composeRule.onNodeWithTag("studio-action-timeline").performClick()
             composeRule.onNodeWithText("Auto seções").assertIsEnabled()
             composeRule.onNodeWithText("Criar seção do loop").assertIsNotEnabled()
 
@@ -57,6 +58,8 @@ class PracticeWorkflowInstrumentedTest {
             }
             assertTrue(studio().state.value.transport.loopEnabled)
             composeRule.onNodeWithText("Criar seção do loop").assertIsEnabled()
+            instrumentation.sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK)
+            composeRule.waitForIdle()
             waitUntilTagEnabled("transport-record")
 
             // TransportBar owns the REC button interaction contract in TransportBarInstrumentedTest.

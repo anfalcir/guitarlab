@@ -37,25 +37,10 @@ An action:
 - preserves ergonomic touch area (icon controls retain 48dp touch target);
 - is contained by the semantic group that owns it.
 
-## Practice bar contract
-`Comparação`, `Ajustes` and `Timeline` are three independent modules, not one undifferentiated row.
+## Studio action navbar contract
+`Comparação`, `Ajustes` and `Timeline` remain independent action families, presented as fixed-size icon triggers in the existing transport navbar. Their shared controls open in anchored overlays and do not reserve a second permanent row. No trigger changes location/size when a mode, disabled state, Mixer visibility or pin state changes.
 
-Wide/tablet:
-- Comparação and Ajustes measure to content;
-- Timeline owns remaining width and local horizontal overflow;
-- each group has its own border/chassis;
-- each title has a fixed non-action header surface;
-- group spacing replaces ambiguous shared boundaries.
-
-Narrow:
-- groups stack vertically;
-- long action rows scroll internally;
-- group title remains fixed/visible.
-
-Functional accents:
-- Comparação = blue;
-- Ajustes = teal;
-- Timeline = amber.
+Neutral closed triggers reduce persistent color noise. Comparison's active mode uses blue plus a fixed R/M/2 indicator and accessible state description. Panels preserve semantic grouping and local overflow for narrow windows or larger fonts. Comparison remains open during repeated audition changes. Narrow viewports scroll the same navbar row; no capability disappears.
 
 ## Screen-by-screen application
 ### Home

@@ -39,6 +39,7 @@ GROUP2_CLASSES=(
   AllTracksLevelDialogInstrumentedTest
   AutoSectionsSlotInstrumentedTest
   MixerDockInstrumentedTest
+  StudioWorkspaceBarInstrumentedTest
   PhysicalEditingHardeningInstrumentedTest
   PracticeWorkflowInstrumentedTest
   RecordingCountdownOverlayInstrumentedTest
@@ -61,6 +62,7 @@ GROUP4_CLASSES=(
   StudyExportInstrumentedTest
 )
 GROUP5_CLASSES=(
+  StudioMixerTabletInstrumentedTest
   TargetTabletGeometryInstrumentedTest
 )
 

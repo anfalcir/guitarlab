@@ -4,6 +4,28 @@ Updated: 2026-10-01
 
 ## Status
 
+**RC23 STUDIO NAVBAR / NARROW MIXER — IMPLEMENTED, DIGITAL QUALIFICATION PENDING**
+
+The owner requested stable navbar slots and narrower complete Mixer channels. RC23 builds on canonical `main` `58ea3b5bd99e0a54db6ecb510e26e84530b652d5`; it preserves the RC22 MAIN/CUE audio/domain implementation. RC20 remains the accepted physical baseline in `RELEASE_BASELINE.md`. RC22's digital qualification and residual physical MAIN/CUE validation are preserved below as predecessor evidence, not an RC23 pass.
+
+- package: `studio.guitarlab.app`;
+- versionName: `0.5.0-rc23`; versionCode: `43`;
+- development branch: `feature/studio-space-layout`;
+- materialization tail: `scripts/materialize_ci_sources_rc23.py`;
+- protected payload: `.source-parts/RC23StudioSpaceLayout.patch`;
+- design authority: D-099 and the updated Studio/visual subsystem contracts;
+- Comparison/Adjustments/Timeline are fixed navbar triggers with anchored overlays;
+- channel width: 232 → 168 dp; complete controls remain, with 2×2 state targets;
+- fixed/docked Mixer is retained, with independent durable visibility/pinning/height;
+- test additions cover navbar state geometry, actual panel actions, narrow access, persisted preferences, complete channel targets/sliders and five-channel tablet fit/screenshots;
+- local exact-source/materialization checks and remote Unit/Lint/build/API36 results must be recorded after execution; no pending result is a pass;
+- a temporary branch push trigger is used only for qualification and must be retired before integration;
+- final signed-candidate provenance follows `CANDIDATE_IDENTITY_POLICY.md`; no RC23 APK is yet declared qualified or accepted.
+
+## Predecessor RC22 evidence
+
+## Status
+
 **RC22 DUAL-OUTPUT/CUE FEATURE CANDIDATE — SIGNED DIGITAL PASS / PHYSICAL MAIN+CUE VALIDATION PENDING**
 
 RC20 remains the currently accepted, physically homologated baseline recorded in `RELEASE_BASELINE.md`. RC22 is an explicit owner-requested successor candidate built on the RC21-integrated Android source. It adds per-track MAIN/CUE monitoring and therefore reopens only the affected Android playback/routing/monitoring paths plus adjacent persistence/UI coverage. The frozen Demucs backend and unrelated Drive transport evidence are unchanged.

@@ -10,7 +10,7 @@ MAIN may remain Android-selected for ordinary single-output work. CUE is explici
 Project persistence and final-audio export are **not** Options actions.
 
 ## Studio global actions
-Studio exposes Mixer, Help, Options, Export and Home using the shared project-shell navigation language. Exact placement follows the responsive shell rather than a frozen historical top-bar order.
+Studio exposes Mixer, Help, Options, Export and Home using the shared project-shell navigation language. Project-level navigation remains in the shared shell. Studio transport has a single fixed-slot navbar: Comparison, Adjustments and Timeline open anchored overlays; transport commands stay centered; Mixer Pin and Height retain reserved slots. Enabled/selected/mixer state never adds, removes, resizes or wraps these controls. Narrow windows scroll the same row horizontally.
 
 `Ajuda` opens the same shared `StudioUserGuideDialog` implementation used by the Home entry point; there is no second guide implementation/copy.
 
@@ -18,7 +18,11 @@ Studio exposes Mixer, Help, Options, Export and Home using the shared project-sh
 Portable `.guitarlab` save remains semantically distinct from external Study Export and Studio Master delivery. The canonical Export workspace owns output/format selection; Studio/Home entry points navigate there and do not maintain a second modal chooser. Sample rate follows established project/render policy without unnecessary codec knobs.
 
 ## Mixer
-Mixer is a bottom dock with horizontally scrollable track strips and fixed Master. Gain/pan may preview live and are persisted on completed gestures. Pan is bipolar. Mute/Solo/CUE/REC Arm remain distinct. REC Arm is the persisted recording-target state used by the recording coordinator.
+Mixer is a bottom dock with horizontally scrollable track strips and a structurally separate fixed Master. Visibility, pinning and height are independent durable workspace preferences. Existing `mixer_visible` and legacy visibility fallback remain compatible; new pinning defaults to fixed/docked. A pinned Mixer reserves layout space; floating is explicit and overlays the bottom of the workspace.
+
+The owner requested **lateral density**, not primarily a shorter dock. At default font scale track strips are 168 dp (previously 232 dp), with Mute/Solo and CUE/REC in a 2×2 grid of real 48×48 dp targets. PK, RMS, peak hold, numeric readings, CLIP reset, gain and bipolar pan remain visible. Gain/pan labels sit above full-width sliders with 48 dp gesture regions. CLIP has a permanently reserved 48 dp column, so latching it does not displace meter geometry. Long track names have a fixed two-line header. Master is 156 dp and never covers the scrolling strips. Font scaling increases channel width and dock height instead of shrinking targets.
+
+Default dock height is 352 dp and optional expanded height is 400 dp at normal font scale. The old embedded practice header is removed; all three action families now live in navbar overlays regardless of Mixer visibility. Height follows the space needed to preserve the narrower complete channels; it is not the primary density metric. Gain/pan may preview live and are persisted on completed gestures. Pan is bipolar. Mute/Solo/CUE/REC Arm remain distinct. REC Arm is the persisted recording-target state used by the recording coordinator.
 
 Each track persists an output-route value with backward-compatible default `MAIN`. The engine contract supports `MAIN`, `CUE` and `MAIN_AND_CUE`; the first user-facing headphone control intentionally toggles exclusive MAIN ↔ CUE. Route changes are accepted only while the transport is stopped, so Play/REC cannot leave track metadata and live-monitor routing out of sync. The route is restored with the project, applied to normal playback and backing playback during recording, and does not destructively change clips/takes.
 

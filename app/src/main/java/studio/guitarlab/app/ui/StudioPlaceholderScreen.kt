@@ -427,6 +427,7 @@ internal fun PracticeControls(
     onOpenLevelAnalysis: () -> Unit = {},
     compact: Boolean = false,
     docked: Boolean = false,
+    panel: StudioActionPanel? = null,
     modifier: Modifier = Modifier,
 ) {
     var confirmClearSections by remember { mutableStateOf(false) }
@@ -518,7 +519,14 @@ internal fun PracticeControls(
         ) { Text("Limpar seções") }
     }
 
-    if (docked) {
+    if (panel != null) {
+        val actions = when (panel) {
+            StudioActionPanel.COMPARISON -> comparisonContent
+            StudioActionPanel.ADJUSTMENTS -> adjustmentsContent
+            StudioActionPanel.TIMELINE -> timelineContent
+        }
+        PracticeControlGroup(panel.label, modifier.fillMaxWidth(), actions, horizontalScroll = true)
+    } else if (docked) {
         SegmentedPracticeBar(
             modifier = modifier.fillMaxWidth(),
             comparisonContent = comparisonContent,

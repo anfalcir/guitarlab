@@ -116,3 +116,7 @@ The accepted baseline is recorded in `RELEASE_BASELINE.md`. RC20 remains accepte
 The accepted RC20 runtime remains represented by the historical U12bx tail. The active RC21 maintenance source adds `scripts/materialize_ci_sources_rc21.py` as the current terminal materialization stage without rewriting old payloads. RC21 includes the legacy recording/stereo-integrity, transient-feedback and Drive catalog/cache changes documented in `CURRENT_STATE.md`.
 
 The RC21 unsigned qualification authority is Android CI **#910 / run 36195905242** on source `ad182678cb2704dc9bbfc622124b4f2ac121fea1`: Unit/Lint/APK build PASS and API 36 regression PASS. Canonical integration is PR #7 / merge `2617fe1f1f2351a17389f165ed5d5a8e834e16a2`. The exact post-integration signed authority is Android CI **#912 / run 36197863467** on `main` producer `52b9d66f450fc597f8367f5778334280ceeb521e`; the workflow signed the tested unsigned APK without recompiling and verified package/version/certificate identity.
+
+## Active RC23 Studio UI qualification
+
+The terminal source stage is `scripts/materialize_ci_sources_rc23.py`, after RC22. Its payload/terminal blobs seal the navbar, narrow Mixer, preferences, guide and affected tests without rewriting prior stages. RC23 is versionName `0.5.0-rc23`, versionCode `43`. Focused API36 additions run in Studio/practice and target-tablet geometry groups; the existing software and broader adjacent regressions remain enabled. The temporary `feature/studio-space-layout` push trigger is removed before integration.
