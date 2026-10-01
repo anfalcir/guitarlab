@@ -75,6 +75,7 @@ fun SettingsScreen(
     var outputChoices by remember { mutableStateOf(routingStore.outputChoices()) }
     var selectedInput by remember { mutableStateOf(routingStore.selectedInputSignature()) }
     var selectedOutput by remember { mutableStateOf(routingStore.selectedOutputSignature()) }
+    var selectedCueOutput by remember { mutableStateOf(routingStore.selectedCueOutputSignature()) }
     var monitoringMode by remember { mutableStateOf(routingStore.monitoringMode()) }
     val latencyStore = remember(context) { StudioLatencyCalibrationStore(context) }
     val latencyEngine = remember(context) { AndroidLatencyCalibrationEngine(context) }
@@ -242,6 +243,14 @@ fun SettingsScreen(
             selectedOutput = null
             routingStore.selectOutput(null)
         }
+        if (selectedCueOutput != null && outputChoices.none { it.signature == selectedCueOutput }) {
+            selectedCueOutput = null
+            routingStore.selectCueOutput(null)
+        }
+        if (selectedCueOutput != null && selectedCueOutput == selectedOutput) {
+            selectedCueOutput = null
+            routingStore.selectCueOutput(null)
+        }
     }
 
     val routeHealth = routingStore.routeHealth()
@@ -281,7 +290,7 @@ fun SettingsScreen(
             item {
                 OptionSection(
                     title = "Áudio",
-                    subtitle = "Entrada, saída e monitoramento usados pelo Studio.",
+                    subtitle = "Entrada, saída principal, saída secundária/CUE e monitoramento usados pelo Studio.",
                 ) {
                     AudioDeviceSelector(
                         title = "Entrada de gravação",
@@ -299,6 +308,26 @@ fun SettingsScreen(
                         onSelect = { signature ->
                             selectedOutput = signature
                             routingStore.selectOutput(signature)
+                            if (signature != null && signature == selectedCueOutput) {
+                                selectedCueOutput = null
+                                routingStore.selectCueOutput(null)
+                            }
+                        },
+                    )
+                    AudioDeviceSelector(
+                        title = "Saída secundária / CUE",
+                        selectedSignature = selectedCueOutput,
+                        choices = outputChoices.filterNot { it.signature == selectedOutput },
+                        nullLabel = "Desativada",
+                        nullDetail = "Pistas com fone/CUE ficam silenciosas até uma saída secundária explícita ser selecionada.",
+                        onSelect = { signature ->
+                            if (signature == selectedOutput) {
+                                selectedCueOutput = null
+                                routingStore.selectCueOutput(null)
+                            } else {
+                                selectedCueOutput = signature
+                                routingStore.selectCueOutput(signature)
+                            }
                         },
                     )
                     MonitoringSelector(
@@ -316,9 +345,11 @@ fun SettingsScreen(
                         Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                             Text("Rota efetiva", style = MaterialTheme.typography.titleSmall)
                             Text("Entrada: ${routeHealth.effectiveInput?.let(::audioCapabilities) ?: if (selectedInput == null) "Automática" else "Selecionada, mas indisponível"}", style = MaterialTheme.typography.bodySmall)
-                            Text("Saída: ${routeHealth.effectiveOutput?.let(::audioCapabilities) ?: if (selectedOutput == null) "Automática" else "Selecionada, mas indisponível"}", style = MaterialTheme.typography.bodySmall)
+                            Text("Saída principal: ${routeHealth.effectiveOutput?.let(::audioCapabilities) ?: if (selectedOutput == null) "Automática" else "Selecionada, mas indisponível"}", style = MaterialTheme.typography.bodySmall)
+                            Text("Saída CUE: ${routeHealth.effectiveCueOutput?.let(::audioCapabilities) ?: if (selectedCueOutput == null) "Desativada" else "Selecionada, mas indisponível"}", style = MaterialTheme.typography.bodySmall)
                             if (routeHealth.usbDeviceDetected) Text("Dispositivo USB detectado", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
                             if (!routeHealth.selectedInputAvailable) Text("A gravação será bloqueada: não haverá fallback silencioso para o microfone.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                            if (!routeHealth.selectedCueOutputAvailable || !routeHealth.cueOutputDistinctFromMain) Text("CUE bloqueado: a saída secundária precisa estar disponível e ser diferente da saída principal.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
                         }
                     }
                     val storedCalibration = calibrationSampleRateHz?.let { rate ->
@@ -763,10 +794,12 @@ private fun AudioDeviceSelector(
     title: String,
     selectedSignature: String?,
     choices: List<StudioAudioDeviceChoice>,
+    nullLabel: String = "Automático",
+    nullDetail: String = "O Android escolhe a rota ativa",
     onSelect: (String?) -> Unit,
 ) {
     var menuOpen by remember { mutableStateOf(false) }
-    val selectedLabel = choices.firstOrNull { it.signature == selectedSignature }?.label ?: "Automático"
+    val selectedLabel = choices.firstOrNull { it.signature == selectedSignature }?.label ?: nullLabel
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(8.dp),
@@ -780,7 +813,7 @@ private fun AudioDeviceSelector(
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(title, style = MaterialTheme.typography.bodyMedium)
                 Text(
-                    if (selectedSignature == null) "O Android escolhe a rota ativa" else "Dispositivo preferido",
+                    if (selectedSignature == null) nullDetail else "Dispositivo preferido",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -788,7 +821,7 @@ private fun AudioDeviceSelector(
             Box(Modifier.padding(start = 12.dp)) {
                 OutlinedButton(onClick = { menuOpen = true }) { Text(selectedLabel, maxLines = 1) }
                 DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                    DropdownMenuItem(text = { Text("Automático") }, onClick = { menuOpen = false; onSelect(null) })
+                    DropdownMenuItem(text = { Text(nullLabel) }, onClick = { menuOpen = false; onSelect(null) })
                     choices.forEach { choice ->
                         DropdownMenuItem(text = { Text(choice.label) }, onClick = { menuOpen = false; onSelect(choice.signature) })
                     }
