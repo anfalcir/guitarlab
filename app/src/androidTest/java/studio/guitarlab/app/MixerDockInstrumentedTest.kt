@@ -6,6 +6,7 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -116,6 +117,44 @@ class MixerDockInstrumentedTest {
         assertTrue("Solo/CUE expanded touch targets must not overlap", abs(cueCenter.x - soloCenter.x) >= minimumCenterDistancePx)
         assertTrue("CUE/Arm expanded touch targets must not overlap", abs(armCenter.x - cueCenter.x) >= minimumCenterDistancePx)
     }
+    @Test
+    fun cueRoutingIsDisabledWhenStructuralTransportEditsAreLocked() {
+        val track = AudioTrack(id = "route-locked", name = "Route locked", order = 0)
+        composeRule.setContent {
+            GuitarLabTheme(darkTheme = false) {
+                MixerDock(
+                    tracks = listOf(track),
+                    selectedTrackId = track.id,
+                    mixControlsEnabled = true,
+                    structuralControlsEnabled = false,
+                    masterGainDb = 0f,
+                    masterMeter = MeterBallisticsState(),
+                    trackMeters = emptyMap(),
+                    masterClipLatched = false,
+                    trackClipLatched = emptySet(),
+                    onSelectTrack = {},
+                    onGainPreview = { _, _ -> },
+                    onGainCommit = { _, _ -> },
+                    onPanPreview = { _, _ -> },
+                    onPanCommit = { _, _ -> },
+                    onToggleMute = {},
+                    onToggleSolo = {},
+                    onToggleCue = {},
+                    onToggleArm = {},
+                    onMasterGainPreview = {},
+                    onMasterGainCommit = {},
+                    onClearTrackClip = {},
+                    onClearMasterClip = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithContentDescription("Mute da pista Route locked").assertIsEnabled()
+        composeRule.onNodeWithContentDescription("Solo da pista Route locked").assertIsEnabled()
+        composeRule.onNodeWithContentDescription("Saída CUE da pista Route locked").assertIsNotEnabled()
+        composeRule.onNodeWithContentDescription("Gravação da pista Route locked").assertIsNotEnabled()
+    }
+
     @Test
     fun overflowingTracksSwipeHorizontallyWhileMasterRemainsAnchored() {
         val tracks = List(10) { index -> AudioTrack(id = "overflow-$index", name = "Track $index", order = index) }
