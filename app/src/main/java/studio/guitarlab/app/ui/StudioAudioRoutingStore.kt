@@ -34,6 +34,9 @@ class StudioAudioRoutingStore(context: Context) {
 
     fun outputChoices(): List<StudioAudioDeviceChoice> = StudioAudioRoutePolicy.canonicalizeOutputs(rawOutputChoices())
 
+    fun cueOutputChoices(): List<StudioAudioDeviceChoice> =
+        outputChoices().filter(StudioAudioRoutePolicy::cueEligible)
+
     fun selectedInputSignature(): String? {
         val stored = preferences.getString(KEY_INPUT_SIGNATURE, null) ?: return null
         val raw = rawInputChoices()
@@ -80,7 +83,7 @@ class StudioAudioRoutingStore(context: Context) {
 
     /** Sanitized semantic identity of the explicit secondary/CUE route. */
     fun selectedCueOutputDiagnosticIdentity(): String? = selectedCueOutputSignature()?.let { signature ->
-        outputChoices().firstOrNull { it.signature == signature }?.let { "${it.transportFamily}:${it.label}" } ?: "cue-selecionado-indisponível"
+        cueOutputChoices().firstOrNull { it.signature == signature }?.let { "${it.transportFamily}:${it.label}" } ?: "cue-selecionado-indisponível"
     }
 
     fun selectInput(signature: String?) {
@@ -148,6 +151,7 @@ class StudioAudioRoutingStore(context: Context) {
         val selected = selectedCueOutputSignature() ?: return null
         val main = selectedOutputSignature() ?: return null
         if (selected == main) return null
+        if (cueOutputChoices().none { it.signature == selected }) return null
         return resolveOutputDevice(selected, CUE_OUTPUT_ROUTE_CACHE)
     }
 
@@ -189,7 +193,7 @@ class StudioAudioRoutingStore(context: Context) {
         val selected = selectedCueOutputSignature() ?: return false
         val main = selectedOutputSignature() ?: return true
         if (selected == main) return true
-        return outputChoices().none { it.signature == selected }
+        return cueOutputChoices().none { it.signature == selected }
     }
 
     fun routeHealth(): StudioRouteHealth {
@@ -203,7 +207,7 @@ class StudioAudioRoutingStore(context: Context) {
                 (selectedOutput != null && selectedCueOutput != selectedOutput)
         val cueOutput = selectedCueOutput
             ?.takeIf { cueDistinct }
-            ?.let { signature -> outputChoices().firstOrNull { it.signature == signature } }
+            ?.let { signature -> cueOutputChoices().firstOrNull { it.signature == signature } }
         return StudioRouteHealth(
             selectedInputAvailable = selectedInput.isNullOrBlank() || input != null,
             selectedOutputAvailable = selectedOutput.isNullOrBlank() || output != null,
@@ -332,6 +336,9 @@ class StudioAudioRoutingStore(context: Context) {
 
     private fun outputTransportFamily(type: Int, product: String): String = when {
         type in USB_DEVICE_TYPES -> StudioAudioRoutePolicy.USB_FAMILY
+        type in BLUETOOTH_OUTPUT_TYPES -> StudioAudioRoutePolicy.BLUETOOTH_FAMILY
+        type in WIRED_OUTPUT_TYPES -> StudioAudioRoutePolicy.WIRED_FAMILY
+        type in HDMI_OUTPUT_TYPES -> StudioAudioRoutePolicy.HDMI_FAMILY
         type == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER || type == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER_SAFE -> StudioAudioRoutePolicy.BUILTIN_SPEAKER_FAMILY
         type == AudioDeviceInfo.TYPE_REMOTE_SUBMIX || type == AudioDeviceInfo.TYPE_TELEPHONY -> StudioAudioRoutePolicy.HIDDEN_SYSTEM_FAMILY
         type == AudioDeviceInfo.TYPE_BUS && isThisAndroidDevice(product) -> StudioAudioRoutePolicy.BUILTIN_SPEAKER_FAMILY
@@ -367,6 +374,29 @@ class StudioAudioRoutingStore(context: Context) {
         AudioDeviceInfo.TYPE_USB_DEVICE,
         AudioDeviceInfo.TYPE_USB_ACCESSORY,
         AudioDeviceInfo.TYPE_USB_HEADSET,
+    )
+
+    private val BLUETOOTH_OUTPUT_TYPES = setOf(
+        AudioDeviceInfo.TYPE_BLUETOOTH_A2DP,
+        AudioDeviceInfo.TYPE_BLUETOOTH_SCO,
+        AudioDeviceInfo.TYPE_HEARING_AID,
+        AudioDeviceInfo.TYPE_BLE_HEADSET,
+        AudioDeviceInfo.TYPE_BLE_SPEAKER,
+        AudioDeviceInfo.TYPE_BLE_BROADCAST,
+    )
+
+    private val WIRED_OUTPUT_TYPES = setOf(
+        AudioDeviceInfo.TYPE_WIRED_HEADSET,
+        AudioDeviceInfo.TYPE_WIRED_HEADPHONES,
+        AudioDeviceInfo.TYPE_LINE_ANALOG,
+        AudioDeviceInfo.TYPE_LINE_DIGITAL,
+        AudioDeviceInfo.TYPE_AUX_LINE,
+    )
+
+    private val HDMI_OUTPUT_TYPES = setOf(
+        AudioDeviceInfo.TYPE_HDMI,
+        AudioDeviceInfo.TYPE_HDMI_ARC,
+        AudioDeviceInfo.TYPE_HDMI_EARC,
     )
 
     private companion object {
