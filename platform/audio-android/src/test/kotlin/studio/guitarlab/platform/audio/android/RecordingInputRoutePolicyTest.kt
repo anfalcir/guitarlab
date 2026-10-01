@@ -14,4 +14,13 @@ class RecordingInputRoutePolicyTest {
         assertTrue(RecordingInputRoutePolicy.accepts(false,null,null))
         assertTrue(RecordingInputRoutePolicy.accepts(false,null,7))
     }
+    @Test
+    fun requiredMonitorOutputIsFailClosed() {
+        assertTrue(RecordingMonitorRoutePolicy.accepts(true, 41, 41))
+        assertFalse(RecordingMonitorRoutePolicy.accepts(true, 41, null))
+        assertFalse(RecordingMonitorRoutePolicy.accepts(true, null, 41))
+        assertFalse(RecordingMonitorRoutePolicy.accepts(true, 41, 42))
+        assertTrue(RecordingMonitorRoutePolicy.accepts(false, null, null))
+    }
+
 }
