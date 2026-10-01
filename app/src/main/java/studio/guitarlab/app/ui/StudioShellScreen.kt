@@ -242,6 +242,7 @@ fun StudioShellScreen(
                     onPanCommit = viewModel::commitTrackPan,
                     onToggleMute = viewModel::toggleTrackMuted,
                     onToggleSolo = viewModel::toggleTrackSolo,
+                    onToggleCue = viewModel::toggleTrackCue,
                     onToggleArm = viewModel::toggleTrackArmed,
                     onMasterGainPreview = viewModel::previewMasterGainDb,
                     onMasterGainCommit = viewModel::commitMasterGainDb,

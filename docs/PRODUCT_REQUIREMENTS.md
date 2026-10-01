@@ -1,6 +1,6 @@
 # Product Requirements
 
-Updated: 2026-09-25
+Updated: 2026-10-01
 
 Stable product identity, support boundaries, proportional quality, freeze policy and maintenance triggers are governed by `PROJECT_IDENTITY.md` and D-090.
 
@@ -107,6 +107,14 @@ The currently implemented format set includes WAV PCM, FLAC, AIFF/AIFC PCM, MP3,
 - Safe microphone permission/privacy handling.
 - Production playback/capture distinct from diagnostics.
 - Explicit selected input fails closed unless Android confirms the effective route; microphone fallback is forbidden.
+- Studio supports a primary MAIN output and an optional explicit secondary CUE output for per-track monitoring/playback routing.
+- Each track persists a backward-compatible output route; legacy projects default to MAIN.
+- The mixer headphone/CUE control may route any track to the secondary bus; the first UI contract is exclusive MAIN ↔ CUE while the engine retains MAIN_AND_CUE capability for future controlled use.
+- Per-track output-route changes are allowed only with transport stopped; Play/REC uses a stable routing snapshot.
+- CUE requires an explicit MAIN route, a resolvable low-latency secondary device and live proof that MAIN/CUE are distinct endpoints. Bluetooth is excluded from synchronized CUE because its presentation latency is not suitable for the alignment contract. CUE never falls back silently to MAIN.
+- The secondary CUE sink is opened only when playable content is assigned to a CUE-routed track; empty CUE tracks do not create an idle secondary stream.
+- CUE output writes may not block MAIN. Secondary backpressure/partial writes suppress CUE fail-closed instead of stalling the primary render loop.
+- Before audible use, MAIN and CUE must each provide stable presentation-clock evidence and their estimated stream origins must differ by no more than 12 ms. During playback, repeated presented-frame divergence beyond the continuous guard (~15.6 ms at 48 kHz) suppresses CUE. If the CUE route is lost, rejected, converges with MAIN, lacks stable clock evidence, exceeds either synchronization guard or cannot accept complete non-blocking chunks, CUE is silenced and the user receives explicit feedback; safe MAIN playback continues.
 - Playback/backing/monitoring return must never feed the recording writer.
 - Record uses visible 3-second countdown plus zero-time revalidation of permission, route, project and exactly one armed track.
 - Finalized takes enter immutable managed storage transactionally; zero-frame attempts create no clip.

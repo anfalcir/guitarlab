@@ -1,6 +1,6 @@
 # Documentation map
 
-Updated: 2026-09-25
+Updated: 2026-10-01
 
 ## Authority rule
 
@@ -11,7 +11,7 @@ Historical files intentionally preserve old candidate names, states and words su
 ## Live authority — read first
 
 1. `PROJECT_IDENTITY.md` — stable product identity, support boundary, freeze and maintenance triggers.
-2. `CURRENT_STATE.md` — concise present-tense operational state, including the active RC21 maintenance candidate while RC20 remains accepted.
+2. `CURRENT_STATE.md` — concise present-tense operational state, including the active RC22 dual-output feature candidate while RC20 remains accepted.
 3. `RELEASE_BASELINE.md` — immutable exact identity of the accepted APK/backend baseline.
 4. `PRODUCT_REQUIREMENTS.md` — supported product behavior.
 5. `ARCHITECTURE.md` — current technical boundaries.
@@ -46,14 +46,14 @@ These remain live only for their subsystem:
 
 A subsystem contract does not create an unrelated release/maintenance gate merely because it exists.
 
-## Active RC21 maintenance evidence
+## Active RC22 feature evidence
 
-The live contracts above define current behavior. Detailed RC21 implementation/qualification chronology is historical evidence and belongs under `history/`, including:
+The live contracts above define current behavior. RC22 qualification evidence belongs under `history/` once the candidate is digitally closed. RC21 remains predecessor evidence, including:
 
 - `RC21_MAINTENANCE_QUALIFICATION_2026-09-25.md`;
 - `RELEASE_NOTES_0.5.0-rc21.md`.
 
-These files may describe a candidate before promotion. They do not replace `RELEASE_BASELINE.md` until the exact signed RC21 artifact completes owner acceptance.
+Candidate evidence never replaces `RELEASE_BASELINE.md` until the exact signed successor artifact completes the required owner acceptance.
 
 ## Archived RC20 closure set
 
@@ -87,4 +87,4 @@ Accepted evidence remains reusable unless a later source/backend/hardware change
 
 Documentation-only commits never retroactively change an already-built APK or worker. The accepted producer SHA, APK hashes, signer and worker digest are defined by `RELEASE_BASELINE.md`, not by the latest documentation commit on `main`.
 
-During an active successor candidate such as RC21, `CURRENT_STATE.md` may identify a qualified unsigned source and later a signed candidate while `RELEASE_BASELINE.md` intentionally continues to identify the last accepted release. Promotion updates the baseline only after owner acceptance.
+During an active successor candidate such as RC22, `CURRENT_STATE.md` may identify a qualified unsigned source and later a signed candidate while `RELEASE_BASELINE.md` intentionally continues to identify the last accepted release. Promotion updates the baseline only after owner acceptance.

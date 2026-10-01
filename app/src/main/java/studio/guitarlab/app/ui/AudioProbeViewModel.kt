@@ -120,7 +120,8 @@ class AudioProbeViewModel(application: Application) : AndroidViewModel(applicati
             appendLine("Android: ${Build.VERSION.RELEASE} / API ${Build.VERSION.SDK_INT}")
             appendLine("Dispositivo: ${Build.MANUFACTURER} ${Build.MODEL}")
             appendLine("Rota do Studio — entrada: ${routingStore.selectedInputDiagnosticIdentity() ?: "automática"}")
-            appendLine("Rota do Studio — saída: ${routingStore.selectedOutputDiagnosticIdentity() ?: "automática"}")
+            appendLine("Rota do Studio — saída principal: ${routingStore.selectedOutputDiagnosticIdentity() ?: "automática"}")
+            appendLine("Rota do Studio — saída CUE: ${routingStore.selectedCueOutputDiagnosticIdentity() ?: "desativada"}")
             val inputSignature = routingStore.selectedInputSignature()
             val outputSignature = routingStore.selectedOutputSignature()
             listOf(44_100, 48_000, 88_200, 96_000).forEach { rate ->

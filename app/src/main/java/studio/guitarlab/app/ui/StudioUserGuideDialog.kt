@@ -58,7 +58,7 @@ private object GuitarLabGuideContent {
         GuideSectionContent(
             GuideArea.STUDIO,
             "Studio · gravação e Mixer",
-            "Arme a pista correta antes de REC. A contagem aparece sem deslocar o layout; durante a gravação, waveform, Peak e RMS acompanham a take. A entrada selecionada precisa ser confirmada pelo Android: o GuitarLab não troca silenciosamente para o microfone do aparelho. Stop e REC finalizam pela mesma rotina segura. No Mixer, volume, pan, Mute, Solo e Arm mudam a mixagem sem apagar o áudio original.",
+            "Arme a pista correta antes de REC. A contagem aparece sem deslocar o layout; durante a gravação, waveform, Peak e RMS acompanham a take. A entrada selecionada precisa ser confirmada pelo Android: o GuitarLab não troca silenciosamente para o microfone do aparelho. Stop e REC finalizam pela mesma rotina segura. No Mixer, volume, pan, Mute, Solo, fone/CUE e Arm mudam a monitoração sem apagar o áudio original. Com o transporte parado, o botão de fone envia qualquer pista para a saída secundária. Durante Play/REC essa rota fica travada para manter a sessão consistente. Se MAIN e CUE não puderem ser confirmadas como rotas físicas distintas e sincronizadas, CUE fica silencioso em vez de vazar para MAIN ou atrasar a saída principal.",
         ),
         GuideSectionContent(
             GuideArea.STUDIO,
@@ -78,7 +78,7 @@ private object GuitarLabGuideContent {
         GuideSectionContent(
             GuideArea.SETTINGS,
             "Opções e diagnósticos",
-            "Em Opções, configure áudio e gravação, monitoramento, sample rate, sincronização/calibração, controle externo quando habilitado, Conta e nuvem e preferências do aplicativo. Diagnósticos mostram detalhes técnicos apenas quando eles ajudam a investigar um problema. Calibração digital não substitui a verificação física da latência da rota USB.",
+            "Em Opções, configure áudio e gravação, saída principal, saída secundária/CUE, monitoramento, sample rate, sincronização/calibração, controle externo quando habilitado, Conta e nuvem e preferências do aplicativo. CUE exige uma MAIN explícita e uma segunda rota física distinta. Diagnósticos mostram detalhes técnicos apenas quando eles ajudam a investigar um problema. Calibração digital não substitui a verificação física da latência da rota USB.",
         ),
     )
 

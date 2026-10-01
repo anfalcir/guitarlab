@@ -1,6 +1,6 @@
 # Output workflow contract
 
-Updated: 2026-09-25
+Updated: 2026-10-01
 
 ## Separation of concerns
 
@@ -19,6 +19,8 @@ Study/reference export and Studio master delivery remain semantically distinct e
 ## Non-destructive publication
 
 Export operates from current project/timeline/mix state and does not mutate authoritative source media, prepared references, recording takes or edit metadata.
+
+Per-track MAIN/CUE is a live monitoring/playback routing choice. It does not make a track absent from Studio Master export and does not redefine the offline render graph. Mute/solo/gain/pan/master and timeline state remain the export-relevant mix controls unless a later explicit export-routing feature is designed separately.
 
 Destination publication is staged and validated before success is reported. Cancellation/failure must not leave a knowingly corrupt committed output.
 

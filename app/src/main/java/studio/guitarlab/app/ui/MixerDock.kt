@@ -21,6 +21,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.FiberManualRecord
+import androidx.compose.material.icons.filled.Headphones
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
@@ -51,6 +52,7 @@ import studio.guitarlab.app.ui.theme.StudioRecord
 import studio.guitarlab.app.ui.theme.StudioSolo
 import studio.guitarlab.core.audio.MeterBallisticsState
 import studio.guitarlab.core.model.AudioTrack
+import studio.guitarlab.core.model.TrackOutputRoute
 import studio.guitarlab.core.project.GuitarAuditionMode
 import studio.guitarlab.core.project.GuitarAuditionPolicy
 import studio.guitarlab.core.project.GuitarAuditionTrackState
@@ -74,6 +76,7 @@ fun MixerDock(
     onPanCommit: (String, Float) -> Unit,
     onToggleMute: (String) -> Unit,
     onToggleSolo: (String) -> Unit,
+    onToggleCue: (String) -> Unit,
     onToggleArm: (String) -> Unit,
     onMasterGainPreview: (Float) -> Unit,
     onMasterGainCommit: (Float) -> Unit,
@@ -83,7 +86,7 @@ fun MixerDock(
     modifier: Modifier = Modifier,
 ) {
     Surface(
-        modifier = modifier.fillMaxWidth().height(294.dp),
+        modifier = modifier.fillMaxWidth().height(316.dp),
         shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
         color = MaterialTheme.colorScheme.surface,
         tonalElevation = 3.dp,
@@ -124,6 +127,7 @@ fun MixerDock(
                             onPanCommit = { onPanCommit(track.id, it) },
                             onToggleMute = { onToggleMute(track.id) },
                             onToggleSolo = { onToggleSolo(track.id) },
+                            onToggleCue = { onToggleCue(track.id) },
                             onToggleArm = { onToggleArm(track.id) },
                             onClearClip = { onClearTrackClip(track.id) },
                         )
@@ -160,6 +164,7 @@ private fun MixerTrackStrip(
     onPanCommit: (Float) -> Unit,
     onToggleMute: () -> Unit,
     onToggleSolo: () -> Unit,
+    onToggleCue: () -> Unit,
     onToggleArm: () -> Unit,
     onClearClip: () -> Unit,
 ) {
@@ -171,7 +176,7 @@ private fun MixerTrackStrip(
 
     Surface(
         modifier = Modifier
-            .width(184.dp)
+            .width(232.dp)
             .fillMaxHeight()
             .testTag("mixer-track-strip-${track.id}")
             .clip(RoundedCornerShape(8.dp))
@@ -211,7 +216,7 @@ private fun MixerTrackStrip(
                 }
             }
 
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 MixerStateButton(
                     label = "M",
                     active = track.muted,
@@ -227,6 +232,13 @@ private fun MixerTrackStrip(
                     enabled = mixControlsEnabled,
                     contentDescription = "Solo da pista ${track.name}",
                     onClick = onToggleSolo,
+                )
+                MixerCueButton(
+                    active = track.outputRoute != TrackOutputRoute.MAIN,
+                    activeColor = MaterialTheme.colorScheme.tertiary,
+                    enabled = structuralControlsEnabled,
+                    contentDescription = "Saída CUE da pista ${track.name}",
+                    onClick = onToggleCue,
                 )
                 MixerArmButton(
                     active = track.armed,
@@ -336,20 +348,64 @@ private fun MixerStateButton(
     val inactive = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.58f)
     val border = if (active) activeColor else MaterialTheme.colorScheme.outline.copy(alpha = 0.55f)
     val foreground = if (active) activeColor else inactive
-    Surface(
-        modifier = Modifier.size(width = 38.dp, height = 30.dp)
-            .clip(RoundedCornerShape(8.dp))
+    Box(
+        modifier = Modifier
+            .size(48.dp)
             .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
             .semantics {
                 this.contentDescription = contentDescription
                 stateDescription = if (active) "Ativado" else "Desativado"
             },
-        shape = RoundedCornerShape(8.dp),
-        color = if (active) activeColor.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surface.copy(alpha = 0.44f),
-        border = BorderStroke(if (active) 1.5.dp else 1.dp, border),
+        contentAlignment = Alignment.Center,
     ) {
-        Box(contentAlignment = Alignment.Center) {
-            Text(label, style = MaterialTheme.typography.labelLarge, color = foreground.copy(alpha = if (enabled) 1f else 0.55f))
+        Surface(
+            modifier = Modifier.size(width = 38.dp, height = 30.dp),
+            shape = RoundedCornerShape(8.dp),
+            color = if (active) activeColor.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surface.copy(alpha = 0.44f),
+            border = BorderStroke(if (active) 1.5.dp else 1.dp, border),
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Text(label, style = MaterialTheme.typography.labelLarge, color = foreground.copy(alpha = if (enabled) 1f else 0.55f))
+            }
+        }
+    }
+}
+
+@Composable
+private fun MixerCueButton(
+    active: Boolean,
+    activeColor: Color,
+    enabled: Boolean,
+    contentDescription: String,
+    onClick: () -> Unit,
+) {
+    val inactive = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.58f)
+    val border = if (active) activeColor else MaterialTheme.colorScheme.outline.copy(alpha = 0.55f)
+    val foreground = if (active) activeColor else inactive
+    Box(
+        modifier = Modifier
+            .size(48.dp)
+            .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
+            .semantics {
+                this.contentDescription = contentDescription
+                stateDescription = if (active) "Ativado" else "Desativado"
+            },
+        contentAlignment = Alignment.Center,
+    ) {
+        Surface(
+            modifier = Modifier.size(width = 38.dp, height = 30.dp),
+            shape = RoundedCornerShape(8.dp),
+            color = if (active) activeColor.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surface.copy(alpha = 0.44f),
+            border = BorderStroke(if (active) 1.5.dp else 1.dp, border),
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    imageVector = Icons.Default.Headphones,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp),
+                    tint = foreground.copy(alpha = if (enabled) 1f else 0.55f),
+                )
+            }
         }
     }
 }
@@ -363,25 +419,30 @@ private fun MixerArmButton(
 ) {
     val vivid = StudioRecord
     val dim = vivid.copy(alpha = if (enabled) 0.27f else 0.16f)
-    Surface(
-        modifier = Modifier.size(width = 38.dp, height = 30.dp)
-            .clip(RoundedCornerShape(8.dp))
+    Box(
+        modifier = Modifier
+            .size(48.dp)
             .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
             .semantics {
                 this.contentDescription = contentDescription
                 stateDescription = if (active) "Armada" else "Desarmada"
             },
-        shape = RoundedCornerShape(8.dp),
-        color = if (active) vivid.copy(alpha = 0.14f) else MaterialTheme.colorScheme.surface.copy(alpha = 0.44f),
-        border = BorderStroke(if (active) 1.5.dp else 1.dp, if (active) vivid else vivid.copy(alpha = 0.18f)),
+        contentAlignment = Alignment.Center,
     ) {
-        Box(contentAlignment = Alignment.Center) {
-            Icon(
-                imageVector = Icons.Default.FiberManualRecord,
-                contentDescription = null,
-                modifier = Modifier.size(15.dp),
-                tint = if (active) vivid else dim,
-            )
+        Surface(
+            modifier = Modifier.size(width = 38.dp, height = 30.dp),
+            shape = RoundedCornerShape(8.dp),
+            color = if (active) vivid.copy(alpha = 0.14f) else MaterialTheme.colorScheme.surface.copy(alpha = 0.44f),
+            border = BorderStroke(if (active) 1.5.dp else 1.dp, if (active) vivid else vivid.copy(alpha = 0.18f)),
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    imageVector = Icons.Default.FiberManualRecord,
+                    contentDescription = null,
+                    modifier = Modifier.size(15.dp),
+                    tint = if (active) vivid else dim,
+                )
+            }
         }
     }
 }
@@ -535,20 +596,27 @@ private fun MeterRow(
             }
         }
         if (clipLatched && onClearClip != null) {
-            Surface(
-                modifier = Modifier.clip(RoundedCornerShape(4.dp))
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
                     .clickable(role = Role.Button, onClick = onClearClip)
                     .semantics { contentDescription = clipContentDescription ?: "Limpar indicador de clipping" },
-                shape = RoundedCornerShape(4.dp),
-                color = MaterialTheme.colorScheme.error.copy(alpha = 0.16f),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.error),
+                contentAlignment = Alignment.Center,
             ) {
-                Text(
-                    "CLIP",
-                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.error,
-                )
+                Surface(
+                    modifier = Modifier.size(width = 38.dp, height = 24.dp),
+                    shape = RoundedCornerShape(4.dp),
+                    color = MaterialTheme.colorScheme.error.copy(alpha = 0.16f),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.error),
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(
+                            "CLIP",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
+                }
             }
         } else {
             Text(value.formatDbfs(), modifier = Modifier.width(38.dp), style = MaterialTheme.typography.labelSmall)

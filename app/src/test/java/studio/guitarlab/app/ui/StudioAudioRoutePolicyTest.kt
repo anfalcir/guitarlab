@@ -1,6 +1,7 @@
 package studio.guitarlab.app.ui
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -100,6 +101,17 @@ class StudioAudioRoutePolicyTest {
 
         assertEquals(2, result.size)
         assertEquals(setOf("a2dp", "sco"), result.map { it.signature }.toSet())
+    }
+
+    @Test
+    fun synchronizedCueRejectsBluetoothButAllowsLowLatencyPhysicalRoutes() {
+        val bluetooth = choice(id = 7, type = 8, family = StudioAudioRoutePolicy.BLUETOOTH_FAMILY, signature = "bt")
+        val wired = choice(id = 8, type = 4, family = StudioAudioRoutePolicy.WIRED_FAMILY, signature = "wired")
+        val usb = choice(id = 9, type = 11, family = StudioAudioRoutePolicy.USB_FAMILY, signature = "usb")
+
+        assertFalse(StudioAudioRoutePolicy.cueEligible(bluetooth))
+        assertTrue(StudioAudioRoutePolicy.cueEligible(wired))
+        assertTrue(StudioAudioRoutePolicy.cueEligible(usb))
     }
 
     @Test

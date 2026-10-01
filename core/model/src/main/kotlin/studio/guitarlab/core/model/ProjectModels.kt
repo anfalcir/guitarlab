@@ -7,6 +7,7 @@ const val CURRENT_PROJECT_SCHEMA_VERSION: Int = 2
 @Serializable enum class ProjectTemplate { BLANK, GUITAR }
 @Serializable enum class RoleSource { NONE, AUTO, USER }
 @Serializable enum class ChannelLayout { MONO, STEREO }
+@Serializable enum class TrackOutputRoute { MAIN, CUE, MAIN_AND_CUE }
 @Serializable enum class SampleRateMode { AUTO, FIXED }
 @Serializable enum class SectionOrigin { MANUAL, AUTOMATIC }
 @Serializable enum class AssetRole {
@@ -154,6 +155,7 @@ object BuiltInRoles {
     val armed: Boolean = false,
     val order: Int,
     val colorIndex: Int = -1,
+    val outputRoute: TrackOutputRoute = TrackOutputRoute.MAIN,
 )
 
 /**

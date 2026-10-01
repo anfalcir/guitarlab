@@ -43,6 +43,15 @@ internal object StudioAudioRoutePolicy {
     fun candidateIdsFor(raw: List<StudioAudioDeviceChoice>, selectedSignature: String): List<Int> =
         candidateIdsForCanonical(canonicalizeOutputs(raw), selectedSignature)
 
+    /**
+     * Synchronized CUE intentionally excludes Bluetooth. Android may report a healthy route while
+     * the wireless transport still adds large/variable presentation latency that cannot be
+     * aligned robustly to a wired/USB MAIN path.
+     */
+    fun cueEligible(choice: StudioAudioDeviceChoice): Boolean =
+        choice.transportFamily != BLUETOOTH_FAMILY &&
+            choice.transportFamily != HIDDEN_SYSTEM_FAMILY
+
     fun compatibilityScore(choice: StudioAudioDeviceChoice): Int {
         var score = 0
         if (choice.channelCounts.isEmpty() || 2 in choice.channelCounts) score += 80
@@ -139,6 +148,9 @@ internal object StudioAudioRoutePolicy {
     private enum class Direction(val id: String) { INPUT("in"), OUTPUT("out") }
 
     const val USB_FAMILY = "usb"
+    const val WIRED_FAMILY = "wired"
+    const val BLUETOOTH_FAMILY = "bluetooth"
+    const val HDMI_FAMILY = "hdmi"
     const val BUILTIN_SPEAKER_FAMILY = "builtin-speaker"
     const val BUILTIN_MIC_FAMILY = "builtin-mic"
     const val HIDDEN_SYSTEM_FAMILY = "hidden-system"

@@ -6,6 +6,7 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -13,6 +14,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipe
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -38,6 +40,7 @@ class MixerDockInstrumentedTest {
     fun mixerStateControlsExposeRoleStateCallbacksAndNonOverlapping48dpCenters() {
         val muteClicks = AtomicInteger(0)
         val soloClicks = AtomicInteger(0)
+        val cueClicks = AtomicInteger(0)
         val armClicks = AtomicInteger(0)
         val trackClipClicks = AtomicInteger(0)
         val masterClipClicks = AtomicInteger(0)
@@ -69,6 +72,7 @@ class MixerDockInstrumentedTest {
                     onPanCommit = { _, _ -> },
                     onToggleMute = { muteClicks.incrementAndGet() },
                     onToggleSolo = { soloClicks.incrementAndGet() },
+                    onToggleCue = { cueClicks.incrementAndGet() },
                     onToggleArm = { armClicks.incrementAndGet() },
                     onMasterGainPreview = {},
                     onMasterGainCommit = {},
@@ -80,34 +84,105 @@ class MixerDockInstrumentedTest {
 
         val mute = composeRule.onNodeWithContentDescription("Mute da pista Teste")
         val solo = composeRule.onNodeWithContentDescription("Solo da pista Teste")
+        val cue = composeRule.onNodeWithContentDescription("Saída CUE da pista Teste")
         val arm = composeRule.onNodeWithContentDescription("Gravação da pista Teste")
 
         val buttonRole = SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Button)
         mute.assert(buttonRole).assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "Desativado")).assertIsEnabled().assert(hasClickAction())
         solo.assert(buttonRole).assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "Ativado")).assertIsEnabled().assert(hasClickAction())
+        cue.assert(buttonRole).assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "Desativado")).assertIsEnabled().assert(hasClickAction())
         arm.assert(buttonRole).assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "Desarmada")).assertIsEnabled().assert(hasClickAction())
 
-        mute.performClick()
-        solo.performClick()
-        arm.performClick()
-        composeRule.onNodeWithContentDescription("Limpar clipping da pista Teste").assert(buttonRole).performClick()
+        mute.performScrollTo().assertIsDisplayed().performClick()
+        solo.performScrollTo().assertIsDisplayed().performClick()
+        cue.performScrollTo().assertIsDisplayed().performClick()
+        arm.performScrollTo().assertIsDisplayed().performClick()
+        composeRule.onNodeWithContentDescription("Limpar clipping da pista Teste")
+            .performScrollTo()
+            .assertIsDisplayed()
+            .assert(buttonRole)
+            .performClick()
         composeRule.onNodeWithContentDescription("Limpar clipping do master").assert(buttonRole).performClick()
 
         assertEquals(1, muteClicks.get())
         assertEquals(1, soloClicks.get())
+        assertEquals(1, cueClicks.get())
         assertEquals(1, armClicks.get())
         assertEquals(1, trackClipClicks.get())
         assertEquals(1, masterClipClicks.get())
 
-        val muteCenter = mute.fetchSemanticsNode().boundsInRoot.center
-        val soloCenter = solo.fetchSemanticsNode().boundsInRoot.center
-        val armCenter = arm.fetchSemanticsNode().boundsInRoot.center
         val density = InstrumentationRegistry.getInstrumentation().targetContext.resources.displayMetrics.density
         val minimumCenterDistancePx = 48f * density - 1f
 
-        assertTrue("Mute/Solo expanded touch targets must not overlap", abs(soloCenter.x - muteCenter.x) >= minimumCenterDistancePx)
-        assertTrue("Solo/Arm expanded touch targets must not overlap", abs(armCenter.x - soloCenter.x) >= minimumCenterDistancePx)
+        mute.performScrollTo().assertIsDisplayed()
+        solo.assertIsDisplayed()
+        val muteSoloDistancePx = abs(
+            solo.fetchSemanticsNode().boundsInRoot.center.x - mute.fetchSemanticsNode().boundsInRoot.center.x,
+        )
+
+        cue.performScrollTo().assertIsDisplayed()
+        solo.assertIsDisplayed()
+        val soloCueDistancePx = abs(
+            cue.fetchSemanticsNode().boundsInRoot.center.x - solo.fetchSemanticsNode().boundsInRoot.center.x,
+        )
+
+        arm.performScrollTo().assertIsDisplayed()
+        cue.assertIsDisplayed()
+        val cueArmDistancePx = abs(
+            arm.fetchSemanticsNode().boundsInRoot.center.x - cue.fetchSemanticsNode().boundsInRoot.center.x,
+        )
+
+        assertTrue(
+            "Mute/Solo expanded touch targets must not overlap: distance=$muteSoloDistancePx minimum=$minimumCenterDistancePx",
+            muteSoloDistancePx >= minimumCenterDistancePx,
+        )
+        assertTrue(
+            "Solo/CUE expanded touch targets must not overlap: distance=$soloCueDistancePx minimum=$minimumCenterDistancePx",
+            soloCueDistancePx >= minimumCenterDistancePx,
+        )
+        assertTrue(
+            "CUE/Arm expanded touch targets must not overlap: distance=$cueArmDistancePx minimum=$minimumCenterDistancePx",
+            cueArmDistancePx >= minimumCenterDistancePx,
+        )
     }
+    @Test
+    fun cueRoutingIsDisabledWhenStructuralTransportEditsAreLocked() {
+        val track = AudioTrack(id = "route-locked", name = "Route locked", order = 0)
+        composeRule.setContent {
+            GuitarLabTheme(darkTheme = false) {
+                MixerDock(
+                    tracks = listOf(track),
+                    selectedTrackId = track.id,
+                    mixControlsEnabled = true,
+                    structuralControlsEnabled = false,
+                    masterGainDb = 0f,
+                    masterMeter = MeterBallisticsState(),
+                    trackMeters = emptyMap(),
+                    masterClipLatched = false,
+                    trackClipLatched = emptySet(),
+                    onSelectTrack = {},
+                    onGainPreview = { _, _ -> },
+                    onGainCommit = { _, _ -> },
+                    onPanPreview = { _, _ -> },
+                    onPanCommit = { _, _ -> },
+                    onToggleMute = {},
+                    onToggleSolo = {},
+                    onToggleCue = {},
+                    onToggleArm = {},
+                    onMasterGainPreview = {},
+                    onMasterGainCommit = {},
+                    onClearTrackClip = {},
+                    onClearMasterClip = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithContentDescription("Mute da pista Route locked").assertIsEnabled()
+        composeRule.onNodeWithContentDescription("Solo da pista Route locked").assertIsEnabled()
+        composeRule.onNodeWithContentDescription("Saída CUE da pista Route locked").assertIsNotEnabled()
+        composeRule.onNodeWithContentDescription("Gravação da pista Route locked").assertIsNotEnabled()
+    }
+
     @Test
     fun overflowingTracksSwipeHorizontallyWhileMasterRemainsAnchored() {
         val tracks = List(10) { index -> AudioTrack(id = "overflow-$index", name = "Track $index", order = index) }
@@ -130,6 +205,7 @@ class MixerDockInstrumentedTest {
                     onPanCommit = { _, _ -> },
                     onToggleMute = {},
                     onToggleSolo = {},
+                    onToggleCue = {},
                     onToggleArm = {},
                     onMasterGainPreview = {},
                     onMasterGainCommit = {},

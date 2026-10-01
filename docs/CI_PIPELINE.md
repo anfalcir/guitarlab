@@ -1,13 +1,13 @@
 # CI and Release Pipeline
 
-Updated: 2026-09-25
+Updated: 2026-10-01
 
 This document describes current execution controls. Historical tail hashes, run chronology and retired gate details are preserved in `history/CI_PIPELINE_PRE_RC20.md` and immutable workflow artifacts.
 
 ## Source materialization
 
 - canonical entrypoint: `scripts/materialize_ci_sources.sh`;
-- current tail: RC21 maintenance via `scripts/materialize_ci_sources_rc21.py`;
+- current candidate tail: RC22 dual-output/CUE via `scripts/materialize_ci_sources_rc22.py`, chained after the immutable RC21 tail;
 - protected deltas: `.source-parts/`;
 - required properties: deterministic, hash/blob locked, idempotent, semantic guards, reverse-apply validation and fail-closed drift handling.
 

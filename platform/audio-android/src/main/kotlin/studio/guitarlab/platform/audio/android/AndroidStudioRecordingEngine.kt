@@ -28,6 +28,7 @@ data class StudioRecordingRequest(
     val preferredInputRequested: Boolean = false,
     val monitoringMode: MonitoringMode = MonitoringMode.AUTO,
     val preferredOutputDevice: AudioDeviceInfo? = null,
+    val preferredOutputRequired: Boolean = false,
 )
 
 data class StudioRecordingConfig(
@@ -69,6 +70,11 @@ interface StudioRecordingListener {
 internal object RecordingInputRoutePolicy {
     fun accepts(explicit: Boolean, preferredDeviceId: Int?, routedDeviceId: Int?): Boolean =
         !explicit || (preferredDeviceId != null && routedDeviceId == preferredDeviceId)
+}
+
+internal object RecordingMonitorRoutePolicy {
+    fun accepts(required: Boolean, preferredDeviceId: Int?, routedDeviceId: Int?): Boolean =
+        !required || (preferredDeviceId != null && routedDeviceId == preferredDeviceId)
 }
 
 /** Android M5 capture engine. Final media ownership/commit remains in core:project. */
@@ -151,12 +157,27 @@ class AndroidStudioRecordingEngine(context: Context) : AutoCloseable {
                 outputTransport = transportOf(request.preferredOutputDevice),
             )
             if (shouldMonitor && stopReason == StudioRecordingStopReason.USER_STOP) {
-                monitor = openMonitor(opened.sampleRateHz, request.preferredOutputDevice)
-                if (monitor == null) {
+                monitor = if (request.preferredOutputRequired && request.preferredOutputDevice == null) {
+                    null
+                } else {
+                    openMonitor(opened.sampleRateHz, request.preferredOutputDevice)
+                }
+                val openedMonitor = monitor
+                if (openedMonitor == null) {
                     listener.onWarning("O monitoramento por software não pôde ser aberto; a gravação continuará sem retorno pelo app.")
                 } else {
-                    activeMonitor = monitor
-                    monitor.play()
+                    activeMonitor = openedMonitor
+                    openedMonitor.play()
+                    if (request.preferredOutputRequired &&
+                        !confirmMonitorRoute(openedMonitor, request.preferredOutputDevice)
+                    ) {
+                        runCatching { openedMonitor.pause() }
+                        runCatching { openedMonitor.flush() }
+                        runCatching { openedMonitor.release() }
+                        monitor = null
+                        activeMonitor = null
+                        listener.onWarning("A saída de monitoramento selecionada não foi confirmada; o retorno foi silenciado para evitar fallback.")
+                    }
                 }
             }
 
@@ -185,6 +206,25 @@ class AndroidStudioRecordingEngine(context: Context) : AutoCloseable {
                         stopReason = StudioRecordingStopReason.ROUTE_LOST
                         failureMessage = "A entrada selecionada foi desconectada ou deixou de ser a rota efetiva. O take parcial foi encerrado para impedir captura por outra entrada."
                         break
+                    }
+                }
+
+                if (request.preferredOutputRequired) {
+                    val currentMonitor = monitor
+                    val expectedMonitor = request.preferredOutputDevice
+                    if (currentMonitor != null &&
+                        !RecordingMonitorRoutePolicy.accepts(
+                            required = true,
+                            preferredDeviceId = expectedMonitor?.id,
+                            routedDeviceId = currentMonitor.routedDevice?.id,
+                        )
+                    ) {
+                        runCatching { currentMonitor.pause() }
+                        runCatching { currentMonitor.flush() }
+                        runCatching { currentMonitor.release() }
+                        monitor = null
+                        activeMonitor = null
+                        listener.onWarning("A rota do monitoramento mudou; o retorno foi silenciado e a gravação continua.")
                     }
                 }
 
@@ -349,6 +389,31 @@ class AndroidStudioRecordingEngine(context: Context) : AutoCloseable {
         return track
     }
 
+    private fun confirmMonitorRoute(track: AudioTrack, expected: AudioDeviceInfo?): Boolean {
+        expected ?: return false
+        val silence = FloatArray(MONITOR_ROUTE_PROBE_FRAMES * 2)
+        if (runCatching {
+                track.write(silence, 0, silence.size, AudioTrack.WRITE_BLOCKING)
+            }.getOrDefault(AudioTrack.ERROR_INVALID_OPERATION) <= 0
+        ) return false
+        val deadline = System.nanoTime() + ROUTE_CONFIRM_TIMEOUT_NS
+        var routed = track.routedDevice
+        while (running && routed?.id != expected.id && System.nanoTime() < deadline) {
+            try {
+                Thread.sleep(ROUTE_CONFIRM_POLL_MS)
+            } catch (_: InterruptedException) {
+                Thread.currentThread().interrupt()
+                return false
+            }
+            routed = track.routedDevice
+        }
+        return RecordingMonitorRoutePolicy.accepts(
+            required = true,
+            preferredDeviceId = expected.id,
+            routedDeviceId = routed?.id,
+        )
+    }
+
     private fun awaitRoutedInput(recorder: AudioRecord, expected: AudioDeviceInfo?): AudioDeviceInfo? {
         if (expected == null) return recorder.routedDevice
         val deadline = System.nanoTime() + ROUTE_CONFIRM_TIMEOUT_NS
@@ -433,6 +498,7 @@ class AndroidStudioRecordingEngine(context: Context) : AutoCloseable {
 
     private companion object {
         const val MAX_ZERO_READS = 8
+        const val MONITOR_ROUTE_PROBE_FRAMES = 128
         const val ROUTE_CONFIRM_POLL_MS = 10L
         const val ROUTE_CONFIRM_TIMEOUT_NS = 750_000_000L
         const val CLOCK_ANCHOR_SAMPLES = 6

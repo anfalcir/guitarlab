@@ -128,9 +128,11 @@ fun DiagnosticsScreen(
             item {
                 DiagnosticSection("Áudio e USB") {
                     DiagnosticLine("Entrada selecionada", routing.selectedInputDiagnosticIdentity() ?: "Automática")
-                    DiagnosticLine("Saída selecionada", routing.selectedOutputDiagnosticIdentity() ?: "Automática")
+                    DiagnosticLine("Saída principal", routing.selectedOutputDiagnosticIdentity() ?: "Automática")
+                    DiagnosticLine("Saída CUE", routing.selectedCueOutputDiagnosticIdentity() ?: "Desativada")
                     DiagnosticLine("Entrada disponível", if (routeHealth.selectedInputAvailable) "Sim" else "Não")
-                    DiagnosticLine("Saída disponível", if (routeHealth.selectedOutputAvailable) "Sim" else "Não")
+                    DiagnosticLine("Saída principal disponível", if (routeHealth.selectedOutputAvailable) "Sim" else "Não")
+                    DiagnosticLine("Saída CUE válida", if (routeHealth.selectedCueOutputAvailable && routeHealth.cueOutputDistinctFromMain) "Sim" else "Não")
                     DiagnosticLine("USB detectado", if (routeHealth.usbDeviceDetected) "Sim" else "Não")
                     DiagnosticLine("Monitoramento", routing.monitoringMode().name)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

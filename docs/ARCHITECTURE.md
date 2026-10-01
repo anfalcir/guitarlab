@@ -1,6 +1,6 @@
 # GuitarLab Architecture
 
-Updated: 2026-09-25
+Updated: 2026-10-01
 
 ## Repository and release boundary
 - `main` is canonical.
@@ -81,6 +81,17 @@ Home is the project-library/navigation surface. Studio remains the creative edit
 
 ## Output and mixing
 The canonical Export workspace owns external delivery; editable `.guitarlab` persistence is distinct from WAV/FLAC/MP3 master delivery. Home/Studio export entry points route to that single workspace. Mixer state is persisted where applicable and playback/export must respect gain/pan/mute/solo/master behavior.
+
+Live Studio playback has two logical stereo buses:
+`track render → per-track gain/pan/audibility → MAIN and/or CUE bus → independent Android output sinks`.
+
+Track output routing is durable project metadata with `MAIN` as the compatibility default. MAIN is the normal master/monitor sink. Route mutations are stopped-state operations; the active Play/REC session therefore never has to reconcile a newly changed track route with an already-open monitor path. CUE is an optional secondary monitoring sink and is fail-closed: it requires an explicit MAIN selection, an explicit distinct low-latency CUE selection, successful endpoint opening and effective-route confirmation. Bluetooth outputs are excluded from synchronized CUE. The CUE sink is instantiated only when the playback clip set actually references at least one CUE-routed track. Before audible release, a silent probe obtains stable `AudioTimestamp` evidence for both live streams and compares their estimated stream-origin monotonic times; CUE is rejected when that initial presentation offset exceeds 12 ms or either clock lacks stable evidence. Runtime routing is then rechecked while streaming; route convergence/loss suppresses CUE rather than leaking its tracks to MAIN. Continuous presented-frame divergence is limited to 750 frames at 48 kHz (about 15.6 ms) / 689 frames at 44.1 kHz, with three consecutive violations required before suppression.
+
+MAIN owns render-loop timing. MAIN writes may block according to the established primary sink contract; CUE writes are non-blocking and must accept each full chunk. A short/zero/error CUE write is secondary backpressure and immediately suppresses CUE, so a slow or wedged secondary device cannot stall MAIN. The engine deliberately does not delay MAIN to compensate an unsafe secondary route: synchronization proof is an admission/survival condition for CUE, not a hidden primary-output offset.
+
+Normal Play and backing playback during REC use the same dual-bus playback engine. Software monitoring of the armed input follows that track's exclusive MAIN/CUE state when monitoring is enabled; a required CUE monitor route is verified and silenced on fallback while capture continues. The recording writer remains input-only and never consumes playback/CUE data.
+
+CUE assignment is intentionally not part of offline Master Export exclusion semantics. Export renders project mix state; physical monitoring assignments do not delete or omit a track from the deliverable.
 
 ## Lifecycle and persistence
 Durable creative state belongs in project persistence, not transient Composable state. Navigation/recreation and interrupted media operations are independently recoverable. Home library query state is presentation state and may be recreated without changing project data.

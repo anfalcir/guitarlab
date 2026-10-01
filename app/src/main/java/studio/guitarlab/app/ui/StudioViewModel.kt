@@ -50,6 +50,8 @@ import studio.guitarlab.core.model.ChannelLayout
 import studio.guitarlab.core.model.GuitarProject
 import studio.guitarlab.core.model.RoleSource
 import studio.guitarlab.core.model.TrackNamePolicy
+import studio.guitarlab.core.model.TrackOutputRoute
+import studio.guitarlab.core.model.TrackOutputRoutingPolicy
 import studio.guitarlab.core.project.FileProjectRepository
 import studio.guitarlab.core.project.ProjectClipEditor
 import studio.guitarlab.core.project.ProjectTrackEditor
@@ -325,6 +327,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                         trackMixDrafts[track.id] = TrackMixDraft(track.gainDb, track.pan)
                         playbackEngine.setTrackMix(track.id, track.gainDb, track.pan)
                         playbackEngine.setTrackAudibility(track.id, track.muted, track.solo)
+                        playbackEngine.setTrackOutputRoute(track.id, track.outputRoute)
                     }
                     playbackEngine.setMasterGainDb(latest.masterGainDb)
                     recoveryCandidatesById.clear()
@@ -1101,13 +1104,22 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
         )
         recordingProgressGeneration += 1L
         liveWaveform.clear()
+        val targetTrack = project.tracks.firstOrNull { it.id == target.trackId }
+            ?: return resetRecording("A pista armada não está mais disponível.")
+        val monitorUsesCue = targetTrack.outputRoute == TrackOutputRoute.CUE
+        val monitorOutput = if (monitorUsesCue) {
+            audioRoutingStore.resolveSelectedCueOutputDevice()
+        } else {
+            audioRoutingStore.resolveSelectedOutputDevice()
+        }
         val request = StudioRecordingRequest(
             temporaryFile = transaction.temporaryFile,
             preferredSampleRateHz = target.preferredSampleRateHz,
             preferredInputDevice = selectedInput,
             preferredInputRequested = !selectedInputSignature.isNullOrBlank(),
             monitoringMode = audioRoutingStore.monitoringMode(),
-            preferredOutputDevice = audioRoutingStore.resolveSelectedOutputDevice(),
+            preferredOutputDevice = monitorOutput,
+            preferredOutputRequired = monitorUsesCue,
         )
         runCatching {
             recordingEngine.start(request, recordingListener)
@@ -1619,6 +1631,40 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
 
     fun toggleTrackSolo(trackId: String) = editTrackAudibility(trackId, toggleMute = false)
 
+    fun toggleTrackCue(trackId: String) {
+        val state = _state.value
+        val project = state.project ?: return
+        if (!structuralEditingAllowed(state)) return
+        viewModelScope.launch {
+            runCatching {
+                saveLatest(project.id) { latest ->
+                    val target = latest.tracks.firstOrNull { it.id == trackId } ?: return@saveLatest latest
+                    val updated = target.copy(
+                        outputRoute = TrackOutputRoutingPolicy.toggleExclusiveCue(target.outputRoute),
+                    )
+                    latest.copy(
+                        tracks = latest.tracks.map { if (it.id == trackId) updated else it },
+                        updatedAtEpochMs = System.currentTimeMillis(),
+                    )
+                }
+            }.onSuccess { saved ->
+                val route = saved.tracks.firstOrNull { it.id == trackId }?.outputRoute ?: TrackOutputRoute.MAIN
+                applySavedProject(
+                    saved,
+                    if (route == TrackOutputRoute.CUE) "Pista enviada para a saída CUE" else "Pista enviada para a saída principal",
+                )
+                if (TrackOutputRoutingPolicy.sendsToCue(route) && audioRoutingStore.resolveSelectedCueOutputDevice() == null) {
+                    postTransientWarning(
+                        "A pista está marcada para CUE, mas nenhuma saída secundária válida está disponível; ela ficará silenciosa fora do MAIN.",
+                        "A pista CUE ficará silenciosa até uma saída secundária válida ser selecionada.",
+                    )
+                }
+            }.onFailure { error ->
+                _state.value = _state.value.copy(error = error.message ?: "Não foi possível atualizar a saída da pista.")
+            }
+        }
+    }
+
     fun toggleTrackArmed(trackId: String) {
         editTrackStructural("Armar gravação atualizado", trackId) { it.copy(armed = !it.armed) }
     }
@@ -2071,6 +2117,10 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
         }
         val end = clips.maxOf { it.startFrame + it.lengthFrames }.coerceAtLeast(1L)
         val tracks = project.tracks.associateBy { it.id }
+        val cuePlaybackRequested = TrackOutputRoutingPolicy.playbackNeedsCue(
+            routeByTrackId = tracks.mapValues { it.value.outputRoute },
+            playbackTrackIds = clips.map { it.trackId },
+        )
         val playbackClips = runCatching {
             clips.map { clip ->
                 StudioPlaybackClip(
@@ -2099,10 +2149,20 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
             loopEndFrame = end,
             clips = playbackClips,
             trackMixes = project.tracks.filter { track -> clips.any { it.trackId == track.id } }.map { track ->
-                StudioPlaybackTrackMix(track.id, track.roleId, track.gainDb, track.pan, false, false)
+                StudioPlaybackTrackMix(
+                    trackId = track.id,
+                    roleId = track.roleId,
+                    gainDb = track.gainDb,
+                    pan = track.pan,
+                    muted = false,
+                    solo = false,
+                    outputRoute = track.outputRoute,
+                )
             },
             preferredOutputDevice = audioRoutingStore.resolveSelectedOutputDevice(),
             preferredOutputRequested = !outputSignature.isNullOrBlank(),
+            preferredCueOutputDevice = audioRoutingStore.resolveSelectedCueOutputDevice(),
+            preferredCueOutputRequested = cuePlaybackRequested,
             masterGainDb = project.masterGainDb,
         )
         val sessionId = ++playbackSessionId
@@ -2444,8 +2504,14 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
             loopEndFrame = current.timelineControls.loopEndFrame,
         )
         val tracksById = project.tracks.associateBy { it.id }
+        val playableClips = ActiveTakePolicy.audibleClips(project).filterNot { it.muted }
+        val cuePlaybackRequested = TrackOutputRoutingPolicy.playbackNeedsCue(
+            routeByTrackId = tracksById.mapValues { it.value.outputRoute },
+            playbackTrackIds = playableClips.map { it.trackId },
+        )
         val selectedOutputSignature = audioRoutingStore.selectedOutputSignature()
         val preferredOutput = audioRoutingStore.resolveSelectedOutputDevice()
+        val preferredCueOutput = audioRoutingStore.resolveSelectedCueOutputDevice()
         val request = runCatching {
             StudioPlaybackRequest(
                 sampleRateHz = readiness.sampleRateHz,
@@ -2456,6 +2522,8 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                 loopEndFrame = current.timelineControls.loopEndFrame,
                 preferredOutputDevice = preferredOutput,
                 preferredOutputRequested = !selectedOutputSignature.isNullOrBlank(),
+                preferredCueOutputDevice = preferredCueOutput,
+                preferredCueOutputRequested = cuePlaybackRequested,
                 masterGainDb = project.masterGainDb,
                 auditionMode = current.guitarAuditionMode,
                 repeatLoop = false,
@@ -2467,11 +2535,11 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                         pan = track.pan,
                         muted = track.muted,
                         solo = track.solo,
+                        outputRoute = track.outputRoute,
                     )
                 },
-                clips = ActiveTakePolicy.audibleClips(project).mapNotNull { clip ->
+                clips = playableClips.mapNotNull { clip ->
                     val sourceTrack = tracksById[clip.trackId] ?: return@mapNotNull null
-                    if (clip.muted) return@mapNotNull null
                     val managedPath = editingMediaPath(clip)
                     StudioPlaybackClip(
                         file = mediaStore.resolveEditable(project.id, managedPath),
@@ -2556,15 +2624,27 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                 }
 
                 override fun onRouting(status: StudioPlaybackRoutingStatus) {
-                    if (!status.fellBackToAuto) return
-                    activePlaybackRouteState = activePlaybackRouteState?.let { AudioRouteSessionPolicy.lost(it, "selected output route fell back") }
-                    viewModelScope.launch {
-                        val state = _state.value
-                        if (sessionId != playbackSessionId || state.transport.mode != TransportMode.PLAYING) return@launch
-                        postTransientWarning(
-                            "A saída selecionada ficou indisponível; o GuitarLab usou a saída automática.",
-                            "A saída selecionada ficou indisponível; o GuitarLab usou a saída automática.",
-                        )
+                    if (status.fellBackToAuto) {
+                        activePlaybackRouteState = activePlaybackRouteState?.let { AudioRouteSessionPolicy.lost(it, "selected output route fell back") }
+                        viewModelScope.launch {
+                            val state = _state.value
+                            if (sessionId != playbackSessionId || state.transport.mode != TransportMode.PLAYING) return@launch
+                            postTransientWarning(
+                                "A saída principal selecionada ficou indisponível; o GuitarLab usou a saída automática.",
+                                "A saída principal selecionada ficou indisponível; o GuitarLab usou a saída automática.",
+                            )
+                        }
+                    }
+                    if (status.cueSuppressed) {
+                        viewModelScope.launch {
+                            val state = _state.value
+                            if (sessionId != playbackSessionId || state.transport.mode != TransportMode.PLAYING) return@launch
+                            val detail = status.cueFailureReason ?: "A saída secundária não pôde ser confirmada."
+                            postTransientWarning(
+                                "CUE foi silenciado para impedir vazamento para a saída principal. $detail",
+                                "CUE foi silenciado para impedir vazamento para a saída principal.",
+                            )
+                        }
                     }
                 }
 
@@ -2683,6 +2763,10 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
             return false
         }
         if (clips.isEmpty()) return false
+        val cuePlaybackRequested = TrackOutputRoutingPolicy.playbackNeedsCue(
+            routeByTrackId = tracksById.mapValues { it.value.outputRoute },
+            playbackTrackIds = clips.map { it.trackId },
+        )
         val outputSignature = audioRoutingStore.selectedOutputSignature()
         val request = StudioPlaybackRequest(
             sampleRateHz = sampleRateHz,
@@ -2693,10 +2777,20 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
             loopEndFrame = state.timelineControls.loopEndFrame,
             clips = clips,
             trackMixes = project.tracks.map {
-                StudioPlaybackTrackMix(trackId = it.id, roleId = it.roleId, gainDb = it.gainDb, pan = it.pan, muted = it.muted, solo = it.solo)
+                StudioPlaybackTrackMix(
+                    trackId = it.id,
+                    roleId = it.roleId,
+                    gainDb = it.gainDb,
+                    pan = it.pan,
+                    muted = it.muted,
+                    solo = it.solo,
+                    outputRoute = it.outputRoute,
+                )
             },
             preferredOutputDevice = audioRoutingStore.resolveSelectedOutputDevice(),
             preferredOutputRequested = !outputSignature.isNullOrBlank(),
+            preferredCueOutputDevice = audioRoutingStore.resolveSelectedCueOutputDevice(),
+            preferredCueOutputRequested = cuePlaybackRequested,
             masterGainDb = project.masterGainDb,
         )
         return runCatching {
@@ -2741,6 +2835,17 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                         val captureBeforeBackingFrames = (-activeRecordingClockOffsetFrames).coerceAtLeast(0L)
                         activePunchPlan = activePunchRegion?.let { region ->
                             PunchRecordingPolicy.plan(region, captureBeforeBackingFrames)
+                        }
+                    }
+                    if (status.cueSuppressed) {
+                        viewModelScope.launch {
+                            val current = _state.value
+                            if (current.recordingSession.phase == RecordingSessionPhase.CAPTURING) {
+                                postTransientWarning(
+                                    "CUE foi silenciado durante a gravação para impedir vazamento no MAIN. ${status.cueFailureReason ?: "Rota secundária não confirmada."}",
+                                    "CUE foi silenciado durante a gravação; o take continua normalmente.",
+                                )
+                            }
                         }
                     }
                 }
@@ -2939,6 +3044,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
             trackMixDrafts[track.id] = TrackMixDraft(track.gainDb, track.pan)
             playbackEngine.setTrackMix(track.id, track.gainDb, track.pan)
             playbackEngine.setTrackAudibility(track.id, track.muted, track.solo)
+            playbackEngine.setTrackOutputRoute(track.id, track.outputRoute)
         }
         playbackEngine.setMasterGainDb(saved.masterGainDb)
         val state = _state.value

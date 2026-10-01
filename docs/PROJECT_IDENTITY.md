@@ -1,6 +1,6 @@
 # GuitarLab — Project Identity
 
-Updated: 2026-09-25
+Updated: 2026-10-01
 
 This document defines the stable identity, support boundary, quality philosophy and maintenance policy of GuitarLab. It operationalizes `D-090` in `docs/DECISIONS.md`. If a later numbered decision explicitly supersedes this document, the later decision wins.
 
@@ -62,7 +62,7 @@ Existing CI and vulnerability workflows are not weakened merely to implement thi
 
 ## Freeze policy
 
-`RELEASE_BASELINE.md` records the exact immutable identity of the currently accepted baseline. RC20 remains that accepted baseline while RC21 proceeds through maintenance qualification; opening a successor candidate does not mutate the accepted artifact identity. For every accepted baseline:
+`RELEASE_BASELINE.md` records the exact immutable identity of the currently accepted baseline. RC20 remains that accepted baseline while RC22 proceeds as an owner-requested dual-output feature candidate built on the RC21-integrated Android source; opening a successor candidate does not mutate the accepted artifact identity. For every accepted baseline:
 
 - freeze the exact signed APK;
 - record and freeze its producer SHA, package/version, APK SHA-256 and signer certificate;
@@ -83,7 +83,7 @@ Development reopens only for one or more of:
 
 A future change requalifies only the paths it can materially affect, plus adjacent smoke needed to prove safe integration. Previously accepted unrelated evidence remains reusable.
 
-The current RC21 maintenance line is an example of this rule: an owner-observed Studio/project-integrity regression plus backup/feedback issues reopened only the affected Android paths. It does not reopen the frozen Demucs worker or unrelated physical evidence. Until RC21 is signed and physically accepted, RC20 remains the promoted baseline.
+RC21 was the first maintenance example of this rule. RC22 is a separate explicit owner-requested feature: per-track MAIN/CUE monitoring reopens only the Android playback/routing/monitoring paths and their adjacent persistence/UI tests. It does not reopen the frozen Demucs worker or unrelated Drive evidence. Until RC22 is signed and physically accepted for the affected hardware path, RC20 remains the promoted baseline.
 
 ## Release principle
 
