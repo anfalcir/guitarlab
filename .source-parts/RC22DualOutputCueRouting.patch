@@ -692,7 +692,7 @@ diff --git a/app/src/main/java/studio/guitarlab/app/ui/StudioUserGuideDialog.kt 
              GuideArea.STUDIO,
              "Studio · gravação e Mixer",
 -            "Arme a pista correta antes de REC. A contagem aparece sem deslocar o layout; durante a gravação, waveform, Peak e RMS acompanham a take. A entrada selecionada precisa ser confirmada pelo Android: o GuitarLab não troca silenciosamente para o microfone do aparelho. Stop e REC finalizam pela mesma rotina segura. No Mixer, volume, pan, Mute, Solo e Arm mudam a mixagem sem apagar o áudio original.",
-+            "Arme a pista correta antes de REC. A contagem aparece sem deslocar o layout; durante a gravação, waveform, Peak e RMS acompanham a take. A entrada selecionada precisa ser confirmada pelo Android: o GuitarLab não troca silenciosamente para o microfone do aparelho. Stop e REC finalizam pela mesma rotina segura. No Mixer, volume, pan, Mute, Solo, fone/CUE e Arm mudam a monitoração sem apagar o áudio original. Com o transporte parado, o botão de fone envia qualquer pista para a saída secundária. Durante Play/REC essa rota fica travada para manter a sessão consistente. Se MAIN e CUE não puderem ser confirmadas como rotas físicas distintas, CUE fica silencioso em vez de vazar para MAIN.",
++            "Arme a pista correta antes de REC. A contagem aparece sem deslocar o layout; durante a gravação, waveform, Peak e RMS acompanham a take. A entrada selecionada precisa ser confirmada pelo Android: o GuitarLab não troca silenciosamente para o microfone do aparelho. Stop e REC finalizam pela mesma rotina segura. No Mixer, volume, pan, Mute, Solo, fone/CUE e Arm mudam a monitoração sem apagar o áudio original. Com o transporte parado, o botão de fone envia qualquer pista para a saída secundária. Durante Play/REC essa rota fica travada para manter a sessão consistente. Se MAIN e CUE não puderem ser confirmadas como rotas físicas distintas e sincronizadas, CUE fica silencioso em vez de vazar para MAIN ou atrasar a saída principal.",
          ),
          GuideSectionContent(
              GuideArea.STUDIO,
@@ -990,7 +990,7 @@ diff --git a/core/audio/src/main/kotlin/studio/guitarlab/core/audio/CueRouteSafe
 new file mode 100644
 --- /dev/null
 +++ b/core/audio/src/main/kotlin/studio/guitarlab/core/audio/CueRouteSafetyPolicy.kt
-@@ -0,0 +1,66 @@
+@@ -0,0 +1,89 @@
 +package studio.guitarlab.core.audio
 +
 +enum class CueRouteBlockReason {
@@ -1013,8 +1013,9 @@ new file mode 100644
 + * they are the authoritative endpoint identity used to prove that MAIN and CUE remain distinct.
 + */
 +object CueRouteSafetyPolicy {
-+    private const val MIN_DRIFT_LIMIT_FRAMES = 2_048L
-+    private const val DRIFT_DIVISOR = 20
++    const val DEFAULT_INITIAL_OFFSET_LIMIT_NS = 12_000_000L
++    private const val MIN_DRIFT_LIMIT_FRAMES = 512L
++    private const val DRIFT_DIVISOR = 64
 +
 +    fun admit(
 +        cueRequested: Boolean,
@@ -1049,6 +1050,15 @@ new file mode 100644
 +    fun driftExceeded(mainPresentedFrames: Long, cuePresentedFrames: Long, sampleRateHz: Int): Boolean =
 +        kotlin.math.abs(mainPresentedFrames - cuePresentedFrames) > driftLimitFrames(sampleRateHz)
 +
++    fun initialOffsetWithinLimit(
++        mainStreamOriginNs: Long,
++        cueStreamOriginNs: Long,
++        maxOffsetNs: Long = DEFAULT_INITIAL_OFFSET_LIMIT_NS,
++    ): Boolean {
++        require(maxOffsetNs >= 0L)
++        return absoluteDistance(mainStreamOriginNs, cueStreamOriginNs) <= maxOffsetNs
++    }
++
 +    /**
 +     * CUE is a secondary sink and may never back-pressure MAIN. The render loop therefore writes
 +     * CUE in non-blocking mode and keeps it active only when one call accepts the complete chunk.
@@ -1056,12 +1066,25 @@ new file mode 100644
 +     */
 +    fun secondaryWriteComplete(requestedSamples: Int, writtenSamples: Int): Boolean =
 +        requestedSamples > 0 && writtenSamples == requestedSamples
++
++    private fun absoluteDistance(left: Long, right: Long): Long {
++        val delta = try {
++            Math.subtractExact(left, right)
++        } catch (_: ArithmeticException) {
++            return Long.MAX_VALUE
++        }
++        return when {
++            delta == Long.MIN_VALUE -> Long.MAX_VALUE
++            delta < 0L -> -delta
++            else -> delta
++        }
++    }
 +}
 diff --git a/core/audio/src/test/kotlin/studio/guitarlab/core/audio/CueRouteSafetyPolicyTest.kt b/core/audio/src/test/kotlin/studio/guitarlab/core/audio/CueRouteSafetyPolicyTest.kt
 new file mode 100644
 --- /dev/null
 +++ b/core/audio/src/test/kotlin/studio/guitarlab/core/audio/CueRouteSafetyPolicyTest.kt
-@@ -0,0 +1,57 @@
+@@ -0,0 +1,66 @@
 +package studio.guitarlab.core.audio
 +
 +import kotlin.test.Test
@@ -1104,11 +1127,11 @@ new file mode 100644
 +    }
 +
 +    @Test
-+    fun driftGuardUsesAtLeastAboutFiftyMillisecondsAtCommonRates() {
-+        assertEquals(2_400L, CueRouteSafetyPolicy.driftLimitFrames(48_000))
-+        assertEquals(2_205L, CueRouteSafetyPolicy.driftLimitFrames(44_100))
-+        assertFalse(CueRouteSafetyPolicy.driftExceeded(100_000, 102_400, 48_000))
-+        assertTrue(CueRouteSafetyPolicy.driftExceeded(100_000, 102_401, 48_000))
++    fun driftGuardStaysWithinMusicallyTightWindowAtCommonRates() {
++        assertEquals(750L, CueRouteSafetyPolicy.driftLimitFrames(48_000))
++        assertEquals(689L, CueRouteSafetyPolicy.driftLimitFrames(44_100))
++        assertFalse(CueRouteSafetyPolicy.driftExceeded(100_000, 100_750, 48_000))
++        assertTrue(CueRouteSafetyPolicy.driftExceeded(100_000, 100_751, 48_000))
 +    }
 +    @Test
 +    fun secondarySinkMayNeverBackPressureMain() {
@@ -1116,6 +1139,15 @@ new file mode 100644
 +        assertFalse(CueRouteSafetyPolicy.secondaryWriteComplete(2048, 1024))
 +        assertFalse(CueRouteSafetyPolicy.secondaryWriteComplete(2048, 0))
 +        assertFalse(CueRouteSafetyPolicy.secondaryWriteComplete(2048, -3))
++    }
++
++    @Test
++    fun initialPresentationOffsetIsBoundedAndOverflowSafe() {
++        val limit = CueRouteSafetyPolicy.DEFAULT_INITIAL_OFFSET_LIMIT_NS
++        assertTrue(CueRouteSafetyPolicy.initialOffsetWithinLimit(1_000_000_000L, 1_000_000_000L + limit))
++        assertTrue(CueRouteSafetyPolicy.initialOffsetWithinLimit(1_000_000_000L + limit, 1_000_000_000L))
++        assertFalse(CueRouteSafetyPolicy.initialOffsetWithinLimit(1_000_000_000L, 1_000_000_000L + limit + 1L))
++        assertFalse(CueRouteSafetyPolicy.initialOffsetWithinLimit(Long.MIN_VALUE, Long.MAX_VALUE))
 +    }
 +
 +}
@@ -1527,7 +1559,28 @@ diff --git a/platform/audio-android/src/main/kotlin/studio/guitarlab/platform/au
              runCatching { track?.pause() }
              runCatching { track?.flush() }
              runCatching { track?.release() }
-@@ -428,7 +526,7 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
+@@ -386,7 +484,11 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
+         }
+     }
+ 
+-    private fun stablePlaybackClockAnchor(track: AudioTrack, sampleRateHz: Int) =
++    private fun stablePlaybackClockAnchor(
++        track: AudioTrack,
++        sampleRateHz: Int,
++        maxJitterNs: Long = AudioClockAnchorPolicy.DEFAULT_MAX_JITTER_NS,
++    ) =
+         AudioClockAnchorPolicy.estimate(
+             observations = buildList {
+                 repeat(CLOCK_ANCHOR_SAMPLES) { index ->
+@@ -400,6 +502,7 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
+                 }
+             },
+             sampleRateHz = sampleRateHz,
++            maxJitterNs = maxJitterNs,
+         )
+ 
+     private fun applyRuntimeTrackMix(trackId: String, samples: FloatArray, sampleCount: Int) {
+@@ -428,7 +531,7 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
          track: AudioTrack,
          request: StudioPlaybackRequest,
          listener: StudioPlaybackListener,
@@ -1536,7 +1589,7 @@ diff --git a/platform/audio-android/src/main/kotlin/studio/guitarlab/platform/au
          if (!request.preferredOutputRequested) {
              listener.onRouting(
                  StudioPlaybackRoutingStatus(
-@@ -437,7 +535,7 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
+@@ -437,7 +540,7 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
                      fellBackToAuto = false,
                  )
              )
@@ -1545,7 +1598,7 @@ diff --git a/platform/audio-android/src/main/kotlin/studio/guitarlab/platform/au
          }
  
          val preferred = request.preferredOutputDevice
-@@ -449,7 +547,7 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
+@@ -449,7 +552,7 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
                      fellBackToAuto = true,
                  )
              )
@@ -1554,7 +1607,7 @@ diff --git a/platform/audio-android/src/main/kotlin/studio/guitarlab/platform/au
          }
  
          val accepted = runCatching { track.setPreferredDevice(preferred) }.getOrDefault(false)
-@@ -461,6 +559,181 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
+@@ -461,6 +564,216 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
                  deviceLabel = preferred.productName?.toString(),
              )
          )
@@ -1630,13 +1683,16 @@ diff --git a/platform/audio-android/src/main/kotlin/studio/guitarlab/platform/au
 +            return null
 +        }
 +
-+        if (!primeAndVerifyDualRoutes(mainTrack, cueTrack, explicitMain, explicitCue)) {
++        val dualRouteFailure = primeAndVerifyDualRoutes(
++            mainTrack = mainTrack,
++            cueTrack = cueTrack,
++            expectedMain = explicitMain,
++            expectedCue = explicitCue,
++            sampleRateHz = request.sampleRateHz,
++        )
++        if (dualRouteFailure != null) {
 +            runCatching { cueTrack.release() }
-+            reportCueSuppressed(
-+                request,
-+                listener,
-+                "Não foi possível confirmar MAIN e CUE em endpoints físicos distintos; CUE permaneceu silencioso.",
-+            )
++            reportCueSuppressed(request, listener, dualRouteFailure)
 +            return null
 +        }
 +
@@ -1660,15 +1716,20 @@ diff --git a/platform/audio-android/src/main/kotlin/studio/guitarlab/platform/au
 +        cueTrack: AudioTrack,
 +        expectedMain: AudioDeviceInfo,
 +        expectedCue: AudioDeviceInfo,
-+    ): Boolean {
++        sampleRateHz: Int,
++    ): String? {
 +        val silence = FloatArray(CUE_ROUTE_PROBE_FRAMES * 2)
 +        return try {
 +            mainTrack.setVolume(0f)
 +            cueTrack.setVolume(0f)
 +            mainTrack.play()
 +            cueTrack.play()
-+            if (mainTrack.write(silence, 0, silence.size, AudioTrack.WRITE_BLOCKING) <= 0) return false
-+            if (cueTrack.write(silence, 0, silence.size, AudioTrack.WRITE_BLOCKING) <= 0) return false
++            if (mainTrack.write(silence, 0, silence.size, AudioTrack.WRITE_BLOCKING) <= 0) {
++                return "A saída principal não avançou durante a verificação silenciosa; CUE permaneceu bloqueado."
++            }
++            if (cueTrack.write(silence, 0, silence.size, AudioTrack.WRITE_BLOCKING) <= 0) {
++                return "A saída CUE não avançou durante a verificação silenciosa."
++            }
 +            val deadline = System.nanoTime() + CUE_ROUTE_PROBE_TIMEOUT_NS
 +            var verified = false
 +            while (System.nanoTime() < deadline && !verified) {
@@ -1682,12 +1743,39 @@ diff --git a/platform/audio-android/src/main/kotlin/studio/guitarlab/platform/au
 +                )
 +                if (!verified) Thread.sleep(CUE_ROUTE_PROBE_POLL_MS)
 +            }
-+            verified
++            if (!verified) {
++                return "Não foi possível confirmar MAIN e CUE em endpoints físicos distintos; CUE permaneceu silencioso."
++            }
++
++            val mainAnchor = stablePlaybackClockAnchor(
++                track = mainTrack,
++                sampleRateHz = sampleRateHz,
++                maxJitterNs = CUE_CLOCK_MAX_JITTER_NS,
++            )
++            val cueAnchor = stablePlaybackClockAnchor(
++                track = cueTrack,
++                sampleRateHz = sampleRateHz,
++                maxJitterNs = CUE_CLOCK_MAX_JITTER_NS,
++            )
++            if (mainAnchor == null || cueAnchor == null ||
++                mainAnchor.observations < CUE_CLOCK_MIN_OBSERVATIONS ||
++                cueAnchor.observations < CUE_CLOCK_MIN_OBSERVATIONS
++            ) {
++                return "Os clocks de apresentação MAIN/CUE não produziram evidência estável suficiente; CUE permaneceu silencioso."
++            }
++            if (!CueRouteSafetyPolicy.initialOffsetWithinLimit(
++                    mainStreamOriginNs = mainAnchor.streamOriginMonotonicNs,
++                    cueStreamOriginNs = cueAnchor.streamOriginMonotonicNs,
++                )
++            ) {
++                return "O offset inicial entre MAIN e CUE excedeu 12 ms; CUE foi silenciado para preservar sincronização."
++            }
++            null
 +        } catch (_: InterruptedException) {
 +            Thread.currentThread().interrupt()
-+            false
++            "A verificação silenciosa MAIN/CUE foi interrompida; CUE permaneceu silencioso."
 +        } catch (_: RuntimeException) {
-+            false
++            "O Android não conseguiu comprovar sincronização inicial entre MAIN e CUE."
 +        } finally {
 +            runCatching { mainTrack.pause() }
 +            runCatching { mainTrack.flush() }
@@ -1736,13 +1824,15 @@ diff --git a/platform/audio-android/src/main/kotlin/studio/guitarlab/platform/au
      }
  
      private fun normalizedStart(request: StudioPlaybackRequest): Long =
-@@ -499,5 +772,9 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
+@@ -499,5 +812,11 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
          const val NO_PENDING_SEEK = Long.MIN_VALUE
          const val CLOCK_ANCHOR_SAMPLES = 6
          const val CLOCK_ANCHOR_POLL_MS = 3L
-+        const val CUE_ROUTE_PROBE_FRAMES = 256
++        const val CUE_ROUTE_PROBE_FRAMES = 2_048
 +        const val CUE_ROUTE_PROBE_POLL_MS = 8L
 +        const val CUE_ROUTE_PROBE_TIMEOUT_NS = 220_000_000L
++        const val CUE_CLOCK_MAX_JITTER_NS = 4_000_000L
++        const val CUE_CLOCK_MIN_OBSERVATIONS = 3
 +        const val CUE_DRIFT_CONSECUTIVE_LIMIT = 3
      }
  }
