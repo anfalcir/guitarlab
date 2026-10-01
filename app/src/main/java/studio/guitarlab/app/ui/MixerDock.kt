@@ -176,7 +176,7 @@ private fun MixerTrackStrip(
 
     Surface(
         modifier = Modifier
-            .width(216.dp)
+            .width(232.dp)
             .fillMaxHeight()
             .testTag("mixer-track-strip-${track.id}")
             .clip(RoundedCornerShape(8.dp))
@@ -216,7 +216,7 @@ private fun MixerTrackStrip(
                 }
             }
 
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 MixerStateButton(
                     label = "M",
                     active = track.muted,
@@ -348,20 +348,25 @@ private fun MixerStateButton(
     val inactive = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.58f)
     val border = if (active) activeColor else MaterialTheme.colorScheme.outline.copy(alpha = 0.55f)
     val foreground = if (active) activeColor else inactive
-    Surface(
-        modifier = Modifier.size(width = 38.dp, height = 30.dp)
-            .clip(RoundedCornerShape(8.dp))
+    Box(
+        modifier = Modifier
+            .size(48.dp)
             .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
             .semantics {
                 this.contentDescription = contentDescription
                 stateDescription = if (active) "Ativado" else "Desativado"
             },
-        shape = RoundedCornerShape(8.dp),
-        color = if (active) activeColor.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surface.copy(alpha = 0.44f),
-        border = BorderStroke(if (active) 1.5.dp else 1.dp, border),
+        contentAlignment = Alignment.Center,
     ) {
-        Box(contentAlignment = Alignment.Center) {
-            Text(label, style = MaterialTheme.typography.labelLarge, color = foreground.copy(alpha = if (enabled) 1f else 0.55f))
+        Surface(
+            modifier = Modifier.size(width = 38.dp, height = 30.dp),
+            shape = RoundedCornerShape(8.dp),
+            color = if (active) activeColor.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surface.copy(alpha = 0.44f),
+            border = BorderStroke(if (active) 1.5.dp else 1.dp, border),
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Text(label, style = MaterialTheme.typography.labelLarge, color = foreground.copy(alpha = if (enabled) 1f else 0.55f))
+            }
         }
     }
 }
@@ -377,25 +382,30 @@ private fun MixerCueButton(
     val inactive = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.58f)
     val border = if (active) activeColor else MaterialTheme.colorScheme.outline.copy(alpha = 0.55f)
     val foreground = if (active) activeColor else inactive
-    Surface(
-        modifier = Modifier.size(width = 38.dp, height = 30.dp)
-            .clip(RoundedCornerShape(8.dp))
+    Box(
+        modifier = Modifier
+            .size(48.dp)
             .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
             .semantics {
                 this.contentDescription = contentDescription
                 stateDescription = if (active) "Ativado" else "Desativado"
             },
-        shape = RoundedCornerShape(8.dp),
-        color = if (active) activeColor.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surface.copy(alpha = 0.44f),
-        border = BorderStroke(if (active) 1.5.dp else 1.dp, border),
+        contentAlignment = Alignment.Center,
     ) {
-        Box(contentAlignment = Alignment.Center) {
-            Icon(
-                imageVector = Icons.Default.Headphones,
-                contentDescription = null,
-                modifier = Modifier.size(18.dp),
-                tint = foreground.copy(alpha = if (enabled) 1f else 0.55f),
-            )
+        Surface(
+            modifier = Modifier.size(width = 38.dp, height = 30.dp),
+            shape = RoundedCornerShape(8.dp),
+            color = if (active) activeColor.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surface.copy(alpha = 0.44f),
+            border = BorderStroke(if (active) 1.5.dp else 1.dp, border),
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    imageVector = Icons.Default.Headphones,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp),
+                    tint = foreground.copy(alpha = if (enabled) 1f else 0.55f),
+                )
+            }
         }
     }
 }
@@ -409,25 +419,30 @@ private fun MixerArmButton(
 ) {
     val vivid = StudioRecord
     val dim = vivid.copy(alpha = if (enabled) 0.27f else 0.16f)
-    Surface(
-        modifier = Modifier.size(width = 38.dp, height = 30.dp)
-            .clip(RoundedCornerShape(8.dp))
+    Box(
+        modifier = Modifier
+            .size(48.dp)
             .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
             .semantics {
                 this.contentDescription = contentDescription
                 stateDescription = if (active) "Armada" else "Desarmada"
             },
-        shape = RoundedCornerShape(8.dp),
-        color = if (active) vivid.copy(alpha = 0.14f) else MaterialTheme.colorScheme.surface.copy(alpha = 0.44f),
-        border = BorderStroke(if (active) 1.5.dp else 1.dp, if (active) vivid else vivid.copy(alpha = 0.18f)),
+        contentAlignment = Alignment.Center,
     ) {
-        Box(contentAlignment = Alignment.Center) {
-            Icon(
-                imageVector = Icons.Default.FiberManualRecord,
-                contentDescription = null,
-                modifier = Modifier.size(15.dp),
-                tint = if (active) vivid else dim,
-            )
+        Surface(
+            modifier = Modifier.size(width = 38.dp, height = 30.dp),
+            shape = RoundedCornerShape(8.dp),
+            color = if (active) vivid.copy(alpha = 0.14f) else MaterialTheme.colorScheme.surface.copy(alpha = 0.44f),
+            border = BorderStroke(if (active) 1.5.dp else 1.dp, if (active) vivid else vivid.copy(alpha = 0.18f)),
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    imageVector = Icons.Default.FiberManualRecord,
+                    contentDescription = null,
+                    modifier = Modifier.size(15.dp),
+                    tint = if (active) vivid else dim,
+                )
+            }
         }
     }
 }
