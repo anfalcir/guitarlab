@@ -1,85 +1,83 @@
 # Current State — GuitarLab Studio
 
-Updated: 2026-09-25
+Updated: 2026-10-01
 
 ## Status
 
-**RC21 SIGNED MAINTENANCE CANDIDATE — DIGITAL PASS / PHYSICAL ACCEPTANCE PENDING**
+**RC22 DUAL-OUTPUT/CUE FEATURE CANDIDATE — IMPLEMENTED / DIGITAL REQUALIFICATION PENDING**
 
-RC20 remains the currently accepted, physically homologated baseline recorded in `RELEASE_BASELINE.md`. RC21 is a proportional maintenance successor opened under the RC20 maintenance policy after owner-observed persistence/Studio and backup-feedback regressions. Implementation and serial hardening are complete; the unsigned Android qualification is green. RC21 does not replace RC20 until the exact signed RC21 APK passes residual owner acceptance.
+RC20 remains the currently accepted, physically homologated baseline recorded in `RELEASE_BASELINE.md`. RC22 is an explicit owner-requested successor candidate built on the RC21-integrated Android source. It adds per-track MAIN/CUE monitoring and therefore reopens only the affected Android playback/routing/monitoring paths plus adjacent persistence/UI coverage. The frozen Demucs backend and unrelated Drive transport evidence are unchanged.
 
-## RC21 candidate identity
+RC21 reached signed digital-candidate state, but RC22 now supersedes it as the active Android candidate before RC21 promotion. RC20 remains the accepted baseline until an exact signed RC22 artifact passes the residual affected-path physical acceptance.
+
+## RC22 candidate identity
 
 - package: `studio.guitarlab.app`;
-- versionName: `0.5.0-rc21`;
-- versionCode: `41`;
-- maintenance source branch before integration: `maintenance/rc21-integrity-feedback-backup`;
-- canonical integration: PR #7 merged into `main`;
-- main integration commit: `2617fe1f1f2351a17389f165ed5d5a8e834e16a2`;
-- software/API36 qualified source: `ad182678cb2704dc9bbfc622124b4f2ac121fea1`;
-- Android CI: **#910 / run 36195905242 — PASS**;
-- Unit tests + Lint + APK build: PASS;
-- API 36 emulator regression: PASS;
-- signed producer: `52b9d66f450fc597f8367f5778334280ceeb521e`;
-- signed Android CI: **#912 / run 36197863467 — PASS**;
-- unsigned APK SHA-256: `ef381b82c120e2d9038a7485a7eb4b28c7832489d07fa1658e946d0839cd2165`;
-- signed APK SHA-256: `7334fba11a64397e798afef99604dd2a6ebf1cf9f4dbd0d51c0c7f3c75321a6a`;
-- signer certificate SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`;
-- signed artifact: `GuitarLabStudio-0.5.0-rc21-homologacao`, artifact id `10890778538`;
-- artifact ZIP SHA-256: `92f42c75ee07e97814c5d4a8605034c24a99501fffdb2e959bcd132539d07c1a`.
+- versionName: `0.5.0-rc22`;
+- versionCode: `42`;
+- development branch: `feature/dual-output-cue-routing`;
+- base canonical `main`: `ba2227bfb28afcc3d95602bcb622a05f27457141`;
+- source materialization tail: `scripts/materialize_ci_sources_rc22.py`;
+- protected payload: `.source-parts/RC22DualOutputCueRouting.patch`;
+- initial qualification CI #913 / run `36865931256`: **FAIL** because `StudioViewModel.kt` referenced `cueOutputSignature` without resolving it inside backing playback during recording;
+- corrective source and payload have been applied; a fresh full qualification run is required before integration.
 
-## RC21 maintenance scope
+## RC22 feature scope
 
-RC21 is deliberately narrow. The production separation backend, Demucs/model identity, recording route/timing architecture and unaffected RC20 behavior remain unchanged.
+### Per-track routing
 
-### Legacy recording/stereo integrity
+- every track persists `TrackOutputRoute` with backward-compatible default `MAIN`;
+- engine contract supports `MAIN`, `CUE` and `MAIN_AND_CUE`;
+- the first mixer headphone button intentionally toggles exclusive MAIN ↔ CUE;
+- projects created before RC22 reopen with every pre-existing track routed to MAIN;
+- CUE is monitoring/playback metadata and does not destructively modify media.
 
-- narrowly recover missing take lineage only for legacy managed recordings whose role, managed URI/path, WAV format, clip-id filename prefix and historical take timestamp all match;
-- never promote generic imports into recorded takes;
-- stereo separation persists the splitter's actual editing sample rate and total frame count rather than inheriting a trimmed clip length;
-- separation preserves modern take metadata by creating per-track take lineage;
-- ambiguous pre-existing shared take lineage fails closed instead of guessing;
-- derived/proxy media is discarded if project publication fails.
+### Output configuration
 
-### Persisted-state integrity
+- Options exposes recording input, MAIN output and optional secondary/CUE output;
+- CUE is explicit-only and requires an explicit MAIN selection;
+- MAIN and CUE must resolve to different physical Android endpoints;
+- no ephemeral Android device ID is persisted; durable selection continues to use stable semantic signatures;
+- if MAIN becomes automatic or CUE becomes unavailable/same-route, CUE is disabled/fails closed.
 
-- Drive/package integrity validation verifies the decoded persisted canonical project state before compatibility repair changes the in-memory representation;
-- compatibility recovery is applied only after the stored digest has been accepted;
-- recovery remains idempotent and cannot redefine the cryptographic identity of the archived project bytes.
+### Playback and recording
 
-### Transient feedback
+- normal Play renders independent MAIN and CUE buses from the same project timeline;
+- backing playback during REC uses the same dual-bus engine;
+- when software monitoring is enabled, the armed track's exclusive MAIN/CUE state selects the required monitor output;
+- the recording writer remains input-only: playback/CUE audio never enters the recorded file;
+- before audible CUE use, the engine silently primes and verifies distinct effective routes;
+- during playback it rechecks routing and monitors presented-frame drift;
+- if CUE is rejected, disconnected, converges with MAIN or crosses the bounded drift guard, only CUE is suppressed and the user receives explicit feedback.
 
-- Home/Studio/Backup/Diagnostics use the shared transient-feedback policy/host instead of independent Snackbar implementations;
-- eligible transient events are consumed when handed to the host, preventing delayed replay after navigation;
-- persistent operational state remains inline rather than becoming Snackbar spam;
-- raw routing/device identifiers remain excluded from normal transient UX.
+### Mixer, diagnostics and help
 
-### Drive catalog/cache and automatic backup
+- each track strip has an accessible headphone/CUE state control next to Mute/Solo/Arm;
+- touch-target separation is covered by instrumentation;
+- Settings and Diagnostics expose CUE selection/health using sanitized semantic identities;
+- diagnostic bundles include selected/effective CUE state without raw transient route identifiers;
+- the shared Home/Studio in-app guide explains MAIN/CUE behavior and fail-closed semantics.
 
-- one Drive head snapshot is used to derive retained versions, reconciliation and remote tips;
-- known immutable version/manifest metadata is reused to avoid re-downloading unchanged project-state objects;
-- a small metadata-only cache is durable, schema/integrity checked, account/retention scoped and bound to current local revision identities;
-- cache is never remote truth: every visible Backup screen entry forces a remote head verification;
-- cached versions remain visible during background refresh and empty-catalog refresh shows immediate loading state;
-- user refresh always forces Drive verification;
-- automatic backup remains owned by WorkManager and does not depend on Backup UI lifetime;
-- completion refreshes the catalog immediately only when the Backup screen is visible; otherwise the worker finishes without a redundant Drive read and the next screen entry performs the forced refresh;
-- cancellation and terminal Activity state remain explicit.
+### Export and persistence
 
-## Evidence and provider scope
+- MAIN/CUE routing is stored in project state and survives save/reopen/backup;
+- project compatibility tests prove legacy default MAIN and CUE round-trip;
+- live CUE routing is not an export-exclusion flag: Studio Master continues to render the project mix/timeline independently of physical monitoring assignment.
 
-The underlying Drive v3 OAuth/transport/resumable-upload/commit/restore store is unchanged, so the accepted U8m provider-real campaign remains valid supporting evidence for those semantics. RC21 changes catalog read/cache/presentation orchestration, therefore final residual acceptance includes a representative real-Drive backup → catalog refresh → restore smoke on the target device; the full destructive U8m campaign is not repeated without a transport/store change.
+## Qualification required before merge/promotion
 
-## Promotion sequence
+Digital qualification must pass on the exact corrected RC22 source:
 
-1. complete live documentation — DONE;
-2. merge the maintenance work into canonical `main` — DONE via PR #7;
-3. remove/disable the temporary maintenance branch and keep it out of CI triggers — DONE: workflow exception removed; ref neutralized to canonical `main` with no unique commits;
-4. run `[run ci signed]` from the exact canonical `main` — DONE: CI #912 PASS;
-5. install that exact signed artifact on Samsung SM-X230 / Android 16;
-6. perform residual acceptance for the affected maintenance paths, including the legacy Studio recovery case and representative Drive backup/catalog/restore;
-7. after owner PASS, update `RELEASE_BASELINE.md` to RC21 and archive the final acceptance record.
+1. deterministic RC22 materialization and reverse-apply/idempotence;
+2. JVM/unit tests including routing and project compatibility;
+3. Android Lint;
+4. debug/release assembly and unsigned candidate staging;
+5. API 36 representative instrumented regression, including Mixer accessibility;
+6. canonical-main integration only after the branch qualification is green;
+7. signed exact-artifact qualification from canonical `main`.
 
-## Accepted baseline until promotion
+Because this feature changes simultaneous physical audio routing, final support for a concrete MAIN+CUE device combination additionally requires residual physical validation on the exact signed RC22 APK. CI cannot prove Samsung/Android HAL behavior for two physical outputs.
 
-RC20 remains immutable and accepted until step 7. Its signed APK hash, signer, producer SHA, physical acceptance and production worker digest remain exactly as recorded in `RELEASE_BASELINE.md`.
+## Accepted baseline until RC22 promotion
+
+RC20 remains immutable and accepted. Its signed APK hash, signer, producer SHA, physical acceptance and frozen production worker digest remain exactly as recorded in `RELEASE_BASELINE.md`.
