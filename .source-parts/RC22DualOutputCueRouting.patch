@@ -14,10 +14,18 @@ index 076c5e7..5e3343d 100644
      }
  
 diff --git a/app/src/androidTest/java/studio/guitarlab/app/MixerDockInstrumentedTest.kt b/app/src/androidTest/java/studio/guitarlab/app/MixerDockInstrumentedTest.kt
-index bf81aa9..1d31d63 100644
+index bf81aa9..1231ebc 100644
 --- a/app/src/androidTest/java/studio/guitarlab/app/MixerDockInstrumentedTest.kt
 +++ b/app/src/androidTest/java/studio/guitarlab/app/MixerDockInstrumentedTest.kt
-@@ -38,6 +38,7 @@ class MixerDockInstrumentedTest {
+@@ -6,6 +6,7 @@ import androidx.compose.ui.semantics.SemanticsProperties
+ import androidx.compose.ui.test.SemanticsMatcher
+ import androidx.compose.ui.test.assert
+ import androidx.compose.ui.test.assertIsEnabled
++import androidx.compose.ui.test.assertIsNotEnabled
+ import androidx.compose.ui.test.assertIsDisplayed
+ import androidx.compose.ui.test.hasClickAction
+ import androidx.compose.ui.test.junit4.createComposeRule
+@@ -38,6 +39,7 @@ class MixerDockInstrumentedTest {
      fun mixerStateControlsExposeRoleStateCallbacksAndNonOverlapping48dpCenters() {
          val muteClicks = AtomicInteger(0)
          val soloClicks = AtomicInteger(0)
@@ -25,7 +33,7 @@ index bf81aa9..1d31d63 100644
          val armClicks = AtomicInteger(0)
          val trackClipClicks = AtomicInteger(0)
          val masterClipClicks = AtomicInteger(0)
-@@ -69,6 +70,7 @@ class MixerDockInstrumentedTest {
+@@ -69,6 +71,7 @@ class MixerDockInstrumentedTest {
                      onPanCommit = { _, _ -> },
                      onToggleMute = { muteClicks.incrementAndGet() },
                      onToggleSolo = { soloClicks.incrementAndGet() },
@@ -33,7 +41,7 @@ index bf81aa9..1d31d63 100644
                      onToggleArm = { armClicks.incrementAndGet() },
                      onMasterGainPreview = {},
                      onMasterGainCommit = {},
-@@ -80,33 +82,39 @@ class MixerDockInstrumentedTest {
+@@ -80,34 +83,78 @@ class MixerDockInstrumentedTest {
  
          val mute = composeRule.onNodeWithContentDescription("Mute da pista Teste")
          val solo = composeRule.onNodeWithContentDescription("Solo da pista Teste")
@@ -72,9 +80,48 @@ index bf81aa9..1d31d63 100644
 +        assertTrue("Solo/CUE expanded touch targets must not overlap", abs(cueCenter.x - soloCenter.x) >= minimumCenterDistancePx)
 +        assertTrue("CUE/Arm expanded touch targets must not overlap", abs(armCenter.x - cueCenter.x) >= minimumCenterDistancePx)
      }
++    @Test
++    fun cueRoutingIsDisabledWhenStructuralTransportEditsAreLocked() {
++        val track = AudioTrack(id = "route-locked", name = "Route locked", order = 0)
++        composeRule.setContent {
++            GuitarLabTheme(darkTheme = false) {
++                MixerDock(
++                    tracks = listOf(track),
++                    selectedTrackId = track.id,
++                    mixControlsEnabled = true,
++                    structuralControlsEnabled = false,
++                    masterGainDb = 0f,
++                    masterMeter = MeterBallisticsState(),
++                    trackMeters = emptyMap(),
++                    masterClipLatched = false,
++                    trackClipLatched = emptySet(),
++                    onSelectTrack = {},
++                    onGainPreview = { _, _ -> },
++                    onGainCommit = { _, _ -> },
++                    onPanPreview = { _, _ -> },
++                    onPanCommit = { _, _ -> },
++                    onToggleMute = {},
++                    onToggleSolo = {},
++                    onToggleCue = {},
++                    onToggleArm = {},
++                    onMasterGainPreview = {},
++                    onMasterGainCommit = {},
++                    onClearTrackClip = {},
++                    onClearMasterClip = {},
++                )
++            }
++        }
++
++        composeRule.onNodeWithContentDescription("Mute da pista Route locked").assertIsEnabled()
++        composeRule.onNodeWithContentDescription("Solo da pista Route locked").assertIsEnabled()
++        composeRule.onNodeWithContentDescription("Saída CUE da pista Route locked").assertIsNotEnabled()
++        composeRule.onNodeWithContentDescription("Gravação da pista Route locked").assertIsNotEnabled()
++    }
++
      @Test
      fun overflowingTracksSwipeHorizontallyWhileMasterRemainsAnchored() {
-@@ -130,6 +138,7 @@ class MixerDockInstrumentedTest {
+         val tracks = List(10) { index -> AudioTrack(id = "overflow-$index", name = "Track $index", order = index) }
+@@ -130,6 +177,7 @@ class MixerDockInstrumentedTest {
                      onPanCommit = { _, _ -> },
                      onToggleMute = {},
                      onToggleSolo = {},
@@ -136,10 +183,18 @@ index 2d4fba8..8f91a6b 100644
              val outputSignature = routingStore.selectedOutputSignature()
              listOf(44_100, 48_000, 88_200, 96_000).forEach { rate ->
 diff --git a/app/src/main/java/studio/guitarlab/app/ui/MixerDock.kt b/app/src/main/java/studio/guitarlab/app/ui/MixerDock.kt
-index f55a090..c7900bc 100644
+index f55a090..7cf7410 100644
 --- a/app/src/main/java/studio/guitarlab/app/ui/MixerDock.kt
 +++ b/app/src/main/java/studio/guitarlab/app/ui/MixerDock.kt
-@@ -51,6 +51,7 @@ import studio.guitarlab.app.ui.theme.StudioRecord
+@@ -21,6 +21,7 @@ import androidx.compose.foundation.lazy.items
+ import androidx.compose.foundation.shape.RoundedCornerShape
+ import androidx.compose.material.icons.Icons
+ import androidx.compose.material.icons.filled.FiberManualRecord
++import androidx.compose.material.icons.filled.Headphones
+ import androidx.compose.material3.Icon
+ import androidx.compose.material3.MaterialTheme
+ import androidx.compose.material3.Slider
+@@ -51,6 +52,7 @@ import studio.guitarlab.app.ui.theme.StudioRecord
  import studio.guitarlab.app.ui.theme.StudioSolo
  import studio.guitarlab.core.audio.MeterBallisticsState
  import studio.guitarlab.core.model.AudioTrack
@@ -147,7 +202,7 @@ index f55a090..c7900bc 100644
  import studio.guitarlab.core.project.GuitarAuditionMode
  import studio.guitarlab.core.project.GuitarAuditionPolicy
  import studio.guitarlab.core.project.GuitarAuditionTrackState
-@@ -74,6 +75,7 @@ fun MixerDock(
+@@ -74,6 +76,7 @@ fun MixerDock(
      onPanCommit: (String, Float) -> Unit,
      onToggleMute: (String) -> Unit,
      onToggleSolo: (String) -> Unit,
@@ -155,7 +210,7 @@ index f55a090..c7900bc 100644
      onToggleArm: (String) -> Unit,
      onMasterGainPreview: (Float) -> Unit,
      onMasterGainCommit: (Float) -> Unit,
-@@ -124,6 +126,7 @@ fun MixerDock(
+@@ -124,6 +127,7 @@ fun MixerDock(
                              onPanCommit = { onPanCommit(track.id, it) },
                              onToggleMute = { onToggleMute(track.id) },
                              onToggleSolo = { onToggleSolo(track.id) },
@@ -163,7 +218,7 @@ index f55a090..c7900bc 100644
                              onToggleArm = { onToggleArm(track.id) },
                              onClearClip = { onClearTrackClip(track.id) },
                          )
-@@ -160,6 +163,7 @@ private fun MixerTrackStrip(
+@@ -160,6 +164,7 @@ private fun MixerTrackStrip(
      onPanCommit: (Float) -> Unit,
      onToggleMute: () -> Unit,
      onToggleSolo: () -> Unit,
@@ -171,7 +226,7 @@ index f55a090..c7900bc 100644
      onToggleArm: () -> Unit,
      onClearClip: () -> Unit,
  ) {
-@@ -171,7 +175,7 @@ private fun MixerTrackStrip(
+@@ -171,7 +176,7 @@ private fun MixerTrackStrip(
  
      Surface(
          modifier = Modifier
@@ -180,23 +235,63 @@ index f55a090..c7900bc 100644
              .fillMaxHeight()
              .testTag("mixer-track-strip-${track.id}")
              .clip(RoundedCornerShape(8.dp))
-@@ -228,6 +232,14 @@ private fun MixerTrackStrip(
+@@ -228,6 +233,13 @@ private fun MixerTrackStrip(
                      contentDescription = "Solo da pista ${track.name}",
                      onClick = onToggleSolo,
                  )
-+                MixerStateButton(
-+                    label = "🎧",
++                MixerCueButton(
 +                    active = track.outputRoute != TrackOutputRoute.MAIN,
 +                    activeColor = MaterialTheme.colorScheme.tertiary,
-+                    enabled = mixControlsEnabled,
++                    enabled = structuralControlsEnabled,
 +                    contentDescription = "Saída CUE da pista ${track.name}",
 +                    onClick = onToggleCue,
 +                )
                  MixerArmButton(
                      active = track.armed,
                      enabled = structuralControlsEnabled,
+@@ -354,6 +366,40 @@ private fun MixerStateButton(
+     }
+ }
+ 
++@Composable
++private fun MixerCueButton(
++    active: Boolean,
++    activeColor: Color,
++    enabled: Boolean,
++    contentDescription: String,
++    onClick: () -> Unit,
++) {
++    val inactive = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.58f)
++    val border = if (active) activeColor else MaterialTheme.colorScheme.outline.copy(alpha = 0.55f)
++    val foreground = if (active) activeColor else inactive
++    Surface(
++        modifier = Modifier.size(width = 38.dp, height = 30.dp)
++            .clip(RoundedCornerShape(8.dp))
++            .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
++            .semantics {
++                this.contentDescription = contentDescription
++                stateDescription = if (active) "Ativado" else "Desativado"
++            },
++        shape = RoundedCornerShape(8.dp),
++        color = if (active) activeColor.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surface.copy(alpha = 0.44f),
++        border = BorderStroke(if (active) 1.5.dp else 1.dp, border),
++    ) {
++        Box(contentAlignment = Alignment.Center) {
++            Icon(
++                imageVector = Icons.Default.Headphones,
++                contentDescription = null,
++                modifier = Modifier.size(18.dp),
++                tint = foreground.copy(alpha = if (enabled) 1f else 0.55f),
++            )
++        }
++    }
++}
++
+ @Composable
+ private fun MixerArmButton(
+     active: Boolean,
 diff --git a/app/src/main/java/studio/guitarlab/app/ui/SettingsScreen.kt b/app/src/main/java/studio/guitarlab/app/ui/SettingsScreen.kt
-index e4c982b..2f4389f 100644
+index e4c982b..4f53241 100644
 --- a/app/src/main/java/studio/guitarlab/app/ui/SettingsScreen.kt
 +++ b/app/src/main/java/studio/guitarlab/app/ui/SettingsScreen.kt
 @@ -75,6 +75,7 @@ fun SettingsScreen(
@@ -262,9 +357,12 @@ index e4c982b..2f4389f 100644
                          },
                      )
                      MonitoringSelector(
-@@ -316,9 +349,11 @@ fun SettingsScreen(
+@@ -314,11 +347,13 @@ fun SettingsScreen(
+                         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.24f),
+                     ) {
                          Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                             Text("Rota efetiva", style = MaterialTheme.typography.titleSmall)
+-                            Text("Rota efetiva", style = MaterialTheme.typography.titleSmall)
++                            Text("Seleção e disponibilidade", style = MaterialTheme.typography.titleSmall)
                              Text("Entrada: ${routeHealth.effectiveInput?.let(::audioCapabilities) ?: if (selectedInput == null) "Automática" else "Selecionada, mas indisponível"}", style = MaterialTheme.typography.bodySmall)
 -                            Text("Saída: ${routeHealth.effectiveOutput?.let(::audioCapabilities) ?: if (selectedOutput == null) "Automática" else "Selecionada, mas indisponível"}", style = MaterialTheme.typography.bodySmall)
 +                            Text("Saída principal: ${routeHealth.effectiveOutput?.let(::audioCapabilities) ?: if (selectedOutput == null) "Automática" else "Selecionada, mas indisponível"}", style = MaterialTheme.typography.bodySmall)
@@ -494,7 +592,7 @@ index 6cd72c7..40ec9b2 100644
                      onMasterGainPreview = viewModel::previewMasterGainDb,
                      onMasterGainCommit = viewModel::commitMasterGainDb,
 diff --git a/app/src/main/java/studio/guitarlab/app/ui/StudioUserGuideDialog.kt b/app/src/main/java/studio/guitarlab/app/ui/StudioUserGuideDialog.kt
-index 351de1c..550cd23 100644
+index 351de1c..f36fb2a 100644
 --- a/app/src/main/java/studio/guitarlab/app/ui/StudioUserGuideDialog.kt
 +++ b/app/src/main/java/studio/guitarlab/app/ui/StudioUserGuideDialog.kt
 @@ -58,7 +58,7 @@ private object GuitarLabGuideContent {
@@ -502,7 +600,7 @@ index 351de1c..550cd23 100644
              GuideArea.STUDIO,
              "Studio · gravação e Mixer",
 -            "Arme a pista correta antes de REC. A contagem aparece sem deslocar o layout; durante a gravação, waveform, Peak e RMS acompanham a take. A entrada selecionada precisa ser confirmada pelo Android: o GuitarLab não troca silenciosamente para o microfone do aparelho. Stop e REC finalizam pela mesma rotina segura. No Mixer, volume, pan, Mute, Solo e Arm mudam a mixagem sem apagar o áudio original.",
-+            "Arme a pista correta antes de REC. A contagem aparece sem deslocar o layout; durante a gravação, waveform, Peak e RMS acompanham a take. A entrada selecionada precisa ser confirmada pelo Android: o GuitarLab não troca silenciosamente para o microfone do aparelho. Stop e REC finalizam pela mesma rotina segura. No Mixer, volume, pan, Mute, Solo, fone/CUE e Arm mudam a monitoração sem apagar o áudio original. O botão de fone envia a pista para a saída secundária; se MAIN e CUE não puderem ser confirmadas como rotas físicas distintas, CUE fica silencioso em vez de vazar para MAIN.",
++            "Arme a pista correta antes de REC. A contagem aparece sem deslocar o layout; durante a gravação, waveform, Peak e RMS acompanham a take. A entrada selecionada precisa ser confirmada pelo Android: o GuitarLab não troca silenciosamente para o microfone do aparelho. Stop e REC finalizam pela mesma rotina segura. No Mixer, volume, pan, Mute, Solo, fone/CUE e Arm mudam a monitoração sem apagar o áudio original. Com o transporte parado, o botão de fone envia qualquer pista para a saída secundária. Durante Play/REC essa rota fica travada para manter a sessão consistente. Se MAIN e CUE não puderem ser confirmadas como rotas físicas distintas, CUE fica silencioso em vez de vazar para MAIN.",
          ),
          GuideSectionContent(
              GuideArea.STUDIO,
@@ -516,7 +614,7 @@ index 351de1c..550cd23 100644
      )
  
 diff --git a/app/src/main/java/studio/guitarlab/app/ui/StudioViewModel.kt b/app/src/main/java/studio/guitarlab/app/ui/StudioViewModel.kt
-index 1c9e472..a4fcac2 100644
+index 1c9e472..8fac1d6 100644
 --- a/app/src/main/java/studio/guitarlab/app/ui/StudioViewModel.kt
 +++ b/app/src/main/java/studio/guitarlab/app/ui/StudioViewModel.kt
 @@ -50,6 +50,8 @@ import studio.guitarlab.core.model.ChannelLayout
@@ -560,14 +658,14 @@ index 1c9e472..a4fcac2 100644
          )
          runCatching {
              recordingEngine.start(request, recordingListener)
-@@ -1619,6 +1631,41 @@ class StudioViewModel(application: Application) : AndroidViewModel(application)
+@@ -1619,6 +1631,40 @@ class StudioViewModel(application: Application) : AndroidViewModel(application)
  
      fun toggleTrackSolo(trackId: String) = editTrackAudibility(trackId, toggleMute = false)
  
 +    fun toggleTrackCue(trackId: String) {
 +        val state = _state.value
 +        val project = state.project ?: return
-+        if (state.importing || state.editingClip || state.historyBusy || state.trimControls != null) return
++        if (!structuralEditingAllowed(state)) return
 +        viewModelScope.launch {
 +            runCatching {
 +                saveLatest(project.id) { latest ->
@@ -582,7 +680,6 @@ index 1c9e472..a4fcac2 100644
 +                }
 +            }.onSuccess { saved ->
 +                val route = saved.tracks.firstOrNull { it.id == trackId }?.outputRoute ?: TrackOutputRoute.MAIN
-+                playbackEngine.setTrackOutputRoute(trackId, route)
 +                applySavedProject(
 +                    saved,
 +                    if (route == TrackOutputRoute.CUE) "Pista enviada para a saída CUE" else "Pista enviada para a saída principal",
@@ -602,27 +699,25 @@ index 1c9e472..a4fcac2 100644
      fun toggleTrackArmed(trackId: String) {
          editTrackStructural("Armar gravação atualizado", trackId) { it.copy(armed = !it.armed) }
      }
-@@ -2446,6 +2493,8 @@ class StudioViewModel(application: Application) : AndroidViewModel(application)
+@@ -2446,6 +2492,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application)
          val tracksById = project.tracks.associateBy { it.id }
          val selectedOutputSignature = audioRoutingStore.selectedOutputSignature()
          val preferredOutput = audioRoutingStore.resolveSelectedOutputDevice()
-+        val selectedCueOutputSignature = audioRoutingStore.selectedCueOutputSignature()
 +        val preferredCueOutput = audioRoutingStore.resolveSelectedCueOutputDevice()
          val request = runCatching {
              StudioPlaybackRequest(
                  sampleRateHz = readiness.sampleRateHz,
-@@ -2456,6 +2505,10 @@ class StudioViewModel(application: Application) : AndroidViewModel(application)
+@@ -2456,6 +2503,9 @@ class StudioViewModel(application: Application) : AndroidViewModel(application)
                  loopEndFrame = current.timelineControls.loopEndFrame,
                  preferredOutputDevice = preferredOutput,
                  preferredOutputRequested = !selectedOutputSignature.isNullOrBlank(),
 +                preferredCueOutputDevice = preferredCueOutput,
 +                preferredCueOutputRequested =
-+                    !selectedCueOutputSignature.isNullOrBlank() ||
-+                        project.tracks.any { TrackOutputRoutingPolicy.sendsToCue(it.outputRoute) },
++                    project.tracks.any { TrackOutputRoutingPolicy.sendsToCue(it.outputRoute) },
                  masterGainDb = project.masterGainDb,
                  auditionMode = current.guitarAuditionMode,
                  repeatLoop = false,
-@@ -2467,6 +2520,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application)
+@@ -2467,6 +2517,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application)
                          pan = track.pan,
                          muted = track.muted,
                          solo = track.solo,
@@ -630,7 +725,7 @@ index 1c9e472..a4fcac2 100644
                      )
                  },
                  clips = ActiveTakePolicy.audibleClips(project).mapNotNull { clip ->
-@@ -2556,15 +2610,27 @@ class StudioViewModel(application: Application) : AndroidViewModel(application)
+@@ -2556,15 +2607,27 @@ class StudioViewModel(application: Application) : AndroidViewModel(application)
                  }
  
                  override fun onRouting(status: StudioPlaybackRoutingStatus) {
@@ -667,15 +762,7 @@ index 1c9e472..a4fcac2 100644
                      }
                  }
  
-@@ -2684,6 +2750,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application)
-         }
-         if (clips.isEmpty()) return false
-         val outputSignature = audioRoutingStore.selectedOutputSignature()
-+        val cueOutputSignature = audioRoutingStore.selectedCueOutputSignature()
-         val request = StudioPlaybackRequest(
-             sampleRateHz = sampleRateHz,
-             startFrame = state.recordingSession.timelineStartFrame.coerceAtMost(end),
-@@ -2693,10 +2760,22 @@ class StudioViewModel(application: Application) : AndroidViewModel(application)
+@@ -2693,10 +2756,21 @@ class StudioViewModel(application: Application) : AndroidViewModel(application)
              loopEndFrame = state.timelineControls.loopEndFrame,
              clips = clips,
              trackMixes = project.tracks.map {
@@ -694,12 +781,11 @@ index 1c9e472..a4fcac2 100644
              preferredOutputRequested = !outputSignature.isNullOrBlank(),
 +            preferredCueOutputDevice = audioRoutingStore.resolveSelectedCueOutputDevice(),
 +            preferredCueOutputRequested =
-+                !cueOutputSignature.isNullOrBlank() ||
-+                    project.tracks.any { TrackOutputRoutingPolicy.sendsToCue(it.outputRoute) },
++                project.tracks.any { TrackOutputRoutingPolicy.sendsToCue(it.outputRoute) },
              masterGainDb = project.masterGainDb,
          )
          return runCatching {
-@@ -2743,6 +2822,17 @@ class StudioViewModel(application: Application) : AndroidViewModel(application)
+@@ -2743,6 +2817,17 @@ class StudioViewModel(application: Application) : AndroidViewModel(application)
                              PunchRecordingPolicy.plan(region, captureBeforeBackingFrames)
                          }
                      }
@@ -717,7 +803,7 @@ index 1c9e472..a4fcac2 100644
                  }
  
                  override fun onPosition(frame: Long) {
-@@ -2939,6 +3029,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application)
+@@ -2939,6 +3024,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application)
              trackMixDrafts[track.id] = TrackMixDraft(track.gainDb, track.pan)
              playbackEngine.setTrackMix(track.id, track.gainDb, track.pan)
              playbackEngine.setTrackAudibility(track.id, track.muted, track.solo)
@@ -727,10 +813,10 @@ index 1c9e472..a4fcac2 100644
          val state = _state.value
 diff --git a/core/audio/src/main/kotlin/studio/guitarlab/core/audio/CueRouteSafetyPolicy.kt b/core/audio/src/main/kotlin/studio/guitarlab/core/audio/CueRouteSafetyPolicy.kt
 new file mode 100644
-index 0000000..89e3b4d
+index 0000000..e6a3e44
 --- /dev/null
 +++ b/core/audio/src/main/kotlin/studio/guitarlab/core/audio/CueRouteSafetyPolicy.kt
-@@ -0,0 +1,58 @@
+@@ -0,0 +1,66 @@
 +package studio.guitarlab.core.audio
 +
 +enum class CueRouteBlockReason {
@@ -788,13 +874,21 @@ index 0000000..89e3b4d
 +
 +    fun driftExceeded(mainPresentedFrames: Long, cuePresentedFrames: Long, sampleRateHz: Int): Boolean =
 +        kotlin.math.abs(mainPresentedFrames - cuePresentedFrames) > driftLimitFrames(sampleRateHz)
++
++    /**
++     * CUE is a secondary sink and may never back-pressure MAIN. The render loop therefore writes
++     * CUE in non-blocking mode and keeps it active only when one call accepts the complete chunk.
++     * Partial/zero/error writes are treated as secondary-sink backpressure and fail closed.
++     */
++    fun secondaryWriteComplete(requestedSamples: Int, writtenSamples: Int): Boolean =
++        requestedSamples > 0 && writtenSamples == requestedSamples
 +}
 diff --git a/core/audio/src/test/kotlin/studio/guitarlab/core/audio/CueRouteSafetyPolicyTest.kt b/core/audio/src/test/kotlin/studio/guitarlab/core/audio/CueRouteSafetyPolicyTest.kt
 new file mode 100644
-index 0000000..6edbc1e
+index 0000000..9dbebd1
 --- /dev/null
 +++ b/core/audio/src/test/kotlin/studio/guitarlab/core/audio/CueRouteSafetyPolicyTest.kt
-@@ -0,0 +1,49 @@
+@@ -0,0 +1,57 @@
 +package studio.guitarlab.core.audio
 +
 +import kotlin.test.Test
@@ -843,6 +937,14 @@ index 0000000..6edbc1e
 +        assertFalse(CueRouteSafetyPolicy.driftExceeded(100_000, 102_400, 48_000))
 +        assertTrue(CueRouteSafetyPolicy.driftExceeded(100_000, 102_401, 48_000))
 +    }
++    @Test
++    fun secondarySinkMayNeverBackPressureMain() {
++        assertTrue(CueRouteSafetyPolicy.secondaryWriteComplete(2048, 2048))
++        assertFalse(CueRouteSafetyPolicy.secondaryWriteComplete(2048, 1024))
++        assertFalse(CueRouteSafetyPolicy.secondaryWriteComplete(2048, 0))
++        assertFalse(CueRouteSafetyPolicy.secondaryWriteComplete(2048, -3))
++    }
++
 +}
 diff --git a/core/model/src/main/kotlin/studio/guitarlab/core/model/ProjectModels.kt b/core/model/src/main/kotlin/studio/guitarlab/core/model/ProjectModels.kt
 index 6a0ccb1..86fea2a 100644
@@ -985,7 +1087,7 @@ index dcc828a..5b06cf3 100644
 +
  }
 diff --git a/platform/audio-android/src/main/kotlin/studio/guitarlab/platform/audio/android/AndroidStudioPlaybackEngine.kt b/platform/audio-android/src/main/kotlin/studio/guitarlab/platform/audio/android/AndroidStudioPlaybackEngine.kt
-index b8a3a42..7931224 100644
+index b8a3a42..21001f0 100644
 --- a/platform/audio-android/src/main/kotlin/studio/guitarlab/platform/audio/android/AndroidStudioPlaybackEngine.kt
 +++ b/platform/audio-android/src/main/kotlin/studio/guitarlab/platform/audio/android/AndroidStudioPlaybackEngine.kt
 @@ -16,7 +16,11 @@ import kotlin.math.sqrt
@@ -1111,7 +1213,7 @@ index b8a3a42..7931224 100644
                      writtenFramesSinceClockBase = 0L
                      playbackClockAnchor = null
                      clockAnchorAttempted = false
-@@ -264,35 +301,84 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
+@@ -264,35 +301,89 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
  
                  val framesToRender = min(CHUNK_FRAMES.toLong(), playbackBoundary - renderFrame).toInt()
                  val sampleCount = framesToRender * 2
@@ -1159,11 +1261,13 @@ index b8a3a42..7931224 100644
                  writtenFramesSinceClockBase += writtenFrames
 +
 +                cueTrack?.let { activeCue ->
++                    // CUE is deliberately non-blocking: a slow/blocked secondary sink may be
++                    // silenced, but it may never stall the render loop feeding MAIN.
 +                    val cueWrite = runCatching {
-+                        activeCue.write(cueMix, 0, sampleCount, AudioTrack.WRITE_BLOCKING)
++                        activeCue.write(cueMix, 0, sampleCount, AudioTrack.WRITE_NON_BLOCKING)
 +                    }.getOrDefault(AudioTrack.ERROR_INVALID_OPERATION)
-+                    val cueFrames = cueWrite / 2
-+                    val routeSafe = cueWrite > 0 && cueFrames == writtenFrames && cueRouteStillSafe(audioTrack, activeCue, request)
++                    val writeComplete = CueRouteSafetyPolicy.secondaryWriteComplete(sampleCount, cueWrite)
++                    val routeSafe = cueRouteStillSafe(audioTrack, activeCue, request)
 +                    val mainPresented = playbackHeadDelta(playbackHead(audioTrack), clockHeadBase)
 +                    val cuePresented = playbackHeadDelta(playbackHead(activeCue), cueClockHeadBase)
 +                    val driftUnsafe = CueRouteSafetyPolicy.driftExceeded(
@@ -1172,11 +1276,14 @@ index b8a3a42..7931224 100644
 +                        sampleRateHz = request.sampleRateHz,
 +                    )
 +                    cueDriftViolationCount = if (driftUnsafe) cueDriftViolationCount + 1 else 0
-+                    if (!routeSafe || cueDriftViolationCount >= CUE_DRIFT_CONSECUTIVE_LIMIT) {
-+                        val reason = if (!routeSafe) {
-+                            "A rota CUE mudou, convergiu para a saída principal ou deixou de avançar."
-+                        } else {
-+                            "A saída CUE excedeu o limite de deriva segura em relação à saída principal."
++                    if (!writeComplete || !routeSafe || cueDriftViolationCount >= CUE_DRIFT_CONSECUTIVE_LIMIT) {
++                        val reason = when {
++                            !writeComplete ->
++                                "A saída CUE não acompanhou o fluxo em tempo real; foi silenciada para não bloquear a saída principal."
++                            !routeSafe ->
++                                "A rota CUE mudou, convergiu para a saída principal ou deixou de ser confirmada."
++                            else ->
++                                "A saída CUE excedeu o limite de deriva segura em relação à saída principal."
 +                        }
 +                        runCatching { activeCue.pause() }
 +                        runCatching { activeCue.flush() }
@@ -1201,7 +1308,7 @@ index b8a3a42..7931224 100644
                  if (!clockAnchorAttempted) {
                      playbackClockAnchor = stablePlaybackClockAnchor(audioTrack, request.sampleRateHz)
                      clockAnchorAttempted = true
-@@ -301,15 +387,19 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
+@@ -301,15 +392,19 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
                      val hasTimestamp = playbackClockAnchor != null
                      val presentationStartNs = playbackClockAnchor?.streamOriginMonotonicNs ?: playCommandNs
                      val routed = audioTrack.routedDevice
@@ -1221,7 +1328,7 @@ index b8a3a42..7931224 100644
                          )
                      )
                      playbackStartReported = true
-@@ -375,6 +465,9 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
+@@ -375,6 +470,9 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
          } finally {
              running = false
              pendingSeekFrame.set(NO_PENDING_SEEK)
@@ -1231,7 +1338,7 @@ index b8a3a42..7931224 100644
              runCatching { track?.pause() }
              runCatching { track?.flush() }
              runCatching { track?.release() }
-@@ -428,7 +521,7 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
+@@ -428,7 +526,7 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
          track: AudioTrack,
          request: StudioPlaybackRequest,
          listener: StudioPlaybackListener,
@@ -1240,7 +1347,7 @@ index b8a3a42..7931224 100644
          if (!request.preferredOutputRequested) {
              listener.onRouting(
                  StudioPlaybackRoutingStatus(
-@@ -437,7 +530,7 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
+@@ -437,7 +535,7 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
                      fellBackToAuto = false,
                  )
              )
@@ -1249,7 +1356,7 @@ index b8a3a42..7931224 100644
          }
  
          val preferred = request.preferredOutputDevice
-@@ -449,7 +542,7 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
+@@ -449,7 +547,7 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
                      fellBackToAuto = true,
                  )
              )
@@ -1258,7 +1365,7 @@ index b8a3a42..7931224 100644
          }
  
          val accepted = runCatching { track.setPreferredDevice(preferred) }.getOrDefault(false)
-@@ -461,6 +554,181 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
+@@ -461,6 +559,181 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
                  deviceLabel = preferred.productName?.toString(),
              )
          )
@@ -1440,7 +1547,7 @@ index b8a3a42..7931224 100644
      }
  
      private fun normalizedStart(request: StudioPlaybackRequest): Long =
-@@ -499,5 +767,9 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
+@@ -499,5 +772,9 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
          const val NO_PENDING_SEEK = Long.MIN_VALUE
          const val CLOCK_ANCHOR_SAMPLES = 6
          const val CLOCK_ANCHOR_POLL_MS = 3L
