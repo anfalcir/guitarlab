@@ -2,8 +2,8 @@
 
 Private, single-owner Android guitar preparation, study, recording, mixing, export and backup appliance.
 
-Updated: 2026-09-25  
-Release state: **RC20 ACCEPTED / RC21 MAINTENANCE CANDIDATE — SOFTWARE/API36 PASS**
+Updated: 2026-10-01  
+Release state: **RC20 ACCEPTED / RC22 DUAL-OUTPUT FEATURE CANDIDATE — REQUALIFICATION ACTIVE**
 
 ## Start here
 
@@ -24,23 +24,22 @@ Completed roadmaps, milestone plans, candidate checklists, release campaigns and
 
 ## Accepted baseline and active candidate
 
-GuitarLab `0.5.0-rc20` / versionCode `40` remains the accepted personal-use baseline. A proportional maintenance candidate, `0.5.0-rc21` / versionCode `41`, has completed its unsigned software/API36 qualification and is progressing through canonical-main signing and residual owner acceptance.
+GuitarLab `0.5.0-rc20` / versionCode `40` remains the accepted personal-use baseline. The active successor is `0.5.0-rc22` / versionCode `42`, an owner-requested per-track MAIN/CUE monitoring feature built on the RC21-integrated Android source.
 
 - package: `studio.guitarlab.app`;
-- final Android CI: #904 PASS;
-- exact signed APK and certificate identity: `docs/RELEASE_BASELINE.md`;
-- owner physical homologation: PASS on 2026-09-25;
+- accepted baseline identity and signer: `docs/RELEASE_BASELINE.md`;
+- active candidate details and qualification state: `docs/CURRENT_STATE.md`;
 - target line: Samsung SM-X230 / Android 16 / API 36, with M-VAVE MK-300 USB where applicable;
 - remote separation: official PyTorch/Demucs `htdemucs_6s`, production worker frozen by immutable digest;
 - backup: direct Google Drive API v3.
 
-The exact hashes, producer SHAs, worker digest, model identity and qualification runs live in `docs/RELEASE_BASELINE.md`.
+The active RC22 feature adds an optional secondary CUE output and a headphone button per track. MAIN/CUE routing is fail-closed and is a live monitoring choice, not a Master Export exclusion control.
 
 ## Product model
 
 **Home → Prepare → Studio → Export → Backup / Activity / Settings**
 
-The product includes provider-backed source acquisition, cloud Demucs separation, managed backing/guitar references, Studio recording/editing/mixer/timing, study/master export, Activity/background state, direct Drive v3 backup/restore and tablet-focused responsive/accessibility behavior.
+The product includes provider-backed source acquisition, cloud Demucs separation, managed backing/guitar references, Studio recording/editing/mixer/timing, per-track MAIN/CUE monitoring, study/master export, Activity/background state, direct Drive v3 backup/restore and tablet-focused responsive/accessibility behavior.
 
 Studio remains locally usable without login for local work. Network-dependent acquisition/separation/backup surfaces expose their dependency.
 
@@ -51,8 +50,9 @@ GBW is historical implementation provenance only. Legacy standalone GBW/H37/pre-
 ## Repository and materialization
 
 - canonical branch: `main`;
+- active RC22 development branch: `feature/dual-output-cue-routing`;
 - canonical materialization entrypoint: `scripts/materialize_ci_sources.sh`;
-- current source tail: **RC21IntegrityFeedbackBackup** via `scripts/materialize_ci_sources_rc21.py`;
+- active candidate tail: **RC22DualOutputCueRouting** via `scripts/materialize_ci_sources_rc22.py`;
 - protected payloads: `.source-parts/`;
 - materialization is deterministic, hash/blob locked, idempotent and fail-closed.
 
@@ -67,10 +67,10 @@ Ordinary documentation/source commits use `[skip ci]` unless qualification is in
 - `[run u4 cloud]`: controlled real-cloud transactional smoke;
 - `[run u7 cloud]`: backend verification/deploy workflow with explicit shadow/production authorization.
 
-The accepted RC20 baseline does not require recurring CI. RC21 qualification is intentionally active only because an observed regression reopened maintenance under the frozen-product policy.
+The accepted RC20 baseline does not require recurring CI. RC22 qualification is active because the owner explicitly requested this new audio-routing feature.
 
 ## Security and maintenance
 
 Never commit keystores, private credentials, client secrets, refresh tokens or service-account keys.
 
-The accepted RC20 APK and backend digest remain frozen until a successor is promoted. RC21 exists because a real owner-observed regression triggered maintenance under `docs/PROJECT_IDENTITY.md` / D-090 / D-096; its qualification is proportional under `docs/TEST_AND_HOMOLOGATION_POLICY.md`. The separation backend is unchanged.
+The accepted RC20 APK and backend digest remain frozen until a successor is promoted. RC22 requalifies only the Android paths that its MAIN/CUE routing can materially affect plus adjacent integration coverage. The separation backend is unchanged.
