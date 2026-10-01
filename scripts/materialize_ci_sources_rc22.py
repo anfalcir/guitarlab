@@ -7,7 +7,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 PREVIOUS = ROOT / "scripts/materialize_ci_sources_rc21.py"
 PATCH = ROOT / ".source-parts/RC22DualOutputCueRouting.patch"
-PATCH_BLOB = "d77250f2120c4adcd6bc8e6c9efd6372837c4dc7"
+PATCH_BLOB = "7839c931d6a3ca894a1c58fc58fecb3db3391d9b"
 TARGETS = {
     "app/build.gradle.kts": ("076c5e76779c30a2a78df6edbbf5f849950134f8", "5e3343d00d2259fca4f57dadcbb9652355398fba"),
     "app/src/androidTest/java/studio/guitarlab/app/MixerDockInstrumentedTest.kt": ("bf81aa9414a376679634f8ddf3f0b9bbf58fde5d", "1231ebcf48ba39bb336b4d1e087c55bbb87ca014"),
@@ -19,16 +19,16 @@ TARGETS = {
     "app/src/main/java/studio/guitarlab/app/ui/StudioAudioRoutePolicy.kt": ("fab05208fe0ffc04e63118827482ee721827ac57", "4d5668411da8029a1a9a93fe6a474fbb8b702d9c"),
     "app/src/main/java/studio/guitarlab/app/ui/StudioAudioRoutingStore.kt": ("c22242d284fe0891ccba526b30d04ee93a31692a", "6608f5a828ad2c098bd713556e447cee5898eb1a"),
     "app/src/main/java/studio/guitarlab/app/ui/StudioShellScreen.kt": ("6cd72c76501aef0b3cabc5b5c9f6f3c6dfb1aa3e", "40ec9b20efcf86325ff09e1c5cc2b8871e1a8833"),
-    "app/src/main/java/studio/guitarlab/app/ui/StudioUserGuideDialog.kt": ("351de1cef1549091f3a08da2ab2d8a4d252721ae", "f36fb2a951aa8a7140b4616bce0b99f022342d13"),
+    "app/src/main/java/studio/guitarlab/app/ui/StudioUserGuideDialog.kt": ("351de1cef1549091f3a08da2ab2d8a4d252721ae", "99381a8819068f887799e305d32a0b16298daf80"),
     "app/src/main/java/studio/guitarlab/app/ui/StudioViewModel.kt": ("1c9e472debdf654de1b4b377ce3611c152812886", "e7594f890144197d8dceeb300183ecaa37e958d2"),
     "app/src/test/java/studio/guitarlab/app/ui/StudioAudioRoutePolicyTest.kt": ("460e2d04263a9529afb3dd572d4f7237365c3b4c", "e3d90e7ce0a162f36df6e3fde514dc0df40f97fa"),
-    "core/audio/src/main/kotlin/studio/guitarlab/core/audio/CueRouteSafetyPolicy.kt": (None, "e6a3e44aac493a268811eb72589a673d10353dc8"),
-    "core/audio/src/test/kotlin/studio/guitarlab/core/audio/CueRouteSafetyPolicyTest.kt": (None, "9dbebd1905a8afb69223467bad1499395ba30b60"),
+    "core/audio/src/main/kotlin/studio/guitarlab/core/audio/CueRouteSafetyPolicy.kt": (None, "87506d475ebdf998ec0ae417f2aa500f24781c97"),
+    "core/audio/src/test/kotlin/studio/guitarlab/core/audio/CueRouteSafetyPolicyTest.kt": (None, "6ba1d05813b16e190e25d7f9d75cf64caba80412"),
     "core/model/src/main/kotlin/studio/guitarlab/core/model/ProjectModels.kt": ("6a0ccb1e2f9b41694fd815486dab3e0251c2a1e0", "86fea2a477c6e930cbbccb1152009a20ee8181b1"),
     "core/model/src/main/kotlin/studio/guitarlab/core/model/TrackOutputRoutingPolicy.kt": (None, "c4642fa345810047c387a6107164a0f188ea8f64"),
     "core/model/src/test/kotlin/studio/guitarlab/core/model/TrackOutputRoutingPolicyTest.kt": (None, "da2e209e7729d3a74298e2d5cb9e43c80e851d7c"),
     "core/project/src/test/kotlin/studio/guitarlab/core/project/ProjectCodecCompatibilityTest.kt": ("dcc828a0c57ad6a1f5f379170f817e1ea2146332", "5b06cf31025e7b70471302fb00f068838fbe1879"),
-    "platform/audio-android/src/main/kotlin/studio/guitarlab/platform/audio/android/AndroidStudioPlaybackEngine.kt": ("b8a3a427d051965fafaef4904a5fcfa9e56253c1", "21001f07ea03fe22abacb6ae782b3cf8a9fced9a"),
+    "platform/audio-android/src/main/kotlin/studio/guitarlab/platform/audio/android/AndroidStudioPlaybackEngine.kt": ("b8a3a427d051965fafaef4904a5fcfa9e56253c1", "661356ad9e7d8c6dd76db0bf314c6734136d8e1a"),
     "platform/audio-android/src/main/kotlin/studio/guitarlab/platform/audio/android/AndroidStudioRecordingEngine.kt": ("50dd319428389cc5128b72263c56e5c0f60a3897", "4f8d5947c598da2d6bd324af8d7f073a0dfc39e0"),
     "platform/audio-android/src/test/kotlin/studio/guitarlab/platform/audio/android/RecordingInputRoutePolicyTest.kt": ("71649fa5210d518df8fe7e8545f7b0cbe668bbc4", "16fb515b50857c334e953f59028960dd796c9657"),
 }
@@ -98,11 +98,17 @@ def verify() -> None:
         (cue_policy, "object CueRouteSafetyPolicy", "cue safety policy"),
         (cue_policy, "CueRouteBlockReason.SAME_ENDPOINT", "same-endpoint guard"),
         (cue_policy, "fun secondaryWriteComplete", "secondary CUE write isolation"),
+        (cue_policy, "DEFAULT_INITIAL_OFFSET_LIMIT_NS = 12_000_000L", "12ms initial CUE offset limit"),
+        (cue_policy, "fun initialOffsetWithinLimit", "initial CUE offset policy"),
         (playback, "val preferredCueOutputDevice: AudioDeviceInfo? = null", "cue request"),
         (playback, "primeAndVerifyDualRoutes", "silent dual-route verification"),
         (playback, "cueRouteStillSafe", "runtime route verification"),
         (playback, "CueRouteSafetyPolicy.driftExceeded", "runtime drift guard"),
         (playback, "AudioTrack.WRITE_NON_BLOCKING", "non-blocking CUE writer"),
+        (playback, "CUE_CLOCK_MAX_JITTER_NS = 4_000_000L", "stable dual-output clock probe"),
+        (playback, "CUE_CLOCK_MIN_OBSERVATIONS = 3", "dual-output clock evidence"),
+        (playback, "CUE_ROUTE_PROBE_FRAMES = 2_048", "sustained silent route probe"),
+        (playback, "CueRouteSafetyPolicy.initialOffsetWithinLimit", "initial MAIN-CUE alignment enforcement"),
         (recording, "val preferredOutputRequired: Boolean = false", "required live-monitor route"),
         (recording, "RecordingMonitorRoutePolicy.accepts", "live-monitor fail closed"),
         (route_policy, "fun cueEligible", "low-latency CUE eligibility policy"),
@@ -129,6 +135,8 @@ def verify() -> None:
         (guide, "Durante Play/REC essa rota fica travada", "stopped-only guide"),
         (codec_test, "legacyTrackWithoutOutputRouteDefaultsToMain", "project compatibility test"),
         (cue_test, "cueAdmissionRequiresTwoExplicitDistinctResolvedEndpoints", "cue safety tests"),
+        (cue_test, "initialPresentationOffsetIsBoundedAndOverflowSafe", "initial offset unit test"),
+        (cue_test, "driftGuardStaysWithinMusicallyTightWindowAtCommonRates", "continuous drift unit test"),
         (mixer_test, '"Saída CUE da pista Teste"', "mixer instrumented test"),
     )
     for text_value, token, label in guards:
