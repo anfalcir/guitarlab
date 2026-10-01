@@ -114,7 +114,7 @@ The currently implemented format set includes WAV PCM, FLAC, AIFF/AIFC PCM, MP3,
 - CUE requires an explicit MAIN route, a resolvable low-latency secondary device and live proof that MAIN/CUE are distinct endpoints. Bluetooth is excluded from synchronized CUE because its presentation latency is not suitable for the alignment contract. CUE never falls back silently to MAIN.
 - The secondary CUE sink is opened only when playable content is assigned to a CUE-routed track; empty CUE tracks do not create an idle secondary stream.
 - CUE output writes may not block MAIN. Secondary backpressure/partial writes suppress CUE fail-closed instead of stalling the primary render loop.
-- If the CUE route is lost, rejected, converges with MAIN or exceeds the bounded synchronization guard, CUE is silenced and the user receives explicit feedback; safe MAIN playback continues.
+- Before audible use, MAIN and CUE must each provide stable presentation-clock evidence and their estimated stream origins must differ by no more than 12 ms. During playback, repeated presented-frame divergence beyond the continuous guard (~15.6 ms at 48 kHz) suppresses CUE. If the CUE route is lost, rejected, converges with MAIN, lacks stable clock evidence, exceeds either synchronization guard or cannot accept complete non-blocking chunks, CUE is silenced and the user receives explicit feedback; safe MAIN playback continues.
 - Playback/backing/monitoring return must never feed the recording writer.
 - Record uses visible 3-second countdown plus zero-time revalidation of permission, route, project and exactly one armed track.
 - Finalized takes enter immutable managed storage transactionally; zero-frame attempts create no clip.
