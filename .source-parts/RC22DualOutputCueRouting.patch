@@ -14,7 +14,7 @@ index 076c5e7..5e3343d 100644
      }
  
 diff --git a/app/src/androidTest/java/studio/guitarlab/app/MixerDockInstrumentedTest.kt b/app/src/androidTest/java/studio/guitarlab/app/MixerDockInstrumentedTest.kt
-index bf81aa9..1231ebc 100644
+index bf81aa9..39d6afd 100644
 --- a/app/src/androidTest/java/studio/guitarlab/app/MixerDockInstrumentedTest.kt
 +++ b/app/src/androidTest/java/studio/guitarlab/app/MixerDockInstrumentedTest.kt
 @@ -6,6 +6,7 @@ import androidx.compose.ui.semantics.SemanticsProperties
@@ -41,7 +41,7 @@ index bf81aa9..1231ebc 100644
                      onToggleArm = { armClicks.incrementAndGet() },
                      onMasterGainPreview = {},
                      onMasterGainCommit = {},
-@@ -80,34 +83,78 @@ class MixerDockInstrumentedTest {
+@@ -80,34 +83,91 @@ class MixerDockInstrumentedTest {
  
          val mute = composeRule.onNodeWithContentDescription("Mute da pista Teste")
          val solo = composeRule.onNodeWithContentDescription("Solo da pista Teste")
@@ -75,10 +75,24 @@ index bf81aa9..1231ebc 100644
          val density = InstrumentationRegistry.getInstrumentation().targetContext.resources.displayMetrics.density
          val minimumCenterDistancePx = 48f * density - 1f
  
-         assertTrue("Mute/Solo expanded touch targets must not overlap", abs(soloCenter.x - muteCenter.x) >= minimumCenterDistancePx)
+-        assertTrue("Mute/Solo expanded touch targets must not overlap", abs(soloCenter.x - muteCenter.x) >= minimumCenterDistancePx)
 -        assertTrue("Solo/Arm expanded touch targets must not overlap", abs(armCenter.x - soloCenter.x) >= minimumCenterDistancePx)
-+        assertTrue("Solo/CUE expanded touch targets must not overlap", abs(cueCenter.x - soloCenter.x) >= minimumCenterDistancePx)
-+        assertTrue("CUE/Arm expanded touch targets must not overlap", abs(armCenter.x - cueCenter.x) >= minimumCenterDistancePx)
++        val muteSoloDistancePx = abs(soloCenter.x - muteCenter.x)
++        val soloCueDistancePx = abs(cueCenter.x - soloCenter.x)
++        val cueArmDistancePx = abs(armCenter.x - cueCenter.x)
++
++        assertTrue(
++            "Mute/Solo expanded touch targets must not overlap: distance=$muteSoloDistancePx minimum=$minimumCenterDistancePx",
++            muteSoloDistancePx >= minimumCenterDistancePx,
++        )
++        assertTrue(
++            "Solo/CUE expanded touch targets must not overlap: distance=$soloCueDistancePx minimum=$minimumCenterDistancePx",
++            soloCueDistancePx >= minimumCenterDistancePx,
++        )
++        assertTrue(
++            "CUE/Arm expanded touch targets must not overlap: distance=$cueArmDistancePx minimum=$minimumCenterDistancePx",
++            cueArmDistancePx >= minimumCenterDistancePx,
++        )
      }
 +    @Test
 +    fun cueRoutingIsDisabledWhenStructuralTransportEditsAreLocked() {
@@ -121,7 +135,7 @@ index bf81aa9..1231ebc 100644
      @Test
      fun overflowingTracksSwipeHorizontallyWhileMasterRemainsAnchored() {
          val tracks = List(10) { index -> AudioTrack(id = "overflow-$index", name = "Track $index", order = index) }
-@@ -130,6 +177,7 @@ class MixerDockInstrumentedTest {
+@@ -130,6 +190,7 @@ class MixerDockInstrumentedTest {
                      onPanCommit = { _, _ -> },
                      onToggleMute = {},
                      onToggleSolo = {},
@@ -183,7 +197,7 @@ index 2d4fba8..8f91a6b 100644
              val outputSignature = routingStore.selectedOutputSignature()
              listOf(44_100, 48_000, 88_200, 96_000).forEach { rate ->
 diff --git a/app/src/main/java/studio/guitarlab/app/ui/MixerDock.kt b/app/src/main/java/studio/guitarlab/app/ui/MixerDock.kt
-index f55a090..0debce0 100644
+index f55a090..36dc7d1 100644
 --- a/app/src/main/java/studio/guitarlab/app/ui/MixerDock.kt
 +++ b/app/src/main/java/studio/guitarlab/app/ui/MixerDock.kt
 @@ -21,6 +21,7 @@ import androidx.compose.foundation.lazy.items
@@ -240,7 +254,7 @@ index f55a090..0debce0 100644
      Surface(
          modifier = Modifier
 -            .width(184.dp)
-+            .width(232.dp)
++            .width(252.dp)
              .fillMaxHeight()
              .testTag("mixer-track-strip-${track.id}")
              .clip(RoundedCornerShape(8.dp))
@@ -249,7 +263,7 @@ index f55a090..0debce0 100644
              }
  
 -            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
++            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                  MixerStateButton(
                      label = "M",
                      active = track.muted,
