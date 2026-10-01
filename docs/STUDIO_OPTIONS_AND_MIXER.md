@@ -5,7 +5,7 @@ Updated: 2026-10-01
 ## Options
 Options owns low-frequency setup and diagnostics: input route, main output, secondary/CUE output, monitoring, Studio preferences, import capability information and diagnostic tools. These controls stay out of the timeline.
 
-MAIN may remain Android-selected for ordinary single-output work. CUE is explicit-only: it can be selected only when MAIN is explicit, must resolve to a different live endpoint and has no automatic fallback. Synchronized CUE intentionally excludes Bluetooth because wireless presentation latency is too large/variable for the MAIN↔CUE alignment contract; use a wired/USB/other low-latency secondary output. If CUE cannot be opened or its effective route can no longer be proven distinct from MAIN, the CUE bus is silenced while MAIN continues whenever safe.
+MAIN may remain Android-selected for ordinary single-output work. CUE is explicit-only: it can be selected only when MAIN is explicit, must resolve to a different live endpoint and has no automatic fallback. Synchronized CUE intentionally excludes Bluetooth because wireless presentation latency is too large/variable for the MAIN↔CUE alignment contract; use a wired/USB/other low-latency secondary output. Selection alone does not activate CUE: the playback engine first confirms distinct routes plus stable presentation clocks and admits CUE only when the initial MAIN↔CUE stream-origin offset is at most 12 ms. If that proof fails, or the live drift later exceeds the bounded envelope, the CUE bus is silenced while MAIN continues whenever safe.
 
 Project persistence and final-audio export are **not** Options actions.
 
