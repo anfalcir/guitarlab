@@ -457,7 +457,8 @@ Consequences:
 - the initial mixer headphone control toggles exclusive MAIN ↔ CUE for clear user intent, while `MAIN_AND_CUE` remains an internal capability for future explicit UX;
 - output-route mutations are stopped-state operations; the button is disabled during Play/REC so recording-monitor selection and playback routing cannot diverge mid-session;
 - Options exposes one recording input, one MAIN output and one optional CUE output;
-- CUE requires MAIN to be explicitly selected and requires a different explicit live output endpoint; it never inherits Android automatic routing;
+- CUE requires MAIN to be explicitly selected and requires a different explicit low-latency live output endpoint; it never inherits Android automatic routing and synchronized CUE deliberately excludes Bluetooth;
+- the secondary sink is opened only when the current playback content includes a CUE-routed track, avoiding idle dual-device streams from empty CUE tracks;
 - route acceptance is not sufficient by itself: playback verifies effective MAIN/CUE routing before audible use and continues checking that the routes remain distinct;
 - if CUE is unavailable, rejected, lost, converges onto MAIN, cannot accept a complete non-blocking render chunk or crosses the bounded drift safety guard, CUE is silenced instead of leaking into MAIN or stalling it; MAIN continues when safe;
 - the dual-bus engine is used by ordinary Play and backing playback during recording; software monitoring of an armed CUE track also requires the selected CUE route and fails closed without affecting captured input;
