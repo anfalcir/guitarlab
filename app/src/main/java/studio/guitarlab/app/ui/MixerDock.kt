@@ -21,6 +21,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.FiberManualRecord
+import androidx.compose.material.icons.filled.Headphones
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
@@ -232,11 +233,10 @@ private fun MixerTrackStrip(
                     contentDescription = "Solo da pista ${track.name}",
                     onClick = onToggleSolo,
                 )
-                MixerStateButton(
-                    label = "🎧",
+                MixerCueButton(
                     active = track.outputRoute != TrackOutputRoute.MAIN,
                     activeColor = MaterialTheme.colorScheme.tertiary,
-                    enabled = mixControlsEnabled,
+                    enabled = structuralControlsEnabled,
                     contentDescription = "Saída CUE da pista ${track.name}",
                     onClick = onToggleCue,
                 )
@@ -362,6 +362,40 @@ private fun MixerStateButton(
     ) {
         Box(contentAlignment = Alignment.Center) {
             Text(label, style = MaterialTheme.typography.labelLarge, color = foreground.copy(alpha = if (enabled) 1f else 0.55f))
+        }
+    }
+}
+
+@Composable
+private fun MixerCueButton(
+    active: Boolean,
+    activeColor: Color,
+    enabled: Boolean,
+    contentDescription: String,
+    onClick: () -> Unit,
+) {
+    val inactive = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.58f)
+    val border = if (active) activeColor else MaterialTheme.colorScheme.outline.copy(alpha = 0.55f)
+    val foreground = if (active) activeColor else inactive
+    Surface(
+        modifier = Modifier.size(width = 38.dp, height = 30.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
+            .semantics {
+                this.contentDescription = contentDescription
+                stateDescription = if (active) "Ativado" else "Desativado"
+            },
+        shape = RoundedCornerShape(8.dp),
+        color = if (active) activeColor.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surface.copy(alpha = 0.44f),
+        border = BorderStroke(if (active) 1.5.dp else 1.dp, border),
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Icon(
+                imageVector = Icons.Default.Headphones,
+                contentDescription = null,
+                modifier = Modifier.size(18.dp),
+                tint = foreground.copy(alpha = if (enabled) 1f else 0.55f),
+            )
         }
     }
 }
