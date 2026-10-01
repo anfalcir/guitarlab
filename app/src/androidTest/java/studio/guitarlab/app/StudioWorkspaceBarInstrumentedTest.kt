@@ -1,5 +1,6 @@
 package studio.guitarlab.app
 
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Text
@@ -47,13 +48,20 @@ class StudioWorkspaceBarInstrumentedTest {
             }
         }
         val tags = listOf("studio-action-comparison", "studio-action-timeline", "studio-mixer-mode")
-        fun bounds() = tags.map { tag ->
-            compose.onNodeWithTag(tag).performScrollTo().fetchSemanticsNode().boundsInRoot
+        // Compare in content coordinates: physical scroll position and clipped viewport bounds
+        // are not slot positions. Narrow screens intentionally scroll this fixed-width row.
+        fun contentBounds(tag: String): Rect {
+            val row = compose.onNodeWithTag("studio-workspace-row").fetchSemanticsNode()
+            val node = compose.onNodeWithTag(tag).fetchSemanticsNode()
+            val x = node.positionInRoot.x - row.positionInRoot.x
+            val y = node.positionInRoot.y - row.positionInRoot.y
+            return Rect(x, y, x + node.size.width, y + node.size.height)
         }
+        fun bounds() = tags.map(::contentBounds)
         val before = bounds()
-        val navbar = compose.onNodeWithTag("studio-workspace-bar").fetchSemanticsNode().boundsInRoot
-        val transport = compose.onNodeWithTag("test-transport").fetchSemanticsNode().boundsInRoot
-        assertEquals("Transport must be centered on the viewport", navbar.center.x, transport.center.x, 1f)
+        val row = compose.onNodeWithTag("studio-workspace-row").fetchSemanticsNode()
+        val transport = contentBounds("test-transport")
+        assertEquals("Transport must be centered in the fixed content row", row.size.width / 2f, transport.center.x, 1f)
         compose.onNodeWithTag("studio-mixer-mode").performScrollTo().performClick()
         assertEquals(before, bounds())
         compose.runOnIdle {
@@ -66,6 +74,7 @@ class StudioWorkspaceBarInstrumentedTest {
         compose.onNodeWithTag("studio-action-comparison").performScrollTo().performClick()
         compose.onNodeWithTag("studio-panel-comparison").assertIsDisplayed()
         assertEquals(before, bounds())
+        assertEquals("Transport slot stays fixed when modes and panels change", transport, contentBounds("test-transport"))
         compose.captureCohesionScreenshot("rc24-navbar-comparison")
     }
 

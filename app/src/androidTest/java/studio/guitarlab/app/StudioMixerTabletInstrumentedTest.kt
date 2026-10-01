@@ -10,6 +10,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.UiDevice
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -97,6 +98,8 @@ class StudioMixerTabletInstrumentedTest {
             UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).waitForIdle()
             compose.captureCohesionScreenshot("rc24-studio-five-audio-channels-complete")
             val navbar = compose.onNodeWithTag("studio-workspace-bar").fetchSemanticsNode().boundsInRoot
+            val transport = compose.onNodeWithTag("studio-navigation").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+            assertEquals("Tablet transport must be centered on the viewport", navbar.center.x, transport.center.x, 1f)
             val fullDock = compose.onNodeWithTag("mixer-dock").fetchSemanticsNode().boundsInRoot
             val density = context.resources.displayMetrics.density
             assertTrue("Complete dock must be at least 25% shorter than RC23", fullDock.height <= 264f * density + 1f)
@@ -107,6 +110,7 @@ class StudioMixerTabletInstrumentedTest {
             val minimumDock = compose.onNodeWithTag("mixer-dock").fetchSemanticsNode().boundsInRoot
             assertTrue("Minimum recovers at least 72dp", minimumDock.height <= fullDock.height - 72f * density)
             assertTrue("Mode switch leaves navbar fixed", navbar == compose.onNodeWithTag("studio-workspace-bar").fetchSemanticsNode().boundsInRoot)
+            assertEquals("Mixer mode leaves tablet transport fixed", transport, compose.onNodeWithTag("studio-navigation").fetchSemanticsNode().boundsInRoot)
             compose.onNodeWithTag("open-all-level-analysis").assertIsDisplayed()
             UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).waitForIdle()
             compose.captureCohesionScreenshot("rc24-studio-five-audio-channels-minimum")

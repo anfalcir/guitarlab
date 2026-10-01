@@ -55,7 +55,7 @@ fun StudioWorkspaceBar(
             // the SAME row; controls never wrap or disappear when recording/comparing/changing Mixer mode.
             Row(
                 Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
-                    .width(viewportWidth.coerceAtLeast(664.dp)),
+                    .width(viewportWidth.coerceAtLeast(664.dp)).testTag("studio-workspace-row"),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
