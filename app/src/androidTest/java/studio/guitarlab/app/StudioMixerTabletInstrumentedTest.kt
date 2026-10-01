@@ -62,12 +62,12 @@ class StudioMixerTabletInstrumentedTest {
             }
             val master = compose.onNodeWithTag("mixer-master-strip").fetchSemanticsNode().boundsInRoot
             assertTrue("Master must own a separate non-overlapping column", master.left >= scroller.right)
-            captureCohesionScreenshot("rc23-studio-five-channels-pinned")
+            compose.captureCohesionScreenshot("rc23-studio-five-channels-pinned")
             val navbar = compose.onNodeWithTag("studio-workspace-bar").fetchSemanticsNode().boundsInRoot
             compose.onNodeWithTag("studio-mixer-toggle").performClick()
             val closedNavbar = compose.onNodeWithTag("studio-workspace-bar").fetchSemanticsNode().boundsInRoot
             assertTrue("Closing Mixer must not resize or move navbar", navbar == closedNavbar)
-            captureCohesionScreenshot("rc23-studio-mixer-closed")
+            compose.captureCohesionScreenshot("rc23-studio-mixer-closed")
         } finally {
             preferences.setMixerVisible(oldVisible)
             preferences.setMixerPinned(oldPinned)

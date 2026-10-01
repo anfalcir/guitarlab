@@ -135,7 +135,7 @@ class MixerDockInstrumentedTest {
         val pan = composeRule.onNodeWithContentDescription("Pan da pista Teste").performScrollTo().assertIsDisplayed().fetchSemanticsNode().boundsInRoot
         assertTrue("Volume and pan targets must not overlap", !volume.overlaps(pan))
         assertTrue("Pan must stay fully inside the dock", pan.bottom <= composeRule.onNodeWithTag("mixer-dock").fetchSemanticsNode().boundsInRoot.bottom)
-        captureCohesionScreenshot("rc23-mixer-narrow-clipping")
+        composeRule.captureCohesionScreenshot("rc23-mixer-narrow-clipping")
 
     }
     @Test
@@ -271,7 +271,7 @@ class MixerDockInstrumentedTest {
                 .performScrollTo().assertIsDisplayed().fetchSemanticsNode().boundsInRoot
             assertTrue("$action must be inside the dock", node.bottom <= after.bottom + 1f)
         }
-        captureCohesionScreenshot("rc23-mixer-large-font")
+        composeRule.captureCohesionScreenshot("rc23-mixer-large-font")
     }
 
 }

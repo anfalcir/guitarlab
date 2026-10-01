@@ -63,7 +63,7 @@ class StudioWorkspaceBarInstrumentedTest {
         compose.onNodeWithTag("studio-action-comparison").performScrollTo().performClick()
         compose.onNodeWithTag("studio-panel-comparison").assertIsDisplayed()
         assertEquals(before, bounds())
-        captureCohesionScreenshot("rc23-navbar-comparison")
+        compose.captureCohesionScreenshot("rc23-navbar-comparison")
     }
 
     @Test

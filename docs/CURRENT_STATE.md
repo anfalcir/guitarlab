@@ -22,6 +22,12 @@ The owner requested stable navbar slots and narrower complete Mixer channels. RC
 - a temporary branch push trigger is used only for qualification and must be retired before integration;
 - final signed-candidate provenance follows `CANDIDATE_IDENTITY_POLICY.md`; no RC23 APK is yet declared qualified or accepted.
 
+## RC23 qualification evidence
+
+- CI #937 / run `36910864961`, producer `726b85642f4d35daa212eaeb8e599037014ba4fc`: software gate PASS (unit tests, Lint, APK build); API36 gate FAILED before instrumented execution at `compileDebugAndroidTestKotlin`.
+- Root cause: five new screenshot calls omitted the `ComposeTestRule` receiver in Mixer/WorkspaceBar/Tablet test classes. Calls now use `composeRule.captureCohesionScreenshot` or `compose.captureCohesionScreenshot` as appropriate. Runtime bytes are unchanged; tests and the RC23 protected payload/terminal hashes are corrected.
+- A new `[run ci]` execution is requested for the correction. By owner instruction, workflow execution is not monitored; its result must be supplied before qualification/integration continues.
+
 ## Predecessor RC22 evidence
 
 ## Status

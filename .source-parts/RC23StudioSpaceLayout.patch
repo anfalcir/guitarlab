@@ -14,7 +14,7 @@ index 5e3343d..5b8556b 100644
      }
  
 diff --git a/app/src/androidTest/java/studio/guitarlab/app/MixerDockInstrumentedTest.kt b/app/src/androidTest/java/studio/guitarlab/app/MixerDockInstrumentedTest.kt
-index 142bc73..0e446c4 100644
+index 142bc73..c4d06e6 100644
 --- a/app/src/androidTest/java/studio/guitarlab/app/MixerDockInstrumentedTest.kt
 +++ b/app/src/androidTest/java/studio/guitarlab/app/MixerDockInstrumentedTest.kt
 @@ -1,6 +1,10 @@
@@ -88,7 +88,7 @@ index 142bc73..0e446c4 100644
 +        val pan = composeRule.onNodeWithContentDescription("Pan da pista Teste").performScrollTo().assertIsDisplayed().fetchSemanticsNode().boundsInRoot
 +        assertTrue("Volume and pan targets must not overlap", !volume.overlaps(pan))
 +        assertTrue("Pan must stay fully inside the dock", pan.bottom <= composeRule.onNodeWithTag("mixer-dock").fetchSemanticsNode().boundsInRoot.bottom)
-+        captureCohesionScreenshot("rc23-mixer-narrow-clipping")
++        composeRule.captureCohesionScreenshot("rc23-mixer-narrow-clipping")
  
 -        assertTrue(
 -            "Mute/Solo expanded touch targets must not overlap: distance=$muteSoloDistancePx minimum=$minimumCenterDistancePx",
@@ -141,7 +141,7 @@ index 142bc73..0e446c4 100644
 +                .performScrollTo().assertIsDisplayed().fetchSemanticsNode().boundsInRoot
 +            assertTrue("$action must be inside the dock", node.bottom <= after.bottom + 1f)
 +        }
-+        captureCohesionScreenshot("rc23-mixer-large-font")
++        composeRule.captureCohesionScreenshot("rc23-mixer-large-font")
 +    }
 +
  }
@@ -168,7 +168,7 @@ index 829268a..867caad 100644
              // TransportBar owns the REC button interaction contract in TransportBarInstrumentedTest.
 diff --git a/app/src/androidTest/java/studio/guitarlab/app/StudioMixerTabletInstrumentedTest.kt b/app/src/androidTest/java/studio/guitarlab/app/StudioMixerTabletInstrumentedTest.kt
 new file mode 100644
-index 0000000..9f82ff4
+index 0000000..4bb1812
 --- /dev/null
 +++ b/app/src/androidTest/java/studio/guitarlab/app/StudioMixerTabletInstrumentedTest.kt
 @@ -0,0 +1,78 @@
@@ -236,12 +236,12 @@ index 0000000..9f82ff4
 +            }
 +            val master = compose.onNodeWithTag("mixer-master-strip").fetchSemanticsNode().boundsInRoot
 +            assertTrue("Master must own a separate non-overlapping column", master.left >= scroller.right)
-+            captureCohesionScreenshot("rc23-studio-five-channels-pinned")
++            compose.captureCohesionScreenshot("rc23-studio-five-channels-pinned")
 +            val navbar = compose.onNodeWithTag("studio-workspace-bar").fetchSemanticsNode().boundsInRoot
 +            compose.onNodeWithTag("studio-mixer-toggle").performClick()
 +            val closedNavbar = compose.onNodeWithTag("studio-workspace-bar").fetchSemanticsNode().boundsInRoot
 +            assertTrue("Closing Mixer must not resize or move navbar", navbar == closedNavbar)
-+            captureCohesionScreenshot("rc23-studio-mixer-closed")
++            compose.captureCohesionScreenshot("rc23-studio-mixer-closed")
 +        } finally {
 +            preferences.setMixerVisible(oldVisible)
 +            preferences.setMixerPinned(oldPinned)
@@ -285,7 +285,7 @@ index c8c5bdc..811d129 100644
  }
 diff --git a/app/src/androidTest/java/studio/guitarlab/app/StudioWorkspaceBarInstrumentedTest.kt b/app/src/androidTest/java/studio/guitarlab/app/StudioWorkspaceBarInstrumentedTest.kt
 new file mode 100644
-index 0000000..59c4c5b
+index 0000000..fb67c71
 --- /dev/null
 +++ b/app/src/androidTest/java/studio/guitarlab/app/StudioWorkspaceBarInstrumentedTest.kt
 @@ -0,0 +1,125 @@
@@ -354,7 +354,7 @@ index 0000000..59c4c5b
 +        compose.onNodeWithTag("studio-action-comparison").performScrollTo().performClick()
 +        compose.onNodeWithTag("studio-panel-comparison").assertIsDisplayed()
 +        assertEquals(before, bounds())
-+        captureCohesionScreenshot("rc23-navbar-comparison")
++        compose.captureCohesionScreenshot("rc23-navbar-comparison")
 +    }
 +
 +    @Test
