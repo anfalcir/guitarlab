@@ -467,3 +467,18 @@ Consequences:
 - digital qualification proves persistence, routing policy, materialization, build/Lint and API36 integration; physical support for a specific two-output hardware combination is claimed only after target-device validation on the exact signed candidate.
 
 This decision supersedes D-021 only where D-021 said the current scope exposes one main output. Stable semantic signatures and the prohibition on persisting ephemeral Android device IDs remain in force.
+
+## D-099 — Stable Studio navbar and complete narrow Mixer channels
+
+The owner requested removal of the persistent Comparison/Adjustments/Timeline row, stable navbar geometry in every operational state, and narrower individual Mixer channels so more complete tracks fit simultaneously. Existing Mixer pinning must remain available and all controls/readouts must stay accessible.
+
+- three fixed navbar triggers reuse the existing practice action commands through anchored overlays;
+- state changes affect semantics/indicators and enabled appearance, never slot geometry;
+- narrow channels are 168 dp instead of 232 dp; Mute/Solo and CUE/REC use two rows of 48 dp targets;
+- all PK/RMS/held-peak/clipping/gain/pan information and preview/commit callbacks remain;
+- Master remains separate; fixed/docked mode is default and durable; floating is explicit;
+- 352 dp default height accommodates the complete narrower controls; height reduction is secondary;
+- RC23 is a new exact-source Android candidate and preserves the RC22 audio/domain graph;
+- normative older practice-bar layout provisions are superseded by this decision only where they conflict; prior evidence is retained, and affected geometry/interaction is requalified.
+
+Reference rationale: Logic Pro for iPad documents complete per-channel volume/pan/mute/solo/record/level controls (https://support.apple.com/en-lamr/guide/logicpro-ipad/lpipfc8ea6fc/ipados); Cubase documents channel-width zoom independent of section height (https://www.steinberg.help/r/cubase-pro/15.0/en/cubase_nuendo/topics/mixconsole/mixconsole_functions_menu_r.html). The 168 dp / two-row touchscreen adaptation is a GuitarLab design decision; references do not certify its physical ergonomics.

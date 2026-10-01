@@ -41,7 +41,9 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import kotlin.math.abs
 import kotlin.math.log10
@@ -82,26 +84,21 @@ fun MixerDock(
     onMasterGainCommit: (Float) -> Unit,
     onClearTrackClip: (String) -> Unit,
     onClearMasterClip: () -> Unit,
-    headerContent: (@Composable () -> Unit)? = null,
+    expanded: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
+    val fontScale = LocalDensity.current.fontScale.coerceAtLeast(1f)
+    val dockHeight = (if (expanded) 400.dp else 352.dp) + (176.dp * (fontScale - 1f))
     Surface(
-        modifier = modifier.fillMaxWidth().height(316.dp),
+        modifier = modifier.fillMaxWidth().height(dockHeight).testTag("mixer-dock"),
         shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
         color = MaterialTheme.colorScheme.surface,
         tonalElevation = 3.dp,
     ) {
         Column(Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 8.dp)) {
-            Box(
-                modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                headerContent?.invoke()
-            }
-
             Row(
                 modifier = Modifier.fillMaxWidth().weight(1f),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 LazyRow(
                     modifier = Modifier
@@ -176,7 +173,7 @@ private fun MixerTrackStrip(
 
     Surface(
         modifier = Modifier
-            .width(232.dp)
+            .width(168.dp + 80.dp * (LocalDensity.current.fontScale.coerceAtLeast(1f) - 1f))
             .fillMaxHeight()
             .testTag("mixer-track-strip-${track.id}")
             .clip(RoundedCornerShape(8.dp))
@@ -186,16 +183,17 @@ private fun MixerTrackStrip(
         border = BorderStroke(if (selected) 1.5.dp else 1.dp, borderColor),
     ) {
         Column(
-            Modifier.fillMaxHeight().padding(10.dp),
-            verticalArrangement = Arrangement.spacedBy(5.dp),
+            Modifier.fillMaxHeight().padding(horizontal = 10.dp, vertical = 6.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.height(40.dp * LocalDensity.current.fontScale.coerceAtLeast(1f)), verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.size(7.dp).background(accent, RoundedCornerShape(4.dp)))
                 Text(
                     track.name,
                     modifier = Modifier.weight(1f).padding(start = 6.dp),
                     style = MaterialTheme.typography.labelLarge,
-                    maxLines = 1,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
                 )
                 if (auditionState != GuitarAuditionTrackState.UNAFFECTED) {
                     val included = auditionState == GuitarAuditionTrackState.INCLUDED
@@ -233,6 +231,8 @@ private fun MixerTrackStrip(
                     contentDescription = "Solo da pista ${track.name}",
                     onClick = onToggleSolo,
                 )
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 MixerCueButton(
                     active = track.outputRoute != TrackOutputRoute.MAIN,
                     activeColor = MaterialTheme.colorScheme.tertiary,
@@ -248,16 +248,13 @@ private fun MixerTrackStrip(
                 )
             }
 
-            MeterRow(
-                label = "PK",
-                value = meter.peak,
+            MeterPair(
+                meter = meter,
                 accent = accent,
-                heldPeak = meter.heldPeak,
                 clipLatched = clipLatched,
                 onClearClip = onClearClip,
                 clipContentDescription = "Limpar clipping da pista ${track.name}",
             )
-            MeterRow("RMS", meter.rms, accent)
 
             LabeledVolumeSlider(
                 value = gainDraft,
@@ -299,27 +296,25 @@ private fun MasterStrip(
     var gainDraft by remember(gainDb) { mutableFloatStateOf(gainDb) }
     val accent = MaterialTheme.colorScheme.secondary
     Surface(
-        modifier = Modifier.width(198.dp).fillMaxHeight().testTag("mixer-master-strip"),
+        modifier = Modifier.width(156.dp + 80.dp * (LocalDensity.current.fontScale.coerceAtLeast(1f) - 1f)).fillMaxHeight().testTag("mixer-master-strip"),
         shape = RoundedCornerShape(8.dp),
         color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.30f),
         border = BorderStroke(1.5.dp, accent.copy(alpha = 0.78f)),
     ) {
         Column(
-            Modifier.fillMaxHeight().padding(10.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
+            Modifier.fillMaxHeight().padding(horizontal = 8.dp, vertical = 6.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
             Text("MASTER", style = MaterialTheme.typography.labelLarge)
             Text("Saída principal", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            MeterRow(
-                label = "PK",
-                value = meter.peak,
+            MeterPair(
+                meter = meter,
                 accent = accent,
-                heldPeak = meter.heldPeak,
                 clipLatched = clipLatched,
                 onClearClip = onClearClip,
                 clipContentDescription = "Limpar clipping do master",
             )
-            MeterRow("RMS", meter.rms, accent)
+
             LabeledVolumeSlider(
                 value = gainDraft,
                 accent = accent,
@@ -475,7 +470,7 @@ private fun LabeledVolumeSlider(
                 disabledActiveTrackColor = accent.copy(alpha = 0.30f),
                 disabledInactiveTrackColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.20f),
             ),
-            modifier = Modifier.fillMaxWidth().height(32.dp).semantics { this.contentDescription = contentDescription },
+            modifier = Modifier.fillMaxWidth().height(48.dp).semantics { this.contentDescription = contentDescription },
         )
     }
 }
@@ -490,7 +485,7 @@ private fun BipolarPanSlider(
     contentDescription: String,
 ) {
     LabeledSliderFrame(label = "PAN", valueLabel = value.formatPan()) {
-        BoxWithConstraints(Modifier.fillMaxWidth().height(32.dp)) {
+        BoxWithConstraints(Modifier.fillMaxWidth().height(48.dp)) {
             val center = maxWidth / 2
             val directionalWidth = (maxWidth / 2) * abs(value.coerceIn(-1f, 1f))
             val fillStart = if (value < 0f) center - directionalWidth else center
@@ -534,7 +529,7 @@ private fun BipolarPanSlider(
                     disabledActiveTrackColor = Color.Transparent,
                     disabledInactiveTrackColor = Color.Transparent,
                 ),
-                modifier = Modifier.fillMaxWidth().height(32.dp).semantics { this.contentDescription = contentDescription },
+                modifier = Modifier.fillMaxWidth().height(48.dp).semantics { this.contentDescription = contentDescription },
             )
         }
     }
@@ -552,18 +547,10 @@ private fun LabeledSliderFrame(
         color = MaterialTheme.colorScheme.background.copy(alpha = 0.34f),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
     ) {
-        Column(Modifier.padding(horizontal = 7.dp, vertical = 3.dp)) {
+        Column(Modifier.padding(horizontal = 7.dp, vertical = 1.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    label,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.78f),
-                )
-                Text(
-                    valueLabel,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
+                Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(valueLabel, style = MaterialTheme.typography.labelSmall, maxLines = 1)
             }
             slider()
         }
@@ -571,56 +558,59 @@ private fun LabeledSliderFrame(
 }
 
 @Composable
-private fun MeterRow(
-    label: String,
-    value: Float,
+private fun MeterPair(
+    meter: MeterBallisticsState,
     accent: Color,
-    heldPeak: Float? = null,
-    clipLatched: Boolean = false,
-    onClearClip: (() -> Unit)? = null,
-    clipContentDescription: String? = null,
+    clipLatched: Boolean,
+    onClearClip: () -> Unit,
+    clipContentDescription: String,
 ) {
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-        Text(label, modifier = Modifier.width(28.dp), style = MaterialTheme.typography.labelSmall)
-        BoxWithConstraints(
-            Modifier.weight(1f).height(8.dp).background(MaterialTheme.colorScheme.background.copy(alpha = 0.78f), RoundedCornerShape(4.dp)),
-        ) {
-            Box(
-                Modifier.fillMaxWidth(value.coerceIn(0f, 1f)).fillMaxHeight().background(accent, RoundedCornerShape(4.dp)),
-            )
-            heldPeak?.takeIf { it > 0f }?.let { held ->
-                val x = (maxWidth * held.coerceIn(0f, 1f)).coerceAtMost(maxWidth - 2.dp)
-                Box(
-                    Modifier.offset(x = x).width(2.dp).fillMaxHeight().background(MaterialTheme.colorScheme.onSurface),
-                )
-            }
+    Row(
+        Modifier.fillMaxWidth().height(48.dp * LocalDensity.current.fontScale.coerceAtLeast(1f)),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            MeterRow("PK", meter.peak, accent, meter.heldPeak)
+            MeterRow("RMS", meter.rms, accent)
         }
-        if (clipLatched && onClearClip != null) {
-            Box(
-                modifier = Modifier
-                    .size(48.dp)
-                    .clickable(role = Role.Button, onClick = onClearClip)
-                    .semantics { contentDescription = clipContentDescription ?: "Limpar indicador de clipping" },
-                contentAlignment = Alignment.Center,
-            ) {
-                Surface(
-                    modifier = Modifier.size(width = 38.dp, height = 24.dp),
-                    shape = RoundedCornerShape(4.dp),
-                    color = MaterialTheme.colorScheme.error.copy(alpha = 0.16f),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.error),
+        // Always reserve this slot: latching CLIP must not resize meters or neighboring controls.
+        Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) {
+            if (clipLatched) {
+                Box(
+                    Modifier.size(48.dp).clickable(role = Role.Button, onClick = onClearClip)
+                        .semantics { contentDescription = clipContentDescription },
+                    contentAlignment = Alignment.Center,
                 ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Text(
-                            "CLIP",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.error,
-                        )
+                    Surface(
+                        modifier = Modifier.size(width = 38.dp, height = 24.dp),
+                        shape = RoundedCornerShape(4.dp),
+                        color = MaterialTheme.colorScheme.error.copy(alpha = 0.16f),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.error),
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text("CLIP", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
+                        }
                     }
                 }
             }
-        } else {
-            Text(value.formatDbfs(), modifier = Modifier.width(38.dp), style = MaterialTheme.typography.labelSmall)
         }
+    }
+}
+
+@Composable
+private fun MeterRow(label: String, value: Float, accent: Color, heldPeak: Float? = null) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+        Text(label, modifier = Modifier.width(28.dp * LocalDensity.current.fontScale.coerceAtLeast(1f)), style = MaterialTheme.typography.labelSmall)
+        BoxWithConstraints(
+            Modifier.weight(1f).height(8.dp).background(MaterialTheme.colorScheme.background.copy(alpha = 0.78f), RoundedCornerShape(4.dp)),
+        ) {
+            Box(Modifier.fillMaxWidth(value.coerceIn(0f, 1f)).fillMaxHeight().background(accent, RoundedCornerShape(4.dp)))
+            heldPeak?.takeIf { it > 0f }?.let { held ->
+                val x = (maxWidth * held.coerceIn(0f, 1f)).coerceAtMost(maxWidth - 2.dp)
+                Box(Modifier.offset(x = x).width(2.dp).fillMaxHeight().background(MaterialTheme.colorScheme.onSurface))
+            }
+        }
+        Text(value.formatDbfs(), modifier = Modifier.width(28.dp * LocalDensity.current.fontScale.coerceAtLeast(1f)), style = MaterialTheme.typography.labelSmall)
     }
 }
 

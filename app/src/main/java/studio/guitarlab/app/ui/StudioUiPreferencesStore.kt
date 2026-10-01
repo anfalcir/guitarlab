@@ -18,8 +18,22 @@ class StudioUiPreferencesStore(context: Context) {
             .apply()
     }
 
+    fun mixerPinned(): Boolean = preferences.getBoolean(KEY_MIXER_PINNED, true)
+
+    fun setMixerPinned(pinned: Boolean) {
+        preferences.edit().putBoolean(KEY_MIXER_PINNED, pinned).apply()
+    }
+
+    fun mixerExpanded(): Boolean = preferences.getBoolean(KEY_MIXER_EXPANDED, false)
+
+    fun setMixerExpanded(expanded: Boolean) {
+        preferences.edit().putBoolean(KEY_MIXER_EXPANDED, expanded).apply()
+    }
+
     private companion object {
         const val PREFS_NAME = "studio_ui_preferences"
+        const val KEY_MIXER_PINNED = "mixer_dock_pinned"
+        const val KEY_MIXER_EXPANDED = "mixer_expanded"
         const val KEY_MIXER_VISIBLE = "mixer_visible"
         const val LEGACY_KEY_MIXER_PINNED = "mixer_pinned"
     }

@@ -23,4 +23,28 @@ class StudioUiPreferencesStoreInstrumentedTest {
             first.setMixerVisible(false)
         }
     }
+    @Test
+    fun pinAndHeightPersistIndependentlyOfVisibility() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val store = StudioUiPreferencesStore(context)
+        val previousVisible = store.mixerVisible()
+        val previousPinned = store.mixerPinned()
+        val previousExpanded = store.mixerExpanded()
+        try {
+            store.setMixerPinned(true)
+            store.setMixerExpanded(true)
+            store.setMixerVisible(false)
+            val reopened = StudioUiPreferencesStore(context)
+            assertFalse(reopened.mixerVisible())
+            assertTrue(reopened.mixerPinned())
+            assertTrue(reopened.mixerExpanded())
+            reopened.setMixerPinned(false)
+            assertFalse(StudioUiPreferencesStore(context).mixerPinned())
+        } finally {
+            store.setMixerVisible(previousVisible)
+            store.setMixerPinned(previousPinned)
+            store.setMixerExpanded(previousExpanded)
+        }
+    }
+
 }

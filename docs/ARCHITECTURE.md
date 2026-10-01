@@ -101,7 +101,7 @@ Compatibility recovery is deliberately separated from persisted-byte identity. C
 ## Build/release architecture
 `scripts/build_local.sh` is the local software gate when its environment is available. GitHub workflows provide controlled Android/API36/signing and cloud qualification. Required jobs are selected proportionally under `TEST_AND_HOMOLOGATION_POLICY.md`.
 
-Large deltas are materialized from `.source-parts` serially. The canonical entrypoint and current tail are identified in `CI_PIPELINE.md`; the RC21 maintenance tail is `scripts/materialize_ci_sources_rc21.py`. Protected blocks verify patch/archive identity and exact terminal Git blobs; the tail preserves `git diff --check`, semantic guards and reverse-apply/idempotence checks. Unexplained drift blocks the build.
+Large deltas are materialized from `.source-parts` serially. The canonical entrypoint and current tail are identified in `CI_PIPELINE.md`; the active RC23 Studio-layout tail is `scripts/materialize_ci_sources_rc23.py`. Protected blocks verify patch/archive identity and exact terminal Git blobs; the tail preserves `git diff --check`, semantic guards and reverse-apply/idempotence checks. Unexplained drift blocks the build.
 
 ## Backup transport boundary — direct Drive v3 production path
 The protected backup domain remains transport-agnostic: project/revision identity, deduplication, retention and restore semantics are separated from transport. Direct Drive API v3 is the current backup transport.

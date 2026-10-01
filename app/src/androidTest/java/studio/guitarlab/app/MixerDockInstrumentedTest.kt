@@ -1,6 +1,10 @@
 package studio.guitarlab.app
 
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
@@ -20,7 +24,6 @@ import androidx.compose.ui.test.swipe
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import java.util.concurrent.atomic.AtomicInteger
-import kotlin.math.abs
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -37,7 +40,7 @@ class MixerDockInstrumentedTest {
     val composeRule = createComposeRule()
 
     @Test
-    fun mixerStateControlsExposeRoleStateCallbacksAndNonOverlapping48dpCenters() {
+    fun mixerStateControlsExposeRoleStateCallbacksAndNonOverlapping48dpTargets() {
         val muteClicks = AtomicInteger(0)
         val soloClicks = AtomicInteger(0)
         val cueClicks = AtomicInteger(0)
@@ -112,38 +115,28 @@ class MixerDockInstrumentedTest {
         assertEquals(1, masterClipClicks.get())
 
         val density = InstrumentationRegistry.getInstrumentation().targetContext.resources.displayMetrics.density
-        val minimumCenterDistancePx = 48f * density - 1f
+        val controls = listOf(mute, solo, cue, arm)
+        val rectangles = controls.map { control ->
+            control.performScrollTo().assertIsDisplayed()
+            control.fetchSemanticsNode().boundsInRoot
+        }
+        rectangles.forEach { bounds ->
+            assertTrue("Control must retain 48dp width", bounds.width >= 48f * density - 1f)
+            assertTrue("Control must retain 48dp height", bounds.height >= 48f * density - 1f)
+        }
+        rectangles.forEachIndexed { i, first ->
+            rectangles.drop(i + 1).forEach { second ->
+                assertTrue("2x2 state targets must not overlap", !first.overlaps(second))
+            }
+        }
+        val strip = composeRule.onNodeWithTag("mixer-track-strip-${track.id}").fetchSemanticsNode().boundsInRoot
+        assertEquals("Narrow channel width", 168f * density, strip.width, 1f)
+        val volume = composeRule.onNodeWithContentDescription("Volume da pista Teste").performScrollTo().assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+        val pan = composeRule.onNodeWithContentDescription("Pan da pista Teste").performScrollTo().assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+        assertTrue("Volume and pan targets must not overlap", !volume.overlaps(pan))
+        assertTrue("Pan must stay fully inside the dock", pan.bottom <= composeRule.onNodeWithTag("mixer-dock").fetchSemanticsNode().boundsInRoot.bottom)
+        composeRule.captureCohesionScreenshot("rc23-mixer-narrow-clipping")
 
-        mute.performScrollTo().assertIsDisplayed()
-        solo.assertIsDisplayed()
-        val muteSoloDistancePx = abs(
-            solo.fetchSemanticsNode().boundsInRoot.center.x - mute.fetchSemanticsNode().boundsInRoot.center.x,
-        )
-
-        cue.performScrollTo().assertIsDisplayed()
-        solo.assertIsDisplayed()
-        val soloCueDistancePx = abs(
-            cue.fetchSemanticsNode().boundsInRoot.center.x - solo.fetchSemanticsNode().boundsInRoot.center.x,
-        )
-
-        arm.performScrollTo().assertIsDisplayed()
-        cue.assertIsDisplayed()
-        val cueArmDistancePx = abs(
-            arm.fetchSemanticsNode().boundsInRoot.center.x - cue.fetchSemanticsNode().boundsInRoot.center.x,
-        )
-
-        assertTrue(
-            "Mute/Solo expanded touch targets must not overlap: distance=$muteSoloDistancePx minimum=$minimumCenterDistancePx",
-            muteSoloDistancePx >= minimumCenterDistancePx,
-        )
-        assertTrue(
-            "Solo/CUE expanded touch targets must not overlap: distance=$soloCueDistancePx minimum=$minimumCenterDistancePx",
-            soloCueDistancePx >= minimumCenterDistancePx,
-        )
-        assertTrue(
-            "CUE/Arm expanded touch targets must not overlap: distance=$cueArmDistancePx minimum=$minimumCenterDistancePx",
-            cueArmDistancePx >= minimumCenterDistancePx,
-        )
     }
     @Test
     fun cueRoutingIsDisabledWhenStructuralTransportEditsAreLocked() {
@@ -244,6 +237,41 @@ class MixerDockInstrumentedTest {
         val masterAfter = composeRule.onNodeWithTag("mixer-master-strip").fetchSemanticsNode().boundsInRoot
         assertEquals(masterBefore.left, masterAfter.left, 1f)
         assertEquals(masterBefore.right, masterAfter.right, 1f)
+    }
+
+    @Test
+    fun largeFontsGrowChannelsWithoutClippingPanOrShrinkingTargets() {
+        val fontScale = mutableStateOf(1f)
+        val track = AudioTrack(id = "large-font", name = "Guitarra de referência E", order = 0)
+        composeRule.setContent {
+            val density = LocalDensity.current
+            CompositionLocalProvider(LocalDensity provides Density(density.density, fontScale.value)) {
+                GuitarLabTheme(darkTheme = true) {
+                    MixerDock(
+                        tracks = listOf(track), selectedTrackId = track.id,
+                        mixControlsEnabled = true, structuralControlsEnabled = true,
+                        masterGainDb = 0f, masterMeter = MeterBallisticsState(), trackMeters = emptyMap(),
+                        masterClipLatched = true, trackClipLatched = setOf(track.id),
+                        onSelectTrack = {}, onGainPreview = { _, _ -> }, onGainCommit = { _, _ -> },
+                        onPanPreview = { _, _ -> }, onPanCommit = { _, _ -> },
+                        onToggleMute = {}, onToggleSolo = {}, onToggleCue = {}, onToggleArm = {},
+                        onMasterGainPreview = {}, onMasterGainCommit = {},
+                        onClearTrackClip = {}, onClearMasterClip = {},
+                    )
+                }
+            }
+        }
+        val before = composeRule.onNodeWithTag("mixer-track-strip-${track.id}").fetchSemanticsNode().boundsInRoot
+        composeRule.runOnIdle { fontScale.value = 1.5f }
+        val after = composeRule.onNodeWithTag("mixer-track-strip-${track.id}").fetchSemanticsNode().boundsInRoot
+        assertTrue("Larger fonts must increase channel width", after.width > before.width)
+        assertTrue("Larger fonts must increase channel height", after.height > before.height)
+        listOf("Mute", "Solo", "Saída CUE", "Gravação", "Volume", "Pan").forEach { action ->
+            val node = composeRule.onNodeWithContentDescription("$action da pista ${track.name}")
+                .performScrollTo().assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+            assertTrue("$action must be inside the dock", node.bottom <= after.bottom + 1f)
+        }
+        composeRule.captureCohesionScreenshot("rc23-mixer-large-font")
     }
 
 }

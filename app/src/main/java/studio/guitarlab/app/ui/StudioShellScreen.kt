@@ -66,6 +66,8 @@ fun StudioShellScreen(
     ExternalControlHub.initialize(context)
     val uiPreferences = remember(context) { StudioUiPreferencesStore(context) }
     var mixerVisible by rememberSaveable { mutableStateOf(uiPreferences.mixerVisible()) }
+    var mixerPinned by rememberSaveable { mutableStateOf(uiPreferences.mixerPinned()) }
+    var mixerExpanded by rememberSaveable { mutableStateOf(uiPreferences.mixerExpanded()) }
     var selectedTrackId by rememberSaveable(projectId) { mutableStateOf<String?>(null) }
     var helpDialogVisible by rememberSaveable(projectId) { mutableStateOf(false) }
     var allLevelsDialogVisible by rememberSaveable(projectId) { mutableStateOf(false) }
@@ -131,6 +133,38 @@ fun StudioShellScreen(
         TransportPolicy.timelineEditingEnabled(state.transport)
     val mixControlsEnabled = !state.importing && !state.editingClip && !state.historyBusy && state.trimControls == null
 
+    val renderMixer: @Composable () -> Unit = {
+        val project = state.project
+        if (project != null && mixerVisible) {
+            MixerDock(
+                tracks = project.tracks,
+                auditionMode = state.guitarAuditionMode,
+                selectedTrackId = selectedTrackId,
+                mixControlsEnabled = mixControlsEnabled,
+                structuralControlsEnabled = structuralControlsEnabled,
+                masterGainDb = state.masterGainDb,
+                masterMeter = state.masterMeter,
+                trackMeters = state.trackMeters,
+                masterClipLatched = state.masterClipLatched,
+                trackClipLatched = state.trackClipLatched,
+                onSelectTrack = { selectedTrackId = it },
+                onGainPreview = viewModel::previewTrackGainDb,
+                onGainCommit = viewModel::commitTrackGainDb,
+                onPanPreview = viewModel::previewTrackPan,
+                onPanCommit = viewModel::commitTrackPan,
+                onToggleMute = viewModel::toggleTrackMuted,
+                onToggleSolo = viewModel::toggleTrackSolo,
+                onToggleCue = viewModel::toggleTrackCue,
+                onToggleArm = viewModel::toggleTrackArmed,
+                onMasterGainPreview = viewModel::previewMasterGainDb,
+                onMasterGainCommit = viewModel::commitMasterGainDb,
+                onClearTrackClip = viewModel::clearTrackClipIndicator,
+                onClearMasterClip = viewModel::clearMasterClipIndicator,
+                expanded = mixerExpanded,
+            )
+        }
+    }
+
     Box(
         Modifier
             .fillMaxSize()
@@ -171,9 +205,45 @@ fun StudioShellScreen(
                 )
             },
             secondaryBar = {
-                Surface(modifier = Modifier.fillMaxWidth(), tonalElevation = 0.dp) {
-                    Box(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp)) {
-                        Box(modifier = Modifier.align(Alignment.Center).testTag("studio-navigation")) {
+                StudioWorkspaceBar(
+                    auditionMode = state.guitarAuditionMode,
+                    mixerVisible = mixerVisible,
+                    mixerPinned = mixerPinned,
+                    mixerExpanded = mixerExpanded,
+                    onToggleMixerPin = {
+                        mixerPinned = !mixerPinned
+                        uiPreferences.setMixerPinned(mixerPinned)
+                    },
+                    onToggleMixerHeight = {
+                        mixerExpanded = !mixerExpanded
+                        uiPreferences.setMixerExpanded(mixerExpanded)
+                    },
+                    panelContent = { panel ->
+                        val actionProject = state.project
+                        if (actionProject != null) {
+                            PracticeControls(
+                                project = actionProject,
+                                auditionMode = state.guitarAuditionMode,
+                                suggestions = state.sectionSuggestions.size,
+                                enabled = structuralControlsEnabled,
+                                loopEnabled = state.transport.loopEnabled,
+                                onAuditionMode = viewModel::setGuitarAuditionMode,
+                                onAddMarker = viewModel::addMarkerAtPlayhead,
+                                onAddSection = viewModel::addSectionFromLoop,
+                                onSuggestSections = viewModel::suggestSections,
+                                onAcceptSections = viewModel::acceptSectionSuggestions,
+                                onDiscardSections = viewModel::discardSectionSuggestions,
+                                onClearSections = viewModel::clearSections,
+                                onLoopSection = viewModel::loopSection,
+                                onRemoveMarker = viewModel::removeMarker,
+                                onRemoveSection = viewModel::removeSection,
+                                onOpenLevelAnalysis = { allLevelsDialogVisible = true },
+                                panel = panel,
+                            )
+                        }
+                    },
+                    transportContent = {
+                        Box(Modifier.testTag("studio-navigation")) {
                             TransportBar(
                                 state = state.transport,
                                 engineReady = state.transportEngineReady && state.trimControls == null,
@@ -189,89 +259,47 @@ fun StudioShellScreen(
                                 onRedo = viewModel::redo,
                             )
                         }
-                    }
-                }
-            },
-        ) {
-            Column(Modifier.fillMaxSize()) {
-            if (state.preparedReferenceUpdateAvailable) {
-                Surface(
-                    modifier = Modifier.fillMaxWidth().testTag("studio-prepared-reference-update"),
-                    tonalElevation = 3.dp,
-                    color = MaterialTheme.colorScheme.secondaryContainer,
-                ) {
-                    Row(
-                        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text("Base/referência precisam ser sincronizadas com o Studio", modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-                        OutlinedButton(onClick = viewModel::keepCurrentPreparedReferences, modifier = Modifier.testTag("studio-keep-prepared-reference")) { Text("Manter atual") }
-                        Button(onClick = viewModel::applyPreparedReferenceUpdate, modifier = Modifier.testTag("studio-update-prepared-reference")) { Text("Atualizar Studio") }
-                    }
-                }
-            }
-
-            Box(Modifier.fillMaxWidth().weight(1f)) {
-                StudioPlaceholderScreen(
-                    viewModel = viewModel,
-                    selectedTrackId = selectedTrackId,
-                    onSelectTrack = { selectedTrackId = it },
-                    showPracticeControls = !mixerVisible,
-                    onOpenLevelAnalysis = { allLevelsDialogVisible = true },
-                )
-            }
-
-            val project = state.project
-            if (project != null && mixerVisible) {
-                MixerDock(
-                    tracks = project.tracks,
-                    auditionMode = state.guitarAuditionMode,
-                    selectedTrackId = selectedTrackId,
-                    mixControlsEnabled = mixControlsEnabled,
-                    structuralControlsEnabled = structuralControlsEnabled,
-                    masterGainDb = state.masterGainDb,
-                    masterMeter = state.masterMeter,
-                    trackMeters = state.trackMeters,
-                    masterClipLatched = state.masterClipLatched,
-                    trackClipLatched = state.trackClipLatched,
-                    onSelectTrack = { selectedTrackId = it },
-                    onGainPreview = viewModel::previewTrackGainDb,
-                    onGainCommit = viewModel::commitTrackGainDb,
-                    onPanPreview = viewModel::previewTrackPan,
-                    onPanCommit = viewModel::commitTrackPan,
-                    onToggleMute = viewModel::toggleTrackMuted,
-                    onToggleSolo = viewModel::toggleTrackSolo,
-                    onToggleCue = viewModel::toggleTrackCue,
-                    onToggleArm = viewModel::toggleTrackArmed,
-                    onMasterGainPreview = viewModel::previewMasterGainDb,
-                    onMasterGainCommit = viewModel::commitMasterGainDb,
-                    onClearTrackClip = viewModel::clearTrackClipIndicator,
-                    onClearMasterClip = viewModel::clearMasterClipIndicator,
-                    headerContent = {
-                        PracticeControls(
-                            project = project,
-                            auditionMode = state.guitarAuditionMode,
-                            suggestions = state.sectionSuggestions.size,
-                            enabled = structuralControlsEnabled,
-                            loopEnabled = state.transport.loopEnabled,
-                            onAuditionMode = viewModel::setGuitarAuditionMode,
-                            onAddMarker = viewModel::addMarkerAtPlayhead,
-                            onAddSection = viewModel::addSectionFromLoop,
-                            onSuggestSections = viewModel::suggestSections,
-                            onAcceptSections = viewModel::acceptSectionSuggestions,
-                            onDiscardSections = viewModel::discardSectionSuggestions,
-                            onClearSections = viewModel::clearSections,
-                            onLoopSection = viewModel::loopSection,
-                            onRemoveMarker = viewModel::removeMarker,
-                            onRemoveSection = viewModel::removeSection,
-                            onOpenLevelAnalysis = { allLevelsDialogVisible = true },
-                            docked = true,
-                        )
                     },
                 )
+            },
+        ) {
+            Box(Modifier.fillMaxSize()) {
+                Column(Modifier.fillMaxSize()) {
+                if (state.preparedReferenceUpdateAvailable) {
+                    Surface(
+                        modifier = Modifier.fillMaxWidth().testTag("studio-prepared-reference-update"),
+                        tonalElevation = 3.dp,
+                        color = MaterialTheme.colorScheme.secondaryContainer,
+                    ) {
+                        Row(
+                            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text("Base/referência precisam ser sincronizadas com o Studio", modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                            OutlinedButton(onClick = viewModel::keepCurrentPreparedReferences, modifier = Modifier.testTag("studio-keep-prepared-reference")) { Text("Manter atual") }
+                            Button(onClick = viewModel::applyPreparedReferenceUpdate, modifier = Modifier.testTag("studio-update-prepared-reference")) { Text("Atualizar Studio") }
+                        }
+                    }
+                }
+
+                Box(Modifier.fillMaxWidth().weight(1f)) {
+                    StudioPlaceholderScreen(
+                        viewModel = viewModel,
+                        selectedTrackId = selectedTrackId,
+                        onSelectTrack = { selectedTrackId = it },
+                        showPracticeControls = false,
+                        onOpenLevelAnalysis = { allLevelsDialogVisible = true },
+                    )
+                }
+
+                if (mixerPinned) renderMixer()
             }
-        }
+            if (!mixerPinned) {
+                Box(Modifier.align(Alignment.BottomCenter)) { renderMixer() }
+            }
+
+            }
         }
         AppTransientFeedbackHost(
             message = rawTransientMessage,

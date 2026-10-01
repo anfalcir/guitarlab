@@ -3,7 +3,7 @@
 Private, single-owner Android guitar preparation, study, recording, mixing, export and backup appliance.
 
 Updated: 2026-10-01
-Release state: **RC20 ACCEPTED / RC22 DUAL-OUTPUT FEATURE CANDIDATE — REQUALIFICATION ACTIVE**
+Release state: **RC20 ACCEPTED / RC23 STUDIO NAVBAR / NARROW MIXER CANDIDATE — BRANCH DIGITAL PASS / SIGNED QUALIFICATION REQUESTED**
 
 ## Start here
 
@@ -24,7 +24,7 @@ Completed roadmaps, milestone plans, candidate checklists, release campaigns and
 
 ## Accepted baseline and active candidate
 
-GuitarLab `0.5.0-rc20` / versionCode `40` remains the accepted personal-use baseline. The active successor is `0.5.0-rc22` / versionCode `42`, an owner-requested per-track MAIN/CUE monitoring feature built on the RC21-integrated Android source.
+GuitarLab `0.5.0-rc20` / versionCode `40` remains the accepted personal-use baseline. The active successor is `0.5.0-rc23` / versionCode `43`, an owner-requested Studio navbar and narrow complete Mixer feature built on the RC22-integrated Android source.
 
 - package: `studio.guitarlab.app`;
 - accepted baseline identity and signer: `docs/RELEASE_BASELINE.md`;
@@ -50,9 +50,9 @@ GBW is historical implementation provenance only. Legacy standalone GBW/H37/pre-
 ## Repository and materialization
 
 - canonical branch: `main`;
-- active RC22 development branch: `feature/dual-output-cue-routing`;
+- RC23 review branch: `feature/studio-space-layout` (branch qualification completed; canonical integration/signing follows);
 - canonical materialization entrypoint: `scripts/materialize_ci_sources.sh`;
-- active candidate tail: **RC22DualOutputCueRouting** via `scripts/materialize_ci_sources_rc22.py`;
+- active candidate tail: **RC23StudioSpaceLayout** via `scripts/materialize_ci_sources_rc23.py`;
 - protected payloads: `.source-parts/`;
 - materialization is deterministic, hash/blob locked, idempotent and fail-closed.
 
@@ -67,7 +67,7 @@ Ordinary documentation/source commits use `[skip ci]` unless qualification is in
 - `[run u4 cloud]`: controlled real-cloud transactional smoke;
 - `[run u7 cloud]`: backend verification/deploy workflow with explicit shadow/production authorization.
 
-The accepted RC20 baseline does not require recurring CI. RC22 qualification is active because the owner explicitly requested this new audio-routing feature.
+The accepted RC20 baseline does not require recurring CI. RC23 qualification is active because the owner requested stable navbar geometry and narrower complete Mixer channels.
 
 ## Security and maintenance
 

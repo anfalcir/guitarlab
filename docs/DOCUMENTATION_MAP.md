@@ -11,7 +11,7 @@ Historical files intentionally preserve old candidate names, states and words su
 ## Live authority — read first
 
 1. `PROJECT_IDENTITY.md` — stable product identity, support boundary, freeze and maintenance triggers.
-2. `CURRENT_STATE.md` — concise present-tense operational state, including the active RC22 dual-output feature candidate while RC20 remains accepted.
+2. `CURRENT_STATE.md` — concise present-tense operational state, including the active RC23 Studio-layout candidate while RC20 remains accepted.
 3. `RELEASE_BASELINE.md` — immutable exact identity of the accepted APK/backend baseline.
 4. `PRODUCT_REQUIREMENTS.md` — supported product behavior.
 5. `ARCHITECTURE.md` — current technical boundaries.
