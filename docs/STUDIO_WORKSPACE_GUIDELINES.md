@@ -1,6 +1,6 @@
 # Studio Workspace Guidelines
 
-Updated: 2026-09-24
+Updated: 2026-10-01
 
 This document is a normative UI/UX contract for the GuitarLab Studio workspace on tablet.
 
@@ -41,6 +41,8 @@ Wide/landscape dialogs use balanced columns for track properties and source meta
 
 ## Practice controls + Mixer
 Comparison/Timeline is one reusable control surface, not two independent implementations.
+
+Each track strip may expose Mute, Solo, headphone/CUE and REC Arm as distinct accessible state controls. The headphone target must meet the same touch-target/non-overlap rules as neighboring controls and must expose state semantics. Its first UX contract is exclusive MAIN ↔ CUE; activating it never implies mute, solo, recording-arm or export exclusion.
 - when Mixer is open on wide layouts, `Mixer` remains anchored left, practice controls occupy the available center, and Pin/Close remain anchored right;
 - when Mixer closes, the same control state returns to workspace flow;
 - controls must not overlap, shift Pin/Close off-screen or diverge in state between presentations;
