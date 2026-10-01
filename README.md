@@ -2,7 +2,7 @@
 
 Private, single-owner Android guitar preparation, study, recording, mixing, export and backup appliance.
 
-Updated: 2026-10-01  
+Updated: 2026-10-01
 Release state: **RC20 ACCEPTED / RC22 DUAL-OUTPUT FEATURE CANDIDATE — REQUALIFICATION ACTIVE**
 
 ## Start here
