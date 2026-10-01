@@ -152,10 +152,10 @@ object BuiltInRoles {
     val gainDb: Float = 0f,
     val muted: Boolean = false,
     val solo: Boolean = false,
-    val outputRoute: TrackOutputRoute = TrackOutputRoute.MAIN,
     val armed: Boolean = false,
     val order: Int,
     val colorIndex: Int = -1,
+    val outputRoute: TrackOutputRoute = TrackOutputRoute.MAIN,
 )
 
 /**
