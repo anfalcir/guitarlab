@@ -20,7 +20,7 @@ RC21 reached signed digital-candidate state, but RC22 now supersedes it as the a
 - source materialization tail: `scripts/materialize_ci_sources_rc22.py`;
 - protected payload: `.source-parts/RC22DualOutputCueRouting.patch`;
 - initial qualification CI #913 / run `36865931256`: **FAIL** because `StudioViewModel.kt` referenced `cueOutputSignature` without resolving it inside backing playback during recording;
-- corrective source and payload have been applied; a fresh full qualification run is required before integration.
+- corrective source and payload have been applied and hash-reconciled; the full corrected qualification rerun is requested before integration.
 
 ## RC22 feature scope
 
