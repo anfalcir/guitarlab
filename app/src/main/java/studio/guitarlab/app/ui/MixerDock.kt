@@ -216,7 +216,7 @@ private fun MixerTrackStrip(
                 }
             }
 
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 MixerStateButton(
                     label = "M",
                     active = track.muted,
