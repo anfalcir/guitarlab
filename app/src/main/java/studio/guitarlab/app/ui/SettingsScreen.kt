@@ -46,6 +46,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.runInterruptible
+import kotlinx.coroutines.isActive
+import studio.guitarlab.platform.audio.android.AndroidCueRouteVerifier
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -82,13 +86,17 @@ fun SettingsScreen(
     val latencyEngine = remember(context) { AndroidLatencyCalibrationEngine(context) }
     val projectRepository = remember(context) { FileProjectRepository(context.filesDir) }
     val scope = rememberCoroutineScope()
+    var cueVerificationJob by remember { mutableStateOf<Job?>(null) }
+    var cueVerifying by remember { mutableStateOf(false) }
+    var cueVerificationStatus by remember { mutableStateOf<String?>(null) }
+    val cueSelectionGate = remember { CueSelectionGate() }
     val remoteCloudAuth = remember(context) { RemoteCloudAuthClient(context) }
     var remoteCloudSession by remember { mutableStateOf(remoteCloudAuth.currentSession()) }
     var cloudLoginDialogVisible by remember { mutableStateOf(false) }
     var cloudAuthMessage by remember { mutableStateOf<String?>(null) }
     var calibrating by remember { mutableStateOf(false) }
     var digitalVerifying by remember { mutableStateOf(false) }
-    val latencyBusy = calibrating || digitalVerifying
+    val latencyBusy = calibrating || digitalVerifying || cueVerifying
     var calibrationStatus by remember { mutableStateOf<String?>(null) }
     var calibrationProgress by remember { mutableStateOf(0 to 0) }
     var pendingCalibration by remember { mutableStateOf(false) }
@@ -235,6 +243,10 @@ fun SettingsScreen(
     }
 
     fun refreshAudioDevices() {
+        cueSelectionGate.invalidate()
+        cueVerificationJob?.cancel()
+        cueVerifying = false
+        cueVerificationStatus = null
         inputChoices = routingStore.inputChoices()
         outputChoices = routingStore.outputChoices()
         cueOutputChoices = routingStore.cueOutputChoices()
@@ -309,9 +321,16 @@ fun SettingsScreen(
                         selectedSignature = selectedOutput,
                         choices = outputChoices,
                         onSelect = { signature ->
+                            cueSelectionGate.invalidate()
+                            cueVerificationJob?.cancel()
+                            cueVerifying = false
+                            cueVerificationStatus = null
+                            selectedCueOutput = null
+                            routingStore.selectCueOutput(null)
                             selectedOutput = signature
                             routingStore.selectOutput(signature)
-                            if (signature == null || signature == selectedCueOutput) {
+                            cueOutputChoices = routingStore.cueOutputChoices()
+                            if (signature == null || cueOutputChoices.none { it.signature == selectedCueOutput }) {
                                 selectedCueOutput = null
                                 routingStore.selectCueOutput(null)
                             }
@@ -321,22 +340,59 @@ fun SettingsScreen(
                         title = "Saída secundária / CUE",
                         selectedSignature = selectedCueOutput,
                         choices = if (selectedOutput == null) emptyList() else cueOutputChoices.filterNot { it.signature == selectedOutput },
-                        nullLabel = "Desativada",
+                        nullLabel = if (cueVerifying) "Verificando…" else "Desativada",
                         nullDetail = if (selectedOutput == null) {
                             "Selecione primeiro uma saída principal explícita."
+                        } else if (outputChoices.firstOrNull { it.signature == selectedOutput }?.let(StudioAudioRoutePolicy::cueEligible) != true) {
+                            "CUE sincronizado exige duas saídas de baixa latência; Bluetooth pode ser usado sozinho como saída principal."
                         } else {
                             "Selecione uma saída secundária de baixa latência. Bluetooth não é oferecido para CUE sincronizado."
                         },
                         onSelect = { signature ->
-                            if (selectedOutput == null || signature == selectedOutput) {
-                                selectedCueOutput = null
-                                routingStore.selectCueOutput(null)
-                            } else {
-                                selectedCueOutput = signature
-                                routingStore.selectCueOutput(signature)
+                            cueVerificationJob?.cancel()
+                            cueVerifying = false
+                            val ticket = cueSelectionGate.begin()
+                            selectedCueOutput = null
+                            routingStore.selectCueOutput(null)
+                            cueVerificationStatus = null
+                            val mainSignature = selectedOutput
+                            if (signature != null && mainSignature != null && signature != mainSignature && !calibrating && !digitalVerifying) {
+                                cueVerificationStatus = "Verificando saídas e sincronização…"
+                                cueVerifying = true
+                                val probeSampleRateHz = calibrationSampleRateHz ?: 48000
+                                cueVerificationJob = scope.launch {
+                                    try {
+                                        val validationJob = coroutineContext[Job]!!
+                                        val failure = runInterruptible(Dispatchers.IO) {
+                                            runCatching {
+                                                val main = routingStore.resolveSelectedOutputDevice()
+                                                val cue = routingStore.resolveCandidateCueOutputDevice(signature)
+                                                if (main == null || cue == null) "Uma das saídas selecionadas não está disponível."
+                                                else AndroidCueRouteVerifier.verifyDevices(main, cue, probeSampleRateHz) { validationJob.isActive }
+                                            }.getOrElse { "Não foi possível verificar as saídas selecionadas." }
+                                        }
+                                        if (cueSelectionGate.accepts(ticket) && selectedOutput == mainSignature && routingStore.selectedOutputSignature() == mainSignature) {
+                                            val stillAvailable = routingStore.cueOutputChoices().any { it.signature == signature }
+                                            if (failure == null && stillAvailable) {
+                                                routingStore.selectCueOutput(signature)
+                                                selectedCueOutput = signature
+                                                cueVerificationStatus = "CUE verificado: rotas distintas e clocks sincronizados."
+                                            } else {
+                                                cueVerificationStatus = "CUE desativado. ${failure ?: "A saída foi desconectada durante a verificação."}"
+                                            }
+                                        }
+                                    } finally {
+                                        if (cueSelectionGate.accepts(ticket)) cueVerifying = false
+                                    }
+                                }
+                            } else if (signature != null && (calibrating || digitalVerifying)) {
+                                cueVerificationStatus = "Aguarde o diagnóstico de latência antes de verificar CUE."
                             }
                         },
                     )
+                    cueVerificationStatus?.let {
+                        Text(it, modifier = Modifier.testTag("cue_verification_status"), style = MaterialTheme.typography.bodySmall)
+                    }
                     MonitoringSelector(
                         mode = monitoringMode,
                         onSelect = { mode ->

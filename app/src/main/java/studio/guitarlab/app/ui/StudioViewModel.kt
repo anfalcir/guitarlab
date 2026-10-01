@@ -1635,10 +1635,21 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
         val state = _state.value
         val project = state.project ?: return
         if (!structuralEditingAllowed(state)) return
+        val target = project.tracks.firstOrNull { it.id == trackId } ?: return
+        if (target.outputRoute == TrackOutputRoute.MAIN && audioRoutingStore.routeHealth().effectiveCueOutput == null) {
+            postTransientWarning(
+                "Configure duas saídas distintas de baixa latência em Opções antes de ativar CUE. A pista continua na saída principal.",
+                "CUE indisponível; a pista continua na saída principal.",
+            )
+            return
+        }
         viewModelScope.launch {
             runCatching {
                 saveLatest(project.id) { latest ->
                     val target = latest.tracks.firstOrNull { it.id == trackId } ?: return@saveLatest latest
+                    check(target.outputRoute != TrackOutputRoute.MAIN || audioRoutingStore.routeHealth().effectiveCueOutput != null) {
+                        "A saída CUE ficou indisponível; a pista continua na saída principal."
+                    }
                     val updated = target.copy(
                         outputRoute = TrackOutputRoutingPolicy.toggleExclusiveCue(target.outputRoute),
                     )

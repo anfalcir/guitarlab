@@ -4,9 +4,9 @@ Updated: 2026-10-01
 
 ## Status
 
-**RC24 STUDIO DENSITY CORRECTION — IMPLEMENTED / DIGITAL QUALIFICATION PENDING**
+**RC25 BLUETOOTH OUTPUT / CUE STARTUP CORRECTION — DIGITAL QUALIFICATION PENDING**
 
-Owner video `141016.mp4` rejected RC23 layout ergonomics. RC24 corrects navbar/menus/Mixer density on a qualification branch; digital and physical results are not predeclared. RC20 remains the physically accepted frozen baseline in `RELEASE_BASELINE.md`. RC23 retains the RC22 MAIN/CUE implementation; residual physical acceptance of any simultaneous MAIN/CUE hardware combination remains separate from digital CI.
+Owner video `141016.mp4` rejected RC23 layout ergonomics. RC24 corrects navbar/menus/Mixer density on its qualification branch; RC25 inherits that source and corrects new routing evidence. Neither pending workflow is monitored and no results are predeclared. RC20 remains the physically accepted frozen baseline in `RELEASE_BASELINE.md`. RC23 retains the RC22 MAIN/CUE implementation; residual physical acceptance of any simultaneous MAIN/CUE hardware combination remains separate from digital CI.
 
 ## Exact signed RC23 identity
 
@@ -23,7 +23,7 @@ Owner video `141016.mp4` rejected RC23 layout ergonomics. RC24 corrects navbar/m
 - signing verifies APK Signature Scheme v2 and signs the exact tested unsigned release artifact without rebuilding;
 - local downloaded APK checksum matches `SHA256SUMS.txt` and `BUILD_IDENTITY.txt`; certificate/package/version verification is evidenced by the successful signing job.
 
-## RC24 implementation and pending qualification
+## Inherited RC24 implementation and pending qualification
 
 - versionName `0.5.0-rc24`, versionCode `44`; no producer SHA or signed artifact declared before qualification;
 - Comparison/Timeline vertical panels; balanced fixed navbar slots; Níveis in Master;
@@ -33,6 +33,15 @@ Owner video `141016.mp4` rejected RC23 layout ergonomics. RC24 corrects navbar/m
 - D-100 and subsystem/guide docs updated; immutable RC24 stage follows RC23;
 - focused tests cover visual/target bounds, menu fit, minimum/details pan commits, preference upgrade and filled five-track tablet geometry/captures;
 - local materialization/diff checks are recorded in `history/RC24_STUDIO_DENSITY_2026-10-01.md`; Android compile/Lint/instrumentation and screenshot review await CI evidence.
+
+## RC25 correction
+
+- candidate `0.5.0-rc25` / `45`, based on RC24 qualification source `3279b8ba7217d27ee7c22aea6c56477044bb3054`;
+- hide SCO from media outputs, preserve A2DP stereo, migrate old selection only with unambiguous identity; recording inputs and mono USB preserved;
+- CUE options require both low-latency destinations; missing configuration blocks new activation without changing track/history;
+- bounded continuously fed interleaved startup replaces drained/sequential clock sampling; all actual-route/clock/offset/runtime safety guards retained;
+- pure fake-clock tests, Bluetooth/migration unit tests and unavailable-CUE instrumented regression added;
+- qualification report: `history/RC25_OUTPUT_CUE_CORRECTION_2026-10-01.md`; Android/software results and physical pair acceptance pending.
 
 ## Next action
 

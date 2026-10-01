@@ -34,8 +34,17 @@ internal object StudioAudioRoutePolicy {
     fun canonicalInputSignature(raw: List<StudioAudioDeviceChoice>, storedSignature: String): String? =
         canonicalSignatureFor(canonicalizeInputs(raw), storedSignature)
 
-    fun canonicalSignature(raw: List<StudioAudioDeviceChoice>, storedSignature: String): String? =
-        canonicalSignatureFor(canonicalizeOutputs(raw), storedSignature)
+    fun canonicalSignature(raw: List<StudioAudioDeviceChoice>, storedSignature: String): String? {
+        val outputs = canonicalizeOutputs(raw)
+        canonicalSignatureFor(outputs, storedSignature)?.let { return it }
+        val old = raw.singleOrNull { it.signature == storedSignature || storedSignature in it.legacySignatures }
+            ?.takeIf { it.type == BLUETOOTH_SCO_TYPE } ?: return null
+        // Migrate a call-profile selection only to one matching physical media destination.
+        return outputs.filter { it.transportFamily == BLUETOOTH_FAMILY &&
+            normalize(it.productName) == normalize(old.productName) &&
+            (old.address.isBlank() || it.address.isBlank() || normalize(it.address) == normalize(old.address))
+        }.singleOrNull()?.signature
+    }
 
     fun candidateInputIdsFor(raw: List<StudioAudioDeviceChoice>, selectedSignature: String): List<Int> =
         candidateIdsForCanonical(canonicalizeInputs(raw), selectedSignature)
@@ -64,7 +73,8 @@ internal object StudioAudioRoutePolicy {
     }
 
     private fun canonicalize(raw: List<StudioAudioDeviceChoice>, direction: Direction): List<StudioAudioDeviceChoice> {
-        val visible = raw.filterNot { it.transportFamily == HIDDEN_SYSTEM_FAMILY }
+        val visible = raw.filterNot { it.transportFamily == HIDDEN_SYSTEM_FAMILY ||
+            (direction == Direction.OUTPUT && it.type == BLUETOOTH_SCO_TYPE) }
         val grouped = linkedMapOf<String, MutableList<StudioAudioDeviceChoice>>()
         visible.forEach { choice -> grouped.getOrPut(groupKey(choice, direction)) { mutableListOf() } += choice }
         return grouped.values.map { mergePhysicalGroup(it, direction) }.sortedBy { it.label.lowercase() }
@@ -146,6 +156,8 @@ internal object StudioAudioRoutePolicy {
     private fun normalize(value: String): String = value.trim().lowercase()
 
     private enum class Direction(val id: String) { INPUT("in"), OUTPUT("out") }
+
+    private const val BLUETOOTH_SCO_TYPE = 7 // AudioDeviceInfo.TYPE_BLUETOOTH_SCO; calls, not media playback.
 
     const val USB_FAMILY = "usb"
     const val WIRED_FAMILY = "wired"

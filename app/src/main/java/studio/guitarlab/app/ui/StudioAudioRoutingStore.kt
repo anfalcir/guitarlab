@@ -34,8 +34,12 @@ class StudioAudioRoutingStore(context: Context) {
 
     fun outputChoices(): List<StudioAudioDeviceChoice> = StudioAudioRoutePolicy.canonicalizeOutputs(rawOutputChoices())
 
-    fun cueOutputChoices(): List<StudioAudioDeviceChoice> =
-        outputChoices().filter(StudioAudioRoutePolicy::cueEligible)
+    fun cueOutputChoices(): List<StudioAudioDeviceChoice> {
+        val outputs = outputChoices()
+        val main = outputs.firstOrNull { it.signature == selectedOutputSignature() }
+        if (main == null || !StudioAudioRoutePolicy.cueEligible(main)) return emptyList()
+        return outputs.filter { StudioAudioRoutePolicy.cueEligible(it) && it.signature != main.signature }
+    }
 
     fun selectedInputSignature(): String? {
         val stored = preferences.getString(KEY_INPUT_SIGNATURE, null) ?: return null
@@ -159,6 +163,12 @@ class StudioAudioRoutingStore(context: Context) {
         if (selected == main) return null
         if (cueOutputChoices().none { it.signature == selected }) return null
         return resolveOutputDevice(selected, CUE_OUTPUT_ROUTE_CACHE)
+    }
+
+    /** Resolves a candidate without persisting it; selection is committed only after preflight. */
+    fun resolveCandidateCueOutputDevice(signature: String): AudioDeviceInfo? {
+        if (cueOutputChoices().none { it.signature == signature }) return null
+        return resolveOutputDevice(signature, CUE_OUTPUT_ROUTE_CACHE)
     }
 
     private fun resolveOutputDevice(

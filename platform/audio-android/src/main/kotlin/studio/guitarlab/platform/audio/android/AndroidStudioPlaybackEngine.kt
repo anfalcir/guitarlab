@@ -665,79 +665,12 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
     }
 
     private fun primeAndVerifyDualRoutes(
-        mainTrack: AudioTrack,
-        cueTrack: AudioTrack,
-        expectedMain: AudioDeviceInfo,
-        expectedCue: AudioDeviceInfo,
-        sampleRateHz: Int,
-    ): String? {
-        val silence = FloatArray(CUE_ROUTE_PROBE_FRAMES * 2)
-        return try {
-            mainTrack.setVolume(0f)
-            cueTrack.setVolume(0f)
-            mainTrack.play()
-            cueTrack.play()
-            if (mainTrack.write(silence, 0, silence.size, AudioTrack.WRITE_BLOCKING) <= 0) {
-                return "A saída principal não avançou durante a verificação silenciosa; CUE permaneceu bloqueado."
-            }
-            if (cueTrack.write(silence, 0, silence.size, AudioTrack.WRITE_BLOCKING) <= 0) {
-                return "A saída CUE não avançou durante a verificação silenciosa."
-            }
-            val deadline = System.nanoTime() + CUE_ROUTE_PROBE_TIMEOUT_NS
-            var verified = false
-            while (System.nanoTime() < deadline && !verified) {
-                val mainRouted = mainTrack.routedDevice
-                val cueRouted = cueTrack.routedDevice
-                verified = CueRouteSafetyPolicy.routedPairMatches(
-                    expectedMainDeviceId = expectedMain.id,
-                    expectedCueDeviceId = expectedCue.id,
-                    actualMainDeviceId = mainRouted?.id,
-                    actualCueDeviceId = cueRouted?.id,
-                )
-                if (!verified) Thread.sleep(CUE_ROUTE_PROBE_POLL_MS)
-            }
-            if (!verified) {
-                return "Não foi possível confirmar MAIN e CUE em endpoints físicos distintos; CUE permaneceu silencioso."
-            }
-
-            val mainAnchor = stablePlaybackClockAnchor(
-                track = mainTrack,
-                sampleRateHz = sampleRateHz,
-                maxJitterNs = CUE_CLOCK_MAX_JITTER_NS,
-            )
-            val cueAnchor = stablePlaybackClockAnchor(
-                track = cueTrack,
-                sampleRateHz = sampleRateHz,
-                maxJitterNs = CUE_CLOCK_MAX_JITTER_NS,
-            )
-            if (mainAnchor == null || cueAnchor == null ||
-                mainAnchor.observations < CUE_CLOCK_MIN_OBSERVATIONS ||
-                cueAnchor.observations < CUE_CLOCK_MIN_OBSERVATIONS
-            ) {
-                return "Os clocks de apresentação MAIN/CUE não produziram evidência estável suficiente; CUE permaneceu silencioso."
-            }
-            if (!CueRouteSafetyPolicy.initialOffsetWithinLimit(
-                    mainStreamOriginNs = mainAnchor.streamOriginMonotonicNs,
-                    cueStreamOriginNs = cueAnchor.streamOriginMonotonicNs,
-                )
-            ) {
-                return "O offset inicial entre MAIN e CUE excedeu 12 ms; CUE foi silenciado para preservar sincronização."
-            }
-            null
-        } catch (_: InterruptedException) {
-            Thread.currentThread().interrupt()
-            "A verificação silenciosa MAIN/CUE foi interrompida; CUE permaneceu silencioso."
-        } catch (_: RuntimeException) {
-            "O Android não conseguiu comprovar sincronização inicial entre MAIN e CUE."
-        } finally {
-            runCatching { mainTrack.pause() }
-            runCatching { mainTrack.flush() }
-            runCatching { cueTrack.pause() }
-            runCatching { cueTrack.flush() }
-            runCatching { mainTrack.setVolume(1f) }
-            runCatching { cueTrack.setVolume(1f) }
-        }
-    }
+        mainTrack: AudioTrack, cueTrack: AudioTrack, expectedMain: AudioDeviceInfo,
+        expectedCue: AudioDeviceInfo, sampleRateHz: Int,
+    ): String? = AndroidCueRouteVerifier.verifyTracks(
+        mainTrack, cueTrack, expectedMain, expectedCue, sampleRateHz,
+        keepRunning = { running },
+    )
 
     private fun cueRouteStillSafe(
         mainTrack: AudioTrack,
@@ -812,11 +745,6 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
         const val NO_PENDING_SEEK = Long.MIN_VALUE
         const val CLOCK_ANCHOR_SAMPLES = 6
         const val CLOCK_ANCHOR_POLL_MS = 3L
-        const val CUE_ROUTE_PROBE_FRAMES = 2_048
-        const val CUE_ROUTE_PROBE_POLL_MS = 8L
-        const val CUE_ROUTE_PROBE_TIMEOUT_NS = 220_000_000L
-        const val CUE_CLOCK_MAX_JITTER_NS = 4_000_000L
-        const val CUE_CLOCK_MIN_OBSERVATIONS = 3
         const val CUE_DRIFT_CONSECUTIVE_LIMIT = 3
     }
 }

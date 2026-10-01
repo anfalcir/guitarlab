@@ -2,6 +2,7 @@ package studio.guitarlab.app.ui
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -93,14 +94,27 @@ class StudioAudioRoutePolicyTest {
     }
 
     @Test
-    fun nonUsbProfilesAreNeverCollapsedByMatchingLabel() {
-        val a2dp = choice(id = 7, type = 8, family = "type:8", signature = "a2dp")
-        val sco = choice(id = 8, type = 7, family = "type:7", signature = "sco")
+    fun mediaOutputsHideScoAndPreserveStereoEndpointAndLegacyMigration() {
+        val a2dp = choice(id = 7, type = 8, family = StudioAudioRoutePolicy.BLUETOOTH_FAMILY,
+            signature = "a2dp", channels = listOf(2), rates = listOf(44_100, 48_000), address = "AA:BB")
+        val sco = choice(id = 8, type = 7, family = StudioAudioRoutePolicy.BLUETOOTH_FAMILY,
+            signature = "sco", channels = listOf(1), rates = listOf(8000, 16000), address = "aa:bb")
+        val raw = listOf(sco, a2dp)
+        assertEquals(listOf(a2dp), StudioAudioRoutePolicy.canonicalizeOutputs(raw))
+        assertEquals("a2dp", StudioAudioRoutePolicy.canonicalSignature(raw, "sco"))
+        assertEquals(listOf(7), StudioAudioRoutePolicy.candidateIdsFor(raw, "a2dp"))
+        assertTrue("Recording input profiles must remain available", StudioAudioRoutePolicy.canonicalizeInputs(raw).any { it.type == 7 })
+    }
 
-        val result = StudioAudioRoutePolicy.canonicalizeOutputs(listOf(a2dp, sco))
-
-        assertEquals(2, result.size)
-        assertEquals(setOf("a2dp", "sco"), result.map { it.signature }.toSet())
+    @Test
+    fun scoMigrationNeverGuessesBetweenDistinctHeadsetsAndMonoUsbRemainsVisible() {
+        val sco = choice(id = 1, type = 7, family = StudioAudioRoutePolicy.BLUETOOTH_FAMILY, signature = "sco")
+        val first = choice(id = 2, type = 8, family = StudioAudioRoutePolicy.BLUETOOTH_FAMILY, signature = "one", address = "A")
+        val second = choice(id = 3, type = 8, family = StudioAudioRoutePolicy.BLUETOOTH_FAMILY, signature = "two", address = "B")
+        assertNull(StudioAudioRoutePolicy.canonicalSignature(listOf(sco, first, second), "sco"))
+        assertTrue(StudioAudioRoutePolicy.canonicalizeOutputs(listOf(sco)).isEmpty())
+        val usb = choice(id = 4, type = 11, channels = listOf(1))
+        assertEquals(listOf(1), StudioAudioRoutePolicy.canonicalizeOutputs(listOf(usb)).single().channelCounts)
     }
 
     @Test

@@ -124,3 +124,7 @@ The terminal source stage is `scripts/materialize_ci_sources_rc23.py`, after RC2
 ## Active RC24 Studio density qualification
 
 Terminal stage: `scripts/materialize_ci_sources_rc24.py`, after immutable RC23. Candidate `0.5.0-rc24` / `44`. Qualification branch `feature/studio-density-rc24` temporarily participates in push CI; remove it before canonical signing. Existing focused Studio/practice/tablet groups execute updated tests, including populated audio lanes and complete/minimum screenshot artifacts. Local shell/source reconstruction checks do not substitute Android compile, Lint or API36 execution. The owner reports workflow completion; no polling/monitoring.
+
+## RC25 output/CUE startup qualification
+
+RC25 follows immutable RC24 with `.source-parts/RC25OutputCueCorrection.patch` and `scripts/materialize_ci_sources_rc25.py`. Temporary `feature/audio-routes-rc25` qualification trigger is independent of RC24's branch; both are retired before canonical signing. Existing software gate includes core-audio and app unit tests; existing practice regression includes unavailable-CUE history preservation. No workflow execution monitoring or result predeclaration.

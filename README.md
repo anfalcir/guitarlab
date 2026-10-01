@@ -3,7 +3,7 @@
 Private, single-owner Android guitar preparation, study, recording, mixing, export and backup appliance.
 
 Updated: 2026-10-01
-Release state: **RC20 ACCEPTED / RC24 STUDIO DENSITY CORRECTION — QUALIFICATION PENDING**
+Release state: **RC20 ACCEPTED / RC25 OUTPUT/CUE CORRECTION — QUALIFICATION PENDING**
 
 ## Start here
 
@@ -24,7 +24,7 @@ Completed roadmaps, milestone plans, candidate checklists, release campaigns and
 
 ## Accepted baseline and active candidate
 
-GuitarLab `0.5.0-rc20` / versionCode `40` remains the accepted personal-use baseline. The active successor is `0.5.0-rc24` / versionCode `44`, an owner-requested Studio density correction after RC23 physical UX rejection.
+GuitarLab `0.5.0-rc20` / versionCode `40` remains the accepted personal-use baseline. The active successor is `0.5.0-rc25` / versionCode `45`, inheriting RC24 Studio density correction and addressing Bluetooth media output/CUE startup evidence.
 
 - package: `studio.guitarlab.app`;
 - accepted baseline identity and signer: `docs/RELEASE_BASELINE.md`;
@@ -52,7 +52,7 @@ GBW is historical implementation provenance only. Legacy standalone GBW/H37/pre-
 - canonical branch: `main`;
 - RC23 integrated review: PR #9; exact signed identity in `docs/CURRENT_STATE.md`;
 - canonical materialization entrypoint: `scripts/materialize_ci_sources.sh`;
-- active candidate tail: **RC24StudioDensity** via `scripts/materialize_ci_sources_rc24.py`;
+- active candidate tail: **RC25OutputCueCorrection** via `scripts/materialize_ci_sources_rc25.py`;
 - protected payloads: `.source-parts/`;
 - materialization is deterministic, hash/blob locked, idempotent and fail-closed.
 
