@@ -22,6 +22,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.FiberManualRecord
 import androidx.compose.material.icons.filled.Headphones
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -256,6 +257,7 @@ private fun MixerTrackStrip(
                         } else if (clipLatched) {
                             MixerClipButton(
                                 contentDescription = "Limpar clipping da pista ${track.name}",
+                                indicatorTag = "mixer-track-clip-indicator-${track.id}",
                                 onClick = onClearClip,
                             )
                         }
@@ -430,6 +432,7 @@ private fun MasterStrip(
                         Box(Modifier.align(Alignment.CenterEnd)) {
                             MixerClipButton(
                                 contentDescription = "Limpar clipping do master",
+                                indicatorTag = "mixer-master-clip-indicator",
                                 onClick = onClearClip,
                             )
                         }
@@ -500,6 +503,7 @@ private fun MixerSectionSurface(
 @Composable
 private fun MixerClipButton(
     contentDescription: String,
+    indicatorTag: String,
     onClick: () -> Unit,
 ) {
     Box(
@@ -508,13 +512,18 @@ private fun MixerClipButton(
         contentAlignment = Alignment.Center,
     ) {
         Surface(
-            modifier = Modifier.size(width = 38.dp, height = 24.dp),
-            shape = RoundedCornerShape(4.dp),
-            color = MaterialTheme.colorScheme.error.copy(alpha = 0.16f),
+            modifier = Modifier.size(width = 28.dp, height = 24.dp).testTag(indicatorTag),
+            shape = RoundedCornerShape(6.dp),
+            color = MaterialTheme.colorScheme.error.copy(alpha = 0.14f),
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.error),
         ) {
             Box(contentAlignment = Alignment.Center) {
-                Text("CLIP", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
+                Icon(
+                    imageVector = Icons.Default.Warning,
+                    contentDescription = null,
+                    modifier = Modifier.size(14.dp),
+                    tint = MaterialTheme.colorScheme.error,
+                )
             }
         }
     }

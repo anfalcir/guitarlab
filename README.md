@@ -52,7 +52,7 @@ GBW is historical implementation provenance only. Legacy standalone GBW/H37/pre-
 - canonical branch: `main`;
 - RC23 integrated review: PR #9; exact signed identity in `docs/CURRENT_STATE.md`;
 - canonical materialization entrypoint: `scripts/materialize_ci_sources.sh`;
-- active candidate tail: **RC27aVisualEvidenceSync** via `scripts/materialize_ci_sources_rc27a.py`;
+- active candidate tail: **RC27bCompactClipBadge** via `scripts/materialize_ci_sources_rc27b.py`;
 - protected payloads: `.source-parts/`;
 - materialization is deterministic, hash/blob locked, idempotent and fail-closed.
 
@@ -67,7 +67,7 @@ Ordinary documentation/source commits use `[skip ci]` unless qualification is in
 - `[run u4 cloud]`: controlled real-cloud transactional smoke;
 - `[run u7 cloud]`: backend verification/deploy workflow with explicit shadow/production authorization.
 
-The accepted RC20 baseline does not require recurring CI. RC26 remains retained signed digital evidence. RC27 software/API36 passed in CI #952, but signing remains blocked because the complete-mode tablet screenshot was captured during the loading frame. RC27a re-runs the same gate with deterministic loaded-state screenshot synchronization; both complete and minimum visual artifacts must be reviewed before signing.
+The accepted RC20 baseline does not require recurring CI. RC26 remains retained signed digital evidence. RC27a software/API36 passed in CI #953 and regenerated valid complete/minimum tablet evidence. Signing remains blocked on one focused RC27b visual correction: replace the title-colliding textual CLIP face with a compact warning badge while retaining the same 48 dp action target and meter/reset behavior.
 
 ## Security and maintenance
 

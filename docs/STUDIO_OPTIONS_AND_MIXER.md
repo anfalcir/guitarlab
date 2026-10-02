@@ -43,7 +43,7 @@ CUE is a secondary monitoring/playback bus. The secondary sink is opened only wh
 
 ## Visual hierarchy invariants
 
-- header identity is centered as a group regardless of selected state; transient trailing status such as comparison/clip may not permanently displace the normal title geometry;
+- header identity is centered as a group regardless of selected state; transient trailing status such as comparison/clip may not permanently displace the normal title geometry; the visible CLIP warning face must not overlap the centered title even though its transparent/tappable parent retains a 48 dp target;
 - each visible section spans the useful inner card width and remains vertically ordered/non-overlapping;
 - soft segmentation is presentation-only: Mute/Solo/CUE/REC, gain, pan, metering, CLIP and Master callbacks remain the same domain actions;
 - normal-font dimensions remain 200 dp track / 144 dp Master / 252 dp complete / 172 dp minimum;
@@ -62,3 +62,7 @@ Dual-output admission prefills silence, then feeds both AudioTracks with non-blo
 A seleção secundária é validada imediatamente em Opções: mostra “Verificando”, abre duas saídas com buffers zerados e volume zero e somente persiste CUE depois de comprovar rotas distintas e clocks estáveis. Falhas mantêm CUE desativado e mostram a causa. Nova seleção, desativação, alteração de MAIN, atualização da lista e saída da tela cancelam/inutilizam resultados pendentes. Diagnósticos de latência não rodam em paralelo com esse teste. O teste usa a taxa do projeto disponível (48 kHz fora do projeto); mede evidência de apresentação relativa, não latência acústica/round-trip. Play/REC ainda verifica os streams reais e mudanças posteriores; uma aprovação anterior não garante suporte permanente do hardware.
 
 Os sliders compactos reservam 48dp de altura interativa, com thumb visual de 6×20dp centralizado. A margem horizontal interna de 10dp acomoda a expansão semântica do Material Slider, permitindo alcançar todo o controle nos extremos da rolagem. Isso se aplica a volume, pan e Master sem aumentar a altura dos docks ou a largura dos canais.
+
+## RC27b clipping affordance
+
+Clipping reset remains a header action so PK/RMS keep the full-width RC26/RC27 meter contract. Its semantic/click target remains 48×48 dp with the same `Limpar clipping…` description and callback. Only the visible face is compacted to a 28×24 dp warning badge, preventing centered track/Master identity text from colliding with the transient clipping affordance at normal and large font scales.

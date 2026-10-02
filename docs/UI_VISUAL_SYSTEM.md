@@ -69,7 +69,7 @@ Neutral closed triggers reduce persistent color noise. Comparison's active mode 
 - segmentation may clarify hierarchy but must not add fake controls, change audio semantics, reduce touch targets or inflate the 252/172 dp dock budgets;
 - buttons and meters remain visually distinct from labels/readouts;
 - track accent remains a restrained identity cue on unselected cards and becomes stronger on the selected card; color is never the only selected-state cue;
-- MASTER uses the same visual grammar with centered title, metering section and volume section, but does not render an empty/fake action bank;
+- MASTER uses the same visual grammar with centered title, metering section and volume section, but does not render an empty/fake action bank; transient clipping uses a compact warning face inside a 48 dp action target and the visible warning may not cover the centered title;
 - MASTER remains structurally separate and fixed.
 
 ### Options
@@ -203,3 +203,7 @@ Owner-approved RC27 refines only the card presentation established by RC26. Trac
 The implementation is geometry-preserving: normal-font track width remains 200 dp, Master remains 144 dp, state targets remain 48×48 dp with 46 dp visible faces, complete/minimum dock heights remain 252/172 dp, PK/RMS keep the RC26 full-width contract and Master keeps its wide volume control with one-line `VOL +dB` readout. Large-font growth remains unchanged. This is a visual-hierarchy change, not a mixer/audio/domain change.
 
 Qualification must assert centered header geometry, full-width/non-overlapping section regions, existing touch-target and slider behavior, target-tablet five-channel fit, and inspect complete/minimum screenshots. The RC24/RC26 sections above remain historical evolution; where presentation conflicts, RC27 is the current Mixer visual contract.
+
+## RC27b transient CLIP badge
+
+Post-#953 visual review found one remaining hierarchy collision outside the normal complete/minimum tablet frames: the textual `CLIP` face could overlap a centered track/Master title, especially on Master and large-font focused captures. RC27b preserves the existing 48×48 dp clear-clipping target, callback and semantics but changes only its visible face to a compact 28×24 dp warning badge. Track/Master titles remain geometrically centered and the visible warning badge is regression-tested not to overlap them. Meter width, card width/height and audio semantics remain unchanged.

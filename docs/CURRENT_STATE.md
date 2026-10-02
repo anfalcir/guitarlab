@@ -4,9 +4,9 @@ Updated: 2026-10-02
 
 ## Status
 
-**RC27a MIXER CARD HIERARCHY — DIGITAL TESTS PASS; VISUAL EVIDENCE RE-GATE PENDING**
+**RC27b MIXER CARD HIERARCHY — COMPLETE/MINIMUM PASS; CLIP COLLISION CORRECTION PENDING**
 
-RC26 remains the latest canonically signed digital authority. RC27 implements the owner-approved Mixer card hierarchy. Android CI **#952 / run 37034736534** passed deterministic materialization, Unit Tests, Android Lint, build and API36 regression on source **720ace0c76de20205ca6adde53d145fe4d867c8d**. Visual review accepted the minimum-mode/card/component evidence but found the full-tablet complete-mode screenshot captured while the Studio loading spinner was still painted, so RC27 is not yet declared digitally qualified or eligible for signing. RC27a changes only the target-tablet evidence synchronization: it waits for `loading == false`, representative waveform/Mixer nodes, Compose idle and window idle before the complete screenshot. RC20 remains the physically accepted frozen baseline until an exact signed successor is owner-accepted.
+RC26 remains the latest canonically signed digital authority. RC27 implements the owner-approved Mixer card hierarchy. Android CI **#953 / run 37037749921** passed deterministic materialization, Unit Tests, Android Lint, build and API36 regression on RC27a source **b0e439d25a64ad8563228efd69515c779f41f25b**. The refreshed complete and minimum target-tablet captures are loaded, reviewable and match the approved card segmentation. Focused clipping/large-font review then exposed one remaining visual collision: the 38×24 dp textual `CLIP` face can cover the centered Master/title region. RC27b keeps the 48×48 dp action target and callback but replaces only the visible face with a compact 28×24 dp warning badge and adds non-overlap regression. Signing remains blocked until that correction passes. RC20 remains the physically accepted frozen baseline.
 
 ## Exact signed RC26 identity
 
@@ -83,7 +83,7 @@ RC26 remains the latest canonically signed digital authority. RC27 implements th
 - 200 dp track width, 144 dp Master width, 252/172 dp dock heights, 48 dp targets, 46 dp faces, full-width PK/RMS, wide Master volume and large-font growth remain unchanged;
 - audio, routing, persistence, level-analysis, export and MAIN/CUE behavior are unchanged;
 - focused tests assert centered header groups, full-width/non-overlapping section geometry, existing control/touch behavior and target-tablet five-channel fit;
-- deterministic tail advances to `scripts/materialize_ci_sources_rc27a.py`; RC27/RC26 payloads remain immutable.
+- deterministic tail advances to `scripts/materialize_ci_sources_rc27b.py`; RC27a/RC27/RC26 payloads remain immutable.
 
 ## RC27 qualification attempt
 
@@ -92,9 +92,15 @@ RC26 remains the latest canonically signed digital authority. RC27 implements th
 - the complete-mode full-tablet screenshot is unusable as visual evidence because the loading spinner was still painted when the frame was captured, despite semantics already exposing the loaded nodes;
 - no product/runtime defect is claimed from that artifact; the visual gate remains open because both complete and minimum evidence were explicitly required.
 
-## RC27a next action
+## RC27a qualification result
 
-Run the exact RC27a source through `[run ci]`. RC27a must reproduce the same runtime/test geometry while forcing complete-mode screenshot capture only after `StudioViewModel.loading == false`, representative waveform/Mixer nodes are displayed, and Compose/window idle has completed. Inspect complete and minimum artifacts before any signed trigger. Backend/Drive/cloud gates remain reusable.
+- CI #953 / run `37037749921`: **software/API36 PASS** on `b0e439d25a64ad8563228efd69515c779f41f25b`;
+- refreshed complete and minimum target-tablet screenshots are loaded and reviewable; the approved centered-header/soft-segmentation layout is present in both;
+- focused clipping/large-font screenshots revealed a separate transient-title collision: the textual `CLIP` face can cover the centered title, most visibly on Master.
+
+## RC27b next action
+
+Run the exact RC27b source through `[run ci]`. The candidate must preserve the #953 complete/minimum layout while proving the compact visible clipping badge does not overlap track/Master titles and the 48 dp clear-clipping target still works. Inspect focused clipping/large-font screenshots before any signed trigger.
 
 ## Final RC26 digital qualification
 

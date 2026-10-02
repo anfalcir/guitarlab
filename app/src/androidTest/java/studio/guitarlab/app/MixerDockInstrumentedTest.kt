@@ -149,6 +149,13 @@ class MixerDockInstrumentedTest {
         assertEquals("Narrow channel width", 200f * density, strip.width, 1f)
         val titleGroup = composeRule.onNodeWithTag("mixer-track-title-group-${track.id}", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
         assertEquals("Track title group must be visually centered", strip.center.x, titleGroup.center.x, 1f)
+        val trackClipIndicator = composeRule.onNodeWithTag("mixer-track-clip-indicator-${track.id}", useUnmergedTree = true).assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+        assertTrue("Track CLIP indicator must not cover the centered title", !trackClipIndicator.overlaps(titleGroup))
+        assertTrue("Track CLIP visual badge stays compact while its parent keeps the 48dp target", trackClipIndicator.width <= 30f * density + 1f)
+        val masterTitle = composeRule.onNodeWithTag("mixer-master-title", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        val masterClipIndicator = composeRule.onNodeWithTag("mixer-master-clip-indicator", useUnmergedTree = true).assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+        assertTrue("Master CLIP indicator must not cover MASTER", !masterClipIndicator.overlaps(masterTitle))
+        assertTrue("Master CLIP visual badge stays compact while its parent keeps the 48dp target", masterClipIndicator.width <= 30f * density + 1f)
         val header = composeRule.onNodeWithTag("mixer-track-header-${track.id}", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
         val actions = composeRule.onNodeWithTag("mixer-track-actions-${track.id}", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
         val meterSection = composeRule.onNodeWithTag("mixer-track-meter-section-${track.id}", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
@@ -163,7 +170,7 @@ class MixerDockInstrumentedTest {
         val pan = composeRule.onNodeWithContentDescription("Pan da pista Teste").performScrollTo().assertIsDisplayed().fetchSemanticsNode().boundsInRoot
         assertTrue("Volume and pan targets must not overlap", !volume.overlaps(pan))
         assertTrue("Pan must stay fully inside the dock", pan.bottom <= composeRule.onNodeWithTag("mixer-dock").fetchSemanticsNode().boundsInRoot.bottom)
-        composeRule.captureCohesionScreenshot("rc27-mixer-segmented-narrow-clipping")
+        composeRule.captureCohesionScreenshot("rc27b-mixer-segmented-narrow-clipping")
 
     }
     @Test
@@ -322,7 +329,7 @@ class MixerDockInstrumentedTest {
         composeRule.waitForIdle()
         assertTrue("Touch above the drawn thumb must update volume", gainPreviews.get() > 0)
         assertTrue("Touch above the drawn thumb must commit volume", gainCommits.get() > 0)
-        composeRule.captureCohesionScreenshot("rc27-mixer-segmented-large-font")
+        composeRule.captureCohesionScreenshot("rc27b-mixer-segmented-large-font")
     }
 
     /** Full layout bounds: clipped semantics bounds would hide the very defect this test checks. */

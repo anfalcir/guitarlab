@@ -526,3 +526,13 @@ A seleção secundária é validada imediatamente em Opções: mostra “Verific
 - The refinement preserves 200 dp track width, 144 dp Master width, 252/172 dp dock heights, 48 dp touch targets, 46 dp button faces, RC26 full-width meters, Master volume geometry and large-font growth.
 - Audio, routing, persistence, level-analysis, export and MAIN/CUE semantics are unchanged.
 - Qualification adds centered-header and section-geometry assertions plus RC27 complete/minimum target-tablet screenshot review; existing interaction/accessibility regression remains blocking.
+
+## D-104 — Clipping keeps a 48 dp header target with a compact non-overlapping warning face
+
+2026-10-02. RC27 post-gate visual review found the previous textual `CLIP` face could visually collide with centered track/Master titles.
+
+- clear-clipping semantics, callback and 48×48 dp interaction target are unchanged;
+- the visible face becomes a compact 28×24 dp error-warning badge rather than a 38×24 dp `CLIP` wordmark;
+- the visible badge must not overlap the centered track identity group or centered `MASTER` title;
+- the action remains in the header so PK/RMS continue using full useful width;
+- this is presentation-only and does not alter meter latch/reset logic, persistence, routing or audio.

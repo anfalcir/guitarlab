@@ -7,7 +7,7 @@ This document describes current execution controls. Historical tail hashes, run 
 ## Source materialization
 
 - canonical entrypoint: `scripts/materialize_ci_sources.sh`;
-- current candidate tail: RC27a visual-evidence synchronization via `scripts/materialize_ci_sources_rc27a.py`, chained after RC27 and immutable RC26 predecessors;
+- current candidate tail: RC27b clipping-visual correction via `scripts/materialize_ci_sources_rc27b.py`, chained after RC27a/RC27 and immutable RC26 predecessors;
 - protected deltas: `.source-parts/`;
 - required properties: deterministic, hash/blob locked, idempotent, semantic guards, reverse-apply validation and fail-closed drift handling.
 
@@ -113,7 +113,7 @@ Run IDs and current status belong in `CURRENT_STATE.md`, not here.
 
 The accepted baseline remains RC20 until exact signed successor physical acceptance. RC26 is retained as signed digital authority (`0.5.0-rc26` / `46`, Android CI #950/#951) but was not promoted before RC27 was requested. RC27 `0.5.0-rc27` / `47` is the active Android-only presentation candidate.
 
-The current deterministic chain closes RC26's post-sign documentation with `scripts/materialize_ci_sources_rc26b.py`, applies RC27 through `scripts/materialize_ci_sources_rc27.py`, then applies the test/evidence-only RC27a stage. Prior source payloads are immutable. CI #952 proved RC27 software/API36 behavior but produced an unusable complete-mode tablet screenshot while loading was still painted. RC27a therefore re-runs the same Android gate with stronger visual-capture readiness; `[run ci signed]` remains blocked until complete and minimum screenshots are both reviewable.
+The current deterministic chain closes RC26's post-sign documentation with `scripts/materialize_ci_sources_rc26b.py`, applies RC27 through `scripts/materialize_ci_sources_rc27.py`, applies RC27a loaded-frame evidence synchronization, then RC27b compact clipping-badge correction. Prior source payloads are immutable. CI #953 proved the loaded complete/minimum evidence; signing remains blocked only on RC27b's focused clipping/title non-overlap gate.
 
 Because RC27 changes only Compose presentation/tests/docs, U4/U7/Drive/provider-real campaigns are not reopened. Existing routing, recording, Demucs and backup evidence remains applicable unless a later source change touches those paths.
 
@@ -142,3 +142,7 @@ RC27 follows a documentation-closure stage (`materialize_ci_sources_rc26b.py`) s
 ## RC27a visual-evidence correction
 
 CI #952 / run `37034736534` passed software and API36 on RC27 source `720ace0c76de20205ca6adde53d145fe4d867c8d`. Visual review accepted the minimum-mode/card screenshots but rejected the complete-mode target-tablet artifact because it showed the loading spinner. RC27a does not change runtime UI; it strengthens `StudioMixerTabletInstrumentedTest` so capture is gated by `StudioViewModel.loading == false`, representative waveform/Mixer visibility and Compose/window idle. A fresh `[run ci]` is required before signing.
+
+## RC27b focused clipping visual correction
+
+CI #953 / run `37037749921` passed RC27a software/API36 and produced valid complete/minimum target-tablet captures. Focused clipping/large-font review showed the textual CLIP face can cover centered header identity. RC27b changes only the visible clipping face to a compact warning badge while preserving its 48 dp action target/callback and full-width meters. A fresh `[run ci]` plus focused screenshot review is required before signing.
