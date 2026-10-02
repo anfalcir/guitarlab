@@ -4,9 +4,25 @@ Updated: 2026-10-02
 
 ## Status
 
-**RC27c MIXER CARD HIERARCHY — CLIP EDGE-ANCHOR CORRECTION PENDING**
+**RC27 MIXER CARD HIERARCHY — SIGNED DIGITAL PASS; PHYSICAL VALIDATION PENDING**
 
-RC26 remains the latest canonically signed digital authority. RC27 implements the owner-approved Mixer card hierarchy. CI **#953 / run 37037749921** remains the loaded complete/minimum visual PASS baseline for RC27a. CI **#954 / run 37040291049** passed deterministic materialization, Unit Tests, Android Lint and build on RC27b source **dee3321a4387841fa77127a1879ab9d1b1969f6c**, but API36 correctly failed the new geometry assertion `Master CLIP indicator must not cover MASTER`: the compact 28×24 dp warning face was still centered inside its 48×48 dp target. RC27c keeps both sizes unchanged and moves only the visible face to the target's outer/right edge. Signing remains blocked until the focused API36 gate passes. RC20 remains the physically accepted frozen baseline.
+RC27 is now the latest canonically signed digital authority. Android CI **#955 / run 37045089530** passed deterministic materialization, Unit Tests, Android Lint, APK build and API36 regression on source **a506f3f81744f5de19e6a4fedb232a64503e2f50**; complete/minimum and focused clipping/large-font captures were reviewed and matched the approved hierarchy with no title overlap. Release producer **222e66616e2eceba3e2781785c69c72020c40d04** preserves the exact same Git tree, and Android CI **#956 / run 37047225250** requalified that tree, verified unsigned provenance/package/version, signed the exact tested artifact and verified the locked certificate. RC20 remains the physically accepted frozen baseline until owner acceptance of the exact RC27 APK.
+
+## Exact signed RC27 identity
+
+- producer/signing SHA: `222e66616e2eceba3e2781785c69c72020c40d04`;
+- qualification source with identical Git tree: `a506f3f81744f5de19e6a4fedb232a64503e2f50`;
+- software/API36 authority: Android CI **#955 / run `37045089530`**;
+- signed authority: Android CI **#956 / run `37047225250`** — https://github.com/anfalcir/guitarlab/actions/runs/37047225250;
+- package: `studio.guitarlab.app`;
+- versionName: `0.5.0-rc27`; versionCode: `47`;
+- delivered filename: `GuitarLabStudio-0.5.0-rc27-homologacao.apk`;
+- unsigned APK SHA-256: `905dbe47151ca0e8a537cfd0679427eb7193ac2bbf1f4178649404c951b7c99d`;
+- signed APK SHA-256: `d5186972bda0efb48652656d310c3e45f70702df3e0dff070828e11890fb827f`;
+- signed artifact ZIP SHA-256: `376650bdc6c6f87aa40480c9dd96db592aa3edf970004ffd0809ef4213c21d52`;
+- signer certificate SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`;
+- gate recorded by the artifact: `software+android-integration-passed;physical-validation-pending`;
+- the producer requalifies/signs the same tree as #955; later documentation-only commits do not redefine this APK identity.
 
 ## Exact signed RC26 identity
 
@@ -104,9 +120,17 @@ RC26 remains the latest canonically signed digital authority. RC27 implements th
 - API36 reached `MixerDockInstrumentedTest` and **failed only** the new assertion `Master CLIP indicator must not cover MASTER`;
 - the failure confirms the compact face size is correct but its centered placement within the 48 dp action target still intrudes into `MASTER`.
 
-## RC27c next action
+## Final RC27 digital qualification
 
-Run exact RC27c through `[run ci]`. The visible 28×24 dp warning face is now outer-edge anchored inside the unchanged 48×48 dp target. API36 must prove track/Master non-overlap and existing clear-clipping interaction, then focused clipping/large-font screenshots must be reviewed before signing.
+- CI #955 / run `37045089530`: **PASS** — deterministic materialization, Unit Tests, Android Lint, APK build and API36 regression all passed on `a506f3f81744f5de19e6a4fedb232a64503e2f50`;
+- complete/minimum target-tablet captures and focused clipping/large-font captures were reviewed; centered titles, soft segmentation and edge-anchored clipping badge are visually correct and non-overlapping;
+- signing trigger `222e66616e2eceba3e2781785c69c72020c40d04` preserves the exact Git tree qualified in #955;
+- CI #956 / run `37047225250`: **PASS** — software, API36 and signed homologation all passed; unsigned provenance, package/version, zipalign/signature and locked certificate checks passed;
+- canonical signed RC27 artifact is available for physical validation.
+
+## Next action
+
+Install `GuitarLabStudio-0.5.0-rc27-homologacao.apk` on the target SM-X230 / Android 16 tablet and perform physical validation of the changed Mixer surface plus the intended MAIN/CUE output behavior. RC20 remains the promoted physical baseline until owner acceptance is explicitly recorded.
 
 ## Final RC26 digital qualification
 

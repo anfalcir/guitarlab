@@ -3,7 +3,7 @@
 Private, single-owner Android guitar preparation, study, recording, mixing, export and backup appliance.
 
 Updated: 2026-10-02
-Release state: **RC20 ACCEPTED / RC26 SIGNED DIGITAL / RC27 MIXER UI — QUALIFICATION PENDING**
+Release state: **RC20 ACCEPTED / RC27 SIGNED DIGITAL — PHYSICAL VALIDATION PENDING**
 
 ## Start here
 
@@ -24,7 +24,7 @@ Completed roadmaps, milestone plans, candidate checklists, release campaigns and
 
 ## Accepted baseline and active candidate
 
-GuitarLab `0.5.0-rc20` / versionCode `40` remains the accepted personal-use baseline. RC26 `0.5.0-rc26` / `46` remains the latest signed digital authority. The active source candidate is RC27 `0.5.0-rc27` / `47`, an owner-approved Mixer visual-hierarchy refinement with centered channel headers and soft functional segmentation; it does not change audio behavior. RC27 qualification and any later physical acceptance remain pending.
+GuitarLab `0.5.0-rc20` / versionCode `40` remains the accepted personal-use baseline. RC27 `0.5.0-rc27` / `47` is now the latest signed digitally qualified successor, with centered channel headers, soft functional segmentation and non-overlapping clipping affordances; it does not change audio behavior. Physical owner acceptance remains pending.
 
 - package: `studio.guitarlab.app`;
 - accepted baseline identity and signer: `docs/RELEASE_BASELINE.md`;
@@ -67,10 +67,10 @@ Ordinary documentation/source commits use `[skip ci]` unless qualification is in
 - `[run u4 cloud]`: controlled real-cloud transactional smoke;
 - `[run u7 cloud]`: backend verification/deploy workflow with explicit shadow/production authorization.
 
-The accepted RC20 baseline does not require recurring CI. RC26 remains retained signed digital evidence. RC27a software/API36 passed in CI #953 with valid complete/minimum tablet evidence. RC27b Unit/Lint/build passed in CI #954, while API36 correctly caught that the compact warning face still overlapped `MASTER` when centered inside its 48 dp target. RC27c edge-anchors that same face; signing remains blocked until the focused gate passes.
+The accepted RC20 baseline does not require recurring CI. RC26 remains predecessor signed evidence. RC27c passed software/API36 and visual review in CI #955, and the exact same Git tree was requalified and signed in CI #956. Only physical owner validation remains before any baseline promotion.
 
 ## Security and maintenance
 
 Never commit keystores, private credentials, client secrets, refresh tokens or service-account keys.
 
-The accepted RC20 APK and backend digest remain frozen until a successor is physically promoted. RC27 is not yet digitally qualified or signed. RC26 remains signed digital predecessor evidence; the separation backend and audio routing algorithms are unchanged.
+The accepted RC20 APK and backend digest remain frozen until a successor is physically promoted. RC27 is digitally qualified and signed but not yet physically accepted. The separation backend and audio routing algorithms are unchanged.

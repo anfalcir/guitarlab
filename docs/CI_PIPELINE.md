@@ -111,9 +111,9 @@ Run IDs and current status belong in `CURRENT_STATE.md`, not here.
 
 ## Post-freeze
 
-The accepted baseline remains RC20 until exact signed successor physical acceptance. RC26 is retained as signed digital authority (`0.5.0-rc26` / `46`, Android CI #950/#951) but was not promoted before RC27 was requested. RC27 `0.5.0-rc27` / `47` is the active Android-only presentation candidate.
+The accepted baseline remains RC20 until exact signed successor physical acceptance. RC27 `0.5.0-rc27` / `47` is now the latest signed digital authority after Android CI #955/#956; RC26 remains predecessor signed evidence. RC27 is not yet the promoted physical baseline.
 
-The current deterministic chain closes RC26's post-sign documentation with `scripts/materialize_ci_sources_rc26b.py`, applies RC27, RC27a loaded-frame evidence synchronization, RC27b compact clipping-badge correction, then RC27c edge anchoring. Prior source payloads are immutable. CI #953 proved loaded complete/minimum evidence; CI #954 proved the compact face still overlapped Master when centered in its target. Signing remains blocked on RC27c's focused clipping/title non-overlap gate.
+The deterministic runtime chain closes RC26's post-sign documentation with `scripts/materialize_ci_sources_rc26b.py`, then applies RC27, RC27a loaded-frame evidence synchronization, RC27b compact clipping-badge correction and RC27c edge anchoring. Prior source payloads are immutable. CI #955 passed the terminal runtime source and visual evidence; release producer `222e66616e2eceba3e2781785c69c72020c40d04` preserved that exact tree and CI #956 signed it successfully.
 
 Because RC27 changes only Compose presentation/tests/docs, U4/U7/Drive/provider-real campaigns are not reopened. Existing routing, recording, Demucs and backup evidence remains applicable unless a later source change touches those paths.
 
@@ -150,3 +150,7 @@ CI #953 / run `37037749921` passed RC27a software/API36 and produced valid compl
 ## RC27c focused clipping placement correction
 
 CI #954 / run `37040291049` passed Unit/Lint/build and failed API36 only on the new `Master CLIP indicator must not cover MASTER` assertion. RC27c does not alter size or behavior: it moves the 28×24 dp warning face from the center of its unchanged 48×48 dp action target to the target's outer/right edge. A new `[run ci]` must pass the same non-overlap and clear-clipping interaction before signing.
+
+## RC27 signed digital authority
+
+RC27 terminal runtime stage is `scripts/materialize_ci_sources_rc27c.py`. Android CI #955 / run `37045089530` passed software/Lint/build/API36 and reviewed visual evidence on source `a506f3f81744f5de19e6a4fedb232a64503e2f50`. Release producer `222e66616e2eceba3e2781785c69c72020c40d04` retained the identical Git tree; Android CI #956 / run `37047225250` requalified and signed the exact tested artifact. Signed APK SHA-256 is `d5186972bda0efb48652656d310c3e45f70702df3e0dff070828e11890fb827f`; certificate SHA-256 is `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`. Physical owner validation remains separate.

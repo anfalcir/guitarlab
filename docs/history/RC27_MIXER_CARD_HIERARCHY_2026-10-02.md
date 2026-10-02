@@ -1,7 +1,7 @@
 # RC27 — Mixer card visual hierarchy
 
 Date: 2026-10-02
-Status: RC27c CLIP-EDGE-ANCHOR PRE-GATE
+Status: SIGNED DIGITAL PASS; PHYSICAL VALIDATION PENDING
 
 ## Trigger and owner-approved target
 
@@ -86,3 +86,19 @@ Focused clipping and large-font captures exposed a remaining transient visual de
 Android CI #954 / run `37040291049` on RC27b source `dee3321a4387841fa77127a1879ab9d1b1969f6c` passed deterministic materialization, Unit Tests, Android Lint and APK build. API36 failed in `MixerDockInstrumentedTest` on the newly added assertion `Master CLIP indicator must not cover MASTER`.
 
 This was not an unrelated emulator failure: the regression correctly demonstrated that a 28×24 dp visible warning face still overlaps `MASTER` when centered inside its 48×48 dp clickable target. RC27c preserves the target and face dimensions but aligns the visible face to `Alignment.CenterEnd`, pushing it to the outer/right edge and away from the centered title. Existing non-overlap assertions remain blocking.
+
+## Final qualification and signed authority
+
+Android CI #955 / run `37045089530` on RC27c source `a506f3f81744f5de19e6a4fedb232a64503e2f50` passed deterministic materialization, Unit Tests, Android Lint, APK build and API36 regression. Visual review of complete/minimum target-tablet screenshots plus focused clipping/large-font captures confirmed the approved card hierarchy and the edge-anchored 28×24 dp clipping warning face without title overlap.
+
+Release producer `222e66616e2eceba3e2781785c69c72020c40d04` preserves the exact Git tree from #955. Android CI #956 / run `37047225250` requalified that tree and produced the signed homologation APK.
+
+- package: `studio.guitarlab.app`;
+- versionName/versionCode: `0.5.0-rc27` / `47`;
+- unsigned APK SHA-256: `905dbe47151ca0e8a537cfd0679427eb7193ac2bbf1f4178649404c951b7c99d`;
+- signed APK SHA-256: `d5186972bda0efb48652656d310c3e45f70702df3e0dff070828e11890fb827f`;
+- artifact ZIP SHA-256: `376650bdc6c6f87aa40480c9dd96db592aa3edf970004ffd0809ef4213c21d52`;
+- certificate SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`;
+- gate: `software+android-integration-passed;physical-validation-pending`.
+
+RC27 is digitally qualified and signed. Physical acceptance remains distinct and pending.
