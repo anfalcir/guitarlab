@@ -1,6 +1,6 @@
 # Test and Homologation Policy
 
-Updated: 2026-10-01
+Updated: 2026-10-02
 
 ## Purpose
 
@@ -101,9 +101,9 @@ A candidate is invalidated when source, materialized runtime bytes, package/vers
 
 ## Current feature application
 
-RC24 is an owner-requested UI correction after RC23 physical UX rejection. It reopens affected Studio menu/Mixer/preference/layout qualification, including real pointer/slider interaction, large-font/overflow behavior and populated timeline evidence. Existing routing/recording/audio regressions remain applicable; audio engine, frozen Demucs and unrelated Drive transport are unchanged. RC23 digital PASS is not physical UX acceptance. RC20 remains the accepted baseline until exact successor artifact acceptance.
+RC27 is an owner-requested Mixer visual-hierarchy refinement after review of the signed RC26 Studio. It reopens only affected Mixer presentation and adjacent Studio geometry evidence: centered track/Master headers, soft section boundaries, selected/unselected card treatment, existing pointer/slider interaction, large-font containment, horizontal overflow and target-tablet density. RC26 remains signed digital evidence for its code tree, but RC27 is a new runtime candidate and must qualify its exact source. Existing audio routing/recording, frozen Demucs and unrelated Drive evidence remain applicable because RC27 does not change those paths. RC20 remains the accepted physical baseline until an exact signed successor is owner-accepted.
 
-Automated geometry must establish useful workspace density, not only control existence: inline non-overlapping touch regions with near-target visible faces, complete/minimum height budgets, a third full waveform lane with complete Mixer on target-tablet geometry, menu contents fitting without horizontal scrolling, and stable navbar slots. Inspect CI screenshots of five managed-audio clips in complete/minimum/hidden states before declaring digital UI qualification complete. Owner physical acceptance remains a distinct step.
+Automated geometry must establish useful hierarchy and workspace density, not only control existence: inline non-overlapping 48 dp touch regions, centered header identity groups, full-width/non-overlapping internal sections, complete/minimum height budgets, a third full waveform lane with complete Mixer on target-tablet geometry and stable navbar slots. Capture and inspect RC27 screenshots of five managed-audio clips in complete/minimum states before declaring digital UI qualification complete. Owner physical acceptance remains a distinct step.
 
 ## Frozen baseline
 

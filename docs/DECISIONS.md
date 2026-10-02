@@ -513,3 +513,16 @@ A seleção secundária é validada imediatamente em Opções: mostra “Verific
 - Master uses a wide volume slider with a single-line `VOL +dB` readout below it;
 - track width, Master width, complete/minimum dock heights, audio/mix state, level-analysis domain behavior and MAIN/CUE routing are unchanged;
 - affected navbar/Mixer geometry and direct Níveis opening receive focused API36 regression and screenshot review before qualification.
+
+## D-103 — Mixer cards use centered identity headers and soft functional segmentation
+
+2026-10-02. Owner-approved RC27 visual refinement after physical review of the signed RC26 Studio.
+
+- Track identity is presented as a centered accent-dot + title group; Master title is centered independently of its transient CLIP action.
+- Track cards are visually partitioned into header, state-action, metering and mix regions using restrained 6 dp graphite surfaces and low-alpha accent outlines.
+- Volume and Pan remain one mix region with a quiet internal divider; this visual grouping never introduces a second mix state or alternative callback path.
+- Master reuses the header/meter/volume hierarchy but must not render an empty action placeholder merely to mirror track cards.
+- Unselected track cards retain a subtle track-accent identity; selection strengthens border/tonal emphasis while existing semantic selected state remains authoritative.
+- The refinement preserves 200 dp track width, 144 dp Master width, 252/172 dp dock heights, 48 dp touch targets, 46 dp button faces, RC26 full-width meters, Master volume geometry and large-font growth.
+- Audio, routing, persistence, level-analysis, export and MAIN/CUE semantics are unchanged.
+- Qualification adds centered-header and section-geometry assertions plus RC27 complete/minimum target-tablet screenshot review; existing interaction/accessibility regression remains blocking.

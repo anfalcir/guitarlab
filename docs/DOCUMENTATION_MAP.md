@@ -1,6 +1,6 @@
 # Documentation map
 
-Updated: 2026-10-01
+Updated: 2026-10-02
 
 ## Authority rule
 
@@ -11,7 +11,7 @@ Historical files intentionally preserve old candidate names, states and words su
 ## Live authority — read first
 
 1. `PROJECT_IDENTITY.md` — stable product identity, support boundary, freeze and maintenance triggers.
-2. `CURRENT_STATE.md` — concise present-tense operational state, including the active RC25 output/CUE candidate while RC20 remains accepted.
+2. `CURRENT_STATE.md` — concise present-tense operational state, including retained RC26 signed authority and the active RC27 Mixer visual candidate while RC20 remains accepted.
 3. `RELEASE_BASELINE.md` — immutable exact identity of the accepted APK/backend baseline.
 4. `PRODUCT_REQUIREMENTS.md` — supported product behavior.
 5. `ARCHITECTURE.md` — current technical boundaries.
@@ -46,14 +46,11 @@ These remain live only for their subsystem:
 
 A subsystem contract does not create an unrelated release/maintenance gate merely because it exists.
 
-## Active RC25 candidate evidence
+## Active successor evidence
 
-The live contracts above define current behavior. RC25 correction is recorded in `history/RC25_OUTPUT_CUE_CORRECTION_2026-10-01.md`. RC24 correction and pending evidence are in `history/RC24_STUDIO_DENSITY_2026-10-01.md`. Signed RC23 digital closure is in `history/RC23_STUDIO_LAYOUT_QUALIFICATION_2026-10-01.md`; RC22 signed qualification is in `history/RC22_DUAL_OUTPUT_CUE_QUALIFICATION_2026-10-01.md`. RC21 remains predecessor evidence, including:
+RC27 is the active source candidate. Its contract/checkpoint is `history/RC27_MIXER_CARD_HIERARCHY_2026-10-02.md`. RC26 signed digital closure remains predecessor evidence in `history/RC26_MIXER_LEVELS_UI_2026-10-01.md`; RC25 output/CUE correction is `history/RC25_OUTPUT_CUE_CORRECTION_2026-10-01.md`; RC24 density and RC23 navbar/layout histories remain dated predecessor evidence. RC22/RC21 evidence is retained under their existing history files.
 
-- `RC21_MAINTENANCE_QUALIFICATION_2026-09-25.md`;
-- `RELEASE_NOTES_0.5.0-rc21.md`.
-
-Candidate evidence never replaces `RELEASE_BASELINE.md` until the exact signed successor artifact completes the required owner acceptance.
+Candidate evidence never replaces `RELEASE_BASELINE.md` until the exact signed successor artifact completes required owner acceptance.
 
 ## Archived RC20 closure set
 
@@ -87,4 +84,4 @@ Accepted evidence remains reusable unless a later source/backend/hardware change
 
 Documentation-only commits never retroactively change an already-built APK or worker. The accepted producer SHA, APK hashes, signer and worker digest are defined by `RELEASE_BASELINE.md`, not by the latest documentation commit on `main`.
 
-During an active successor candidate such as RC25, `CURRENT_STATE.md` may identify a qualified unsigned source and later a signed candidate while `RELEASE_BASELINE.md` intentionally continues to identify the last accepted release. Promotion updates the baseline only after owner acceptance.
+During an active successor candidate such as RC27, `CURRENT_STATE.md` identifies the source/digital/signing state while `RELEASE_BASELINE.md` intentionally continues to identify the last physically accepted release. Promotion updates the baseline only after owner acceptance.

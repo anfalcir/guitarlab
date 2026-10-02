@@ -46,6 +46,8 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import kotlin.math.abs
@@ -174,122 +176,193 @@ private fun MixerTrackStrip(
     var gainDraft by remember(track.id, track.gainDb) { mutableFloatStateOf(track.gainDb) }
     var panDraft by remember(track.id, track.pan) { mutableFloatStateOf(track.pan) }
     var detailsVisible by remember(track.id) { mutableStateOf(false) }
+    val fontScale = LocalDensity.current.fontScale.coerceAtLeast(1f)
     val accent = track.resolvedStudioColor()
     val auditionState = GuitarAuditionPolicy.trackState(track.roleId, auditionMode)
-    val borderColor = if (selected) accent else MaterialTheme.colorScheme.outline.copy(alpha = 0.55f)
+    val borderColor = accent.copy(alpha = if (selected) 0.88f else 0.38f)
+    val headerInset = when {
+        minimal && (auditionState != GuitarAuditionTrackState.UNAFFECTED || clipLatched) -> 56.dp
+        minimal -> 40.dp
+        clipLatched -> 60.dp
+        auditionState != GuitarAuditionTrackState.UNAFFECTED -> 24.dp
+        else -> 8.dp
+    }
 
     Surface(
         modifier = Modifier
-            .width(200.dp + 80.dp * (LocalDensity.current.fontScale.coerceAtLeast(1f) - 1f))
+            .width(200.dp + 80.dp * (fontScale - 1f))
             .fillMaxHeight()
             .testTag("mixer-track-strip-${track.id}")
             .clip(RoundedCornerShape(8.dp))
             .clickable(onClick = onSelect),
         shape = RoundedCornerShape(8.dp),
-        color = if (selected) accent.copy(alpha = 0.10f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.28f),
+        color = accent.copy(alpha = if (selected) 0.10f else 0.035f),
         border = BorderStroke(if (selected) 1.5.dp else 1.dp, borderColor),
     ) {
         Column(
             Modifier.fillMaxHeight().padding(horizontal = 4.dp, vertical = 6.dp),
             verticalArrangement = Arrangement.spacedBy(0.dp),
         ) {
-            Row(Modifier.fillMaxWidth().height(48.dp * LocalDensity.current.fontScale.coerceAtLeast(1f))
-                .clickable { onSelect(); if (minimal) detailsVisible = true }
-                .semantics { contentDescription = if (minimal) "Detalhes da pista ${track.name}" else "Selecionar pista ${track.name}" }, verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(7.dp).background(accent, RoundedCornerShape(4.dp)))
-                Text(
-                    track.name,
-                    modifier = Modifier.weight(1f).padding(start = 6.dp),
-                    style = MaterialTheme.typography.labelLarge,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                if (minimal) {
-                    Text(track.pan.formatPan(), Modifier.padding(horizontal = 4.dp), style = MaterialTheme.typography.labelSmall)
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp * fontScale)
+                    .testTag("mixer-track-header-${track.id}")
+                    .clickable { onSelect(); if (minimal) detailsVisible = true }
+                    .semantics {
+                        contentDescription = if (minimal) "Detalhes da pista ${track.name}" else "Selecionar pista ${track.name}"
+                    },
+                shape = RoundedCornerShape(6.dp),
+                color = accent.copy(alpha = 0.055f),
+                border = BorderStroke(1.dp, accent.copy(alpha = 0.18f)),
+            ) {
+                Box(Modifier.fillMaxSize()) {
+                    Row(
+                        modifier = Modifier
+                            .align(Alignment.Center)
+                            .fillMaxWidth()
+                            .padding(horizontal = headerInset)
+                            .testTag("mixer-track-title-group-${track.id}"),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Box(Modifier.size(8.dp).background(accent, RoundedCornerShape(4.dp)))
+                        Text(
+                            track.name,
+                            modifier = Modifier.padding(start = 6.dp),
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.SemiBold,
+                            textAlign = TextAlign.Center,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                    Row(
+                        modifier = Modifier.align(Alignment.CenterEnd),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        if (minimal) {
+                            Text(track.pan.formatPan(), Modifier.padding(horizontal = 4.dp), style = MaterialTheme.typography.labelSmall)
+                        }
+                        if (auditionState != GuitarAuditionTrackState.UNAFFECTED) {
+                            val included = auditionState == GuitarAuditionTrackState.INCLUDED
+                            Text(if (included) "●" else "○", Modifier.semantics {
+                                stateDescription = if (included) "Incluída na comparação" else "Oculta pela comparação"
+                            }, color = if (included) StudioComparisonActive else StudioComparisonHidden)
+                        }
+                        if (minimal && clipLatched) {
+                            Text("!", color = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.semantics { stateDescription = "Clipping da pista ${track.name}" })
+                        } else if (clipLatched) {
+                            MixerClipButton(
+                                contentDescription = "Limpar clipping da pista ${track.name}",
+                                onClick = onClearClip,
+                            )
+                        }
+                    }
                 }
-                if (auditionState != GuitarAuditionTrackState.UNAFFECTED) {
-                    val included = auditionState == GuitarAuditionTrackState.INCLUDED
-                    Text(if (included) "●" else "○", Modifier.semantics {
-                        stateDescription = if (included) "Incluída na comparação" else "Oculta pela comparação"
-                    }, color = if (included) StudioComparisonActive else StudioComparisonHidden)
-                }
-                if (minimal && clipLatched) {
-                    Text("!", color = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.semantics { stateDescription = "Clipping da pista ${track.name}" })
-                } else if (clipLatched) {
-                    MixerClipButton(
-                        contentDescription = "Limpar clipping da pista ${track.name}",
-                        onClick = onClearClip,
+            }
+
+            MixerSectionSurface(
+                modifier = Modifier.fillMaxWidth().height(48.dp).testTag("mixer-track-actions-${track.id}"),
+                accent = accent,
+                fillAlpha = 0.36f,
+                borderAlpha = 0.16f,
+            ) {
+                Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+                    MixerStateButton(
+                        label = "M",
+                        active = track.muted,
+                        activeColor = StudioMute,
+                        enabled = mixControlsEnabled,
+                        contentDescription = "Mute da pista ${track.name}",
+                        onClick = onToggleMute,
+                    )
+                    MixerStateButton(
+                        label = "S",
+                        active = track.solo,
+                        activeColor = StudioSolo,
+                        enabled = mixControlsEnabled,
+                        contentDescription = "Solo da pista ${track.name}",
+                        onClick = onToggleSolo,
+                    )
+                    MixerCueButton(
+                        active = track.outputRoute != TrackOutputRoute.MAIN,
+                        activeColor = MaterialTheme.colorScheme.tertiary,
+                        enabled = structuralControlsEnabled,
+                        contentDescription = "Saída CUE da pista ${track.name}",
+                        onClick = onToggleCue,
+                    )
+                    MixerArmButton(
+                        active = track.armed,
+                        enabled = structuralControlsEnabled,
+                        contentDescription = "Gravação da pista ${track.name}",
+                        onClick = onToggleArm,
                     )
                 }
-
             }
 
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
-                MixerStateButton(
-                    label = "M",
-                    active = track.muted,
-                    activeColor = StudioMute,
-                    enabled = mixControlsEnabled,
-                    contentDescription = "Mute da pista ${track.name}",
-                    onClick = onToggleMute,
-                )
-                MixerStateButton(
-                    label = "S",
-                    active = track.solo,
-                    activeColor = StudioSolo,
-                    enabled = mixControlsEnabled,
-                    contentDescription = "Solo da pista ${track.name}",
-                    onClick = onToggleSolo,
-                )
-                MixerCueButton(
-                    active = track.outputRoute != TrackOutputRoute.MAIN,
-                    activeColor = MaterialTheme.colorScheme.tertiary,
-                    enabled = structuralControlsEnabled,
-                    contentDescription = "Saída CUE da pista ${track.name}",
-                    onClick = onToggleCue,
-                )
-                MixerArmButton(
-                    active = track.armed,
-                    enabled = structuralControlsEnabled,
-                    contentDescription = "Gravação da pista ${track.name}",
-                    onClick = onToggleArm,
-                )
-            }
-
-            if (minimal) {
-                CompactMeter(meter, accent)
-            } else {
-                MeterPair(
-                    meter = meter,
-                    accent = accent,
-                    modifier = Modifier.fillMaxWidth().testTag("mixer-track-meters-${track.id}"),
-                )
-            }
-
-            LabeledVolumeSlider(
-                value = gainDraft,
+            val meterSectionHeight = if (minimal) 16.dp else 48.dp * fontScale
+            MixerSectionSurface(
+                modifier = Modifier.fillMaxWidth().height(meterSectionHeight).testTag("mixer-track-meter-section-${track.id}"),
                 accent = accent,
-                enabled = mixControlsEnabled,
-                onValueChange = { value ->
-                    gainDraft = value
-                    onGainPreview(value)
-                },
-                onValueChangeFinished = { onGainCommit(gainDraft) },
-                contentDescription = "Volume da pista ${track.name}",
-            )
+                fillAlpha = 0.22f,
+                borderAlpha = 0.10f,
+            ) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    if (minimal) {
+                        CompactMeter(meter, accent)
+                    } else {
+                        MeterPair(
+                            meter = meter,
+                            accent = accent,
+                            modifier = Modifier.fillMaxWidth().testTag("mixer-track-meters-${track.id}"),
+                        )
+                    }
+                }
+            }
 
-            if (!minimal) BipolarPanSlider(
-                value = panDraft,
+            val mixSectionHeight = if (minimal) 48.dp else 96.dp
+            MixerSectionSurface(
+                modifier = Modifier.fillMaxWidth().height(mixSectionHeight).testTag("mixer-track-mix-${track.id}"),
                 accent = accent,
-                enabled = mixControlsEnabled,
-                onValueChange = { value ->
-                    panDraft = value
-                    onPanPreview(value)
-                },
-                onValueChangeFinished = { onPanCommit(panDraft) },
-                contentDescription = "Pan da pista ${track.name}",
-            )
+                fillAlpha = 0.26f,
+                borderAlpha = 0.12f,
+            ) {
+                Box(Modifier.fillMaxSize()) {
+                    Column(Modifier.fillMaxSize()) {
+                        LabeledVolumeSlider(
+                            value = gainDraft,
+                            accent = accent,
+                            enabled = mixControlsEnabled,
+                            onValueChange = { value ->
+                                gainDraft = value
+                                onGainPreview(value)
+                            },
+                            onValueChangeFinished = { onGainCommit(gainDraft) },
+                            contentDescription = "Volume da pista ${track.name}",
+                        )
+
+                        if (!minimal) BipolarPanSlider(
+                            value = panDraft,
+                            accent = accent,
+                            enabled = mixControlsEnabled,
+                            onValueChange = { value ->
+                                panDraft = value
+                                onPanPreview(value)
+                            },
+                            onValueChangeFinished = { onPanCommit(panDraft) },
+                            contentDescription = "Pan da pista ${track.name}",
+                        )
+                    }
+                    if (!minimal) {
+                        Box(
+                            Modifier.align(Alignment.Center).fillMaxWidth().height(1.dp)
+                                .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.14f)),
+                        )
+                    }
+                }
+            }
         }
     }
     if (detailsVisible && minimal) {
@@ -313,7 +386,6 @@ private fun MixerTrackStrip(
             confirmButton = { TextButton(onClick = { detailsVisible = false }) { Text("Fechar") } },
         )
     }
-
 }
 
 @Composable
@@ -328,49 +400,101 @@ private fun MasterStrip(
     onClearClip: () -> Unit,
 ) {
     var gainDraft by remember(gainDb) { mutableFloatStateOf(gainDb) }
+    val fontScale = LocalDensity.current.fontScale.coerceAtLeast(1f)
     val accent = MaterialTheme.colorScheme.secondary
     Surface(
-        modifier = Modifier.width(144.dp + 80.dp * (LocalDensity.current.fontScale.coerceAtLeast(1f) - 1f)).fillMaxHeight().testTag("mixer-master-strip"),
+        modifier = Modifier.width(144.dp + 80.dp * (fontScale - 1f)).fillMaxHeight().testTag("mixer-master-strip"),
         shape = RoundedCornerShape(8.dp),
-        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.30f),
+        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.24f),
         border = BorderStroke(1.5.dp, accent.copy(alpha = 0.78f)),
     ) {
         Column(
             Modifier.fillMaxHeight().padding(horizontal = 8.dp, vertical = 6.dp),
             verticalArrangement = Arrangement.SpaceBetween,
         ) {
-            Row(Modifier.fillMaxWidth().height(48.dp * LocalDensity.current.fontScale.coerceAtLeast(1f)), verticalAlignment = Alignment.CenterVertically) {
-                Text("MASTER", Modifier.weight(1f), style = MaterialTheme.typography.labelLarge)
-                if (clipLatched) {
-                    MixerClipButton(
-                        contentDescription = "Limpar clipping do master",
-                        onClick = onClearClip,
+            Surface(
+                modifier = Modifier.fillMaxWidth().height(48.dp * fontScale).testTag("mixer-master-header"),
+                shape = RoundedCornerShape(6.dp),
+                color = accent.copy(alpha = 0.055f),
+                border = BorderStroke(1.dp, accent.copy(alpha = 0.18f)),
+            ) {
+                Box(Modifier.fillMaxSize()) {
+                    Text(
+                        "MASTER",
+                        modifier = Modifier.align(Alignment.Center).testTag("mixer-master-title"),
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        textAlign = TextAlign.Center,
                     )
+                    if (clipLatched) {
+                        Box(Modifier.align(Alignment.CenterEnd)) {
+                            MixerClipButton(
+                                contentDescription = "Limpar clipping do master",
+                                onClick = onClearClip,
+                            )
+                        }
+                    }
                 }
             }
-            if (minimal) {
-                CompactMeter(meter, accent)
-            } else {
-                MeterPair(
-                    meter = meter,
-                    accent = accent,
-                    modifier = Modifier.fillMaxWidth().testTag("mixer-master-meters"),
-                )
+
+            val meterSectionHeight = if (minimal) 16.dp else 48.dp * fontScale
+            MixerSectionSurface(
+                modifier = Modifier.fillMaxWidth().height(meterSectionHeight).testTag("mixer-master-meter-section"),
+                accent = accent,
+                fillAlpha = 0.22f,
+                borderAlpha = 0.12f,
+            ) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    if (minimal) {
+                        CompactMeter(meter, accent)
+                    } else {
+                        MeterPair(
+                            meter = meter,
+                            accent = accent,
+                            modifier = Modifier.fillMaxWidth().testTag("mixer-master-meters"),
+                        )
+                    }
+                }
             }
 
-            MasterVolumeSlider(
-                value = gainDraft,
+            MixerSectionSurface(
+                modifier = Modifier.fillMaxWidth().height(68.dp).testTag("mixer-master-volume-section"),
                 accent = accent,
-                enabled = enabled,
-                onValueChange = { value ->
-                    gainDraft = value
-                    onGainPreview(value)
-                },
-                onValueChangeFinished = { onGainCommit(gainDraft) },
-                contentDescription = "Volume do master",
-            )
+                fillAlpha = 0.28f,
+                borderAlpha = 0.14f,
+            ) {
+                MasterVolumeSlider(
+                    value = gainDraft,
+                    accent = accent,
+                    enabled = enabled,
+                    onValueChange = { value ->
+                        gainDraft = value
+                        onGainPreview(value)
+                    },
+                    onValueChangeFinished = { onGainCommit(gainDraft) },
+                    contentDescription = "Volume do master",
+                )
+            }
         }
     }
+}
+
+@Composable
+private fun MixerSectionSurface(
+    modifier: Modifier,
+    accent: Color,
+    fillAlpha: Float,
+    borderAlpha: Float,
+    content: @Composable () -> Unit,
+) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(6.dp),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = fillAlpha),
+        border = BorderStroke(1.dp, accent.copy(alpha = borderAlpha)),
+        tonalElevation = 0.dp,
+        content = content,
+    )
 }
 
 @Composable

@@ -1,6 +1,6 @@
 # Studio Workspace Guidelines
 
-Updated: 2026-10-01
+Updated: 2026-10-02
 
 This document is a normative UI/UX contract for the GuitarLab Studio workspace on tablet.
 
@@ -49,10 +49,13 @@ Each track strip may expose Mute, Solo, headphone/CUE and REC Arm as distinct ac
 - unavailable actions remain disabled, never removed; opening/closing/changing Mixer mode or starting transport never changes navbar geometry;
 - narrow screens scroll the same navbar row instead of wrapping state-dependent controls;
 - channels are 200 dp with four contiguous 48 dp targets in one row; complete/minimum docks are 252/172 dp, with no arbitrary expanded blank area;
+- each track card centers its accent dot + title identity group and softly segments header, state actions, metering and mix without changing those geometry budgets;
+- section surfaces are low-contrast hierarchy cues, not new controls; they may not shrink 48 dp targets, obscure selected/disabled semantics or consume extra dock height;
 - Mixer is always docked/fixed; visibility and minimum/complete mode persist independently; Master does not duplicate the Níveis action;
 - the dock always reserves space and never overlays timeline lanes;
-- Master owns its own column; horizontal overflow never draws tracks beneath it; PK/RMS use the available inner width and Master volume uses a wide slider with one-line `VOL +dB` readout below;
-- geometry coverage checks all four 48 dp targets, CLIP, slider separation, and five fully visible default channels on the 1920×1200 / 240 dpi tablet viewport.
+- Master owns its own column; horizontal overflow never draws tracks beneath it; its title is centered and the card segments header, metering and wide one-line-`VOL +dB` volume without an empty/fake action bank;
+- PK/RMS use the available inner width and remain visually grouped as metering;
+- geometry coverage checks all four 48 dp targets, CLIP, slider separation, centered header groups, non-overlapping full-width sections, and five fully visible default channels on the 1920×1200 / 240 dpi tablet viewport.
 
 ## Recording stop semantics
 During active capture, transport Stop and tapping REC again invoke the same successful, idempotent recording-finalization path. Stop during countdown cancels safely. Once finalization begins, duplicate stop/finalize input must not create duplicate takes or corrupt media.

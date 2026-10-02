@@ -1,12 +1,12 @@
 # Current State — GuitarLab Studio
 
-Updated: 2026-10-01
+Updated: 2026-10-02
 
 ## Status
 
-**RC26 STUDIO MIXER / LEVELS UI — SIGNED DIGITAL PASS; PHYSICAL VALIDATION PENDING**
+**RC27 MIXER CARD HIERARCHY — SOURCE CANDIDATE; DIGITAL QUALIFICATION PENDING**
 
-RC26 is digitally qualified and canonically signed. Android CI **#950 / run 36944380748** passed software, Lint, build and API36 regression on source **148d7aacfe2793b2d4d10305940d838654ec83d9**. The signing trigger **df5791c2e4984a7fbdf4141df460be20e151bcf8** preserves the exact same Git tree and Android CI **#951 / run 36946189701** requalified that tree, verified unsigned provenance, signed the exact tested artifact and verified certificate/package/version. RC20 remains the physically accepted frozen baseline until owner validation of the RC26 APK.
+RC26 remains the latest canonically signed digital authority. Android CI **#950 / run 36944380748** qualified its Studio/Mixer source and CI **#951 / run 36946189701** signed the exact tested artifact on producer **df5791c2e4984a7fbdf4141df460be20e151bcf8**. RC27 is the owner-approved successor focused only on Mixer card visual hierarchy: centered channel identities and soft functional segmentation for tracks and Master while preserving RC26 geometry, control semantics and audio behavior. RC20 remains the physically accepted frozen baseline until an exact signed successor is owner-accepted.
 
 ## Exact signed RC26 identity
 
@@ -73,6 +73,22 @@ RC26 is digitally qualified and canonically signed. Android CI **#950 / run 3694
 - CI #949 / run `36943179605` passed Diff sanity, materialization, identity validation and unit tests. Lint then found one RC26-local error: the Master slider used `BoxWithConstraints` without consuming its scope. API36 independently reached `MixerDockInstrumentedTest`; its new full-width-meter assertion queried a merged semantics tree even though the tagged meter node exists in the unmerged tree.
 - RC26a removes the unnecessary constrained scope and makes the geometry assertions explicitly query the unmerged semantics nodes. Product geometry and behavior are unchanged.
 
+## RC27 Mixer card hierarchy
+
+- candidate `0.5.0-rc27` / versionCode `47`, based on signed RC26 behavior;
+- track headers center the accent dot + title as one identity group; Master centers `MASTER`;
+- track cards softly segment header, state actions, metering and mix; Volume/Pan remain one mix region with a quiet internal divider;
+- Master uses the same header/meter/volume hierarchy without an empty or fake action region;
+- unselected track cards retain restrained track-accent identity; selection strengthens border/tonal emphasis without making color the sole state cue;
+- 200 dp track width, 144 dp Master width, 252/172 dp dock heights, 48 dp targets, 46 dp faces, full-width PK/RMS, wide Master volume and large-font growth remain unchanged;
+- audio, routing, persistence, level-analysis, export and MAIN/CUE behavior are unchanged;
+- focused tests assert centered header groups, full-width/non-overlapping section geometry, existing control/touch behavior and target-tablet five-channel fit;
+- deterministic tail becomes `scripts/materialize_ci_sources_rc27.py`; RC26/RC26a payloads remain immutable.
+
+## RC27 next action
+
+Run the exact RC27 source through `[run ci]`, then inspect the RC27 complete/minimum five-channel screenshot artifacts before any digital qualification or signing claim. Because this is a presentation-only Studio change, backend/Drive/cloud gates are not reopened. Physical acceptance remains separate.
+
 ## Final RC26 digital qualification
 
 - CI #950 / run `36944380748`: **PASS** — Diff sanity, deterministic materialization, identity, Unit Tests, Android Lint, APK build and API36 instrumented regression all passed;
@@ -81,11 +97,11 @@ RC26 is digitally qualified and canonically signed. Android CI **#950 / run 3694
 - CI #951 / run `36946189701`: **PASS** — software, API36 and signed homologation all passed; unsigned provenance, package/version, zipalign/signature and locked certificate checks passed;
 - canonical signed RC26 artifact is now available for owner physical validation.
 
-## Next action
+## RC26 residual physical status
 
-Install `GuitarLabStudio-0.5.0-rc26-homologacao.apk` on the target tablet and perform physical validation of the changed Studio surface plus the intended audio-output/CUE path. RC20 remains the promoted physical baseline until that acceptance is explicitly recorded.
+RC26 remains a valid signed digital artifact but was not promoted to the physical baseline before the owner requested RC27. Its digital evidence remains reusable for unchanged audio/routing paths; RC27 must qualify its own changed Mixer presentation. RC20 therefore remains the accepted physical baseline.
 
-No backend, Demucs, backup or MAIN/CUE algorithm was reopened by this presentation-only correction.
+No backend, Demucs, backup or MAIN/CUE algorithm was reopened by RC26 or RC27 presentation changes.
 
 ## Predecessors
 

@@ -2,8 +2,8 @@
 
 Private, single-owner Android guitar preparation, study, recording, mixing, export and backup appliance.
 
-Updated: 2026-10-01
-Release state: **RC20 ACCEPTED / RC26 SIGNED DIGITAL — PHYSICAL VALIDATION PENDING**
+Updated: 2026-10-02
+Release state: **RC20 ACCEPTED / RC26 SIGNED DIGITAL / RC27 MIXER UI — QUALIFICATION PENDING**
 
 ## Start here
 
@@ -24,7 +24,7 @@ Completed roadmaps, milestone plans, candidate checklists, release campaigns and
 
 ## Accepted baseline and active candidate
 
-GuitarLab `0.5.0-rc20` / versionCode `40` remains the accepted personal-use baseline. RC26 `0.5.0-rc26` / versionCode `46` is now the signed digitally qualified successor, refining Studio Mixer metering, Master volume presentation and direct Níveis access without changing audio behavior. Physical acceptance remains pending.
+GuitarLab `0.5.0-rc20` / versionCode `40` remains the accepted personal-use baseline. RC26 `0.5.0-rc26` / `46` remains the latest signed digital authority. The active source candidate is RC27 `0.5.0-rc27` / `47`, an owner-approved Mixer visual-hierarchy refinement with centered channel headers and soft functional segmentation; it does not change audio behavior. RC27 qualification and any later physical acceptance remain pending.
 
 - package: `studio.guitarlab.app`;
 - accepted baseline identity and signer: `docs/RELEASE_BASELINE.md`;
@@ -52,7 +52,7 @@ GBW is historical implementation provenance only. Legacy standalone GBW/H37/pre-
 - canonical branch: `main`;
 - RC23 integrated review: PR #9; exact signed identity in `docs/CURRENT_STATE.md`;
 - canonical materialization entrypoint: `scripts/materialize_ci_sources.sh`;
-- active candidate tail: **RC26aMixerLevelsCiFix** via `scripts/materialize_ci_sources_rc26a.py`;
+- active candidate tail: **RC27MixerCardHierarchy** via `scripts/materialize_ci_sources_rc27.py`;
 - protected payloads: `.source-parts/`;
 - materialization is deterministic, hash/blob locked, idempotent and fail-closed.
 
@@ -67,10 +67,10 @@ Ordinary documentation/source commits use `[skip ci]` unless qualification is in
 - `[run u4 cloud]`: controlled real-cloud transactional smoke;
 - `[run u7 cloud]`: backend verification/deploy workflow with explicit shadow/production authorization.
 
-The accepted RC20 baseline does not require recurring CI. RC25 signed digital evidence remains historical; RC26 passed proportional software/API36, visual review and exact-artifact signing in CI #950/#951. Only physical owner validation remains.
+The accepted RC20 baseline does not require recurring CI. RC26 passed proportional software/API36, visual review and exact-artifact signing in CI #950/#951 and remains retained evidence. RC27 changes Mixer presentation, so it reopens focused software/API36 geometry and screenshot review before any signing claim.
 
 ## Security and maintenance
 
 Never commit keystores, private credentials, client secrets, refresh tokens or service-account keys.
 
-The accepted RC20 APK and backend digest remain frozen until a successor is physically promoted. RC26 is digitally qualified and signed, but physical successor acceptance is still pending. The separation backend and audio routing algorithms are unchanged.
+The accepted RC20 APK and backend digest remain frozen until a successor is physically promoted. RC27 is not yet digitally qualified or signed. RC26 remains signed digital predecessor evidence; the separation backend and audio routing algorithms are unchanged.

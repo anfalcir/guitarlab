@@ -1,6 +1,6 @@
 # GuitarLab Visual System
 
-Updated: 2026-09-24
+Updated: 2026-10-02
 
 ## Product intent
 GuitarLab should visually read as one coherent music-production/study instrument: clear modules, restrained graphite surfaces, precise controls and small-radius rectangular geometry. Studio may be the densest workspace, but Prepare, Export, Activity, Backup and Settings must use the same visual grammar. The interface must prioritize immediate operational comprehension over decorative softness.
@@ -64,7 +64,12 @@ Neutral closed triggers reduce persistent color noise. Comparison's active mode 
 
 ### Mixer
 - strip/master surfaces retain clear rectangular module boundaries;
+- every channel uses a centered header treatment; the track color marker and title read as one centered identity group;
+- functional regions are softly segmented into header, state actions, metering and mix controls using low-contrast graphite surfaces and restrained accent outlines;
+- segmentation may clarify hierarchy but must not add fake controls, change audio semantics, reduce touch targets or inflate the 252/172 dp dock budgets;
 - buttons and meters remain visually distinct from labels/readouts;
+- track accent remains a restrained identity cue on unselected cards and becomes stronger on the selected card; color is never the only selected-state cue;
+- MASTER uses the same visual grammar with centered title, metering section and volume section, but does not render an empty/fake action bank;
 - MASTER remains structurally separate and fixed.
 
 ### Options
@@ -190,3 +195,11 @@ Owner video rejected RC23 ergonomics despite digital PASS. Equal navbar side slo
 ## RC26 Mixer/levels refinement
 
 Owner-approved RC26 presentation keeps the accepted RC25 shell geometry while making three focused changes: Níveis becomes the third left-side navbar action and uses a distinct gauge/speedometer symbol; track and Master PK/RMS rows consume the full inner strip width with CLIP reset moved to the header; Master drops the redundant Níveis text button and uses a wider volume slider whose one-line `VOL +dB` readout sits below it. Left/right navbar reservations remain equal so transport stays centered. Channel widths and 252/172 dp dock heights remain unchanged.
+
+## RC27 Mixer card hierarchy refinement
+
+Owner-approved RC27 refines only the card presentation established by RC26. Track headers center the accent dot + title group; Master centers `MASTER`. Track cards use subtle accent-tinted outer identity plus low-contrast 6 dp internal section surfaces for actions, meters and mix. Volume/Pan remain in one mix section with a quiet internal divider. Master uses the same section language for header, meters and volume without inventing unused controls.
+
+The implementation is geometry-preserving: normal-font track width remains 200 dp, Master remains 144 dp, state targets remain 48×48 dp with 46 dp visible faces, complete/minimum dock heights remain 252/172 dp, PK/RMS keep the RC26 full-width contract and Master keeps its wide volume control with one-line `VOL +dB` readout. Large-font growth remains unchanged. This is a visual-hierarchy change, not a mixer/audio/domain change.
+
+Qualification must assert centered header geometry, full-width/non-overlapping section regions, existing touch-target and slider behavior, target-tablet five-channel fit, and inspect complete/minimum screenshots. The RC24/RC26 sections above remain historical evolution; where presentation conflicts, RC27 is the current Mixer visual contract.

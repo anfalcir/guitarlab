@@ -68,7 +68,7 @@ private object GuitarLabGuideContent {
         GuideSectionContent(
             GuideArea.STUDIO,
             "Studio · espaço e Mixer",
-            "Mostrar/Ocultar Mixer preserva sua preferência e sempre abre o dock fixado no rodapé. Na barra de transporte, alterne Mixer mínimo/completo; o modo escolhido é lembrado. Os dois modos mostram Mute, Solo, fone/CUE, REC Arm e volume em canais estreitos. O completo também mostra PK, RMS, clipping e pan; no mínimo, toque no nome da pista para abrir os controles completos, ajustar pan ou limpar clipping. As pistas rolam horizontalmente; o Master permanece em sua própria coluna fixa, com medidores ocupando a largura útil e um controle de volume mais largo com leitura logo abaixo.",
+            "Mostrar/Ocultar Mixer preserva sua preferência e sempre abre o dock fixado no rodapé. Na barra de transporte, alterne Mixer mínimo/completo; o modo escolhido é lembrado. Os cartões usam cabeçalho centralizado e uma separação visual suave entre ações, medidores e mixagem, sem criar controles novos. Os dois modos mostram Mute, Solo, fone/CUE, REC Arm e volume em canais estreitos. O completo também mostra PK, RMS, clipping e pan; no mínimo, toque no cabeçalho da pista para abrir os controles completos, ajustar pan ou limpar clipping. As pistas rolam horizontalmente; o Master permanece em sua própria coluna fixa, com cabeçalho centralizado, medidores ocupando a largura útil e um bloco de volume largo com leitura logo abaixo.",
         ),
         GuideSectionContent(
             GuideArea.EXPORT,

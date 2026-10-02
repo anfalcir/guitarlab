@@ -43,7 +43,7 @@ class StudioMixerTabletInstrumentedTest {
         val oldVisible = preferences.mixerVisible()
         val oldMinimal = preferences.mixerMinimal()
         val repository = FileProjectRepository(context.filesDir)
-        val base = ProjectFactory().create("RC24 cinco pistas com áudio", ProjectTemplate.GUITAR)
+        val base = ProjectFactory().create("RC27 cinco pistas com áudio", ProjectTemplate.GUITAR)
         val media = ProjectManagedMediaStore(context.filesDir)
         val temp = File(context.cacheDir, "${base.id}-layout.wav")
         val frames = 48_000
@@ -96,7 +96,7 @@ class StudioMixerTabletInstrumentedTest {
             // Compose semantics can precede the actual SurfaceFlinger frame during load/toggle.
             // Wait for accessibility/window quiescence before full-display artifact capture.
             UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).waitForIdle()
-            compose.captureCohesionScreenshot("rc24-studio-five-audio-channels-complete")
+            compose.captureCohesionScreenshot("rc27-studio-five-audio-channels-complete")
             val navbar = compose.onNodeWithTag("studio-workspace-bar").fetchSemanticsNode().boundsInRoot
             val transport = compose.onNodeWithTag("studio-navigation").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
             assertEquals("Tablet transport must be centered on the viewport", navbar.center.x, transport.center.x, 1f)
@@ -113,7 +113,7 @@ class StudioMixerTabletInstrumentedTest {
             assertEquals("Mixer mode leaves tablet transport fixed", transport, compose.onNodeWithTag("studio-navigation").fetchSemanticsNode().boundsInRoot)
             compose.onNodeWithTag("studio-action-levels").assertIsDisplayed()
             UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).waitForIdle()
-            compose.captureCohesionScreenshot("rc24-studio-five-audio-channels-minimum")
+            compose.captureCohesionScreenshot("rc27-studio-five-audio-channels-minimum")
             compose.onNodeWithTag("studio-action-levels").performClick()
             compose.onNodeWithTag("all-levels-dialog").assertIsDisplayed()
             InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK)
@@ -127,7 +127,7 @@ class StudioMixerTabletInstrumentedTest {
             // Compose semantics can precede the actual SurfaceFlinger frame during load/toggle.
             // Wait for accessibility/window quiescence before full-display artifact capture.
             UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).waitForIdle()
-            compose.captureCohesionScreenshot("rc24-studio-mixer-closed")
+            compose.captureCohesionScreenshot("rc27-studio-mixer-closed")
         } finally {
             preferences.setMixerVisible(oldVisible)
             preferences.setMixerMinimal(oldMinimal)

@@ -1,0 +1,1539 @@
+diff --git a/app/build.gradle.kts b/app/build.gradle.kts
+--- a/app/build.gradle.kts
++++ b/app/build.gradle.kts
+@@ -11,8 +11,8 @@
+         applicationId = "studio.guitarlab.app"
+         minSdk = 26
+         targetSdk = 36
+-        versionCode = 46
+-        versionName = "0.5.0-rc26"
++        versionCode = 47
++        versionName = "0.5.0-rc27"
+         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+     }
+ 
+diff --git a/app/src/main/java/studio/guitarlab/app/ui/MixerDock.kt b/app/src/main/java/studio/guitarlab/app/ui/MixerDock.kt
+--- a/app/src/main/java/studio/guitarlab/app/ui/MixerDock.kt
++++ b/app/src/main/java/studio/guitarlab/app/ui/MixerDock.kt
+@@ -46,331 +46,455 @@
+ import androidx.compose.ui.semantics.stateDescription
+ import androidx.compose.ui.platform.LocalDensity
+ import androidx.compose.ui.platform.testTag
+-import androidx.compose.ui.text.style.TextOverflow
+-import androidx.compose.ui.unit.dp
+-import kotlin.math.abs
+-import kotlin.math.log10
+-import studio.guitarlab.app.ui.theme.StudioComparisonActive
+-import studio.guitarlab.app.ui.theme.StudioComparisonHidden
+-import studio.guitarlab.app.ui.theme.StudioMute
+-import studio.guitarlab.app.ui.theme.StudioRecord
+-import studio.guitarlab.app.ui.theme.StudioSolo
+-import studio.guitarlab.core.audio.MeterBallisticsState
+-import studio.guitarlab.core.model.AudioTrack
+-import studio.guitarlab.core.model.TrackOutputRoute
+-import studio.guitarlab.core.project.GuitarAuditionMode
+-import studio.guitarlab.core.project.GuitarAuditionPolicy
+-import studio.guitarlab.core.project.GuitarAuditionTrackState
+-
+-@Composable
+-fun MixerDock(
+-    tracks: List<AudioTrack>,
+-    auditionMode: GuitarAuditionMode = GuitarAuditionMode.MIXER,
+-    selectedTrackId: String?,
+-    mixControlsEnabled: Boolean,
+-    structuralControlsEnabled: Boolean,
+-    masterGainDb: Float,
+-    masterMeter: MeterBallisticsState,
+-    trackMeters: Map<String, MeterBallisticsState>,
+-    masterClipLatched: Boolean,
+-    trackClipLatched: Set<String>,
+-    onSelectTrack: (String) -> Unit,
+-    onGainPreview: (String, Float) -> Unit,
+-    onGainCommit: (String, Float) -> Unit,
+-    onPanPreview: (String, Float) -> Unit,
+-    onPanCommit: (String, Float) -> Unit,
+-    onToggleMute: (String) -> Unit,
+-    onToggleSolo: (String) -> Unit,
+-    onToggleCue: (String) -> Unit,
+-    onToggleArm: (String) -> Unit,
+-    onMasterGainPreview: (Float) -> Unit,
+-    onMasterGainCommit: (Float) -> Unit,
+-    onClearTrackClip: (String) -> Unit,
+-    onClearMasterClip: () -> Unit,
+-    minimal: Boolean = false,
+-    modifier: Modifier = Modifier,
+-) {
+-    val fontScale = LocalDensity.current.fontScale.coerceAtLeast(1f)
+-    val dockHeight = (if (minimal) 172.dp else 252.dp) + ((if (minimal) 48.dp else 96.dp) * (fontScale - 1f))
+-    Surface(
+-        modifier = modifier.fillMaxWidth().height(dockHeight).testTag("mixer-dock"),
+-        shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
+-        color = MaterialTheme.colorScheme.surface,
+-        tonalElevation = 3.dp,
+-    ) {
+-        Column(Modifier.fillMaxSize().padding(horizontal = 8.dp, vertical = 0.dp)) {
+-            Row(
+-                modifier = Modifier.fillMaxWidth().weight(1f),
+-                horizontalArrangement = Arrangement.spacedBy(6.dp),
+-            ) {
+-                LazyRow(
+-                    modifier = Modifier
+-                        .weight(1f)
+-                        .fillMaxHeight()
+-                        .testTag("mixer-track-scroll"),
+-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+-                    userScrollEnabled = true,
+-                ) {
+-                    items(tracks.sortedBy { it.order }, key = { it.id }) { track ->
+-                        MixerTrackStrip(
+-                            track = track,
+-                            minimal = minimal,
+-                            auditionMode = auditionMode,
+-                            selected = track.id == selectedTrackId,
+-                            mixControlsEnabled = mixControlsEnabled,
+-                            structuralControlsEnabled = structuralControlsEnabled,
+-                            meter = trackMeters[track.id] ?: MeterBallisticsState(),
+-                            clipLatched = track.id in trackClipLatched,
+-                            onSelect = { onSelectTrack(track.id) },
+-                            onGainPreview = { onGainPreview(track.id, it) },
+-                            onGainCommit = { onGainCommit(track.id, it) },
+-                            onPanPreview = { onPanPreview(track.id, it) },
+-                            onPanCommit = { onPanCommit(track.id, it) },
+-                            onToggleMute = { onToggleMute(track.id) },
+-                            onToggleSolo = { onToggleSolo(track.id) },
+-                            onToggleCue = { onToggleCue(track.id) },
+-                            onToggleArm = { onToggleArm(track.id) },
+-                            onClearClip = { onClearTrackClip(track.id) },
+-                        )
+-                    }
+-                }
+-
+-                MasterStrip(
+-                    minimal = minimal,
+-                    gainDb = masterGainDb,
+-                    meter = masterMeter,
+-                    clipLatched = masterClipLatched,
+-                    enabled = mixControlsEnabled,
+-                    onGainPreview = onMasterGainPreview,
+-                    onGainCommit = onMasterGainCommit,
+-                    onClearClip = onClearMasterClip,
+-                )
+-            }
+-        }
+-    }
+-}
+-
+-@Composable
+-private fun MixerTrackStrip(
+-    track: AudioTrack,
+-    minimal: Boolean = false,
+-    auditionMode: GuitarAuditionMode,
+-    selected: Boolean,
+-    mixControlsEnabled: Boolean,
+-    structuralControlsEnabled: Boolean,
+-    meter: MeterBallisticsState,
+-    clipLatched: Boolean,
+-    onSelect: () -> Unit,
+-    onGainPreview: (Float) -> Unit,
+-    onGainCommit: (Float) -> Unit,
+-    onPanPreview: (Float) -> Unit,
+-    onPanCommit: (Float) -> Unit,
+-    onToggleMute: () -> Unit,
+-    onToggleSolo: () -> Unit,
+-    onToggleCue: () -> Unit,
+-    onToggleArm: () -> Unit,
+-    onClearClip: () -> Unit,
+-) {
+-    var gainDraft by remember(track.id, track.gainDb) { mutableFloatStateOf(track.gainDb) }
+-    var panDraft by remember(track.id, track.pan) { mutableFloatStateOf(track.pan) }
+-    var detailsVisible by remember(track.id) { mutableStateOf(false) }
+-    val accent = track.resolvedStudioColor()
+-    val auditionState = GuitarAuditionPolicy.trackState(track.roleId, auditionMode)
+-    val borderColor = if (selected) accent else MaterialTheme.colorScheme.outline.copy(alpha = 0.55f)
+-
+-    Surface(
+-        modifier = Modifier
+-            .width(200.dp + 80.dp * (LocalDensity.current.fontScale.coerceAtLeast(1f) - 1f))
+-            .fillMaxHeight()
+-            .testTag("mixer-track-strip-${track.id}")
+-            .clip(RoundedCornerShape(8.dp))
+-            .clickable(onClick = onSelect),
+-        shape = RoundedCornerShape(8.dp),
+-        color = if (selected) accent.copy(alpha = 0.10f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.28f),
+-        border = BorderStroke(if (selected) 1.5.dp else 1.dp, borderColor),
+-    ) {
+-        Column(
+-            Modifier.fillMaxHeight().padding(horizontal = 4.dp, vertical = 6.dp),
+-            verticalArrangement = Arrangement.spacedBy(0.dp),
+-        ) {
+-            Row(Modifier.fillMaxWidth().height(48.dp * LocalDensity.current.fontScale.coerceAtLeast(1f))
+-                .clickable { onSelect(); if (minimal) detailsVisible = true }
+-                .semantics { contentDescription = if (minimal) "Detalhes da pista ${track.name}" else "Selecionar pista ${track.name}" }, verticalAlignment = Alignment.CenterVertically) {
+-                Box(Modifier.size(7.dp).background(accent, RoundedCornerShape(4.dp)))
+-                Text(
+-                    track.name,
+-                    modifier = Modifier.weight(1f).padding(start = 6.dp),
+-                    style = MaterialTheme.typography.labelLarge,
+-                    maxLines = 2,
+-                    overflow = TextOverflow.Ellipsis,
+-                )
+-                if (minimal) {
+-                    Text(track.pan.formatPan(), Modifier.padding(horizontal = 4.dp), style = MaterialTheme.typography.labelSmall)
+-                }
+-                if (auditionState != GuitarAuditionTrackState.UNAFFECTED) {
+-                    val included = auditionState == GuitarAuditionTrackState.INCLUDED
+-                    Text(if (included) "●" else "○", Modifier.semantics {
+-                        stateDescription = if (included) "Incluída na comparação" else "Oculta pela comparação"
+-                    }, color = if (included) StudioComparisonActive else StudioComparisonHidden)
+-                }
+-                if (minimal && clipLatched) {
+-                    Text("!", color = MaterialTheme.colorScheme.error,
+-                        modifier = Modifier.semantics { stateDescription = "Clipping da pista ${track.name}" })
+-                } else if (clipLatched) {
+-                    MixerClipButton(
+-                        contentDescription = "Limpar clipping da pista ${track.name}",
+-                        onClick = onClearClip,
+-                    )
+-                }
+-
+-            }
+-
+-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+-                MixerStateButton(
+-                    label = "M",
+-                    active = track.muted,
+-                    activeColor = StudioMute,
+-                    enabled = mixControlsEnabled,
+-                    contentDescription = "Mute da pista ${track.name}",
+-                    onClick = onToggleMute,
+-                )
+-                MixerStateButton(
+-                    label = "S",
+-                    active = track.solo,
+-                    activeColor = StudioSolo,
+-                    enabled = mixControlsEnabled,
+-                    contentDescription = "Solo da pista ${track.name}",
+-                    onClick = onToggleSolo,
+-                )
+-                MixerCueButton(
+-                    active = track.outputRoute != TrackOutputRoute.MAIN,
+-                    activeColor = MaterialTheme.colorScheme.tertiary,
+-                    enabled = structuralControlsEnabled,
+-                    contentDescription = "Saída CUE da pista ${track.name}",
+-                    onClick = onToggleCue,
+-                )
+-                MixerArmButton(
+-                    active = track.armed,
+-                    enabled = structuralControlsEnabled,
+-                    contentDescription = "Gravação da pista ${track.name}",
+-                    onClick = onToggleArm,
+-                )
+-            }
+-
+-            if (minimal) {
+-                CompactMeter(meter, accent)
+-            } else {
+-                MeterPair(
+-                    meter = meter,
+-                    accent = accent,
+-                    modifier = Modifier.fillMaxWidth().testTag("mixer-track-meters-${track.id}"),
+-                )
+-            }
+-
+-            LabeledVolumeSlider(
+-                value = gainDraft,
+-                accent = accent,
+-                enabled = mixControlsEnabled,
+-                onValueChange = { value ->
+-                    gainDraft = value
+-                    onGainPreview(value)
+-                },
+-                onValueChangeFinished = { onGainCommit(gainDraft) },
+-                contentDescription = "Volume da pista ${track.name}",
+-            )
+-
+-            if (!minimal) BipolarPanSlider(
+-                value = panDraft,
+-                accent = accent,
+-                enabled = mixControlsEnabled,
+-                onValueChange = { value ->
+-                    panDraft = value
+-                    onPanPreview(value)
+-                },
+-                onValueChangeFinished = { onPanCommit(panDraft) },
+-                contentDescription = "Pan da pista ${track.name}",
+-            )
+-        }
+-    }
+-    if (detailsVisible && minimal) {
+-        AlertDialog(
+-            modifier = Modifier.testTag("mixer-track-details"),
+-            onDismissRequest = { detailsVisible = false },
+-            title = { Text("Controles da pista") },
+-            text = {
+-                Box(Modifier.height(252.dp + 96.dp * (LocalDensity.current.fontScale.coerceAtLeast(1f) - 1f))) {
+-                    MixerTrackStrip(
+-                        track = track, auditionMode = auditionMode, selected = selected,
+-                        mixControlsEnabled = mixControlsEnabled, structuralControlsEnabled = structuralControlsEnabled,
+-                        meter = meter, clipLatched = clipLatched, onSelect = onSelect,
+-                        onGainPreview = onGainPreview, onGainCommit = onGainCommit,
+-                        onPanPreview = onPanPreview, onPanCommit = onPanCommit,
+-                        onToggleMute = onToggleMute, onToggleSolo = onToggleSolo,
+-                        onToggleCue = onToggleCue, onToggleArm = onToggleArm, onClearClip = onClearClip,
+-                    )
+-                }
+-            },
+-            confirmButton = { TextButton(onClick = { detailsVisible = false }) { Text("Fechar") } },
+-        )
+-    }
+-
+-}
+-
+-@Composable
+-private fun MasterStrip(
+-    minimal: Boolean,
+-    gainDb: Float,
+-    meter: MeterBallisticsState,
+-    clipLatched: Boolean,
+-    enabled: Boolean,
+-    onGainPreview: (Float) -> Unit,
+-    onGainCommit: (Float) -> Unit,
+-    onClearClip: () -> Unit,
+-) {
+-    var gainDraft by remember(gainDb) { mutableFloatStateOf(gainDb) }
+-    val accent = MaterialTheme.colorScheme.secondary
+-    Surface(
+-        modifier = Modifier.width(144.dp + 80.dp * (LocalDensity.current.fontScale.coerceAtLeast(1f) - 1f)).fillMaxHeight().testTag("mixer-master-strip"),
+-        shape = RoundedCornerShape(8.dp),
+-        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.30f),
+-        border = BorderStroke(1.5.dp, accent.copy(alpha = 0.78f)),
+-    ) {
+-        Column(
+-            Modifier.fillMaxHeight().padding(horizontal = 8.dp, vertical = 6.dp),
+-            verticalArrangement = Arrangement.SpaceBetween,
+-        ) {
+-            Row(Modifier.fillMaxWidth().height(48.dp * LocalDensity.current.fontScale.coerceAtLeast(1f)), verticalAlignment = Alignment.CenterVertically) {
+-                Text("MASTER", Modifier.weight(1f), style = MaterialTheme.typography.labelLarge)
+-                if (clipLatched) {
+-                    MixerClipButton(
+-                        contentDescription = "Limpar clipping do master",
+-                        onClick = onClearClip,
+-                    )
+-                }
+-            }
+-            if (minimal) {
+-                CompactMeter(meter, accent)
+-            } else {
+-                MeterPair(
+-                    meter = meter,
+-                    accent = accent,
+-                    modifier = Modifier.fillMaxWidth().testTag("mixer-master-meters"),
+-                )
+-            }
+-
+-            MasterVolumeSlider(
+-                value = gainDraft,
+-                accent = accent,
+-                enabled = enabled,
+-                onValueChange = { value ->
+-                    gainDraft = value
+-                    onGainPreview(value)
+-                },
+-                onValueChangeFinished = { onGainCommit(gainDraft) },
+-                contentDescription = "Volume do master",
+-            )
+-        }
+-    }
++import androidx.compose.ui.text.font.FontWeight
++import androidx.compose.ui.text.style.TextAlign
++import androidx.compose.ui.text.style.TextOverflow
++import androidx.compose.ui.unit.dp
++import kotlin.math.abs
++import kotlin.math.log10
++import studio.guitarlab.app.ui.theme.StudioComparisonActive
++import studio.guitarlab.app.ui.theme.StudioComparisonHidden
++import studio.guitarlab.app.ui.theme.StudioMute
++import studio.guitarlab.app.ui.theme.StudioRecord
++import studio.guitarlab.app.ui.theme.StudioSolo
++import studio.guitarlab.core.audio.MeterBallisticsState
++import studio.guitarlab.core.model.AudioTrack
++import studio.guitarlab.core.model.TrackOutputRoute
++import studio.guitarlab.core.project.GuitarAuditionMode
++import studio.guitarlab.core.project.GuitarAuditionPolicy
++import studio.guitarlab.core.project.GuitarAuditionTrackState
++
++@Composable
++fun MixerDock(
++    tracks: List<AudioTrack>,
++    auditionMode: GuitarAuditionMode = GuitarAuditionMode.MIXER,
++    selectedTrackId: String?,
++    mixControlsEnabled: Boolean,
++    structuralControlsEnabled: Boolean,
++    masterGainDb: Float,
++    masterMeter: MeterBallisticsState,
++    trackMeters: Map<String, MeterBallisticsState>,
++    masterClipLatched: Boolean,
++    trackClipLatched: Set<String>,
++    onSelectTrack: (String) -> Unit,
++    onGainPreview: (String, Float) -> Unit,
++    onGainCommit: (String, Float) -> Unit,
++    onPanPreview: (String, Float) -> Unit,
++    onPanCommit: (String, Float) -> Unit,
++    onToggleMute: (String) -> Unit,
++    onToggleSolo: (String) -> Unit,
++    onToggleCue: (String) -> Unit,
++    onToggleArm: (String) -> Unit,
++    onMasterGainPreview: (Float) -> Unit,
++    onMasterGainCommit: (Float) -> Unit,
++    onClearTrackClip: (String) -> Unit,
++    onClearMasterClip: () -> Unit,
++    minimal: Boolean = false,
++    modifier: Modifier = Modifier,
++) {
++    val fontScale = LocalDensity.current.fontScale.coerceAtLeast(1f)
++    val dockHeight = (if (minimal) 172.dp else 252.dp) + ((if (minimal) 48.dp else 96.dp) * (fontScale - 1f))
++    Surface(
++        modifier = modifier.fillMaxWidth().height(dockHeight).testTag("mixer-dock"),
++        shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
++        color = MaterialTheme.colorScheme.surface,
++        tonalElevation = 3.dp,
++    ) {
++        Column(Modifier.fillMaxSize().padding(horizontal = 8.dp, vertical = 0.dp)) {
++            Row(
++                modifier = Modifier.fillMaxWidth().weight(1f),
++                horizontalArrangement = Arrangement.spacedBy(6.dp),
++            ) {
++                LazyRow(
++                    modifier = Modifier
++                        .weight(1f)
++                        .fillMaxHeight()
++                        .testTag("mixer-track-scroll"),
++                    horizontalArrangement = Arrangement.spacedBy(6.dp),
++                    userScrollEnabled = true,
++                ) {
++                    items(tracks.sortedBy { it.order }, key = { it.id }) { track ->
++                        MixerTrackStrip(
++                            track = track,
++                            minimal = minimal,
++                            auditionMode = auditionMode,
++                            selected = track.id == selectedTrackId,
++                            mixControlsEnabled = mixControlsEnabled,
++                            structuralControlsEnabled = structuralControlsEnabled,
++                            meter = trackMeters[track.id] ?: MeterBallisticsState(),
++                            clipLatched = track.id in trackClipLatched,
++                            onSelect = { onSelectTrack(track.id) },
++                            onGainPreview = { onGainPreview(track.id, it) },
++                            onGainCommit = { onGainCommit(track.id, it) },
++                            onPanPreview = { onPanPreview(track.id, it) },
++                            onPanCommit = { onPanCommit(track.id, it) },
++                            onToggleMute = { onToggleMute(track.id) },
++                            onToggleSolo = { onToggleSolo(track.id) },
++                            onToggleCue = { onToggleCue(track.id) },
++                            onToggleArm = { onToggleArm(track.id) },
++                            onClearClip = { onClearTrackClip(track.id) },
++                        )
++                    }
++                }
++
++                MasterStrip(
++                    minimal = minimal,
++                    gainDb = masterGainDb,
++                    meter = masterMeter,
++                    clipLatched = masterClipLatched,
++                    enabled = mixControlsEnabled,
++                    onGainPreview = onMasterGainPreview,
++                    onGainCommit = onMasterGainCommit,
++                    onClearClip = onClearMasterClip,
++                )
++            }
++        }
++    }
++}
++
++@Composable
++private fun MixerTrackStrip(
++    track: AudioTrack,
++    minimal: Boolean = false,
++    auditionMode: GuitarAuditionMode,
++    selected: Boolean,
++    mixControlsEnabled: Boolean,
++    structuralControlsEnabled: Boolean,
++    meter: MeterBallisticsState,
++    clipLatched: Boolean,
++    onSelect: () -> Unit,
++    onGainPreview: (Float) -> Unit,
++    onGainCommit: (Float) -> Unit,
++    onPanPreview: (Float) -> Unit,
++    onPanCommit: (Float) -> Unit,
++    onToggleMute: () -> Unit,
++    onToggleSolo: () -> Unit,
++    onToggleCue: () -> Unit,
++    onToggleArm: () -> Unit,
++    onClearClip: () -> Unit,
++) {
++    var gainDraft by remember(track.id, track.gainDb) { mutableFloatStateOf(track.gainDb) }
++    var panDraft by remember(track.id, track.pan) { mutableFloatStateOf(track.pan) }
++    var detailsVisible by remember(track.id) { mutableStateOf(false) }
++    val fontScale = LocalDensity.current.fontScale.coerceAtLeast(1f)
++    val accent = track.resolvedStudioColor()
++    val auditionState = GuitarAuditionPolicy.trackState(track.roleId, auditionMode)
++    val borderColor = accent.copy(alpha = if (selected) 0.88f else 0.38f)
++    val headerInset = when {
++        minimal && (auditionState != GuitarAuditionTrackState.UNAFFECTED || clipLatched) -> 56.dp
++        minimal -> 40.dp
++        clipLatched -> 60.dp
++        auditionState != GuitarAuditionTrackState.UNAFFECTED -> 24.dp
++        else -> 8.dp
++    }
++
++    Surface(
++        modifier = Modifier
++            .width(200.dp + 80.dp * (fontScale - 1f))
++            .fillMaxHeight()
++            .testTag("mixer-track-strip-${track.id}")
++            .clip(RoundedCornerShape(8.dp))
++            .clickable(onClick = onSelect),
++        shape = RoundedCornerShape(8.dp),
++        color = accent.copy(alpha = if (selected) 0.10f else 0.035f),
++        border = BorderStroke(if (selected) 1.5.dp else 1.dp, borderColor),
++    ) {
++        Column(
++            Modifier.fillMaxHeight().padding(horizontal = 4.dp, vertical = 6.dp),
++            verticalArrangement = Arrangement.spacedBy(0.dp),
++        ) {
++            Surface(
++                modifier = Modifier
++                    .fillMaxWidth()
++                    .height(48.dp * fontScale)
++                    .testTag("mixer-track-header-${track.id}")
++                    .clickable { onSelect(); if (minimal) detailsVisible = true }
++                    .semantics {
++                        contentDescription = if (minimal) "Detalhes da pista ${track.name}" else "Selecionar pista ${track.name}"
++                    },
++                shape = RoundedCornerShape(6.dp),
++                color = accent.copy(alpha = 0.055f),
++                border = BorderStroke(1.dp, accent.copy(alpha = 0.18f)),
++            ) {
++                Box(Modifier.fillMaxSize()) {
++                    Row(
++                        modifier = Modifier
++                            .align(Alignment.Center)
++                            .fillMaxWidth()
++                            .padding(horizontal = headerInset)
++                            .testTag("mixer-track-title-group-${track.id}"),
++                        horizontalArrangement = Arrangement.Center,
++                        verticalAlignment = Alignment.CenterVertically,
++                    ) {
++                        Box(Modifier.size(8.dp).background(accent, RoundedCornerShape(4.dp)))
++                        Text(
++                            track.name,
++                            modifier = Modifier.padding(start = 6.dp),
++                            style = MaterialTheme.typography.labelLarge,
++                            fontWeight = FontWeight.SemiBold,
++                            textAlign = TextAlign.Center,
++                            maxLines = 2,
++                            overflow = TextOverflow.Ellipsis,
++                        )
++                    }
++                    Row(
++                        modifier = Modifier.align(Alignment.CenterEnd),
++                        verticalAlignment = Alignment.CenterVertically,
++                    ) {
++                        if (minimal) {
++                            Text(track.pan.formatPan(), Modifier.padding(horizontal = 4.dp), style = MaterialTheme.typography.labelSmall)
++                        }
++                        if (auditionState != GuitarAuditionTrackState.UNAFFECTED) {
++                            val included = auditionState == GuitarAuditionTrackState.INCLUDED
++                            Text(if (included) "●" else "○", Modifier.semantics {
++                                stateDescription = if (included) "Incluída na comparação" else "Oculta pela comparação"
++                            }, color = if (included) StudioComparisonActive else StudioComparisonHidden)
++                        }
++                        if (minimal && clipLatched) {
++                            Text("!", color = MaterialTheme.colorScheme.error,
++                                modifier = Modifier.semantics { stateDescription = "Clipping da pista ${track.name}" })
++                        } else if (clipLatched) {
++                            MixerClipButton(
++                                contentDescription = "Limpar clipping da pista ${track.name}",
++                                onClick = onClearClip,
++                            )
++                        }
++                    }
++                }
++            }
++
++            MixerSectionSurface(
++                modifier = Modifier.fillMaxWidth().height(48.dp).testTag("mixer-track-actions-${track.id}"),
++                accent = accent,
++                fillAlpha = 0.36f,
++                borderAlpha = 0.16f,
++            ) {
++                Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
++                    MixerStateButton(
++                        label = "M",
++                        active = track.muted,
++                        activeColor = StudioMute,
++                        enabled = mixControlsEnabled,
++                        contentDescription = "Mute da pista ${track.name}",
++                        onClick = onToggleMute,
++                    )
++                    MixerStateButton(
++                        label = "S",
++                        active = track.solo,
++                        activeColor = StudioSolo,
++                        enabled = mixControlsEnabled,
++                        contentDescription = "Solo da pista ${track.name}",
++                        onClick = onToggleSolo,
++                    )
++                    MixerCueButton(
++                        active = track.outputRoute != TrackOutputRoute.MAIN,
++                        activeColor = MaterialTheme.colorScheme.tertiary,
++                        enabled = structuralControlsEnabled,
++                        contentDescription = "Saída CUE da pista ${track.name}",
++                        onClick = onToggleCue,
++                    )
++                    MixerArmButton(
++                        active = track.armed,
++                        enabled = structuralControlsEnabled,
++                        contentDescription = "Gravação da pista ${track.name}",
++                        onClick = onToggleArm,
++                    )
++                }
++            }
++
++            val meterSectionHeight = if (minimal) 16.dp else 48.dp * fontScale
++            MixerSectionSurface(
++                modifier = Modifier.fillMaxWidth().height(meterSectionHeight).testTag("mixer-track-meter-section-${track.id}"),
++                accent = accent,
++                fillAlpha = 0.22f,
++                borderAlpha = 0.10f,
++            ) {
++                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
++                    if (minimal) {
++                        CompactMeter(meter, accent)
++                    } else {
++                        MeterPair(
++                            meter = meter,
++                            accent = accent,
++                            modifier = Modifier.fillMaxWidth().testTag("mixer-track-meters-${track.id}"),
++                        )
++                    }
++                }
++            }
++
++            val mixSectionHeight = if (minimal) 48.dp else 96.dp
++            MixerSectionSurface(
++                modifier = Modifier.fillMaxWidth().height(mixSectionHeight).testTag("mixer-track-mix-${track.id}"),
++                accent = accent,
++                fillAlpha = 0.26f,
++                borderAlpha = 0.12f,
++            ) {
++                Box(Modifier.fillMaxSize()) {
++                    Column(Modifier.fillMaxSize()) {
++                        LabeledVolumeSlider(
++                            value = gainDraft,
++                            accent = accent,
++                            enabled = mixControlsEnabled,
++                            onValueChange = { value ->
++                                gainDraft = value
++                                onGainPreview(value)
++                            },
++                            onValueChangeFinished = { onGainCommit(gainDraft) },
++                            contentDescription = "Volume da pista ${track.name}",
++                        )
++
++                        if (!minimal) BipolarPanSlider(
++                            value = panDraft,
++                            accent = accent,
++                            enabled = mixControlsEnabled,
++                            onValueChange = { value ->
++                                panDraft = value
++                                onPanPreview(value)
++                            },
++                            onValueChangeFinished = { onPanCommit(panDraft) },
++                            contentDescription = "Pan da pista ${track.name}",
++                        )
++                    }
++                    if (!minimal) {
++                        Box(
++                            Modifier.align(Alignment.Center).fillMaxWidth().height(1.dp)
++                                .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.14f)),
++                        )
++                    }
++                }
++            }
++        }
++    }
++    if (detailsVisible && minimal) {
++        AlertDialog(
++            modifier = Modifier.testTag("mixer-track-details"),
++            onDismissRequest = { detailsVisible = false },
++            title = { Text("Controles da pista") },
++            text = {
++                Box(Modifier.height(252.dp + 96.dp * (LocalDensity.current.fontScale.coerceAtLeast(1f) - 1f))) {
++                    MixerTrackStrip(
++                        track = track, auditionMode = auditionMode, selected = selected,
++                        mixControlsEnabled = mixControlsEnabled, structuralControlsEnabled = structuralControlsEnabled,
++                        meter = meter, clipLatched = clipLatched, onSelect = onSelect,
++                        onGainPreview = onGainPreview, onGainCommit = onGainCommit,
++                        onPanPreview = onPanPreview, onPanCommit = onPanCommit,
++                        onToggleMute = onToggleMute, onToggleSolo = onToggleSolo,
++                        onToggleCue = onToggleCue, onToggleArm = onToggleArm, onClearClip = onClearClip,
++                    )
++                }
++            },
++            confirmButton = { TextButton(onClick = { detailsVisible = false }) { Text("Fechar") } },
++        )
++    }
++}
++
++@Composable
++private fun MasterStrip(
++    minimal: Boolean,
++    gainDb: Float,
++    meter: MeterBallisticsState,
++    clipLatched: Boolean,
++    enabled: Boolean,
++    onGainPreview: (Float) -> Unit,
++    onGainCommit: (Float) -> Unit,
++    onClearClip: () -> Unit,
++) {
++    var gainDraft by remember(gainDb) { mutableFloatStateOf(gainDb) }
++    val fontScale = LocalDensity.current.fontScale.coerceAtLeast(1f)
++    val accent = MaterialTheme.colorScheme.secondary
++    Surface(
++        modifier = Modifier.width(144.dp + 80.dp * (fontScale - 1f)).fillMaxHeight().testTag("mixer-master-strip"),
++        shape = RoundedCornerShape(8.dp),
++        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.24f),
++        border = BorderStroke(1.5.dp, accent.copy(alpha = 0.78f)),
++    ) {
++        Column(
++            Modifier.fillMaxHeight().padding(horizontal = 8.dp, vertical = 6.dp),
++            verticalArrangement = Arrangement.SpaceBetween,
++        ) {
++            Surface(
++                modifier = Modifier.fillMaxWidth().height(48.dp * fontScale).testTag("mixer-master-header"),
++                shape = RoundedCornerShape(6.dp),
++                color = accent.copy(alpha = 0.055f),
++                border = BorderStroke(1.dp, accent.copy(alpha = 0.18f)),
++            ) {
++                Box(Modifier.fillMaxSize()) {
++                    Text(
++                        "MASTER",
++                        modifier = Modifier.align(Alignment.Center).testTag("mixer-master-title"),
++                        style = MaterialTheme.typography.labelLarge,
++                        fontWeight = FontWeight.SemiBold,
++                        textAlign = TextAlign.Center,
++                    )
++                    if (clipLatched) {
++                        Box(Modifier.align(Alignment.CenterEnd)) {
++                            MixerClipButton(
++                                contentDescription = "Limpar clipping do master",
++                                onClick = onClearClip,
++                            )
++                        }
++                    }
++                }
++            }
++
++            val meterSectionHeight = if (minimal) 16.dp else 48.dp * fontScale
++            MixerSectionSurface(
++                modifier = Modifier.fillMaxWidth().height(meterSectionHeight).testTag("mixer-master-meter-section"),
++                accent = accent,
++                fillAlpha = 0.22f,
++                borderAlpha = 0.12f,
++            ) {
++                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
++                    if (minimal) {
++                        CompactMeter(meter, accent)
++                    } else {
++                        MeterPair(
++                            meter = meter,
++                            accent = accent,
++                            modifier = Modifier.fillMaxWidth().testTag("mixer-master-meters"),
++                        )
++                    }
++                }
++            }
++
++            MixerSectionSurface(
++                modifier = Modifier.fillMaxWidth().height(68.dp).testTag("mixer-master-volume-section"),
++                accent = accent,
++                fillAlpha = 0.28f,
++                borderAlpha = 0.14f,
++            ) {
++                MasterVolumeSlider(
++                    value = gainDraft,
++                    accent = accent,
++                    enabled = enabled,
++                    onValueChange = { value ->
++                        gainDraft = value
++                        onGainPreview(value)
++                    },
++                    onValueChangeFinished = { onGainCommit(gainDraft) },
++                    contentDescription = "Volume do master",
++                )
++            }
++        }
++    }
++}
++
++@Composable
++private fun MixerSectionSurface(
++    modifier: Modifier,
++    accent: Color,
++    fillAlpha: Float,
++    borderAlpha: Float,
++    content: @Composable () -> Unit,
++) {
++    Surface(
++        modifier = modifier,
++        shape = RoundedCornerShape(6.dp),
++        color = MaterialTheme.colorScheme.surface.copy(alpha = fillAlpha),
++        border = BorderStroke(1.dp, accent.copy(alpha = borderAlpha)),
++        tonalElevation = 0.dp,
++        content = content,
++    )
+ }
+ 
+ @Composable
+diff --git a/app/src/androidTest/java/studio/guitarlab/app/MixerDockInstrumentedTest.kt b/app/src/androidTest/java/studio/guitarlab/app/MixerDockInstrumentedTest.kt
+--- a/app/src/androidTest/java/studio/guitarlab/app/MixerDockInstrumentedTest.kt
++++ b/app/src/androidTest/java/studio/guitarlab/app/MixerDockInstrumentedTest.kt
+@@ -147,265 +147,286 @@
+         }
+         val strip = composeRule.onNodeWithTag("mixer-track-strip-${track.id}").fetchSemanticsNode().boundsInRoot
+         assertEquals("Narrow channel width", 200f * density, strip.width, 1f)
+-        val volume = composeRule.onNodeWithContentDescription("Volume da pista Teste").performScrollTo().assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+-        val pan = composeRule.onNodeWithContentDescription("Pan da pista Teste").performScrollTo().assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+-        assertTrue("Volume and pan targets must not overlap", !volume.overlaps(pan))
+-        assertTrue("Pan must stay fully inside the dock", pan.bottom <= composeRule.onNodeWithTag("mixer-dock").fetchSemanticsNode().boundsInRoot.bottom)
+-        composeRule.captureCohesionScreenshot("rc24-mixer-narrow-clipping")
+-
+-    }
+-    @Test
+-    fun cueRoutingIsDisabledWhenStructuralTransportEditsAreLocked() {
+-        val track = AudioTrack(id = "route-locked", name = "Route locked", order = 0)
+-        composeRule.setContent {
+-            GuitarLabTheme(darkTheme = false) {
+-                MixerDock(
+-                    tracks = listOf(track),
+-                    selectedTrackId = track.id,
+-                    mixControlsEnabled = true,
+-                    structuralControlsEnabled = false,
+-                    masterGainDb = 0f,
+-                    masterMeter = MeterBallisticsState(),
+-                    trackMeters = emptyMap(),
+-                    masterClipLatched = false,
+-                    trackClipLatched = emptySet(),
+-                    onSelectTrack = {},
+-                    onGainPreview = { _, _ -> },
+-                    onGainCommit = { _, _ -> },
+-                    onPanPreview = { _, _ -> },
+-                    onPanCommit = { _, _ -> },
+-                    onToggleMute = {},
+-                    onToggleSolo = {},
+-                    onToggleCue = {},
+-                    onToggleArm = {},
+-                    onMasterGainPreview = {},
+-                    onMasterGainCommit = {},
+-                    onClearTrackClip = {},
+-                    onClearMasterClip = {},
+-                )
+-            }
+-        }
+-
+-        composeRule.onNodeWithContentDescription("Mute da pista Route locked").assertIsEnabled()
+-        composeRule.onNodeWithContentDescription("Solo da pista Route locked").assertIsEnabled()
+-        composeRule.onNodeWithContentDescription("Saída CUE da pista Route locked").assertIsNotEnabled()
+-        composeRule.onNodeWithContentDescription("Gravação da pista Route locked").assertIsNotEnabled()
+-    }
+-
+-    @Test
+-    fun overflowingTracksSwipeHorizontallyWhileMasterRemainsAnchored() {
+-        val tracks = List(10) { index -> AudioTrack(id = "overflow-$index", name = "Track $index", order = index) }
+-        composeRule.setContent {
+-            GuitarLabTheme(darkTheme = true) {
+-                MixerDock(
+-                    tracks = tracks,
+-                    selectedTrackId = tracks.first().id,
+-                    mixControlsEnabled = true,
+-                    structuralControlsEnabled = true,
+-                    masterGainDb = 0f,
+-                    masterMeter = MeterBallisticsState(),
+-                    trackMeters = emptyMap(),
+-                    masterClipLatched = false,
+-                    trackClipLatched = emptySet(),
+-                    onSelectTrack = {},
+-                    onGainPreview = { _, _ -> },
+-                    onGainCommit = { _, _ -> },
+-                    onPanPreview = { _, _ -> },
+-                    onPanCommit = { _, _ -> },
+-                    onToggleMute = {},
+-                    onToggleSolo = {},
+-                    onToggleCue = {},
+-                    onToggleArm = {},
+-                    onMasterGainPreview = {},
+-                    onMasterGainCommit = {},
+-                    onClearTrackClip = {},
+-                    onClearMasterClip = {},
+-                )
+-            }
+-        }
+-
+-        val master = composeRule.onNodeWithTag("mixer-master-strip").assertIsDisplayed()
+-        val masterBefore = master.fetchSemanticsNode().boundsInRoot
+-        val scroller = composeRule.onNodeWithTag("mixer-track-scroll").assertIsDisplayed()
+-        val scrollerBounds = scroller.fetchSemanticsNode().boundsInRoot
+-        val swipeStart = Offset(scrollerBounds.width * 0.90f, scrollerBounds.height * 0.08f)
+-        val swipeEnd = Offset(scrollerBounds.width * 0.10f, scrollerBounds.height * 0.08f)
+-        var lastTrackVisible = false
+-        repeat(20) {
+-            if (!lastTrackVisible) {
+-                // Swipe through the strip header band instead of centerY. The center crosses the
+-                // volume/pan sliders, which legitimately consume horizontal gestures. A user
+-                // scrolls the Mixer from non-slider chrome such as the track header.
+-                scroller.performTouchInput { swipe(swipeStart, swipeEnd, durationMillis = 220L) }
+-                composeRule.waitForIdle()
+-                val candidates = composeRule.onAllNodesWithTag("mixer-track-strip-overflow-9")
+-                    .fetchSemanticsNodes()
+-                lastTrackVisible = candidates.any { node ->
+-                    val bounds = node.boundsInRoot
+-                    bounds.right > scrollerBounds.left && bounds.left < scrollerBounds.right
+-                }
+-            }
+-        }
+-        assertTrue(
+-            "Last mixer track must be reachable by repeated physical horizontal swipe regardless of viewport width",
+-            lastTrackVisible,
+-        )
+-        val masterAfter = composeRule.onNodeWithTag("mixer-master-strip").fetchSemanticsNode().boundsInRoot
+-        assertEquals(masterBefore.left, masterAfter.left, 1f)
+-        assertEquals(masterBefore.right, masterAfter.right, 1f)
+-    }
+-
+-    @Test
+-    fun largeFontsGrowChannelsWithoutClippingPanOrShrinkingTargets() {
+-        val fontScale = mutableStateOf(1f)
+-        val gainPreviews = AtomicInteger(0)
+-        val gainCommits = AtomicInteger(0)
+-        val track = AudioTrack(id = "large-font", name = "Guitarra de referência E", order = 0)
+-        composeRule.setContent {
+-            val density = LocalDensity.current
+-            CompositionLocalProvider(LocalDensity provides Density(density.density, fontScale.value)) {
+-                GuitarLabTheme(darkTheme = true) {
+-                    MixerDock(
+-                        tracks = listOf(track), selectedTrackId = track.id,
+-                        mixControlsEnabled = true, structuralControlsEnabled = true,
+-                        masterGainDb = 0f, masterMeter = MeterBallisticsState(), trackMeters = emptyMap(),
+-                        masterClipLatched = true, trackClipLatched = setOf(track.id),
+-                        onSelectTrack = {}, onGainPreview = { _, _ -> gainPreviews.incrementAndGet() }, onGainCommit = { _, _ -> gainCommits.incrementAndGet() },
+-                        onPanPreview = { _, _ -> }, onPanCommit = { _, _ -> },
+-                        onToggleMute = {}, onToggleSolo = {}, onToggleCue = {}, onToggleArm = {},
+-                        onMasterGainPreview = {}, onMasterGainCommit = {},
+-                        onClearTrackClip = {}, onClearMasterClip = {},
+-                    )
+-                }
+-            }
+-        }
+-        Log.i("MixerGeometryTest", "large-font: initial geometry")
+-        val strip = composeRule.onNodeWithTag("mixer-track-strip-${track.id}")
+-        val before = unclippedBounds(strip)
+-        Log.i("MixerGeometryTest", "large-font: set scale 1.5")
+-        composeRule.runOnIdle { fontScale.value = 1.5f }
+-        val after = unclippedBounds(strip)
+-        Log.i("MixerGeometryTest", "large-font: geometry $before -> $after")
+-        assertTrue("Larger fonts must increase channel width", after.width > before.width)
+-        assertTrue("Larger fonts must increase channel height", after.height > before.height)
+-        listOf("Mute", "Solo", "Saída CUE", "Gravação", "Volume", "Pan").forEach { action ->
+-            val control = composeRule.onNodeWithContentDescription("$action da pista ${track.name}")
+-            scrollMixerControlIntoView(control, action)
+-            val node = unclippedBounds(control.assertIsDisplayed())
+-            val dock = unclippedBounds(composeRule.onNodeWithTag("mixer-dock"))
+-            assertTrue("$action must be vertically inside the dock: $node / $dock",
+-                node.top >= dock.top - 1f && node.bottom <= dock.bottom + 1f)
+-            val density = InstrumentationRegistry.getInstrumentation().targetContext.resources.displayMetrics.density
+-            val touch = control.fetchSemanticsNode().touchBoundsInRoot
+-            Log.i("MixerGeometryTest", "$action fullSemantics=$node effectiveTouch=$touch dock=$dock")
+-            assertTrue("$action retains 48dp touch width: $touch", touch.width >= 48f * density - 1f)
+-            assertTrue("$action retains 48dp touch height: $touch", touch.height >= 48f * density - 1f)
+-            assertTrue("$action touch target stays inside dock: $touch / $dock",
+-                touch.top >= dock.top - 1f && touch.bottom <= dock.bottom + 1f)
+-        }
+-        val volume = composeRule.onNodeWithContentDescription("Volume da pista ${track.name}")
+-        scrollMixerControlIntoView(volume, "Volume touch test")
+-        // Touch above the 20dp visual thumb, inside the actual 48dp interactive height.
+-        volume.performTouchInput { click(Offset(center.x, height * 0.1f)) }
+-        composeRule.waitForIdle()
+-        assertTrue("Touch above the drawn thumb must update volume", gainPreviews.get() > 0)
+-        assertTrue("Touch above the drawn thumb must commit volume", gainCommits.get() > 0)
+-        composeRule.captureCohesionScreenshot("rc24-mixer-large-font")
+-    }
+-
+-    /** Full layout bounds: clipped semantics bounds would hide the very defect this test checks. */
+-    private fun unclippedBounds(node: SemanticsNodeInteraction): Rect {
+-        val semantics = node.fetchSemanticsNode()
+-        val origin = semantics.positionInRoot
+-        // Semantics coordinates include the target modifiers; layoutInfo.coordinates is the
+-        // inner drawing layout (20dp for the custom thumb), not the interactive node bounds.
+-        return Rect(origin.x, origin.y, origin.x + semantics.size.width, origin.y + semantics.size.height)
+-    }
+-
+-    /** Finite ScrollBy calls, with subpixel tolerance and explicit no-progress failure. */
+-    private fun scrollMixerControlIntoView(control: SemanticsNodeInteraction, label: String) {
+-        val scroller = composeRule.onNodeWithTag("mixer-track-scroll")
+-        repeat(12) { attempt ->
+-            val viewport = scroller.fetchSemanticsNode().boundsInRoot
+-            val before = unclippedBounds(control)
+-            Log.i("MixerGeometryTest", "$label attempt=$attempt target=$before viewport=$viewport")
+-            assertTrue("$label target exceeds horizontal viewport: $before / $viewport", before.width <= viewport.width + 1f)
+-            val delta = when {
+-                before.left < viewport.left - 1f -> before.left - viewport.left
+-                before.right > viewport.right + 1f -> before.right - viewport.right
+-                else -> return
+-            }
+-            scroller.performSemanticsAction(SemanticsActions.ScrollBy) { scroll -> scroll(delta, 0f) }
+-            composeRule.waitForIdle()
+-            val after = unclippedBounds(control)
+-            val aligned = after.left >= viewport.left - 1f && after.right <= viewport.right + 1f
+-            if (aligned) return
+-            assertTrue("$label scrolling made no progress: delta=$delta before=$before after=$after viewport=$viewport",
+-                kotlin.math.abs(after.left - before.left) > 0.5f)
+-        }
+-        throw AssertionError("$label did not become fully visible after 12 bounded scroll attempts")
+-    }
+-
+-    @Test
+-    fun minimalRetainsFourActionsAndGainWhileDetailsExposePanAndClipping() {
+-        val minimal = mutableStateOf(false)
+-        val track = mutableStateOf(AudioTrack(id = "modes", name = "Minha guitarra", pan = -1f, gainDb = -6f, order = 0))
+-        var panCommits = 0
+-        var gainCommits = 0
+-        var clipResets = 0
+-        composeRule.setContent {
+-            GuitarLabTheme(darkTheme = true) {
+-                MixerDock(
+-                    tracks = listOf(track.value), selectedTrackId = track.value.id,
+-                    minimal = minimal.value,
+-                    mixControlsEnabled = true, structuralControlsEnabled = true,
+-                    masterGainDb = 0f, masterMeter = MeterBallisticsState(), trackMeters = emptyMap(),
+-                    masterClipLatched = false, trackClipLatched = setOf(track.value.id),
+-                    onSelectTrack = {}, onGainPreview = { _, _ -> },
+-                    onGainCommit = { _, value -> track.value = track.value.copy(gainDb = value); gainCommits++ },
+-                    onPanPreview = { _, _ -> },
+-                    onPanCommit = { _, value -> track.value = track.value.copy(pan = value); panCommits++ },
+-                    onToggleMute = {}, onToggleSolo = {}, onToggleCue = {}, onToggleArm = {},
+-                    onMasterGainPreview = {}, onMasterGainCommit = {},
+-                    onClearTrackClip = { clipResets++ }, onClearMasterClip = {},
+-                )
+-            }
+-        }
+-        val full = composeRule.onNodeWithTag("mixer-dock").fetchSemanticsNode().boundsInRoot
+-        val density = InstrumentationRegistry.getInstrumentation().targetContext.resources.displayMetrics.density
+-        val trackStrip = composeRule.onNodeWithTag("mixer-track-strip-${track.value.id}").fetchSemanticsNode().boundsInRoot
+-        val trackMeters = composeRule.onNodeWithTag("mixer-track-meters-${track.value.id}", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+-        assertTrue("Track PK/RMS must use the strip full inner width", trackMeters.width >= trackStrip.width - 10f * density)
+-        val masterStrip = composeRule.onNodeWithTag("mixer-master-strip").fetchSemanticsNode().boundsInRoot
+-        val masterMeters = composeRule.onNodeWithTag("mixer-master-meters", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+-        assertTrue("Master PK/RMS must use the full inner width", masterMeters.width >= masterStrip.width - 18f * density)
+-        val masterVolume = composeRule.onNodeWithTag("mixer-master-volume", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+-        assertTrue("Master volume control must span the useful card width", masterVolume.width >= masterStrip.width - 18f * density)
+-        composeRule.onNodeWithTag("mixer-master-volume-readout", useUnmergedTree = true).assertIsDisplayed()
+-        composeRule.onNodeWithContentDescription("Volume da pista Minha guitarra").performTouchInput {
+-            swipe(Offset(width * 0.2f, height / 2f), Offset(width * 0.9f, height / 2f), 250L)
+-        }
+-        assertTrue("Thin slider must commit gain", gainCommits > 0 && track.value.gainDb > -6f)
+-        val committedGain = track.value.gainDb
+-        composeRule.runOnIdle { minimal.value = true }
+-        val compact = composeRule.onNodeWithTag("mixer-dock").fetchSemanticsNode().boundsInRoot
+-        assertTrue("Minimum must recover substantial timeline space", compact.height < full.height * 0.72f)
+-        listOf("Mute", "Solo", "Saída CUE", "Gravação", "Volume").forEach { action ->
+-            composeRule.onNodeWithContentDescription("$action da pista Minha guitarra").assertIsDisplayed()
+-        }
+-        composeRule.onNodeWithContentDescription("Detalhes da pista Minha guitarra").performClick()
+-        composeRule.onNodeWithTag("mixer-track-details").assertIsDisplayed()
+-        composeRule.onNodeWithContentDescription("Pan da pista Minha guitarra").performTouchInput {
+-            swipe(Offset(width * 0.15f, height / 2f), Offset(width * 0.85f, height / 2f), 250L)
+-        }
+-        assertTrue("Pan must preview and commit from minimum details", panCommits > 0 && track.value.pan > -1f)
+-        composeRule.onNodeWithContentDescription("Limpar clipping da pista Minha guitarra").performClick()
+-        assertEquals(1, clipResets)
+-        composeRule.onNodeWithText("Fechar").performClick()
+-        composeRule.runOnIdle { minimal.value = false }
+-        composeRule.onNodeWithContentDescription("Pan da pista Minha guitarra").assertIsDisplayed()
+-        assertEquals("Changing presentation must preserve committed gain", committedGain, track.value.gainDb, 0f)
+-        composeRule.captureCohesionScreenshot("rc24-mixer-complete-after-minimum")
++        val titleGroup = composeRule.onNodeWithTag("mixer-track-title-group-${track.id}", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
++        assertEquals("Track title group must be visually centered", strip.center.x, titleGroup.center.x, 1f)
++        val header = composeRule.onNodeWithTag("mixer-track-header-${track.id}", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
++        val actions = composeRule.onNodeWithTag("mixer-track-actions-${track.id}", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
++        val meterSection = composeRule.onNodeWithTag("mixer-track-meter-section-${track.id}", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
++        val mixSection = composeRule.onNodeWithTag("mixer-track-mix-${track.id}", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
++        listOf(header, actions, meterSection, mixSection).forEach { section ->
++            assertTrue("Every soft section must span the useful channel width: $section / $strip", section.width >= strip.width - 10f * density)
++        }
++        assertTrue("Header/actions must not overlap", header.bottom <= actions.top + 1f)
++        assertTrue("Actions/meters must not overlap", actions.bottom <= meterSection.top + 1f)
++        assertTrue("Meters/mix must not overlap", meterSection.bottom <= mixSection.top + 1f)
++        val volume = composeRule.onNodeWithContentDescription("Volume da pista Teste").performScrollTo().assertIsDisplayed().fetchSemanticsNode().boundsInRoot
++        val pan = composeRule.onNodeWithContentDescription("Pan da pista Teste").performScrollTo().assertIsDisplayed().fetchSemanticsNode().boundsInRoot
++        assertTrue("Volume and pan targets must not overlap", !volume.overlaps(pan))
++        assertTrue("Pan must stay fully inside the dock", pan.bottom <= composeRule.onNodeWithTag("mixer-dock").fetchSemanticsNode().boundsInRoot.bottom)
++        composeRule.captureCohesionScreenshot("rc27-mixer-segmented-narrow-clipping")
++
++    }
++    @Test
++    fun cueRoutingIsDisabledWhenStructuralTransportEditsAreLocked() {
++        val track = AudioTrack(id = "route-locked", name = "Route locked", order = 0)
++        composeRule.setContent {
++            GuitarLabTheme(darkTheme = false) {
++                MixerDock(
++                    tracks = listOf(track),
++                    selectedTrackId = track.id,
++                    mixControlsEnabled = true,
++                    structuralControlsEnabled = false,
++                    masterGainDb = 0f,
++                    masterMeter = MeterBallisticsState(),
++                    trackMeters = emptyMap(),
++                    masterClipLatched = false,
++                    trackClipLatched = emptySet(),
++                    onSelectTrack = {},
++                    onGainPreview = { _, _ -> },
++                    onGainCommit = { _, _ -> },
++                    onPanPreview = { _, _ -> },
++                    onPanCommit = { _, _ -> },
++                    onToggleMute = {},
++                    onToggleSolo = {},
++                    onToggleCue = {},
++                    onToggleArm = {},
++                    onMasterGainPreview = {},
++                    onMasterGainCommit = {},
++                    onClearTrackClip = {},
++                    onClearMasterClip = {},
++                )
++            }
++        }
++
++        composeRule.onNodeWithContentDescription("Mute da pista Route locked").assertIsEnabled()
++        composeRule.onNodeWithContentDescription("Solo da pista Route locked").assertIsEnabled()
++        composeRule.onNodeWithContentDescription("Saída CUE da pista Route locked").assertIsNotEnabled()
++        composeRule.onNodeWithContentDescription("Gravação da pista Route locked").assertIsNotEnabled()
++    }
++
++    @Test
++    fun overflowingTracksSwipeHorizontallyWhileMasterRemainsAnchored() {
++        val tracks = List(10) { index -> AudioTrack(id = "overflow-$index", name = "Track $index", order = index) }
++        composeRule.setContent {
++            GuitarLabTheme(darkTheme = true) {
++                MixerDock(
++                    tracks = tracks,
++                    selectedTrackId = tracks.first().id,
++                    mixControlsEnabled = true,
++                    structuralControlsEnabled = true,
++                    masterGainDb = 0f,
++                    masterMeter = MeterBallisticsState(),
++                    trackMeters = emptyMap(),
++                    masterClipLatched = false,
++                    trackClipLatched = emptySet(),
++                    onSelectTrack = {},
++                    onGainPreview = { _, _ -> },
++                    onGainCommit = { _, _ -> },
++                    onPanPreview = { _, _ -> },
++                    onPanCommit = { _, _ -> },
++                    onToggleMute = {},
++                    onToggleSolo = {},
++                    onToggleCue = {},
++                    onToggleArm = {},
++                    onMasterGainPreview = {},
++                    onMasterGainCommit = {},
++                    onClearTrackClip = {},
++                    onClearMasterClip = {},
++                )
++            }
++        }
++
++        val master = composeRule.onNodeWithTag("mixer-master-strip").assertIsDisplayed()
++        val masterBefore = master.fetchSemanticsNode().boundsInRoot
++        val scroller = composeRule.onNodeWithTag("mixer-track-scroll").assertIsDisplayed()
++        val scrollerBounds = scroller.fetchSemanticsNode().boundsInRoot
++        val swipeStart = Offset(scrollerBounds.width * 0.90f, scrollerBounds.height * 0.08f)
++        val swipeEnd = Offset(scrollerBounds.width * 0.10f, scrollerBounds.height * 0.08f)
++        var lastTrackVisible = false
++        repeat(20) {
++            if (!lastTrackVisible) {
++                // Swipe through the strip header band instead of centerY. The center crosses the
++                // volume/pan sliders, which legitimately consume horizontal gestures. A user
++                // scrolls the Mixer from non-slider chrome such as the track header.
++                scroller.performTouchInput { swipe(swipeStart, swipeEnd, durationMillis = 220L) }
++                composeRule.waitForIdle()
++                val candidates = composeRule.onAllNodesWithTag("mixer-track-strip-overflow-9")
++                    .fetchSemanticsNodes()
++                lastTrackVisible = candidates.any { node ->
++                    val bounds = node.boundsInRoot
++                    bounds.right > scrollerBounds.left && bounds.left < scrollerBounds.right
++                }
++            }
++        }
++        assertTrue(
++            "Last mixer track must be reachable by repeated physical horizontal swipe regardless of viewport width",
++            lastTrackVisible,
++        )
++        val masterAfter = composeRule.onNodeWithTag("mixer-master-strip").fetchSemanticsNode().boundsInRoot
++        assertEquals(masterBefore.left, masterAfter.left, 1f)
++        assertEquals(masterBefore.right, masterAfter.right, 1f)
++    }
++
++    @Test
++    fun largeFontsGrowChannelsWithoutClippingPanOrShrinkingTargets() {
++        val fontScale = mutableStateOf(1f)
++        val gainPreviews = AtomicInteger(0)
++        val gainCommits = AtomicInteger(0)
++        val track = AudioTrack(id = "large-font", name = "Guitarra de referência E", order = 0)
++        composeRule.setContent {
++            val density = LocalDensity.current
++            CompositionLocalProvider(LocalDensity provides Density(density.density, fontScale.value)) {
++                GuitarLabTheme(darkTheme = true) {
++                    MixerDock(
++                        tracks = listOf(track), selectedTrackId = track.id,
++                        mixControlsEnabled = true, structuralControlsEnabled = true,
++                        masterGainDb = 0f, masterMeter = MeterBallisticsState(), trackMeters = emptyMap(),
++                        masterClipLatched = true, trackClipLatched = setOf(track.id),
++                        onSelectTrack = {}, onGainPreview = { _, _ -> gainPreviews.incrementAndGet() }, onGainCommit = { _, _ -> gainCommits.incrementAndGet() },
++                        onPanPreview = { _, _ -> }, onPanCommit = { _, _ -> },
++                        onToggleMute = {}, onToggleSolo = {}, onToggleCue = {}, onToggleArm = {},
++                        onMasterGainPreview = {}, onMasterGainCommit = {},
++                        onClearTrackClip = {}, onClearMasterClip = {},
++                    )
++                }
++            }
++        }
++        Log.i("MixerGeometryTest", "large-font: initial geometry")
++        val strip = composeRule.onNodeWithTag("mixer-track-strip-${track.id}")
++        val before = unclippedBounds(strip)
++        Log.i("MixerGeometryTest", "large-font: set scale 1.5")
++        composeRule.runOnIdle { fontScale.value = 1.5f }
++        val after = unclippedBounds(strip)
++        Log.i("MixerGeometryTest", "large-font: geometry $before -> $after")
++        assertTrue("Larger fonts must increase channel width", after.width > before.width)
++        assertTrue("Larger fonts must increase channel height", after.height > before.height)
++        listOf("Mute", "Solo", "Saída CUE", "Gravação", "Volume", "Pan").forEach { action ->
++            val control = composeRule.onNodeWithContentDescription("$action da pista ${track.name}")
++            scrollMixerControlIntoView(control, action)
++            val node = unclippedBounds(control.assertIsDisplayed())
++            val dock = unclippedBounds(composeRule.onNodeWithTag("mixer-dock"))
++            assertTrue("$action must be vertically inside the dock: $node / $dock",
++                node.top >= dock.top - 1f && node.bottom <= dock.bottom + 1f)
++            val density = InstrumentationRegistry.getInstrumentation().targetContext.resources.displayMetrics.density
++            val touch = control.fetchSemanticsNode().touchBoundsInRoot
++            Log.i("MixerGeometryTest", "$action fullSemantics=$node effectiveTouch=$touch dock=$dock")
++            assertTrue("$action retains 48dp touch width: $touch", touch.width >= 48f * density - 1f)
++            assertTrue("$action retains 48dp touch height: $touch", touch.height >= 48f * density - 1f)
++            assertTrue("$action touch target stays inside dock: $touch / $dock",
++                touch.top >= dock.top - 1f && touch.bottom <= dock.bottom + 1f)
++        }
++        val volume = composeRule.onNodeWithContentDescription("Volume da pista ${track.name}")
++        scrollMixerControlIntoView(volume, "Volume touch test")
++        // Touch above the 20dp visual thumb, inside the actual 48dp interactive height.
++        volume.performTouchInput { click(Offset(center.x, height * 0.1f)) }
++        composeRule.waitForIdle()
++        assertTrue("Touch above the drawn thumb must update volume", gainPreviews.get() > 0)
++        assertTrue("Touch above the drawn thumb must commit volume", gainCommits.get() > 0)
++        composeRule.captureCohesionScreenshot("rc27-mixer-segmented-large-font")
++    }
++
++    /** Full layout bounds: clipped semantics bounds would hide the very defect this test checks. */
++    private fun unclippedBounds(node: SemanticsNodeInteraction): Rect {
++        val semantics = node.fetchSemanticsNode()
++        val origin = semantics.positionInRoot
++        // Semantics coordinates include the target modifiers; layoutInfo.coordinates is the
++        // inner drawing layout (20dp for the custom thumb), not the interactive node bounds.
++        return Rect(origin.x, origin.y, origin.x + semantics.size.width, origin.y + semantics.size.height)
++    }
++
++    /** Finite ScrollBy calls, with subpixel tolerance and explicit no-progress failure. */
++    private fun scrollMixerControlIntoView(control: SemanticsNodeInteraction, label: String) {
++        val scroller = composeRule.onNodeWithTag("mixer-track-scroll")
++        repeat(12) { attempt ->
++            val viewport = scroller.fetchSemanticsNode().boundsInRoot
++            val before = unclippedBounds(control)
++            Log.i("MixerGeometryTest", "$label attempt=$attempt target=$before viewport=$viewport")
++            assertTrue("$label target exceeds horizontal viewport: $before / $viewport", before.width <= viewport.width + 1f)
++            val delta = when {
++                before.left < viewport.left - 1f -> before.left - viewport.left
++                before.right > viewport.right + 1f -> before.right - viewport.right
++                else -> return
++            }
++            scroller.performSemanticsAction(SemanticsActions.ScrollBy) { scroll -> scroll(delta, 0f) }
++            composeRule.waitForIdle()
++            val after = unclippedBounds(control)
++            val aligned = after.left >= viewport.left - 1f && after.right <= viewport.right + 1f
++            if (aligned) return
++            assertTrue("$label scrolling made no progress: delta=$delta before=$before after=$after viewport=$viewport",
++                kotlin.math.abs(after.left - before.left) > 0.5f)
++        }
++        throw AssertionError("$label did not become fully visible after 12 bounded scroll attempts")
++    }
++
++    @Test
++    fun minimalRetainsFourActionsAndGainWhileDetailsExposePanAndClipping() {
++        val minimal = mutableStateOf(false)
++        val track = mutableStateOf(AudioTrack(id = "modes", name = "Minha guitarra", pan = -1f, gainDb = -6f, order = 0))
++        var panCommits = 0
++        var gainCommits = 0
++        var clipResets = 0
++        composeRule.setContent {
++            GuitarLabTheme(darkTheme = true) {
++                MixerDock(
++                    tracks = listOf(track.value), selectedTrackId = track.value.id,
++                    minimal = minimal.value,
++                    mixControlsEnabled = true, structuralControlsEnabled = true,
++                    masterGainDb = 0f, masterMeter = MeterBallisticsState(), trackMeters = emptyMap(),
++                    masterClipLatched = false, trackClipLatched = setOf(track.value.id),
++                    onSelectTrack = {}, onGainPreview = { _, _ -> },
++                    onGainCommit = { _, value -> track.value = track.value.copy(gainDb = value); gainCommits++ },
++                    onPanPreview = { _, _ -> },
++                    onPanCommit = { _, value -> track.value = track.value.copy(pan = value); panCommits++ },
++                    onToggleMute = {}, onToggleSolo = {}, onToggleCue = {}, onToggleArm = {},
++                    onMasterGainPreview = {}, onMasterGainCommit = {},
++                    onClearTrackClip = { clipResets++ }, onClearMasterClip = {},
++                )
++            }
++        }
++        val full = composeRule.onNodeWithTag("mixer-dock").fetchSemanticsNode().boundsInRoot
++        val density = InstrumentationRegistry.getInstrumentation().targetContext.resources.displayMetrics.density
++        val trackStrip = composeRule.onNodeWithTag("mixer-track-strip-${track.value.id}").fetchSemanticsNode().boundsInRoot
++        val trackMeters = composeRule.onNodeWithTag("mixer-track-meters-${track.value.id}", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
++        assertTrue("Track PK/RMS must use the strip full inner width", trackMeters.width >= trackStrip.width - 10f * density)
++        val masterStrip = composeRule.onNodeWithTag("mixer-master-strip").fetchSemanticsNode().boundsInRoot
++        val masterHeader = composeRule.onNodeWithTag("mixer-master-header", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
++        val masterTitle = composeRule.onNodeWithTag("mixer-master-title", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
++        val masterMeterSection = composeRule.onNodeWithTag("mixer-master-meter-section", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
++        val masterVolumeSection = composeRule.onNodeWithTag("mixer-master-volume-section", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
++        assertEquals("Master title must be centered", masterStrip.center.x, masterTitle.center.x, 1f)
++        listOf(masterHeader, masterMeterSection, masterVolumeSection).forEach { section ->
++            assertTrue("Master sections must span its useful width: $section / $masterStrip", section.width >= masterStrip.width - 18f * density)
++        }
++        assertTrue("Master segmented sections must remain vertically ordered", masterHeader.bottom <= masterMeterSection.top + 1f && masterMeterSection.bottom <= masterVolumeSection.top + 1f)
++        val masterMeters = composeRule.onNodeWithTag("mixer-master-meters", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
++        assertTrue("Master PK/RMS must use the full inner width", masterMeters.width >= masterStrip.width - 18f * density)
++        val masterVolume = composeRule.onNodeWithTag("mixer-master-volume", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
++        assertTrue("Master volume control must span the useful card width", masterVolume.width >= masterStrip.width - 18f * density)
++        composeRule.onNodeWithTag("mixer-master-volume-readout", useUnmergedTree = true).assertIsDisplayed()
++        composeRule.onNodeWithContentDescription("Volume da pista Minha guitarra").performTouchInput {
++            swipe(Offset(width * 0.2f, height / 2f), Offset(width * 0.9f, height / 2f), 250L)
++        }
++        assertTrue("Thin slider must commit gain", gainCommits > 0 && track.value.gainDb > -6f)
++        val committedGain = track.value.gainDb
++        composeRule.runOnIdle { minimal.value = true }
++        val compact = composeRule.onNodeWithTag("mixer-dock").fetchSemanticsNode().boundsInRoot
++        assertTrue("Minimum must recover substantial timeline space", compact.height < full.height * 0.72f)
++        listOf("Mute", "Solo", "Saída CUE", "Gravação", "Volume").forEach { action ->
++            composeRule.onNodeWithContentDescription("$action da pista Minha guitarra").assertIsDisplayed()
++        }
++        composeRule.onNodeWithContentDescription("Detalhes da pista Minha guitarra").performClick()
++        composeRule.onNodeWithTag("mixer-track-details").assertIsDisplayed()
++        composeRule.onNodeWithContentDescription("Pan da pista Minha guitarra").performTouchInput {
++            swipe(Offset(width * 0.15f, height / 2f), Offset(width * 0.85f, height / 2f), 250L)
++        }
++        assertTrue("Pan must preview and commit from minimum details", panCommits > 0 && track.value.pan > -1f)
++        composeRule.onNodeWithContentDescription("Limpar clipping da pista Minha guitarra").performClick()
++        assertEquals(1, clipResets)
++        composeRule.onNodeWithText("Fechar").performClick()
++        composeRule.runOnIdle { minimal.value = false }
++        composeRule.onNodeWithContentDescription("Pan da pista Minha guitarra").assertIsDisplayed()
++        assertEquals("Changing presentation must preserve committed gain", committedGain, track.value.gainDb, 0f)
++        composeRule.captureCohesionScreenshot("rc27-mixer-segmented-complete-after-minimum")
+     }
+ 
+ }
+diff --git a/app/src/androidTest/java/studio/guitarlab/app/StudioMixerTabletInstrumentedTest.kt b/app/src/androidTest/java/studio/guitarlab/app/StudioMixerTabletInstrumentedTest.kt
+--- a/app/src/androidTest/java/studio/guitarlab/app/StudioMixerTabletInstrumentedTest.kt
++++ b/app/src/androidTest/java/studio/guitarlab/app/StudioMixerTabletInstrumentedTest.kt
+@@ -43,91 +43,91 @@
+         val oldVisible = preferences.mixerVisible()
+         val oldMinimal = preferences.mixerMinimal()
+         val repository = FileProjectRepository(context.filesDir)
+-        val base = ProjectFactory().create("RC24 cinco pistas com áudio", ProjectTemplate.GUITAR)
+-        val media = ProjectManagedMediaStore(context.filesDir)
+-        val temp = File(context.cacheDir, "${base.id}-layout.wav")
+-        val frames = 48_000
+-        FloatWavFileWriter(temp, 48_000, 2).use { writer ->
+-            writer.writeInterleaved(FloatArray(frames * 2) { index ->
+-                (sin(index / 2.0 * 2.0 * Math.PI * 220 / 48_000) * 0.4).toFloat()
+-            }, frames)
+-        }
+-        val managed = try { temp.inputStream().use { media.ingest(base.id, "layout.wav", it) } } finally { temp.delete() }
+-        val project = base.copy(clips = base.tracks.mapIndexed { index, track ->
+-            AudioClip(id = "layout-$index", trackId = track.id, name = track.name,
+-                sourceUri = "managed://${managed.relativePath}", managedSourcePath = managed.relativePath,
+-                startFrame = 0, lengthFrames = frames.toLong(), sourceTotalFrames = frames.toLong(),
+-                sourceSampleRateHz = 48_000, sourceChannelCount = 2)
+-        })
+-        repository.save(project)
+-        project.clips.forEach { clip ->
+-            WaveformCacheStore(context.filesDir).write(project.id, clip.id,
+-                WaveformCacheIdentity.forClip(clip, targetPoints = 4096),
+-                WaveformEnvelope(List(4096) { index -> if (index % 17 == 0) 0.55f else 0.28f }))
+-        }
+-        try {
+-            preferences.setMixerVisible(true)
+-            preferences.setMixerMinimal(false)
+-            lateinit var studio: StudioViewModel
+-            compose.activityRule.scenario.onActivity { activity ->
+-                studio = ViewModelProvider(activity)[StudioViewModel::class.java]
+-                ViewModelProvider(activity)[AppNavigationViewModel::class.java].navigate(AppScreen.Studio(project.id))
+-            }
+-            compose.waitUntil(20_000) {
+-                studio.state.value.project?.id == project.id && project.clips.all {
+-                    studio.state.value.waveforms[it.id]?.isNotEmpty() == true
+-                } && runCatching { compose.onNodeWithTag("studio-loaded").assertIsDisplayed() }.isSuccess
+-            }
+-            // A restored Studio composition may retain workspace preferences from a prior entry;
+-            // use the actual controls to normalize this test's explicitly requested dock state.
+-            if (compose.onAllNodesWithTag("mixer-master-strip").fetchSemanticsNodes().isEmpty()) {
+-                compose.onNodeWithTag("studio-mixer-toggle").performClick()
+-            }
+-            val mode = compose.onNodeWithTag("studio-mixer-mode")
+-            if (mode.fetchSemanticsNode().config[SemanticsProperties.StateDescription] != "Completo") mode.performClick()
+-            compose.waitForIdle()
+-            val scroller = compose.onNodeWithTag("mixer-track-scroll").fetchSemanticsNode().boundsInRoot
+-            project.tracks.forEach { track ->
+-                val bounds = compose.onNodeWithTag("mixer-track-strip-${track.id}").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+-                assertTrue("Every default track must fit fully without scrolling", bounds.left >= scroller.left - 1 && bounds.right <= scroller.right + 1)
+-            }
+-            val master = compose.onNodeWithTag("mixer-master-strip").fetchSemanticsNode().boundsInRoot
+-            assertTrue("Master must own a separate non-overlapping column", master.left >= scroller.right)
+-            // Compose semantics can precede the actual SurfaceFlinger frame during load/toggle.
+-            // Wait for accessibility/window quiescence before full-display artifact capture.
+-            UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).waitForIdle()
+-            compose.captureCohesionScreenshot("rc24-studio-five-audio-channels-complete")
+-            val navbar = compose.onNodeWithTag("studio-workspace-bar").fetchSemanticsNode().boundsInRoot
+-            val transport = compose.onNodeWithTag("studio-navigation").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+-            assertEquals("Tablet transport must be centered on the viewport", navbar.center.x, transport.center.x, 1f)
+-            val fullDock = compose.onNodeWithTag("mixer-dock").fetchSemanticsNode().boundsInRoot
+-            val density = context.resources.displayMetrics.density
+-            assertTrue("Complete dock must be at least 25% shorter than RC23", fullDock.height <= 264f * density + 1f)
+-            // Three complete waveform lanes must now be visible, rather than fewer than two in the owner video.
+-            val third = compose.onNodeWithTag("track-waveform-area-${project.tracks[2].id}").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+-            assertTrue("Third lane must fit above the dock", third.bottom <= fullDock.top + 1f)
+-            mode.performClick()
+-            val minimumDock = compose.onNodeWithTag("mixer-dock").fetchSemanticsNode().boundsInRoot
+-            assertTrue("Minimum recovers at least 72dp", minimumDock.height <= fullDock.height - 72f * density)
+-            assertTrue("Mode switch leaves navbar fixed", navbar == compose.onNodeWithTag("studio-workspace-bar").fetchSemanticsNode().boundsInRoot)
+-            assertEquals("Mixer mode leaves tablet transport fixed", transport, compose.onNodeWithTag("studio-navigation").fetchSemanticsNode().boundsInRoot)
+-            compose.onNodeWithTag("studio-action-levels").assertIsDisplayed()
+-            UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).waitForIdle()
+-            compose.captureCohesionScreenshot("rc24-studio-five-audio-channels-minimum")
+-            compose.onNodeWithTag("studio-action-levels").performClick()
+-            compose.onNodeWithTag("all-levels-dialog").assertIsDisplayed()
+-            InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK)
+-            compose.waitForIdle()
+-            compose.onNodeWithTag("studio-mixer-toggle").performClick()
+-            compose.onNodeWithTag("studio-mixer-toggle").performClick()
+-            assertTrue("Reopening restores minimum", compose.onNodeWithTag("studio-mixer-mode").fetchSemanticsNode().config[SemanticsProperties.StateDescription] == "Mínimo")
+-            compose.onNodeWithTag("studio-mixer-toggle").performClick()
+-            val closedNavbar = compose.onNodeWithTag("studio-workspace-bar").fetchSemanticsNode().boundsInRoot
+-            assertTrue("Closing Mixer must not resize or move navbar", navbar == closedNavbar)
+-            // Compose semantics can precede the actual SurfaceFlinger frame during load/toggle.
+-            // Wait for accessibility/window quiescence before full-display artifact capture.
+-            UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).waitForIdle()
+-            compose.captureCohesionScreenshot("rc24-studio-mixer-closed")
++        val base = ProjectFactory().create("RC27 cinco pistas com áudio", ProjectTemplate.GUITAR)
++        val media = ProjectManagedMediaStore(context.filesDir)
++        val temp = File(context.cacheDir, "${base.id}-layout.wav")
++        val frames = 48_000
++        FloatWavFileWriter(temp, 48_000, 2).use { writer ->
++            writer.writeInterleaved(FloatArray(frames * 2) { index ->
++                (sin(index / 2.0 * 2.0 * Math.PI * 220 / 48_000) * 0.4).toFloat()
++            }, frames)
++        }
++        val managed = try { temp.inputStream().use { media.ingest(base.id, "layout.wav", it) } } finally { temp.delete() }
++        val project = base.copy(clips = base.tracks.mapIndexed { index, track ->
++            AudioClip(id = "layout-$index", trackId = track.id, name = track.name,
++                sourceUri = "managed://${managed.relativePath}", managedSourcePath = managed.relativePath,
++                startFrame = 0, lengthFrames = frames.toLong(), sourceTotalFrames = frames.toLong(),
++                sourceSampleRateHz = 48_000, sourceChannelCount = 2)
++        })
++        repository.save(project)
++        project.clips.forEach { clip ->
++            WaveformCacheStore(context.filesDir).write(project.id, clip.id,
++                WaveformCacheIdentity.forClip(clip, targetPoints = 4096),
++                WaveformEnvelope(List(4096) { index -> if (index % 17 == 0) 0.55f else 0.28f }))
++        }
++        try {
++            preferences.setMixerVisible(true)
++            preferences.setMixerMinimal(false)
++            lateinit var studio: StudioViewModel
++            compose.activityRule.scenario.onActivity { activity ->
++                studio = ViewModelProvider(activity)[StudioViewModel::class.java]
++                ViewModelProvider(activity)[AppNavigationViewModel::class.java].navigate(AppScreen.Studio(project.id))
++            }
++            compose.waitUntil(20_000) {
++                studio.state.value.project?.id == project.id && project.clips.all {
++                    studio.state.value.waveforms[it.id]?.isNotEmpty() == true
++                } && runCatching { compose.onNodeWithTag("studio-loaded").assertIsDisplayed() }.isSuccess
++            }
++            // A restored Studio composition may retain workspace preferences from a prior entry;
++            // use the actual controls to normalize this test's explicitly requested dock state.
++            if (compose.onAllNodesWithTag("mixer-master-strip").fetchSemanticsNodes().isEmpty()) {
++                compose.onNodeWithTag("studio-mixer-toggle").performClick()
++            }
++            val mode = compose.onNodeWithTag("studio-mixer-mode")
++            if (mode.fetchSemanticsNode().config[SemanticsProperties.StateDescription] != "Completo") mode.performClick()
++            compose.waitForIdle()
++            val scroller = compose.onNodeWithTag("mixer-track-scroll").fetchSemanticsNode().boundsInRoot
++            project.tracks.forEach { track ->
++                val bounds = compose.onNodeWithTag("mixer-track-strip-${track.id}").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
++                assertTrue("Every default track must fit fully without scrolling", bounds.left >= scroller.left - 1 && bounds.right <= scroller.right + 1)
++            }
++            val master = compose.onNodeWithTag("mixer-master-strip").fetchSemanticsNode().boundsInRoot
++            assertTrue("Master must own a separate non-overlapping column", master.left >= scroller.right)
++            // Compose semantics can precede the actual SurfaceFlinger frame during load/toggle.
++            // Wait for accessibility/window quiescence before full-display artifact capture.
++            UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).waitForIdle()
++            compose.captureCohesionScreenshot("rc27-studio-five-audio-channels-complete")
++            val navbar = compose.onNodeWithTag("studio-workspace-bar").fetchSemanticsNode().boundsInRoot
++            val transport = compose.onNodeWithTag("studio-navigation").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
++            assertEquals("Tablet transport must be centered on the viewport", navbar.center.x, transport.center.x, 1f)
++            val fullDock = compose.onNodeWithTag("mixer-dock").fetchSemanticsNode().boundsInRoot
++            val density = context.resources.displayMetrics.density
++            assertTrue("Complete dock must be at least 25% shorter than RC23", fullDock.height <= 264f * density + 1f)
++            // Three complete waveform lanes must now be visible, rather than fewer than two in the owner video.
++            val third = compose.onNodeWithTag("track-waveform-area-${project.tracks[2].id}").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
++            assertTrue("Third lane must fit above the dock", third.bottom <= fullDock.top + 1f)
++            mode.performClick()
++            val minimumDock = compose.onNodeWithTag("mixer-dock").fetchSemanticsNode().boundsInRoot
++            assertTrue("Minimum recovers at least 72dp", minimumDock.height <= fullDock.height - 72f * density)
++            assertTrue("Mode switch leaves navbar fixed", navbar == compose.onNodeWithTag("studio-workspace-bar").fetchSemanticsNode().boundsInRoot)
++            assertEquals("Mixer mode leaves tablet transport fixed", transport, compose.onNodeWithTag("studio-navigation").fetchSemanticsNode().boundsInRoot)
++            compose.onNodeWithTag("studio-action-levels").assertIsDisplayed()
++            UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).waitForIdle()
++            compose.captureCohesionScreenshot("rc27-studio-five-audio-channels-minimum")
++            compose.onNodeWithTag("studio-action-levels").performClick()
++            compose.onNodeWithTag("all-levels-dialog").assertIsDisplayed()
++            InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK)
++            compose.waitForIdle()
++            compose.onNodeWithTag("studio-mixer-toggle").performClick()
++            compose.onNodeWithTag("studio-mixer-toggle").performClick()
++            assertTrue("Reopening restores minimum", compose.onNodeWithTag("studio-mixer-mode").fetchSemanticsNode().config[SemanticsProperties.StateDescription] == "Mínimo")
++            compose.onNodeWithTag("studio-mixer-toggle").performClick()
++            val closedNavbar = compose.onNodeWithTag("studio-workspace-bar").fetchSemanticsNode().boundsInRoot
++            assertTrue("Closing Mixer must not resize or move navbar", navbar == closedNavbar)
++            // Compose semantics can precede the actual SurfaceFlinger frame during load/toggle.
++            // Wait for accessibility/window quiescence before full-display artifact capture.
++            UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).waitForIdle()
++            compose.captureCohesionScreenshot("rc27-studio-mixer-closed")
+         } finally {
+             preferences.setMixerVisible(oldVisible)
+             preferences.setMixerMinimal(oldMinimal)
+diff --git a/app/src/main/java/studio/guitarlab/app/ui/StudioUserGuideDialog.kt b/app/src/main/java/studio/guitarlab/app/ui/StudioUserGuideDialog.kt
+--- a/app/src/main/java/studio/guitarlab/app/ui/StudioUserGuideDialog.kt
++++ b/app/src/main/java/studio/guitarlab/app/ui/StudioUserGuideDialog.kt
+@@ -68,7 +68,7 @@
+         GuideSectionContent(
+             GuideArea.STUDIO,
+             "Studio · espaço e Mixer",
+-            "Mostrar/Ocultar Mixer preserva sua preferência e sempre abre o dock fixado no rodapé. Na barra de transporte, alterne Mixer mínimo/completo; o modo escolhido é lembrado. Os dois modos mostram Mute, Solo, fone/CUE, REC Arm e volume em canais estreitos. O completo também mostra PK, RMS, clipping e pan; no mínimo, toque no nome da pista para abrir os controles completos, ajustar pan ou limpar clipping. As pistas rolam horizontalmente; o Master permanece em sua própria coluna fixa, com medidores ocupando a largura útil e um controle de volume mais largo com leitura logo abaixo.",
++            "Mostrar/Ocultar Mixer preserva sua preferência e sempre abre o dock fixado no rodapé. Na barra de transporte, alterne Mixer mínimo/completo; o modo escolhido é lembrado. Os cartões usam cabeçalho centralizado e uma separação visual suave entre ações, medidores e mixagem, sem criar controles novos. Os dois modos mostram Mute, Solo, fone/CUE, REC Arm e volume em canais estreitos. O completo também mostra PK, RMS, clipping e pan; no mínimo, toque no cabeçalho da pista para abrir os controles completos, ajustar pan ou limpar clipping. As pistas rolam horizontalmente; o Master permanece em sua própria coluna fixa, com cabeçalho centralizado, medidores ocupando a largura útil e um bloco de volume largo com leitura logo abaixo.",
+         ),
+         GuideSectionContent(
+             GuideArea.EXPORT,

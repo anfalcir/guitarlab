@@ -1,13 +1,13 @@
 # CI and Release Pipeline
 
-Updated: 2026-10-01
+Updated: 2026-10-02
 
 This document describes current execution controls. Historical tail hashes, run chronology and retired gate details are preserved in `history/CI_PIPELINE_PRE_RC20.md` and immutable workflow artifacts.
 
 ## Source materialization
 
 - canonical entrypoint: `scripts/materialize_ci_sources.sh`;
-- current candidate tail: RC22 dual-output/CUE via `scripts/materialize_ci_sources_rc22.py`, chained after the immutable RC21 tail;
+- current candidate tail: RC27 Mixer card hierarchy via `scripts/materialize_ci_sources_rc27.py`, chained after RC26b signed-documentation closure and immutable RC26a/RC26/RC25 predecessors;
 - protected deltas: `.source-parts/`;
 - required properties: deterministic, hash/blob locked, idempotent, semantic guards, reverse-apply validation and fail-closed drift handling.
 
@@ -111,11 +111,11 @@ Run IDs and current status belong in `CURRENT_STATE.md`, not here.
 
 ## Post-freeze
 
-The accepted baseline is recorded in `RELEASE_BASELINE.md`. RC20 remains accepted while RC21 is an unpromoted maintenance candidate. The frozen accepted APK/worker does not require recurring CI. Run qualification again only after a real maintenance trigger or owner-requested feature, selecting gates by affected path under `TEST_AND_HOMOLOGATION_POLICY.md`.
+The accepted baseline remains RC20 until exact signed successor physical acceptance. RC26 is retained as signed digital authority (`0.5.0-rc26` / `46`, Android CI #950/#951) but was not promoted before RC27 was requested. RC27 `0.5.0-rc27` / `47` is the active Android-only presentation candidate.
 
-The accepted RC20 runtime remains represented by the historical U12bx tail. The active RC21 maintenance source adds `scripts/materialize_ci_sources_rc21.py` as the current terminal materialization stage without rewriting old payloads. RC21 includes the legacy recording/stereo-integrity, transient-feedback and Drive catalog/cache changes documented in `CURRENT_STATE.md`.
+The current deterministic chain closes RC26's post-sign documentation with `scripts/materialize_ci_sources_rc26b.py`, then applies RC27 through `scripts/materialize_ci_sources_rc27.py`. Prior source payloads are immutable. An RC27 `[run ci]` execution must materialize the exact source, pass Unit/Lint/build and API36 regression, and retain the affected Mixer screenshot matrix. `[run ci signed]` is permitted only after that exact visual candidate has passed its digital gate and screenshot review.
 
-The RC21 unsigned qualification authority is Android CI **#910 / run 36195905242** on source `ad182678cb2704dc9bbfc622124b4f2ac121fea1`: Unit/Lint/APK build PASS and API 36 regression PASS. Canonical integration is PR #7 / merge `2617fe1f1f2351a17389f165ed5d5a8e834e16a2`. The exact post-integration signed authority is Android CI **#912 / run 36197863467** on `main` producer `52b9d66f450fc597f8367f5778334280ceeb521e`; the workflow signed the tested unsigned APK without recompiling and verified package/version/certificate identity.
+Because RC27 changes only Compose presentation/tests/docs, U4/U7/Drive/provider-real campaigns are not reopened. Existing routing, recording, Demucs and backup evidence remains applicable unless a later source change touches those paths.
 
 ## Historical RC23 Studio UI qualification
 
@@ -130,3 +130,11 @@ Terminal stage: `scripts/materialize_ci_sources_rc24.py`, after immutable RC23. 
 RC25 follows immutable RC24 with `.source-parts/RC25OutputCueCorrection.patch` and `scripts/materialize_ci_sources_rc25.py`. Temporary `feature/audio-routes-rc25` qualification trigger is independent of RC24's branch; both are retired before canonical signing. Existing software gate includes core-audio and app unit tests; existing practice regression includes unavailable-CUE history preservation. No workflow execution monitoring or result predeclaration.
 
 RC25 branch qualification PASS: Android CI #946 / run 36934260224 on 854aeee0da730d2011e1141fc50a69d59bb13d58. Terminal source stage RC25f includes bounded geometry tests, compact Slider interaction and separate navbar viewport/content layouts. Retire RC24/RC25 temporary push exceptions before integration. Signed producer must run on canonical main and its exact signed identity is recorded only after successful completion. No workflow monitoring.
+
+## RC26 signed digital authority
+
+RC26 terminal runtime stage is `scripts/materialize_ci_sources_rc26a.py`. Android CI #950 / run `36944380748` passed software/Lint/build/API36 on source `148d7aacfe2793b2d4d10305940d838654ec83d9`; release producer `df5791c2e4984a7fbdf4141df460be20e151bcf8` retained the same Git tree and Android CI #951 / run `36946189701` requalified and signed the exact tested unsigned artifact. RC26 remains predecessor digital evidence, not the accepted physical baseline.
+
+## Active RC27 Mixer visual-hierarchy qualification
+
+RC27 follows a documentation-closure stage (`materialize_ci_sources_rc26b.py`) so the chain reproduces the signed RC26 ledger before applying new runtime changes. RC27 changes `MixerDock`, focused Mixer/tablet tests, in-app guide, version identity and all affected live UI/qualification documentation. The required first gate is `[run ci]`; complete/minimum five-channel screenshots are part of the qualification evidence. No result or signed identity is predeclared.

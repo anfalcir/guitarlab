@@ -147,11 +147,23 @@ class MixerDockInstrumentedTest {
         }
         val strip = composeRule.onNodeWithTag("mixer-track-strip-${track.id}").fetchSemanticsNode().boundsInRoot
         assertEquals("Narrow channel width", 200f * density, strip.width, 1f)
+        val titleGroup = composeRule.onNodeWithTag("mixer-track-title-group-${track.id}", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        assertEquals("Track title group must be visually centered", strip.center.x, titleGroup.center.x, 1f)
+        val header = composeRule.onNodeWithTag("mixer-track-header-${track.id}", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        val actions = composeRule.onNodeWithTag("mixer-track-actions-${track.id}", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        val meterSection = composeRule.onNodeWithTag("mixer-track-meter-section-${track.id}", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        val mixSection = composeRule.onNodeWithTag("mixer-track-mix-${track.id}", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        listOf(header, actions, meterSection, mixSection).forEach { section ->
+            assertTrue("Every soft section must span the useful channel width: $section / $strip", section.width >= strip.width - 10f * density)
+        }
+        assertTrue("Header/actions must not overlap", header.bottom <= actions.top + 1f)
+        assertTrue("Actions/meters must not overlap", actions.bottom <= meterSection.top + 1f)
+        assertTrue("Meters/mix must not overlap", meterSection.bottom <= mixSection.top + 1f)
         val volume = composeRule.onNodeWithContentDescription("Volume da pista Teste").performScrollTo().assertIsDisplayed().fetchSemanticsNode().boundsInRoot
         val pan = composeRule.onNodeWithContentDescription("Pan da pista Teste").performScrollTo().assertIsDisplayed().fetchSemanticsNode().boundsInRoot
         assertTrue("Volume and pan targets must not overlap", !volume.overlaps(pan))
         assertTrue("Pan must stay fully inside the dock", pan.bottom <= composeRule.onNodeWithTag("mixer-dock").fetchSemanticsNode().boundsInRoot.bottom)
-        composeRule.captureCohesionScreenshot("rc24-mixer-narrow-clipping")
+        composeRule.captureCohesionScreenshot("rc27-mixer-segmented-narrow-clipping")
 
     }
     @Test
@@ -310,7 +322,7 @@ class MixerDockInstrumentedTest {
         composeRule.waitForIdle()
         assertTrue("Touch above the drawn thumb must update volume", gainPreviews.get() > 0)
         assertTrue("Touch above the drawn thumb must commit volume", gainCommits.get() > 0)
-        composeRule.captureCohesionScreenshot("rc24-mixer-large-font")
+        composeRule.captureCohesionScreenshot("rc27-mixer-segmented-large-font")
     }
 
     /** Full layout bounds: clipped semantics bounds would hide the very defect this test checks. */
@@ -377,6 +389,15 @@ class MixerDockInstrumentedTest {
         val trackMeters = composeRule.onNodeWithTag("mixer-track-meters-${track.value.id}", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
         assertTrue("Track PK/RMS must use the strip full inner width", trackMeters.width >= trackStrip.width - 10f * density)
         val masterStrip = composeRule.onNodeWithTag("mixer-master-strip").fetchSemanticsNode().boundsInRoot
+        val masterHeader = composeRule.onNodeWithTag("mixer-master-header", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        val masterTitle = composeRule.onNodeWithTag("mixer-master-title", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        val masterMeterSection = composeRule.onNodeWithTag("mixer-master-meter-section", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        val masterVolumeSection = composeRule.onNodeWithTag("mixer-master-volume-section", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        assertEquals("Master title must be centered", masterStrip.center.x, masterTitle.center.x, 1f)
+        listOf(masterHeader, masterMeterSection, masterVolumeSection).forEach { section ->
+            assertTrue("Master sections must span its useful width: $section / $masterStrip", section.width >= masterStrip.width - 18f * density)
+        }
+        assertTrue("Master segmented sections must remain vertically ordered", masterHeader.bottom <= masterMeterSection.top + 1f && masterMeterSection.bottom <= masterVolumeSection.top + 1f)
         val masterMeters = composeRule.onNodeWithTag("mixer-master-meters", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
         assertTrue("Master PK/RMS must use the full inner width", masterMeters.width >= masterStrip.width - 18f * density)
         val masterVolume = composeRule.onNodeWithTag("mixer-master-volume", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
@@ -405,7 +426,7 @@ class MixerDockInstrumentedTest {
         composeRule.runOnIdle { minimal.value = false }
         composeRule.onNodeWithContentDescription("Pan da pista Minha guitarra").assertIsDisplayed()
         assertEquals("Changing presentation must preserve committed gain", committedGain, track.value.gainDb, 0f)
-        composeRule.captureCohesionScreenshot("rc24-mixer-complete-after-minimum")
+        composeRule.captureCohesionScreenshot("rc27-mixer-segmented-complete-after-minimum")
     }
 
 }

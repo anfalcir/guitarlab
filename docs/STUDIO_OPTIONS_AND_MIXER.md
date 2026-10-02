@@ -1,6 +1,6 @@
 # Studio Options, Export and Mixer Contract
 
-Updated: 2026-10-01
+Updated: 2026-10-02
 
 ## Options
 Options owns low-frequency setup and diagnostics: input route, main output, secondary/CUE output, monitoring, Studio preferences, import capability information and diagnostic tools. These controls stay out of the timeline.
@@ -20,11 +20,11 @@ Portable `.guitarlab` save remains semantically distinct from external Study Exp
 ## Mixer
 Mixer always reserves its own bottom layout space: visibility and minimum/complete mode are durable, independent preferences. Default and upgrades start complete. Legacy `mixer_visible`/`mixer_pinned` visibility is retained; RC23 floating/expanded flags are not mapped to minimum because both old heights exposed complete controls. A mode write retires those obsolete flags.
 
-At normal font scale channels are 200 dp (original 232 dp), with all four Mute/Solo/CUE/REC targets contiguous in one centered row: 48×48 dp touch regions and 46×46 dp visible faces. Channel padding is 4 dp per side. Master is a separate fixed 144 dp column; channels scroll horizontally without covering it. Font scaling grows channel width and header/meter height rather than overlapping touch regions.
+At normal font scale channels are 200 dp (original 232 dp), with all four Mute/Solo/CUE/REC targets contiguous in one centered row: 48×48 dp touch regions and 46×46 dp visible faces. Channel padding is 4 dp per side. The track accent dot + title are centered as one header identity group. Header, state actions, metering and mix controls are separated by low-contrast 6 dp section surfaces without adding vertical budget. Master is a separate fixed 144 dp column; channels scroll horizontally without covering it. Master centers its title and uses the same section language for header, metering and volume, but never displays an empty/fake action bank. Font scaling grows channel width and header/meter height rather than overlapping touch regions.
 
-Complete height is 252 dp, down from RC23's 352 dp (28.4%). All four state controls, PK/RMS/numeric readings/peak hold/CLIP reset, gain and bipolar pan are exposed. Gain and pan each use a single 48 dp row combining labels/readout with a thin Material Slider drawing; gesture, keyboard and accessibility behavior remains Material-owned. PK/RMS consume the full inner strip width; CLIP reset moves to the strip header so clipping never steals permanent meter width.
+Complete height is 252 dp, down from RC23's 352 dp (28.4%). All four state controls, PK/RMS/numeric readings/peak hold/CLIP reset, gain and bipolar pan are exposed. The complete card keeps four geometry-stable visual zones: centered header, state-action bank, meter bank and a 96 dp mix bank containing the 48 dp Volume/Pan rows with a soft internal divider. Gain and pan retain Material Slider gesture, keyboard and accessibility behavior. PK/RMS consume the full inner strip width; CLIP reset remains in the header so clipping never steals permanent meter width.
 
-Minimum height is 172 dp. It retains all four direct state controls, gain/readout, a compact peak/hold meter with accessible PK/RMS readings, pan value and clipping indication. Tapping the track name opens the same complete strip implementation in a details dialog, exposing pan and CLIP reset with the same domain callbacks/transport locks. Master retains gain and compact metering but no Níveis button; its wide volume slider places `VOL` and the dB value together on one line below the slider. Clipping resets from the header. Mode changes never issue audio commands. Gains/pans preview live and commit on gesture completion; no separate mix model exists for minimum/details.
+Minimum height is 172 dp. It retains the centered header, all four direct state controls, gain/readout, a compact peak/hold meter with accessible PK/RMS readings, pan value and clipping indication. The same soft section grammar is preserved without reserving space for hidden controls. Tapping the track header opens the same complete strip implementation in a details dialog, exposing pan and CLIP reset with the same domain callbacks/transport locks. Master retains gain and compact metering but no Níveis button or fake action section; its wide volume slider places `VOL` and the dB value together on one line below the slider. Clipping resets from the header. Mode changes never issue audio commands. Gains/pans preview live and commit on gesture completion; no separate mix model exists for minimum/details.
 
 Each track persists an output-route value with backward-compatible default `MAIN`. The engine contract supports `MAIN`, `CUE` and `MAIN_AND_CUE`; the first user-facing headphone control intentionally toggles exclusive MAIN ↔ CUE. New MAIN→CUE activation requires an available explicit low-latency pair; rejection preserves MAIN and history. Returning CUE→MAIN remains possible even when a device disappears. Route changes are accepted only while the transport is stopped, so Play/REC cannot leave track metadata and live-monitor routing out of sync. The route is restored with the project, applied to normal playback and backing playback during recording, and does not destructively change clips/takes.
 
@@ -41,8 +41,17 @@ CUE is a secondary monitoring/playback bus. The secondary sink is opened only wh
 - track ordering remains drag-only through the workspace coordinator;
 - clip migration/deletion resolves through transaction-safe drag intent (`Move`, `Delete`, `NoOp`).
 
+## Visual hierarchy invariants
+
+- header identity is centered as a group regardless of selected state; transient trailing status such as comparison/clip may not permanently displace the normal title geometry;
+- each visible section spans the useful inner card width and remains vertically ordered/non-overlapping;
+- soft segmentation is presentation-only: Mute/Solo/CUE/REC, gain, pan, metering, CLIP and Master callbacks remain the same domain actions;
+- normal-font dimensions remain 200 dp track / 144 dp Master / 252 dp complete / 172 dp minimum;
+- selected and unselected tracks remain distinguishable by border/tonal treatment as well as color;
+- Master follows the same visual grammar without placeholder controls.
+
 ## Qualification
-Repeat focused Mixer/Options/Export regression when a candidate changes those surfaces or their domain commands. They do not create a global release or maintenance gate for unrelated worker/search changes.
+Repeat focused Mixer/Options/Export regression when a candidate changes those surfaces or their domain commands. A Mixer visual-hierarchy candidate must additionally assert centered headers, section width/order, retained 48 dp targets, large-font containment and five-channel target-tablet fit, then inspect complete/minimum screenshot artifacts. They do not create a global release or maintenance gate for unrelated worker/search changes.
 
 ## RC25 route startup correction
 

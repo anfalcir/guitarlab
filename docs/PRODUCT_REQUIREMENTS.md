@@ -1,6 +1,6 @@
 # Product Requirements
 
-Updated: 2026-10-01
+Updated: 2026-10-02
 
 Stable product identity, support boundaries, proportional quality, freeze policy and maintenance triggers are governed by `PROJECT_IDENTITY.md` and D-090.
 
@@ -163,6 +163,9 @@ Offline export respects current timeline/mix and never modifies authoritative so
 ## UX and accessibility
 - Tablet-first readability, responsive layouts and large touch targets.
 - Clean modern Graphite Studio language.
+- Mixer track identity is visually centered; track cards use subtle functional grouping for header, state actions, metering and mix while preserving control geometry and semantics.
+- Master follows the same hierarchy for header, metering and volume but must not display placeholder controls that have no function.
+- Visual grouping must remain low-contrast and secondary to readable labels, borders, selected/disabled state and accessibility semantics.
 - Technical diagnostics remain separate from creative flow.
 - No fake enabled controls for unimplemented features.
 - Home project search, filter and sort controls expose meaningful accessibility semantics and remain usable at larger font scale.

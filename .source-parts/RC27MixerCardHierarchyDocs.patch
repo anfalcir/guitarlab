@@ -1,0 +1,1196 @@
+diff --git a/docs/UI_VISUAL_SYSTEM.md b/docs/UI_VISUAL_SYSTEM.md
+--- a/docs/UI_VISUAL_SYSTEM.md
++++ b/docs/UI_VISUAL_SYSTEM.md
+@@ -1,192 +1,205 @@
+ # GuitarLab Visual System
+ 
+-Updated: 2026-09-24
+-
+-## Product intent
+-GuitarLab should visually read as one coherent music-production/study instrument: clear modules, restrained graphite surfaces, precise controls and small-radius rectangular geometry. Studio may be the densest workspace, but Prepare, Export, Activity, Backup and Settings must use the same visual grammar. The interface must prioritize immediate operational comprehension over decorative softness.
+-
+-## Geometry contract
+-Ordinary UI uses a deliberately small shape vocabulary:
+-- 4dp — micro elements/indicators only;
+-- 6dp — actionable controls and compact hardware-style chassis;
+-- 8dp — internal rows/cards, selectors and track-level surfaces;
+-- 10dp — major panels, dialogs and screen-level containers.
+-
+-Circular geometry is reserved for semantics that are inherently circular, such as the large recording countdown. General buttons, track-color choices, cards and selectors should not use circular/pill geometry.
+-
+-## Color hierarchy
+-- Graphite/neutral surfaces: structure and non-semantic containment.
+-- Blue / `secondary`: comparison/reference family.
+-- Teal / `primary`: adjustments/primary studio action family.
+-- Amber / `tertiary`: timeline/marker/section family.
+-- Red: recording, destructive action and error only.
+-- Green: loop or explicit positive state where already established.
+-
+-Color is a secondary cue. Every group must remain understandable from geometry, borders, spacing and typography even without relying on hue.
+-
+-## Title vs action contract
+-A section/group title:
+-- is not clickable;
+-- lives in a visually distinct header area or above the action content;
+-- uses label/title typography rather than button container treatment;
+-- never shares the exact same shape/border treatment as adjacent buttons.
+-
+-An action:
+-- has a visible chassis or explicit button treatment;
+-- retains clear enabled/disabled state;
+-- preserves ergonomic touch area (icon controls retain 48dp touch target);
+-- is contained by the semantic group that owns it.
+-
+-## Studio action navbar contract
+-`Comparação`, `Timeline` and `Níveis` occupy three fixed-size icon triggers in the existing transport navbar. Comparison/Timeline open anchored overlays; Níveis is a direct action that opens level analysis. The Níveis icon must remain visually distinct from the top-bar Mixer toggle and Options/settings iconography. No trigger changes location/size when a mode, disabled state, Mixer visibility or minimum/complete state changes.
+-
+-Neutral closed triggers reduce persistent color noise. Comparison's active mode uses blue plus a fixed R/M/2 indicator and accessible state description. Panels preserve semantic grouping and local overflow for narrow windows or larger fonts. Comparison remains open during repeated audition changes. Narrow viewports scroll the same navbar row; no capability disappears.
+-
+-## Screen-by-screen application
+-### Home
+-- squared major hero/project surfaces;
+-- project rows use small-radius bordered hardware panels;
+-- Help/Options and row actions use visible square icon controls.
+-
+-### Novo Projeto
+-- template choices use compact rounded rectangles rather than soft cards;
+-- create/back actions follow the shared control geometry.
+-
+-### Studio top bar and transport
+-- transport container follows major-panel geometry;
+-- all icon controls use visible square chassis;
+-- recording/loop colors remain semantic, not decorative.
+-
+-### Timeline / track workspace
+-- track, clip, drag, trim and add-track surfaces use the common 6/8/10dp vocabulary;
+-- track color selection uses rounded squares;
+-- timeline semantic colors remain stable.
+-
+-### Mixer
+-- strip/master surfaces retain clear rectangular module boundaries;
+-- buttons and meters remain visually distinct from labels/readouts;
+-- MASTER remains structurally separate and fixed.
+-
+-### Options
+-- each option category is a bordered major panel;
+-- category title/subtitle live in a header band with an accent rail;
+-- individual settings use internal 8dp rows;
+-- dropdown trigger buttons remain visually actionable.
+-
+-### Audio diagnostics
+-- diagnostic cards and device selectors use major/internal panel geometry;
+-- action buttons retain obvious button chassis.
+-
+-### Codec diagnostics
+-- inherits global compact Material3 shapes and stronger outlines;
+-- actions remain visually separated from status copy.
+-
+-### Track settings / level analysis / help dialogs and Export panels
+-- major dialog/panel geometry capped at 10dp;
+-- nested sections use 8dp;
+-- actions use 6dp/default compact control shape;
+-- destructive actions remain color-semantic.
+-
+-## Accessibility and robustness
+-- touch targets are not reduced merely to achieve compact appearance;
+-- selected/disabled state must not rely on color alone;
+-- text scaling must not cause cross-group overlap;
+-- narrow layouts must preserve discoverability rather than clipping;
+-- borders/outlines must remain visible against both dark and light surfaces;
+-- headings and labels must stay non-actionable unless explicitly designed as a control.
+-
+-## Prohibited regressions
+-- pill-shaped general buttons/cards returning through ad-hoc local styling;
+-- group titles visually indistinguishable from buttons;
+-- one semantic group visually bleeding into another;
+-- hidden controls used as a workaround for insufficient width;
+-- circular controls used solely as decoration;
+-- per-screen shape systems that diverge from the 6/8/10dp contract without a documented semantic reason.
+-
+-
+-## Settings information hierarchy
+-Settings is a configuration surface, not a wall of primary CTAs.
+-- On wide/tablet layouts, keep the readable Settings column centered and bounded rather than stretching controls edge-to-edge.
+-- A section groups related information once; avoid unnecessary card-within-card chrome for read-only rows.
+-- Secondary actions should be compact trailing actions on wide layouts and may stack/full-width only when narrow width requires it.
+-- Filled primary buttons are reserved for genuinely primary/committing actions, not routine diagnostics or toggles.
+-- Maintain at least 48 dp action height and preserve clear labels/semantics.
+-- Dense control sets such as latency increments must remain fully visible without hidden horizontal carousels when a compact grid can represent the same choices.
+-
+-
+-## Unified project-shell contract
+-Prepare, Studio and Export are workspaces of one project and must share project-level chrome.
+-
+-Shared shell responsibilities:
+-- project identity/name;
+-- return to project library;
+-- adaptive Prepare / Studio / Export navigation;
+-- project-level status/activity indicator;
+-- project overflow/actions;
+-- consistent missing/loading/error presentation.
+-
+-Studio transport/mixer controls remain specialized inner chrome. They may not replace the shared project navigation language.
+-
+-Wide/tablet:
+-- stable compact workspace navigation;
+-- preserve Studio timeline width and transport ergonomics;
+-- avoid duplicate full-width navigation rows.
+-
+-Narrow/phone:
+-- same destinations in a compact adaptive treatment;
+-- no capability disappears solely because width is reduced.
+-
+-## Shared product primitives
+-Use reusable visual components for:
+-- project page scaffold;
+-- section/card;
+-- status chip;
+-- operation/progress panel;
+-- empty state;
+-- recoverable error/blocked state;
+-- destructive confirmation;
+-- source/result card;
+-- project-media row;
+-- cloud/sync status.
+-
+-Per-screen reimplementation of these primitives is a regression risk.
+-
+-## Prepare
+-Prepare is a progressive journey, not a dashboard of unrelated technical panels.
+-
+-Visual hierarchy:
+-- one active step is primary;
+-- completed steps collapse to compact summaries;
+-- the next safe action is visually dominant;
+-- technical detail is secondary/expandable;
+-- accepted source controls collapse behind an explicit “Trocar fonte” action;
+-- automatic post-stem reference generation appears as progress, not a redundant confirmation button.
+-
+-## Export
+-Export is the only external-delivery workspace.
+-
+-Its hierarchy is:
+-- Projeto portátil;
+-- Arquivos para estudo;
+-- Mix final do Studio.
+-
+-Home/Studio may link to Export but must not reproduce a competing format-selection dialog.
+-
+-## Activity
+-Activity uses the same status/progress components as Prepare/Export/Backup.
+-
+-The user sees semantic operation states, not raw backend enums. Provider/job IDs belong in diagnostics/details.
+-
+-## Backup and cloud
+-Backup/restore must use the same page/section/status language as the rest of GuitarLab. It must not read visually as a separate utility app.
+-
+-## Visual qualification when affected
+-Changes to shared shell, layout, typography, shapes, colors or responsive behavior require focused semantic geometry and screenshot review for the affected surfaces and representative reference-device conditions. Do not replay the historical full screenshot matrix for unrelated audio/backend/search logic changes. Existing accepted screenshots remain evidence until a visual change invalidates them.
+-
+-## RC24 density correction
+-
+-Owner video rejected RC23 ergonomics despite digital PASS. Equal navbar side slots preserve absolute transport centering. Níveis moves to Master; pin and arbitrary expanded-height controls are retired. Menu content uses vertical lists, not horizontal toolbar fragments. Track buttons visibly fill 46 of their 48 dp targets and touch regions are contiguous, never overlapping. Thin slider drawings with integrated readouts replace stacked framed controls. Complete/minimum heights are 252/172 dp at font scale 1.0; channel width is 200 dp. Large fonts expand geometry. The same details strip and domain callbacks serve the minimum mode. Automated fit assertions are necessary but do not certify physical comfort; inspect filled-project captures and obtain owner acceptance.
+-
+-## RC26 Mixer/levels refinement
+-
+-Owner-approved RC26 presentation keeps the accepted RC25 shell geometry while making three focused changes: Níveis becomes the third left-side navbar action and uses a distinct gauge/speedometer symbol; track and Master PK/RMS rows consume the full inner strip width with CLIP reset moved to the header; Master drops the redundant Níveis text button and uses a wider volume slider whose one-line `VOL +dB` readout sits below it. Left/right navbar reservations remain equal so transport stays centered. Channel widths and 252/172 dp dock heights remain unchanged.
++Updated: 2026-10-02
++
++## Product intent
++GuitarLab should visually read as one coherent music-production/study instrument: clear modules, restrained graphite surfaces, precise controls and small-radius rectangular geometry. Studio may be the densest workspace, but Prepare, Export, Activity, Backup and Settings must use the same visual grammar. The interface must prioritize immediate operational comprehension over decorative softness.
++
++## Geometry contract
++Ordinary UI uses a deliberately small shape vocabulary:
++- 4dp — micro elements/indicators only;
++- 6dp — actionable controls and compact hardware-style chassis;
++- 8dp — internal rows/cards, selectors and track-level surfaces;
++- 10dp — major panels, dialogs and screen-level containers.
++
++Circular geometry is reserved for semantics that are inherently circular, such as the large recording countdown. General buttons, track-color choices, cards and selectors should not use circular/pill geometry.
++
++## Color hierarchy
++- Graphite/neutral surfaces: structure and non-semantic containment.
++- Blue / `secondary`: comparison/reference family.
++- Teal / `primary`: adjustments/primary studio action family.
++- Amber / `tertiary`: timeline/marker/section family.
++- Red: recording, destructive action and error only.
++- Green: loop or explicit positive state where already established.
++
++Color is a secondary cue. Every group must remain understandable from geometry, borders, spacing and typography even without relying on hue.
++
++## Title vs action contract
++A section/group title:
++- is not clickable;
++- lives in a visually distinct header area or above the action content;
++- uses label/title typography rather than button container treatment;
++- never shares the exact same shape/border treatment as adjacent buttons.
++
++An action:
++- has a visible chassis or explicit button treatment;
++- retains clear enabled/disabled state;
++- preserves ergonomic touch area (icon controls retain 48dp touch target);
++- is contained by the semantic group that owns it.
++
++## Studio action navbar contract
++`Comparação`, `Timeline` and `Níveis` occupy three fixed-size icon triggers in the existing transport navbar. Comparison/Timeline open anchored overlays; Níveis is a direct action that opens level analysis. The Níveis icon must remain visually distinct from the top-bar Mixer toggle and Options/settings iconography. No trigger changes location/size when a mode, disabled state, Mixer visibility or minimum/complete state changes.
++
++Neutral closed triggers reduce persistent color noise. Comparison's active mode uses blue plus a fixed R/M/2 indicator and accessible state description. Panels preserve semantic grouping and local overflow for narrow windows or larger fonts. Comparison remains open during repeated audition changes. Narrow viewports scroll the same navbar row; no capability disappears.
++
++## Screen-by-screen application
++### Home
++- squared major hero/project surfaces;
++- project rows use small-radius bordered hardware panels;
++- Help/Options and row actions use visible square icon controls.
++
++### Novo Projeto
++- template choices use compact rounded rectangles rather than soft cards;
++- create/back actions follow the shared control geometry.
++
++### Studio top bar and transport
++- transport container follows major-panel geometry;
++- all icon controls use visible square chassis;
++- recording/loop colors remain semantic, not decorative.
++
++### Timeline / track workspace
++- track, clip, drag, trim and add-track surfaces use the common 6/8/10dp vocabulary;
++- track color selection uses rounded squares;
++- timeline semantic colors remain stable.
++
++### Mixer
++- strip/master surfaces retain clear rectangular module boundaries;
++- every channel uses a centered header treatment; the track color marker and title read as one centered identity group;
++- functional regions are softly segmented into header, state actions, metering and mix controls using low-contrast graphite surfaces and restrained accent outlines;
++- segmentation may clarify hierarchy but must not add fake controls, change audio semantics, reduce touch targets or inflate the 252/172 dp dock budgets;
++- buttons and meters remain visually distinct from labels/readouts;
++- track accent remains a restrained identity cue on unselected cards and becomes stronger on the selected card; color is never the only selected-state cue;
++- MASTER uses the same visual grammar with centered title, metering section and volume section, but does not render an empty/fake action bank;
++- MASTER remains structurally separate and fixed.
++
++### Options
++- each option category is a bordered major panel;
++- category title/subtitle live in a header band with an accent rail;
++- individual settings use internal 8dp rows;
++- dropdown trigger buttons remain visually actionable.
++
++### Audio diagnostics
++- diagnostic cards and device selectors use major/internal panel geometry;
++- action buttons retain obvious button chassis.
++
++### Codec diagnostics
++- inherits global compact Material3 shapes and stronger outlines;
++- actions remain visually separated from status copy.
++
++### Track settings / level analysis / help dialogs and Export panels
++- major dialog/panel geometry capped at 10dp;
++- nested sections use 8dp;
++- actions use 6dp/default compact control shape;
++- destructive actions remain color-semantic.
++
++## Accessibility and robustness
++- touch targets are not reduced merely to achieve compact appearance;
++- selected/disabled state must not rely on color alone;
++- text scaling must not cause cross-group overlap;
++- narrow layouts must preserve discoverability rather than clipping;
++- borders/outlines must remain visible against both dark and light surfaces;
++- headings and labels must stay non-actionable unless explicitly designed as a control.
++
++## Prohibited regressions
++- pill-shaped general buttons/cards returning through ad-hoc local styling;
++- group titles visually indistinguishable from buttons;
++- one semantic group visually bleeding into another;
++- hidden controls used as a workaround for insufficient width;
++- circular controls used solely as decoration;
++- per-screen shape systems that diverge from the 6/8/10dp contract without a documented semantic reason.
++
++
++## Settings information hierarchy
++Settings is a configuration surface, not a wall of primary CTAs.
++- On wide/tablet layouts, keep the readable Settings column centered and bounded rather than stretching controls edge-to-edge.
++- A section groups related information once; avoid unnecessary card-within-card chrome for read-only rows.
++- Secondary actions should be compact trailing actions on wide layouts and may stack/full-width only when narrow width requires it.
++- Filled primary buttons are reserved for genuinely primary/committing actions, not routine diagnostics or toggles.
++- Maintain at least 48 dp action height and preserve clear labels/semantics.
++- Dense control sets such as latency increments must remain fully visible without hidden horizontal carousels when a compact grid can represent the same choices.
++
++
++## Unified project-shell contract
++Prepare, Studio and Export are workspaces of one project and must share project-level chrome.
++
++Shared shell responsibilities:
++- project identity/name;
++- return to project library;
++- adaptive Prepare / Studio / Export navigation;
++- project-level status/activity indicator;
++- project overflow/actions;
++- consistent missing/loading/error presentation.
++
++Studio transport/mixer controls remain specialized inner chrome. They may not replace the shared project navigation language.
++
++Wide/tablet:
++- stable compact workspace navigation;
++- preserve Studio timeline width and transport ergonomics;
++- avoid duplicate full-width navigation rows.
++
++Narrow/phone:
++- same destinations in a compact adaptive treatment;
++- no capability disappears solely because width is reduced.
++
++## Shared product primitives
++Use reusable visual components for:
++- project page scaffold;
++- section/card;
++- status chip;
++- operation/progress panel;
++- empty state;
++- recoverable error/blocked state;
++- destructive confirmation;
++- source/result card;
++- project-media row;
++- cloud/sync status.
++
++Per-screen reimplementation of these primitives is a regression risk.
++
++## Prepare
++Prepare is a progressive journey, not a dashboard of unrelated technical panels.
++
++Visual hierarchy:
++- one active step is primary;
++- completed steps collapse to compact summaries;
++- the next safe action is visually dominant;
++- technical detail is secondary/expandable;
++- accepted source controls collapse behind an explicit “Trocar fonte” action;
++- automatic post-stem reference generation appears as progress, not a redundant confirmation button.
++
++## Export
++Export is the only external-delivery workspace.
++
++Its hierarchy is:
++- Projeto portátil;
++- Arquivos para estudo;
++- Mix final do Studio.
++
++Home/Studio may link to Export but must not reproduce a competing format-selection dialog.
++
++## Activity
++Activity uses the same status/progress components as Prepare/Export/Backup.
++
++The user sees semantic operation states, not raw backend enums. Provider/job IDs belong in diagnostics/details.
++
++## Backup and cloud
++Backup/restore must use the same page/section/status language as the rest of GuitarLab. It must not read visually as a separate utility app.
++
++## Visual qualification when affected
++Changes to shared shell, layout, typography, shapes, colors or responsive behavior require focused semantic geometry and screenshot review for the affected surfaces and representative reference-device conditions. Do not replay the historical full screenshot matrix for unrelated audio/backend/search logic changes. Existing accepted screenshots remain evidence until a visual change invalidates them.
++
++## RC24 density correction
++
++Owner video rejected RC23 ergonomics despite digital PASS. Equal navbar side slots preserve absolute transport centering. Níveis moves to Master; pin and arbitrary expanded-height controls are retired. Menu content uses vertical lists, not horizontal toolbar fragments. Track buttons visibly fill 46 of their 48 dp targets and touch regions are contiguous, never overlapping. Thin slider drawings with integrated readouts replace stacked framed controls. Complete/minimum heights are 252/172 dp at font scale 1.0; channel width is 200 dp. Large fonts expand geometry. The same details strip and domain callbacks serve the minimum mode. Automated fit assertions are necessary but do not certify physical comfort; inspect filled-project captures and obtain owner acceptance.
++
++## RC26 Mixer/levels refinement
++
++Owner-approved RC26 presentation keeps the accepted RC25 shell geometry while making three focused changes: Níveis becomes the third left-side navbar action and uses a distinct gauge/speedometer symbol; track and Master PK/RMS rows consume the full inner strip width with CLIP reset moved to the header; Master drops the redundant Níveis text button and uses a wider volume slider whose one-line `VOL +dB` readout sits below it. Left/right navbar reservations remain equal so transport stays centered. Channel widths and 252/172 dp dock heights remain unchanged.
++
++## RC27 Mixer card hierarchy refinement
++
++Owner-approved RC27 refines only the card presentation established by RC26. Track headers center the accent dot + title group; Master centers `MASTER`. Track cards use subtle accent-tinted outer identity plus low-contrast 6 dp internal section surfaces for actions, meters and mix. Volume/Pan remain in one mix section with a quiet internal divider. Master uses the same section language for header, meters and volume without inventing unused controls.
++
++The implementation is geometry-preserving: normal-font track width remains 200 dp, Master remains 144 dp, state targets remain 48×48 dp with 46 dp visible faces, complete/minimum dock heights remain 252/172 dp, PK/RMS keep the RC26 full-width contract and Master keeps its wide volume control with one-line `VOL +dB` readout. Large-font growth remains unchanged. This is a visual-hierarchy change, not a mixer/audio/domain change.
++
++Qualification must assert centered header geometry, full-width/non-overlapping section regions, existing touch-target and slider behavior, target-tablet five-channel fit, and inspect complete/minimum screenshots. The RC24/RC26 sections above remain historical evolution; where presentation conflicts, RC27 is the current Mixer visual contract.
+diff --git a/docs/STUDIO_OPTIONS_AND_MIXER.md b/docs/STUDIO_OPTIONS_AND_MIXER.md
+--- a/docs/STUDIO_OPTIONS_AND_MIXER.md
++++ b/docs/STUDIO_OPTIONS_AND_MIXER.md
+@@ -1,48 +1,57 @@
+ # Studio Options, Export and Mixer Contract
+ 
+-Updated: 2026-10-01
+-
+-## Options
+-Options owns low-frequency setup and diagnostics: input route, main output, secondary/CUE output, monitoring, Studio preferences, import capability information and diagnostic tools. These controls stay out of the timeline.
+-
+-MAIN may remain Android-selected for ordinary single-output work. CUE is explicit-only: it can be selected only when MAIN is explicit, must resolve to a different live endpoint and has no automatic fallback. Synchronized CUE intentionally excludes Bluetooth because wireless presentation latency is too large/variable for the MAIN↔CUE alignment contract; both MAIN and CUE must be wired/USB/other low-latency destinations. Bluetooth remains valid for ordinary single-output MAIN. Selection alone does not activate CUE: the playback engine first confirms distinct routes plus stable presentation clocks and admits CUE only when the initial MAIN↔CUE stream-origin offset is at most 12 ms. If that proof fails, or the live drift later exceeds the bounded envelope, the CUE bus is silenced while MAIN continues whenever safe.
+-
+-Project persistence and final-audio export are **not** Options actions.
+-
+-## Studio global actions
+-Studio exposes Mixer, Help, Options, Export and Home using the shared project-shell navigation language. Comparison, Timeline and Níveis use three fixed-size transport-navbar triggers. Comparison and Timeline keep their anchored vertical panels (240 dp and 320 dp); Níveis opens the all-tracks level-analysis modal directly. Equal reserved left/right groups keep transport centered on the viewport. A single fixed mode slot switches Mixer minimum/complete; it is disabled, not removed, when hidden. Comparison stays open for repeated A/B choices. Timeline keeps creation and destructive cleanup separate and explains the missing-loop prerequisite. No redundant Adjustments, Master-level Níveis button or Pin trigger remains. Narrow windows scroll the same single navbar row.
+-
+-`Ajuda` opens the same shared `StudioUserGuideDialog` implementation used by the Home entry point; there is no second guide implementation/copy.
+-
+-## Project persistence and Export
+-Portable `.guitarlab` save remains semantically distinct from external Study Export and Studio Master delivery. The canonical Export workspace owns output/format selection; Studio/Home entry points navigate there and do not maintain a second modal chooser. Sample rate follows established project/render policy without unnecessary codec knobs.
+-
+-## Mixer
+-Mixer always reserves its own bottom layout space: visibility and minimum/complete mode are durable, independent preferences. Default and upgrades start complete. Legacy `mixer_visible`/`mixer_pinned` visibility is retained; RC23 floating/expanded flags are not mapped to minimum because both old heights exposed complete controls. A mode write retires those obsolete flags.
+-
+-At normal font scale channels are 200 dp (original 232 dp), with all four Mute/Solo/CUE/REC targets contiguous in one centered row: 48×48 dp touch regions and 46×46 dp visible faces. Channel padding is 4 dp per side. Master is a separate fixed 144 dp column; channels scroll horizontally without covering it. Font scaling grows channel width and header/meter height rather than overlapping touch regions.
+-
+-Complete height is 252 dp, down from RC23's 352 dp (28.4%). All four state controls, PK/RMS/numeric readings/peak hold/CLIP reset, gain and bipolar pan are exposed. Gain and pan each use a single 48 dp row combining labels/readout with a thin Material Slider drawing; gesture, keyboard and accessibility behavior remains Material-owned. PK/RMS consume the full inner strip width; CLIP reset moves to the strip header so clipping never steals permanent meter width.
+-
+-Minimum height is 172 dp. It retains all four direct state controls, gain/readout, a compact peak/hold meter with accessible PK/RMS readings, pan value and clipping indication. Tapping the track name opens the same complete strip implementation in a details dialog, exposing pan and CLIP reset with the same domain callbacks/transport locks. Master retains gain and compact metering but no Níveis button; its wide volume slider places `VOL` and the dB value together on one line below the slider. Clipping resets from the header. Mode changes never issue audio commands. Gains/pans preview live and commit on gesture completion; no separate mix model exists for minimum/details.
+-
+-Each track persists an output-route value with backward-compatible default `MAIN`. The engine contract supports `MAIN`, `CUE` and `MAIN_AND_CUE`; the first user-facing headphone control intentionally toggles exclusive MAIN ↔ CUE. New MAIN→CUE activation requires an available explicit low-latency pair; rejection preserves MAIN and history. Returning CUE→MAIN remains possible even when a device disappears. Route changes are accepted only while the transport is stopped, so Play/REC cannot leave track metadata and live-monitor routing out of sync. The route is restored with the project, applied to normal playback and backing playback during recording, and does not destructively change clips/takes.
+-
+-CUE is a secondary monitoring/playback bus. The secondary sink is opened only when currently playable content belongs to a CUE-routed track; an empty CUE track does not create an unnecessary output stream. Its writer is non-blocking relative to MAIN: if the secondary sink cannot accept a complete render chunk, CUE is silenced rather than allowed to stall the primary output. CUE is not an export exclusion flag. Studio Master export continues to render the project timeline/mix semantics independently of the live physical CUE assignment.
+-
+-## Timeline/track UI
+-- track names: canonical 1–24 chars;
+-- `Limpar pista`: track-content action; removes clips but preserves track identity/function/color/order/mix;
+-- `Excluir clipe`: clip-segment action; removes only the selected clip after confirmation and preserves valid sibling take/media references;
+-- drag-to-trash is a direct-manipulation shortcut into the same confirmed clip-deletion domain command;
+-- `Excluir pista`: structural action inside `Configurar pista`; safe/disabled as required for populated tracks;
+-- source metadata lives in `Configurar pista`, responsive to available width;
+-- a populated track uses a clear edit affordance for its content/configuration path;
+-- track ordering remains drag-only through the workspace coordinator;
+-- clip migration/deletion resolves through transaction-safe drag intent (`Move`, `Delete`, `NoOp`).
+-
+-## Qualification
+-Repeat focused Mixer/Options/Export regression when a candidate changes those surfaces or their domain commands. They do not create a global release or maintenance gate for unrelated worker/search changes.
++Updated: 2026-10-02
++
++## Options
++Options owns low-frequency setup and diagnostics: input route, main output, secondary/CUE output, monitoring, Studio preferences, import capability information and diagnostic tools. These controls stay out of the timeline.
++
++MAIN may remain Android-selected for ordinary single-output work. CUE is explicit-only: it can be selected only when MAIN is explicit, must resolve to a different live endpoint and has no automatic fallback. Synchronized CUE intentionally excludes Bluetooth because wireless presentation latency is too large/variable for the MAIN↔CUE alignment contract; both MAIN and CUE must be wired/USB/other low-latency destinations. Bluetooth remains valid for ordinary single-output MAIN. Selection alone does not activate CUE: the playback engine first confirms distinct routes plus stable presentation clocks and admits CUE only when the initial MAIN↔CUE stream-origin offset is at most 12 ms. If that proof fails, or the live drift later exceeds the bounded envelope, the CUE bus is silenced while MAIN continues whenever safe.
++
++Project persistence and final-audio export are **not** Options actions.
++
++## Studio global actions
++Studio exposes Mixer, Help, Options, Export and Home using the shared project-shell navigation language. Comparison, Timeline and Níveis use three fixed-size transport-navbar triggers. Comparison and Timeline keep their anchored vertical panels (240 dp and 320 dp); Níveis opens the all-tracks level-analysis modal directly. Equal reserved left/right groups keep transport centered on the viewport. A single fixed mode slot switches Mixer minimum/complete; it is disabled, not removed, when hidden. Comparison stays open for repeated A/B choices. Timeline keeps creation and destructive cleanup separate and explains the missing-loop prerequisite. No redundant Adjustments, Master-level Níveis button or Pin trigger remains. Narrow windows scroll the same single navbar row.
++
++`Ajuda` opens the same shared `StudioUserGuideDialog` implementation used by the Home entry point; there is no second guide implementation/copy.
++
++## Project persistence and Export
++Portable `.guitarlab` save remains semantically distinct from external Study Export and Studio Master delivery. The canonical Export workspace owns output/format selection; Studio/Home entry points navigate there and do not maintain a second modal chooser. Sample rate follows established project/render policy without unnecessary codec knobs.
++
++## Mixer
++Mixer always reserves its own bottom layout space: visibility and minimum/complete mode are durable, independent preferences. Default and upgrades start complete. Legacy `mixer_visible`/`mixer_pinned` visibility is retained; RC23 floating/expanded flags are not mapped to minimum because both old heights exposed complete controls. A mode write retires those obsolete flags.
++
++At normal font scale channels are 200 dp (original 232 dp), with all four Mute/Solo/CUE/REC targets contiguous in one centered row: 48×48 dp touch regions and 46×46 dp visible faces. Channel padding is 4 dp per side. The track accent dot + title are centered as one header identity group. Header, state actions, metering and mix controls are separated by low-contrast 6 dp section surfaces without adding vertical budget. Master is a separate fixed 144 dp column; channels scroll horizontally without covering it. Master centers its title and uses the same section language for header, metering and volume, but never displays an empty/fake action bank. Font scaling grows channel width and header/meter height rather than overlapping touch regions.
++
++Complete height is 252 dp, down from RC23's 352 dp (28.4%). All four state controls, PK/RMS/numeric readings/peak hold/CLIP reset, gain and bipolar pan are exposed. The complete card keeps four geometry-stable visual zones: centered header, state-action bank, meter bank and a 96 dp mix bank containing the 48 dp Volume/Pan rows with a soft internal divider. Gain and pan retain Material Slider gesture, keyboard and accessibility behavior. PK/RMS consume the full inner strip width; CLIP reset remains in the header so clipping never steals permanent meter width.
++
++Minimum height is 172 dp. It retains the centered header, all four direct state controls, gain/readout, a compact peak/hold meter with accessible PK/RMS readings, pan value and clipping indication. The same soft section grammar is preserved without reserving space for hidden controls. Tapping the track header opens the same complete strip implementation in a details dialog, exposing pan and CLIP reset with the same domain callbacks/transport locks. Master retains gain and compact metering but no Níveis button or fake action section; its wide volume slider places `VOL` and the dB value together on one line below the slider. Clipping resets from the header. Mode changes never issue audio commands. Gains/pans preview live and commit on gesture completion; no separate mix model exists for minimum/details.
++
++Each track persists an output-route value with backward-compatible default `MAIN`. The engine contract supports `MAIN`, `CUE` and `MAIN_AND_CUE`; the first user-facing headphone control intentionally toggles exclusive MAIN ↔ CUE. New MAIN→CUE activation requires an available explicit low-latency pair; rejection preserves MAIN and history. Returning CUE→MAIN remains possible even when a device disappears. Route changes are accepted only while the transport is stopped, so Play/REC cannot leave track metadata and live-monitor routing out of sync. The route is restored with the project, applied to normal playback and backing playback during recording, and does not destructively change clips/takes.
++
++CUE is a secondary monitoring/playback bus. The secondary sink is opened only when currently playable content belongs to a CUE-routed track; an empty CUE track does not create an unnecessary output stream. Its writer is non-blocking relative to MAIN: if the secondary sink cannot accept a complete render chunk, CUE is silenced rather than allowed to stall the primary output. CUE is not an export exclusion flag. Studio Master export continues to render the project timeline/mix semantics independently of the live physical CUE assignment.
++
++## Timeline/track UI
++- track names: canonical 1–24 chars;
++- `Limpar pista`: track-content action; removes clips but preserves track identity/function/color/order/mix;
++- `Excluir clipe`: clip-segment action; removes only the selected clip after confirmation and preserves valid sibling take/media references;
++- drag-to-trash is a direct-manipulation shortcut into the same confirmed clip-deletion domain command;
++- `Excluir pista`: structural action inside `Configurar pista`; safe/disabled as required for populated tracks;
++- source metadata lives in `Configurar pista`, responsive to available width;
++- a populated track uses a clear edit affordance for its content/configuration path;
++- track ordering remains drag-only through the workspace coordinator;
++- clip migration/deletion resolves through transaction-safe drag intent (`Move`, `Delete`, `NoOp`).
++
++## Visual hierarchy invariants
++
++- header identity is centered as a group regardless of selected state; transient trailing status such as comparison/clip may not permanently displace the normal title geometry;
++- each visible section spans the useful inner card width and remains vertically ordered/non-overlapping;
++- soft segmentation is presentation-only: Mute/Solo/CUE/REC, gain, pan, metering, CLIP and Master callbacks remain the same domain actions;
++- normal-font dimensions remain 200 dp track / 144 dp Master / 252 dp complete / 172 dp minimum;
++- selected and unselected tracks remain distinguishable by border/tonal treatment as well as color;
++- Master follows the same visual grammar without placeholder controls.
++
++## Qualification
++Repeat focused Mixer/Options/Export regression when a candidate changes those surfaces or their domain commands. A Mixer visual-hierarchy candidate must additionally assert centered headers, section width/order, retained 48 dp targets, large-font containment and five-channel target-tablet fit, then inspect complete/minimum screenshot artifacts. They do not create a global release or maintenance gate for unrelated worker/search changes.
+ 
+ ## RC25 route startup correction
+ 
+diff --git a/docs/STUDIO_WORKSPACE_GUIDELINES.md b/docs/STUDIO_WORKSPACE_GUIDELINES.md
+--- a/docs/STUDIO_WORKSPACE_GUIDELINES.md
++++ b/docs/STUDIO_WORKSPACE_GUIDELINES.md
+@@ -1,58 +1,61 @@
+ # Studio Workspace Guidelines
+ 
+-Updated: 2026-10-01
+-
+-This document is a normative UI/UX contract for the GuitarLab Studio workspace on tablet.
+-
+-## One-workspace rule
+-The Studio is a working surface, not a vertically stacked diagnostics page. Header, timeline, contextual editing and transport remain concentrated in one workspace. If tracks overflow, only the timeline body scrolls internally.
+-
+-## Mutation/state consistency
+-Every committed project mutation must resynchronize persisted project state and all derived UI state that depends on it, including history availability, playback/mixer state and editing readiness. No feature may update only its local visual state and leave `canUndo`/`canRedo` or transport readiness stale.
+-
+-Asynchronous operations that started for one project/session must verify that project/session is still current before publishing results.
+-
+-## Timeline-first composition
+-Each track has a compact sidebar/control area and aligned audio lane. Clips use real timeline start/length and waveform data. Time labels derive from project duration/sample rate.
+-
+-## Drag/reorder contract
+-- long press begins drag only while structural editing is permitted;
+-- track and waveform drag share one coordinator owned by the workspace;
+-- source clip/track identity is captured at drag start and revalidated at commit;
+-- clip drop resolves explicitly to `Move`, `Delete` or `NoOp`;
+-- cancel, invalid and same-origin drops perform no mutation/history entry;
+-- completed drop performs exactly one metadata transaction and Undo/Redo restores snapshots.
+-
+-## Clip deletion and track clearing
+-- `Excluir clipe` deletes one selected clip/segment and always confirms;
+-- `Limpar toda a pista` is track-content scoped and belongs to track configuration, not as a second neighboring clip-trash action;
+-- `Excluir pista` remains structural and distinct from clearing content;
+-- shared managed media survives while referenced by any remaining clip/take.
+-
+-## Configurar pista
+-Wide/landscape dialogs use balanced columns for track properties and source metadata. Track-wide destructive actions are clearly separated and explicitly scoped. Track names remain 1–24 characters.
+-
+-## Trim contract
+-- one valid tap on `Cortar` opens Trim;
+-- if Trim cannot open because of current state, the user receives explicit feedback instead of a silent no-op;
+-- start/end are independent handles with ergonomic touch targets and independent semantic identities;
+-- gesture ownership remains with the handle acquired at gesture start;
+-- applying Trim records one metadata edit; cancel is a no-op; Undo/Redo and save/reopen preserve the retained region.
+-
+-## Practice controls + Mixer
+-Comparison/Timeline remains one reusable panel-control surface; Níveis is a direct sibling navbar action that opens level analysis without an intermediate panel.
+-
+-Each track strip may expose Mute, Solo, headphone/CUE and REC Arm as distinct accessible state controls. The headphone target must meet the same touch-target/non-overlap rules as neighboring controls and must expose state semantics. Its first UX contract is exclusive MAIN ↔ CUE; activating it never implies mute, solo, recording-arm or export exclusion. Unlike gain/pan/mute/solo, output routing is transport-stable: the headphone control is disabled during Play/REC and becomes editable again when the transport is stopped.
+-- Comparison, Timeline and Níveis have fixed icon slots in the transport navbar; Comparison/Timeline open anchored overlays and Níveis opens the level-analysis modal directly;
+-- the old practice row is absent from both timeline flow and Mixer header;
+-- comparison stays open during A/B switching; the navbar's R/M/2 indicator occupies a fixed area;
+-- unavailable actions remain disabled, never removed; opening/closing/changing Mixer mode or starting transport never changes navbar geometry;
+-- narrow screens scroll the same navbar row instead of wrapping state-dependent controls;
+-- channels are 200 dp with four contiguous 48 dp targets in one row; complete/minimum docks are 252/172 dp, with no arbitrary expanded blank area;
+-- Mixer is always docked/fixed; visibility and minimum/complete mode persist independently; Master does not duplicate the Níveis action;
+-- the dock always reserves space and never overlays timeline lanes;
+-- Master owns its own column; horizontal overflow never draws tracks beneath it; PK/RMS use the available inner width and Master volume uses a wide slider with one-line `VOL +dB` readout below;
+-- geometry coverage checks all four 48 dp targets, CLIP, slider separation, and five fully visible default channels on the 1920×1200 / 240 dpi tablet viewport.
++Updated: 2026-10-02
++
++This document is a normative UI/UX contract for the GuitarLab Studio workspace on tablet.
++
++## One-workspace rule
++The Studio is a working surface, not a vertically stacked diagnostics page. Header, timeline, contextual editing and transport remain concentrated in one workspace. If tracks overflow, only the timeline body scrolls internally.
++
++## Mutation/state consistency
++Every committed project mutation must resynchronize persisted project state and all derived UI state that depends on it, including history availability, playback/mixer state and editing readiness. No feature may update only its local visual state and leave `canUndo`/`canRedo` or transport readiness stale.
++
++Asynchronous operations that started for one project/session must verify that project/session is still current before publishing results.
++
++## Timeline-first composition
++Each track has a compact sidebar/control area and aligned audio lane. Clips use real timeline start/length and waveform data. Time labels derive from project duration/sample rate.
++
++## Drag/reorder contract
++- long press begins drag only while structural editing is permitted;
++- track and waveform drag share one coordinator owned by the workspace;
++- source clip/track identity is captured at drag start and revalidated at commit;
++- clip drop resolves explicitly to `Move`, `Delete` or `NoOp`;
++- cancel, invalid and same-origin drops perform no mutation/history entry;
++- completed drop performs exactly one metadata transaction and Undo/Redo restores snapshots.
++
++## Clip deletion and track clearing
++- `Excluir clipe` deletes one selected clip/segment and always confirms;
++- `Limpar toda a pista` is track-content scoped and belongs to track configuration, not as a second neighboring clip-trash action;
++- `Excluir pista` remains structural and distinct from clearing content;
++- shared managed media survives while referenced by any remaining clip/take.
++
++## Configurar pista
++Wide/landscape dialogs use balanced columns for track properties and source metadata. Track-wide destructive actions are clearly separated and explicitly scoped. Track names remain 1–24 characters.
++
++## Trim contract
++- one valid tap on `Cortar` opens Trim;
++- if Trim cannot open because of current state, the user receives explicit feedback instead of a silent no-op;
++- start/end are independent handles with ergonomic touch targets and independent semantic identities;
++- gesture ownership remains with the handle acquired at gesture start;
++- applying Trim records one metadata edit; cancel is a no-op; Undo/Redo and save/reopen preserve the retained region.
++
++## Practice controls + Mixer
++Comparison/Timeline remains one reusable panel-control surface; Níveis is a direct sibling navbar action that opens level analysis without an intermediate panel.
++
++Each track strip may expose Mute, Solo, headphone/CUE and REC Arm as distinct accessible state controls. The headphone target must meet the same touch-target/non-overlap rules as neighboring controls and must expose state semantics. Its first UX contract is exclusive MAIN ↔ CUE; activating it never implies mute, solo, recording-arm or export exclusion. Unlike gain/pan/mute/solo, output routing is transport-stable: the headphone control is disabled during Play/REC and becomes editable again when the transport is stopped.
++- Comparison, Timeline and Níveis have fixed icon slots in the transport navbar; Comparison/Timeline open anchored overlays and Níveis opens the level-analysis modal directly;
++- the old practice row is absent from both timeline flow and Mixer header;
++- comparison stays open during A/B switching; the navbar's R/M/2 indicator occupies a fixed area;
++- unavailable actions remain disabled, never removed; opening/closing/changing Mixer mode or starting transport never changes navbar geometry;
++- narrow screens scroll the same navbar row instead of wrapping state-dependent controls;
++- channels are 200 dp with four contiguous 48 dp targets in one row; complete/minimum docks are 252/172 dp, with no arbitrary expanded blank area;
++- each track card centers its accent dot + title identity group and softly segments header, state actions, metering and mix without changing those geometry budgets;
++- section surfaces are low-contrast hierarchy cues, not new controls; they may not shrink 48 dp targets, obscure selected/disabled semantics or consume extra dock height;
++- Mixer is always docked/fixed; visibility and minimum/complete mode persist independently; Master does not duplicate the Níveis action;
++- the dock always reserves space and never overlays timeline lanes;
++- Master owns its own column; horizontal overflow never draws tracks beneath it; its title is centered and the card segments header, metering and wide one-line-`VOL +dB` volume without an empty/fake action bank;
++- PK/RMS use the available inner width and remain visually grouped as metering;
++- geometry coverage checks all four 48 dp targets, CLIP, slider separation, centered header groups, non-overlapping full-width sections, and five fully visible default channels on the 1920×1200 / 240 dpi tablet viewport.
+ 
+ ## Recording stop semantics
+ During active capture, transport Stop and tapping REC again invoke the same successful, idempotent recording-finalization path. Stop during countdown cancels safely. Once finalization begins, duplicate stop/finalize input must not create duplicate takes or corrupt media.
+diff --git a/docs/DECISIONS.md b/docs/DECISIONS.md
+--- a/docs/DECISIONS.md
++++ b/docs/DECISIONS.md
+@@ -513,3 +513,16 @@
+ - Master uses a wide volume slider with a single-line `VOL +dB` readout below it;
+ - track width, Master width, complete/minimum dock heights, audio/mix state, level-analysis domain behavior and MAIN/CUE routing are unchanged;
+ - affected navbar/Mixer geometry and direct Níveis opening receive focused API36 regression and screenshot review before qualification.
++
++## D-103 — Mixer cards use centered identity headers and soft functional segmentation
++
++2026-10-02. Owner-approved RC27 visual refinement after physical review of the signed RC26 Studio.
++
++- Track identity is presented as a centered accent-dot + title group; Master title is centered independently of its transient CLIP action.
++- Track cards are visually partitioned into header, state-action, metering and mix regions using restrained 6 dp graphite surfaces and low-alpha accent outlines.
++- Volume and Pan remain one mix region with a quiet internal divider; this visual grouping never introduces a second mix state or alternative callback path.
++- Master reuses the header/meter/volume hierarchy but must not render an empty action placeholder merely to mirror track cards.
++- Unselected track cards retain a subtle track-accent identity; selection strengthens border/tonal emphasis while existing semantic selected state remains authoritative.
++- The refinement preserves 200 dp track width, 144 dp Master width, 252/172 dp dock heights, 48 dp touch targets, 46 dp button faces, RC26 full-width meters, Master volume geometry and large-font growth.
++- Audio, routing, persistence, level-analysis, export and MAIN/CUE semantics are unchanged.
++- Qualification adds centered-header and section-geometry assertions plus RC27 complete/minimum target-tablet screenshot review; existing interaction/accessibility regression remains blocking.
+diff --git a/docs/PRODUCT_REQUIREMENTS.md b/docs/PRODUCT_REQUIREMENTS.md
+--- a/docs/PRODUCT_REQUIREMENTS.md
++++ b/docs/PRODUCT_REQUIREMENTS.md
+@@ -1,168 +1,171 @@
+ # Product Requirements
+ 
+-Updated: 2026-10-01
+-
+-Stable product identity, support boundaries, proportional quality, freeze policy and maintenance triggers are governed by `PROJECT_IDENTITY.md` and D-090.
+-
+-## Projects and Home library
+-- Create Blank or Guitar-template projects.
+-- Persist project identity, template, sample-rate policy, groups, tracks, roles, clips, takes and Master state.
+-- Reopen internal projects without data loss; writes must be atomic or safely replaceable.
+-- Save a portable versioned `.guitarlab` package and reopen it from Home as an independent project without silently overwriting the original.
+-- Validate package/project/media identity and reject structurally invalid, incompatible or unsafe packages before publication.
+-- Read supported current-line schema/package versions safely and reject unknown incompatible versions without corruption; no indefinite historical migration promise is implied.
+-- Cryptographic/revision integrity of stored project state is verified before compatibility repair is applied to the decoded in-memory representation.
+-
+-Home project-library requirements:
+-- Search project names in real time without case or diacritic sensitivity.
+-- Search MUST operate in memory over the current repository snapshot; typing MUST NOT reread project files.
+-- Template, content and sample-rate filters are independently combinable.
+-- Content filters distinguish projects with recordings, projects with any audio/clips and projects with no clips.
+-- Sample-rate filters support Auto, 44.1, 48, 88.2 and 96 kHz.
+-- Ordering supports modified newest/oldest, created newest/oldest and name A–Z/Z–A.
+-- Ordering MUST be deterministic under equal primary keys.
+-- Default ordering is modified-descending.
+-- A narrowed result displays visible/total count.
+-- True-empty and no-query-result states are distinct.
+-- Clearing filters does not silently reset the selected sort order.
+-- Search/filter/sort is non-destructive and MUST NOT mutate project content or package schema.
+-
+-## Prepare workflow
+-
+-- One immutable projectId spans source acquisition, separation, prepared assets, Studio, exports and backup.
+-- A project may remain Studio-only; Prepare is optional and must not block Blank projects.
+-- Supported source acquisition publishes a project-managed immutable source only after validation.
+-- Demucs separation publishes exactly the validated expected stem set with source/model/job provenance.
+-- Remote separation uses Firebase/Cloud Run/temporary Storage as a transient processing plane; temporary cloud objects are not durable backup.
+-- Durable project backup remains a separate direct Google Drive concern.
+-- Prepared backing/reference media is project-managed and available to Studio without export/reimport.
+-- A newer prepared reference never silently replaces a reference already used by Studio; rebind is explicit and non-destructive.
+-- Study exports and Studio masters remain semantically distinct.
+-- Long-running preparation, separation, import, backup and restore operations are lifecycle-safe, idempotent and observable.
+-- Standalone GBW/H37/pre-unification migration is historical and outside the supported release scope unless a later explicit decision reopens it.
+-- No tuner, pitch/tuning conversion, BS-RoFormer or pitched-export scope is introduced by the unification.
+-
+-### Unified managed assets
+-- Authoritative/derived media uses explicit asset identity, role, integrity metadata and provenance.
+-- Filename/display name is never asset or project identity.
+-- Cleanup uses reachability and may not delete media referenced by project state, retained history, an in-flight package/import transaction or pending backup.
+-- Re-separation/backing regeneration creates a new asset/version rather than mutating immutable bytes.
+-
+-### Cloud backup destination
+-- Cloud backup avoids requiring full large-media reupload for every metadata-only project edit.
+-- Immutable content-addressed media plus transactional project revision metadata is the target architecture.
+-- Upload/restore is resumable where applicable, server-confirmed, checksum-validated and conflict-aware.
+-- Restore stages and validates all required project/media state before atomic publication.
+-- Remote Drive heads/manifests are authoritative for version history; a local metadata cache may accelerate display but may never replace remote verification.
+-- Backup screen entry and explicit refresh verify current remote heads; cached versions may remain visible while that verification runs.
+-- Automatic backup must remain correct with no Backup UI alive. Off-screen completion must not require a catalog read; a later screen entry must reconcile from Drive.
+-- Legacy H37/GBW backup discovery/import is outside current support scope; current unified backup/restore integrity remains mandatory.
+-
+-## Tracks, roles and mixing
+-- Built-in guitar-oriented roles plus user-defined roles.
+-- Grouping, ordering and clear track identity.
+-- Arm, mute, solo, gain and bipolar pan are functional persisted state where applicable.
+-- Mono/stereo is the primary V1 channel scope.
+-- Playback/export respect track gain/pan/mute/solo, clip gain and Master gain.
+-
+-## Timeline and clips
+-- Non-destructive clips reference project-managed immutable source assets.
+-- Persist track target, timeline start, source start, duration, gain and mute.
+-- Move, trim, split, duplicate and remove are metadata operations; source bytes remain immutable.
+-- Waveform/proxy/render data are derived and independently replaceable/regenerable.
+-- Track/clip drag remains stable through edge autoscroll.
+-- Trim exposes independently acquireable start/end handles with deterministic pointer→frame mapping.
+-- `Excluir clipe`, `Limpar pista` and `Excluir pista` remain distinct scopes.
+-- Drag-to-trash uses the same confirmed domain deletion as `Excluir clipe`; cancel is a no-op.
+-- Split recording segments may share take lineage, but moves/deletions must never create dangling take references.
+-- Separating a stereo clip into mono tracks must use the actual derived media frame/rate bounds and preserve unambiguous take metadata/active-state semantics.
+-- If an existing take lineage is shared across multiple temporal clips, stereo separation must fail closed rather than silently inventing lineage.
+-- Failed/stale/invalid drag must not partially commit project/history/media state.
+-
+-## Managed media
+-- External files are read-only origins.
+-- Import copies selected media into project-controlled authoritative storage before dependency is committed.
+-- Native managed source is immutable.
+-- Optional PCM edit proxy is derived and never replaces source identity.
+-- Conversion/resampling/waveform/freeze/export outputs are derivatives.
+-- Media still referenced by any clip/take must not be deleted.
+-
+-## Import and codecs
+-The currently implemented format set includes WAV PCM, FLAC, AIFF/AIFC PCM, MP3, AAC/M4A, OGG Vorbis and Opus, subject to the exact claims and device qualifications in `CODEC_SUPPORT_MATRIX.md`. This is not a promise to accept arbitrary files or expand the matrix.
+-- Accept common mono/stereo sources.
+-- WAV PCM core covers verified U8/S16/S24/S32/Float32 variants.
+-- Android media formats may decode into managed PCM proxies.
+-- Reject malformed/truncated/unsupported sources safely without committing a broken clip.
+-- Never advertise a format merely because a code path exists.
+-
+-## Sample-rate handling
+-- Projects may use Auto or fixed rate.
+-- Equal-rate media may pass through.
+-- Mismatched media requires explicit validated resampling; no silent speed/pitch change.
+-- Resampling creates a derivative and never overwrites source.
+-
+-## Recording and audio I/O
+-- Android input/output discovery and semantic route visibility.
+-- USB-host support, especially M-VAVE MK-300-class interfaces.
+-- Safe microphone permission/privacy handling.
+-- Production playback/capture distinct from diagnostics.
+-- Explicit selected input fails closed unless Android confirms the effective route; microphone fallback is forbidden.
+-- Studio supports a primary MAIN output and an optional explicit secondary CUE output for per-track monitoring/playback routing.
+-- Each track persists a backward-compatible output route; legacy projects default to MAIN.
+-- The mixer headphone/CUE control may route any track to the secondary bus; the first UI contract is exclusive MAIN ↔ CUE while the engine retains MAIN_AND_CUE capability for future controlled use.
+-- Per-track output-route changes are allowed only with transport stopped; Play/REC uses a stable routing snapshot.
+-- CUE requires an explicit MAIN route, a resolvable low-latency secondary device and live proof that MAIN/CUE are distinct endpoints. Bluetooth is excluded from synchronized CUE because its presentation latency is not suitable for the alignment contract. CUE never falls back silently to MAIN.
+-- The secondary CUE sink is opened only when playable content is assigned to a CUE-routed track; empty CUE tracks do not create an idle secondary stream.
+-- CUE output writes may not block MAIN. Secondary backpressure/partial writes suppress CUE fail-closed instead of stalling the primary render loop.
+-- Before audible use, MAIN and CUE must each provide stable presentation-clock evidence and their estimated stream origins must differ by no more than 12 ms. During playback, repeated presented-frame divergence beyond the continuous guard (~15.6 ms at 48 kHz) suppresses CUE. If the CUE route is lost, rejected, converges with MAIN, lacks stable clock evidence, exceeds either synchronization guard or cannot accept complete non-blocking chunks, CUE is silenced and the user receives explicit feedback; safe MAIN playback continues.
+-- Playback/backing/monitoring return must never feed the recording writer.
+-- Record uses visible 3-second countdown plus zero-time revalidation of permission, route, project and exactly one armed track.
+-- Finalized takes enter immutable managed storage transactionally; zero-frame attempts create no clip.
+-- A track may retain multiple takes with one active take for playback/export.
+-- Current-line recordings always persist take lineage; narrowly recognizable legacy managed recordings may recover missing take metadata deterministically and idempotently.
+-- Compatibility recovery must never classify a generic imported WAV as a recording merely from its track role or filename coincidence.
+-
+-### Recording synchronization
+-- Never correct device/session timing with a hidden hard-coded offset.
+-- Distinguish per-session capture/backing mapping, accepted route+rate physical calibration, global future-recording residual adjustment, take-specific post-recording synchronization and punch/pre-roll logic.
+-- Global fine adjustment is default-zero, route+rate scoped, bounded at ±500 ms and captured when REC starts; changing it never moves an existing take.
+-- Take-specific synchronization is stored on the take, applies only the delta from its prior value to the complete take lineage, preserves source bytes/trim offsets/durations and fails closed rather than crossing timeline frame zero.
+-- Silent digital verification may validate routes/clocks with PCM zero but must never be persisted as physical round-trip calibration.
+-- Physical calibration must confirm the exact live selected input/output before emitting a non-zero stimulus.
+-- Trustworthy Android audio timestamps/monotonic clocks are preferred with bounded fallback.
+-- Stale/backwards timestamp evidence fails closed.
+-- Compensation components combine exactly once; double compensation is blocking.
+-- Placement/trim remain in valid timeline/source bounds, including zero-time starts and pathological arithmetic bounds.
+-
+-### Live recording waveform
+-- Captured frames/time coverage is authoritative, not callback count.
+-- Envelope points carry explicit frame coverage and normalized peak.
+-- Bounded compaction preserves total covered time and important transients.
+-- UI publication is bounded/conflated.
+-- Finalized waveform derives from committed media and remains aligned to clip placement.
+-
+-## Transport and practice workflow
+-- Canonical states: STOPPED, PLAYING, RECORDING.
+-- Primary controls: return-to-start, play/stop, record, loop.
+-- Return-to-start remains available during playback.
+-- Visible playhead progress follows sink presentation timing when reliable Android audio timestamps exist, re-anchors after seek/flush, and must never advance beyond audio frames already accepted by the output sink. A hidden fixed startup delay is not a valid synchronization strategy.
+-- Structural timeline editing is locked during incompatible states.
+-- Support Reference, My Guitar and Both audition modes.
+-- Persist markers, named sections and loop selection.
+-- Automatic sections are previewable suggestions and never commit silently.
+-- Punch derives from loop and handles pre/post-roll/timing without redefining normal Play.
+-- Level analysis reports RMS/peak and requires explicit application of recommendation.
+-
+-## Master export
+-- WAV IEEE Float32;
+-- FLAC lossless;
+-- MP3 320 kbps where an encoder is actually available.
+-
+-Offline export respects current timeline/mix and never modifies authoritative source/proxy media. Publication to SAF destination is staged/validated first and handles cancellation/failure safely.
+-
+-## UX and accessibility
+-- Tablet-first readability, responsive layouts and large touch targets.
+-- Clean modern Graphite Studio language.
++Updated: 2026-10-02
++
++Stable product identity, support boundaries, proportional quality, freeze policy and maintenance triggers are governed by `PROJECT_IDENTITY.md` and D-090.
++
++## Projects and Home library
++- Create Blank or Guitar-template projects.
++- Persist project identity, template, sample-rate policy, groups, tracks, roles, clips, takes and Master state.
++- Reopen internal projects without data loss; writes must be atomic or safely replaceable.
++- Save a portable versioned `.guitarlab` package and reopen it from Home as an independent project without silently overwriting the original.
++- Validate package/project/media identity and reject structurally invalid, incompatible or unsafe packages before publication.
++- Read supported current-line schema/package versions safely and reject unknown incompatible versions without corruption; no indefinite historical migration promise is implied.
++- Cryptographic/revision integrity of stored project state is verified before compatibility repair is applied to the decoded in-memory representation.
++
++Home project-library requirements:
++- Search project names in real time without case or diacritic sensitivity.
++- Search MUST operate in memory over the current repository snapshot; typing MUST NOT reread project files.
++- Template, content and sample-rate filters are independently combinable.
++- Content filters distinguish projects with recordings, projects with any audio/clips and projects with no clips.
++- Sample-rate filters support Auto, 44.1, 48, 88.2 and 96 kHz.
++- Ordering supports modified newest/oldest, created newest/oldest and name A–Z/Z–A.
++- Ordering MUST be deterministic under equal primary keys.
++- Default ordering is modified-descending.
++- A narrowed result displays visible/total count.
++- True-empty and no-query-result states are distinct.
++- Clearing filters does not silently reset the selected sort order.
++- Search/filter/sort is non-destructive and MUST NOT mutate project content or package schema.
++
++## Prepare workflow
++
++- One immutable projectId spans source acquisition, separation, prepared assets, Studio, exports and backup.
++- A project may remain Studio-only; Prepare is optional and must not block Blank projects.
++- Supported source acquisition publishes a project-managed immutable source only after validation.
++- Demucs separation publishes exactly the validated expected stem set with source/model/job provenance.
++- Remote separation uses Firebase/Cloud Run/temporary Storage as a transient processing plane; temporary cloud objects are not durable backup.
++- Durable project backup remains a separate direct Google Drive concern.
++- Prepared backing/reference media is project-managed and available to Studio without export/reimport.
++- A newer prepared reference never silently replaces a reference already used by Studio; rebind is explicit and non-destructive.
++- Study exports and Studio masters remain semantically distinct.
++- Long-running preparation, separation, import, backup and restore operations are lifecycle-safe, idempotent and observable.
++- Standalone GBW/H37/pre-unification migration is historical and outside the supported release scope unless a later explicit decision reopens it.
++- No tuner, pitch/tuning conversion, BS-RoFormer or pitched-export scope is introduced by the unification.
++
++### Unified managed assets
++- Authoritative/derived media uses explicit asset identity, role, integrity metadata and provenance.
++- Filename/display name is never asset or project identity.
++- Cleanup uses reachability and may not delete media referenced by project state, retained history, an in-flight package/import transaction or pending backup.
++- Re-separation/backing regeneration creates a new asset/version rather than mutating immutable bytes.
++
++### Cloud backup destination
++- Cloud backup avoids requiring full large-media reupload for every metadata-only project edit.
++- Immutable content-addressed media plus transactional project revision metadata is the target architecture.
++- Upload/restore is resumable where applicable, server-confirmed, checksum-validated and conflict-aware.
++- Restore stages and validates all required project/media state before atomic publication.
++- Remote Drive heads/manifests are authoritative for version history; a local metadata cache may accelerate display but may never replace remote verification.
++- Backup screen entry and explicit refresh verify current remote heads; cached versions may remain visible while that verification runs.
++- Automatic backup must remain correct with no Backup UI alive. Off-screen completion must not require a catalog read; a later screen entry must reconcile from Drive.
++- Legacy H37/GBW backup discovery/import is outside current support scope; current unified backup/restore integrity remains mandatory.
++
++## Tracks, roles and mixing
++- Built-in guitar-oriented roles plus user-defined roles.
++- Grouping, ordering and clear track identity.
++- Arm, mute, solo, gain and bipolar pan are functional persisted state where applicable.
++- Mono/stereo is the primary V1 channel scope.
++- Playback/export respect track gain/pan/mute/solo, clip gain and Master gain.
++
++## Timeline and clips
++- Non-destructive clips reference project-managed immutable source assets.
++- Persist track target, timeline start, source start, duration, gain and mute.
++- Move, trim, split, duplicate and remove are metadata operations; source bytes remain immutable.
++- Waveform/proxy/render data are derived and independently replaceable/regenerable.
++- Track/clip drag remains stable through edge autoscroll.
++- Trim exposes independently acquireable start/end handles with deterministic pointer→frame mapping.
++- `Excluir clipe`, `Limpar pista` and `Excluir pista` remain distinct scopes.
++- Drag-to-trash uses the same confirmed domain deletion as `Excluir clipe`; cancel is a no-op.
++- Split recording segments may share take lineage, but moves/deletions must never create dangling take references.
++- Separating a stereo clip into mono tracks must use the actual derived media frame/rate bounds and preserve unambiguous take metadata/active-state semantics.
++- If an existing take lineage is shared across multiple temporal clips, stereo separation must fail closed rather than silently inventing lineage.
++- Failed/stale/invalid drag must not partially commit project/history/media state.
++
++## Managed media
++- External files are read-only origins.
++- Import copies selected media into project-controlled authoritative storage before dependency is committed.
++- Native managed source is immutable.
++- Optional PCM edit proxy is derived and never replaces source identity.
++- Conversion/resampling/waveform/freeze/export outputs are derivatives.
++- Media still referenced by any clip/take must not be deleted.
++
++## Import and codecs
++The currently implemented format set includes WAV PCM, FLAC, AIFF/AIFC PCM, MP3, AAC/M4A, OGG Vorbis and Opus, subject to the exact claims and device qualifications in `CODEC_SUPPORT_MATRIX.md`. This is not a promise to accept arbitrary files or expand the matrix.
++- Accept common mono/stereo sources.
++- WAV PCM core covers verified U8/S16/S24/S32/Float32 variants.
++- Android media formats may decode into managed PCM proxies.
++- Reject malformed/truncated/unsupported sources safely without committing a broken clip.
++- Never advertise a format merely because a code path exists.
++
++## Sample-rate handling
++- Projects may use Auto or fixed rate.
++- Equal-rate media may pass through.
++- Mismatched media requires explicit validated resampling; no silent speed/pitch change.
++- Resampling creates a derivative and never overwrites source.
++
++## Recording and audio I/O
++- Android input/output discovery and semantic route visibility.
++- USB-host support, especially M-VAVE MK-300-class interfaces.
++- Safe microphone permission/privacy handling.
++- Production playback/capture distinct from diagnostics.
++- Explicit selected input fails closed unless Android confirms the effective route; microphone fallback is forbidden.
++- Studio supports a primary MAIN output and an optional explicit secondary CUE output for per-track monitoring/playback routing.
++- Each track persists a backward-compatible output route; legacy projects default to MAIN.
++- The mixer headphone/CUE control may route any track to the secondary bus; the first UI contract is exclusive MAIN ↔ CUE while the engine retains MAIN_AND_CUE capability for future controlled use.
++- Per-track output-route changes are allowed only with transport stopped; Play/REC uses a stable routing snapshot.
++- CUE requires an explicit MAIN route, a resolvable low-latency secondary device and live proof that MAIN/CUE are distinct endpoints. Bluetooth is excluded from synchronized CUE because its presentation latency is not suitable for the alignment contract. CUE never falls back silently to MAIN.
++- The secondary CUE sink is opened only when playable content is assigned to a CUE-routed track; empty CUE tracks do not create an idle secondary stream.
++- CUE output writes may not block MAIN. Secondary backpressure/partial writes suppress CUE fail-closed instead of stalling the primary render loop.
++- Before audible use, MAIN and CUE must each provide stable presentation-clock evidence and their estimated stream origins must differ by no more than 12 ms. During playback, repeated presented-frame divergence beyond the continuous guard (~15.6 ms at 48 kHz) suppresses CUE. If the CUE route is lost, rejected, converges with MAIN, lacks stable clock evidence, exceeds either synchronization guard or cannot accept complete non-blocking chunks, CUE is silenced and the user receives explicit feedback; safe MAIN playback continues.
++- Playback/backing/monitoring return must never feed the recording writer.
++- Record uses visible 3-second countdown plus zero-time revalidation of permission, route, project and exactly one armed track.
++- Finalized takes enter immutable managed storage transactionally; zero-frame attempts create no clip.
++- A track may retain multiple takes with one active take for playback/export.
++- Current-line recordings always persist take lineage; narrowly recognizable legacy managed recordings may recover missing take metadata deterministically and idempotently.
++- Compatibility recovery must never classify a generic imported WAV as a recording merely from its track role or filename coincidence.
++
++### Recording synchronization
++- Never correct device/session timing with a hidden hard-coded offset.
++- Distinguish per-session capture/backing mapping, accepted route+rate physical calibration, global future-recording residual adjustment, take-specific post-recording synchronization and punch/pre-roll logic.
++- Global fine adjustment is default-zero, route+rate scoped, bounded at ±500 ms and captured when REC starts; changing it never moves an existing take.
++- Take-specific synchronization is stored on the take, applies only the delta from its prior value to the complete take lineage, preserves source bytes/trim offsets/durations and fails closed rather than crossing timeline frame zero.
++- Silent digital verification may validate routes/clocks with PCM zero but must never be persisted as physical round-trip calibration.
++- Physical calibration must confirm the exact live selected input/output before emitting a non-zero stimulus.
++- Trustworthy Android audio timestamps/monotonic clocks are preferred with bounded fallback.
++- Stale/backwards timestamp evidence fails closed.
++- Compensation components combine exactly once; double compensation is blocking.
++- Placement/trim remain in valid timeline/source bounds, including zero-time starts and pathological arithmetic bounds.
++
++### Live recording waveform
++- Captured frames/time coverage is authoritative, not callback count.
++- Envelope points carry explicit frame coverage and normalized peak.
++- Bounded compaction preserves total covered time and important transients.
++- UI publication is bounded/conflated.
++- Finalized waveform derives from committed media and remains aligned to clip placement.
++
++## Transport and practice workflow
++- Canonical states: STOPPED, PLAYING, RECORDING.
++- Primary controls: return-to-start, play/stop, record, loop.
++- Return-to-start remains available during playback.
++- Visible playhead progress follows sink presentation timing when reliable Android audio timestamps exist, re-anchors after seek/flush, and must never advance beyond audio frames already accepted by the output sink. A hidden fixed startup delay is not a valid synchronization strategy.
++- Structural timeline editing is locked during incompatible states.
++- Support Reference, My Guitar and Both audition modes.
++- Persist markers, named sections and loop selection.
++- Automatic sections are previewable suggestions and never commit silently.
++- Punch derives from loop and handles pre/post-roll/timing without redefining normal Play.
++- Level analysis reports RMS/peak and requires explicit application of recommendation.
++
++## Master export
++- WAV IEEE Float32;
++- FLAC lossless;
++- MP3 320 kbps where an encoder is actually available.
++
++Offline export respects current timeline/mix and never modifies authoritative source/proxy media. Publication to SAF destination is staged/validated first and handles cancellation/failure safely.
++
++## UX and accessibility
++- Tablet-first readability, responsive layouts and large touch targets.
++- Clean modern Graphite Studio language.
++- Mixer track identity is visually centered; track cards use subtle functional grouping for header, state actions, metering and mix while preserving control geometry and semantics.
++- Master follows the same hierarchy for header, metering and volume but must not display placeholder controls that have no function.
++- Visual grouping must remain low-contrast and secondary to readable labels, borders, selected/disabled state and accessibility semantics.
+ - Technical diagnostics remain separate from creative flow.
+ - No fake enabled controls for unimplemented features.
+ - Home project search, filter and sort controls expose meaningful accessibility semantics and remain usable at larger font scale.
+diff --git a/docs/TEST_AND_HOMOLOGATION_POLICY.md b/docs/TEST_AND_HOMOLOGATION_POLICY.md
+--- a/docs/TEST_AND_HOMOLOGATION_POLICY.md
++++ b/docs/TEST_AND_HOMOLOGATION_POLICY.md
+@@ -1,109 +1,109 @@
+ # Test and Homologation Policy
+ 
+-Updated: 2026-10-01
+-
+-## Purpose
+-
+-This is the steady-state qualification policy for the frozen GuitarLab product. It replaces the completed RC20 campaign plan, which is archived under `history/TEST_AND_HOMOLOGATION_PLAN_RC20_FINAL_2026-09-25.md`.
+-
+-The policy protects credible owner harm without turning historical gate volume into a permanent requirement for every future change.
+-
+-## Protected outcomes
+-
+-When applicable, qualification must fail closed for:
+-
+-- project, recording or managed-media loss/corruption;
+-- structurally invalid or musically unusable prepared audio;
+-- broken primary acquisition → Prepare → Studio flow;
+-- persistence/recovery/backup/restore integrity failure;
+-- duplicate jobs, quota consumption or uncontrolled cost;
+-- credential/authorization failure;
+-- wrong APK package/version/provenance/signer;
+-- wrong worker digest/model/runtime identity;
+-- unsafe production cutover without rollback;
+-- audio routing/timing regressions that materially affect recording or playback.
+-
+-Unrelated cosmetic/flaky evidence may be scoped only with explicit rationale. Protected failures above are never quarantined.
+-
+-## Evidence selection
+-
+-Qualification is proportional to the change.
+-
+-### Documentation-only
+-
+-No runtime CI is required when a commit changes only truthful documentation/history and does not mutate workflows, materializers, source payloads, configuration or shipped artifacts.
+-
+-### Android UI/domain/persistence
+-
+-Run the software gate and affected API 36 instrumented regression. Add target-device validation only when the change can invalidate a physical-only behavior.
+-
+-### Playback/recording/audio timing
+-
+-Run deterministic core/audio tests, Android integration and relevant API 36 coverage. Target SM-X230/MK-300 validation is required when route, timestamp, buffering, capture, monitoring, latency or audible/visual synchronization can materially change.
+-
+-For dual-output/CUE changes, digital gates must cover backward-compatible project persistence, per-track routing policy, same-endpoint rejection, missing-route behavior, stable clock-anchor policy, the 12 ms initial presentation-offset guard, continuous drift bounds, non-blocking secondary backpressure behavior, Mixer accessibility and both Play/REC integration. Physical acceptance must then verify the actual intended MAIN + CUE hardware combination because Android/HAL routing and acoustic/device latency of two simultaneous physical outputs cannot be proven by emulator CI.
+-
+-Never introduce a hidden fixed timing fudge merely to satisfy a visual observation; prefer device/sink timing evidence and bounded fallback.
+-
+-### Remote separation/backend
+-
+-Run U7 verification and the smallest representative shadow/production path required by the mutation. A new worker image is qualified by immutable digest. Production promotion must deploy the exact qualified digest without rebuild. Run U4 transactional evidence when lifecycle, recovery, quota, output publication, ACK/purge or cleanup can change.
+-
+-### Drive backup
+-
+-Repeat focused provider-real evidence when OAuth, Drive transport, resumable upload, catalog/commit identity, retention or restore behavior changes. Unrelated Android/backend changes do not invalidate retained Drive evidence.
+-
+-A catalog/cache-only maintenance change does not automatically require replaying the entire destructive U8m campaign when OAuth, resumable transport, commit publication and restore store semantics are unchanged. In that case, retain U8m as transport/store authority and add focused real-provider evidence for the changed catalog/background orchestration, preferably as a representative target-device backup → catalog refresh → restore smoke.
+-
+-### Signing/release candidate
+-
+-A promoted Android candidate must satisfy the build-once/sign-exactly contract in `CANDIDATE_IDENTITY_POLICY.md`. Physical acceptance, when required, occurs on the exact signed APK intended for promotion.
+-
+-## Android baseline gates
+-
+-The canonical Android pipeline may include broad coverage, but the required outcome is:
+-
+-1. deterministic source materialization;
+-2. relevant JVM/unit/domain tests;
+-3. Android Lint;
+-4. release assembly and exact unsigned provenance;
+-5. API 36 representative regression;
+-6. exact-artifact signing only when a signed candidate is intentionally requested.
+-
+-## Cloud baseline gates
+-
+-The frozen RC20 backend evidence uses the official Demucs/PyTorch CPU8 route. Future backend changes must preserve exact engine/model/config identity, structural/finiteness/quality rejection and transactional safety. Stochastic Demucs runs are not required to be sample-identical; hard invariants remain blocking and numeric/hash differences may remain diagnostic under D-091.
+-
+-## Physical evidence
+-
+-Physical testing is residual evidence, not a duplicate of CI. Use it for facts CI cannot establish reliably, such as:
+-
+-- actual USB input/output routing;
+-- hardware loopback/isolation;
+-- audible latency/alignment;
+-- real recording placement;
+-- reconnect/interruption behavior;
+-- target-only codec availability;
+-- target-device ergonomics when changed;
+-- representative musical usefulness when a technical gate cannot prove it.
+-
+-The reference hardware is Samsung SM-X230 / Android 16 / API 36 and M-VAVE MK-300 over USB where the affected capability uses it.
+-
+-## Evidence reuse
+-
+-Accepted evidence remains valid until a later change can materially invalidate it. Do not replay an entire historical campaign for an unrelated maintenance change.
+-
+-Historical plans may contain “pending/open/current” language from their own date. They are evidence only and never reopen a live gate by themselves.
+-
+-## Candidate invalidation
+-
+-A candidate is invalidated when source, materialized runtime bytes, package/version, unsigned APK, signer, relevant backend digest or another protected identity changes after qualification. A documentation-only commit does not retroactively change an already-built candidate.
+-
+-## Current feature application
+-
+-RC24 is an owner-requested UI correction after RC23 physical UX rejection. It reopens affected Studio menu/Mixer/preference/layout qualification, including real pointer/slider interaction, large-font/overflow behavior and populated timeline evidence. Existing routing/recording/audio regressions remain applicable; audio engine, frozen Demucs and unrelated Drive transport are unchanged. RC23 digital PASS is not physical UX acceptance. RC20 remains the accepted baseline until exact successor artifact acceptance.
+-
+-Automated geometry must establish useful workspace density, not only control existence: inline non-overlapping touch regions with near-target visible faces, complete/minimum height budgets, a third full waveform lane with complete Mixer on target-tablet geometry, menu contents fitting without horizontal scrolling, and stable navbar slots. Inspect CI screenshots of five managed-audio clips in complete/minimum/hidden states before declaring digital UI qualification complete. Owner physical acceptance remains a distinct step.
++Updated: 2026-10-02
++
++## Purpose
++
++This is the steady-state qualification policy for the frozen GuitarLab product. It replaces the completed RC20 campaign plan, which is archived under `history/TEST_AND_HOMOLOGATION_PLAN_RC20_FINAL_2026-09-25.md`.
++
++The policy protects credible owner harm without turning historical gate volume into a permanent requirement for every future change.
++
++## Protected outcomes
++
++When applicable, qualification must fail closed for:
++
++- project, recording or managed-media loss/corruption;
++- structurally invalid or musically unusable prepared audio;
++- broken primary acquisition → Prepare → Studio flow;
++- persistence/recovery/backup/restore integrity failure;
++- duplicate jobs, quota consumption or uncontrolled cost;
++- credential/authorization failure;
++- wrong APK package/version/provenance/signer;
++- wrong worker digest/model/runtime identity;
++- unsafe production cutover without rollback;
++- audio routing/timing regressions that materially affect recording or playback.
++
++Unrelated cosmetic/flaky evidence may be scoped only with explicit rationale. Protected failures above are never quarantined.
++
++## Evidence selection
++
++Qualification is proportional to the change.
++
++### Documentation-only
++
++No runtime CI is required when a commit changes only truthful documentation/history and does not mutate workflows, materializers, source payloads, configuration or shipped artifacts.
++
++### Android UI/domain/persistence
++
++Run the software gate and affected API 36 instrumented regression. Add target-device validation only when the change can invalidate a physical-only behavior.
++
++### Playback/recording/audio timing
++
++Run deterministic core/audio tests, Android integration and relevant API 36 coverage. Target SM-X230/MK-300 validation is required when route, timestamp, buffering, capture, monitoring, latency or audible/visual synchronization can materially change.
++
++For dual-output/CUE changes, digital gates must cover backward-compatible project persistence, per-track routing policy, same-endpoint rejection, missing-route behavior, stable clock-anchor policy, the 12 ms initial presentation-offset guard, continuous drift bounds, non-blocking secondary backpressure behavior, Mixer accessibility and both Play/REC integration. Physical acceptance must then verify the actual intended MAIN + CUE hardware combination because Android/HAL routing and acoustic/device latency of two simultaneous physical outputs cannot be proven by emulator CI.
++
++Never introduce a hidden fixed timing fudge merely to satisfy a visual observation; prefer device/sink timing evidence and bounded fallback.
++
++### Remote separation/backend
++
++Run U7 verification and the smallest representative shadow/production path required by the mutation. A new worker image is qualified by immutable digest. Production promotion must deploy the exact qualified digest without rebuild. Run U4 transactional evidence when lifecycle, recovery, quota, output publication, ACK/purge or cleanup can change.
++
++### Drive backup
++
++Repeat focused provider-real evidence when OAuth, Drive transport, resumable upload, catalog/commit identity, retention or restore behavior changes. Unrelated Android/backend changes do not invalidate retained Drive evidence.
++
++A catalog/cache-only maintenance change does not automatically require replaying the entire destructive U8m campaign when OAuth, resumable transport, commit publication and restore store semantics are unchanged. In that case, retain U8m as transport/store authority and add focused real-provider evidence for the changed catalog/background orchestration, preferably as a representative target-device backup → catalog refresh → restore smoke.
++
++### Signing/release candidate
++
++A promoted Android candidate must satisfy the build-once/sign-exactly contract in `CANDIDATE_IDENTITY_POLICY.md`. Physical acceptance, when required, occurs on the exact signed APK intended for promotion.
++
++## Android baseline gates
++
++The canonical Android pipeline may include broad coverage, but the required outcome is:
++
++1. deterministic source materialization;
++2. relevant JVM/unit/domain tests;
++3. Android Lint;
++4. release assembly and exact unsigned provenance;
++5. API 36 representative regression;
++6. exact-artifact signing only when a signed candidate is intentionally requested.
++
++## Cloud baseline gates
++
++The frozen RC20 backend evidence uses the official Demucs/PyTorch CPU8 route. Future backend changes must preserve exact engine/model/config identity, structural/finiteness/quality rejection and transactional safety. Stochastic Demucs runs are not required to be sample-identical; hard invariants remain blocking and numeric/hash differences may remain diagnostic under D-091.
++
++## Physical evidence
++
++Physical testing is residual evidence, not a duplicate of CI. Use it for facts CI cannot establish reliably, such as:
++
++- actual USB input/output routing;
++- hardware loopback/isolation;
++- audible latency/alignment;
++- real recording placement;
++- reconnect/interruption behavior;
++- target-only codec availability;
++- target-device ergonomics when changed;
++- representative musical usefulness when a technical gate cannot prove it.
++
++The reference hardware is Samsung SM-X230 / Android 16 / API 36 and M-VAVE MK-300 over USB where the affected capability uses it.
++
++## Evidence reuse
++
++Accepted evidence remains valid until a later change can materially invalidate it. Do not replay an entire historical campaign for an unrelated maintenance change.
++
++Historical plans may contain “pending/open/current” language from their own date. They are evidence only and never reopen a live gate by themselves.
++
++## Candidate invalidation
++
++A candidate is invalidated when source, materialized runtime bytes, package/version, unsigned APK, signer, relevant backend digest or another protected identity changes after qualification. A documentation-only commit does not retroactively change an already-built candidate.
++
++## Current feature application
++
++RC27 is an owner-requested Mixer visual-hierarchy refinement after review of the signed RC26 Studio. It reopens only affected Mixer presentation and adjacent Studio geometry evidence: centered track/Master headers, soft section boundaries, selected/unselected card treatment, existing pointer/slider interaction, large-font containment, horizontal overflow and target-tablet density. RC26 remains signed digital evidence for its code tree, but RC27 is a new runtime candidate and must qualify its exact source. Existing audio routing/recording, frozen Demucs and unrelated Drive evidence remain applicable because RC27 does not change those paths. RC20 remains the accepted physical baseline until an exact signed successor is owner-accepted.
++
++Automated geometry must establish useful hierarchy and workspace density, not only control existence: inline non-overlapping 48 dp touch regions, centered header identity groups, full-width/non-overlapping internal sections, complete/minimum height budgets, a third full waveform lane with complete Mixer on target-tablet geometry and stable navbar slots. Capture and inspect RC27 screenshots of five managed-audio clips in complete/minimum states before declaring digital UI qualification complete. Owner physical acceptance remains a distinct step.
+ 
+ ## Frozen baseline
+ 
