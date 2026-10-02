@@ -49,11 +49,17 @@ RC25 is canonically signed and digitally qualified. Android CI **#947 / run 3693
 - complete track/Master PK/RMS use full inner width; CLIP reset remains in headers;
 - Master volume is wide and uses one-line `VOL +dB` readout below;
 - dock heights (252/172 dp), channel/Master widths and all audio/domain behavior remain unchanged;
-- deterministic materialization tail: `scripts/materialize_ci_sources_rc26.py`; prior payloads remain immutable.
+- deterministic materialization tail: `scripts/materialize_ci_sources_rc26a.py`; RC26/RC25 payloads remain immutable.
+
+## RC26 qualification attempts
+
+- CI #948 / run `36942666882` stopped at Diff sanity because the new RC26 history Markdown contained trailing whitespace; no source qualification ran.
+- CI #949 / run `36943179605` passed Diff sanity, materialization, identity validation and unit tests. Lint then found one RC26-local error: the Master slider used `BoxWithConstraints` without consuming its scope. API36 independently reached `MixerDockInstrumentedTest`; its new full-width-meter assertion queried a merged semantics tree even though the tagged meter node exists in the unmerged tree.
+- RC26a removes the unnecessary constrained scope and makes the geometry assertions explicitly query the unmerged semantics nodes. Product geometry and behavior are unchanged.
 
 ## Next action
 
-Run the exact RC26 source through the controlled `[run ci]` software + API36 gate and review the affected filled-tablet/navbar/Mixer captures. Do not declare a signed RC26 artifact or physical acceptance before that gate succeeds.
+Run the exact RC26a source through the controlled `[run ci]` software + API36 gate. Do not declare RC26 digitally qualified, signed or physically accepted before that gate succeeds.
 
 No backend, Demucs, backup or MAIN/CUE algorithm is reopened by this presentation-only correction.
 

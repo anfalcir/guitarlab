@@ -374,14 +374,14 @@ class MixerDockInstrumentedTest {
         val full = composeRule.onNodeWithTag("mixer-dock").fetchSemanticsNode().boundsInRoot
         val density = InstrumentationRegistry.getInstrumentation().targetContext.resources.displayMetrics.density
         val trackStrip = composeRule.onNodeWithTag("mixer-track-strip-${track.value.id}").fetchSemanticsNode().boundsInRoot
-        val trackMeters = composeRule.onNodeWithTag("mixer-track-meters-${track.value.id}").fetchSemanticsNode().boundsInRoot
+        val trackMeters = composeRule.onNodeWithTag("mixer-track-meters-${track.value.id}", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
         assertTrue("Track PK/RMS must use the strip full inner width", trackMeters.width >= trackStrip.width - 10f * density)
         val masterStrip = composeRule.onNodeWithTag("mixer-master-strip").fetchSemanticsNode().boundsInRoot
-        val masterMeters = composeRule.onNodeWithTag("mixer-master-meters").fetchSemanticsNode().boundsInRoot
+        val masterMeters = composeRule.onNodeWithTag("mixer-master-meters", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
         assertTrue("Master PK/RMS must use the full inner width", masterMeters.width >= masterStrip.width - 18f * density)
-        val masterVolume = composeRule.onNodeWithTag("mixer-master-volume").fetchSemanticsNode().boundsInRoot
+        val masterVolume = composeRule.onNodeWithTag("mixer-master-volume", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
         assertTrue("Master volume control must span the useful card width", masterVolume.width >= masterStrip.width - 18f * density)
-        composeRule.onNodeWithTag("mixer-master-volume-readout").assertIsDisplayed()
+        composeRule.onNodeWithTag("mixer-master-volume-readout", useUnmergedTree = true).assertIsDisplayed()
         composeRule.onNodeWithContentDescription("Volume da pista Minha guitarra").performTouchInput {
             swipe(Offset(width * 0.2f, height / 2f), Offset(width * 0.9f, height / 2f), 250L)
         }

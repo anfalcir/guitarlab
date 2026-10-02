@@ -550,7 +550,7 @@ private fun MasterVolumeSlider(
                 }
             },
             track = {
-                BoxWithConstraints(
+                Box(
                     Modifier.fillMaxWidth().height(4.dp)
                         .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.3f), RoundedCornerShape(2.dp)),
                 ) {

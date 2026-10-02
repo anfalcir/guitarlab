@@ -1,7 +1,7 @@
 # RC26 — Studio Mixer / Níveis presentation refinement
 
 Date: 2026-10-01
-Status: SOURCE PRE-GATE
+Status: RC26a SOURCE PRE-GATE
 
 ## Owner-approved contract
 
@@ -37,3 +37,11 @@ Focused coverage must prove:
 - five-channel tablet complete/minimum screenshots remain usable.
 
 The exact source must pass the normal `[run ci]` software + API36 gate before any digital qualification claim. No signed RC26 artifact or physical acceptance is predeclared.
+
+## Qualification attempts
+
+- Android CI #948 / run `36942666882`: failed before build at `git diff --check` because this history file had Markdown trailing whitespace. Corrected without changing product source.
+- Android CI #949 / run `36943179605`: unit tests passed. Lint failed on `MixerDock.kt` because the new Master slider track used `BoxWithConstraints` without reading its scope. API36 separately reached the Mixer regression and showed that `mixer-track-meters-modes` exists only in the unmerged semantics tree; the geometry test queried the merged tree.
+- RC26a replaces only that unnecessary `BoxWithConstraints` with `Box` and makes the new geometry probes use `useUnmergedTree = true`. No layout dimension, control behavior, meter math, audio path or product contract changes.
+
+The next gate must therefore re-run both Lint and API36 rather than treating either #948 or #949 as a qualification result.
