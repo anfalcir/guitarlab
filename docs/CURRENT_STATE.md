@@ -4,9 +4,9 @@ Updated: 2026-10-02
 
 ## Status
 
-**RC27 MIXER CARD HIERARCHY — SOURCE CANDIDATE; DIGITAL QUALIFICATION PENDING**
+**RC27a MIXER CARD HIERARCHY — DIGITAL TESTS PASS; VISUAL EVIDENCE RE-GATE PENDING**
 
-RC26 remains the latest canonically signed digital authority. Android CI **#950 / run 36944380748** qualified its Studio/Mixer source and CI **#951 / run 36946189701** signed the exact tested artifact on producer **df5791c2e4984a7fbdf4141df460be20e151bcf8**. RC27 is the owner-approved successor focused only on Mixer card visual hierarchy: centered channel identities and soft functional segmentation for tracks and Master while preserving RC26 geometry, control semantics and audio behavior. RC20 remains the physically accepted frozen baseline until an exact signed successor is owner-accepted.
+RC26 remains the latest canonically signed digital authority. RC27 implements the owner-approved Mixer card hierarchy. Android CI **#952 / run 37034736534** passed deterministic materialization, Unit Tests, Android Lint, build and API36 regression on source **720ace0c76de20205ca6adde53d145fe4d867c8d**. Visual review accepted the minimum-mode/card/component evidence but found the full-tablet complete-mode screenshot captured while the Studio loading spinner was still painted, so RC27 is not yet declared digitally qualified or eligible for signing. RC27a changes only the target-tablet evidence synchronization: it waits for `loading == false`, representative waveform/Mixer nodes, Compose idle and window idle before the complete screenshot. RC20 remains the physically accepted frozen baseline until an exact signed successor is owner-accepted.
 
 ## Exact signed RC26 identity
 
@@ -83,11 +83,18 @@ RC26 remains the latest canonically signed digital authority. Android CI **#950 
 - 200 dp track width, 144 dp Master width, 252/172 dp dock heights, 48 dp targets, 46 dp faces, full-width PK/RMS, wide Master volume and large-font growth remain unchanged;
 - audio, routing, persistence, level-analysis, export and MAIN/CUE behavior are unchanged;
 - focused tests assert centered header groups, full-width/non-overlapping section geometry, existing control/touch behavior and target-tablet five-channel fit;
-- deterministic tail becomes `scripts/materialize_ci_sources_rc27.py`; RC26/RC26a payloads remain immutable.
+- deterministic tail advances to `scripts/materialize_ci_sources_rc27a.py`; RC27/RC26 payloads remain immutable.
 
-## RC27 next action
+## RC27 qualification attempt
 
-Run the exact RC27 source through `[run ci]`, then inspect the RC27 complete/minimum five-channel screenshot artifacts before any digital qualification or signing claim. Because this is a presentation-only Studio change, backend/Drive/cloud gates are not reopened. Physical acceptance remains separate.
+- CI #952 / run `37034736534`: **software/API36 PASS** on `720ace0c76de20205ca6adde53d145fe4d867c8d`;
+- minimum-mode full-tablet screenshot and focused Mixer screenshots show the approved centered headers and soft card segmentation;
+- the complete-mode full-tablet screenshot is unusable as visual evidence because the loading spinner was still painted when the frame was captured, despite semantics already exposing the loaded nodes;
+- no product/runtime defect is claimed from that artifact; the visual gate remains open because both complete and minimum evidence were explicitly required.
+
+## RC27a next action
+
+Run the exact RC27a source through `[run ci]`. RC27a must reproduce the same runtime/test geometry while forcing complete-mode screenshot capture only after `StudioViewModel.loading == false`, representative waveform/Mixer nodes are displayed, and Compose/window idle has completed. Inspect complete and minimum artifacts before any signed trigger. Backend/Drive/cloud gates remain reusable.
 
 ## Final RC26 digital qualification
 

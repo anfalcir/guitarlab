@@ -1,7 +1,7 @@
 # RC27 — Mixer card visual hierarchy
 
 Date: 2026-10-02
-Status: SOURCE PRE-GATE
+Status: RC27a VISUAL EVIDENCE RE-GATE
 
 ## Trigger and owner-approved target
 
@@ -66,3 +66,11 @@ Required before any RC27 digital PASS claim:
 - visual inspection of RC27 complete/minimum screenshot artifacts.
 
 Backend, Drive, Demucs and provider-real gates remain reusable because RC27 does not touch those paths. Signing is not requested until the exact RC27 source passes the digital gate and screenshot review. Physical acceptance remains separate.
+
+## Qualification attempt #952
+
+Android CI #952 / run `37034736534` on source `720ace0c76de20205ca6adde53d145fe4d867c8d` passed materialization, Unit Tests, Android Lint, build and API36 regression. The minimum-mode target-tablet screenshot and focused Mixer component screenshots visibly match the approved centered-header/soft-segmentation contract.
+
+The required complete-mode target-tablet screenshot did not qualify as evidence: it captured the Studio shell while the loading spinner was still painted. The test had waited for project/waveform semantics, but not for the ViewModel `loading` flag to clear. Because RC27's own qualification contract requires reviewable complete and minimum screenshots, no digital PASS/signing claim is made from #952.
+
+RC27a is test/evidence-only. It adds an explicit `!studio.state.value.loading` wait and verifies representative Master/waveform nodes before the complete capture, followed by Compose and Android window-idle synchronization. Runtime Mixer source, dimensions and behavior are unchanged.

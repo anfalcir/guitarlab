@@ -7,7 +7,7 @@ This document describes current execution controls. Historical tail hashes, run 
 ## Source materialization
 
 - canonical entrypoint: `scripts/materialize_ci_sources.sh`;
-- current candidate tail: RC27 Mixer card hierarchy via `scripts/materialize_ci_sources_rc27.py`, chained after RC26b signed-documentation closure and immutable RC26a/RC26/RC25 predecessors;
+- current candidate tail: RC27a visual-evidence synchronization via `scripts/materialize_ci_sources_rc27a.py`, chained after RC27 and immutable RC26 predecessors;
 - protected deltas: `.source-parts/`;
 - required properties: deterministic, hash/blob locked, idempotent, semantic guards, reverse-apply validation and fail-closed drift handling.
 
@@ -113,7 +113,7 @@ Run IDs and current status belong in `CURRENT_STATE.md`, not here.
 
 The accepted baseline remains RC20 until exact signed successor physical acceptance. RC26 is retained as signed digital authority (`0.5.0-rc26` / `46`, Android CI #950/#951) but was not promoted before RC27 was requested. RC27 `0.5.0-rc27` / `47` is the active Android-only presentation candidate.
 
-The current deterministic chain closes RC26's post-sign documentation with `scripts/materialize_ci_sources_rc26b.py`, then applies RC27 through `scripts/materialize_ci_sources_rc27.py`. Prior source payloads are immutable. An RC27 `[run ci]` execution must materialize the exact source, pass Unit/Lint/build and API36 regression, and retain the affected Mixer screenshot matrix. `[run ci signed]` is permitted only after that exact visual candidate has passed its digital gate and screenshot review.
+The current deterministic chain closes RC26's post-sign documentation with `scripts/materialize_ci_sources_rc26b.py`, applies RC27 through `scripts/materialize_ci_sources_rc27.py`, then applies the test/evidence-only RC27a stage. Prior source payloads are immutable. CI #952 proved RC27 software/API36 behavior but produced an unusable complete-mode tablet screenshot while loading was still painted. RC27a therefore re-runs the same Android gate with stronger visual-capture readiness; `[run ci signed]` remains blocked until complete and minimum screenshots are both reviewable.
 
 Because RC27 changes only Compose presentation/tests/docs, U4/U7/Drive/provider-real campaigns are not reopened. Existing routing, recording, Demucs and backup evidence remains applicable unless a later source change touches those paths.
 
@@ -138,3 +138,7 @@ RC26 terminal runtime stage is `scripts/materialize_ci_sources_rc26a.py`. Androi
 ## Active RC27 Mixer visual-hierarchy qualification
 
 RC27 follows a documentation-closure stage (`materialize_ci_sources_rc26b.py`) so the chain reproduces the signed RC26 ledger before applying new runtime changes. RC27 changes `MixerDock`, focused Mixer/tablet tests, in-app guide, version identity and all affected live UI/qualification documentation. The required first gate is `[run ci]`; complete/minimum five-channel screenshots are part of the qualification evidence. No result or signed identity is predeclared.
+
+## RC27a visual-evidence correction
+
+CI #952 / run `37034736534` passed software and API36 on RC27 source `720ace0c76de20205ca6adde53d145fe4d867c8d`. Visual review accepted the minimum-mode/card screenshots but rejected the complete-mode target-tablet artifact because it showed the loading spinner. RC27a does not change runtime UI; it strengthens `StudioMixerTabletInstrumentedTest` so capture is gated by `StudioViewModel.loading == false`, representative waveform/Mixer visibility and Compose/window idle. A fresh `[run ci]` is required before signing.

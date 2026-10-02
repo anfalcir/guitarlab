@@ -74,9 +74,10 @@ class StudioMixerTabletInstrumentedTest {
                 ViewModelProvider(activity)[AppNavigationViewModel::class.java].navigate(AppScreen.Studio(project.id))
             }
             compose.waitUntil(20_000) {
-                studio.state.value.project?.id == project.id && project.clips.all {
-                    studio.state.value.waveforms[it.id]?.isNotEmpty() == true
-                } && runCatching { compose.onNodeWithTag("studio-loaded").assertIsDisplayed() }.isSuccess
+                !studio.state.value.loading &&
+                    studio.state.value.project?.id == project.id &&
+                    project.clips.all { studio.state.value.waveforms[it.id]?.isNotEmpty() == true } &&
+                    runCatching { compose.onNodeWithTag("studio-loaded").assertIsDisplayed() }.isSuccess
             }
             // A restored Studio composition may retain workspace preferences from a prior entry;
             // use the actual controls to normalize this test's explicitly requested dock state.
@@ -86,6 +87,11 @@ class StudioMixerTabletInstrumentedTest {
             val mode = compose.onNodeWithTag("studio-mixer-mode")
             if (mode.fetchSemanticsNode().config[SemanticsProperties.StateDescription] != "Completo") mode.performClick()
             compose.waitForIdle()
+            compose.waitUntil(10_000) {
+                !studio.state.value.loading &&
+                    runCatching { compose.onNodeWithTag("mixer-master-strip").assertIsDisplayed() }.isSuccess &&
+                    runCatching { compose.onNodeWithTag("track-waveform-area-${project.tracks[2].id}").assertIsDisplayed() }.isSuccess
+            }
             val scroller = compose.onNodeWithTag("mixer-track-scroll").fetchSemanticsNode().boundsInRoot
             project.tracks.forEach { track ->
                 val bounds = compose.onNodeWithTag("mixer-track-strip-${track.id}").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
@@ -93,8 +99,11 @@ class StudioMixerTabletInstrumentedTest {
             }
             val master = compose.onNodeWithTag("mixer-master-strip").fetchSemanticsNode().boundsInRoot
             assertTrue("Master must own a separate non-overlapping column", master.left >= scroller.right)
-            // Compose semantics can precede the actual SurfaceFlinger frame during load/toggle.
-            // Wait for accessibility/window quiescence before full-display artifact capture.
+            // Semantics may become available before the loading branch has painted its final frame.
+            // Require the real loaded state and representative waveform/Mixer nodes before capture,
+            // then wait for both Compose and window quiescence.
+            compose.waitForIdle()
+            InstrumentationRegistry.getInstrumentation().waitForIdleSync()
             UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).waitForIdle()
             compose.captureCohesionScreenshot("rc27-studio-five-audio-channels-complete")
             val navbar = compose.onNodeWithTag("studio-workspace-bar").fetchSemanticsNode().boundsInRoot
