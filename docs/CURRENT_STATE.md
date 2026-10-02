@@ -4,9 +4,25 @@ Updated: 2026-10-01
 
 ## Status
 
-**RC26 STUDIO MIXER / LEVELS UI — SOURCE CANDIDATE; DIGITAL QUALIFICATION PENDING**
+**RC26 STUDIO MIXER / LEVELS UI — SIGNED DIGITAL PASS; PHYSICAL VALIDATION PENDING**
 
-RC25 is canonically signed and digitally qualified. Android CI **#947 / run 36936451831** on source **a17b5f63dbb394bc257c3b6d33fb079205014559** produced the verified `0.5.0-rc25` / 45 homologation APK after the full software and API36 gates. RC26 is the owner-requested Studio presentation successor: Níveis moves to a third navbar button, PK/RMS gain the full useful strip width, and Master receives a wide volume control with its readout below. RC20 remains the physically accepted frozen baseline; RC26 has no qualification claim before its new gate passes.
+RC26 is digitally qualified and canonically signed. Android CI **#950 / run 36944380748** passed software, Lint, build and API36 regression on source **148d7aacfe2793b2d4d10305940d838654ec83d9**. The signing trigger **df5791c2e4984a7fbdf4141df460be20e151bcf8** preserves the exact same Git tree and Android CI **#951 / run 36946189701** requalified that tree, verified unsigned provenance, signed the exact tested artifact and verified certificate/package/version. RC20 remains the physically accepted frozen baseline until owner validation of the RC26 APK.
+
+## Exact signed RC26 identity
+
+- producer/signing SHA: `df5791c2e4984a7fbdf4141df460be20e151bcf8`;
+- qualification source with identical Git tree: `148d7aacfe2793b2d4d10305940d838654ec83d9`;
+- software/API36 authority: Android CI **#950 / run `36944380748`**;
+- signed authority: Android CI **#951 / run `36946189701`** — https://github.com/anfalcir/guitarlab/actions/runs/36946189701;
+- package: `studio.guitarlab.app`;
+- versionName: `0.5.0-rc26`; versionCode: `46`;
+- delivered filename: `GuitarLabStudio-0.5.0-rc26-homologacao.apk`;
+- unsigned APK SHA-256: `3abc796c6a52e8f66b1bc283600fa7bce4d92dc0b4a783c6ca313fafcc2ec69b`;
+- signed APK SHA-256: `a096cc3f0aa31c07bb6c937fed7fa3da086a0a9568b1e51f8e357f4172650e97`;
+- signed artifact ZIP SHA-256: `75e151eac0b1562428df6781a7e7dd6d78d8d2b32e39a574c8dd3f00bc3edd4d`;
+- signer certificate SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`;
+- gate recorded by the artifact: `software+android-integration-passed;physical-validation-pending`;
+- this signed identity is frozen to the producer above; later documentation-only commits do not redefine the APK producer.
 
 ## Exact signed RC25 identity
 
@@ -57,11 +73,19 @@ RC25 is canonically signed and digitally qualified. Android CI **#947 / run 3693
 - CI #949 / run `36943179605` passed Diff sanity, materialization, identity validation and unit tests. Lint then found one RC26-local error: the Master slider used `BoxWithConstraints` without consuming its scope. API36 independently reached `MixerDockInstrumentedTest`; its new full-width-meter assertion queried a merged semantics tree even though the tagged meter node exists in the unmerged tree.
 - RC26a removes the unnecessary constrained scope and makes the geometry assertions explicitly query the unmerged semantics nodes. Product geometry and behavior are unchanged.
 
+## Final RC26 digital qualification
+
+- CI #950 / run `36944380748`: **PASS** — Diff sanity, deterministic materialization, identity, Unit Tests, Android Lint, APK build and API36 instrumented regression all passed;
+- owner-requested Mixer/navbar screenshots from #950 were reviewed and matched the approved RC26 layout contract;
+- signing trigger `df5791c2e4984a7fbdf4141df460be20e151bcf8` is an empty-tree-equivalent release commit over the exact #950 code tree;
+- CI #951 / run `36946189701`: **PASS** — software, API36 and signed homologation all passed; unsigned provenance, package/version, zipalign/signature and locked certificate checks passed;
+- canonical signed RC26 artifact is now available for owner physical validation.
+
 ## Next action
 
-Run the exact RC26a source through the controlled `[run ci]` software + API36 gate. Do not declare RC26 digitally qualified, signed or physically accepted before that gate succeeds.
+Install `GuitarLabStudio-0.5.0-rc26-homologacao.apk` on the target tablet and perform physical validation of the changed Studio surface plus the intended audio-output/CUE path. RC20 remains the promoted physical baseline until that acceptance is explicitly recorded.
 
-No backend, Demucs, backup or MAIN/CUE algorithm is reopened by this presentation-only correction.
+No backend, Demucs, backup or MAIN/CUE algorithm was reopened by this presentation-only correction.
 
 ## Predecessors
 

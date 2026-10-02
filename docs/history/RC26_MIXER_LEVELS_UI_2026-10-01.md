@@ -1,7 +1,7 @@
 # RC26 — Studio Mixer / Níveis presentation refinement
 
 Date: 2026-10-01
-Status: RC26a SOURCE PRE-GATE
+Status: SIGNED DIGITAL PASS; PHYSICAL VALIDATION PENDING
 
 ## Owner-approved contract
 
@@ -45,3 +45,16 @@ The exact source must pass the normal `[run ci]` software + API36 gate before an
 - RC26a replaces only that unnecessary `BoxWithConstraints` with `Box` and makes the new geometry probes use `useUnmergedTree = true`. No layout dimension, control behavior, meter math, audio path or product contract changes.
 
 The next gate must therefore re-run both Lint and API36 rather than treating either #948 or #949 as a qualification result.
+
+## Final digital authority
+
+- CI #950 / run `36944380748`: software + API36 PASS on `148d7aacfe2793b2d4d10305940d838654ec83d9`.
+- The reviewed API36 captures showed the approved three-button navbar, full-width metering and revised Master presentation.
+- Release trigger `df5791c2e4984a7fbdf4141df460be20e151bcf8` preserves the same Git tree as #950.
+- CI #951 / run `36946189701`: software + API36 + signing PASS.
+- signed artifact: `GuitarLabStudio-0.5.0-rc26-homologacao.apk`;
+- signed APK SHA-256: `a096cc3f0aa31c07bb6c937fed7fa3da086a0a9568b1e51f8e357f4172650e97`;
+- unsigned APK SHA-256: `3abc796c6a52e8f66b1bc283600fa7bce4d92dc0b4a783c6ca313fafcc2ec69b`;
+- certificate SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`;
+- package/version: `studio.guitarlab.app`, `0.5.0-rc26` / `46`;
+- physical validation remains pending and is not implied by the digital/signing PASS.
