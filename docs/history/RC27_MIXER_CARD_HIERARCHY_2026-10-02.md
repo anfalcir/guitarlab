@@ -1,7 +1,7 @@
 # RC27 — Mixer card visual hierarchy
 
 Date: 2026-10-02
-Status: RC27b CLIP-VISUAL CORRECTION PRE-GATE
+Status: RC27c CLIP-EDGE-ANCHOR PRE-GATE
 
 ## Trigger and owner-approved target
 
@@ -80,3 +80,9 @@ RC27a is test/evidence-only. It adds an explicit `!studio.state.value.loading` w
 Android CI #953 / run `37037749921` on RC27a source `b0e439d25a64ad8563228efd69515c779f41f25b` passed materialization, Unit Tests, Android Lint, build and API36. The regenerated complete and minimum target-tablet screenshots are no longer loading frames and visibly match the approved centered-header/soft-segmentation design.
 
 Focused clipping and large-font captures exposed a remaining transient visual defect not visible in the normal tablet screenshots: the 38×24 dp textual `CLIP` face can overlap the centered identity text, especially `MASTER`. RC27b therefore keeps the 48×48 dp clickable/reset semantics but changes its visible face to a compact 28×24 dp warning icon badge. New geometry assertions require the visible track and Master clipping badges not to overlap their centered title bounds. No audio/meter/reset logic changes.
+
+## Qualification attempt #954 and RC27c correction
+
+Android CI #954 / run `37040291049` on RC27b source `dee3321a4387841fa77127a1879ab9d1b1969f6c` passed deterministic materialization, Unit Tests, Android Lint and APK build. API36 failed in `MixerDockInstrumentedTest` on the newly added assertion `Master CLIP indicator must not cover MASTER`.
+
+This was not an unrelated emulator failure: the regression correctly demonstrated that a 28×24 dp visible warning face still overlaps `MASTER` when centered inside its 48×48 dp clickable target. RC27c preserves the target and face dimensions but aligns the visible face to `Alignment.CenterEnd`, pushing it to the outer/right edge and away from the centered title. Existing non-overlap assertions remain blocking.

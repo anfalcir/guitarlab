@@ -509,7 +509,7 @@ private fun MixerClipButton(
     Box(
         Modifier.size(48.dp).clickable(role = Role.Button, onClick = onClick)
             .semantics { this.contentDescription = contentDescription },
-        contentAlignment = Alignment.Center,
+        contentAlignment = Alignment.CenterEnd,
     ) {
         Surface(
             modifier = Modifier.size(width = 28.dp, height = 24.dp).testTag(indicatorTag),

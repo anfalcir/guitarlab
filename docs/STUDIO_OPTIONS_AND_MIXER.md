@@ -66,3 +66,7 @@ Os sliders compactos reservam 48dp de altura interativa, com thumb visual de 6×
 ## RC27b clipping affordance
 
 Clipping reset remains a header action so PK/RMS keep the full-width RC26/RC27 meter contract. Its semantic/click target remains 48×48 dp with the same `Limpar clipping…` description and callback. Only the visible face is compacted to a 28×24 dp warning badge, preventing centered track/Master identity text from colliding with the transient clipping affordance at normal and large font scales.
+
+## RC27c clipping badge placement
+
+The clear-clipping action retains its 48×48 dp semantic/touch target and 28×24 dp visible warning face. The face is aligned to the outer/right edge of that target rather than centered inside it, preventing the transient warning from intruding into the centered identity region. This is purely visual placement; reset behavior and accessible target size are unchanged.

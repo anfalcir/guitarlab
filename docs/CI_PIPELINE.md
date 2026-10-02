@@ -7,7 +7,7 @@ This document describes current execution controls. Historical tail hashes, run 
 ## Source materialization
 
 - canonical entrypoint: `scripts/materialize_ci_sources.sh`;
-- current candidate tail: RC27b clipping-visual correction via `scripts/materialize_ci_sources_rc27b.py`, chained after RC27a/RC27 and immutable RC26 predecessors;
+- current candidate tail: RC27c clipping edge-anchor correction via `scripts/materialize_ci_sources_rc27c.py`, chained after RC27b/RC27a/RC27 and immutable RC26 predecessors;
 - protected deltas: `.source-parts/`;
 - required properties: deterministic, hash/blob locked, idempotent, semantic guards, reverse-apply validation and fail-closed drift handling.
 
@@ -113,7 +113,7 @@ Run IDs and current status belong in `CURRENT_STATE.md`, not here.
 
 The accepted baseline remains RC20 until exact signed successor physical acceptance. RC26 is retained as signed digital authority (`0.5.0-rc26` / `46`, Android CI #950/#951) but was not promoted before RC27 was requested. RC27 `0.5.0-rc27` / `47` is the active Android-only presentation candidate.
 
-The current deterministic chain closes RC26's post-sign documentation with `scripts/materialize_ci_sources_rc26b.py`, applies RC27 through `scripts/materialize_ci_sources_rc27.py`, applies RC27a loaded-frame evidence synchronization, then RC27b compact clipping-badge correction. Prior source payloads are immutable. CI #953 proved the loaded complete/minimum evidence; signing remains blocked only on RC27b's focused clipping/title non-overlap gate.
+The current deterministic chain closes RC26's post-sign documentation with `scripts/materialize_ci_sources_rc26b.py`, applies RC27, RC27a loaded-frame evidence synchronization, RC27b compact clipping-badge correction, then RC27c edge anchoring. Prior source payloads are immutable. CI #953 proved loaded complete/minimum evidence; CI #954 proved the compact face still overlapped Master when centered in its target. Signing remains blocked on RC27c's focused clipping/title non-overlap gate.
 
 Because RC27 changes only Compose presentation/tests/docs, U4/U7/Drive/provider-real campaigns are not reopened. Existing routing, recording, Demucs and backup evidence remains applicable unless a later source change touches those paths.
 
@@ -146,3 +146,7 @@ CI #952 / run `37034736534` passed software and API36 on RC27 source `720ace0c76
 ## RC27b focused clipping visual correction
 
 CI #953 / run `37037749921` passed RC27a software/API36 and produced valid complete/minimum target-tablet captures. Focused clipping/large-font review showed the textual CLIP face can cover centered header identity. RC27b changes only the visible clipping face to a compact warning badge while preserving its 48 dp action target/callback and full-width meters. A fresh `[run ci]` plus focused screenshot review is required before signing.
+
+## RC27c focused clipping placement correction
+
+CI #954 / run `37040291049` passed Unit/Lint/build and failed API36 only on the new `Master CLIP indicator must not cover MASTER` assertion. RC27c does not alter size or behavior: it moves the 28×24 dp warning face from the center of its unchanged 48×48 dp action target to the target's outer/right edge. A new `[run ci]` must pass the same non-overlap and clear-clipping interaction before signing.

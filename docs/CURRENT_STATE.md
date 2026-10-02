@@ -4,9 +4,9 @@ Updated: 2026-10-02
 
 ## Status
 
-**RC27b MIXER CARD HIERARCHY — COMPLETE/MINIMUM PASS; CLIP COLLISION CORRECTION PENDING**
+**RC27c MIXER CARD HIERARCHY — CLIP EDGE-ANCHOR CORRECTION PENDING**
 
-RC26 remains the latest canonically signed digital authority. RC27 implements the owner-approved Mixer card hierarchy. Android CI **#953 / run 37037749921** passed deterministic materialization, Unit Tests, Android Lint, build and API36 regression on RC27a source **b0e439d25a64ad8563228efd69515c779f41f25b**. The refreshed complete and minimum target-tablet captures are loaded, reviewable and match the approved card segmentation. Focused clipping/large-font review then exposed one remaining visual collision: the 38×24 dp textual `CLIP` face can cover the centered Master/title region. RC27b keeps the 48×48 dp action target and callback but replaces only the visible face with a compact 28×24 dp warning badge and adds non-overlap regression. Signing remains blocked until that correction passes. RC20 remains the physically accepted frozen baseline.
+RC26 remains the latest canonically signed digital authority. RC27 implements the owner-approved Mixer card hierarchy. CI **#953 / run 37037749921** remains the loaded complete/minimum visual PASS baseline for RC27a. CI **#954 / run 37040291049** passed deterministic materialization, Unit Tests, Android Lint and build on RC27b source **dee3321a4387841fa77127a1879ab9d1b1969f6c**, but API36 correctly failed the new geometry assertion `Master CLIP indicator must not cover MASTER`: the compact 28×24 dp warning face was still centered inside its 48×48 dp target. RC27c keeps both sizes unchanged and moves only the visible face to the target's outer/right edge. Signing remains blocked until the focused API36 gate passes. RC20 remains the physically accepted frozen baseline.
 
 ## Exact signed RC26 identity
 
@@ -83,7 +83,7 @@ RC26 remains the latest canonically signed digital authority. RC27 implements th
 - 200 dp track width, 144 dp Master width, 252/172 dp dock heights, 48 dp targets, 46 dp faces, full-width PK/RMS, wide Master volume and large-font growth remain unchanged;
 - audio, routing, persistence, level-analysis, export and MAIN/CUE behavior are unchanged;
 - focused tests assert centered header groups, full-width/non-overlapping section geometry, existing control/touch behavior and target-tablet five-channel fit;
-- deterministic tail advances to `scripts/materialize_ci_sources_rc27b.py`; RC27a/RC27/RC26 payloads remain immutable.
+- deterministic tail advances to `scripts/materialize_ci_sources_rc27c.py`; RC27b/RC27a/RC27/RC26 payloads remain immutable.
 
 ## RC27 qualification attempt
 
@@ -98,9 +98,15 @@ RC26 remains the latest canonically signed digital authority. RC27 implements th
 - refreshed complete and minimum target-tablet screenshots are loaded and reviewable; the approved centered-header/soft-segmentation layout is present in both;
 - focused clipping/large-font screenshots revealed a separate transient-title collision: the textual `CLIP` face can cover the centered title, most visibly on Master.
 
-## RC27b next action
+## RC27b qualification result
 
-Run the exact RC27b source through `[run ci]`. The candidate must preserve the #953 complete/minimum layout while proving the compact visible clipping badge does not overlap track/Master titles and the 48 dp clear-clipping target still works. Inspect focused clipping/large-font screenshots before any signed trigger.
+- CI #954 / run `37040291049`: Unit Tests, Lint and APK build **PASS**;
+- API36 reached `MixerDockInstrumentedTest` and **failed only** the new assertion `Master CLIP indicator must not cover MASTER`;
+- the failure confirms the compact face size is correct but its centered placement within the 48 dp action target still intrudes into `MASTER`.
+
+## RC27c next action
+
+Run exact RC27c through `[run ci]`. The visible 28×24 dp warning face is now outer-edge anchored inside the unchanged 48×48 dp target. API36 must prove track/Master non-overlap and existing clear-clipping interaction, then focused clipping/large-font screenshots must be reviewed before signing.
 
 ## Final RC26 digital qualification
 

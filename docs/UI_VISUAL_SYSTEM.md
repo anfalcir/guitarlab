@@ -207,3 +207,7 @@ Qualification must assert centered header geometry, full-width/non-overlapping s
 ## RC27b transient CLIP badge
 
 Post-#953 visual review found one remaining hierarchy collision outside the normal complete/minimum tablet frames: the textual `CLIP` face could overlap a centered track/Master title, especially on Master and large-font focused captures. RC27b preserves the existing 48×48 dp clear-clipping target, callback and semantics but changes only its visible face to a compact 28×24 dp warning badge. Track/Master titles remain geometrically centered and the visible warning badge is regression-tested not to overlap them. Meter width, card width/height and audio semantics remain unchanged.
+
+## RC27c CLIP face edge anchoring
+
+CI #954 proved the compact face size alone was insufficient on Master: the 28×24 dp warning face was still centered inside its 48×48 dp action target and therefore overlapped the geometrically centered `MASTER` title. RC27c preserves both the 48×48 dp target and 28×24 dp visible face, but anchors the visible face at the outer/right edge of the target. This maximizes separation from centered identity text without changing callback, semantics, hit area, card geometry or meter width.

@@ -536,3 +536,13 @@ A seleção secundária é validada imediatamente em Opções: mostra “Verific
 - the visible badge must not overlap the centered track identity group or centered `MASTER` title;
 - the action remains in the header so PK/RMS continue using full useful width;
 - this is presentation-only and does not alter meter latch/reset logic, persistence, routing or audio.
+
+## D-105 — Visible clipping warning is edge-anchored inside the 48 dp action target
+
+2026-10-02. CI #954 showed a 28×24 dp warning face could still overlap `MASTER` when centered inside the 48×48 dp clipping action target.
+
+- the clear-clipping target remains 48×48 dp with identical semantics/callback;
+- the visible warning face remains 28×24 dp;
+- the face is anchored to the outer/right edge of the target, maximizing separation from centered identity text;
+- track/Master visible warning faces must not overlap their centered title bounds;
+- no meter, layout-budget, routing, persistence or audio behavior changes.
