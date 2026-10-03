@@ -70,3 +70,10 @@ Clipping reset remains a header action so PK/RMS keep the full-width RC26/RC27 m
 ## RC27c clipping badge placement
 
 The clear-clipping action retains its 48×48 dp semantic/touch target and 28×24 dp visible warning face. The face is aligned to the outer/right edge of that target rather than centered inside it, preventing the transient warning from intruding into the centered identity region. This is purely visual placement; reset behavior and accessible target size are unchanged.
+
+
+## RC28 CUE physical-route identity
+
+The selector and verifier now use the same physical-route abstraction. Android numeric device ids remain transient logical endpoint ids, not persisted or treated as physical identity. On API 36 the verifier inspects the complete `AudioTrack.routedDevices` set: several logical endpoints are accepted only when every one canonicalizes to the explicitly selected physical destination. This covers legitimate MK-300 USB endpoint aliases without weakening isolation.
+
+CUE still fails closed when route evidence is absent, MAIN and CUE canonicalize to the same physical destination, either stream is mirrored to an additional physical destination, clocks do not stabilize, initial presentation offset exceeds 12 ms, or runtime drift/backpressure guards fail. Selection-time verification and Play use the same physical-route rule so a route cannot pass Settings and then be rejected merely because Android reports a sibling logical endpoint during playback.
