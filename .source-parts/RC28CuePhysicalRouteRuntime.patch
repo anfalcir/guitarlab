@@ -2791,7 +2791,7 @@ diff --git a/platform/audio-android/src/main/kotlin/studio/guitarlab/platform/au
 new file mode 100644
 --- /dev/null
 +++ b/platform/audio-android/src/main/kotlin/studio/guitarlab/platform/audio/android/AndroidOutputRouteIdentity.kt
-@@ -0,0 +1,84 @@
+@@ -0,0 +1,86 @@
 +package studio.guitarlab.platform.audio.android
 +
 +import android.media.AudioDeviceInfo
@@ -2853,6 +2853,8 @@ new file mode 100644
 +            type in USB_TYPES -> "usb|$product|${usbPhysicalAddress(address)}"
 +            type == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER ||
 +                type == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER_SAFE -> "builtin-speaker|$product"
++            type == AudioDeviceInfo.TYPE_WIRED_HEADSET ||
++                type == AudioDeviceInfo.TYPE_WIRED_HEADPHONES -> "wired-jack|$product|${normalize(address)}"
 +            else -> "raw|$type|$product|${normalize(address)}"
 +        }
 +    }
@@ -2912,10 +2914,10 @@ new file mode 100644
 +    }
 +
 +    @Test
-+    fun rawWiredEndpointTypesRemainDistinct() {
++    fun headsetAndHeadphonesModesShareTheSamePhysicalJack() {
 +        val headset = AndroidOutputRouteIdentity.physicalKey(3, "Wired", "")
 +        val headphones = AndroidOutputRouteIdentity.physicalKey(4, "Wired", "")
-+        assertNotEquals(headset, headphones)
++        assertEquals(headset, headphones)
 +    }
 +
 +    @Test
