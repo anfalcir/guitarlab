@@ -17,6 +17,7 @@ import studio.guitarlab.app.ui.StudioAudioRoutingStore
 import studio.guitarlab.core.project.FileProjectRepository
 import studio.guitarlab.core.project.PreparedReferenceBindingPolicy
 import studio.guitarlab.platform.separation.FileRemoteJobStore
+import studio.guitarlab.platform.audio.android.AndroidCueRouteVerifier
 
 data class DiagnosticBundleResult(
     val entryNames: List<String>,
@@ -77,6 +78,7 @@ class DiagnosticBundleExporter(private val context: Context) {
             .put("effectiveInput", routeHealth.effectiveInput?.let { "${it.transportFamily}:${it.label}" })
             .put("effectiveOutput", routeHealth.effectiveOutput?.let { "${it.transportFamily}:${it.label}" })
             .put("effectiveCueOutput", routeHealth.effectiveCueOutput?.let { "${it.transportFamily}:${it.label}" })
+            .put("lastCuePreflight", AndroidCueRouteVerifier.lastPreflightDiagnostic())
             .toString(2).toByteArray()
 
         entries["activity.json"] = JSONArray().also { array ->
