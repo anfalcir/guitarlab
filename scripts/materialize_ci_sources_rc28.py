@@ -7,9 +7,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 PREVIOUS = ROOT / "scripts/materialize_ci_sources_rc27d.py"
 PATCHES = [
-    (".source-parts/RC28CuePhysicalRouteRuntime.patch", "e87f0da514c7fc21a18d1f4c828d6889fba6d964"),
+    (".source-parts/RC28CuePhysicalRouteRuntime.patch", "f9c81c9558384654bf803e7341b8694fab5280f7"),
     (".source-parts/RC28CuePhysicalRouteOperationalDocs.patch", "246b19b0badd90d606d0068031370d13eced9399"),
-    (".source-parts/RC28CuePhysicalRouteDomainDocs.patch", "a7a095d223b7be7d8ccabc770b2433dc868ff67d"),
+    (".source-parts/RC28CuePhysicalRouteDomainDocs.patch", "2369a813afb011871c79c6d64f6a1ad771caed63"),
 ]
 TARGETS = {
     "app/build.gradle.kts": ("95c1c2da9bcdf2d653dbc676ec69aa2f5007a60b", "055047c598ba87ed7b01c7801c5bf35cadbdaae4"),
@@ -22,12 +22,12 @@ TARGETS = {
     "docs/DOCUMENTATION_MAP.md": ("13a0adef35b1c21350c1d72c4f7a7df58da2232e", "50b6310b1c6aae7169bb6882144d9d41e79a3613"),
     "docs/STUDIO_OPTIONS_AND_MIXER.md": ("f1296d9c7d2dcf0b07d7fd85746e082dcc20b496", "96cf674eb27fcb45a60fbea27d0f2ffb4b28987d"),
     "docs/TEST_AND_HOMOLOGATION_POLICY.md": ("198fb4238dd0aba579cf007a0e27dbd56c23ddf9", "853c78dab952fddf66977004cd46590d3db606b5"),
-    "docs/DECISIONS.md": ("53720dc1bd6b46ffdb520d2ae5f12bab10a190a2", "f7f15c790b9e7302bc4b196d75eca2caff5c92a0"),
+    "docs/DECISIONS.md": ("53720dc1bd6b46ffdb520d2ae5f12bab10a190a2", "f03e89c98a9ff4d6b434809da5eafe6211fcd84f"),
 }
 NEW_TARGETS = {
-    "platform/audio-android/src/main/kotlin/studio/guitarlab/platform/audio/android/AndroidOutputRouteIdentity.kt": "45705408e577b6a679aa32f2babd1f859a6783ef",
-    "platform/audio-android/src/test/kotlin/studio/guitarlab/platform/audio/android/AndroidOutputRouteIdentityTest.kt": "1a687d1c4d9517b3df4d8332e84bbdaa746eeab5",
-    "docs/history/RC28_CUE_PHYSICAL_ROUTE_IDENTITY_2026-10-03.md": "811aa7d1eb11f0bc782c3dc1db6e2e6b93ce08a7",
+    "platform/audio-android/src/main/kotlin/studio/guitarlab/platform/audio/android/AndroidOutputRouteIdentity.kt": "000f50c2d875487ab42e805305ff8142c1419473",
+    "platform/audio-android/src/test/kotlin/studio/guitarlab/platform/audio/android/AndroidOutputRouteIdentityTest.kt": "1c17e57a57a8bb56bd7f5a96b5637fdad9b67607",
+    "docs/history/RC28_CUE_PHYSICAL_ROUTE_IDENTITY_2026-10-03.md": "bfd0145a3ecd18785961c00faaadb7cf4e7b40b1",
 }
 
 def run(*args: str) -> None:
@@ -72,7 +72,7 @@ def verify() -> None:
         "routesOnlyToExpected",
         "pairRemainsDistinct",
         "usbPhysicalAddress",
-        '"wired-jack|$product|${normalize(address)}"',
+        '"wired-jack|${normalize(address)}"',
     ]:
         if token not in identity:
             raise SystemExit(f"RC28 physical-route guard failed: {token}")
