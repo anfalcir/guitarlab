@@ -679,13 +679,11 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
     ): Boolean {
         val expectedMain = request.preferredOutputDevice ?: return false
         val expectedCue = request.preferredCueOutputDevice ?: return false
-        val mainRouted = mainTrack.routedDevice ?: return false
-        val cueRouted = cueTrack.routedDevice ?: return false
-        return CueRouteSafetyPolicy.routedPairMatches(
-            expectedMainDeviceId = expectedMain.id,
-            expectedCueDeviceId = expectedCue.id,
-            actualMainDeviceId = mainRouted.id,
-            actualCueDeviceId = cueRouted.id,
+        return AndroidOutputRouteIdentity.pairRemainsDistinct(
+            mainTrack = mainTrack,
+            cueTrack = cueTrack,
+            expectedMain = expectedMain,
+            expectedCue = expectedCue,
         )
     }
 
