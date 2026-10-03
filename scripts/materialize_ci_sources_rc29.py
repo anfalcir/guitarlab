@@ -8,7 +8,7 @@ ROOT = Path(__file__).resolve().parents[1]
 PREVIOUS = ROOT / "scripts/materialize_ci_sources_rc28a.py"
 PATCHES = [
     (".source-parts/RC29CueRouteSettlementRuntime.patch", "388992c289dcdc9be0427a9dba15d3c6fe4d384c"),
-    (".source-parts/RC29CueRouteSettlementDocs.patch", "faf92d4b55027422ee127585d137fef8c4bf867f"),
+    (".source-parts/RC29CueRouteSettlementDocs.patch", "27217152dbef7cf2279cf9f91ff67c546d63f4b1"),
 ]
 TARGETS = {
     "app/build.gradle.kts": ("055047c598ba87ed7b01c7801c5bf35cadbdaae4", "9a7b09fb97418550f98ecd2f290e98b266c316a0"),
@@ -17,7 +17,7 @@ TARGETS = {
     "platform/audio-android/src/main/kotlin/studio/guitarlab/platform/audio/android/AndroidCueRouteVerifier.kt": ("5be3d82b236065916722f3a4c1775d5066568083", "fc12d8854193d44c4786390d95385f497a3a85d4"),
     "app/src/main/java/studio/guitarlab/app/diagnostics/DiagnosticBundleExporter.kt": ("74c17436f3f7b7fc168abcf27679cdffebd334e9", "2eca21deb42937d955a45c0d1ed3476d728be60d"),
     "README.md": ("6c5896ee3565ecd309cd679f44d7d37f76baaa97", "2e3d10861626a8cdc0c129e49f7dfca77a1e4e42"),
-    "docs/CURRENT_STATE.md": ("7abad7cf2e71243386d37c6e2ecc03626d24453b", "829ef066062a297f6b9856064d3b23b71591056a"),
+    "docs/CURRENT_STATE.md": ("7abad7cf2e71243386d37c6e2ecc03626d24453b", "7c2139dc759789dee28d0cf7cd26a5e5bd14c86d"),
     "docs/CI_PIPELINE.md": ("da6e59c1a0d17dc253c8c2c343c40e53a0069972", "2fc4a2efdeadf49859c6a538483e0f759a53d5eb"),
     "docs/DECISIONS.md": ("f03e89c98a9ff4d6b434809da5eafe6211fcd84f", "8c4780b445281596a95a8a1367235a274ef81373"),
 }
