@@ -11,9 +11,12 @@ enum class CueStartupFailure { CANCELLED, WRITE_FAILED, ROUTE_UNCONFIRMED, ROUTE
 
 /** Interleaved bounded warmup: both sinks remain fed while independent timestamps advance. */
 object CueStartupProbe {
-    const val TIMEOUT_NS = 1_500_000_000L
+    const val ROUTE_SETTLE_TIMEOUT_NS = 5_000_000_000L
+    const val CLOCK_QUALIFICATION_TIMEOUT_NS = 2_000_000_000L
+    const val TIMEOUT_NS = ROUTE_SETTLE_TIMEOUT_NS + CLOCK_QUALIFICATION_TIMEOUT_NS
     private const val POLL_MS = 8L
     private const val MAX_OBSERVATIONS = 12
+    private const val ROUTE_STABLE_POLLS = 4
 
     fun verify(
         main: CueProbeOutput, cue: CueProbeOutput,
@@ -22,7 +25,8 @@ object CueStartupProbe {
     ): CueStartupFailure? {
         require(sampleRateHz > 0 && expectedMainId != expectedCueId)
         val started = nowNs()
-        var routesConfirmed = false
+        var routeQualifiedAtNs: Long? = null
+        var stableRoutePolls = 0
         val mainClock = ArrayList<AudioClockObservation>()
         val cueClock = ArrayList<AudioClockObservation>()
         fun collect(target: MutableList<AudioClockObservation>, sample: AudioClockObservation?): Boolean {
@@ -36,15 +40,28 @@ object CueStartupProbe {
             if (target.size > MAX_OBSERVATIONS) target.removeAt(0)
             return true
         }
-        while (nowNs() - started < TIMEOUT_NS) {
+        while (true) {
             if (!keepRunning()) return CueStartupFailure.CANCELLED
             // Zero/partial writes are normal during startup. Retry next poll, never block either sink.
             if (main.feedSilence() < 0 || cue.feedSilence() < 0) return CueStartupFailure.WRITE_FAILED
+            val now = nowNs()
             val distinct = CueRouteSafetyPolicy.routedPairMatches(expectedMainId, expectedCueId,
                 main.routedDeviceId(), cue.routedDeviceId())
-            if (!distinct && routesConfirmed) return CueStartupFailure.ROUTE_CHANGED
-            if (distinct) {
-                routesConfirmed = true
+            val qualifiedAt = routeQualifiedAtNs
+            if (qualifiedAt == null) {
+                // Android/OEM routing may settle asynchronously after play(). Transient convergence
+                // during this bounded phase is not accepted, but it is not treated as a runtime
+                // route loss until the pair has first been stable for several consecutive polls.
+                stableRoutePolls = if (distinct) stableRoutePolls + 1 else 0
+                if (stableRoutePolls >= ROUTE_STABLE_POLLS) {
+                    routeQualifiedAtNs = now
+                    mainClock.clear()
+                    cueClock.clear()
+                } else if (now - started >= ROUTE_SETTLE_TIMEOUT_NS) {
+                    return CueStartupFailure.ROUTE_UNCONFIRMED
+                }
+            } else {
+                if (!distinct) return CueStartupFailure.ROUTE_CHANGED
                 if (!collect(mainClock, main.clockObservation()) || !collect(cueClock, cue.clockObservation())) {
                     return CueStartupFailure.CLOCK_UNSTABLE
                 }
@@ -54,9 +71,11 @@ object CueStartupProbe {
                     return if (CueRouteSafetyPolicy.initialOffsetWithinLimit(mainAnchor.streamOriginMonotonicNs,
                             cueAnchor.streamOriginMonotonicNs)) null else CueStartupFailure.OFFSET_EXCEEDED
                 }
+                if (now - qualifiedAt >= CLOCK_QUALIFICATION_TIMEOUT_NS) {
+                    return CueStartupFailure.CLOCK_UNSTABLE
+                }
             }
             sleepMs(POLL_MS)
         }
-        return if (routesConfirmed) CueStartupFailure.CLOCK_UNSTABLE else CueStartupFailure.ROUTE_UNCONFIRMED
     }
 }
