@@ -1,0 +1,239 @@
+diff --git a/app/build.gradle.kts b/app/build.gradle.kts
+--- a/app/build.gradle.kts
++++ b/app/build.gradle.kts
+@@ -11,8 +11,8 @@
+         applicationId = "studio.guitarlab.app"
+         minSdk = 26
+         targetSdk = 36
+-        versionCode = 48
+-        versionName = "0.5.0-rc28"
++        versionCode = 49
++        versionName = "0.5.0-rc29"
+         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+     }
+ 
+diff --git a/core/audio/src/main/kotlin/studio/guitarlab/core/audio/CueStartupProbe.kt b/core/audio/src/main/kotlin/studio/guitarlab/core/audio/CueStartupProbe.kt
+--- a/core/audio/src/main/kotlin/studio/guitarlab/core/audio/CueStartupProbe.kt
++++ b/core/audio/src/main/kotlin/studio/guitarlab/core/audio/CueStartupProbe.kt
+@@ -11,9 +11,12 @@
+ 
+ /** Interleaved bounded warmup: both sinks remain fed while independent timestamps advance. */
+ object CueStartupProbe {
+-    const val TIMEOUT_NS = 1_500_000_000L
++    const val ROUTE_SETTLE_TIMEOUT_NS = 5_000_000_000L
++    const val CLOCK_QUALIFICATION_TIMEOUT_NS = 2_000_000_000L
++    const val TIMEOUT_NS = ROUTE_SETTLE_TIMEOUT_NS + CLOCK_QUALIFICATION_TIMEOUT_NS
+     private const val POLL_MS = 8L
+     private const val MAX_OBSERVATIONS = 12
++    private const val ROUTE_STABLE_POLLS = 4
+ 
+     fun verify(
+         main: CueProbeOutput, cue: CueProbeOutput,
+@@ -22,7 +25,8 @@
+     ): CueStartupFailure? {
+         require(sampleRateHz > 0 && expectedMainId != expectedCueId)
+         val started = nowNs()
+-        var routesConfirmed = false
++        var routeQualifiedAtNs: Long? = null
++        var stableRoutePolls = 0
+         val mainClock = ArrayList<AudioClockObservation>()
+         val cueClock = ArrayList<AudioClockObservation>()
+         fun collect(target: MutableList<AudioClockObservation>, sample: AudioClockObservation?): Boolean {
+@@ -36,15 +40,28 @@
+             if (target.size > MAX_OBSERVATIONS) target.removeAt(0)
+             return true
+         }
+-        while (nowNs() - started < TIMEOUT_NS) {
++        while (true) {
+             if (!keepRunning()) return CueStartupFailure.CANCELLED
+             // Zero/partial writes are normal during startup. Retry next poll, never block either sink.
+             if (main.feedSilence() < 0 || cue.feedSilence() < 0) return CueStartupFailure.WRITE_FAILED
++            val now = nowNs()
+             val distinct = CueRouteSafetyPolicy.routedPairMatches(expectedMainId, expectedCueId,
+                 main.routedDeviceId(), cue.routedDeviceId())
+-            if (!distinct && routesConfirmed) return CueStartupFailure.ROUTE_CHANGED
+-            if (distinct) {
+-                routesConfirmed = true
++            val qualifiedAt = routeQualifiedAtNs
++            if (qualifiedAt == null) {
++                // Android/OEM routing may settle asynchronously after play(). Transient convergence
++                // during this bounded phase is not accepted, but it is not treated as a runtime
++                // route loss until the pair has first been stable for several consecutive polls.
++                stableRoutePolls = if (distinct) stableRoutePolls + 1 else 0
++                if (stableRoutePolls >= ROUTE_STABLE_POLLS) {
++                    routeQualifiedAtNs = now
++                    mainClock.clear()
++                    cueClock.clear()
++                } else if (now - started >= ROUTE_SETTLE_TIMEOUT_NS) {
++                    return CueStartupFailure.ROUTE_UNCONFIRMED
++                }
++            } else {
++                if (!distinct) return CueStartupFailure.ROUTE_CHANGED
+                 if (!collect(mainClock, main.clockObservation()) || !collect(cueClock, cue.clockObservation())) {
+                     return CueStartupFailure.CLOCK_UNSTABLE
+                 }
+@@ -54,9 +71,11 @@
+                     return if (CueRouteSafetyPolicy.initialOffsetWithinLimit(mainAnchor.streamOriginMonotonicNs,
+                             cueAnchor.streamOriginMonotonicNs)) null else CueStartupFailure.OFFSET_EXCEEDED
+                 }
++                if (now - qualifiedAt >= CLOCK_QUALIFICATION_TIMEOUT_NS) {
++                    return CueStartupFailure.CLOCK_UNSTABLE
++                }
+             }
+             sleepMs(POLL_MS)
+         }
+-        return if (routesConfirmed) CueStartupFailure.CLOCK_UNSTABLE else CueStartupFailure.ROUTE_UNCONFIRMED
+     }
+ }
+diff --git a/core/audio/src/test/kotlin/studio/guitarlab/core/audio/CueStartupProbeTest.kt b/core/audio/src/test/kotlin/studio/guitarlab/core/audio/CueStartupProbeTest.kt
+--- a/core/audio/src/test/kotlin/studio/guitarlab/core/audio/CueStartupProbeTest.kt
++++ b/core/audio/src/test/kotlin/studio/guitarlab/core/audio/CueStartupProbeTest.kt
+@@ -11,6 +11,7 @@
+         var cueOffset = 0L
+         var converges = false
+         var missingRoute = false
++        var routeAvailableAfterNs = 0L
+         var staleClock = false
+         var cueWrite = 512
+         private fun sink(id: Int) = object : CueProbeOutput {
+@@ -18,7 +19,7 @@
+                 if (id == 1) mainFeeds++ else cueFeeds++
+                 return if (id == 1) 512 else cueWrite
+             }
+-            override fun routedDeviceId(): Int? = if (missingRoute) null else if (id == 2 && converges && elapsed >= 64_000_000) 1 else id
++            override fun routedDeviceId(): Int? = if (missingRoute || elapsed < routeAvailableAfterNs) null else if (id == 2 && converges && elapsed >= 64_000_000) 1 else id
+             override fun clockObservation(): AudioClockObservation? {
+                 if (elapsed < 200_000_000) return null
+                 // Driver publishes one fresh timestamp every 64 ms, not every polling iteration.
+@@ -36,6 +37,12 @@
+         assertTrue(f.elapsed >= 320_000_000)
+         assertEquals(f.mainFeeds, f.cueFeeds)
+         assertTrue(f.mainFeeds > 30)
++    }
++    @Test fun routeSettlementHasItsOwnBoundBeyondTheOldOnePointFiveSecondWindow() {
++        val f = Fixture().apply { routeAvailableAfterNs = 2_200_000_000L }
++        assertNull(f.verify())
++        assertTrue(f.elapsed >= f.routeAvailableAfterNs)
++        assertTrue(f.elapsed < CueStartupProbe.TIMEOUT_NS)
+     }
+     @Test fun partialAndZeroStartupWritesAreRetriedWithoutBlocking() {
+         val f = Fixture().apply { cueWrite = 0 }
+diff --git a/platform/audio-android/src/main/kotlin/studio/guitarlab/platform/audio/android/AndroidCueRouteVerifier.kt b/platform/audio-android/src/main/kotlin/studio/guitarlab/platform/audio/android/AndroidCueRouteVerifier.kt
+--- a/platform/audio-android/src/main/kotlin/studio/guitarlab/platform/audio/android/AndroidCueRouteVerifier.kt
++++ b/platform/audio-android/src/main/kotlin/studio/guitarlab/platform/audio/android/AndroidCueRouteVerifier.kt
+@@ -12,19 +12,32 @@
+ 
+ /** Silent output-only preflight. Does not measure acoustic or input round-trip latency. */
+ object AndroidCueRouteVerifier {
++    @Volatile private var lastPreflightDiagnostic: String? = null
++
++    fun lastPreflightDiagnostic(): String? = lastPreflightDiagnostic
++
+     @Synchronized
+     fun verifyDevices(main: AudioDeviceInfo, cue: AudioDeviceInfo, sampleRateHz: Int, keepRunning: () -> Boolean): String? {
+         var mainTrack: AudioTrack? = null
+         var cueTrack: AudioTrack? = null
+-        return try {
+-            if (!keepRunning()) return "Verificação cancelada."
+-            if (!AndroidOutputRouteIdentity.expectedPairDistinct(main, cue)) return "MAIN e CUE precisam usar saídas físicas distintas."
++        val observations = linkedSetOf<String>()
++        var failure: String? = null
++        try {
++            if (!keepRunning()) {
++                failure = "Verificação cancelada."
++                return failure
++            }
++            if (!AndroidOutputRouteIdentity.expectedPairDistinct(main, cue)) {
++                failure = "MAIN e CUE precisam usar saídas físicas distintas."
++                return failure
++            }
+             fun create(device: AudioDeviceInfo): AudioTrack {
+                 val track = AudioTrack.Builder()
+                     .setAudioAttributes(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA).setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).build())
+                     .setAudioFormat(AudioFormat.Builder().setEncoding(AudioFormat.ENCODING_PCM_FLOAT).setSampleRate(sampleRateHz).setChannelMask(AudioFormat.CHANNEL_OUT_STEREO).build())
+                     .setTransferMode(AudioTrack.MODE_STREAM)
+                     .setBufferSizeInBytes(maxOf(32768, AudioTrack.getMinBufferSize(sampleRateHz, AudioFormat.CHANNEL_OUT_STEREO, AudioFormat.ENCODING_PCM_FLOAT)))
++                    .setPerformanceMode(AudioTrack.PERFORMANCE_MODE_LOW_LATENCY)
+                     .build()
+                 try {
+                     check(track.state == AudioTrack.STATE_INITIALIZED && track.setPreferredDevice(device))
+@@ -36,21 +49,39 @@
+             }
+             mainTrack = create(main)
+             cueTrack = create(cue)
+-            verifyTracks(mainTrack, cueTrack, main, cue, sampleRateHz, keepRunning)
++            failure = verifyTracks(mainTrack, cueTrack, main, cue, sampleRateHz, keepRunning) { role, keys ->
++                observations += "$role=${keys.sorted().joinToString(prefix = "[", postfix = "]")}"
++            }
++            return failure
+         } catch (_: RuntimeException) {
+-            "O Android não conseguiu abrir as duas saídas selecionadas."
++            failure = "O Android não conseguiu abrir as duas saídas selecionadas."
++            return failure
+         } finally {
++            lastPreflightDiagnostic = buildString {
++                append("sampleRateHz=").append(sampleRateHz)
++                append("; expectedMain=").append(AndroidOutputRouteIdentity.physicalKey(main))
++                append("; expectedCue=").append(AndroidOutputRouteIdentity.physicalKey(cue))
++                append("; result=").append(failure ?: "PASS")
++                if (observations.isNotEmpty()) append("; routed=").append(observations.joinToString(" -> "))
++            }
+             runCatching { mainTrack?.release() }
+             runCatching { cueTrack?.release() }
+         }
+     }
+ 
+     fun verifyTracks(mainTrack: AudioTrack, cueTrack: AudioTrack, expectedMain: AudioDeviceInfo,
+-        expectedCue: AudioDeviceInfo, sampleRateHz: Int, keepRunning: () -> Boolean): String? {
++        expectedCue: AudioDeviceInfo, sampleRateHz: Int, keepRunning: () -> Boolean,
++        routeObserver: ((String, Set<String>) -> Unit)? = null,
++    ): String? {
+         val silence = FloatArray(512 * 2)
+-        fun adapter(track: AudioTrack, expected: AudioDeviceInfo) = object : CueProbeOutput {
++        fun adapter(role: String, track: AudioTrack, expected: AudioDeviceInfo) = object : CueProbeOutput {
+             override fun feedSilence(): Int = track.write(silence, 0, silence.size, AudioTrack.WRITE_NON_BLOCKING)
+-            override fun routedDeviceId(): Int? = AndroidOutputRouteIdentity.canonicalRoutedDeviceId(track, expected)
++            override fun routedDeviceId(): Int? {
++                val keys = AndroidOutputRouteIdentity.routedPhysicalKeys(track)
++                routeObserver?.invoke(role, keys)
++                val expectedKey = AndroidOutputRouteIdentity.physicalKey(expected)
++                return if (AndroidOutputRouteIdentity.routesOnlyToExpected(expectedKey, keys)) expected.id else null
++            }
+             override fun clockObservation(): AudioClockObservation? {
+                 val timestamp = AudioTimestamp()
+                 return if (track.getTimestamp(timestamp)) AudioClockObservation(timestamp.framePosition, timestamp.nanoTime) else null
+@@ -68,8 +99,14 @@
+             }
+             mainTrack.play()
+             cueTrack.play()
++            // OEM audio policies may defer per-track routing until the track is active. Reassert
++            // the already accepted explicit devices after play(), then let the bounded settle phase
++            // prove the effective routes through getRoutedDevices()/getRoutedDevice().
++            if (!mainTrack.setPreferredDevice(expectedMain) || !cueTrack.setPreferredDevice(expectedCue)) {
++                return "O Android recusou reafirmar as rotas MAIN/CUE após iniciar o fluxo silencioso."
++            }
+             when (CueStartupProbe.verify(
+-                main = adapter(mainTrack, expectedMain), cue = adapter(cueTrack, expectedCue), expectedMainId = expectedMain.id,
++                main = adapter("MAIN", mainTrack, expectedMain), cue = adapter("CUE", cueTrack, expectedCue), expectedMainId = expectedMain.id,
+                 expectedCueId = expectedCue.id, sampleRateHz = sampleRateHz,
+                 nowNs = System::nanoTime, sleepMs = { Thread.sleep(it) },
+                 keepRunning = { keepRunning() && !Thread.currentThread().isInterrupted },
+diff --git a/app/src/main/java/studio/guitarlab/app/diagnostics/DiagnosticBundleExporter.kt b/app/src/main/java/studio/guitarlab/app/diagnostics/DiagnosticBundleExporter.kt
+--- a/app/src/main/java/studio/guitarlab/app/diagnostics/DiagnosticBundleExporter.kt
++++ b/app/src/main/java/studio/guitarlab/app/diagnostics/DiagnosticBundleExporter.kt
+@@ -17,6 +17,7 @@
+ import studio.guitarlab.core.project.FileProjectRepository
+ import studio.guitarlab.core.project.PreparedReferenceBindingPolicy
+ import studio.guitarlab.platform.separation.FileRemoteJobStore
++import studio.guitarlab.platform.audio.android.AndroidCueRouteVerifier
+ 
+ data class DiagnosticBundleResult(
+     val entryNames: List<String>,
+@@ -77,6 +78,7 @@
+             .put("effectiveInput", routeHealth.effectiveInput?.let { "${it.transportFamily}:${it.label}" })
+             .put("effectiveOutput", routeHealth.effectiveOutput?.let { "${it.transportFamily}:${it.label}" })
+             .put("effectiveCueOutput", routeHealth.effectiveCueOutput?.let { "${it.transportFamily}:${it.label}" })
++            .put("lastCuePreflight", AndroidCueRouteVerifier.lastPreflightDiagnostic())
+             .toString(2).toByteArray()
+ 
+         entries["activity.json"] = JSONArray().also { array ->
