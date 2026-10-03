@@ -12,19 +12,32 @@ import studio.guitarlab.core.audio.CueStartupFailure
 
 /** Silent output-only preflight. Does not measure acoustic or input round-trip latency. */
 object AndroidCueRouteVerifier {
+    @Volatile private var lastPreflightDiagnostic: String? = null
+
+    fun lastPreflightDiagnostic(): String? = lastPreflightDiagnostic
+
     @Synchronized
     fun verifyDevices(main: AudioDeviceInfo, cue: AudioDeviceInfo, sampleRateHz: Int, keepRunning: () -> Boolean): String? {
         var mainTrack: AudioTrack? = null
         var cueTrack: AudioTrack? = null
-        return try {
-            if (!keepRunning()) return "Verificação cancelada."
-            if (!AndroidOutputRouteIdentity.expectedPairDistinct(main, cue)) return "MAIN e CUE precisam usar saídas físicas distintas."
+        val observations = linkedSetOf<String>()
+        var failure: String? = null
+        try {
+            if (!keepRunning()) {
+                failure = "Verificação cancelada."
+                return failure
+            }
+            if (!AndroidOutputRouteIdentity.expectedPairDistinct(main, cue)) {
+                failure = "MAIN e CUE precisam usar saídas físicas distintas."
+                return failure
+            }
             fun create(device: AudioDeviceInfo): AudioTrack {
                 val track = AudioTrack.Builder()
                     .setAudioAttributes(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA).setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).build())
                     .setAudioFormat(AudioFormat.Builder().setEncoding(AudioFormat.ENCODING_PCM_FLOAT).setSampleRate(sampleRateHz).setChannelMask(AudioFormat.CHANNEL_OUT_STEREO).build())
                     .setTransferMode(AudioTrack.MODE_STREAM)
                     .setBufferSizeInBytes(maxOf(32768, AudioTrack.getMinBufferSize(sampleRateHz, AudioFormat.CHANNEL_OUT_STEREO, AudioFormat.ENCODING_PCM_FLOAT)))
+                    .setPerformanceMode(AudioTrack.PERFORMANCE_MODE_LOW_LATENCY)
                     .build()
                 try {
                     check(track.state == AudioTrack.STATE_INITIALIZED && track.setPreferredDevice(device))
@@ -36,21 +49,39 @@ object AndroidCueRouteVerifier {
             }
             mainTrack = create(main)
             cueTrack = create(cue)
-            verifyTracks(mainTrack, cueTrack, main, cue, sampleRateHz, keepRunning)
+            failure = verifyTracks(mainTrack, cueTrack, main, cue, sampleRateHz, keepRunning) { role, keys ->
+                observations += "$role=${keys.sorted().joinToString(prefix = "[", postfix = "]")}"
+            }
+            return failure
         } catch (_: RuntimeException) {
-            "O Android não conseguiu abrir as duas saídas selecionadas."
+            failure = "O Android não conseguiu abrir as duas saídas selecionadas."
+            return failure
         } finally {
+            lastPreflightDiagnostic = buildString {
+                append("sampleRateHz=").append(sampleRateHz)
+                append("; expectedMain=").append(AndroidOutputRouteIdentity.physicalKey(main))
+                append("; expectedCue=").append(AndroidOutputRouteIdentity.physicalKey(cue))
+                append("; result=").append(failure ?: "PASS")
+                if (observations.isNotEmpty()) append("; routed=").append(observations.joinToString(" -> "))
+            }
             runCatching { mainTrack?.release() }
             runCatching { cueTrack?.release() }
         }
     }
 
     fun verifyTracks(mainTrack: AudioTrack, cueTrack: AudioTrack, expectedMain: AudioDeviceInfo,
-        expectedCue: AudioDeviceInfo, sampleRateHz: Int, keepRunning: () -> Boolean): String? {
+        expectedCue: AudioDeviceInfo, sampleRateHz: Int, keepRunning: () -> Boolean,
+        routeObserver: ((String, Set<String>) -> Unit)? = null,
+    ): String? {
         val silence = FloatArray(512 * 2)
-        fun adapter(track: AudioTrack, expected: AudioDeviceInfo) = object : CueProbeOutput {
+        fun adapter(role: String, track: AudioTrack, expected: AudioDeviceInfo) = object : CueProbeOutput {
             override fun feedSilence(): Int = track.write(silence, 0, silence.size, AudioTrack.WRITE_NON_BLOCKING)
-            override fun routedDeviceId(): Int? = AndroidOutputRouteIdentity.canonicalRoutedDeviceId(track, expected)
+            override fun routedDeviceId(): Int? {
+                val keys = AndroidOutputRouteIdentity.routedPhysicalKeys(track)
+                routeObserver?.invoke(role, keys)
+                val expectedKey = AndroidOutputRouteIdentity.physicalKey(expected)
+                return if (AndroidOutputRouteIdentity.routesOnlyToExpected(expectedKey, keys)) expected.id else null
+            }
             override fun clockObservation(): AudioClockObservation? {
                 val timestamp = AudioTimestamp()
                 return if (track.getTimestamp(timestamp)) AudioClockObservation(timestamp.framePosition, timestamp.nanoTime) else null
@@ -68,8 +99,14 @@ object AndroidCueRouteVerifier {
             }
             mainTrack.play()
             cueTrack.play()
+            // OEM audio policies may defer per-track routing until the track is active. Reassert
+            // the already accepted explicit devices after play(), then let the bounded settle phase
+            // prove the effective routes through getRoutedDevices()/getRoutedDevice().
+            if (!mainTrack.setPreferredDevice(expectedMain) || !cueTrack.setPreferredDevice(expectedCue)) {
+                return "O Android recusou reafirmar as rotas MAIN/CUE após iniciar o fluxo silencioso."
+            }
             when (CueStartupProbe.verify(
-                main = adapter(mainTrack, expectedMain), cue = adapter(cueTrack, expectedCue), expectedMainId = expectedMain.id,
+                main = adapter("MAIN", mainTrack, expectedMain), cue = adapter("CUE", cueTrack, expectedCue), expectedMainId = expectedMain.id,
                 expectedCueId = expectedCue.id, sampleRateHz = sampleRateHz,
                 nowNs = System::nanoTime, sleepMs = { Thread.sleep(it) },
                 keepRunning = { keepRunning() && !Thread.currentThread().isInterrupted },

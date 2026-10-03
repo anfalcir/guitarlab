@@ -7,7 +7,7 @@ This document describes current execution controls. Historical tail hashes, run 
 ## Source materialization
 
 - canonical entrypoint: `scripts/materialize_ci_sources.sh`;
-- current candidate tail: RC28a unit-test import correction via `scripts/materialize_ci_sources_rc28a.py`, chained after immutable RC28 runtime and RC27d/earlier predecessors;
+- current candidate tail: RC29 CUE route-settlement correction via `scripts/materialize_ci_sources_rc29.py`, chained after immutable RC28a/RC28 and earlier predecessors;
 - protected deltas: `.source-parts/`;
 - required properties: deterministic, hash/blob locked, idempotent, semantic guards, reverse-apply validation and fail-closed drift handling.
 
@@ -109,9 +109,14 @@ Retain only evidence needed to identify and reproduce the promoted candidate:
 
 Run IDs and current status belong in `CURRENT_STATE.md`, not here.
 
+
+## RC29 CUE route-settlement qualification
+
+Owner physical evidence `142418.mp4` rejects signed RC28 despite CI #958/#959 PASS: the target device still returns `ROUTE_UNCONFIRMED` for MK-300 MAIN + wired CUE. RC29 does not weaken route identity or clock safety. It splits admission into a bounded 5 s physical-route settlement phase and a separate bounded 2 s clock-qualification phase, requires four consecutive distinct-route polls before clock collection, and reasserts both explicit preferred devices after `AudioTrack.play()`. Any convergence after qualification, missing effective route, unstable clock, >12 ms initial offset, runtime drift or secondary backpressure remains blocking/fail-closed. Diagnostic export now carries the last preflight route trace.
+
 ## Post-freeze
 
-The accepted baseline remains RC20 until exact signed successor physical acceptance. RC27 `0.5.0-rc27` / `47` remains the latest signed digital authority after Android CI #955/#956. RC28 `0.5.0-rc28` / `48` is an unsigned audio-routing corrective candidate and must pass software/API36 before any signing trigger.
+The accepted baseline remains RC20 until exact signed successor physical acceptance. RC28 `0.5.0-rc28` / `48` is the latest signed digital authority after Android CI #958/#959 but is physically rejected for the target synchronized CUE pair. RC29 `0.5.0-rc29` / `49` is the active unsigned corrective candidate and must pass fresh software/API36 before any signing trigger.
 
 The deterministic runtime chain closes RC26's post-sign documentation with `scripts/materialize_ci_sources_rc26b.py`, then applies RC27, RC27a loaded-frame evidence synchronization, RC27b compact clipping-badge correction and RC27c edge anchoring. Prior source payloads are immutable. CI #955 passed the terminal runtime source and visual evidence; release producer `222e66616e2eceba3e2781785c69c72020c40d04` preserved that exact tree and CI #956 signed it successfully.
 

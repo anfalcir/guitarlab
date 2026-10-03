@@ -4,28 +4,39 @@ Updated: 2026-10-03
 
 ## Status
 
-**RC28a CUE PHYSICAL-ROUTE IDENTITY — UNIT-TEST IMPORT CORRECTION; REQUALIFICATION PENDING**
+**RC29 CUE ROUTE SETTLEMENT — SOURCE READY; SOFTWARE/API36 QUALIFICATION PENDING**
 
-Owner evidence `142269.mp4` reproduces the failure on the target SM-X230/Android 16: MAIN is `USB-Audio - MK300`, CUE selection is `Fone com fio`, verification starts and ends with `ROUTE_UNCONFIRMED` / “O Android não confirmou duas saídas físicas distintas”. The RC25 verifier compared one transient logical `AudioDeviceInfo.id` per stream even though GuitarLab already canonicalizes multiple logical USB/built-in endpoints into one physical route. API 36 also exposes `AudioRouting.getRoutedDevices()`, so a correct physical route may contain logical aliases that the old exact-id test rejects.
+Owner evidence `142418.mp4` on the target SM-X230 / Android 16 with MK-300 as MAIN reproduces RC28's remaining defect. Selecting `Fone com fio` as CUE enters immediate verification and falls back to `Desativada` with “O Android não confirmou duas saídas físicas distintas para MAIN/CUE”; attempting to enable a track CUE is then blocked because no verified secondary route persisted.
 
-RC28 introduces one Android physical-route identity layer shared by CUE admission and runtime safety. It accepts only routed logical endpoints that all canonicalize to the explicitly selected physical destination, rejects empty evidence, rejects MAIN/CUE physical convergence, and rejects mirroring to any extra physical destination. The output-candidate probe also consumes the API36 routed-device set instead of trusting only one logical endpoint. The 12 ms clock-offset guard, stable-clock requirement, non-blocking secondary writes and fail-closed behavior remain unchanged.
+The paired diagnostic bundle `GuitarLab-Diagnostics-1791036117830.zip` is from release `0.5.0-rc28` / `48` on `SM-X230`, Android 16 / API36. It confirms the selector/discovery layer sees MAIN as `usb:USB-Audio - MK300`, reports the CUE candidate as available and distinct from MAIN, and detects the USB device. The bundle did not capture the effective per-`AudioTrack` routed-device evidence from the failed preflight, so it cannot prove whether Android needed more settlement time or converged the streams. RC29 adds that evidence to `audio-route.json` for any subsequent failure.
 
-RC27 `0.5.0-rc27` / `47` remains the latest signed digital authority until RC28 `0.5.0-rc28` / `48` qualifies and is signed. RC20 remains the physically accepted frozen baseline.
+RC28 fixed logical-vs-physical endpoint identity but retained one 1.5 s startup budget for two separate jobs: waiting for OEM/HAL routing to settle and collecting stable clock anchors. Android documents that the effective route query is valid only while the `AudioTrack` is playing and that a preferred device is not itself proof of the actual route. RC29 therefore separates these phases without relaxing acceptance: up to 5 s for physical-route settlement, requiring four consecutive distinct-route polls; then up to 2 s for stable-clock qualification. The already accepted preferred devices are reasserted immediately after `play()`, when route observation is valid. Once the pair has qualified, any convergence still fails closed. The existing 12 ms clock-offset guard, stable-clock rules, non-blocking CUE writes, continuous drift rejection and no-fallback policy remain unchanged.
 
-## CI #957 result
+RC20 remains the physically accepted frozen baseline. RC28 remains the latest signed digital authority but is physically rejected for this CUE use case. RC29 is not signed and has no physical PASS yet.
 
-Android CI **#957 / run `37122989286`** on source `af16e744b61c9a15eadfcb9aab487a0b903dac3c` did **not** expose an RC28 audio/runtime failure. The API 36 emulator regression passed completely. The software job stopped during `:platform:audio-android:compileDebugUnitTestKotlin` because the new `AndroidOutputRouteIdentityTest` imported `kotlin.test.Test`; this Android/JUnit4 module uses `org.junit.Test`. Lint and APK assembly were therefore skipped.
+## Exact signed RC28 identity and physical rejection
 
-RC28a is a test-only qualification correction: replace the annotation import with `org.junit.Test`, retain the same RC28/48 runtime bytes and route behavior, and re-run the complete software/API36 gate. No signing or physical PASS is claimed from #957.
+- qualification source: `132b8ffc4025645b1b061058c0fcdc9c03b414b5` / Git tree `2971085fcd2e386bc65055d1d7339c6d4e519ec7`;
+- software/API36 authority: Android CI **#958 / run `37124218772`**;
+- producer/signing SHA: `a837dd9aa533951448bbbd3607fe60b529894520`, preserving the same Git tree;
+- signed authority: Android CI **#959 / run `37126984321`**;
+- package: `studio.guitarlab.app`;
+- versionName: `0.5.0-rc28`; versionCode: `48`;
+- signed APK SHA-256: `a916a5908c8b2160d390f10b9019fa3f55833e53297d091dfeaedac3a5438edb`;
+- signer certificate SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`;
+- signed artifact: `GuitarLabStudio-0.5.0-rc28-homologacao` from #959;
+- physical result: **REJECTED for synchronized CUE** by `142418.mp4`; the app still reports `ROUTE_UNCONFIRMED` for MK-300 MAIN + wired CUE.
 
-## RC28 qualification plan
+## RC29 qualification plan
 
-- deterministic source materialization through `scripts/materialize_ci_sources_rc28.py`;
-- JVM regression for physical-route canonicalization and mirrored-route rejection;
-- existing core CUE startup/clock/backpressure tests;
+- deterministic source materialization through `scripts/materialize_ci_sources_rc29.py`;
+- pure JVM regression proving a route may become valid after the old 1.5 s window while still remaining bounded;
+- existing route-convergence, stale-clock, offset, cancellation and write-failure regressions remain blocking;
+- Android selection-time preflight uses the same low-latency track mode as Studio playback and reasserts explicit routes after `play()`;
+- diagnostic export records the last preflight expected physical keys, observed routed physical keys and final result;
 - Android Lint, release build and relevant API36 regression;
-- after software PASS, sign the exact tested RC28 artifact;
-- owner physical acceptance on SM-X230 / Android 16 with MK-300 MAIN + wired CUE: selection persists, track CUE reaches only the wired output, MAIN remains isolated, Play/REC remain stable, and reconnect/loss still fails closed.
+- only after software PASS, sign the exact tested RC29 tree;
+- owner physical acceptance on SM-X230 / Android 16 with MK-300 MAIN + wired CUE: CUE selection must persist; CUE-only track must reach only wired output; MAIN must remain isolated; Play/REC must remain stable; disconnect/reconnect must still fail closed.
 
 ## Exact signed RC27 identity
 
