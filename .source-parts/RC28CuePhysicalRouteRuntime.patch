@@ -1,0 +1,2931 @@
+diff --git a/app/build.gradle.kts b/app/build.gradle.kts
+--- a/app/build.gradle.kts
++++ b/app/build.gradle.kts
+@@ -1,106 +1,106 @@
+-plugins {
+-    alias(libs.plugins.android.application)
+-    alias(libs.plugins.compose.compiler)
+-}
+-
+-android {
+-    namespace = "studio.guitarlab.app"
+-    compileSdk = 36
+-
+-    defaultConfig {
+-        applicationId = "studio.guitarlab.app"
+-        minSdk = 26
+-        targetSdk = 36
+-        versionCode = 47
+-        versionName = "0.5.0-rc27"
+-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+-    }
+-
+-    buildFeatures {
+-        compose = true
+-        buildConfig = true
+-    }
+-
+-    compileOptions {
+-        sourceCompatibility = JavaVersion.VERSION_17
+-        targetCompatibility = JavaVersion.VERSION_17
+-    }
+-
+-    packaging {
+-        jniLibs {
+-            useLegacyPackaging = true
+-        }
+-        resources.excludes += "/META-INF/{AL2.0,LGPL2.1}"
+-    }
+-
+-    // CI-safe signing: secrets are provided only at build time and never committed.
+-    val homologationKeystorePath = System.getenv("GUITARLAB_KEYSTORE_PATH")
+-    val homologationStorePassword = System.getenv("GUITARLAB_KEYSTORE_PASSWORD")
+-    val homologationKeyAlias = System.getenv("GUITARLAB_KEY_ALIAS")
+-    val homologationKeyPassword = System.getenv("GUITARLAB_KEY_PASSWORD")
+-    val hasHomologationSigning = listOf(
+-        homologationKeystorePath,
+-        homologationStorePassword,
+-        homologationKeyAlias,
+-        homologationKeyPassword,
+-    ).all { !it.isNullOrBlank() }
+-
+-    if (hasHomologationSigning) {
+-        signingConfigs {
+-            create("homologation") {
+-                storeFile = file(homologationKeystorePath!!)
+-                storePassword = homologationStorePassword
+-                keyAlias = homologationKeyAlias
+-                keyPassword = homologationKeyPassword
+-            }
+-        }
+-    }
+-
+-    buildTypes {
+-        getByName("release") {
+-            if (hasHomologationSigning) {
+-                signingConfig = signingConfigs.getByName("homologation")
+-            }
+-        }
+-    }
+-}
+-
+-dependencies {
+-    implementation(project(":core:separation"))
+-    implementation(project(":platform:separation"))
+-    implementation(project(":core:model"))
+-    implementation(project(":core:audio"))
+-    implementation(project(":platform:audio-android"))
+-    implementation(project(":core:project"))
+-    implementation(project(":core:codec"))
+-    implementation(project(":platform:codec-android"))
+-    implementation(project(":core:source"))
+-    implementation(project(":platform:source-android"))
+-
+-    val composeBom = platform(libs.compose.bom)
+-    implementation(composeBom)
+-    androidTestImplementation(composeBom)
+-
+-    implementation(libs.compose.material3)
+-    implementation(libs.compose.material.icons.extended)
+-    implementation(libs.compose.ui)
+-    implementation(libs.compose.ui.tooling.preview)
+-    implementation(libs.activity.compose)
+-    implementation(libs.lifecycle.viewmodel.compose)
+-    implementation(libs.lifecycle.viewmodel.ktx)
+-    implementation(libs.lifecycle.runtime.compose)
+-    implementation(libs.kotlinx.coroutines.android)
+-    implementation(libs.androidx.work.runtime.ktx)
+-    implementation(libs.play.services.auth)
+-    implementation(libs.kotlinx.serialization.json)
+-
+-    testImplementation(kotlin("test"))
+-    testImplementation(libs.junit4)
+-
+-    debugImplementation(libs.compose.ui.tooling)
+-    androidTestImplementation(libs.compose.ui.test.junit4)
+-    androidTestImplementation(libs.androidx.test.ext.junit)
+-    androidTestImplementation(libs.androidx.test.runner)
+-    androidTestImplementation(libs.androidx.test.uiautomator)
+-    debugImplementation(libs.compose.ui.test.manifest)
+-}
++plugins {
++    alias(libs.plugins.android.application)
++    alias(libs.plugins.compose.compiler)
++}
++
++android {
++    namespace = "studio.guitarlab.app"
++    compileSdk = 36
++
++    defaultConfig {
++        applicationId = "studio.guitarlab.app"
++        minSdk = 26
++        targetSdk = 36
++        versionCode = 48
++        versionName = "0.5.0-rc28"
++        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
++    }
++
++    buildFeatures {
++        compose = true
++        buildConfig = true
++    }
++
++    compileOptions {
++        sourceCompatibility = JavaVersion.VERSION_17
++        targetCompatibility = JavaVersion.VERSION_17
++    }
++
++    packaging {
++        jniLibs {
++            useLegacyPackaging = true
++        }
++        resources.excludes += "/META-INF/{AL2.0,LGPL2.1}"
++    }
++
++    // CI-safe signing: secrets are provided only at build time and never committed.
++    val homologationKeystorePath = System.getenv("GUITARLAB_KEYSTORE_PATH")
++    val homologationStorePassword = System.getenv("GUITARLAB_KEYSTORE_PASSWORD")
++    val homologationKeyAlias = System.getenv("GUITARLAB_KEY_ALIAS")
++    val homologationKeyPassword = System.getenv("GUITARLAB_KEY_PASSWORD")
++    val hasHomologationSigning = listOf(
++        homologationKeystorePath,
++        homologationStorePassword,
++        homologationKeyAlias,
++        homologationKeyPassword,
++    ).all { !it.isNullOrBlank() }
++
++    if (hasHomologationSigning) {
++        signingConfigs {
++            create("homologation") {
++                storeFile = file(homologationKeystorePath!!)
++                storePassword = homologationStorePassword
++                keyAlias = homologationKeyAlias
++                keyPassword = homologationKeyPassword
++            }
++        }
++    }
++
++    buildTypes {
++        getByName("release") {
++            if (hasHomologationSigning) {
++                signingConfig = signingConfigs.getByName("homologation")
++            }
++        }
++    }
++}
++
++dependencies {
++    implementation(project(":core:separation"))
++    implementation(project(":platform:separation"))
++    implementation(project(":core:model"))
++    implementation(project(":core:audio"))
++    implementation(project(":platform:audio-android"))
++    implementation(project(":core:project"))
++    implementation(project(":core:codec"))
++    implementation(project(":platform:codec-android"))
++    implementation(project(":core:source"))
++    implementation(project(":platform:source-android"))
++
++    val composeBom = platform(libs.compose.bom)
++    implementation(composeBom)
++    androidTestImplementation(composeBom)
++
++    implementation(libs.compose.material3)
++    implementation(libs.compose.material.icons.extended)
++    implementation(libs.compose.ui)
++    implementation(libs.compose.ui.tooling.preview)
++    implementation(libs.activity.compose)
++    implementation(libs.lifecycle.viewmodel.compose)
++    implementation(libs.lifecycle.viewmodel.ktx)
++    implementation(libs.lifecycle.runtime.compose)
++    implementation(libs.kotlinx.coroutines.android)
++    implementation(libs.androidx.work.runtime.ktx)
++    implementation(libs.play.services.auth)
++    implementation(libs.kotlinx.serialization.json)
++
++    testImplementation(kotlin("test"))
++    testImplementation(libs.junit4)
++
++    debugImplementation(libs.compose.ui.tooling)
++    androidTestImplementation(libs.compose.ui.test.junit4)
++    androidTestImplementation(libs.androidx.test.ext.junit)
++    androidTestImplementation(libs.androidx.test.runner)
++    androidTestImplementation(libs.androidx.test.uiautomator)
++    debugImplementation(libs.compose.ui.test.manifest)
++}
+diff --git a/platform/audio-android/src/main/kotlin/studio/guitarlab/platform/audio/android/AndroidCueRouteVerifier.kt b/platform/audio-android/src/main/kotlin/studio/guitarlab/platform/audio/android/AndroidCueRouteVerifier.kt
+--- a/platform/audio-android/src/main/kotlin/studio/guitarlab/platform/audio/android/AndroidCueRouteVerifier.kt
++++ b/platform/audio-android/src/main/kotlin/studio/guitarlab/platform/audio/android/AndroidCueRouteVerifier.kt
+@@ -1,99 +1,99 @@
+-package studio.guitarlab.platform.audio.android
+-
+-import android.media.AudioAttributes
+-import android.media.AudioDeviceInfo
+-import android.media.AudioFormat
+-import android.media.AudioTrack
+-import android.media.AudioTimestamp
+-import studio.guitarlab.core.audio.AudioClockObservation
+-import studio.guitarlab.core.audio.CueProbeOutput
+-import studio.guitarlab.core.audio.CueStartupProbe
+-import studio.guitarlab.core.audio.CueStartupFailure
+-
+-/** Silent output-only preflight. Does not measure acoustic or input round-trip latency. */
+-object AndroidCueRouteVerifier {
+-    @Synchronized
+-    fun verifyDevices(main: AudioDeviceInfo, cue: AudioDeviceInfo, sampleRateHz: Int, keepRunning: () -> Boolean): String? {
+-        var mainTrack: AudioTrack? = null
+-        var cueTrack: AudioTrack? = null
+-        return try {
+-            if (!keepRunning()) return "Verificação cancelada."
+-            if (main.id == cue.id) return "MAIN e CUE precisam usar saídas distintas."
+-            fun create(device: AudioDeviceInfo): AudioTrack {
+-                val track = AudioTrack.Builder()
+-                    .setAudioAttributes(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA).setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).build())
+-                    .setAudioFormat(AudioFormat.Builder().setEncoding(AudioFormat.ENCODING_PCM_FLOAT).setSampleRate(sampleRateHz).setChannelMask(AudioFormat.CHANNEL_OUT_STEREO).build())
+-                    .setTransferMode(AudioTrack.MODE_STREAM)
+-                    .setBufferSizeInBytes(maxOf(32768, AudioTrack.getMinBufferSize(sampleRateHz, AudioFormat.CHANNEL_OUT_STEREO, AudioFormat.ENCODING_PCM_FLOAT)))
+-                    .build()
+-                try {
+-                    check(track.state == AudioTrack.STATE_INITIALIZED && track.setPreferredDevice(device))
+-                    return track
+-                } catch (failure: Exception) {
+-                    track.release()
+-                    throw failure
+-                }
+-            }
+-            mainTrack = create(main)
+-            cueTrack = create(cue)
+-            verifyTracks(mainTrack, cueTrack, main, cue, sampleRateHz, keepRunning)
+-        } catch (_: RuntimeException) {
+-            "O Android não conseguiu abrir as duas saídas selecionadas."
+-        } finally {
+-            runCatching { mainTrack?.release() }
+-            runCatching { cueTrack?.release() }
+-        }
+-    }
+-
+-    fun verifyTracks(mainTrack: AudioTrack, cueTrack: AudioTrack, expectedMain: AudioDeviceInfo,
+-        expectedCue: AudioDeviceInfo, sampleRateHz: Int, keepRunning: () -> Boolean): String? {
+-        val silence = FloatArray(512 * 2)
+-        fun adapter(track: AudioTrack) = object : CueProbeOutput {
+-            override fun feedSilence(): Int = track.write(silence, 0, silence.size, AudioTrack.WRITE_NON_BLOCKING)
+-            override fun routedDeviceId(): Int? = track.routedDevice?.id
+-            override fun clockObservation(): AudioClockObservation? {
+-                val timestamp = AudioTimestamp()
+-                return if (track.getTimestamp(timestamp)) AudioClockObservation(timestamp.framePosition, timestamp.nanoTime) else null
+-            }
+-        }
+-        return try {
+-            mainTrack.setVolume(0f)
+-            cueTrack.setVolume(0f)
+-            // Prefill before starting; polling then feeds both streams throughout timestamp warmup.
+-            repeat(8) {
+-                if (mainTrack.write(silence, 0, silence.size, AudioTrack.WRITE_NON_BLOCKING) < 0 ||
+-                    cueTrack.write(silence, 0, silence.size, AudioTrack.WRITE_NON_BLOCKING) < 0) {
+-                    return "O Android recusou o buffer silencioso de verificação MAIN/CUE."
+-                }
+-            }
+-            mainTrack.play()
+-            cueTrack.play()
+-            when (CueStartupProbe.verify(
+-                main = adapter(mainTrack), cue = adapter(cueTrack), expectedMainId = expectedMain.id,
+-                expectedCueId = expectedCue.id, sampleRateHz = sampleRateHz,
+-                nowNs = System::nanoTime, sleepMs = { Thread.sleep(it) },
+-                keepRunning = { keepRunning() && !Thread.currentThread().isInterrupted },
+-            )) {
+-                null -> null
+-                CueStartupFailure.CANCELLED -> "A verificação MAIN/CUE foi cancelada."
+-                CueStartupFailure.WRITE_FAILED -> "O Android recusou o fluxo silencioso de verificação MAIN/CUE."
+-                CueStartupFailure.ROUTE_UNCONFIRMED -> "O Android não confirmou duas saídas físicas distintas para MAIN/CUE."
+-                CueStartupFailure.ROUTE_CHANGED -> "As rotas MAIN/CUE mudaram ou convergiram durante a verificação."
+-                CueStartupFailure.CLOCK_UNSTABLE -> "Os clocks MAIN/CUE não avançaram de forma estável durante a verificação."
+-                CueStartupFailure.OFFSET_EXCEEDED -> "O offset inicial entre MAIN e CUE excedeu 12 ms."
+-            }
+-        } catch (_: InterruptedException) {
+-            Thread.currentThread().interrupt()
+-            "A verificação silenciosa MAIN/CUE foi interrompida; CUE permaneceu silencioso."
+-        } catch (_: RuntimeException) {
+-            "O Android não conseguiu comprovar sincronização inicial entre MAIN e CUE."
+-        } finally {
+-            runCatching { mainTrack.pause() }
+-            runCatching { mainTrack.flush() }
+-            runCatching { cueTrack.pause() }
+-            runCatching { cueTrack.flush() }
+-            runCatching { mainTrack.setVolume(1f) }
+-            runCatching { cueTrack.setVolume(1f) }
+-        }
+-    }
+-}
++package studio.guitarlab.platform.audio.android
++
++import android.media.AudioAttributes
++import android.media.AudioDeviceInfo
++import android.media.AudioFormat
++import android.media.AudioTrack
++import android.media.AudioTimestamp
++import studio.guitarlab.core.audio.AudioClockObservation
++import studio.guitarlab.core.audio.CueProbeOutput
++import studio.guitarlab.core.audio.CueStartupProbe
++import studio.guitarlab.core.audio.CueStartupFailure
++
++/** Silent output-only preflight. Does not measure acoustic or input round-trip latency. */
++object AndroidCueRouteVerifier {
++    @Synchronized
++    fun verifyDevices(main: AudioDeviceInfo, cue: AudioDeviceInfo, sampleRateHz: Int, keepRunning: () -> Boolean): String? {
++        var mainTrack: AudioTrack? = null
++        var cueTrack: AudioTrack? = null
++        return try {
++            if (!keepRunning()) return "Verificação cancelada."
++            if (!AndroidOutputRouteIdentity.expectedPairDistinct(main, cue)) return "MAIN e CUE precisam usar saídas físicas distintas."
++            fun create(device: AudioDeviceInfo): AudioTrack {
++                val track = AudioTrack.Builder()
++                    .setAudioAttributes(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA).setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).build())
++                    .setAudioFormat(AudioFormat.Builder().setEncoding(AudioFormat.ENCODING_PCM_FLOAT).setSampleRate(sampleRateHz).setChannelMask(AudioFormat.CHANNEL_OUT_STEREO).build())
++                    .setTransferMode(AudioTrack.MODE_STREAM)
++                    .setBufferSizeInBytes(maxOf(32768, AudioTrack.getMinBufferSize(sampleRateHz, AudioFormat.CHANNEL_OUT_STEREO, AudioFormat.ENCODING_PCM_FLOAT)))
++                    .build()
++                try {
++                    check(track.state == AudioTrack.STATE_INITIALIZED && track.setPreferredDevice(device))
++                    return track
++                } catch (failure: Exception) {
++                    track.release()
++                    throw failure
++                }
++            }
++            mainTrack = create(main)
++            cueTrack = create(cue)
++            verifyTracks(mainTrack, cueTrack, main, cue, sampleRateHz, keepRunning)
++        } catch (_: RuntimeException) {
++            "O Android não conseguiu abrir as duas saídas selecionadas."
++        } finally {
++            runCatching { mainTrack?.release() }
++            runCatching { cueTrack?.release() }
++        }
++    }
++
++    fun verifyTracks(mainTrack: AudioTrack, cueTrack: AudioTrack, expectedMain: AudioDeviceInfo,
++        expectedCue: AudioDeviceInfo, sampleRateHz: Int, keepRunning: () -> Boolean): String? {
++        val silence = FloatArray(512 * 2)
++        fun adapter(track: AudioTrack, expected: AudioDeviceInfo) = object : CueProbeOutput {
++            override fun feedSilence(): Int = track.write(silence, 0, silence.size, AudioTrack.WRITE_NON_BLOCKING)
++            override fun routedDeviceId(): Int? = AndroidOutputRouteIdentity.canonicalRoutedDeviceId(track, expected)
++            override fun clockObservation(): AudioClockObservation? {
++                val timestamp = AudioTimestamp()
++                return if (track.getTimestamp(timestamp)) AudioClockObservation(timestamp.framePosition, timestamp.nanoTime) else null
++            }
++        }
++        return try {
++            mainTrack.setVolume(0f)
++            cueTrack.setVolume(0f)
++            // Prefill before starting; polling then feeds both streams throughout timestamp warmup.
++            repeat(8) {
++                if (mainTrack.write(silence, 0, silence.size, AudioTrack.WRITE_NON_BLOCKING) < 0 ||
++                    cueTrack.write(silence, 0, silence.size, AudioTrack.WRITE_NON_BLOCKING) < 0) {
++                    return "O Android recusou o buffer silencioso de verificação MAIN/CUE."
++                }
++            }
++            mainTrack.play()
++            cueTrack.play()
++            when (CueStartupProbe.verify(
++                main = adapter(mainTrack, expectedMain), cue = adapter(cueTrack, expectedCue), expectedMainId = expectedMain.id,
++                expectedCueId = expectedCue.id, sampleRateHz = sampleRateHz,
++                nowNs = System::nanoTime, sleepMs = { Thread.sleep(it) },
++                keepRunning = { keepRunning() && !Thread.currentThread().isInterrupted },
++            )) {
++                null -> null
++                CueStartupFailure.CANCELLED -> "A verificação MAIN/CUE foi cancelada."
++                CueStartupFailure.WRITE_FAILED -> "O Android recusou o fluxo silencioso de verificação MAIN/CUE."
++                CueStartupFailure.ROUTE_UNCONFIRMED -> "O Android não confirmou duas saídas físicas distintas para MAIN/CUE."
++                CueStartupFailure.ROUTE_CHANGED -> "As rotas MAIN/CUE mudaram ou convergiram durante a verificação."
++                CueStartupFailure.CLOCK_UNSTABLE -> "Os clocks MAIN/CUE não avançaram de forma estável durante a verificação."
++                CueStartupFailure.OFFSET_EXCEEDED -> "O offset inicial entre MAIN e CUE excedeu 12 ms."
++            }
++        } catch (_: InterruptedException) {
++            Thread.currentThread().interrupt()
++            "A verificação silenciosa MAIN/CUE foi interrompida; CUE permaneceu silencioso."
++        } catch (_: RuntimeException) {
++            "O Android não conseguiu comprovar sincronização inicial entre MAIN e CUE."
++        } finally {
++            runCatching { mainTrack.pause() }
++            runCatching { mainTrack.flush() }
++            runCatching { cueTrack.pause() }
++            runCatching { cueTrack.flush() }
++            runCatching { mainTrack.setVolume(1f) }
++            runCatching { cueTrack.setVolume(1f) }
++        }
++    }
++}
+diff --git a/platform/audio-android/src/main/kotlin/studio/guitarlab/platform/audio/android/AndroidStudioPlaybackEngine.kt b/platform/audio-android/src/main/kotlin/studio/guitarlab/platform/audio/android/AndroidStudioPlaybackEngine.kt
+--- a/platform/audio-android/src/main/kotlin/studio/guitarlab/platform/audio/android/AndroidStudioPlaybackEngine.kt
++++ b/platform/audio-android/src/main/kotlin/studio/guitarlab/platform/audio/android/AndroidStudioPlaybackEngine.kt
+@@ -1,750 +1,748 @@
+-package studio.guitarlab.platform.audio.android
+-
+-import android.media.AudioAttributes
+-import android.media.AudioDeviceInfo
+-import android.media.AudioFormat
+-import android.media.AudioTrack
+-import android.media.AudioTimestamp
+-import java.io.File
+-import java.util.concurrent.ConcurrentHashMap
+-import java.util.concurrent.atomic.AtomicLong
+-import kotlin.math.abs
+-import kotlin.math.max
+-import kotlin.math.min
+-import kotlin.math.pow
+-import kotlin.math.sqrt
+-import studio.guitarlab.core.audio.AudioClockAnchor
+-import studio.guitarlab.core.audio.AudioClockAnchorPolicy
+-import studio.guitarlab.core.audio.AudioClockObservation
+-import studio.guitarlab.core.audio.CueRouteBlockReason
+-import studio.guitarlab.core.audio.CueRouteSafetyPolicy
+-import studio.guitarlab.core.audio.PlaybackClockPolicy
+-import studio.guitarlab.core.model.TrackOutputRoute
+-import studio.guitarlab.core.model.TrackOutputRoutingPolicy
+-import studio.guitarlab.core.project.GuitarAuditionMode
+-import studio.guitarlab.core.project.GuitarAuditionPolicy
+-
+-data class StudioPlaybackClip(
+-    val file: File,
+-    val trackId: String,
+-    val timelineStartFrame: Long,
+-    val sourceStartFrame: Long,
+-    val lengthFrames: Long,
+-    val gainDb: Float = 0f,
+-    val pan: Float = 0f,
+-    val muted: Boolean = false,
+-    val fadeInFrames: Long = 0,
+-    val fadeOutFrames: Long = 0,
+-)
+-
+-data class StudioPlaybackTrackMix(
+-    val trackId: String,
+-    val roleId: String? = null,
+-    val gainDb: Float = 0f,
+-    val pan: Float = 0f,
+-    val muted: Boolean = false,
+-    val solo: Boolean = false,
+-    val outputRoute: TrackOutputRoute = TrackOutputRoute.MAIN,
+-)
+-
+-data class StudioPlaybackRequest(
+-    val sampleRateHz: Int,
+-    val startFrame: Long,
+-    val projectEndFrame: Long,
+-    val loopEnabled: Boolean,
+-    val loopStartFrame: Long,
+-    val loopEndFrame: Long,
+-    val clips: List<StudioPlaybackClip>,
+-    val trackMixes: List<StudioPlaybackTrackMix> = emptyList(),
+-    val preferredOutputDevice: AudioDeviceInfo? = null,
+-    val preferredOutputRequested: Boolean = false,
+-    val preferredCueOutputDevice: AudioDeviceInfo? = null,
+-    val preferredCueOutputRequested: Boolean = false,
+-    val masterGainDb: Float = 0f,
+-    val auditionMode: GuitarAuditionMode = GuitarAuditionMode.MIXER,
+-    val repeatLoop: Boolean = true,
+-)
+-
+-data class StudioPlaybackRoutingStatus(
+-    val requestedPreferredOutput: Boolean,
+-    val usingPreferredOutput: Boolean,
+-    val fellBackToAuto: Boolean,
+-    val deviceLabel: String? = null,
+-    val requestedPreferredCueOutput: Boolean = false,
+-    val usingPreferredCueOutput: Boolean = false,
+-    val cueSuppressed: Boolean = false,
+-    val cueDeviceLabel: String? = null,
+-    val cueFailureReason: String? = null,
+-)
+-
+-data class StudioPlaybackStartInfo(
+-    val presentationStartMonotonicNs: Long,
+-    val timestampBased: Boolean,
+-    val routedOutputLabel: String? = null,
+-    val routedOutputDeviceId: Int? = null,
+-    val cueRoutedOutputLabel: String? = null,
+-    val cueRoutedOutputDeviceId: Int? = null,
+-    val playbackAnchorJitterNs: Long? = null,
+-    val playbackAnchorObservations: Int? = null,
+-    val outputUnderrunCount: Int? = null,
+-    val cueOutputUnderrunCount: Int? = null,
+-)
+-
+-data class StudioPlaybackMeter(
+-    val peak: Float,
+-    val rms: Float,
+-)
+-
+-data class StudioPlaybackTrackMeter(
+-    val trackId: String,
+-    val meter: StudioPlaybackMeter,
+-)
+-
+-interface StudioPlaybackListener {
+-    fun onStarted(info: StudioPlaybackStartInfo) {}
+-    fun onPosition(frame: Long)
+-    fun onStopped(frame: Long)
+-    fun onError(message: String)
+-    fun onRouting(status: StudioPlaybackRoutingStatus) {}
+-    fun onMasterMeter(meter: StudioPlaybackMeter) {}
+-    fun onTrackMeters(meters: List<StudioPlaybackTrackMeter>) {}
+-}
+-
+-class AndroidStudioPlaybackEngine : AutoCloseable {
+-    @Volatile private var running = false
+-    @Volatile private var worker: Thread? = null
+-    private val pendingSeekFrame = AtomicLong(NO_PENDING_SEEK)
+-    @Volatile private var runtimeMasterGainDb: Float = 0f
+-    @Volatile private var runtimeAuditionMode: GuitarAuditionMode = GuitarAuditionMode.MIXER
+-    private val runtimeTrackMixes = ConcurrentHashMap<String, StudioPlaybackTrackMix>()
+-
+-    @Synchronized
+-    fun start(request: StudioPlaybackRequest, listener: StudioPlaybackListener) {
+-        check(!running && worker?.isAlive != true) { "A reprodução anterior ainda está encerrando." }
+-        require(request.sampleRateHz > 0) { "A taxa de amostragem deve ser positiva." }
+-        require(request.projectEndFrame > 0) { "O projeto precisa conter áudio reproduzível." }
+-        require(request.startFrame in 0..request.projectEndFrame) { "O início da reprodução está fora da linha do tempo." }
+-        require(request.masterGainDb in -60f..12f) { "O ganho Master deve ficar entre -60 dB e +12 dB." }
+-        request.trackMixes.forEach {
+-            require(it.gainDb in -60f..12f) { "O ganho da pista deve ficar entre -60 dB e +12 dB." }
+-            require(it.pan in -1f..1f) { "O pan da pista deve ficar entre -1 e +1." }
+-        }
+-        if (request.loopEnabled) {
+-            require(request.loopStartFrame >= 0 && request.loopEndFrame > request.loopStartFrame) { "A região de loop é inválida." }
+-            require(request.loopEndFrame <= request.projectEndFrame) { "A região de loop ultrapassa o fim do projeto." }
+-        }
+-
+-        runtimeTrackMixes.clear()
+-        request.trackMixes.forEach { runtimeTrackMixes[it.trackId] = it }
+-        runtimeMasterGainDb = request.masterGainDb
+-        runtimeAuditionMode = request.auditionMode
+-        pendingSeekFrame.set(NO_PENDING_SEEK)
+-        running = true
+-        worker = Thread({ runPlayback(request, listener) }, "GuitarLab-StudioPlayback").also { it.start() }
+-    }
+-
+-    /**
+-     * Requests a low-latency seek without tearing down the playback session. Multiple drag events
+-     * intentionally coalesce to the most recent frame at the next audio render boundary.
+-     */
+-    fun seekTo(frame: Long) {
+-        if (!running) return
+-        pendingSeekFrame.set(frame.coerceAtLeast(0L))
+-    }
+-
+-    fun setTrackMix(trackId: String, gainDb: Float, pan: Float) {
+-        val current = runtimeTrackMixes[trackId] ?: StudioPlaybackTrackMix(trackId)
+-        runtimeTrackMixes[trackId] = current.copy(
+-            gainDb = gainDb.coerceIn(-60f, 12f),
+-            pan = pan.coerceIn(-1f, 1f),
+-        )
+-    }
+-
+-    fun setTrackAudibility(trackId: String, muted: Boolean, solo: Boolean) {
+-        val current = runtimeTrackMixes[trackId] ?: StudioPlaybackTrackMix(trackId)
+-        runtimeTrackMixes[trackId] = current.copy(muted = muted, solo = solo)
+-    }
+-
+-    fun setTrackOutputRoute(trackId: String, outputRoute: TrackOutputRoute) {
+-        val current = runtimeTrackMixes[trackId] ?: StudioPlaybackTrackMix(trackId)
+-        runtimeTrackMixes[trackId] = current.copy(outputRoute = outputRoute)
+-    }
+-
+-    fun setMasterGainDb(gainDb: Float) {
+-        runtimeMasterGainDb = gainDb.coerceIn(-60f, 12f)
+-    }
+-
+-    fun setAuditionMode(mode: GuitarAuditionMode) { runtimeAuditionMode = mode }
+-
+-    fun stop() {
+-        val thread = synchronized(this) {
+-            running = false
+-            pendingSeekFrame.set(NO_PENDING_SEEK)
+-            worker
+-        }
+-        thread?.interrupt()
+-        if (thread != null && thread !== Thread.currentThread()) runCatching { thread.join(STOP_JOIN_TIMEOUT_MS) }
+-        synchronized(this) { if (worker === thread && thread?.isAlive != true) worker = null }
+-    }
+-
+-    override fun close() {
+-        stop()
+-        runtimeTrackMixes.clear()
+-    }
+-
+-    private fun runPlayback(request: StudioPlaybackRequest, listener: StudioPlaybackListener) {
+-        var lastTimelineFrame = request.startFrame
+-        val readers = mutableListOf<StudioPcmClipReader>()
+-        var track: AudioTrack? = null
+-        var cueTrack: AudioTrack? = null
+-        try {
+-            request.clips.filterNot { it.muted }.forEach { clip ->
+-                readers += StudioPcmClipReader(
+-                    StudioPcmClip(
+-                        clip.file,
+-                        clip.trackId,
+-                        clip.timelineStartFrame,
+-                        clip.sourceStartFrame,
+-                        clip.lengthFrames,
+-                        clip.gainDb,
+-                        clip.pan,
+-                        clip.fadeInFrames,
+-                        clip.fadeOutFrames,
+-                    ),
+-                    request.sampleRateHz,
+-                )
+-            }
+-            require(readers.isNotEmpty()) { "Não há clipes WAV gerenciados disponíveis para reprodução." }
+-
+-            val channelMask = AudioFormat.CHANNEL_OUT_STEREO
+-            val minBytes = AudioTrack.getMinBufferSize(request.sampleRateHz, channelMask, AudioFormat.ENCODING_PCM_FLOAT)
+-            require(minBytes > 0) { "O Android não conseguiu reservar o buffer de reprodução para ${request.sampleRateHz} Hz." }
+-            val bufferBytes = max(minBytes, CHUNK_FRAMES * 2 * Float.SIZE_BYTES * 4)
+-            val audioTrack = AudioTrack.Builder()
+-                .setAudioAttributes(
+-                    AudioAttributes.Builder()
+-                        .setUsage(AudioAttributes.USAGE_MEDIA)
+-                        .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+-                        .build()
+-                )
+-                .setAudioFormat(
+-                    AudioFormat.Builder()
+-                        .setEncoding(AudioFormat.ENCODING_PCM_FLOAT)
+-                        .setSampleRate(request.sampleRateHz)
+-                        .setChannelMask(channelMask)
+-                        .build()
+-                )
+-                .setTransferMode(AudioTrack.MODE_STREAM)
+-                .setBufferSizeInBytes(bufferBytes)
+-                .setPerformanceMode(AudioTrack.PERFORMANCE_MODE_LOW_LATENCY)
+-                .build()
+-            track = audioTrack
+-            require(audioTrack.state == AudioTrack.STATE_INITIALIZED) { "A saída de áudio do Android não foi inicializada." }
+-
+-            val mainPreferredAccepted = applyOutputRouting(audioTrack, request, listener)
+-            cueTrack = prepareCueOutput(
+-                mainTrack = audioTrack,
+-                request = request,
+-                bufferBytes = bufferBytes,
+-                mainPreferredAccepted = mainPreferredAccepted,
+-                listener = listener,
+-            )
+-
+-            val repeatLoop = request.loopEnabled && request.repeatLoop
+-            val playbackBoundary = if (request.loopEnabled) request.loopEndFrame else request.projectEndFrame
+-            var renderFrame = normalizedStart(request)
+-            var clockStartFrame = renderFrame
+-            var clockHeadBase = playbackHead(audioTrack)
+-            var writtenFramesSinceClockBase = 0L
+-            var playbackClockAnchor: AudioClockAnchor? = null
+-            var clockAnchorAttempted = false
+-            val mainMix = FloatArray(CHUNK_FRAMES * 2)
+-            val cueMix = FloatArray(CHUNK_FRAMES * 2)
+-            val trackBuffers = linkedMapOf<String, FloatArray>()
+-            readers.forEach { reader -> trackBuffers.getOrPut(reader.trackId) { FloatArray(CHUNK_FRAMES * 2) } }
+-            val playCommandNs = System.nanoTime()
+-            audioTrack.play()
+-            cueTrack?.play()
+-            clockHeadBase = playbackHead(audioTrack)
+-            var cueClockHeadBase = cueTrack?.let(::playbackHead) ?: 0L
+-            var cueDriftViolationCount = 0
+-            var playbackStartReported = false
+-
+-            while (running) {
+-                val requestedSeek = pendingSeekFrame.getAndSet(NO_PENDING_SEEK)
+-                if (requestedSeek != NO_PENDING_SEEK) {
+-                    renderFrame = normalizedSeek(request, requestedSeek)
+-                    lastTimelineFrame = renderFrame
+-                    audioTrack.pause()
+-                    audioTrack.flush()
+-                    cueTrack?.pause()
+-                    cueTrack?.flush()
+-                    audioTrack.play()
+-                    cueTrack?.play()
+-                    clockStartFrame = renderFrame
+-                    clockHeadBase = playbackHead(audioTrack)
+-                    cueClockHeadBase = cueTrack?.let(::playbackHead) ?: 0L
+-                    cueDriftViolationCount = 0
+-                    writtenFramesSinceClockBase = 0L
+-                    playbackClockAnchor = null
+-                    clockAnchorAttempted = false
+-                    listener.onPosition(renderFrame)
+-                }
+-
+-                if (renderFrame >= playbackBoundary) {
+-                    if (repeatLoop) {
+-                        renderFrame = request.loopStartFrame
+-                        continue
+-                    }
+-                    break
+-                }
+-
+-                val framesToRender = min(CHUNK_FRAMES.toLong(), playbackBoundary - renderFrame).toInt()
+-                val sampleCount = framesToRender * 2
+-                java.util.Arrays.fill(mainMix, 0, sampleCount, 0f)
+-                java.util.Arrays.fill(cueMix, 0, sampleCount, 0f)
+-                trackBuffers.values.forEach { java.util.Arrays.fill(it, 0, sampleCount, 0f) }
+-                readers.forEach { reader -> reader.mixInto(renderFrame, framesToRender, trackBuffers.getValue(reader.trackId)) }
+-
+-                val trackMeters = ArrayList<StudioPlaybackTrackMeter>(trackBuffers.size)
+-                trackBuffers.forEach { (trackId, buffer) ->
+-                    applyRuntimeTrackMix(trackId, buffer, sampleCount)
+-                    trackMeters += StudioPlaybackTrackMeter(trackId, meterFor(buffer, sampleCount))
+-                    val route = runtimeTrackMixes[trackId]?.outputRoute ?: TrackOutputRoute.MAIN
+-                    if (TrackOutputRoutingPolicy.sendsToMain(route)) {
+-                        for (index in 0 until sampleCount) mainMix[index] += buffer[index]
+-                    }
+-                    if (TrackOutputRoutingPolicy.sendsToCue(route) && cueTrack != null) {
+-                        for (index in 0 until sampleCount) cueMix[index] += buffer[index]
+-                    }
+-                }
+-                listener.onTrackMeters(trackMeters)
+-
+-                var peak = 0f
+-                var sumSquares = 0.0
+-                val masterLinear = 10.0.pow(runtimeMasterGainDb / 20.0).toFloat()
+-                for (index in 0 until sampleCount) {
+-                    val mastered = mainMix[index] * masterLinear
+-                    peak = max(peak, abs(mastered))
+-                    sumSquares += mastered.toDouble() * mastered.toDouble()
+-                }
+-                val rms = if (sampleCount > 0) sqrt(sumSquares / sampleCount).toFloat() else 0f
+-                listener.onMasterMeter(StudioPlaybackMeter(peak = peak, rms = rms))
+-                StudioPcmMixKernel.applyMaster(mainMix, sampleCount, runtimeMasterGainDb)
+-                StudioPcmMixKernel.applyMaster(cueMix, sampleCount, runtimeMasterGainDb)
+-
+-                val samplesWritten = audioTrack.write(mainMix, 0, sampleCount, AudioTrack.WRITE_BLOCKING)
+-                if (samplesWritten < 0) error("Falha ao enviar áudio para a saída Android: código $samplesWritten.")
+-                val writtenFrames = samplesWritten / 2
+-                if (writtenFrames <= 0) error("A saída de áudio não avançou durante a reprodução.")
+-                writtenFramesSinceClockBase += writtenFrames
+-
+-                cueTrack?.let { activeCue ->
+-                    // CUE is deliberately non-blocking: a slow/blocked secondary sink may be
+-                    // silenced, but it may never stall the render loop feeding MAIN.
+-                    val cueWrite = runCatching {
+-                        activeCue.write(cueMix, 0, sampleCount, AudioTrack.WRITE_NON_BLOCKING)
+-                    }.getOrDefault(AudioTrack.ERROR_INVALID_OPERATION)
+-                    val writeComplete = CueRouteSafetyPolicy.secondaryWriteComplete(sampleCount, cueWrite)
+-                    val routeSafe = cueRouteStillSafe(audioTrack, activeCue, request)
+-                    val mainPresented = playbackHeadDelta(playbackHead(audioTrack), clockHeadBase)
+-                    val cuePresented = playbackHeadDelta(playbackHead(activeCue), cueClockHeadBase)
+-                    val driftUnsafe = CueRouteSafetyPolicy.driftExceeded(
+-                        mainPresentedFrames = mainPresented,
+-                        cuePresentedFrames = cuePresented,
+-                        sampleRateHz = request.sampleRateHz,
+-                    )
+-                    cueDriftViolationCount = if (driftUnsafe) cueDriftViolationCount + 1 else 0
+-                    if (!writeComplete || !routeSafe || cueDriftViolationCount >= CUE_DRIFT_CONSECUTIVE_LIMIT) {
+-                        val reason = when {
+-                            !writeComplete ->
+-                                "A saída CUE não acompanhou o fluxo em tempo real; foi silenciada para não bloquear a saída principal."
+-                            !routeSafe ->
+-                                "A rota CUE mudou, convergiu para a saída principal ou deixou de ser confirmada."
+-                            else ->
+-                                "A saída CUE excedeu o limite de deriva segura em relação à saída principal."
+-                        }
+-                        runCatching { activeCue.pause() }
+-                        runCatching { activeCue.flush() }
+-                        runCatching { activeCue.release() }
+-                        cueTrack = null
+-                        listener.onRouting(
+-                            StudioPlaybackRoutingStatus(
+-                                requestedPreferredOutput = request.preferredOutputRequested,
+-                                usingPreferredOutput = request.preferredOutputRequested && request.preferredOutputDevice != null,
+-                                fellBackToAuto = false,
+-                                deviceLabel = request.preferredOutputDevice?.productName?.toString(),
+-                                requestedPreferredCueOutput = true,
+-                                usingPreferredCueOutput = false,
+-                                cueSuppressed = true,
+-                                cueDeviceLabel = request.preferredCueOutputDevice?.productName?.toString(),
+-                                cueFailureReason = reason,
+-                            )
+-                        )
+-                    }
+-                }
+-
+-                if (!clockAnchorAttempted) {
+-                    playbackClockAnchor = stablePlaybackClockAnchor(audioTrack, request.sampleRateHz)
+-                    clockAnchorAttempted = true
+-                }
+-                if (!playbackStartReported) {
+-                    val hasTimestamp = playbackClockAnchor != null
+-                    val presentationStartNs = playbackClockAnchor?.streamOriginMonotonicNs ?: playCommandNs
+-                    val routed = audioTrack.routedDevice
+-                    val cueRouted = cueTrack?.routedDevice
+-                    listener.onStarted(
+-                        StudioPlaybackStartInfo(
+-                            presentationStartMonotonicNs = presentationStartNs,
+-                            timestampBased = hasTimestamp,
+-                            routedOutputLabel = routed?.productName?.toString(),
+-                            routedOutputDeviceId = routed?.id,
+-                            cueRoutedOutputLabel = cueRouted?.productName?.toString(),
+-                            cueRoutedOutputDeviceId = cueRouted?.id,
+-                            playbackAnchorJitterNs = playbackClockAnchor?.jitterNs,
+-                            playbackAnchorObservations = playbackClockAnchor?.observations,
+-                            outputUnderrunCount = audioTrack.underrunCount,
+-                            cueOutputUnderrunCount = cueTrack?.underrunCount,
+-                        )
+-                    )
+-                    playbackStartReported = true
+-                }
+-                renderFrame += writtenFrames
+-                if (repeatLoop && renderFrame >= request.loopEndFrame) renderFrame = request.loopStartFrame
+-
+-                val presentedFrames = presentedFrames(
+-                    track = audioTrack,
+-                    clockHeadBase = clockHeadBase,
+-                    playbackClockAnchor = playbackClockAnchor,
+-                    sampleRateHz = request.sampleRateHz,
+-                    writtenFramesSinceClockBase = writtenFramesSinceClockBase,
+-                )
+-                lastTimelineFrame = PlaybackClockPolicy.timelineFrame(
+-                    startFrame = clockStartFrame,
+-                    presentedFrames = presentedFrames,
+-                    projectEndFrame = if (repeatLoop) request.projectEndFrame else playbackBoundary,
+-                    loopEnabled = repeatLoop,
+-                    loopStartFrame = request.loopStartFrame,
+-                    loopEndFrame = request.loopEndFrame,
+-                )
+-                listener.onPosition(lastTimelineFrame)
+-            }
+-
+-            if (running && !repeatLoop) {
+-                val deadline = System.nanoTime() + DRAIN_TIMEOUT_NS
+-                while (
+-                    running &&
+-                    presentedFrames(
+-                        track = audioTrack,
+-                        clockHeadBase = clockHeadBase,
+-                        playbackClockAnchor = playbackClockAnchor,
+-                        sampleRateHz = request.sampleRateHz,
+-                        writtenFramesSinceClockBase = writtenFramesSinceClockBase,
+-                    ) < writtenFramesSinceClockBase &&
+-                    System.nanoTime() < deadline
+-                ) {
+-                    Thread.sleep(4)
+-                    val presentedFrames = presentedFrames(
+-                        track = audioTrack,
+-                        clockHeadBase = clockHeadBase,
+-                        playbackClockAnchor = playbackClockAnchor,
+-                        sampleRateHz = request.sampleRateHz,
+-                        writtenFramesSinceClockBase = writtenFramesSinceClockBase,
+-                    )
+-                    lastTimelineFrame = PlaybackClockPolicy.timelineFrame(
+-                        clockStartFrame,
+-                        presentedFrames,
+-                        playbackBoundary,
+-                        false,
+-                        0,
+-                        playbackBoundary,
+-                    )
+-                    listener.onPosition(lastTimelineFrame)
+-                }
+-                lastTimelineFrame = playbackBoundary
+-                listener.onPosition(lastTimelineFrame)
+-            }
+-        } catch (_: InterruptedException) {
+-        } catch (error: Throwable) {
+-            listener.onError(error.message ?: "A reprodução do Studio falhou.")
+-        } finally {
+-            running = false
+-            pendingSeekFrame.set(NO_PENDING_SEEK)
+-            runCatching { cueTrack?.pause() }
+-            runCatching { cueTrack?.flush() }
+-            runCatching { cueTrack?.release() }
+-            runCatching { track?.pause() }
+-            runCatching { track?.flush() }
+-            runCatching { track?.release() }
+-            readers.forEach { runCatching { it.close() } }
+-            listener.onTrackMeters(emptyList())
+-            listener.onMasterMeter(StudioPlaybackMeter(peak = 0f, rms = 0f))
+-            listener.onStopped(lastTimelineFrame)
+-            synchronized(this) { worker = null }
+-        }
+-    }
+-
+-    private fun stablePlaybackClockAnchor(
+-        track: AudioTrack,
+-        sampleRateHz: Int,
+-        maxJitterNs: Long = AudioClockAnchorPolicy.DEFAULT_MAX_JITTER_NS,
+-    ) =
+-        AudioClockAnchorPolicy.estimate(
+-            observations = buildList {
+-                repeat(CLOCK_ANCHOR_SAMPLES) { index ->
+-                    val timestamp = AudioTimestamp()
+-                    if (track.getTimestamp(timestamp)) {
+-                        add(AudioClockObservation(timestamp.framePosition, timestamp.nanoTime))
+-                    }
+-                    if (index + 1 < CLOCK_ANCHOR_SAMPLES) {
+-                        try { Thread.sleep(CLOCK_ANCHOR_POLL_MS) } catch (_: InterruptedException) { return@repeat }
+-                    }
+-                }
+-            },
+-            sampleRateHz = sampleRateHz,
+-            maxJitterNs = maxJitterNs,
+-        )
+-
+-    private fun applyRuntimeTrackMix(trackId: String, samples: FloatArray, sampleCount: Int) {
+-        val runtime = runtimeTrackMixes[trackId] ?: return
+-        val anySolo = runtimeTrackMixes.values.any { it.solo }
+-        if (runtime.muted || (anySolo && !runtime.solo) || !GuitarAuditionPolicy.roleAudible(runtime.roleId, runtimeAuditionMode)) {
+-            java.util.Arrays.fill(samples, 0, sampleCount, 0f)
+-            return
+-        }
+-        StudioPcmMixKernel.applyTrack(samples, sampleCount, runtime.gainDb, runtime.pan, audible = true)
+-    }
+-
+-    private fun meterFor(samples: FloatArray, sampleCount: Int): StudioPlaybackMeter {
+-        var peak = 0f
+-        var sumSquares = 0.0
+-        for (index in 0 until sampleCount) {
+-            val sample = samples[index]
+-            peak = max(peak, abs(sample))
+-            sumSquares += sample.toDouble() * sample.toDouble()
+-        }
+-        val rms = if (sampleCount > 0) sqrt(sumSquares / sampleCount).toFloat() else 0f
+-        return StudioPlaybackMeter(peak = peak, rms = rms)
+-    }
+-
+-    private fun applyOutputRouting(
+-        track: AudioTrack,
+-        request: StudioPlaybackRequest,
+-        listener: StudioPlaybackListener,
+-    ): Boolean {
+-        if (!request.preferredOutputRequested) {
+-            listener.onRouting(
+-                StudioPlaybackRoutingStatus(
+-                    requestedPreferredOutput = false,
+-                    usingPreferredOutput = false,
+-                    fellBackToAuto = false,
+-                )
+-            )
+-            return false
+-        }
+-
+-        val preferred = request.preferredOutputDevice
+-        if (preferred == null) {
+-            listener.onRouting(
+-                StudioPlaybackRoutingStatus(
+-                    requestedPreferredOutput = true,
+-                    usingPreferredOutput = false,
+-                    fellBackToAuto = true,
+-                )
+-            )
+-            return false
+-        }
+-
+-        val accepted = runCatching { track.setPreferredDevice(preferred) }.getOrDefault(false)
+-        listener.onRouting(
+-            StudioPlaybackRoutingStatus(
+-                requestedPreferredOutput = true,
+-                usingPreferredOutput = accepted,
+-                fellBackToAuto = !accepted,
+-                deviceLabel = preferred.productName?.toString(),
+-            )
+-        )
+-        return accepted
+-    }
+-
+-    private fun prepareCueOutput(
+-        mainTrack: AudioTrack,
+-        request: StudioPlaybackRequest,
+-        bufferBytes: Int,
+-        mainPreferredAccepted: Boolean,
+-        listener: StudioPlaybackListener,
+-    ): AudioTrack? {
+-        if (!request.preferredCueOutputRequested) return null
+-
+-        val main = request.preferredOutputDevice
+-        val cue = request.preferredCueOutputDevice
+-        val admission = CueRouteSafetyPolicy.admit(
+-            cueRequested = true,
+-            mainRequested = request.preferredOutputRequested,
+-            mainAccepted = mainPreferredAccepted,
+-            mainDeviceId = main?.id,
+-            cueDeviceId = cue?.id,
+-        )
+-        if (!admission.allowed) {
+-            val failure = when (admission.blockReason) {
+-                CueRouteBlockReason.MAIN_NOT_EXPLICIT ->
+-                    "CUE exige uma saída principal explícita para impedir convergência silenciosa de rotas."
+-                CueRouteBlockReason.MAIN_NOT_ACCEPTED ->
+-                    "A saída principal explícita não foi aceita pelo Android; CUE foi bloqueado."
+-                CueRouteBlockReason.CUE_UNAVAILABLE ->
+-                    "Nenhuma saída CUE explícita e disponível pôde ser resolvida."
+-                CueRouteBlockReason.SAME_ENDPOINT ->
+-                    "MAIN e CUE resolveram para o mesmo endpoint físico."
+-                CueRouteBlockReason.NOT_REQUESTED, null ->
+-                    "A saída CUE não foi solicitada."
+-            }
+-            reportCueSuppressed(request, listener, failure)
+-            return null
+-        }
+-        val explicitMain = requireNotNull(main)
+-        val explicitCue = requireNotNull(cue)
+-
+-        val cueTrack = runCatching {
+-            AudioTrack.Builder()
+-                .setAudioAttributes(
+-                    AudioAttributes.Builder()
+-                        .setUsage(AudioAttributes.USAGE_MEDIA)
+-                        .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+-                        .build()
+-                )
+-                .setAudioFormat(
+-                    AudioFormat.Builder()
+-                        .setEncoding(AudioFormat.ENCODING_PCM_FLOAT)
+-                        .setSampleRate(request.sampleRateHz)
+-                        .setChannelMask(AudioFormat.CHANNEL_OUT_STEREO)
+-                        .build()
+-                )
+-                .setTransferMode(AudioTrack.MODE_STREAM)
+-                .setBufferSizeInBytes(bufferBytes)
+-                .setPerformanceMode(AudioTrack.PERFORMANCE_MODE_LOW_LATENCY)
+-                .build()
+-        }.getOrNull()
+-
+-        if (cueTrack == null || cueTrack.state != AudioTrack.STATE_INITIALIZED) {
+-            runCatching { cueTrack?.release() }
+-            reportCueSuppressed(request, listener, "O Android não conseguiu abrir a saída CUE.")
+-            return null
+-        }
+-        if (!runCatching { cueTrack.setPreferredDevice(explicitCue) }.getOrDefault(false)) {
+-            runCatching { cueTrack.release() }
+-            reportCueSuppressed(request, listener, "O Android recusou a rota CUE solicitada.")
+-            return null
+-        }
+-
+-        val dualRouteFailure = primeAndVerifyDualRoutes(
+-            mainTrack = mainTrack,
+-            cueTrack = cueTrack,
+-            expectedMain = explicitMain,
+-            expectedCue = explicitCue,
+-            sampleRateHz = request.sampleRateHz,
+-        )
+-        if (dualRouteFailure != null) {
+-            runCatching { cueTrack.release() }
+-            reportCueSuppressed(request, listener, dualRouteFailure)
+-            return null
+-        }
+-
+-        listener.onRouting(
+-            StudioPlaybackRoutingStatus(
+-                requestedPreferredOutput = true,
+-                usingPreferredOutput = true,
+-                fellBackToAuto = false,
+-                deviceLabel = explicitMain.productName?.toString(),
+-                requestedPreferredCueOutput = true,
+-                usingPreferredCueOutput = true,
+-                cueSuppressed = false,
+-                cueDeviceLabel = explicitCue.productName?.toString(),
+-            )
+-        )
+-        return cueTrack
+-    }
+-
+-    private fun primeAndVerifyDualRoutes(
+-        mainTrack: AudioTrack, cueTrack: AudioTrack, expectedMain: AudioDeviceInfo,
+-        expectedCue: AudioDeviceInfo, sampleRateHz: Int,
+-    ): String? = AndroidCueRouteVerifier.verifyTracks(
+-        mainTrack, cueTrack, expectedMain, expectedCue, sampleRateHz,
+-        keepRunning = { running },
+-    )
+-
+-    private fun cueRouteStillSafe(
+-        mainTrack: AudioTrack,
+-        cueTrack: AudioTrack,
+-        request: StudioPlaybackRequest,
+-    ): Boolean {
+-        val expectedMain = request.preferredOutputDevice ?: return false
+-        val expectedCue = request.preferredCueOutputDevice ?: return false
+-        val mainRouted = mainTrack.routedDevice ?: return false
+-        val cueRouted = cueTrack.routedDevice ?: return false
+-        return CueRouteSafetyPolicy.routedPairMatches(
+-            expectedMainDeviceId = expectedMain.id,
+-            expectedCueDeviceId = expectedCue.id,
+-            actualMainDeviceId = mainRouted.id,
+-            actualCueDeviceId = cueRouted.id,
+-        )
+-    }
+-
+-    private fun reportCueSuppressed(
+-        request: StudioPlaybackRequest,
+-        listener: StudioPlaybackListener,
+-        reason: String,
+-    ) {
+-        listener.onRouting(
+-            StudioPlaybackRoutingStatus(
+-                requestedPreferredOutput = request.preferredOutputRequested,
+-                usingPreferredOutput = request.preferredOutputRequested && request.preferredOutputDevice != null,
+-                fellBackToAuto = request.preferredOutputRequested && request.preferredOutputDevice == null,
+-                deviceLabel = request.preferredOutputDevice?.productName?.toString(),
+-                requestedPreferredCueOutput = true,
+-                usingPreferredCueOutput = false,
+-                cueSuppressed = true,
+-                cueDeviceLabel = request.preferredCueOutputDevice?.productName?.toString(),
+-                cueFailureReason = reason,
+-            )
+-        )
+-    }
+-
+-    private fun normalizedStart(request: StudioPlaybackRequest): Long =
+-        if (request.loopEnabled && request.startFrame >= request.loopEndFrame) request.loopStartFrame else request.startFrame
+-
+-    private fun normalizedSeek(request: StudioPlaybackRequest, requestedFrame: Long): Long {
+-        val target = requestedFrame.coerceIn(0L, request.projectEndFrame)
+-        if (!request.loopEnabled) return target
+-        val lastPlayableFrame = (request.loopEndFrame - 1L).coerceAtLeast(request.loopStartFrame)
+-        return target.coerceIn(request.loopStartFrame, lastPlayableFrame)
+-    }
+-
+-    private fun presentedFrames(
+-        track: AudioTrack,
+-        clockHeadBase: Long,
+-        playbackClockAnchor: AudioClockAnchor?,
+-        sampleRateHz: Int,
+-        writtenFramesSinceClockBase: Long,
+-    ): Long = playbackClockAnchor?.let { anchor ->
+-        PlaybackClockPolicy.presentedFramesAt(
+-            nowMonotonicNs = System.nanoTime(),
+-            presentationOriginMonotonicNs = anchor.streamOriginMonotonicNs,
+-            sampleRateHz = sampleRateHz,
+-            maxWrittenFrames = writtenFramesSinceClockBase,
+-        )
+-    } ?: playbackHeadDelta(playbackHead(track), clockHeadBase).coerceAtMost(writtenFramesSinceClockBase)
+-
+-    private fun playbackHead(track: AudioTrack): Long = track.playbackHeadPosition.toLong() and 0xffffffffL
+-
+-    private fun playbackHeadDelta(current: Long, base: Long): Long = (current - base) and 0xffffffffL
+-
+-    private companion object {
+-        const val CHUNK_FRAMES = 1024
+-        const val DRAIN_TIMEOUT_NS = 2_000_000_000L
+-        const val STOP_JOIN_TIMEOUT_MS = 1_500L
+-        const val NO_PENDING_SEEK = Long.MIN_VALUE
+-        const val CLOCK_ANCHOR_SAMPLES = 6
+-        const val CLOCK_ANCHOR_POLL_MS = 3L
+-        const val CUE_DRIFT_CONSECUTIVE_LIMIT = 3
+-    }
+-}
++package studio.guitarlab.platform.audio.android
++
++import android.media.AudioAttributes
++import android.media.AudioDeviceInfo
++import android.media.AudioFormat
++import android.media.AudioTrack
++import android.media.AudioTimestamp
++import java.io.File
++import java.util.concurrent.ConcurrentHashMap
++import java.util.concurrent.atomic.AtomicLong
++import kotlin.math.abs
++import kotlin.math.max
++import kotlin.math.min
++import kotlin.math.pow
++import kotlin.math.sqrt
++import studio.guitarlab.core.audio.AudioClockAnchor
++import studio.guitarlab.core.audio.AudioClockAnchorPolicy
++import studio.guitarlab.core.audio.AudioClockObservation
++import studio.guitarlab.core.audio.CueRouteBlockReason
++import studio.guitarlab.core.audio.CueRouteSafetyPolicy
++import studio.guitarlab.core.audio.PlaybackClockPolicy
++import studio.guitarlab.core.model.TrackOutputRoute
++import studio.guitarlab.core.model.TrackOutputRoutingPolicy
++import studio.guitarlab.core.project.GuitarAuditionMode
++import studio.guitarlab.core.project.GuitarAuditionPolicy
++
++data class StudioPlaybackClip(
++    val file: File,
++    val trackId: String,
++    val timelineStartFrame: Long,
++    val sourceStartFrame: Long,
++    val lengthFrames: Long,
++    val gainDb: Float = 0f,
++    val pan: Float = 0f,
++    val muted: Boolean = false,
++    val fadeInFrames: Long = 0,
++    val fadeOutFrames: Long = 0,
++)
++
++data class StudioPlaybackTrackMix(
++    val trackId: String,
++    val roleId: String? = null,
++    val gainDb: Float = 0f,
++    val pan: Float = 0f,
++    val muted: Boolean = false,
++    val solo: Boolean = false,
++    val outputRoute: TrackOutputRoute = TrackOutputRoute.MAIN,
++)
++
++data class StudioPlaybackRequest(
++    val sampleRateHz: Int,
++    val startFrame: Long,
++    val projectEndFrame: Long,
++    val loopEnabled: Boolean,
++    val loopStartFrame: Long,
++    val loopEndFrame: Long,
++    val clips: List<StudioPlaybackClip>,
++    val trackMixes: List<StudioPlaybackTrackMix> = emptyList(),
++    val preferredOutputDevice: AudioDeviceInfo? = null,
++    val preferredOutputRequested: Boolean = false,
++    val preferredCueOutputDevice: AudioDeviceInfo? = null,
++    val preferredCueOutputRequested: Boolean = false,
++    val masterGainDb: Float = 0f,
++    val auditionMode: GuitarAuditionMode = GuitarAuditionMode.MIXER,
++    val repeatLoop: Boolean = true,
++)
++
++data class StudioPlaybackRoutingStatus(
++    val requestedPreferredOutput: Boolean,
++    val usingPreferredOutput: Boolean,
++    val fellBackToAuto: Boolean,
++    val deviceLabel: String? = null,
++    val requestedPreferredCueOutput: Boolean = false,
++    val usingPreferredCueOutput: Boolean = false,
++    val cueSuppressed: Boolean = false,
++    val cueDeviceLabel: String? = null,
++    val cueFailureReason: String? = null,
++)
++
++data class StudioPlaybackStartInfo(
++    val presentationStartMonotonicNs: Long,
++    val timestampBased: Boolean,
++    val routedOutputLabel: String? = null,
++    val routedOutputDeviceId: Int? = null,
++    val cueRoutedOutputLabel: String? = null,
++    val cueRoutedOutputDeviceId: Int? = null,
++    val playbackAnchorJitterNs: Long? = null,
++    val playbackAnchorObservations: Int? = null,
++    val outputUnderrunCount: Int? = null,
++    val cueOutputUnderrunCount: Int? = null,
++)
++
++data class StudioPlaybackMeter(
++    val peak: Float,
++    val rms: Float,
++)
++
++data class StudioPlaybackTrackMeter(
++    val trackId: String,
++    val meter: StudioPlaybackMeter,
++)
++
++interface StudioPlaybackListener {
++    fun onStarted(info: StudioPlaybackStartInfo) {}
++    fun onPosition(frame: Long)
++    fun onStopped(frame: Long)
++    fun onError(message: String)
++    fun onRouting(status: StudioPlaybackRoutingStatus) {}
++    fun onMasterMeter(meter: StudioPlaybackMeter) {}
++    fun onTrackMeters(meters: List<StudioPlaybackTrackMeter>) {}
++}
++
++class AndroidStudioPlaybackEngine : AutoCloseable {
++    @Volatile private var running = false
++    @Volatile private var worker: Thread? = null
++    private val pendingSeekFrame = AtomicLong(NO_PENDING_SEEK)
++    @Volatile private var runtimeMasterGainDb: Float = 0f
++    @Volatile private var runtimeAuditionMode: GuitarAuditionMode = GuitarAuditionMode.MIXER
++    private val runtimeTrackMixes = ConcurrentHashMap<String, StudioPlaybackTrackMix>()
++
++    @Synchronized
++    fun start(request: StudioPlaybackRequest, listener: StudioPlaybackListener) {
++        check(!running && worker?.isAlive != true) { "A reprodução anterior ainda está encerrando." }
++        require(request.sampleRateHz > 0) { "A taxa de amostragem deve ser positiva." }
++        require(request.projectEndFrame > 0) { "O projeto precisa conter áudio reproduzível." }
++        require(request.startFrame in 0..request.projectEndFrame) { "O início da reprodução está fora da linha do tempo." }
++        require(request.masterGainDb in -60f..12f) { "O ganho Master deve ficar entre -60 dB e +12 dB." }
++        request.trackMixes.forEach {
++            require(it.gainDb in -60f..12f) { "O ganho da pista deve ficar entre -60 dB e +12 dB." }
++            require(it.pan in -1f..1f) { "O pan da pista deve ficar entre -1 e +1." }
++        }
++        if (request.loopEnabled) {
++            require(request.loopStartFrame >= 0 && request.loopEndFrame > request.loopStartFrame) { "A região de loop é inválida." }
++            require(request.loopEndFrame <= request.projectEndFrame) { "A região de loop ultrapassa o fim do projeto." }
++        }
++
++        runtimeTrackMixes.clear()
++        request.trackMixes.forEach { runtimeTrackMixes[it.trackId] = it }
++        runtimeMasterGainDb = request.masterGainDb
++        runtimeAuditionMode = request.auditionMode
++        pendingSeekFrame.set(NO_PENDING_SEEK)
++        running = true
++        worker = Thread({ runPlayback(request, listener) }, "GuitarLab-StudioPlayback").also { it.start() }
++    }
++
++    /**
++     * Requests a low-latency seek without tearing down the playback session. Multiple drag events
++     * intentionally coalesce to the most recent frame at the next audio render boundary.
++     */
++    fun seekTo(frame: Long) {
++        if (!running) return
++        pendingSeekFrame.set(frame.coerceAtLeast(0L))
++    }
++
++    fun setTrackMix(trackId: String, gainDb: Float, pan: Float) {
++        val current = runtimeTrackMixes[trackId] ?: StudioPlaybackTrackMix(trackId)
++        runtimeTrackMixes[trackId] = current.copy(
++            gainDb = gainDb.coerceIn(-60f, 12f),
++            pan = pan.coerceIn(-1f, 1f),
++        )
++    }
++
++    fun setTrackAudibility(trackId: String, muted: Boolean, solo: Boolean) {
++        val current = runtimeTrackMixes[trackId] ?: StudioPlaybackTrackMix(trackId)
++        runtimeTrackMixes[trackId] = current.copy(muted = muted, solo = solo)
++    }
++
++    fun setTrackOutputRoute(trackId: String, outputRoute: TrackOutputRoute) {
++        val current = runtimeTrackMixes[trackId] ?: StudioPlaybackTrackMix(trackId)
++        runtimeTrackMixes[trackId] = current.copy(outputRoute = outputRoute)
++    }
++
++    fun setMasterGainDb(gainDb: Float) {
++        runtimeMasterGainDb = gainDb.coerceIn(-60f, 12f)
++    }
++
++    fun setAuditionMode(mode: GuitarAuditionMode) { runtimeAuditionMode = mode }
++
++    fun stop() {
++        val thread = synchronized(this) {
++            running = false
++            pendingSeekFrame.set(NO_PENDING_SEEK)
++            worker
++        }
++        thread?.interrupt()
++        if (thread != null && thread !== Thread.currentThread()) runCatching { thread.join(STOP_JOIN_TIMEOUT_MS) }
++        synchronized(this) { if (worker === thread && thread?.isAlive != true) worker = null }
++    }
++
++    override fun close() {
++        stop()
++        runtimeTrackMixes.clear()
++    }
++
++    private fun runPlayback(request: StudioPlaybackRequest, listener: StudioPlaybackListener) {
++        var lastTimelineFrame = request.startFrame
++        val readers = mutableListOf<StudioPcmClipReader>()
++        var track: AudioTrack? = null
++        var cueTrack: AudioTrack? = null
++        try {
++            request.clips.filterNot { it.muted }.forEach { clip ->
++                readers += StudioPcmClipReader(
++                    StudioPcmClip(
++                        clip.file,
++                        clip.trackId,
++                        clip.timelineStartFrame,
++                        clip.sourceStartFrame,
++                        clip.lengthFrames,
++                        clip.gainDb,
++                        clip.pan,
++                        clip.fadeInFrames,
++                        clip.fadeOutFrames,
++                    ),
++                    request.sampleRateHz,
++                )
++            }
++            require(readers.isNotEmpty()) { "Não há clipes WAV gerenciados disponíveis para reprodução." }
++
++            val channelMask = AudioFormat.CHANNEL_OUT_STEREO
++            val minBytes = AudioTrack.getMinBufferSize(request.sampleRateHz, channelMask, AudioFormat.ENCODING_PCM_FLOAT)
++            require(minBytes > 0) { "O Android não conseguiu reservar o buffer de reprodução para ${request.sampleRateHz} Hz." }
++            val bufferBytes = max(minBytes, CHUNK_FRAMES * 2 * Float.SIZE_BYTES * 4)
++            val audioTrack = AudioTrack.Builder()
++                .setAudioAttributes(
++                    AudioAttributes.Builder()
++                        .setUsage(AudioAttributes.USAGE_MEDIA)
++                        .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
++                        .build()
++                )
++                .setAudioFormat(
++                    AudioFormat.Builder()
++                        .setEncoding(AudioFormat.ENCODING_PCM_FLOAT)
++                        .setSampleRate(request.sampleRateHz)
++                        .setChannelMask(channelMask)
++                        .build()
++                )
++                .setTransferMode(AudioTrack.MODE_STREAM)
++                .setBufferSizeInBytes(bufferBytes)
++                .setPerformanceMode(AudioTrack.PERFORMANCE_MODE_LOW_LATENCY)
++                .build()
++            track = audioTrack
++            require(audioTrack.state == AudioTrack.STATE_INITIALIZED) { "A saída de áudio do Android não foi inicializada." }
++
++            val mainPreferredAccepted = applyOutputRouting(audioTrack, request, listener)
++            cueTrack = prepareCueOutput(
++                mainTrack = audioTrack,
++                request = request,
++                bufferBytes = bufferBytes,
++                mainPreferredAccepted = mainPreferredAccepted,
++                listener = listener,
++            )
++
++            val repeatLoop = request.loopEnabled && request.repeatLoop
++            val playbackBoundary = if (request.loopEnabled) request.loopEndFrame else request.projectEndFrame
++            var renderFrame = normalizedStart(request)
++            var clockStartFrame = renderFrame
++            var clockHeadBase = playbackHead(audioTrack)
++            var writtenFramesSinceClockBase = 0L
++            var playbackClockAnchor: AudioClockAnchor? = null
++            var clockAnchorAttempted = false
++            val mainMix = FloatArray(CHUNK_FRAMES * 2)
++            val cueMix = FloatArray(CHUNK_FRAMES * 2)
++            val trackBuffers = linkedMapOf<String, FloatArray>()
++            readers.forEach { reader -> trackBuffers.getOrPut(reader.trackId) { FloatArray(CHUNK_FRAMES * 2) } }
++            val playCommandNs = System.nanoTime()
++            audioTrack.play()
++            cueTrack?.play()
++            clockHeadBase = playbackHead(audioTrack)
++            var cueClockHeadBase = cueTrack?.let(::playbackHead) ?: 0L
++            var cueDriftViolationCount = 0
++            var playbackStartReported = false
++
++            while (running) {
++                val requestedSeek = pendingSeekFrame.getAndSet(NO_PENDING_SEEK)
++                if (requestedSeek != NO_PENDING_SEEK) {
++                    renderFrame = normalizedSeek(request, requestedSeek)
++                    lastTimelineFrame = renderFrame
++                    audioTrack.pause()
++                    audioTrack.flush()
++                    cueTrack?.pause()
++                    cueTrack?.flush()
++                    audioTrack.play()
++                    cueTrack?.play()
++                    clockStartFrame = renderFrame
++                    clockHeadBase = playbackHead(audioTrack)
++                    cueClockHeadBase = cueTrack?.let(::playbackHead) ?: 0L
++                    cueDriftViolationCount = 0
++                    writtenFramesSinceClockBase = 0L
++                    playbackClockAnchor = null
++                    clockAnchorAttempted = false
++                    listener.onPosition(renderFrame)
++                }
++
++                if (renderFrame >= playbackBoundary) {
++                    if (repeatLoop) {
++                        renderFrame = request.loopStartFrame
++                        continue
++                    }
++                    break
++                }
++
++                val framesToRender = min(CHUNK_FRAMES.toLong(), playbackBoundary - renderFrame).toInt()
++                val sampleCount = framesToRender * 2
++                java.util.Arrays.fill(mainMix, 0, sampleCount, 0f)
++                java.util.Arrays.fill(cueMix, 0, sampleCount, 0f)
++                trackBuffers.values.forEach { java.util.Arrays.fill(it, 0, sampleCount, 0f) }
++                readers.forEach { reader -> reader.mixInto(renderFrame, framesToRender, trackBuffers.getValue(reader.trackId)) }
++
++                val trackMeters = ArrayList<StudioPlaybackTrackMeter>(trackBuffers.size)
++                trackBuffers.forEach { (trackId, buffer) ->
++                    applyRuntimeTrackMix(trackId, buffer, sampleCount)
++                    trackMeters += StudioPlaybackTrackMeter(trackId, meterFor(buffer, sampleCount))
++                    val route = runtimeTrackMixes[trackId]?.outputRoute ?: TrackOutputRoute.MAIN
++                    if (TrackOutputRoutingPolicy.sendsToMain(route)) {
++                        for (index in 0 until sampleCount) mainMix[index] += buffer[index]
++                    }
++                    if (TrackOutputRoutingPolicy.sendsToCue(route) && cueTrack != null) {
++                        for (index in 0 until sampleCount) cueMix[index] += buffer[index]
++                    }
++                }
++                listener.onTrackMeters(trackMeters)
++
++                var peak = 0f
++                var sumSquares = 0.0
++                val masterLinear = 10.0.pow(runtimeMasterGainDb / 20.0).toFloat()
++                for (index in 0 until sampleCount) {
++                    val mastered = mainMix[index] * masterLinear
++                    peak = max(peak, abs(mastered))
++                    sumSquares += mastered.toDouble() * mastered.toDouble()
++                }
++                val rms = if (sampleCount > 0) sqrt(sumSquares / sampleCount).toFloat() else 0f
++                listener.onMasterMeter(StudioPlaybackMeter(peak = peak, rms = rms))
++                StudioPcmMixKernel.applyMaster(mainMix, sampleCount, runtimeMasterGainDb)
++                StudioPcmMixKernel.applyMaster(cueMix, sampleCount, runtimeMasterGainDb)
++
++                val samplesWritten = audioTrack.write(mainMix, 0, sampleCount, AudioTrack.WRITE_BLOCKING)
++                if (samplesWritten < 0) error("Falha ao enviar áudio para a saída Android: código $samplesWritten.")
++                val writtenFrames = samplesWritten / 2
++                if (writtenFrames <= 0) error("A saída de áudio não avançou durante a reprodução.")
++                writtenFramesSinceClockBase += writtenFrames
++
++                cueTrack?.let { activeCue ->
++                    // CUE is deliberately non-blocking: a slow/blocked secondary sink may be
++                    // silenced, but it may never stall the render loop feeding MAIN.
++                    val cueWrite = runCatching {
++                        activeCue.write(cueMix, 0, sampleCount, AudioTrack.WRITE_NON_BLOCKING)
++                    }.getOrDefault(AudioTrack.ERROR_INVALID_OPERATION)
++                    val writeComplete = CueRouteSafetyPolicy.secondaryWriteComplete(sampleCount, cueWrite)
++                    val routeSafe = cueRouteStillSafe(audioTrack, activeCue, request)
++                    val mainPresented = playbackHeadDelta(playbackHead(audioTrack), clockHeadBase)
++                    val cuePresented = playbackHeadDelta(playbackHead(activeCue), cueClockHeadBase)
++                    val driftUnsafe = CueRouteSafetyPolicy.driftExceeded(
++                        mainPresentedFrames = mainPresented,
++                        cuePresentedFrames = cuePresented,
++                        sampleRateHz = request.sampleRateHz,
++                    )
++                    cueDriftViolationCount = if (driftUnsafe) cueDriftViolationCount + 1 else 0
++                    if (!writeComplete || !routeSafe || cueDriftViolationCount >= CUE_DRIFT_CONSECUTIVE_LIMIT) {
++                        val reason = when {
++                            !writeComplete ->
++                                "A saída CUE não acompanhou o fluxo em tempo real; foi silenciada para não bloquear a saída principal."
++                            !routeSafe ->
++                                "A rota CUE mudou, convergiu para a saída principal ou deixou de ser confirmada."
++                            else ->
++                                "A saída CUE excedeu o limite de deriva segura em relação à saída principal."
++                        }
++                        runCatching { activeCue.pause() }
++                        runCatching { activeCue.flush() }
++                        runCatching { activeCue.release() }
++                        cueTrack = null
++                        listener.onRouting(
++                            StudioPlaybackRoutingStatus(
++                                requestedPreferredOutput = request.preferredOutputRequested,
++                                usingPreferredOutput = request.preferredOutputRequested && request.preferredOutputDevice != null,
++                                fellBackToAuto = false,
++                                deviceLabel = request.preferredOutputDevice?.productName?.toString(),
++                                requestedPreferredCueOutput = true,
++                                usingPreferredCueOutput = false,
++                                cueSuppressed = true,
++                                cueDeviceLabel = request.preferredCueOutputDevice?.productName?.toString(),
++                                cueFailureReason = reason,
++                            )
++                        )
++                    }
++                }
++
++                if (!clockAnchorAttempted) {
++                    playbackClockAnchor = stablePlaybackClockAnchor(audioTrack, request.sampleRateHz)
++                    clockAnchorAttempted = true
++                }
++                if (!playbackStartReported) {
++                    val hasTimestamp = playbackClockAnchor != null
++                    val presentationStartNs = playbackClockAnchor?.streamOriginMonotonicNs ?: playCommandNs
++                    val routed = audioTrack.routedDevice
++                    val cueRouted = cueTrack?.routedDevice
++                    listener.onStarted(
++                        StudioPlaybackStartInfo(
++                            presentationStartMonotonicNs = presentationStartNs,
++                            timestampBased = hasTimestamp,
++                            routedOutputLabel = routed?.productName?.toString(),
++                            routedOutputDeviceId = routed?.id,
++                            cueRoutedOutputLabel = cueRouted?.productName?.toString(),
++                            cueRoutedOutputDeviceId = cueRouted?.id,
++                            playbackAnchorJitterNs = playbackClockAnchor?.jitterNs,
++                            playbackAnchorObservations = playbackClockAnchor?.observations,
++                            outputUnderrunCount = audioTrack.underrunCount,
++                            cueOutputUnderrunCount = cueTrack?.underrunCount,
++                        )
++                    )
++                    playbackStartReported = true
++                }
++                renderFrame += writtenFrames
++                if (repeatLoop && renderFrame >= request.loopEndFrame) renderFrame = request.loopStartFrame
++
++                val presentedFrames = presentedFrames(
++                    track = audioTrack,
++                    clockHeadBase = clockHeadBase,
++                    playbackClockAnchor = playbackClockAnchor,
++                    sampleRateHz = request.sampleRateHz,
++                    writtenFramesSinceClockBase = writtenFramesSinceClockBase,
++                )
++                lastTimelineFrame = PlaybackClockPolicy.timelineFrame(
++                    startFrame = clockStartFrame,
++                    presentedFrames = presentedFrames,
++                    projectEndFrame = if (repeatLoop) request.projectEndFrame else playbackBoundary,
++                    loopEnabled = repeatLoop,
++                    loopStartFrame = request.loopStartFrame,
++                    loopEndFrame = request.loopEndFrame,
++                )
++                listener.onPosition(lastTimelineFrame)
++            }
++
++            if (running && !repeatLoop) {
++                val deadline = System.nanoTime() + DRAIN_TIMEOUT_NS
++                while (
++                    running &&
++                    presentedFrames(
++                        track = audioTrack,
++                        clockHeadBase = clockHeadBase,
++                        playbackClockAnchor = playbackClockAnchor,
++                        sampleRateHz = request.sampleRateHz,
++                        writtenFramesSinceClockBase = writtenFramesSinceClockBase,
++                    ) < writtenFramesSinceClockBase &&
++                    System.nanoTime() < deadline
++                ) {
++                    Thread.sleep(4)
++                    val presentedFrames = presentedFrames(
++                        track = audioTrack,
++                        clockHeadBase = clockHeadBase,
++                        playbackClockAnchor = playbackClockAnchor,
++                        sampleRateHz = request.sampleRateHz,
++                        writtenFramesSinceClockBase = writtenFramesSinceClockBase,
++                    )
++                    lastTimelineFrame = PlaybackClockPolicy.timelineFrame(
++                        clockStartFrame,
++                        presentedFrames,
++                        playbackBoundary,
++                        false,
++                        0,
++                        playbackBoundary,
++                    )
++                    listener.onPosition(lastTimelineFrame)
++                }
++                lastTimelineFrame = playbackBoundary
++                listener.onPosition(lastTimelineFrame)
++            }
++        } catch (_: InterruptedException) {
++        } catch (error: Throwable) {
++            listener.onError(error.message ?: "A reprodução do Studio falhou.")
++        } finally {
++            running = false
++            pendingSeekFrame.set(NO_PENDING_SEEK)
++            runCatching { cueTrack?.pause() }
++            runCatching { cueTrack?.flush() }
++            runCatching { cueTrack?.release() }
++            runCatching { track?.pause() }
++            runCatching { track?.flush() }
++            runCatching { track?.release() }
++            readers.forEach { runCatching { it.close() } }
++            listener.onTrackMeters(emptyList())
++            listener.onMasterMeter(StudioPlaybackMeter(peak = 0f, rms = 0f))
++            listener.onStopped(lastTimelineFrame)
++            synchronized(this) { worker = null }
++        }
++    }
++
++    private fun stablePlaybackClockAnchor(
++        track: AudioTrack,
++        sampleRateHz: Int,
++        maxJitterNs: Long = AudioClockAnchorPolicy.DEFAULT_MAX_JITTER_NS,
++    ) =
++        AudioClockAnchorPolicy.estimate(
++            observations = buildList {
++                repeat(CLOCK_ANCHOR_SAMPLES) { index ->
++                    val timestamp = AudioTimestamp()
++                    if (track.getTimestamp(timestamp)) {
++                        add(AudioClockObservation(timestamp.framePosition, timestamp.nanoTime))
++                    }
++                    if (index + 1 < CLOCK_ANCHOR_SAMPLES) {
++                        try { Thread.sleep(CLOCK_ANCHOR_POLL_MS) } catch (_: InterruptedException) { return@repeat }
++                    }
++                }
++            },
++            sampleRateHz = sampleRateHz,
++            maxJitterNs = maxJitterNs,
++        )
++
++    private fun applyRuntimeTrackMix(trackId: String, samples: FloatArray, sampleCount: Int) {
++        val runtime = runtimeTrackMixes[trackId] ?: return
++        val anySolo = runtimeTrackMixes.values.any { it.solo }
++        if (runtime.muted || (anySolo && !runtime.solo) || !GuitarAuditionPolicy.roleAudible(runtime.roleId, runtimeAuditionMode)) {
++            java.util.Arrays.fill(samples, 0, sampleCount, 0f)
++            return
++        }
++        StudioPcmMixKernel.applyTrack(samples, sampleCount, runtime.gainDb, runtime.pan, audible = true)
++    }
++
++    private fun meterFor(samples: FloatArray, sampleCount: Int): StudioPlaybackMeter {
++        var peak = 0f
++        var sumSquares = 0.0
++        for (index in 0 until sampleCount) {
++            val sample = samples[index]
++            peak = max(peak, abs(sample))
++            sumSquares += sample.toDouble() * sample.toDouble()
++        }
++        val rms = if (sampleCount > 0) sqrt(sumSquares / sampleCount).toFloat() else 0f
++        return StudioPlaybackMeter(peak = peak, rms = rms)
++    }
++
++    private fun applyOutputRouting(
++        track: AudioTrack,
++        request: StudioPlaybackRequest,
++        listener: StudioPlaybackListener,
++    ): Boolean {
++        if (!request.preferredOutputRequested) {
++            listener.onRouting(
++                StudioPlaybackRoutingStatus(
++                    requestedPreferredOutput = false,
++                    usingPreferredOutput = false,
++                    fellBackToAuto = false,
++                )
++            )
++            return false
++        }
++
++        val preferred = request.preferredOutputDevice
++        if (preferred == null) {
++            listener.onRouting(
++                StudioPlaybackRoutingStatus(
++                    requestedPreferredOutput = true,
++                    usingPreferredOutput = false,
++                    fellBackToAuto = true,
++                )
++            )
++            return false
++        }
++
++        val accepted = runCatching { track.setPreferredDevice(preferred) }.getOrDefault(false)
++        listener.onRouting(
++            StudioPlaybackRoutingStatus(
++                requestedPreferredOutput = true,
++                usingPreferredOutput = accepted,
++                fellBackToAuto = !accepted,
++                deviceLabel = preferred.productName?.toString(),
++            )
++        )
++        return accepted
++    }
++
++    private fun prepareCueOutput(
++        mainTrack: AudioTrack,
++        request: StudioPlaybackRequest,
++        bufferBytes: Int,
++        mainPreferredAccepted: Boolean,
++        listener: StudioPlaybackListener,
++    ): AudioTrack? {
++        if (!request.preferredCueOutputRequested) return null
++
++        val main = request.preferredOutputDevice
++        val cue = request.preferredCueOutputDevice
++        val admission = CueRouteSafetyPolicy.admit(
++            cueRequested = true,
++            mainRequested = request.preferredOutputRequested,
++            mainAccepted = mainPreferredAccepted,
++            mainDeviceId = main?.id,
++            cueDeviceId = cue?.id,
++        )
++        if (!admission.allowed) {
++            val failure = when (admission.blockReason) {
++                CueRouteBlockReason.MAIN_NOT_EXPLICIT ->
++                    "CUE exige uma saída principal explícita para impedir convergência silenciosa de rotas."
++                CueRouteBlockReason.MAIN_NOT_ACCEPTED ->
++                    "A saída principal explícita não foi aceita pelo Android; CUE foi bloqueado."
++                CueRouteBlockReason.CUE_UNAVAILABLE ->
++                    "Nenhuma saída CUE explícita e disponível pôde ser resolvida."
++                CueRouteBlockReason.SAME_ENDPOINT ->
++                    "MAIN e CUE resolveram para o mesmo endpoint físico."
++                CueRouteBlockReason.NOT_REQUESTED, null ->
++                    "A saída CUE não foi solicitada."
++            }
++            reportCueSuppressed(request, listener, failure)
++            return null
++        }
++        val explicitMain = requireNotNull(main)
++        val explicitCue = requireNotNull(cue)
++
++        val cueTrack = runCatching {
++            AudioTrack.Builder()
++                .setAudioAttributes(
++                    AudioAttributes.Builder()
++                        .setUsage(AudioAttributes.USAGE_MEDIA)
++                        .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
++                        .build()
++                )
++                .setAudioFormat(
++                    AudioFormat.Builder()
++                        .setEncoding(AudioFormat.ENCODING_PCM_FLOAT)
++                        .setSampleRate(request.sampleRateHz)
++                        .setChannelMask(AudioFormat.CHANNEL_OUT_STEREO)
++                        .build()
++                )
++                .setTransferMode(AudioTrack.MODE_STREAM)
++                .setBufferSizeInBytes(bufferBytes)
++                .setPerformanceMode(AudioTrack.PERFORMANCE_MODE_LOW_LATENCY)
++                .build()
++        }.getOrNull()
++
++        if (cueTrack == null || cueTrack.state != AudioTrack.STATE_INITIALIZED) {
++            runCatching { cueTrack?.release() }
++            reportCueSuppressed(request, listener, "O Android não conseguiu abrir a saída CUE.")
++            return null
++        }
++        if (!runCatching { cueTrack.setPreferredDevice(explicitCue) }.getOrDefault(false)) {
++            runCatching { cueTrack.release() }
++            reportCueSuppressed(request, listener, "O Android recusou a rota CUE solicitada.")
++            return null
++        }
++
++        val dualRouteFailure = primeAndVerifyDualRoutes(
++            mainTrack = mainTrack,
++            cueTrack = cueTrack,
++            expectedMain = explicitMain,
++            expectedCue = explicitCue,
++            sampleRateHz = request.sampleRateHz,
++        )
++        if (dualRouteFailure != null) {
++            runCatching { cueTrack.release() }
++            reportCueSuppressed(request, listener, dualRouteFailure)
++            return null
++        }
++
++        listener.onRouting(
++            StudioPlaybackRoutingStatus(
++                requestedPreferredOutput = true,
++                usingPreferredOutput = true,
++                fellBackToAuto = false,
++                deviceLabel = explicitMain.productName?.toString(),
++                requestedPreferredCueOutput = true,
++                usingPreferredCueOutput = true,
++                cueSuppressed = false,
++                cueDeviceLabel = explicitCue.productName?.toString(),
++            )
++        )
++        return cueTrack
++    }
++
++    private fun primeAndVerifyDualRoutes(
++        mainTrack: AudioTrack, cueTrack: AudioTrack, expectedMain: AudioDeviceInfo,
++        expectedCue: AudioDeviceInfo, sampleRateHz: Int,
++    ): String? = AndroidCueRouteVerifier.verifyTracks(
++        mainTrack, cueTrack, expectedMain, expectedCue, sampleRateHz,
++        keepRunning = { running },
++    )
++
++    private fun cueRouteStillSafe(
++        mainTrack: AudioTrack,
++        cueTrack: AudioTrack,
++        request: StudioPlaybackRequest,
++    ): Boolean {
++        val expectedMain = request.preferredOutputDevice ?: return false
++        val expectedCue = request.preferredCueOutputDevice ?: return false
++        return AndroidOutputRouteIdentity.pairRemainsDistinct(
++            mainTrack = mainTrack,
++            cueTrack = cueTrack,
++            expectedMain = expectedMain,
++            expectedCue = expectedCue,
++        )
++    }
++
++    private fun reportCueSuppressed(
++        request: StudioPlaybackRequest,
++        listener: StudioPlaybackListener,
++        reason: String,
++    ) {
++        listener.onRouting(
++            StudioPlaybackRoutingStatus(
++                requestedPreferredOutput = request.preferredOutputRequested,
++                usingPreferredOutput = request.preferredOutputRequested && request.preferredOutputDevice != null,
++                fellBackToAuto = request.preferredOutputRequested && request.preferredOutputDevice == null,
++                deviceLabel = request.preferredOutputDevice?.productName?.toString(),
++                requestedPreferredCueOutput = true,
++                usingPreferredCueOutput = false,
++                cueSuppressed = true,
++                cueDeviceLabel = request.preferredCueOutputDevice?.productName?.toString(),
++                cueFailureReason = reason,
++            )
++        )
++    }
++
++    private fun normalizedStart(request: StudioPlaybackRequest): Long =
++        if (request.loopEnabled && request.startFrame >= request.loopEndFrame) request.loopStartFrame else request.startFrame
++
++    private fun normalizedSeek(request: StudioPlaybackRequest, requestedFrame: Long): Long {
++        val target = requestedFrame.coerceIn(0L, request.projectEndFrame)
++        if (!request.loopEnabled) return target
++        val lastPlayableFrame = (request.loopEndFrame - 1L).coerceAtLeast(request.loopStartFrame)
++        return target.coerceIn(request.loopStartFrame, lastPlayableFrame)
++    }
++
++    private fun presentedFrames(
++        track: AudioTrack,
++        clockHeadBase: Long,
++        playbackClockAnchor: AudioClockAnchor?,
++        sampleRateHz: Int,
++        writtenFramesSinceClockBase: Long,
++    ): Long = playbackClockAnchor?.let { anchor ->
++        PlaybackClockPolicy.presentedFramesAt(
++            nowMonotonicNs = System.nanoTime(),
++            presentationOriginMonotonicNs = anchor.streamOriginMonotonicNs,
++            sampleRateHz = sampleRateHz,
++            maxWrittenFrames = writtenFramesSinceClockBase,
++        )
++    } ?: playbackHeadDelta(playbackHead(track), clockHeadBase).coerceAtMost(writtenFramesSinceClockBase)
++
++    private fun playbackHead(track: AudioTrack): Long = track.playbackHeadPosition.toLong() and 0xffffffffL
++
++    private fun playbackHeadDelta(current: Long, base: Long): Long = (current - base) and 0xffffffffL
++
++    private companion object {
++        const val CHUNK_FRAMES = 1024
++        const val DRAIN_TIMEOUT_NS = 2_000_000_000L
++        const val STOP_JOIN_TIMEOUT_MS = 1_500L
++        const val NO_PENDING_SEEK = Long.MIN_VALUE
++        const val CLOCK_ANCHOR_SAMPLES = 6
++        const val CLOCK_ANCHOR_POLL_MS = 3L
++        const val CUE_DRIFT_CONSECUTIVE_LIMIT = 3
++    }
++}
+diff --git a/app/src/main/java/studio/guitarlab/app/ui/StudioAudioRoutingStore.kt b/app/src/main/java/studio/guitarlab/app/ui/StudioAudioRoutingStore.kt
+--- a/app/src/main/java/studio/guitarlab/app/ui/StudioAudioRoutingStore.kt
++++ b/app/src/main/java/studio/guitarlab/app/ui/StudioAudioRoutingStore.kt
+@@ -1,431 +1,434 @@
+-package studio.guitarlab.app.ui
+-
+-import android.content.Context
+-import android.media.AudioAttributes
+-import android.media.AudioDeviceInfo
+-import android.media.AudioFormat
+-import android.media.AudioManager
+-import android.media.AudioTrack
+-import android.os.Build
+-import java.util.concurrent.ConcurrentHashMap
+-import kotlin.math.max
+-import studio.guitarlab.core.audio.MonitoringMode
+-
+-data class StudioRouteHealth(
+-    val selectedInputAvailable: Boolean,
+-    val selectedOutputAvailable: Boolean,
+-    val selectedCueOutputAvailable: Boolean,
+-    val cueOutputDistinctFromMain: Boolean,
+-    val effectiveInput: StudioAudioDeviceChoice?,
+-    val effectiveOutput: StudioAudioDeviceChoice?,
+-    val effectiveCueOutput: StudioAudioDeviceChoice?,
+-) {
+-    val usbDeviceDetected: Boolean get() = listOfNotNull(effectiveInput, effectiveOutput, effectiveCueOutput).any {
+-        it.transportFamily == StudioAudioRoutePolicy.USB_FAMILY
+-    }
+-}
+-
+-class StudioAudioRoutingStore(context: Context) {
+-    private val appContext = context.applicationContext
+-    private val audioManager = appContext.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+-    private val preferences = appContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+-
+-    fun inputChoices(): List<StudioAudioDeviceChoice> = StudioAudioRoutePolicy.canonicalizeInputs(rawInputChoices())
+-
+-    fun outputChoices(): List<StudioAudioDeviceChoice> = StudioAudioRoutePolicy.canonicalizeOutputs(rawOutputChoices())
+-
+-    fun cueOutputChoices(): List<StudioAudioDeviceChoice> {
+-        val outputs = outputChoices()
+-        val main = outputs.firstOrNull { it.signature == selectedOutputSignature() }
+-        if (main == null || !StudioAudioRoutePolicy.cueEligible(main)) return emptyList()
+-        return outputs.filter { StudioAudioRoutePolicy.cueEligible(it) && it.signature != main.signature }
+-    }
+-
+-    fun selectedInputSignature(): String? {
+-        val stored = preferences.getString(KEY_INPUT_SIGNATURE, null) ?: return null
+-        val raw = rawInputChoices()
+-        val canonical = StudioAudioRoutePolicy.canonicalInputSignature(raw, stored)
+-        if (canonical != null) {
+-            if (canonical != stored) preferences.edit().putString(KEY_INPUT_SIGNATURE, canonical).apply()
+-            return canonical
+-        }
+-        // If the old selection still exists but is now intentionally hidden (for example
+-        // remote-submix), drop it instead of exposing or silently reusing a system-only route.
+-        if (raw.any { stored == it.signature || stored in it.legacySignatures }) {
+-            preferences.edit().remove(KEY_INPUT_SIGNATURE).apply()
+-            return null
+-        }
+-        return stored
+-    }
+-
+-    fun selectedOutputSignature(): String? =
+-        selectedCanonicalOutputSignature(KEY_OUTPUT_SIGNATURE)
+-
+-    /**
+-     * Secondary output is explicit-only. A null value means CUE is disabled, never "automatic".
+-     * MAIN and CUE may not resolve to the same canonical physical route.
+-     */
+-    fun selectedCueOutputSignature(): String? {
+-        val selected = selectedCanonicalOutputSignature(KEY_CUE_OUTPUT_SIGNATURE) ?: return null
+-        if (cueOutputChoices().none { it.signature == selected }) {
+-            preferences.edit().remove(KEY_CUE_OUTPUT_SIGNATURE).apply()
+-            return null
+-        }
+-        return selected
+-    }
+-
+-    private fun selectedCanonicalOutputSignature(key: String): String? {
+-        val stored = preferences.getString(key, null) ?: return null
+-        val canonical = StudioAudioRoutePolicy.canonicalSignature(rawOutputChoices(), stored) ?: return stored
+-        if (canonical != stored) preferences.edit().putString(key, canonical).apply()
+-        return canonical
+-    }
+-
+-    /** Sanitized semantic identity for diagnostics; excludes transient Android numeric ids and raw addresses. */
+-    fun selectedInputDiagnosticIdentity(): String? = selectedInputSignature()?.let { signature ->
+-        inputChoices().firstOrNull { it.signature == signature }?.let { "${it.transportFamily}:${it.label}" } ?: "entrada-selecionada-indisponível"
+-    }
+-
+-    /** Sanitized semantic identity for diagnostics; excludes transient Android numeric ids and raw addresses. */
+-    fun selectedOutputDiagnosticIdentity(): String? = selectedOutputSignature()?.let { signature ->
+-        outputChoices().firstOrNull { it.signature == signature }?.let { "${it.transportFamily}:${it.label}" } ?: "saída-selecionada-indisponível"
+-    }
+-
+-    /** Sanitized semantic identity of the explicit secondary/CUE route. */
+-    fun selectedCueOutputDiagnosticIdentity(): String? = selectedCueOutputSignature()?.let { signature ->
+-        cueOutputChoices().firstOrNull { it.signature == signature }?.let { "${it.transportFamily}:${it.label}" } ?: "cue-selecionado-indisponível"
+-    }
+-
+-    fun selectInput(signature: String?) {
+-        preferences.edit().putString(KEY_INPUT_SIGNATURE, signature).apply()
+-    }
+-
+-    fun selectOutput(signature: String?) {
+-        preferences.edit().putString(KEY_OUTPUT_SIGNATURE, signature).apply()
+-    }
+-
+-    fun selectCueOutput(signature: String?) {
+-        preferences.edit().putString(KEY_CUE_OUTPUT_SIGNATURE, signature).apply()
+-    }
+-
+-    fun monitoringMode(): MonitoringMode {
+-        val stored = preferences.getString(KEY_MONITORING_MODE, MonitoringMode.AUTO.name)
+-        return runCatching { MonitoringMode.valueOf(stored ?: MonitoringMode.AUTO.name) }.getOrDefault(MonitoringMode.AUTO)
+-    }
+-
+-    fun selectMonitoringMode(mode: MonitoringMode) {
+-        preferences.edit().putString(KEY_MONITORING_MODE, mode.name).apply()
+-    }
+-
+-    fun resolveSelectedInputDeviceId(): Int? = resolveSelectedInputDevice()?.id
+-    fun resolveSelectedOutputDeviceId(): Int? = resolveSelectedOutputDevice()?.id
+-    fun resolveSelectedCueOutputDeviceId(): Int? = resolveSelectedCueOutputDevice()?.id
+-
+-    fun resolveSelectedInputDevice(): AudioDeviceInfo? {
+-        val stored = selectedInputSignature() ?: return null
+-        val devices = audioManager.getDevices(AudioManager.GET_DEVICES_INPUTS).toList()
+-        val raw = devices.map { toChoice(it, RouteDirection.INPUT) }
+-        val canonical = StudioAudioRoutePolicy.canonicalInputSignature(raw, stored) ?: return null
+-        val candidateIds = StudioAudioRoutePolicy.candidateInputIdsFor(raw, canonical).toSet()
+-        if (candidateIds.isEmpty()) return null
+-        val candidates = devices.filter { it.id in candidateIds }
+-        if (candidates.size == 1) return candidates.first()
+-
+-        INPUT_ROUTE_CACHE[canonical]?.let { cachedId ->
+-            candidates.firstOrNull { it.id == cachedId }?.let { return it }
+-            INPUT_ROUTE_CACHE.remove(canonical, cachedId)
+-        }
+-        val choicesById = raw.associateBy { it.deviceId }
+-        val resolved = candidates.maxByOrNull { device ->
+-            choicesById[device.id]?.let(StudioAudioRoutePolicy::compatibilityScore) ?: 0
+-        }
+-        if (resolved != null) INPUT_ROUTE_CACHE[canonical] = resolved.id
+-        return resolved
+-    }
+-
+-    /**
+-     * Resolves a logical user-facing output to an Android endpoint that is proven routable.
+-     * Duplicate USB endpoint groups are verified with an inaudible short AudioTrack and
+-     * AudioRouting.routedDevice; endpoint ordering is never used as a correctness signal.
+-     */
+-    fun resolveSelectedOutputDevice(): AudioDeviceInfo? {
+-        val selected = selectedOutputSignature() ?: return null
+-        return resolveOutputDevice(selected, OUTPUT_ROUTE_CACHE)
+-    }
+-
+-    /**
+-     * CUE is fail-closed: it exists only when explicitly selected, physically resolvable and
+-     * canonically distinct from MAIN. There is deliberately no automatic CUE fallback.
+-     */
+-    fun resolveSelectedCueOutputDevice(): AudioDeviceInfo? {
+-        val selected = selectedCueOutputSignature() ?: return null
+-        val main = selectedOutputSignature() ?: return null
+-        if (selected == main) return null
+-        if (cueOutputChoices().none { it.signature == selected }) return null
+-        return resolveOutputDevice(selected, CUE_OUTPUT_ROUTE_CACHE)
+-    }
+-
+-    /** Resolves a candidate without persisting it; selection is committed only after preflight. */
+-    fun resolveCandidateCueOutputDevice(signature: String): AudioDeviceInfo? {
+-        if (cueOutputChoices().none { it.signature == signature }) return null
+-        return resolveOutputDevice(signature, CUE_OUTPUT_ROUTE_CACHE)
+-    }
+-
+-    private fun resolveOutputDevice(
+-        selectedSignature: String,
+-        routeCache: ConcurrentHashMap<String, Int>,
+-    ): AudioDeviceInfo? {
+-        val devices = audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS).toList()
+-        val raw = devices.map { toChoice(it, RouteDirection.OUTPUT) }
+-        val canonical = StudioAudioRoutePolicy.canonicalSignature(raw, selectedSignature) ?: return null
+-        val candidateIds = StudioAudioRoutePolicy.candidateIdsFor(raw, canonical).toSet()
+-        if (candidateIds.isEmpty()) return null
+-        val candidates = devices.filter { it.id in candidateIds }
+-        if (candidates.size == 1) return candidates.first()
+-
+-        routeCache[canonical]?.let { cachedId ->
+-            candidates.firstOrNull { it.id == cachedId }?.let { return it }
+-            routeCache.remove(canonical, cachedId)
+-        }
+-
+-        val choicesById = raw.associateBy { it.deviceId }
+-        val ordered = candidates.sortedByDescending { device ->
+-            choicesById[device.id]?.let(StudioAudioRoutePolicy::compatibilityScore) ?: 0
+-        }
+-        val resolved = probeRoutableOutput(ordered, candidateIds)
+-        if (resolved != null) routeCache[canonical] = resolved.id
+-        return resolved
+-    }
+-
+-    fun isSelectedInputUnavailable(): Boolean =
+-        !selectedInputSignature().isNullOrBlank() && resolveSelectedInputDevice() == null
+-
+-    fun isSelectedOutputUnavailable(): Boolean {
+-        val selected = selectedOutputSignature() ?: return false
+-        return outputChoices().none { it.signature == selected }
+-    }
+-
+-    fun isSelectedCueOutputUnavailable(): Boolean {
+-        val selected = selectedCueOutputSignature() ?: return false
+-        val main = selectedOutputSignature() ?: return true
+-        if (selected == main) return true
+-        return cueOutputChoices().none { it.signature == selected }
+-    }
+-
+-    fun routeHealth(): StudioRouteHealth {
+-        val selectedInput = selectedInputSignature()
+-        val input = selectedInput?.let { signature -> inputChoices().firstOrNull { it.signature == signature } }
+-        val selectedOutput = selectedOutputSignature()
+-        val output = selectedOutput?.let { signature -> outputChoices().firstOrNull { it.signature == signature } }
+-        val selectedCueOutput = selectedCueOutputSignature()
+-        val cueDistinct =
+-            selectedCueOutput == null ||
+-                (selectedOutput != null && selectedCueOutput != selectedOutput)
+-        val cueOutput = selectedCueOutput
+-            ?.takeIf { cueDistinct }
+-            ?.let { signature -> cueOutputChoices().firstOrNull { it.signature == signature } }
+-        return StudioRouteHealth(
+-            selectedInputAvailable = selectedInput.isNullOrBlank() || input != null,
+-            selectedOutputAvailable = selectedOutput.isNullOrBlank() || output != null,
+-            selectedCueOutputAvailable = selectedCueOutput.isNullOrBlank() || (cueOutput != null && cueDistinct),
+-            cueOutputDistinctFromMain = cueDistinct,
+-            effectiveInput = input,
+-            effectiveOutput = output,
+-            effectiveCueOutput = cueOutput,
+-        )
+-    }
+-
+-    private fun rawInputChoices(): List<StudioAudioDeviceChoice> =
+-        audioManager.getDevices(AudioManager.GET_DEVICES_INPUTS).map { toChoice(it, RouteDirection.INPUT) }
+-
+-    private fun rawOutputChoices(): List<StudioAudioDeviceChoice> =
+-        audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS).map { toChoice(it, RouteDirection.OUTPUT) }
+-
+-    private fun probeRoutableOutput(candidates: List<AudioDeviceInfo>, candidateIds: Set<Int>): AudioDeviceInfo? {
+-        candidates.forEach { requested ->
+-            probeCandidate(requested, candidateIds)?.let { return it }
+-        }
+-        return null
+-    }
+-
+-    private fun probeCandidate(requested: AudioDeviceInfo, candidateIds: Set<Int>): AudioDeviceInfo? {
+-        // Do not reject mono-looking logical endpoints up front. Android may expose several
+-        // logical speaker endpoints for one physical output and still route a stereo AudioTrack
+-        // through another endpoint in the same canonical group. routedDevice is authoritative.
+-        val rates = buildList {
+-            if (requested.sampleRates.isEmpty() || 48_000 in requested.sampleRates) add(48_000)
+-            if (requested.sampleRates.isEmpty() || 44_100 in requested.sampleRates) add(44_100)
+-            requested.sampleRates.firstOrNull { it > 0 }?.let(::add)
+-        }.distinct().ifEmpty { listOf(48_000) }
+-        val channelCount = 2
+-
+-        for (sampleRate in rates) {
+-            val mask = AudioFormat.CHANNEL_OUT_STEREO
+-            val minBytes = AudioTrack.getMinBufferSize(sampleRate, mask, AudioFormat.ENCODING_PCM_16BIT)
+-            if (minBytes <= 0) continue
+-            val track = runCatching {
+-                AudioTrack.Builder()
+-                    .setAudioAttributes(
+-                        AudioAttributes.Builder()
+-                            .setUsage(AudioAttributes.USAGE_MEDIA)
+-                            .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+-                            .build()
+-                    )
+-                    .setAudioFormat(
+-                        AudioFormat.Builder()
+-                            .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
+-                            .setSampleRate(sampleRate)
+-                            .setChannelMask(mask)
+-                            .build()
+-                    )
+-                    .setTransferMode(AudioTrack.MODE_STREAM)
+-                    .setBufferSizeInBytes(max(minBytes, PROBE_FRAMES * channelCount * 2 * 2))
+-                    .build()
+-            }.getOrNull() ?: continue
+-            try {
+-                if (track.state != AudioTrack.STATE_INITIALIZED) continue
+-                track.setVolume(0f)
+-                if (!track.setPreferredDevice(requested)) continue
+-                track.play()
+-                val silence = ShortArray(PROBE_FRAMES * channelCount)
+-                if (track.write(silence, 0, silence.size, AudioTrack.WRITE_BLOCKING) <= 0) continue
+-                val deadline = System.nanoTime() + PROBE_TIMEOUT_NS
+-                while (System.nanoTime() < deadline) {
+-                    val routed = track.routedDevice
+-                    if (routed != null && routed.id in candidateIds) {
+-                        return audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS).firstOrNull { it.id == routed.id }
+-                    }
+-                    try {
+-                        Thread.sleep(PROBE_POLL_MS)
+-                    } catch (_: InterruptedException) {
+-                        Thread.currentThread().interrupt()
+-                        return null
+-                    }
+-                }
+-            } catch (_: RuntimeException) {
+-                // Try the next candidate/configuration. Explicit output selection must fail closed.
+-            } finally {
+-                runCatching { track.pause() }
+-                runCatching { track.flush() }
+-                runCatching { track.release() }
+-            }
+-        }
+-        return null
+-    }
+-
+-    private fun toChoice(device: AudioDeviceInfo, direction: RouteDirection): StudioAudioDeviceChoice {
+-        val product = device.productName?.toString()?.takeIf { it.isNotBlank() } ?: "Dispositivo de áudio"
+-        val address = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) device.address.orEmpty() else ""
+-        val family = when (direction) {
+-            RouteDirection.INPUT -> inputTransportFamily(device.type, product)
+-            RouteDirection.OUTPUT -> outputTransportFamily(device.type, product)
+-        }
+-        val label = friendlyDeviceLabel(direction, device.type, family, product)
+-        val legacySignature = buildString {
+-            append(device.type)
+-            append('|')
+-            append(product)
+-            append('|')
+-            append(address)
+-        }
+-        return StudioAudioDeviceChoice(
+-            signature = legacySignature,
+-            label = label,
+-            deviceId = device.id,
+-            type = device.type,
+-            channelCounts = device.channelCounts.toList().filter { it > 0 }.distinct().sorted(),
+-            sampleRates = device.sampleRates.toList().filter { it > 0 }.distinct().sorted(),
+-            productName = product,
+-            address = address,
+-            transportFamily = family,
+-            legacySignatures = listOf(legacySignature),
+-        )
+-    }
+-
+-    private fun inputTransportFamily(type: Int, product: String): String = when {
+-        type in USB_DEVICE_TYPES -> StudioAudioRoutePolicy.USB_FAMILY
+-        type == AudioDeviceInfo.TYPE_BUILTIN_MIC -> StudioAudioRoutePolicy.BUILTIN_MIC_FAMILY
+-        type == AudioDeviceInfo.TYPE_REMOTE_SUBMIX || type == AudioDeviceInfo.TYPE_TELEPHONY -> StudioAudioRoutePolicy.HIDDEN_SYSTEM_FAMILY
+-        type == AudioDeviceInfo.TYPE_BUS && isThisAndroidDevice(product) -> StudioAudioRoutePolicy.BUILTIN_MIC_FAMILY
+-        else -> "type:$type"
+-    }
+-
+-    private fun outputTransportFamily(type: Int, product: String): String = when {
+-        type in USB_DEVICE_TYPES -> StudioAudioRoutePolicy.USB_FAMILY
+-        type in BLUETOOTH_OUTPUT_TYPES -> StudioAudioRoutePolicy.BLUETOOTH_FAMILY
+-        type in WIRED_OUTPUT_TYPES -> StudioAudioRoutePolicy.WIRED_FAMILY
+-        type in HDMI_OUTPUT_TYPES -> StudioAudioRoutePolicy.HDMI_FAMILY
+-        type == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER || type == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER_SAFE -> StudioAudioRoutePolicy.BUILTIN_SPEAKER_FAMILY
+-        type == AudioDeviceInfo.TYPE_REMOTE_SUBMIX || type == AudioDeviceInfo.TYPE_TELEPHONY -> StudioAudioRoutePolicy.HIDDEN_SYSTEM_FAMILY
+-        type == AudioDeviceInfo.TYPE_BUS && isThisAndroidDevice(product) -> StudioAudioRoutePolicy.BUILTIN_SPEAKER_FAMILY
+-        else -> "type:$type"
+-    }
+-
+-    private fun isThisAndroidDevice(product: String): Boolean {
+-        val normalized = product.trim().lowercase()
+-        if (normalized.isBlank()) return false
+-        return listOf(Build.MODEL, Build.DEVICE, Build.PRODUCT)
+-            .map { it.orEmpty().trim().lowercase() }
+-            .filter { it.isNotBlank() }
+-            .any { it == normalized }
+-    }
+-
+-    private fun friendlyDeviceLabel(direction: RouteDirection, type: Int, family: String, product: String): String = when (family) {
+-        StudioAudioRoutePolicy.BUILTIN_MIC_FAMILY -> "Microfone do tablet"
+-        StudioAudioRoutePolicy.BUILTIN_SPEAKER_FAMILY -> "Alto-falante do tablet"
+-        StudioAudioRoutePolicy.USB_FAMILY -> product.ifBlank { "Interface USB" }
+-        StudioAudioRoutePolicy.HIDDEN_SYSTEM_FAMILY -> "Rota interna do sistema"
+-        else -> when (type) {
+-            AudioDeviceInfo.TYPE_BUILTIN_EARPIECE -> "Auricular do tablet"
+-            AudioDeviceInfo.TYPE_WIRED_HEADSET, AudioDeviceInfo.TYPE_WIRED_HEADPHONES -> if (direction == RouteDirection.INPUT) "Microfone do headset" else "Fone com fio"
+-            AudioDeviceInfo.TYPE_BLUETOOTH_A2DP, AudioDeviceInfo.TYPE_BLUETOOTH_SCO -> "Bluetooth · $product"
+-            AudioDeviceInfo.TYPE_HDMI, AudioDeviceInfo.TYPE_HDMI_ARC, AudioDeviceInfo.TYPE_HDMI_EARC -> "HDMI · $product"
+-            else -> product
+-        }
+-    }
+-
+-    private enum class RouteDirection { INPUT, OUTPUT }
+-
+-    private val USB_DEVICE_TYPES = setOf(
+-        AudioDeviceInfo.TYPE_USB_DEVICE,
+-        AudioDeviceInfo.TYPE_USB_ACCESSORY,
+-        AudioDeviceInfo.TYPE_USB_HEADSET,
+-    )
+-
+-    private val BLUETOOTH_OUTPUT_TYPES = setOf(
+-        AudioDeviceInfo.TYPE_BLUETOOTH_A2DP,
+-        AudioDeviceInfo.TYPE_BLUETOOTH_SCO,
+-        AudioDeviceInfo.TYPE_HEARING_AID,
+-        AudioDeviceInfo.TYPE_BLE_HEADSET,
+-        AudioDeviceInfo.TYPE_BLE_SPEAKER,
+-        AudioDeviceInfo.TYPE_BLE_BROADCAST,
+-    )
+-
+-    private val WIRED_OUTPUT_TYPES = setOf(
+-        AudioDeviceInfo.TYPE_WIRED_HEADSET,
+-        AudioDeviceInfo.TYPE_WIRED_HEADPHONES,
+-        AudioDeviceInfo.TYPE_LINE_ANALOG,
+-        AudioDeviceInfo.TYPE_LINE_DIGITAL,
+-        AudioDeviceInfo.TYPE_AUX_LINE,
+-    )
+-
+-    private val HDMI_OUTPUT_TYPES = setOf(
+-        AudioDeviceInfo.TYPE_HDMI,
+-        AudioDeviceInfo.TYPE_HDMI_ARC,
+-        AudioDeviceInfo.TYPE_HDMI_EARC,
+-    )
+-
+-    private companion object {
+-        const val PREFS_NAME = "studio_audio_routing"
+-        const val KEY_INPUT_SIGNATURE = "input_signature"
+-        const val KEY_OUTPUT_SIGNATURE = "output_signature"
+-        const val KEY_CUE_OUTPUT_SIGNATURE = "cue_output_signature"
+-        const val KEY_MONITORING_MODE = "monitoring_mode"
+-        const val PROBE_FRAMES = 256
+-        const val PROBE_POLL_MS = 8L
+-        const val PROBE_TIMEOUT_NS = 160_000_000L
+-        val INPUT_ROUTE_CACHE = ConcurrentHashMap<String, Int>()
+-        val OUTPUT_ROUTE_CACHE = ConcurrentHashMap<String, Int>()
+-        val CUE_OUTPUT_ROUTE_CACHE = ConcurrentHashMap<String, Int>()
+-    }
+-}
++package studio.guitarlab.app.ui
++
++import android.content.Context
++import android.media.AudioAttributes
++import android.media.AudioDeviceInfo
++import android.media.AudioFormat
++import android.media.AudioManager
++import android.media.AudioTrack
++import android.os.Build
++import java.util.concurrent.ConcurrentHashMap
++import kotlin.math.max
++import studio.guitarlab.core.audio.MonitoringMode
++
++data class StudioRouteHealth(
++    val selectedInputAvailable: Boolean,
++    val selectedOutputAvailable: Boolean,
++    val selectedCueOutputAvailable: Boolean,
++    val cueOutputDistinctFromMain: Boolean,
++    val effectiveInput: StudioAudioDeviceChoice?,
++    val effectiveOutput: StudioAudioDeviceChoice?,
++    val effectiveCueOutput: StudioAudioDeviceChoice?,
++) {
++    val usbDeviceDetected: Boolean get() = listOfNotNull(effectiveInput, effectiveOutput, effectiveCueOutput).any {
++        it.transportFamily == StudioAudioRoutePolicy.USB_FAMILY
++    }
++}
++
++class StudioAudioRoutingStore(context: Context) {
++    private val appContext = context.applicationContext
++    private val audioManager = appContext.getSystemService(Context.AUDIO_SERVICE) as AudioManager
++    private val preferences = appContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
++
++    fun inputChoices(): List<StudioAudioDeviceChoice> = StudioAudioRoutePolicy.canonicalizeInputs(rawInputChoices())
++
++    fun outputChoices(): List<StudioAudioDeviceChoice> = StudioAudioRoutePolicy.canonicalizeOutputs(rawOutputChoices())
++
++    fun cueOutputChoices(): List<StudioAudioDeviceChoice> {
++        val outputs = outputChoices()
++        val main = outputs.firstOrNull { it.signature == selectedOutputSignature() }
++        if (main == null || !StudioAudioRoutePolicy.cueEligible(main)) return emptyList()
++        return outputs.filter { StudioAudioRoutePolicy.cueEligible(it) && it.signature != main.signature }
++    }
++
++    fun selectedInputSignature(): String? {
++        val stored = preferences.getString(KEY_INPUT_SIGNATURE, null) ?: return null
++        val raw = rawInputChoices()
++        val canonical = StudioAudioRoutePolicy.canonicalInputSignature(raw, stored)
++        if (canonical != null) {
++            if (canonical != stored) preferences.edit().putString(KEY_INPUT_SIGNATURE, canonical).apply()
++            return canonical
++        }
++        // If the old selection still exists but is now intentionally hidden (for example
++        // remote-submix), drop it instead of exposing or silently reusing a system-only route.
++        if (raw.any { stored == it.signature || stored in it.legacySignatures }) {
++            preferences.edit().remove(KEY_INPUT_SIGNATURE).apply()
++            return null
++        }
++        return stored
++    }
++
++    fun selectedOutputSignature(): String? =
++        selectedCanonicalOutputSignature(KEY_OUTPUT_SIGNATURE)
++
++    /**
++     * Secondary output is explicit-only. A null value means CUE is disabled, never "automatic".
++     * MAIN and CUE may not resolve to the same canonical physical route.
++     */
++    fun selectedCueOutputSignature(): String? {
++        val selected = selectedCanonicalOutputSignature(KEY_CUE_OUTPUT_SIGNATURE) ?: return null
++        if (cueOutputChoices().none { it.signature == selected }) {
++            preferences.edit().remove(KEY_CUE_OUTPUT_SIGNATURE).apply()
++            return null
++        }
++        return selected
++    }
++
++    private fun selectedCanonicalOutputSignature(key: String): String? {
++        val stored = preferences.getString(key, null) ?: return null
++        val canonical = StudioAudioRoutePolicy.canonicalSignature(rawOutputChoices(), stored) ?: return stored
++        if (canonical != stored) preferences.edit().putString(key, canonical).apply()
++        return canonical
++    }
++
++    /** Sanitized semantic identity for diagnostics; excludes transient Android numeric ids and raw addresses. */
++    fun selectedInputDiagnosticIdentity(): String? = selectedInputSignature()?.let { signature ->
++        inputChoices().firstOrNull { it.signature == signature }?.let { "${it.transportFamily}:${it.label}" } ?: "entrada-selecionada-indisponível"
++    }
++
++    /** Sanitized semantic identity for diagnostics; excludes transient Android numeric ids and raw addresses. */
++    fun selectedOutputDiagnosticIdentity(): String? = selectedOutputSignature()?.let { signature ->
++        outputChoices().firstOrNull { it.signature == signature }?.let { "${it.transportFamily}:${it.label}" } ?: "saída-selecionada-indisponível"
++    }
++
++    /** Sanitized semantic identity of the explicit secondary/CUE route. */
++    fun selectedCueOutputDiagnosticIdentity(): String? = selectedCueOutputSignature()?.let { signature ->
++        cueOutputChoices().firstOrNull { it.signature == signature }?.let { "${it.transportFamily}:${it.label}" } ?: "cue-selecionado-indisponível"
++    }
++
++    fun selectInput(signature: String?) {
++        preferences.edit().putString(KEY_INPUT_SIGNATURE, signature).apply()
++    }
++
++    fun selectOutput(signature: String?) {
++        preferences.edit().putString(KEY_OUTPUT_SIGNATURE, signature).apply()
++    }
++
++    fun selectCueOutput(signature: String?) {
++        preferences.edit().putString(KEY_CUE_OUTPUT_SIGNATURE, signature).apply()
++    }
++
++    fun monitoringMode(): MonitoringMode {
++        val stored = preferences.getString(KEY_MONITORING_MODE, MonitoringMode.AUTO.name)
++        return runCatching { MonitoringMode.valueOf(stored ?: MonitoringMode.AUTO.name) }.getOrDefault(MonitoringMode.AUTO)
++    }
++
++    fun selectMonitoringMode(mode: MonitoringMode) {
++        preferences.edit().putString(KEY_MONITORING_MODE, mode.name).apply()
++    }
++
++    fun resolveSelectedInputDeviceId(): Int? = resolveSelectedInputDevice()?.id
++    fun resolveSelectedOutputDeviceId(): Int? = resolveSelectedOutputDevice()?.id
++    fun resolveSelectedCueOutputDeviceId(): Int? = resolveSelectedCueOutputDevice()?.id
++
++    fun resolveSelectedInputDevice(): AudioDeviceInfo? {
++        val stored = selectedInputSignature() ?: return null
++        val devices = audioManager.getDevices(AudioManager.GET_DEVICES_INPUTS).toList()
++        val raw = devices.map { toChoice(it, RouteDirection.INPUT) }
++        val canonical = StudioAudioRoutePolicy.canonicalInputSignature(raw, stored) ?: return null
++        val candidateIds = StudioAudioRoutePolicy.candidateInputIdsFor(raw, canonical).toSet()
++        if (candidateIds.isEmpty()) return null
++        val candidates = devices.filter { it.id in candidateIds }
++        if (candidates.size == 1) return candidates.first()
++
++        INPUT_ROUTE_CACHE[canonical]?.let { cachedId ->
++            candidates.firstOrNull { it.id == cachedId }?.let { return it }
++            INPUT_ROUTE_CACHE.remove(canonical, cachedId)
++        }
++        val choicesById = raw.associateBy { it.deviceId }
++        val resolved = candidates.maxByOrNull { device ->
++            choicesById[device.id]?.let(StudioAudioRoutePolicy::compatibilityScore) ?: 0
++        }
++        if (resolved != null) INPUT_ROUTE_CACHE[canonical] = resolved.id
++        return resolved
++    }
++
++    /**
++     * Resolves a logical user-facing output to an Android endpoint that is proven routable.
++     * Duplicate USB endpoint groups are verified with an inaudible short AudioTrack and
++     * effective routed devices. API 36 may expose multiple logical routed endpoints for one
++     * physical destination; endpoint ordering is never used as a correctness signal.
++     */
++    fun resolveSelectedOutputDevice(): AudioDeviceInfo? {
++        val selected = selectedOutputSignature() ?: return null
++        return resolveOutputDevice(selected, OUTPUT_ROUTE_CACHE)
++    }
++
++    /**
++     * CUE is fail-closed: it exists only when explicitly selected, physically resolvable and
++     * canonically distinct from MAIN. There is deliberately no automatic CUE fallback.
++     */
++    fun resolveSelectedCueOutputDevice(): AudioDeviceInfo? {
++        val selected = selectedCueOutputSignature() ?: return null
++        val main = selectedOutputSignature() ?: return null
++        if (selected == main) return null
++        if (cueOutputChoices().none { it.signature == selected }) return null
++        return resolveOutputDevice(selected, CUE_OUTPUT_ROUTE_CACHE)
++    }
++
++    /** Resolves a candidate without persisting it; selection is committed only after preflight. */
++    fun resolveCandidateCueOutputDevice(signature: String): AudioDeviceInfo? {
++        if (cueOutputChoices().none { it.signature == signature }) return null
++        return resolveOutputDevice(signature, CUE_OUTPUT_ROUTE_CACHE)
++    }
++
++    private fun resolveOutputDevice(
++        selectedSignature: String,
++        routeCache: ConcurrentHashMap<String, Int>,
++    ): AudioDeviceInfo? {
++        val devices = audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS).toList()
++        val raw = devices.map { toChoice(it, RouteDirection.OUTPUT) }
++        val canonical = StudioAudioRoutePolicy.canonicalSignature(raw, selectedSignature) ?: return null
++        val candidateIds = StudioAudioRoutePolicy.candidateIdsFor(raw, canonical).toSet()
++        if (candidateIds.isEmpty()) return null
++        val candidates = devices.filter { it.id in candidateIds }
++        if (candidates.size == 1) return candidates.first()
++
++        routeCache[canonical]?.let { cachedId ->
++            candidates.firstOrNull { it.id == cachedId }?.let { return it }
++            routeCache.remove(canonical, cachedId)
++        }
++
++        val choicesById = raw.associateBy { it.deviceId }
++        val ordered = candidates.sortedByDescending { device ->
++            choicesById[device.id]?.let(StudioAudioRoutePolicy::compatibilityScore) ?: 0
++        }
++        val resolved = probeRoutableOutput(ordered, candidateIds)
++        if (resolved != null) routeCache[canonical] = resolved.id
++        return resolved
++    }
++
++    fun isSelectedInputUnavailable(): Boolean =
++        !selectedInputSignature().isNullOrBlank() && resolveSelectedInputDevice() == null
++
++    fun isSelectedOutputUnavailable(): Boolean {
++        val selected = selectedOutputSignature() ?: return false
++        return outputChoices().none { it.signature == selected }
++    }
++
++    fun isSelectedCueOutputUnavailable(): Boolean {
++        val selected = selectedCueOutputSignature() ?: return false
++        val main = selectedOutputSignature() ?: return true
++        if (selected == main) return true
++        return cueOutputChoices().none { it.signature == selected }
++    }
++
++    fun routeHealth(): StudioRouteHealth {
++        val selectedInput = selectedInputSignature()
++        val input = selectedInput?.let { signature -> inputChoices().firstOrNull { it.signature == signature } }
++        val selectedOutput = selectedOutputSignature()
++        val output = selectedOutput?.let { signature -> outputChoices().firstOrNull { it.signature == signature } }
++        val selectedCueOutput = selectedCueOutputSignature()
++        val cueDistinct =
++            selectedCueOutput == null ||
++                (selectedOutput != null && selectedCueOutput != selectedOutput)
++        val cueOutput = selectedCueOutput
++            ?.takeIf { cueDistinct }
++            ?.let { signature -> cueOutputChoices().firstOrNull { it.signature == signature } }
++        return StudioRouteHealth(
++            selectedInputAvailable = selectedInput.isNullOrBlank() || input != null,
++            selectedOutputAvailable = selectedOutput.isNullOrBlank() || output != null,
++            selectedCueOutputAvailable = selectedCueOutput.isNullOrBlank() || (cueOutput != null && cueDistinct),
++            cueOutputDistinctFromMain = cueDistinct,
++            effectiveInput = input,
++            effectiveOutput = output,
++            effectiveCueOutput = cueOutput,
++        )
++    }
++
++    private fun rawInputChoices(): List<StudioAudioDeviceChoice> =
++        audioManager.getDevices(AudioManager.GET_DEVICES_INPUTS).map { toChoice(it, RouteDirection.INPUT) }
++
++    private fun rawOutputChoices(): List<StudioAudioDeviceChoice> =
++        audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS).map { toChoice(it, RouteDirection.OUTPUT) }
++
++    private fun probeRoutableOutput(candidates: List<AudioDeviceInfo>, candidateIds: Set<Int>): AudioDeviceInfo? {
++        candidates.forEach { requested ->
++            probeCandidate(requested, candidateIds)?.let { return it }
++        }
++        return null
++    }
++
++    private fun probeCandidate(requested: AudioDeviceInfo, candidateIds: Set<Int>): AudioDeviceInfo? {
++        // Do not reject mono-looking logical endpoints up front. Android may expose several
++        // logical speaker endpoints for one physical output and still route a stereo AudioTrack
++        // through another endpoint in the same canonical group. routedDevice is authoritative.
++        val rates = buildList {
++            if (requested.sampleRates.isEmpty() || 48_000 in requested.sampleRates) add(48_000)
++            if (requested.sampleRates.isEmpty() || 44_100 in requested.sampleRates) add(44_100)
++            requested.sampleRates.firstOrNull { it > 0 }?.let(::add)
++        }.distinct().ifEmpty { listOf(48_000) }
++        val channelCount = 2
++
++        for (sampleRate in rates) {
++            val mask = AudioFormat.CHANNEL_OUT_STEREO
++            val minBytes = AudioTrack.getMinBufferSize(sampleRate, mask, AudioFormat.ENCODING_PCM_16BIT)
++            if (minBytes <= 0) continue
++            val track = runCatching {
++                AudioTrack.Builder()
++                    .setAudioAttributes(
++                        AudioAttributes.Builder()
++                            .setUsage(AudioAttributes.USAGE_MEDIA)
++                            .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
++                            .build()
++                    )
++                    .setAudioFormat(
++                        AudioFormat.Builder()
++                            .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
++                            .setSampleRate(sampleRate)
++                            .setChannelMask(mask)
++                            .build()
++                    )
++                    .setTransferMode(AudioTrack.MODE_STREAM)
++                    .setBufferSizeInBytes(max(minBytes, PROBE_FRAMES * channelCount * 2 * 2))
++                    .build()
++            }.getOrNull() ?: continue
++            try {
++                if (track.state != AudioTrack.STATE_INITIALIZED) continue
++                track.setVolume(0f)
++                if (!track.setPreferredDevice(requested)) continue
++                track.play()
++                val silence = ShortArray(PROBE_FRAMES * channelCount)
++                if (track.write(silence, 0, silence.size, AudioTrack.WRITE_BLOCKING) <= 0) continue
++                val deadline = System.nanoTime() + PROBE_TIMEOUT_NS
++                while (System.nanoTime() < deadline) {
++                    val routed = if (Build.VERSION.SDK_INT >= 36) track.routedDevices else listOfNotNull(track.routedDevice)
++                    val routedIds = routed.map { it.id }.toSet()
++                    if (routedIds.isNotEmpty() && routedIds.all { it in candidateIds }) {
++                        val resolvedId = routedIds.first()
++                        return audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS).firstOrNull { it.id == resolvedId }
++                    }
++                    try {
++                        Thread.sleep(PROBE_POLL_MS)
++                    } catch (_: InterruptedException) {
++                        Thread.currentThread().interrupt()
++                        return null
++                    }
++                }
++            } catch (_: RuntimeException) {
++                // Try the next candidate/configuration. Explicit output selection must fail closed.
++            } finally {
++                runCatching { track.pause() }
++                runCatching { track.flush() }
++                runCatching { track.release() }
++            }
++        }
++        return null
++    }
++
++    private fun toChoice(device: AudioDeviceInfo, direction: RouteDirection): StudioAudioDeviceChoice {
++        val product = device.productName?.toString()?.takeIf { it.isNotBlank() } ?: "Dispositivo de áudio"
++        val address = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) device.address.orEmpty() else ""
++        val family = when (direction) {
++            RouteDirection.INPUT -> inputTransportFamily(device.type, product)
++            RouteDirection.OUTPUT -> outputTransportFamily(device.type, product)
++        }
++        val label = friendlyDeviceLabel(direction, device.type, family, product)
++        val legacySignature = buildString {
++            append(device.type)
++            append('|')
++            append(product)
++            append('|')
++            append(address)
++        }
++        return StudioAudioDeviceChoice(
++            signature = legacySignature,
++            label = label,
++            deviceId = device.id,
++            type = device.type,
++            channelCounts = device.channelCounts.toList().filter { it > 0 }.distinct().sorted(),
++            sampleRates = device.sampleRates.toList().filter { it > 0 }.distinct().sorted(),
++            productName = product,
++            address = address,
++            transportFamily = family,
++            legacySignatures = listOf(legacySignature),
++        )
++    }
++
++    private fun inputTransportFamily(type: Int, product: String): String = when {
++        type in USB_DEVICE_TYPES -> StudioAudioRoutePolicy.USB_FAMILY
++        type == AudioDeviceInfo.TYPE_BUILTIN_MIC -> StudioAudioRoutePolicy.BUILTIN_MIC_FAMILY
++        type == AudioDeviceInfo.TYPE_REMOTE_SUBMIX || type == AudioDeviceInfo.TYPE_TELEPHONY -> StudioAudioRoutePolicy.HIDDEN_SYSTEM_FAMILY
++        type == AudioDeviceInfo.TYPE_BUS && isThisAndroidDevice(product) -> StudioAudioRoutePolicy.BUILTIN_MIC_FAMILY
++        else -> "type:$type"
++    }
++
++    private fun outputTransportFamily(type: Int, product: String): String = when {
++        type in USB_DEVICE_TYPES -> StudioAudioRoutePolicy.USB_FAMILY
++        type in BLUETOOTH_OUTPUT_TYPES -> StudioAudioRoutePolicy.BLUETOOTH_FAMILY
++        type in WIRED_OUTPUT_TYPES -> StudioAudioRoutePolicy.WIRED_FAMILY
++        type in HDMI_OUTPUT_TYPES -> StudioAudioRoutePolicy.HDMI_FAMILY
++        type == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER || type == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER_SAFE -> StudioAudioRoutePolicy.BUILTIN_SPEAKER_FAMILY
++        type == AudioDeviceInfo.TYPE_REMOTE_SUBMIX || type == AudioDeviceInfo.TYPE_TELEPHONY -> StudioAudioRoutePolicy.HIDDEN_SYSTEM_FAMILY
++        type == AudioDeviceInfo.TYPE_BUS && isThisAndroidDevice(product) -> StudioAudioRoutePolicy.BUILTIN_SPEAKER_FAMILY
++        else -> "type:$type"
++    }
++
++    private fun isThisAndroidDevice(product: String): Boolean {
++        val normalized = product.trim().lowercase()
++        if (normalized.isBlank()) return false
++        return listOf(Build.MODEL, Build.DEVICE, Build.PRODUCT)
++            .map { it.orEmpty().trim().lowercase() }
++            .filter { it.isNotBlank() }
++            .any { it == normalized }
++    }
++
++    private fun friendlyDeviceLabel(direction: RouteDirection, type: Int, family: String, product: String): String = when (family) {
++        StudioAudioRoutePolicy.BUILTIN_MIC_FAMILY -> "Microfone do tablet"
++        StudioAudioRoutePolicy.BUILTIN_SPEAKER_FAMILY -> "Alto-falante do tablet"
++        StudioAudioRoutePolicy.USB_FAMILY -> product.ifBlank { "Interface USB" }
++        StudioAudioRoutePolicy.HIDDEN_SYSTEM_FAMILY -> "Rota interna do sistema"
++        else -> when (type) {
++            AudioDeviceInfo.TYPE_BUILTIN_EARPIECE -> "Auricular do tablet"
++            AudioDeviceInfo.TYPE_WIRED_HEADSET, AudioDeviceInfo.TYPE_WIRED_HEADPHONES -> if (direction == RouteDirection.INPUT) "Microfone do headset" else "Fone com fio"
++            AudioDeviceInfo.TYPE_BLUETOOTH_A2DP, AudioDeviceInfo.TYPE_BLUETOOTH_SCO -> "Bluetooth · $product"
++            AudioDeviceInfo.TYPE_HDMI, AudioDeviceInfo.TYPE_HDMI_ARC, AudioDeviceInfo.TYPE_HDMI_EARC -> "HDMI · $product"
++            else -> product
++        }
++    }
++
++    private enum class RouteDirection { INPUT, OUTPUT }
++
++    private val USB_DEVICE_TYPES = setOf(
++        AudioDeviceInfo.TYPE_USB_DEVICE,
++        AudioDeviceInfo.TYPE_USB_ACCESSORY,
++        AudioDeviceInfo.TYPE_USB_HEADSET,
++    )
++
++    private val BLUETOOTH_OUTPUT_TYPES = setOf(
++        AudioDeviceInfo.TYPE_BLUETOOTH_A2DP,
++        AudioDeviceInfo.TYPE_BLUETOOTH_SCO,
++        AudioDeviceInfo.TYPE_HEARING_AID,
++        AudioDeviceInfo.TYPE_BLE_HEADSET,
++        AudioDeviceInfo.TYPE_BLE_SPEAKER,
++        AudioDeviceInfo.TYPE_BLE_BROADCAST,
++    )
++
++    private val WIRED_OUTPUT_TYPES = setOf(
++        AudioDeviceInfo.TYPE_WIRED_HEADSET,
++        AudioDeviceInfo.TYPE_WIRED_HEADPHONES,
++        AudioDeviceInfo.TYPE_LINE_ANALOG,
++        AudioDeviceInfo.TYPE_LINE_DIGITAL,
++        AudioDeviceInfo.TYPE_AUX_LINE,
++    )
++
++    private val HDMI_OUTPUT_TYPES = setOf(
++        AudioDeviceInfo.TYPE_HDMI,
++        AudioDeviceInfo.TYPE_HDMI_ARC,
++        AudioDeviceInfo.TYPE_HDMI_EARC,
++    )
++
++    private companion object {
++        const val PREFS_NAME = "studio_audio_routing"
++        const val KEY_INPUT_SIGNATURE = "input_signature"
++        const val KEY_OUTPUT_SIGNATURE = "output_signature"
++        const val KEY_CUE_OUTPUT_SIGNATURE = "cue_output_signature"
++        const val KEY_MONITORING_MODE = "monitoring_mode"
++        const val PROBE_FRAMES = 256
++        const val PROBE_POLL_MS = 8L
++        const val PROBE_TIMEOUT_NS = 160_000_000L
++        val INPUT_ROUTE_CACHE = ConcurrentHashMap<String, Int>()
++        val OUTPUT_ROUTE_CACHE = ConcurrentHashMap<String, Int>()
++        val CUE_OUTPUT_ROUTE_CACHE = ConcurrentHashMap<String, Int>()
++    }
++}
+diff --git a/platform/audio-android/src/main/kotlin/studio/guitarlab/platform/audio/android/AndroidOutputRouteIdentity.kt b/platform/audio-android/src/main/kotlin/studio/guitarlab/platform/audio/android/AndroidOutputRouteIdentity.kt
+new file mode 100644
+--- /dev/null
++++ b/platform/audio-android/src/main/kotlin/studio/guitarlab/platform/audio/android/AndroidOutputRouteIdentity.kt
+@@ -0,0 +1,84 @@
++package studio.guitarlab.platform.audio.android
++
++import android.media.AudioDeviceInfo
++import android.media.AudioTrack
++import android.os.Build
++
++/**
++ * Canonical physical identity for an Android output route.
++ *
++ * AudioDeviceInfo.id identifies a logical endpoint and is intentionally not used as physical
++ * identity. OEM/HAL implementations may expose one physical USB or built-in destination through
++ * several logical endpoint ids, and API 36 may report more than one routed logical device for one
++ * AudioTrack. Safety therefore compares normalized physical identities while still rejecting
++ * mirroring to any additional physical destination.
++ */
++internal object AndroidOutputRouteIdentity {
++    fun expectedPairDistinct(main: AudioDeviceInfo, cue: AudioDeviceInfo): Boolean =
++        physicalKey(main) != physicalKey(cue)
++
++    fun canonicalRoutedDeviceId(track: AudioTrack, expected: AudioDeviceInfo): Int? {
++        val expectedKey = physicalKey(expected)
++        val routedKeys = routedPhysicalKeys(track)
++        return if (routesOnlyToExpected(expectedKey, routedKeys)) expected.id else null
++    }
++
++    fun pairRemainsDistinct(
++        mainTrack: AudioTrack,
++        cueTrack: AudioTrack,
++        expectedMain: AudioDeviceInfo,
++        expectedCue: AudioDeviceInfo,
++    ): Boolean {
++        val mainKey = physicalKey(expectedMain)
++        val cueKey = physicalKey(expectedCue)
++        if (mainKey == cueKey) return false
++        return routesOnlyToExpected(mainKey, routedPhysicalKeys(mainTrack)) &&
++            routesOnlyToExpected(cueKey, routedPhysicalKeys(cueTrack))
++    }
++
++    fun routedPhysicalKeys(track: AudioTrack): Set<String> {
++        val routed = if (Build.VERSION.SDK_INT >= 36) {
++            track.routedDevices
++        } else {
++            listOfNotNull(track.routedDevice)
++        }
++        return routed.mapTo(linkedSetOf(), ::physicalKey)
++    }
++
++    internal fun routesOnlyToExpected(expectedKey: String, routedKeys: Collection<String>): Boolean =
++        routedKeys.isNotEmpty() && routedKeys.all { it == expectedKey }
++
++    internal fun physicalKey(device: AudioDeviceInfo): String {
++        val address = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) device.address.orEmpty() else ""
++        return physicalKey(device.type, device.productName?.toString().orEmpty(), address)
++    }
++
++    internal fun physicalKey(type: Int, productName: String, address: String): String {
++        val product = normalize(productName)
++        return when {
++            type in USB_TYPES -> "usb|$product|${usbPhysicalAddress(address)}"
++            type == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER ||
++                type == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER_SAFE -> "builtin-speaker|$product"
++            else -> "raw|$type|$product|${normalize(address)}"
++        }
++    }
++
++    private fun usbPhysicalAddress(address: String): String {
++        val normalized = normalize(address)
++        if (normalized.isBlank()) return ""
++        Regex("(?:^|[;,\\s])card\\s*=\\s*([^;,\\s]+)", RegexOption.IGNORE_CASE)
++            .find(normalized)?.groupValues?.getOrNull(1)?.let { return "card=$it" }
++        return normalized
++            .replace(Regex("(?:[;,\\s]+)?device\\s*=\\s*[^;,\\s]+", RegexOption.IGNORE_CASE), "")
++            .replace(Regex("(?:[;,\\s]+)?endpoint\\s*=\\s*[^;,\\s]+", RegexOption.IGNORE_CASE), "")
++            .trim(' ', ';', ',')
++    }
++
++    private fun normalize(value: String): String = value.trim().lowercase()
++
++    private val USB_TYPES = setOf(
++        AudioDeviceInfo.TYPE_USB_DEVICE,
++        AudioDeviceInfo.TYPE_USB_ACCESSORY,
++        AudioDeviceInfo.TYPE_USB_HEADSET,
++    )
++}
+diff --git a/platform/audio-android/src/test/kotlin/studio/guitarlab/platform/audio/android/AndroidOutputRouteIdentityTest.kt b/platform/audio-android/src/test/kotlin/studio/guitarlab/platform/audio/android/AndroidOutputRouteIdentityTest.kt
+new file mode 100644
+--- /dev/null
++++ b/platform/audio-android/src/test/kotlin/studio/guitarlab/platform/audio/android/AndroidOutputRouteIdentityTest.kt
+@@ -0,0 +1,48 @@
++package studio.guitarlab.platform.audio.android
++
++import kotlin.test.Test
++import kotlin.test.assertEquals
++import kotlin.test.assertFalse
++import kotlin.test.assertNotEquals
++import kotlin.test.assertTrue
++
++class AndroidOutputRouteIdentityTest {
++    @Test
++    fun usbLogicalEndpointsOnSameCardShareOnePhysicalIdentity() {
++        val usbDevice = AndroidOutputRouteIdentity.physicalKey(11, "USB-Audio - MK300", "card=2;device=0")
++        val usbHeadset = AndroidOutputRouteIdentity.physicalKey(22, "USB-Audio - MK300", "card=2;device=1")
++        assertEquals(usbDevice, usbHeadset)
++    }
++
++    @Test
++    fun differentUsbCardsRemainDistinct() {
++        val first = AndroidOutputRouteIdentity.physicalKey(11, "USB-Audio - MK300", "card=2;device=0")
++        val second = AndroidOutputRouteIdentity.physicalKey(22, "USB-Audio - MK300", "card=3;device=0")
++        assertNotEquals(first, second)
++    }
++
++    @Test
++    fun builtInSpeakerLogicalAddressesDoNotCreateFakePhysicalRoutes() {
++        val first = AndroidOutputRouteIdentity.physicalKey(2, "SM-X230", "")
++        val second = AndroidOutputRouteIdentity.physicalKey(2, "SM-X230", "bottom")
++        assertEquals(first, second)
++    }
++
++    @Test
++    fun rawWiredEndpointTypesRemainDistinct() {
++        val headset = AndroidOutputRouteIdentity.physicalKey(3, "Wired", "")
++        val headphones = AndroidOutputRouteIdentity.physicalKey(4, "Wired", "")
++        assertNotEquals(headset, headphones)
++    }
++
++    @Test
++    fun routeSetMustContainOnlyTheExpectedPhysicalDestination() {
++        val expected = AndroidOutputRouteIdentity.physicalKey(11, "USB-Audio - MK300", "card=2;device=0")
++        val alias = AndroidOutputRouteIdentity.physicalKey(22, "USB-Audio - MK300", "card=2;device=1")
++        val wired = AndroidOutputRouteIdentity.physicalKey(4, "Wired", "")
++
++        assertTrue(AndroidOutputRouteIdentity.routesOnlyToExpected(expected, listOf(expected, alias)))
++        assertFalse(AndroidOutputRouteIdentity.routesOnlyToExpected(expected, emptyList()))
++        assertFalse(AndroidOutputRouteIdentity.routesOnlyToExpected(expected, listOf(expected, wired)))
++    }
++}
