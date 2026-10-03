@@ -1,7 +1,7 @@
 # RC28 CUE physical-route identity correction
 
 Date: 2026-10-03
-Status: SOURCE READY — SOFTWARE/API36 QUALIFICATION PENDING
+Status: RC28a TEST-IMPORT CORRECTION — REQUALIFICATION PENDING
 
 ## Owner evidence
 
@@ -36,10 +36,17 @@ RC28 adds `AndroidOutputRouteIdentity` and uses it in both selection-time admiss
 
 ## Regression
 
-New JVM coverage proves same-card USB aliases share one physical identity, different USB cards remain distinct, built-in speaker aliases do not create false routes, raw wired types do not collapse, and an unexpected extra physical route is rejected. Existing CUE startup/clock/backpressure tests remain authoritative.
+New JVM coverage proves same-card USB aliases share one physical identity, different USB cards remain distinct, built-in speaker aliases do not create false routes, wired headset/headphones modes share one jack identity, and an unexpected extra physical route is rejected. Existing CUE startup/clock/backpressure tests remain authoritative.
 
 ## Release gate
 
 Candidate identity: `0.5.0-rc28` / versionCode `48`.
 
 Run `[run ci]` first. Signing is allowed only after deterministic materialization, unit tests, Android Lint, release build and relevant API36 regression pass. Physical acceptance then uses the exact signed RC28 APK on SM-X230 / Android 16 with MK-300 MAIN + wired CUE. Verify CUE selection persists, CUE-only track is heard only on the wired output, MAIN remains isolated, Play/REC stay stable, and disconnect/reconnect still fails closed.
+
+
+## CI #957 — test annotation import failure
+
+Run `37122989286` on merge source `af16e744b61c9a15eadfcb9aab487a0b903dac3c` materialized RC28 successfully. The API36 emulator job passed. The software job failed only at `:platform:audio-android:compileDebugUnitTestKotlin`: `AndroidOutputRouteIdentityTest.kt` could not resolve `kotlin.test.Test`. Existing tests in `platform/audio-android` use JUnit4 `org.junit.Test`, and the module already declares JUnit4.
+
+RC28a corrects that import only. It does not alter `AndroidOutputRouteIdentity`, CUE admission/runtime safety, app version, clock/offset/drift/backpressure policy, or the physical acceptance plan. A fresh `[run ci]` is required; #957 is retained as evidence that API36 passed while the software gate was blocked before Lint/APK assembly.

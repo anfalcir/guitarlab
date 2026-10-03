@@ -52,7 +52,7 @@ GBW is historical implementation provenance only. Legacy standalone GBW/H37/pre-
 - canonical branch: `main`;
 - RC23 integrated review: PR #9; exact signed identity in `docs/CURRENT_STATE.md`;
 - canonical materialization entrypoint: `scripts/materialize_ci_sources.sh`;
-- active candidate tail: **RC28CuePhysicalRouteIdentity** via `scripts/materialize_ci_sources_rc28.py`;
+- active candidate tail: **RC28aUnitTestImportFix** via `scripts/materialize_ci_sources_rc28a.py`;
 - protected payloads: `.source-parts/`;
 - materialization is deterministic, hash/blob locked, idempotent and fail-closed.
 
@@ -67,7 +67,7 @@ Ordinary documentation/source commits use `[skip ci]` unless qualification is in
 - `[run u4 cloud]`: controlled real-cloud transactional smoke;
 - `[run u7 cloud]`: backend verification/deploy workflow with explicit shadow/production authorization.
 
-RC27 remains retained signed digital evidence. RC28 changes route/timestamp admission and therefore requires the software/API36 audio gates before signing; the owner must then validate the exact signed RC28 on SM-X230 with MK-300 MAIN + wired CUE before any baseline promotion.
+RC27 remains retained signed digital evidence. RC28 runtime/API36 passed its first gate, but CI #957 stopped the software job because the new JVM test used the wrong JUnit annotation import for this module. RC28a changes only that test import and source-chain bookkeeping; the audio runtime is unchanged and still requires a full software/API36 PASS before signing.
 
 ## Security and maintenance
 

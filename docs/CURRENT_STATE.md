@@ -4,13 +4,19 @@ Updated: 2026-10-03
 
 ## Status
 
-**RC28 CUE PHYSICAL-ROUTE IDENTITY — SOURCE READY; SOFTWARE/API36 QUALIFICATION PENDING**
+**RC28a CUE PHYSICAL-ROUTE IDENTITY — UNIT-TEST IMPORT CORRECTION; REQUALIFICATION PENDING**
 
 Owner evidence `142269.mp4` reproduces the failure on the target SM-X230/Android 16: MAIN is `USB-Audio - MK300`, CUE selection is `Fone com fio`, verification starts and ends with `ROUTE_UNCONFIRMED` / “O Android não confirmou duas saídas físicas distintas”. The RC25 verifier compared one transient logical `AudioDeviceInfo.id` per stream even though GuitarLab already canonicalizes multiple logical USB/built-in endpoints into one physical route. API 36 also exposes `AudioRouting.getRoutedDevices()`, so a correct physical route may contain logical aliases that the old exact-id test rejects.
 
 RC28 introduces one Android physical-route identity layer shared by CUE admission and runtime safety. It accepts only routed logical endpoints that all canonicalize to the explicitly selected physical destination, rejects empty evidence, rejects MAIN/CUE physical convergence, and rejects mirroring to any extra physical destination. The output-candidate probe also consumes the API36 routed-device set instead of trusting only one logical endpoint. The 12 ms clock-offset guard, stable-clock requirement, non-blocking secondary writes and fail-closed behavior remain unchanged.
 
 RC27 `0.5.0-rc27` / `47` remains the latest signed digital authority until RC28 `0.5.0-rc28` / `48` qualifies and is signed. RC20 remains the physically accepted frozen baseline.
+
+## CI #957 result
+
+Android CI **#957 / run `37122989286`** on source `af16e744b61c9a15eadfcb9aab487a0b903dac3c` did **not** expose an RC28 audio/runtime failure. The API 36 emulator regression passed completely. The software job stopped during `:platform:audio-android:compileDebugUnitTestKotlin` because the new `AndroidOutputRouteIdentityTest` imported `kotlin.test.Test`; this Android/JUnit4 module uses `org.junit.Test`. Lint and APK assembly were therefore skipped.
+
+RC28a is a test-only qualification correction: replace the annotation import with `org.junit.Test`, retain the same RC28/48 runtime bytes and route behavior, and re-run the complete software/API36 gate. No signing or physical PASS is claimed from #957.
 
 ## RC28 qualification plan
 
