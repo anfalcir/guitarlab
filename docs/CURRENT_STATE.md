@@ -1,12 +1,25 @@
 # Current State — GuitarLab Studio
 
-Updated: 2026-10-02
+Updated: 2026-10-03
 
 ## Status
 
-**RC27 MIXER CARD HIERARCHY — SIGNED DIGITAL PASS; PHYSICAL VALIDATION PENDING**
+**RC28 CUE PHYSICAL-ROUTE IDENTITY — SOURCE READY; SOFTWARE/API36 QUALIFICATION PENDING**
 
-RC27 is now the latest canonically signed digital authority. Android CI **#955 / run 37045089530** passed deterministic materialization, Unit Tests, Android Lint, APK build and API36 regression on source **a506f3f81744f5de19e6a4fedb232a64503e2f50**; complete/minimum and focused clipping/large-font captures were reviewed and matched the approved hierarchy with no title overlap. Release producer **222e66616e2eceba3e2781785c69c72020c40d04** preserves the exact same Git tree, and Android CI **#956 / run 37047225250** requalified that tree, verified unsigned provenance/package/version, signed the exact tested artifact and verified the locked certificate. RC20 remains the physically accepted frozen baseline until owner acceptance of the exact RC27 APK.
+Owner evidence `142269.mp4` reproduces the failure on the target SM-X230/Android 16: MAIN is `USB-Audio - MK300`, CUE selection is `Fone com fio`, verification starts and ends with `ROUTE_UNCONFIRMED` / “O Android não confirmou duas saídas físicas distintas”. The RC25 verifier compared one transient logical `AudioDeviceInfo.id` per stream even though GuitarLab already canonicalizes multiple logical USB/built-in endpoints into one physical route. API 36 also exposes `AudioRouting.getRoutedDevices()`, so a correct physical route may contain logical aliases that the old exact-id test rejects.
+
+RC28 introduces one Android physical-route identity layer shared by CUE admission and runtime safety. It accepts only routed logical endpoints that all canonicalize to the explicitly selected physical destination, rejects empty evidence, rejects MAIN/CUE physical convergence, and rejects mirroring to any extra physical destination. The output-candidate probe also consumes the API36 routed-device set instead of trusting only one logical endpoint. The 12 ms clock-offset guard, stable-clock requirement, non-blocking secondary writes and fail-closed behavior remain unchanged.
+
+RC27 `0.5.0-rc27` / `47` remains the latest signed digital authority until RC28 `0.5.0-rc28` / `48` qualifies and is signed. RC20 remains the physically accepted frozen baseline.
+
+## RC28 qualification plan
+
+- deterministic source materialization through `scripts/materialize_ci_sources_rc28.py`;
+- JVM regression for physical-route canonicalization and mirrored-route rejection;
+- existing core CUE startup/clock/backpressure tests;
+- Android Lint, release build and relevant API36 regression;
+- after software PASS, sign the exact tested RC28 artifact;
+- owner physical acceptance on SM-X230 / Android 16 with MK-300 MAIN + wired CUE: selection persists, track CUE reaches only the wired output, MAIN remains isolated, Play/REC remain stable, and reconnect/loss still fails closed.
 
 ## Exact signed RC27 identity
 
