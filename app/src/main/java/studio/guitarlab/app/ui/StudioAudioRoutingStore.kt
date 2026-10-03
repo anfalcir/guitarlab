@@ -146,7 +146,8 @@ class StudioAudioRoutingStore(context: Context) {
     /**
      * Resolves a logical user-facing output to an Android endpoint that is proven routable.
      * Duplicate USB endpoint groups are verified with an inaudible short AudioTrack and
-     * AudioRouting.routedDevice; endpoint ordering is never used as a correctness signal.
+     * effective routed devices. API 36 may expose multiple logical routed endpoints for one
+     * physical destination; endpoint ordering is never used as a correctness signal.
      */
     fun resolveSelectedOutputDevice(): AudioDeviceInfo? {
         val selected = selectedOutputSignature() ?: return null
@@ -291,9 +292,11 @@ class StudioAudioRoutingStore(context: Context) {
                 if (track.write(silence, 0, silence.size, AudioTrack.WRITE_BLOCKING) <= 0) continue
                 val deadline = System.nanoTime() + PROBE_TIMEOUT_NS
                 while (System.nanoTime() < deadline) {
-                    val routed = track.routedDevice
-                    if (routed != null && routed.id in candidateIds) {
-                        return audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS).firstOrNull { it.id == routed.id }
+                    val routed = if (Build.VERSION.SDK_INT >= 36) track.routedDevices else listOfNotNull(track.routedDevice)
+                    val routedIds = routed.map { it.id }.toSet()
+                    if (routedIds.isNotEmpty() && routedIds.all { it in candidateIds }) {
+                        val resolvedId = routedIds.first()
+                        return audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS).firstOrNull { it.id == resolvedId }
                     }
                     try {
                         Thread.sleep(PROBE_POLL_MS)
