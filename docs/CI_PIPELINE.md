@@ -7,7 +7,7 @@ This document describes current execution controls. Historical tail hashes, run 
 ## Source materialization
 
 - canonical entrypoint: `scripts/materialize_ci_sources.sh`;
-- current candidate tail: RC28 CUE physical-route identity via `scripts/materialize_ci_sources_rc28.py`, chained after RC27d signed-document closure and immutable RC27c/earlier predecessors;
+- current candidate tail: RC28a unit-test import correction via `scripts/materialize_ci_sources_rc28a.py`, chained after immutable RC28 runtime and RC27d/earlier predecessors;
 - protected deltas: `.source-parts/`;
 - required properties: deterministic, hash/blob locked, idempotent, semantic guards, reverse-apply validation and fail-closed drift handling.
 
@@ -159,3 +159,8 @@ RC27 terminal runtime stage is `scripts/materialize_ci_sources_rc27c.py`. Androi
 ## RC28 CUE physical-route identity gate
 
 RC28 is triggered by owner target-device evidence, not by emulator speculation. The gate must prove that logical endpoint aliases cannot cause false CUE rejection while preserving physical isolation: API36 routed-device sets may contain several logical endpoints only when every endpoint canonicalizes to the selected physical output. Empty route evidence, an extra physical destination, MAIN/CUE physical convergence, unstable clocks, >12 ms initial offset and CUE backpressure remain blocking. After digital PASS, physical acceptance is required on the exact signed RC28 APK with MK-300 MAIN + wired CUE.
+
+
+## RC28a qualification-only correction
+
+CI #957 / run `37122989286` proved the RC28 API36 emulator regression PASS but failed the software gate before Lint/build because `AndroidOutputRouteIdentityTest` imported `kotlin.test.Test` in a module whose working tests use JUnit4 `org.junit.Test`. RC28a changes only that test annotation import plus truthful qualification/source-chain documentation. Runtime audio files, app identity `0.5.0-rc28` / `48`, CUE physical-route logic and release requirements are unchanged.
