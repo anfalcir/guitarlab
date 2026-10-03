@@ -26,6 +26,7 @@ RC28 adds `AndroidOutputRouteIdentity` and uses it in both selection-time admiss
 
 - USB endpoints canonicalize by normalized product + physical card while logical device/endpoint address components are stripped.
 - Built-in speaker aliases canonicalize as one physical destination.
+- Wired headset/headphones output modes canonicalize as one physical jack when product/address match; line/AUX outputs remain distinct.
 - Other routes keep type/product/address identity.
 - API36 reads the complete routed-device set.
 - A stream passes only when all routed logical endpoints map to the selected physical route.
