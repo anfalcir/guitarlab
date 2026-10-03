@@ -30,8 +30,8 @@ class AndroidOutputRouteIdentityTest {
 
     @Test
     fun headsetAndHeadphonesModesShareTheSamePhysicalJack() {
-        val headset = AndroidOutputRouteIdentity.physicalKey(3, "Wired", "")
-        val headphones = AndroidOutputRouteIdentity.physicalKey(4, "Wired", "")
+        val headset = AndroidOutputRouteIdentity.physicalKey(3, "Headset mode", "")
+        val headphones = AndroidOutputRouteIdentity.physicalKey(4, "Headphones mode", "")
         assertEquals(headset, headphones)
     }
 
