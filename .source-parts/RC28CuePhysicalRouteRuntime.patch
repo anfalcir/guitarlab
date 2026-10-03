@@ -2854,7 +2854,7 @@ new file mode 100644
 +            type == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER ||
 +                type == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER_SAFE -> "builtin-speaker|$product"
 +            type == AudioDeviceInfo.TYPE_WIRED_HEADSET ||
-+                type == AudioDeviceInfo.TYPE_WIRED_HEADPHONES -> "wired-jack|$product|${normalize(address)}"
++                type == AudioDeviceInfo.TYPE_WIRED_HEADPHONES -> "wired-jack|${normalize(address)}"
 +            else -> "raw|$type|$product|${normalize(address)}"
 +        }
 +    }
@@ -2915,8 +2915,8 @@ new file mode 100644
 +
 +    @Test
 +    fun headsetAndHeadphonesModesShareTheSamePhysicalJack() {
-+        val headset = AndroidOutputRouteIdentity.physicalKey(3, "Wired", "")
-+        val headphones = AndroidOutputRouteIdentity.physicalKey(4, "Wired", "")
++        val headset = AndroidOutputRouteIdentity.physicalKey(3, "Headset mode", "")
++        val headphones = AndroidOutputRouteIdentity.physicalKey(4, "Headphones mode", "")
 +        assertEquals(headset, headphones)
 +    }
 +
