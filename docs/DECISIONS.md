@@ -1,6 +1,6 @@
 # Architectural and Product Decisions
 
-Updated: 2026-10-01
+Updated: 2026-10-03
 
 This log records durable decisions that must survive chat/context loss. Later numbered decisions supersede earlier ones. Milestone-specific wording is historical unless a current live document retains the invariant; D-090 governs the proportional release and maintenance interpretation of every earlier decision.
 
@@ -546,3 +546,10 @@ A seleção secundária é validada imediatamente em Opções: mostra “Verific
 - the face is anchored to the outer/right edge of the target, maximizing separation from centered identity text;
 - track/Master visible warning faces must not overlap their centered title bounds;
 - no meter, layout-budget, routing, persistence or audio behavior changes.
+
+
+## D-106 — CUE safety is based on canonical physical routes, not one logical endpoint id
+
+2026-10-03. Owner evidence on SM-X230/Android 16 shows MK-300 MAIN + wired CUE rejected as `ROUTE_UNCONFIRMED`. The RC25/RC27 verifier compared `AudioTrack.routedDevice.id` to the initially requested `AudioDeviceInfo.id`, while the selector already merges logical USB/built-in endpoints into physical routes. This inconsistency can reject a valid route when the HAL reports a sibling logical endpoint.
+
+RC28 defines one Android physical-route identity rule for admission and runtime safety. USB identity follows product + physical card after stripping logical device/endpoint components; built-in speaker aliases ignore logical address; wired-headset/headphones modes share one address-based jack identity independent of mode/product label; other endpoints retain type/product/address identity. API36 consumes the full routed-device set. A stream is accepted only when route evidence is non-empty and every routed logical endpoint maps to its selected physical destination. MAIN/CUE physical convergence or any additional mirrored physical destination remains rejected. Stable clocks, the 12 ms initial offset bound, continuous drift guard, non-blocking CUE and no automatic fallback remain unchanged.

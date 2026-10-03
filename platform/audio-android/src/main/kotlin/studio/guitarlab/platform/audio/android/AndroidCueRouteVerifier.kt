@@ -18,7 +18,7 @@ object AndroidCueRouteVerifier {
         var cueTrack: AudioTrack? = null
         return try {
             if (!keepRunning()) return "Verificação cancelada."
-            if (main.id == cue.id) return "MAIN e CUE precisam usar saídas distintas."
+            if (!AndroidOutputRouteIdentity.expectedPairDistinct(main, cue)) return "MAIN e CUE precisam usar saídas físicas distintas."
             fun create(device: AudioDeviceInfo): AudioTrack {
                 val track = AudioTrack.Builder()
                     .setAudioAttributes(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA).setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).build())
@@ -48,9 +48,9 @@ object AndroidCueRouteVerifier {
     fun verifyTracks(mainTrack: AudioTrack, cueTrack: AudioTrack, expectedMain: AudioDeviceInfo,
         expectedCue: AudioDeviceInfo, sampleRateHz: Int, keepRunning: () -> Boolean): String? {
         val silence = FloatArray(512 * 2)
-        fun adapter(track: AudioTrack) = object : CueProbeOutput {
+        fun adapter(track: AudioTrack, expected: AudioDeviceInfo) = object : CueProbeOutput {
             override fun feedSilence(): Int = track.write(silence, 0, silence.size, AudioTrack.WRITE_NON_BLOCKING)
-            override fun routedDeviceId(): Int? = track.routedDevice?.id
+            override fun routedDeviceId(): Int? = AndroidOutputRouteIdentity.canonicalRoutedDeviceId(track, expected)
             override fun clockObservation(): AudioClockObservation? {
                 val timestamp = AudioTimestamp()
                 return if (track.getTimestamp(timestamp)) AudioClockObservation(timestamp.framePosition, timestamp.nanoTime) else null
@@ -69,7 +69,7 @@ object AndroidCueRouteVerifier {
             mainTrack.play()
             cueTrack.play()
             when (CueStartupProbe.verify(
-                main = adapter(mainTrack), cue = adapter(cueTrack), expectedMainId = expectedMain.id,
+                main = adapter(mainTrack, expectedMain), cue = adapter(cueTrack, expectedCue), expectedMainId = expectedMain.id,
                 expectedCueId = expectedCue.id, sampleRateHz = sampleRateHz,
                 nowNs = System::nanoTime, sleepMs = { Thread.sleep(it) },
                 keepRunning = { keepRunning() && !Thread.currentThread().isInterrupted },

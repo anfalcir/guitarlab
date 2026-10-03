@@ -48,7 +48,7 @@ A subsystem contract does not create an unrelated release/maintenance gate merel
 
 ## Active successor evidence
 
-RC27 is the active source candidate. Its contract/checkpoint is `history/RC27_MIXER_CARD_HIERARCHY_2026-10-02.md`. RC26 signed digital closure remains predecessor evidence in `history/RC26_MIXER_LEVELS_UI_2026-10-01.md`; RC25 output/CUE correction is `history/RC25_OUTPUT_CUE_CORRECTION_2026-10-01.md`; RC24 density and RC23 navbar/layout histories remain dated predecessor evidence. RC22/RC21 evidence is retained under their existing history files.
+RC28 is the active corrective source candidate. Its contract/checkpoint is `history/RC28_CUE_PHYSICAL_ROUTE_IDENTITY_2026-10-03.md`. RC27 signed digital closure remains predecessor evidence in `history/RC27_MIXER_CARD_HIERARCHY_2026-10-02.md`; RC25 output/CUE correction remains historical design evidence but is superseded by RC28 where it equated physical proof with one logical endpoint id. Earlier evidence remains retained under history.
 
 Candidate evidence never replaces `RELEASE_BASELINE.md` until the exact signed successor artifact completes required owner acceptance.
 

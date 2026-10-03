@@ -1,6 +1,6 @@
 # Test and Homologation Policy
 
-Updated: 2026-10-02
+Updated: 2026-10-03
 
 ## Purpose
 
@@ -110,3 +110,8 @@ Automated geometry must establish useful hierarchy and workspace density, not on
 The accepted RC20 identity and physical result are recorded in `RELEASE_BASELINE.md` and `history/RC20_PHYSICAL_HOMOLOGATION_FINAL_2026-09-25.md`.
 
 No recurring test schedule is required for the frozen personal-use appliance. Qualification resumes only after a maintenance trigger or explicit new feature.
+
+
+## RC28 current maintenance scope
+
+RC28 changes Android output-route identity and CUE admission/runtime verification after owner evidence on SM-X230/Android 16. Digital qualification must cover canonical physical identity for USB/built-in aliases, rejection of different USB cards, rejection of additional mirrored physical destinations, existing clock/offset/backpressure policy and Settings/Play integration. Because this path depends on vendor/HAL routing, software PASS cannot promote the candidate: the exact signed APK must be tested with MK-300 MAIN + wired CUE. RC27 UI evidence, Demucs, Drive and unrelated recording/export evidence remain reusable.

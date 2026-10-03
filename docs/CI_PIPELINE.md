@@ -1,13 +1,13 @@
 # CI and Release Pipeline
 
-Updated: 2026-10-02
+Updated: 2026-10-03
 
 This document describes current execution controls. Historical tail hashes, run chronology and retired gate details are preserved in `history/CI_PIPELINE_PRE_RC20.md` and immutable workflow artifacts.
 
 ## Source materialization
 
 - canonical entrypoint: `scripts/materialize_ci_sources.sh`;
-- current candidate tail: RC27c clipping edge-anchor correction via `scripts/materialize_ci_sources_rc27c.py`, chained after RC27b/RC27a/RC27 and immutable RC26 predecessors;
+- current candidate tail: RC28 CUE physical-route identity via `scripts/materialize_ci_sources_rc28.py`, chained after RC27d signed-document closure and immutable RC27c/earlier predecessors;
 - protected deltas: `.source-parts/`;
 - required properties: deterministic, hash/blob locked, idempotent, semantic guards, reverse-apply validation and fail-closed drift handling.
 
@@ -111,7 +111,7 @@ Run IDs and current status belong in `CURRENT_STATE.md`, not here.
 
 ## Post-freeze
 
-The accepted baseline remains RC20 until exact signed successor physical acceptance. RC27 `0.5.0-rc27` / `47` is now the latest signed digital authority after Android CI #955/#956; RC26 remains predecessor signed evidence. RC27 is not yet the promoted physical baseline.
+The accepted baseline remains RC20 until exact signed successor physical acceptance. RC27 `0.5.0-rc27` / `47` remains the latest signed digital authority after Android CI #955/#956. RC28 `0.5.0-rc28` / `48` is an unsigned audio-routing corrective candidate and must pass software/API36 before any signing trigger.
 
 The deterministic runtime chain closes RC26's post-sign documentation with `scripts/materialize_ci_sources_rc26b.py`, then applies RC27, RC27a loaded-frame evidence synchronization, RC27b compact clipping-badge correction and RC27c edge anchoring. Prior source payloads are immutable. CI #955 passed the terminal runtime source and visual evidence; release producer `222e66616e2eceba3e2781785c69c72020c40d04` preserved that exact tree and CI #956 signed it successfully.
 
@@ -154,3 +154,8 @@ CI #954 / run `37040291049` passed Unit/Lint/build and failed API36 only on the 
 ## RC27 signed digital authority
 
 RC27 terminal runtime stage is `scripts/materialize_ci_sources_rc27c.py`. Android CI #955 / run `37045089530` passed software/Lint/build/API36 and reviewed visual evidence on source `a506f3f81744f5de19e6a4fedb232a64503e2f50`. Release producer `222e66616e2eceba3e2781785c69c72020c40d04` retained the identical Git tree; Android CI #956 / run `37047225250` requalified and signed the exact tested artifact. Signed APK SHA-256 is `d5186972bda0efb48652656d310c3e45f70702df3e0dff070828e11890fb827f`; certificate SHA-256 is `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`. Physical owner validation remains separate.
+
+
+## RC28 CUE physical-route identity gate
+
+RC28 is triggered by owner target-device evidence, not by emulator speculation. The gate must prove that logical endpoint aliases cannot cause false CUE rejection while preserving physical isolation: API36 routed-device sets may contain several logical endpoints only when every endpoint canonicalizes to the selected physical output. Empty route evidence, an extra physical destination, MAIN/CUE physical convergence, unstable clocks, >12 ms initial offset and CUE backpressure remain blocking. After digital PASS, physical acceptance is required on the exact signed RC28 APK with MK-300 MAIN + wired CUE.
