@@ -29,10 +29,10 @@ class AndroidOutputRouteIdentityTest {
     }
 
     @Test
-    fun rawWiredEndpointTypesRemainDistinct() {
+    fun headsetAndHeadphonesModesShareTheSamePhysicalJack() {
         val headset = AndroidOutputRouteIdentity.physicalKey(3, "Wired", "")
         val headphones = AndroidOutputRouteIdentity.physicalKey(4, "Wired", "")
-        assertNotEquals(headset, headphones)
+        assertEquals(headset, headphones)
     }
 
     @Test
