@@ -11,6 +11,7 @@ class CueStartupProbeTest {
         var cueOffset = 0L
         var converges = false
         var missingRoute = false
+        var routeAvailableAfterNs = 0L
         var staleClock = false
         var cueWrite = 512
         private fun sink(id: Int) = object : CueProbeOutput {
@@ -18,7 +19,7 @@ class CueStartupProbeTest {
                 if (id == 1) mainFeeds++ else cueFeeds++
                 return if (id == 1) 512 else cueWrite
             }
-            override fun routedDeviceId(): Int? = if (missingRoute) null else if (id == 2 && converges && elapsed >= 64_000_000) 1 else id
+            override fun routedDeviceId(): Int? = if (missingRoute || elapsed < routeAvailableAfterNs) null else if (id == 2 && converges && elapsed >= 64_000_000) 1 else id
             override fun clockObservation(): AudioClockObservation? {
                 if (elapsed < 200_000_000) return null
                 // Driver publishes one fresh timestamp every 64 ms, not every polling iteration.
@@ -36,6 +37,12 @@ class CueStartupProbeTest {
         assertTrue(f.elapsed >= 320_000_000)
         assertEquals(f.mainFeeds, f.cueFeeds)
         assertTrue(f.mainFeeds > 30)
+    }
+    @Test fun routeSettlementHasItsOwnBoundBeyondTheOldOnePointFiveSecondWindow() {
+        val f = Fixture().apply { routeAvailableAfterNs = 2_200_000_000L }
+        assertNull(f.verify())
+        assertTrue(f.elapsed >= f.routeAvailableAfterNs)
+        assertTrue(f.elapsed < CueStartupProbe.TIMEOUT_NS)
     }
     @Test fun partialAndZeroStartupWritesAreRetriedWithoutBlocking() {
         val f = Fixture().apply { cueWrite = 0 }
