@@ -3,7 +3,7 @@
 Private, single-owner Android guitar preparation, study, recording, mixing, export and backup appliance.
 
 Updated: 2026-10-03
-Release state: **RC20 ACCEPTED / RC27 SIGNED DIGITAL / RC28 CUE ROUTING — SOFTWARE QUALIFICATION PENDING**
+Release state: **RC20 ACCEPTED / RC28 SIGNED DIGITAL, PHYSICALLY REJECTED / RC29 CUE ROUTE SETTLEMENT — QUALIFICATION PENDING**
 
 ## Start here
 
@@ -24,7 +24,7 @@ Completed roadmaps, milestone plans, candidate checklists, release campaigns and
 
 ## Accepted baseline and active candidate
 
-GuitarLab `0.5.0-rc20` / versionCode `40` remains the accepted personal-use baseline. RC27 `0.5.0-rc27` / `47` remains the latest signed digital authority. RC28 `0.5.0-rc28` / `48` is the active corrective candidate for owner-reproduced CUE failure on SM-X230/Android 16 with MK-300 MAIN + wired CUE. RC28 changes output-route identity and verification only; software qualification and exact signed physical acceptance remain pending.
+GuitarLab `0.5.0-rc20` / versionCode `40` remains the accepted personal-use baseline. RC28 `0.5.0-rc28` / `48` is the latest signed digital authority but is physically rejected for MK-300 MAIN + wired CUE by owner evidence `142418.mp4`. RC29 `0.5.0-rc29` / `49` is the active corrective candidate; it separates physical-route settlement from clock qualification and retains all fail-closed dual-route, offset, drift and non-blocking CUE requirements.
 
 - package: `studio.guitarlab.app`;
 - accepted baseline identity and signer: `docs/RELEASE_BASELINE.md`;
@@ -52,7 +52,7 @@ GBW is historical implementation provenance only. Legacy standalone GBW/H37/pre-
 - canonical branch: `main`;
 - RC23 integrated review: PR #9; exact signed identity in `docs/CURRENT_STATE.md`;
 - canonical materialization entrypoint: `scripts/materialize_ci_sources.sh`;
-- active candidate tail: **RC28aUnitTestImportFix** via `scripts/materialize_ci_sources_rc28a.py`;
+- active candidate tail: **RC29CueRouteSettlement** via `scripts/materialize_ci_sources_rc29.py`;
 - protected payloads: `.source-parts/`;
 - materialization is deterministic, hash/blob locked, idempotent and fail-closed.
 
@@ -67,10 +67,10 @@ Ordinary documentation/source commits use `[skip ci]` unless qualification is in
 - `[run u4 cloud]`: controlled real-cloud transactional smoke;
 - `[run u7 cloud]`: backend verification/deploy workflow with explicit shadow/production authorization.
 
-RC27 remains retained signed digital evidence. RC28 runtime/API36 passed its first gate, but CI #957 stopped the software job because the new JVM test used the wrong JUnit annotation import for this module. RC28a changes only that test import and source-chain bookkeeping; the audio runtime is unchanged and still requires a full software/API36 PASS before signing.
+RC28 is retained as signed digital evidence from Android CI #959 / run `37126984321`, producer `a837dd9aa533951448bbbd3607fe60b529894520`. Owner evidence `142418.mp4` and `GuitarLab-Diagnostics-1791036117830.zip` reject it physically for synchronized MK-300 MAIN + wired CUE. RC29 changes only the CUE preflight settlement/diagnostic path plus candidate identity/docs; it must pass fresh software/API36 qualification before signing.
 
 ## Security and maintenance
 
 Never commit keystores, private credentials, client secrets, refresh tokens or service-account keys.
 
-The accepted RC20 APK and backend digest remain frozen until a successor is physically promoted. RC27 is retained as signed digital predecessor evidence. RC28 is not yet qualified or signed; it deliberately changes only Android output-route identity/verification and does not change separation, Drive or recording-capture behavior.
+The accepted RC20 APK and backend digest remain frozen until a successor is physically promoted. RC28 is retained as signed digital predecessor evidence but is not physically accepted. RC29 does not change separation, Drive, recording capture, project persistence or export behavior.
