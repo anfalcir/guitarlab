@@ -60,7 +60,7 @@ internal object AndroidOutputRouteIdentity {
             type == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER ||
                 type == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER_SAFE -> "builtin-speaker|$product"
             type == AudioDeviceInfo.TYPE_WIRED_HEADSET ||
-                type == AudioDeviceInfo.TYPE_WIRED_HEADPHONES -> "wired-jack|$product|${normalize(address)}"
+                type == AudioDeviceInfo.TYPE_WIRED_HEADPHONES -> "wired-jack|${normalize(address)}"
             else -> "raw|$type|$product|${normalize(address)}"
         }
     }
