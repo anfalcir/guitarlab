@@ -236,8 +236,9 @@ class DiagnosticBundleExporter(private val context: Context) {
         MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
 
     private fun cuePreflightJson(result: CuePreflightResult): JSONObject = JSONObject()
-        .put("schemaVersion", 2)
+        .put("schemaVersion", 3)
         .put("status", result.status.name)
+        .put("strategy", result.evidence.strategy.name)
         .put("sampleRateHz", result.evidence.sampleRateHz)
         .put("attemptedCueSampleRates", JSONArray(result.evidence.attemptedCueSampleRates))
         .put("negotiatedCueSampleRateHz", result.evidence.negotiatedCueSampleRateHz)
@@ -254,6 +255,18 @@ class DiagnosticBundleExporter(private val context: Context) {
         .put("cuePreferredReassertedAfterPlay", result.evidence.cuePreferredReassertedAfterPlay)
         .put("mainTrack", result.evidence.mainTrack?.let(::trackConfigurationJson))
         .put("cueTrack", result.evidence.cueTrack?.let(::trackConfigurationJson))
+        .put("communication", result.evidence.communication?.let { communication ->
+            JSONObject()
+                .put("apiSupported", communication.apiSupported)
+                .put("availablePhysicalKeys", JSONArray(communication.availablePhysicalKeys))
+                .put("selectedPhysicalKey", communication.selectedPhysicalKey)
+                .put("requestAccepted", communication.requestAccepted)
+                .put("audioModeBefore", communication.audioModeBefore)
+                .put("audioModeDuring", communication.audioModeDuring)
+                .put("modeRequired", communication.modeRequired)
+                .put("duckingRequested", communication.duckingRequested)
+                .put("fidelityQualification", communication.fidelityQualification)
+        })
         .put("routedTransitions", JSONArray().also { array ->
             result.evidence.routedTransitions.forEach { sample ->
                 array.put(

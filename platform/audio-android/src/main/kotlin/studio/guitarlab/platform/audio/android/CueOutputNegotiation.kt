@@ -2,10 +2,17 @@ package studio.guitarlab.platform.audio.android
 
 import kotlin.math.abs
 
+enum class CueOutputStrategy {
+    MULTI_DEVICE,
+    COMMUNICATION_SPLIT,
+}
+
 data class CueOutputProfile(
     val sessionSampleRateHz: Int,
     val mainSampleRateHz: Int,
     val cueSampleRateHz: Int,
+    val strategy: CueOutputStrategy = CueOutputStrategy.MULTI_DEVICE,
+    val communicationModeRequired: Boolean = false,
 ) {
     val requiresCueResampling: Boolean get() = cueSampleRateHz != sessionSampleRateHz
 }

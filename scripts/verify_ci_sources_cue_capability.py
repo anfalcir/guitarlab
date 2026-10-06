@@ -28,7 +28,7 @@ require_tokens(
 )
 require_tokens(
     "platform/audio-android/src/main/kotlin/studio/guitarlab/platform/audio/android/AndroidCueRouteVerifier.kt",
-    ["CuePreflightEvidence", "CueRouteTraceBuffer", "candidateCueSampleRates", "negotiatedProfile", "CONVERGED_TO_MAIN"],
+    ["CuePreflightEvidence", "CueCommunicationEvidence", "candidateCueSampleRates", "negotiatedProfile", "COMMUNICATION_SPLIT"],
 )
 require_tokens(
     "app/src/main/java/studio/guitarlab/app/ui/CueRouteController.kt",
@@ -36,15 +36,24 @@ require_tokens(
 )
 require_tokens(
     "platform/audio-android/src/main/kotlin/studio/guitarlab/platform/audio/android/AndroidStudioPlaybackEngine.kt",
-    ["verifyMainEffectiveRoute", "qualifyRuntimeRoutes", "StereoLinearResampler", "scaleFramesBetweenRates", "WRITE_NON_BLOCKING"],
+    ["verifyMainEffectiveRoute", "qualifyRuntimeRoutes", "StereoLinearResampler", "COMMUNICATION_SPLIT", "USAGE_VOICE_COMMUNICATION"],
 )
 require_tokens(
     "app/src/main/java/studio/guitarlab/app/diagnostics/DiagnosticBundleExporter.kt",
-    ["lastCuePreflightStatus", "lastCuePreflightEvidence", "cuePreflightJson"],
+    ["lastCuePreflightStatus", "lastCuePreflightEvidence", "cuePreflightJson", "duckingRequested"],
 )
 require_tokens(
     "docs/CURRENT_STATE.md",
-    ["CONVERGED_TO_MAIN", "TARGETED JVM/ANDROID COMPILE PASS", "API36/PHYSICAL QUALIFICATION PENDING"],
+    ["COMMUNICATION SPLIT IMPLEMENTED", "RC31", "PHYSICAL QUALITY QUALIFICATION PENDING"],
 )
 
 print("Typed CUE capability source checkpoint verified")
+
+for relative in [
+    "platform/audio-android/src/main/kotlin/studio/guitarlab/platform/audio/android/AndroidStudioPlaybackEngine.kt",
+    "platform/audio-android/src/main/kotlin/studio/guitarlab/platform/audio/android/AndroidCueRouteVerifier.kt",
+]:
+    source = (ROOT / relative).read_text(encoding="utf-8")
+    forbidden = "AUDIOFOCUS_GAIN_TRANSIENT_" + "MAY_DUCK"
+    if forbidden in source:
+        raise SystemExit(f"CUE zero-duck invariant violated in {relative}")

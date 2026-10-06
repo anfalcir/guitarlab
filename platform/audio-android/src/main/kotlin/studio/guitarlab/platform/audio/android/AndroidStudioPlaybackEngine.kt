@@ -1,6 +1,8 @@
 package studio.guitarlab.platform.audio.android
 
+import android.content.Context
 import android.media.AudioAttributes
+import android.media.AudioManager
 import android.media.AudioDeviceInfo
 import android.media.AudioFormat
 import android.media.AudioRouting
@@ -115,7 +117,8 @@ interface StudioPlaybackListener {
     fun onTrackMeters(meters: List<StudioPlaybackTrackMeter>) {}
 }
 
-class AndroidStudioPlaybackEngine : AutoCloseable {
+class AndroidStudioPlaybackEngine(context: Context) : AutoCloseable {
+    private val audioManager = context.applicationContext.getSystemService(AudioManager::class.java)
     @Volatile private var running = false
     @Volatile private var worker: Thread? = null
     private val pendingSeekFrame = AtomicLong(NO_PENDING_SEEK)
@@ -202,6 +205,7 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
         val readers = mutableListOf<StudioPcmClipReader>()
         var track: AudioTrack? = null
         var cueTrack: AudioTrack? = null
+        var communicationCueSession: CommunicationCueSession? = null
         val negotiatedCueProfile = if (request.preferredCueOutputRequested) {
             val main = request.preferredOutputDevice
             val cue = request.preferredCueOutputDevice
@@ -260,6 +264,15 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
             require(audioTrack.state == AudioTrack.STATE_INITIALIZED) { "A saída de áudio do Android não foi inicializada." }
 
             val mainPreferredAccepted = applyOutputRouting(audioTrack, request, listener)
+            if (negotiatedCueProfile?.strategy == CueOutputStrategy.COMMUNICATION_SPLIT) {
+                request.preferredCueOutputDevice?.let { cue ->
+                    communicationCueSession = AndroidCommunicationCueRouting.begin(
+                        audioManager,
+                        cue,
+                        negotiatedCueProfile.communicationModeRequired,
+                    )
+                }
+            }
             cueTrack = prepareCueOutput(
                 mainTrack = audioTrack,
                 request = request,
@@ -267,7 +280,13 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
                 cueSampleRateHz = cueOutputSampleRateHz,
                 mainPreferredAccepted = mainPreferredAccepted,
                 listener = listener,
+                cueProfile = negotiatedCueProfile,
+                communicationSession = communicationCueSession,
             )
+            if (cueTrack == null) {
+                communicationCueSession?.close()
+                communicationCueSession = null
+            }
             if (request.preferredOutputRequested && mainPreferredAccepted && cueTrack == null) {
                 val preferred = requireNotNull(request.preferredOutputDevice)
                 if (!verifyMainEffectiveRoute(audioTrack, preferred)) {
@@ -322,6 +341,8 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
                     cueRoutingListener = null
                     runCatching { activeCue.release() }
                     cueTrack = null
+                    communicationCueSession?.close()
+                    communicationCueSession = null
                     reportCueSuppressed(
                         request,
                         listener,
@@ -332,6 +353,27 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
             val runtimeWarmupHeadBase = playbackHead(audioTrack)
             audioTrack.play()
             cueTrack?.play()
+            if (communicationCueSession != null) {
+                val expectedMain = request.preferredOutputDevice
+                val mainReasserted = expectedMain != null &&
+                    runCatching { audioTrack.setPreferredDevice(expectedMain) }.getOrDefault(false)
+                val communicationReasserted = communicationCueSession?.reassert() == true
+                if (!mainReasserted || !communicationReasserted) {
+                    cueTrack?.let { activeCue ->
+                        runCatching { activeCue.pause() }
+                        runCatching { activeCue.flush() }
+                        runCatching { activeCue.release() }
+                    }
+                    cueTrack = null
+                    communicationCueSession?.close()
+                    communicationCueSession = null
+                    reportCueSuppressed(
+                        request,
+                        listener,
+                        "A estratégia Communication Split não pôde ser reafirmada no início da reprodução.",
+                    )
+                }
+            }
             cueTrack?.let { activeCue ->
                 when (qualifyRuntimeRoutes(
                     audioTrack,
@@ -349,6 +391,8 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
                         runCatching { activeCue.flush() }
                         runCatching { activeCue.release() }
                         cueTrack = null
+                        communicationCueSession?.close()
+                        communicationCueSession = null
                         reportCueSuppressed(
                             request,
                             listener,
@@ -500,6 +544,8 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
                         runCatching { activeCue.flush() }
                         runCatching { activeCue.release() }
                         cueTrack = null
+                        communicationCueSession?.close()
+                        communicationCueSession = null
                         cueRoutingListener?.let { listenerToRemove ->
                             runCatching { activeCue.removeOnRoutingChangedListener(listenerToRemove) }
                         }
@@ -619,6 +665,8 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
             runCatching { cueTrack?.pause() }
             runCatching { cueTrack?.flush() }
             runCatching { cueTrack?.release() }
+            communicationCueSession?.close()
+            communicationCueSession = null
             runCatching { track?.pause() }
             runCatching { track?.flush() }
             runCatching { track?.release() }
@@ -835,6 +883,8 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
         cueSampleRateHz: Int,
         mainPreferredAccepted: Boolean,
         listener: StudioPlaybackListener,
+        cueProfile: CueOutputProfile?,
+        communicationSession: CommunicationCueSession?,
     ): AudioTrack? {
         if (!request.preferredCueOutputRequested) return null
 
@@ -876,11 +926,21 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
         }
         val cueBufferBytes = max(bufferBytes, cueMinBytes)
 
+        val cueStrategy = cueProfile?.strategy ?: CueOutputStrategy.MULTI_DEVICE
+        if (cueStrategy == CueOutputStrategy.COMMUNICATION_SPLIT && communicationSession == null) {
+            reportCueSuppressed(request, listener, "O Android não conseguiu iniciar a sessão de comunicação para CUE.")
+            return null
+        }
+        val cueUsage = if (cueStrategy == CueOutputStrategy.COMMUNICATION_SPLIT) {
+            AudioAttributes.USAGE_VOICE_COMMUNICATION
+        } else {
+            AudioAttributes.USAGE_MEDIA
+        }
         val cueTrack = runCatching {
             AudioTrack.Builder()
                 .setAudioAttributes(
                     AudioAttributes.Builder()
-                        .setUsage(AudioAttributes.USAGE_MEDIA)
+                        .setUsage(cueUsage)
                         .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
                         .build()
                 )
@@ -902,11 +962,33 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
             reportCueSuppressed(request, listener, "O Android não conseguiu abrir a saída CUE.")
             return null
         }
-        if (!runCatching { cueTrack.setPreferredDevice(explicitCue) }.getOrDefault(false)) {
+        val cueRoutingAccepted = if (cueStrategy == CueOutputStrategy.COMMUNICATION_SPLIT) {
+            communicationSession?.reassert() == true
+        } else {
+            runCatching { cueTrack.setPreferredDevice(explicitCue) }.getOrDefault(false)
+        }
+        if (!cueRoutingAccepted) {
             runCatching { cueTrack.release() }
             reportCueSuppressed(request, listener, "O Android recusou a rota CUE solicitada.")
             return null
         }
+
+        val communicationEvidence = if (
+            cueStrategy == CueOutputStrategy.COMMUNICATION_SPLIT && communicationSession != null
+        ) {
+            val discovery = AndroidCommunicationCueRouting.discover(audioManager, explicitCue)
+            CueCommunicationEvidence(
+                discovery.apiSupported,
+                discovery.availablePhysicalKeys,
+                AndroidOutputRouteIdentity.physicalKey(communicationSession.device),
+                true,
+                communicationSession.modeBefore,
+                audioManager.mode,
+                communicationSession.modeRequired,
+                duckingRequested = false,
+                fidelityQualification = "PENDING_PHYSICAL",
+            )
+        } else null
 
         val dualRouteResult = primeAndVerifyDualRoutes(
             mainTrack = mainTrack,
@@ -915,6 +997,11 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
             expectedCue = explicitCue,
             sampleRateHz = request.sampleRateHz,
             cueSampleRateHz = cueSampleRateHz,
+            strategy = cueStrategy,
+            communicationEvidence = communicationEvidence,
+            cueRouteReassert = if (cueStrategy == CueOutputStrategy.COMMUNICATION_SPLIT) {
+                { communicationSession?.reassert() == true }
+            } else null,
         )
         if (!dualRouteResult.supported) {
             runCatching { cueTrack.release() }
@@ -940,10 +1027,16 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
     private fun primeAndVerifyDualRoutes(
         mainTrack: AudioTrack, cueTrack: AudioTrack, expectedMain: AudioDeviceInfo,
         expectedCue: AudioDeviceInfo, sampleRateHz: Int, cueSampleRateHz: Int,
+        strategy: CueOutputStrategy,
+        communicationEvidence: CueCommunicationEvidence?,
+        cueRouteReassert: (() -> Boolean)?,
     ): CuePreflightResult = AndroidCueRouteVerifier.verifyTracks(
         mainTrack, cueTrack, expectedMain, expectedCue, sampleRateHz,
         keepRunning = { running },
         cueSampleRateHz = cueSampleRateHz,
+        strategy = strategy,
+        communicationEvidence = communicationEvidence,
+        cueRouteReassert = cueRouteReassert,
     )
 
     private fun cueRouteStillSafe(

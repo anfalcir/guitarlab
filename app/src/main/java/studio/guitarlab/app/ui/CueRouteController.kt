@@ -102,7 +102,7 @@ class CueRouteController(application: Application) : AndroidViewModel(applicatio
                     val main = routing.resolveSelectedOutputDevice()
                     val cue = routing.resolveCandidateCueOutputDevice(cueSignature)
                     if (main == null || cue == null) null
-                    else AndroidCueRouteVerifier.verifyDevices(main, cue, sampleRateHz) {
+                    else AndroidCueRouteVerifier.verifyDevices(audioManager, main, cue, sampleRateHz) {
                         generation.get() == ticket && !Thread.currentThread().isInterrupted
                     }
                 }

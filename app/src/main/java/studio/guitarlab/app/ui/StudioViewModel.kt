@@ -237,7 +237,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
     private val recordingProgressChannel = Channel<RecordingProgressUpdate>(Channel.CONFLATED)
     @Volatile private var recordingProgressGeneration: Long = 0L
     private var playbackSessionId = 0L
-    private val playbackEngine = AndroidStudioPlaybackEngine()
+    private val playbackEngine = AndroidStudioPlaybackEngine(application)
     private val recordingEngine = AndroidStudioRecordingEngine(application)
     private var recordingTransaction: RecordingMediaTransaction? = null
     private val recoveryCandidatesById = linkedMapOf<String, RecordingRecoveryCandidate>()
