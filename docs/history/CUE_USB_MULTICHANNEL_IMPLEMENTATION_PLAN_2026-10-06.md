@@ -179,20 +179,18 @@ O backend apenas decide como os buses chegam ao hardware.
 Critério de aceite:
 - trocar entre `MULTI_DEVICE` e `USB_MULTICHANNEL` não muda a semântica de routing das pistas.
 
-## Estratégia 8 — nível CUE independente
+## Estratégia 8 — controle de nível sem ducking
 
-Separar claramente:
-- ganho de pista;
-- Master/Main gain;
-- Cue master gain.
+O mixer existente do GuitarLab continua sendo a autoridade de nível do conteúdo.
 
-Não criar ducking automático entre MAIN e CUE.
+Não criar ducking automático entre MAIN e CUE e não introduzir um Cue master obrigatório apenas para viabilizar esta arquitetura. Um controle global de CUE pode ser avaliado no futuro como conveniência de produto, mas não é requisito técnico deste plano.
 
-O usuário deve controlar os níveis pelo mixer do GuitarLab. A ativação do CUE não pode reduzir MAIN nem elevar/reduzir CUE de forma implícita.
+A ativação do CUE não pode reduzir MAIN nem elevar/reduzir CUE de forma implícita. O backend físico trabalha em ganho unitário depois da aplicação dos controles do mixer, salvo mute/fail-safe técnico.
 
 Critério de aceite:
-- ativar/desativar CUE não muda ganho lógico de MAIN;
-- ambos os níveis podem ser ajustados manualmente e permanecem previsvisíveis.
+- ativar/desativar CUE não muda ganho lógico de MAIN nem ganhos persistidos do projeto;
+- o balanceamento desejado é obtido pelos controles existentes do mixer;
+- nenhum backend solicita ou implementa ducking automático.
 
 ## Estratégia 9 — assistente de homologação de canais
 

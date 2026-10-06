@@ -576,3 +576,10 @@ Follow-up implementation uses typed route-pair capability outcomes, with `CONVER
 2026-10-06. CUE selection admission is owned by `CueRouteController`, not composable-local jobs. Its cache is process-session-only and keyed by the exact MAIN/CUE selection plus sample rate; device callbacks, selection changes and explicit retry invalidate the applicable proof. Only `SUPPORTED` persists CUE. Every other state clears it and remains fail-closed.
 
 The Android verifier returns a typed result with bounded structured evidence. `setPreferredDevice(true)` is recorded only as a preference outcome. Effective routing is proven from the complete playing route set. Playback repeats physical proof, verifies preferred MAIN even without CUE, registers route-change listeners and retains polling. A route loss stops CUE without blocking MAIN; a proven MAIN mismatch stops playback rather than falsely reporting the preferred output active.
+
+## D-110 — CUE never auto-ducks MAIN; GuitarLab mixer owns content level
+
+2026-10-06. All CUE backends, including multi-device, USB multichannel and any experimental communication-strategy split, preserve independent content levels. Starting, stopping, validating or losing CUE must not automatically attenuate, boost, pause or rewrite MAIN gain. GuitarLab must not request `AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK` as part of CUE activation and must not manipulate system volume groups to manufacture a MAIN/CUE balance.
+
+Track gain/pan/mute/solo, Master and routing metadata remain the authoritative product controls. Output `AudioTrack` gain stays at unity after mixer processing except for explicit mute/fail-safe mechanics. Android/device volume remains an external user/system multiplier and may differ between media and communication strategies; diagnostics may report it, but GuitarLab does not change it automatically. Any candidate backend that causes implicit MAIN attenuation as a consequence of enabling CUE fails physical homologation.
+
