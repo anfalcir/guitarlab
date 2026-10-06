@@ -33,7 +33,7 @@ internal class CommunicationCueSession internal constructor(
     private val closed = AtomicBoolean(false)
 
     fun reassert(): Boolean {
-        if (closed.get()) return false
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S || closed.get()) return false
         return runCatching {
             if (modeRequired && audioManager.mode != AudioManager.MODE_IN_COMMUNICATION) {
                 audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
@@ -44,12 +44,14 @@ internal class CommunicationCueSession internal constructor(
 
     override fun close() {
         if (!closed.compareAndSet(false, true)) return
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return
         runCatching { audioManager.clearCommunicationDevice() }
-        if (previousCommunicationDevice != null) {
+        val previous = previousCommunicationDevice
+        if (previous != null) {
             val stillAvailable = runCatching {
-                audioManager.availableCommunicationDevices.any { it.id == previousCommunicationDevice.id }
+                audioManager.availableCommunicationDevices.any { it.id == previous.id }
             }.getOrDefault(false)
-            if (stillAvailable) runCatching { audioManager.setCommunicationDevice(previousCommunicationDevice) }
+            if (stillAvailable) runCatching { audioManager.setCommunicationDevice(previous) }
         }
         if (modeRequired && audioManager.mode != modeBefore) {
             runCatching { audioManager.mode = modeBefore }
