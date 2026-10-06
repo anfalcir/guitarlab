@@ -18,6 +18,8 @@ import studio.guitarlab.core.project.FileProjectRepository
 import studio.guitarlab.core.project.PreparedReferenceBindingPolicy
 import studio.guitarlab.platform.separation.FileRemoteJobStore
 import studio.guitarlab.platform.audio.android.AndroidCueRouteVerifier
+import studio.guitarlab.platform.audio.android.CuePreflightResult
+import studio.guitarlab.platform.audio.android.CueTrackConfigurationEvidence
 
 data class DiagnosticBundleResult(
     val entryNames: List<String>,
@@ -65,6 +67,7 @@ class DiagnosticBundleExporter(private val context: Context) {
         entries["events.jsonl"] = journal.rawSanitizedJsonl().toByteArray()
 
         val routeHealth = routing.routeHealth()
+        val cuePreflight = AndroidCueRouteVerifier.lastPreflightResult()
         entries["audio-route.json"] = JSONObject()
             .put("selectedInput", routing.selectedInputDiagnosticIdentity())
             .put("selectedOutput", routing.selectedOutputDiagnosticIdentity())
@@ -79,6 +82,8 @@ class DiagnosticBundleExporter(private val context: Context) {
             .put("effectiveOutput", routeHealth.effectiveOutput?.let { "${it.transportFamily}:${it.label}" })
             .put("effectiveCueOutput", routeHealth.effectiveCueOutput?.let { "${it.transportFamily}:${it.label}" })
             .put("lastCuePreflight", AndroidCueRouteVerifier.lastPreflightDiagnostic())
+            .put("lastCuePreflightStatus", cuePreflight?.status?.name)
+            .put("lastCuePreflightEvidence", cuePreflight?.let(::cuePreflightJson))
             .toString(2).toByteArray()
 
         entries["activity.json"] = JSONArray().also { array ->
@@ -229,6 +234,45 @@ class DiagnosticBundleExporter(private val context: Context) {
 
     private fun sha256(bytes: ByteArray): String =
         MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
+
+    private fun cuePreflightJson(result: CuePreflightResult): JSONObject = JSONObject()
+        .put("schemaVersion", 1)
+        .put("status", result.status.name)
+        .put("sampleRateHz", result.evidence.sampleRateHz)
+        .put("expectedMainPhysicalKey", result.evidence.expectedMainPhysicalKey)
+        .put("expectedCuePhysicalKey", result.evidence.expectedCuePhysicalKey)
+        .put("mainAdvertisedSampleRates", JSONArray(result.evidence.mainAdvertisedSampleRates))
+        .put("cueAdvertisedSampleRates", JSONArray(result.evidence.cueAdvertisedSampleRates))
+        .put("mainAdvertisedChannelCounts", JSONArray(result.evidence.mainAdvertisedChannelCounts))
+        .put("cueAdvertisedChannelCounts", JSONArray(result.evidence.cueAdvertisedChannelCounts))
+        .put("mainPreferredAccepted", result.evidence.mainPreferredAccepted)
+        .put("cuePreferredAccepted", result.evidence.cuePreferredAccepted)
+        .put("mainPreferredReassertedAfterPlay", result.evidence.mainPreferredReassertedAfterPlay)
+        .put("cuePreferredReassertedAfterPlay", result.evidence.cuePreferredReassertedAfterPlay)
+        .put("mainTrack", result.evidence.mainTrack?.let(::trackConfigurationJson))
+        .put("cueTrack", result.evidence.cueTrack?.let(::trackConfigurationJson))
+        .put("routedTransitions", JSONArray().also { array ->
+            result.evidence.routedTransitions.forEach { sample ->
+                array.put(
+                    JSONObject()
+                        .put("elapsedMs", sample.elapsedMs)
+                        .put("mainWriteResult", sample.mainWriteResult)
+                        .put("cueWriteResult", sample.cueWriteResult)
+                        .put("mainPhysicalKeys", JSONArray(sample.mainPhysicalKeys.sorted()))
+                        .put("cuePhysicalKeys", JSONArray(sample.cuePhysicalKeys.sorted())),
+                )
+            }
+        })
+
+    private fun trackConfigurationJson(track: CueTrackConfigurationEvidence): JSONObject = JSONObject()
+        .put("state", track.state)
+        .put("sampleRateHz", track.sampleRateHz)
+        .put("channelCount", track.channelCount)
+        .put("encoding", track.encoding)
+        .put("bufferCapacityFrames", track.bufferCapacityFrames)
+        .put("bufferSizeFrames", track.bufferSizeFrames)
+        .put("startThresholdFrames", track.startThresholdFrames)
+        .put("performanceMode", track.performanceMode)
 
     private companion object {
         val SENSITIVE_KEYS = listOf(

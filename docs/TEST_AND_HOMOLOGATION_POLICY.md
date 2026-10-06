@@ -43,6 +43,8 @@ Run deterministic core/audio tests, Android integration and relevant API 36 cove
 
 For dual-output/CUE changes, digital gates must cover backward-compatible project persistence, per-track routing policy, same-endpoint rejection, missing-route behavior, stable clock-anchor policy, the 12 ms initial presentation-offset guard, continuous drift bounds, non-blocking secondary backpressure behavior, Mixer accessibility and both Play/REC integration. Physical acceptance must then verify the actual intended MAIN + CUE hardware combination because Android/HAL routing and acoustic/device latency of two simultaneous physical outputs cannot be proven by emulator CI.
 
+Typed capability regressions must additionally distinguish CUE convergence to MAIN, absent effective route, unexpected/mirrored routes and loss after qualification. Evidence buffers must remain bounded and ordered. Android gates must cover controller cancellation, session-cache reuse/invalidation, `AudioDeviceCallback`/routing-listener cleanup, truthful MAIN effective-route reporting, explicit retry and diagnostic JSON schema/redaction. None of these digital results may be presented as physical dual-output acceptance.
+
 Never introduce a hidden fixed timing fudge merely to satisfy a visual observation; prefer device/sink timing evidence and bounded fallback.
 
 ### Remote separation/backend

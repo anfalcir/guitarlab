@@ -46,10 +46,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.runInterruptible
-import kotlinx.coroutines.isActive
-import studio.guitarlab.platform.audio.android.AndroidCueRouteVerifier
+import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -69,6 +66,7 @@ fun SettingsScreen(
     onCodecDiagnostics: () -> Unit,
     onBackupSettings: () -> Unit = {},
     onDiagnostics: () -> Unit = {},
+    cueRouteController: CueRouteController = viewModel(),
 ) {
     val context = LocalContext.current
     ExternalControlHub.initialize(context)
@@ -86,10 +84,9 @@ fun SettingsScreen(
     val latencyEngine = remember(context) { AndroidLatencyCalibrationEngine(context) }
     val projectRepository = remember(context) { FileProjectRepository(context.filesDir) }
     val scope = rememberCoroutineScope()
-    var cueVerificationJob by remember { mutableStateOf<Job?>(null) }
-    var cueVerifying by remember { mutableStateOf(false) }
-    var cueVerificationStatus by remember { mutableStateOf<String?>(null) }
-    val cueSelectionGate = remember { CueSelectionGate() }
+    val cueRouteState by cueRouteController.state.collectAsState()
+    val cueVerifying = cueRouteState.verifying
+    val cueVerificationStatus = cueRouteState.message
     val remoteCloudAuth = remember(context) { RemoteCloudAuthClient(context) }
     var remoteCloudSession by remember { mutableStateOf(remoteCloudAuth.currentSession()) }
     var cloudLoginDialogVisible by remember { mutableStateOf(false) }
@@ -194,6 +191,11 @@ fun SettingsScreen(
         cueOutputChoices = routingStore.cueOutputChoices()
     }
 
+    LaunchedEffect(cueRouteState.selectedCueSignature) {
+        selectedCueOutput = cueRouteState.selectedCueSignature
+        cueOutputChoices = routingStore.cueOutputChoices()
+    }
+
     LaunchedEffect(projectId) {
         if (projectId == null) {
             calibrationSampleRateHz = null
@@ -243,10 +245,7 @@ fun SettingsScreen(
     }
 
     fun refreshAudioDevices() {
-        cueSelectionGate.invalidate()
-        cueVerificationJob?.cancel()
-        cueVerifying = false
-        cueVerificationStatus = null
+        cueRouteController.invalidateForManualRefresh()
         inputChoices = routingStore.inputChoices()
         outputChoices = routingStore.outputChoices()
         cueOutputChoices = routingStore.cueOutputChoices()
@@ -321,12 +320,8 @@ fun SettingsScreen(
                         selectedSignature = selectedOutput,
                         choices = outputChoices,
                         onSelect = { signature ->
-                            cueSelectionGate.invalidate()
-                            cueVerificationJob?.cancel()
-                            cueVerifying = false
-                            cueVerificationStatus = null
+                            cueRouteController.onMainSelectionChanged()
                             selectedCueOutput = null
-                            routingStore.selectCueOutput(null)
                             selectedOutput = signature
                             routingStore.selectOutput(signature)
                             cueOutputChoices = routingStore.cueOutputChoices()
@@ -349,49 +344,29 @@ fun SettingsScreen(
                             "Selecione uma saída secundária de baixa latência. Bluetooth não é oferecido para CUE sincronizado."
                         },
                         onSelect = { signature ->
-                            cueVerificationJob?.cancel()
-                            cueVerifying = false
-                            val ticket = cueSelectionGate.begin()
                             selectedCueOutput = null
-                            routingStore.selectCueOutput(null)
-                            cueVerificationStatus = null
                             val mainSignature = selectedOutput
                             if (signature != null && mainSignature != null && signature != mainSignature && !calibrating && !digitalVerifying) {
-                                cueVerificationStatus = "Verificando saídas e sincronização…"
-                                cueVerifying = true
                                 val probeSampleRateHz = calibrationSampleRateHz ?: 48000
-                                cueVerificationJob = scope.launch {
-                                    try {
-                                        val validationJob = coroutineContext[Job]!!
-                                        val failure = runInterruptible(Dispatchers.IO) {
-                                            runCatching {
-                                                val main = routingStore.resolveSelectedOutputDevice()
-                                                val cue = routingStore.resolveCandidateCueOutputDevice(signature)
-                                                if (main == null || cue == null) "Uma das saídas selecionadas não está disponível."
-                                                else AndroidCueRouteVerifier.verifyDevices(main, cue, probeSampleRateHz) { validationJob.isActive }
-                                            }.getOrElse { "Não foi possível verificar as saídas selecionadas." }
-                                        }
-                                        if (cueSelectionGate.accepts(ticket) && selectedOutput == mainSignature && routingStore.selectedOutputSignature() == mainSignature) {
-                                            val stillAvailable = routingStore.cueOutputChoices().any { it.signature == signature }
-                                            if (failure == null && stillAvailable) {
-                                                routingStore.selectCueOutput(signature)
-                                                selectedCueOutput = signature
-                                                cueVerificationStatus = "CUE verificado: rotas distintas e clocks sincronizados."
-                                            } else {
-                                                cueVerificationStatus = "CUE desativado. ${failure ?: "A saída foi desconectada durante a verificação."}"
-                                            }
-                                        }
-                                    } finally {
-                                        if (cueSelectionGate.accepts(ticket)) cueVerifying = false
-                                    }
-                                }
-                            } else if (signature != null && (calibrating || digitalVerifying)) {
-                                cueVerificationStatus = "Aguarde o diagnóstico de latência antes de verificar CUE."
+                                cueRouteController.validate(
+                                    mainSignature = mainSignature,
+                                    cueSignature = signature,
+                                    sampleRateHz = probeSampleRateHz,
+                                    projectId = projectId,
+                                )
+                            } else {
+                                cueRouteController.disable()
                             }
                         },
                     )
                     cueVerificationStatus?.let {
                         Text(it, modifier = Modifier.testTag("cue_verification_status"), style = MaterialTheme.typography.bodySmall)
+                    }
+                    if (cueRouteState.canRetry && !cueVerifying) {
+                        TextButton(
+                            onClick = cueRouteController::retry,
+                            modifier = Modifier.testTag("cue_verification_retry"),
+                        ) { Text("Testar novamente") }
                     }
                     MonitoringSelector(
                         mode = monitoringMode,

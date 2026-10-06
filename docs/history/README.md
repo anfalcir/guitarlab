@@ -22,4 +22,8 @@ For the live product, start with:
 
 The directory also intentionally contains older Alpha/RC notes, H/U/C/M milestone plans and gates, dated documentation/security/consistency audits, RC19 F1/F2/F3 forensics and superseded migration/hardening plans.
 
+## Active dated work context
+
+- `CUE_DUAL_OUTPUT_CAPABILITY_IMPLEMENTATION_PLAN_2026-10-06.md` — active implementation plan following RC29 physical evidence that the target SM-X230 converges the wired CUE stream onto MK-300 MAIN. Its active status is also recorded in the live `CURRENT_STATE.md` and `DOCUMENTATION_MAP.md`; on closure it remains here as dated evidence.
+
 Historical evidence may be reused only when a live document retains the relevant invariant and no later change invalidates it. Do not edit an old historical file to make its dated statements look current; create/update live authority instead.

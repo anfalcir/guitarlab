@@ -1,4 +1,4 @@
 #!/usr/bin/env bash
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-python3 "$ROOT/scripts/materialize_ci_sources_rc29.py"
+python3 "$ROOT/scripts/verify_ci_sources_cue_capability.py"

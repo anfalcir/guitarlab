@@ -3,11 +3,16 @@ package studio.guitarlab.platform.audio.android
 import android.media.AudioAttributes
 import android.media.AudioDeviceInfo
 import android.media.AudioFormat
+import android.media.AudioRouting
 import android.media.AudioTrack
 import android.media.AudioTimestamp
+import android.os.Handler
+import android.os.Looper
+import android.os.Build
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
@@ -197,6 +202,10 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
         val readers = mutableListOf<StudioPcmClipReader>()
         var track: AudioTrack? = null
         var cueTrack: AudioTrack? = null
+        var mainRoutingListener: AudioRouting.OnRoutingChangedListener? = null
+        var cueRoutingListener: AudioRouting.OnRoutingChangedListener? = null
+        val mainRouteInvalid = AtomicBoolean(false)
+        val cueRouteInvalid = AtomicBoolean(false)
         try {
             request.clips.filterNot { it.muted }.forEach { clip ->
                 readers += StudioPcmClipReader(
@@ -249,6 +258,23 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
                 mainPreferredAccepted = mainPreferredAccepted,
                 listener = listener,
             )
+            if (request.preferredOutputRequested && mainPreferredAccepted && cueTrack == null) {
+                val preferred = requireNotNull(request.preferredOutputDevice)
+                if (!verifyMainEffectiveRoute(audioTrack, preferred)) {
+                    error("A saída principal preferida foi aceita, mas o Android não confirmou sua rota física efetiva.")
+                }
+                listener.onRouting(
+                    StudioPlaybackRoutingStatus(
+                        requestedPreferredOutput = true,
+                        usingPreferredOutput = true,
+                        fellBackToAuto = false,
+                        deviceLabel = preferred.productName?.toString(),
+                        requestedPreferredCueOutput = request.preferredCueOutputRequested,
+                        usingPreferredCueOutput = false,
+                        cueSuppressed = request.preferredCueOutputRequested,
+                    ),
+                )
+            }
 
             val repeatLoop = request.loopEnabled && request.repeatLoop
             val playbackBoundary = if (request.loopEnabled) request.loopEndFrame else request.projectEndFrame
@@ -262,15 +288,102 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
             val cueMix = FloatArray(CHUNK_FRAMES * 2)
             val trackBuffers = linkedMapOf<String, FloatArray>()
             readers.forEach { reader -> trackBuffers.getOrPut(reader.trackId) { FloatArray(CHUNK_FRAMES * 2) } }
-            val playCommandNs = System.nanoTime()
+            val runtimePrime = FloatArray(RUNTIME_PRIME_FRAMES * 2)
+            configureRuntimeStartThreshold(audioTrack)
+            cueTrack?.let(::configureRuntimeStartThreshold)
+            val mainPrimeWrite = audioTrack.write(
+                runtimePrime,
+                0,
+                runtimePrime.size,
+                AudioTrack.WRITE_NON_BLOCKING,
+            )
+            if (mainPrimeWrite != runtimePrime.size) {
+                error("A saída principal não aceitou a pré-carga determinística de reprodução.")
+            }
+            cueTrack?.let { activeCue ->
+                val cuePrimeWrite = activeCue.write(
+                    runtimePrime,
+                    0,
+                    runtimePrime.size,
+                    AudioTrack.WRITE_NON_BLOCKING,
+                )
+                if (cuePrimeWrite != runtimePrime.size) {
+                    cueRoutingListener?.let { runCatching { activeCue.removeOnRoutingChangedListener(it) } }
+                    cueRoutingListener = null
+                    runCatching { activeCue.release() }
+                    cueTrack = null
+                    reportCueSuppressed(
+                        request,
+                        listener,
+                        "A saída CUE não aceitou a pré-carga de início; foi desativada antes do áudio musical.",
+                    )
+                }
+            }
+            val runtimeWarmupHeadBase = playbackHead(audioTrack)
             audioTrack.play()
             cueTrack?.play()
+            cueTrack?.let { activeCue ->
+                when (qualifyRuntimeRoutes(
+                    audioTrack,
+                    activeCue,
+                    request,
+                    runtimeWarmupHeadBase,
+                    RUNTIME_PRIME_FRAMES.toLong(),
+                )) {
+                    RuntimeRouteQualification.QUALIFIED -> Unit
+                    RuntimeRouteQualification.MAIN_FAILED ->
+                        error("A rota MAIN deixou de ser comprovada ao iniciar o áudio de reprodução.")
+                    RuntimeRouteQualification.CUE_FAILED,
+                    RuntimeRouteQualification.WRITE_FAILED -> {
+                        runCatching { activeCue.pause() }
+                        runCatching { activeCue.flush() }
+                        runCatching { activeCue.release() }
+                        cueTrack = null
+                        reportCueSuppressed(
+                            request,
+                            listener,
+                            "A rota CUE não permaneceu comprovada no início do áudio de reprodução.",
+                        )
+                    }
+                }
+            }
+
+            request.preferredOutputDevice?.takeIf { request.preferredOutputRequested }?.let { expected ->
+                mainRoutingListener = AudioRouting.OnRoutingChangedListener {
+                    val actual = AndroidOutputRouteIdentity.routedPhysicalKeys(audioTrack)
+                    if (actual.isNotEmpty() && !AndroidOutputRouteIdentity.routesOnlyToExpected(
+                            AndroidOutputRouteIdentity.physicalKey(expected), actual,
+                        )) {
+                        mainRouteInvalid.set(true)
+                    }
+                }.also { audioTrack.addOnRoutingChangedListener(it, Handler(Looper.getMainLooper())) }
+            }
+            cueTrack?.let { activeCue ->
+                cueRoutingListener = AudioRouting.OnRoutingChangedListener {
+                    val expectedMain = request.preferredOutputDevice
+                    val expectedCue = request.preferredCueOutputDevice
+                    val mainActual = AndroidOutputRouteIdentity.routedPhysicalKeys(audioTrack)
+                    val cueActual = AndroidOutputRouteIdentity.routedPhysicalKeys(activeCue)
+                    val publishedMismatch = expectedMain == null || expectedCue == null ||
+                        (mainActual.isNotEmpty() && !AndroidOutputRouteIdentity.routesOnlyToExpected(
+                            AndroidOutputRouteIdentity.physicalKey(expectedMain), mainActual,
+                        )) ||
+                        (cueActual.isNotEmpty() && !AndroidOutputRouteIdentity.routesOnlyToExpected(
+                            AndroidOutputRouteIdentity.physicalKey(expectedCue), cueActual,
+                        ))
+                    if (publishedMismatch) cueRouteInvalid.set(true)
+                }.also { activeCue.addOnRoutingChangedListener(it, Handler(Looper.getMainLooper())) }
+            }
+            val playbackContentStartCommandNs = System.nanoTime()
             clockHeadBase = playbackHead(audioTrack)
             var cueClockHeadBase = cueTrack?.let(::playbackHead) ?: 0L
             var cueDriftViolationCount = 0
             var playbackStartReported = false
 
             while (running) {
+                if (mainRouteInvalid.get() || !mainRouteStillSafe(audioTrack, request)) {
+                    error("A rota física da saída principal mudou durante a reprodução.")
+                }
                 val requestedSeek = pendingSeekFrame.getAndSet(NO_PENDING_SEEK)
                 if (requestedSeek != NO_PENDING_SEEK) {
                     renderFrame = normalizedSeek(request, requestedSeek)
@@ -346,7 +459,7 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
                         activeCue.write(cueMix, 0, sampleCount, AudioTrack.WRITE_NON_BLOCKING)
                     }.getOrDefault(AudioTrack.ERROR_INVALID_OPERATION)
                     val writeComplete = CueRouteSafetyPolicy.secondaryWriteComplete(sampleCount, cueWrite)
-                    val routeSafe = cueRouteStillSafe(audioTrack, activeCue, request)
+                    val routeSafe = !cueRouteInvalid.get() && cueRouteStillSafe(audioTrack, activeCue, request)
                     val mainPresented = playbackHeadDelta(playbackHead(audioTrack), clockHeadBase)
                     val cuePresented = playbackHeadDelta(playbackHead(activeCue), cueClockHeadBase)
                     val driftUnsafe = CueRouteSafetyPolicy.driftExceeded(
@@ -368,6 +481,10 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
                         runCatching { activeCue.flush() }
                         runCatching { activeCue.release() }
                         cueTrack = null
+                        cueRoutingListener?.let { listenerToRemove ->
+                            runCatching { activeCue.removeOnRoutingChangedListener(listenerToRemove) }
+                        }
+                        cueRoutingListener = null
                         listener.onRouting(
                             StudioPlaybackRoutingStatus(
                                 requestedPreferredOutput = request.preferredOutputRequested,
@@ -385,12 +502,16 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
                 }
 
                 if (!clockAnchorAttempted) {
-                    playbackClockAnchor = stablePlaybackClockAnchor(audioTrack, request.sampleRateHz)
+                    playbackClockAnchor = stablePlaybackClockAnchor(
+                        audioTrack,
+                        request.sampleRateHz,
+                        clockHeadBase,
+                    )
                     clockAnchorAttempted = true
                 }
                 if (!playbackStartReported) {
                     val hasTimestamp = playbackClockAnchor != null
-                    val presentationStartNs = playbackClockAnchor?.streamOriginMonotonicNs ?: playCommandNs
+                    val presentationStartNs = playbackClockAnchor?.streamOriginMonotonicNs ?: playbackContentStartCommandNs
                     val routed = audioTrack.routedDevice
                     val cueRouted = cueTrack?.routedDevice
                     listener.onStarted(
@@ -470,6 +591,12 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
         } finally {
             running = false
             pendingSeekFrame.set(NO_PENDING_SEEK)
+            cueRoutingListener?.let { routeListener ->
+                runCatching { cueTrack?.removeOnRoutingChangedListener(routeListener) }
+            }
+            mainRoutingListener?.let { routeListener ->
+                runCatching { track?.removeOnRoutingChangedListener(routeListener) }
+            }
             runCatching { cueTrack?.pause() }
             runCatching { cueTrack?.flush() }
             runCatching { cueTrack?.release() }
@@ -487,9 +614,10 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
     private fun stablePlaybackClockAnchor(
         track: AudioTrack,
         sampleRateHz: Int,
+        frameBase: Long,
         maxJitterNs: Long = AudioClockAnchorPolicy.DEFAULT_MAX_JITTER_NS,
-    ) =
-        AudioClockAnchorPolicy.estimate(
+    ): AudioClockAnchor? {
+        val streamAnchor = AudioClockAnchorPolicy.estimate(
             observations = buildList {
                 repeat(CLOCK_ANCHOR_SAMPLES) { index ->
                     val timestamp = AudioTimestamp()
@@ -504,6 +632,9 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
             sampleRateHz = sampleRateHz,
             maxJitterNs = maxJitterNs,
         )
+        val baseOffsetNs = (frameBase.toDouble() * 1_000_000_000.0 / sampleRateHz.toDouble()).toLong()
+        return streamAnchor?.copy(streamOriginMonotonicNs = streamAnchor.streamOriginMonotonicNs + baseOffsetNs)
+    }
 
     private fun applyRuntimeTrackMix(trackId: String, samples: FloatArray, sampleCount: Int) {
         val runtime = runtimeTrackMixes[trackId] ?: return
@@ -556,15 +687,126 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
         }
 
         val accepted = runCatching { track.setPreferredDevice(preferred) }.getOrDefault(false)
-        listener.onRouting(
-            StudioPlaybackRoutingStatus(
-                requestedPreferredOutput = true,
-                usingPreferredOutput = accepted,
-                fellBackToAuto = !accepted,
-                deviceLabel = preferred.productName?.toString(),
+        if (!accepted) {
+            listener.onRouting(
+                StudioPlaybackRoutingStatus(
+                    requestedPreferredOutput = true,
+                    usingPreferredOutput = false,
+                    fellBackToAuto = true,
+                    deviceLabel = preferred.productName?.toString(),
+                ),
             )
-        )
+        }
         return accepted
+    }
+
+    /** A preferred device is only reported active after the playing track proves its route. */
+    private fun verifyMainEffectiveRoute(track: AudioTrack, expected: AudioDeviceInfo): Boolean {
+        val silence = FloatArray(MAIN_ROUTE_PROBE_FRAMES * 2)
+        val expectedKey = AndroidOutputRouteIdentity.physicalKey(expected)
+        var stablePolls = 0
+        return try {
+            track.setVolume(0f)
+            repeat(4) {
+                if (track.write(silence, 0, silence.size, AudioTrack.WRITE_NON_BLOCKING) < 0) return false
+            }
+            track.play()
+            if (!track.setPreferredDevice(expected)) return false
+            val deadline = System.nanoTime() + MAIN_ROUTE_SETTLE_TIMEOUT_NS
+            while (running && System.nanoTime() < deadline) {
+                val actual = AndroidOutputRouteIdentity.routedPhysicalKeys(track)
+                stablePolls = if (AndroidOutputRouteIdentity.routesOnlyToExpected(expectedKey, actual)) {
+                    stablePolls + 1
+                } else {
+                    0
+                }
+                if (stablePolls >= MAIN_ROUTE_STABLE_POLLS) return true
+                Thread.sleep(MAIN_ROUTE_POLL_MS)
+            }
+            false
+        } catch (_: InterruptedException) {
+            Thread.currentThread().interrupt()
+            false
+        } catch (_: RuntimeException) {
+            false
+        } finally {
+            runCatching { track.pause() }
+            runCatching { track.flush() }
+            runCatching { track.setVolume(1f) }
+        }
+    }
+
+    private fun configureRuntimeStartThreshold(track: AudioTrack) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return
+        val threshold = min(RUNTIME_PRIME_FRAMES, track.bufferCapacityInFrames).coerceAtLeast(1)
+        runCatching { track.setStartThresholdInFrames(threshold) }
+    }
+
+    private enum class RuntimeRouteQualification { QUALIFIED, MAIN_FAILED, CUE_FAILED, WRITE_FAILED }
+
+    /** Re-proves the fresh runtime start; selection-time/probe routing is never carried forward. */
+    private fun qualifyRuntimeRoutes(
+        mainTrack: AudioTrack,
+        cueTrack: AudioTrack,
+        request: StudioPlaybackRequest,
+        warmupHeadBase: Long,
+        initiallyQueuedMainFrames: Long,
+    ): RuntimeRouteQualification {
+        val expectedMain = request.preferredOutputDevice ?: return RuntimeRouteQualification.MAIN_FAILED
+        val expectedCue = request.preferredCueOutputDevice ?: return RuntimeRouteQualification.CUE_FAILED
+        val expectedMainKey = AndroidOutputRouteIdentity.physicalKey(expectedMain)
+        val expectedCueKey = AndroidOutputRouteIdentity.physicalKey(expectedCue)
+        val silence = FloatArray(RUNTIME_ROUTE_FEED_FRAMES * 2)
+        var stablePolls = 0
+        var warmupMainFrames = initiallyQueuedMainFrames
+        val deadline = System.nanoTime() + MAIN_ROUTE_SETTLE_TIMEOUT_NS
+        fun finish(status: RuntimeRouteQualification): RuntimeRouteQualification {
+            val drainDeadline = System.nanoTime() + RUNTIME_WARMUP_DRAIN_TIMEOUT_NS
+            while (
+                running &&
+                playbackHeadDelta(playbackHead(mainTrack), warmupHeadBase) < warmupMainFrames &&
+                System.nanoTime() < drainDeadline
+            ) {
+                try {
+                    Thread.sleep(1L)
+                } catch (_: InterruptedException) {
+                    Thread.currentThread().interrupt()
+                    return RuntimeRouteQualification.WRITE_FAILED
+                }
+            }
+            return if (playbackHeadDelta(playbackHead(mainTrack), warmupHeadBase) >= warmupMainFrames) {
+                status
+            } else {
+                RuntimeRouteQualification.MAIN_FAILED
+            }
+        }
+        try {
+            while (running && System.nanoTime() < deadline) {
+                val mainWrite = mainTrack.write(silence, 0, silence.size, AudioTrack.WRITE_NON_BLOCKING)
+                val cueWrite = cueTrack.write(silence, 0, silence.size, AudioTrack.WRITE_NON_BLOCKING)
+                if (mainWrite < 0) return finish(RuntimeRouteQualification.MAIN_FAILED)
+                if (cueWrite < 0) return finish(RuntimeRouteQualification.WRITE_FAILED)
+                warmupMainFrames += mainWrite / 2L
+                val mainActual = AndroidOutputRouteIdentity.routedPhysicalKeys(mainTrack)
+                val cueActual = AndroidOutputRouteIdentity.routedPhysicalKeys(cueTrack)
+                val exact = AndroidOutputRouteIdentity.routesOnlyToExpected(expectedMainKey, mainActual) &&
+                    AndroidOutputRouteIdentity.routesOnlyToExpected(expectedCueKey, cueActual)
+                stablePolls = if (exact) stablePolls + 1 else 0
+                if (stablePolls >= MAIN_ROUTE_STABLE_POLLS) return finish(RuntimeRouteQualification.QUALIFIED)
+                Thread.sleep(MAIN_ROUTE_POLL_MS)
+            }
+        } catch (_: InterruptedException) {
+            Thread.currentThread().interrupt()
+            return finish(RuntimeRouteQualification.MAIN_FAILED)
+        } catch (_: RuntimeException) {
+            return finish(RuntimeRouteQualification.MAIN_FAILED)
+        }
+        val mainActual = AndroidOutputRouteIdentity.routedPhysicalKeys(mainTrack)
+        return finish(if (AndroidOutputRouteIdentity.routesOnlyToExpected(expectedMainKey, mainActual)) {
+            RuntimeRouteQualification.CUE_FAILED
+        } else {
+            RuntimeRouteQualification.MAIN_FAILED
+        })
     }
 
     private fun prepareCueOutput(
@@ -636,16 +878,16 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
             return null
         }
 
-        val dualRouteFailure = primeAndVerifyDualRoutes(
+        val dualRouteResult = primeAndVerifyDualRoutes(
             mainTrack = mainTrack,
             cueTrack = cueTrack,
             expectedMain = explicitMain,
             expectedCue = explicitCue,
             sampleRateHz = request.sampleRateHz,
         )
-        if (dualRouteFailure != null) {
+        if (!dualRouteResult.supported) {
             runCatching { cueTrack.release() }
-            reportCueSuppressed(request, listener, dualRouteFailure)
+            reportCueSuppressed(request, listener, dualRouteResult.userMessage)
             return null
         }
 
@@ -667,7 +909,7 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
     private fun primeAndVerifyDualRoutes(
         mainTrack: AudioTrack, cueTrack: AudioTrack, expectedMain: AudioDeviceInfo,
         expectedCue: AudioDeviceInfo, sampleRateHz: Int,
-    ): String? = AndroidCueRouteVerifier.verifyTracks(
+    ): CuePreflightResult = AndroidCueRouteVerifier.verifyTracks(
         mainTrack, cueTrack, expectedMain, expectedCue, sampleRateHz,
         keepRunning = { running },
     )
@@ -687,6 +929,15 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
         )
     }
 
+    private fun mainRouteStillSafe(track: AudioTrack, request: StudioPlaybackRequest): Boolean {
+        if (!request.preferredOutputRequested) return true
+        val expected = request.preferredOutputDevice ?: return false
+        return AndroidOutputRouteIdentity.routesOnlyToExpected(
+            AndroidOutputRouteIdentity.physicalKey(expected),
+            AndroidOutputRouteIdentity.routedPhysicalKeys(track),
+        )
+    }
+
     private fun reportCueSuppressed(
         request: StudioPlaybackRequest,
         listener: StudioPlaybackListener,
@@ -695,7 +946,7 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
         listener.onRouting(
             StudioPlaybackRoutingStatus(
                 requestedPreferredOutput = request.preferredOutputRequested,
-                usingPreferredOutput = request.preferredOutputRequested && request.preferredOutputDevice != null,
+                usingPreferredOutput = false,
                 fellBackToAuto = request.preferredOutputRequested && request.preferredOutputDevice == null,
                 deviceLabel = request.preferredOutputDevice?.productName?.toString(),
                 requestedPreferredCueOutput = true,
@@ -744,5 +995,12 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
         const val CLOCK_ANCHOR_SAMPLES = 6
         const val CLOCK_ANCHOR_POLL_MS = 3L
         const val CUE_DRIFT_CONSECUTIVE_LIMIT = 3
+        const val MAIN_ROUTE_PROBE_FRAMES = 256
+        const val MAIN_ROUTE_POLL_MS = 8L
+        const val MAIN_ROUTE_STABLE_POLLS = 4
+        const val MAIN_ROUTE_SETTLE_TIMEOUT_NS = 5_000_000_000L
+        const val RUNTIME_PRIME_FRAMES = 512
+        const val RUNTIME_ROUTE_FEED_FRAMES = 512
+        const val RUNTIME_WARMUP_DRAIN_TIMEOUT_NS = 500_000_000L
     }
 }

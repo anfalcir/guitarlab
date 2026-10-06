@@ -1,18 +1,20 @@
 # Current State — GuitarLab Studio
 
-Updated: 2026-10-03
+Updated: 2026-10-06
 
 ## Status
 
-**RC29 CUE ROUTE SETTLEMENT — SOURCE READY; SOFTWARE/API36 QUALIFICATION PENDING**
+**CUE CAPABILITY HARDENING — TARGETED JVM/ANDROID COMPILE PASS; API36/PHYSICAL QUALIFICATION PENDING**
 
-Owner evidence `142418.mp4` on the target SM-X230 / Android 16 with MK-300 as MAIN reproduces RC28's remaining defect. Selecting `Fone com fio` as CUE enters immediate verification and falls back to `Desativada` with “O Android não confirmou duas saídas físicas distintas para MAIN/CUE”; attempting to enable a track CUE is then blocked because no verified secondary route persisted.
+The target workflow is MAIN `USB-Audio - MK300` and CUE `Fone com fio` on Samsung SM-X230 / Android 16. CUE must carry reference guitars only; all other Studio mixer content must remain on MAIN. The current physical result is **REJECTED** for this pair: CUE selection enters verification, returns to `Desativada`, and no CUE track assignment is admitted.
 
-The paired diagnostic bundle `GuitarLab-Diagnostics-1791036117830.zip` is from release `0.5.0-rc28` / `48` on `SM-X230`, Android 16 / API36. It confirms the selector/discovery layer sees MAIN as `usb:USB-Audio - MK300`, reports the CUE candidate as available and distinct from MAIN, and detects the USB device. The bundle did not capture the effective per-`AudioTrack` routed-device evidence from the failed preflight, so it cannot prove whether Android needed more settlement time or converged the streams. RC29 adds that evidence to `audio-route.json` for any subsequent failure.
+The post-test diagnostic bundle `GuitarLab-Diagnostics-1791194798850.zip` is internally intact and identifies `0.5.0-rc29` / `49` release on `SM-X230`, Android 16 / API 36. It confirms discovery sees the USB MAIN and a distinct available wired CUE candidate. Crucially, its RC29 preflight evidence records expected MAIN `usb|usb-audio - mk300|card=1`, expected CUE `wired-jack|`, actual MAIN `usb|usb-audio - mk300|card=1`, and actual CUE `usb|usb-audio - mk300|card=1`. The Android AudioPolicy/HAL converged both live `AudioTrack`s on MK-300; this is no longer an unresolved timeout or logical-identity hypothesis.
 
-RC28 fixed logical-vs-physical endpoint identity but retained one 1.5 s startup budget for two separate jobs: waiting for OEM/HAL routing to settle and collecting stable clock anchors. Android documents that the effective route query is valid only while the `AudioTrack` is playing and that a preferred device is not itself proof of the actual route. RC29 therefore separates these phases without relaxing acceptance: up to 5 s for physical-route settlement, requiring four consecutive distinct-route polls; then up to 2 s for stable-clock qualification. The already accepted preferred devices are reasserted immediately after `play()`, when route observation is valid. Once the pair has qualified, any convergence still fails closed. The existing 12 ms clock-offset guard, stable-clock rules, non-blocking CUE writes, continuous drift rejection and no-fallback policy remain unchanged.
+RC28 fixed logical-vs-physical endpoint identity; RC29 separates up to five seconds of route settlement from two seconds of clock qualification and exports the route evidence. The new evidence proves that the current target pair converges before clock qualification. Existing no-fallback, 12 ms offset, drift and non-blocking CUE protections remain required; accepting the pair would leak reference guitar to MAIN.
 
-RC20 remains the physically accepted frozen baseline. RC28 remains the latest signed digital authority but is physically rejected for this CUE use case. RC29 is not signed and has no physical PASS yet.
+The current source now reports that result as typed `CONVERGED_TO_MAIN`, retains bounded structured route/configuration evidence, and exports it in `audio-route.json`. A lifecycle-owned `CueRouteController` owns cancellation, session-only result caching, explicit retry and `AudioDeviceCallback` invalidation; rejected pairs are never persisted as active CUE. Settings exposes the precise failure instead of a generic clock/timeout message. Playback proves preferred MAIN after `play()`, listens for routing changes, retains polling as a defensive guard, primes fresh runtime queues after the silent probe and keeps CUE non-blocking/fail-closed.
+
+These changes are not yet a supported release. A temporary Java 17/Gradle 9.6.1 toolchain completed 81 `core:audio`, 17 `platform:audio-android` and 121 app unit tests with zero failures, plus Android platform/app Kotlin compilation. `:platform:audio-android:lintDebug` passed with two pre-existing warnings; the much broader app lint analysis was stopped after exceeding the local operational window without producing a report, so it is not counted as PASS. Android instrumentation, complete app lint/release assembly, API 36 runtime regression and exact-device physical acceptance remain pending. RC20 remains the physically accepted frozen baseline. No candidate has physical acceptance for the requested independent dual-output workflow. The implementation and remaining gates are tracked in `history/CUE_DUAL_OUTPUT_CAPABILITY_IMPLEMENTATION_PLAN_2026-10-06.md`.
 
 ## Exact signed RC28 identity and physical rejection
 
@@ -27,16 +29,9 @@ RC20 remains the physically accepted frozen baseline. RC28 remains the latest si
 - signed artifact: `GuitarLabStudio-0.5.0-rc28-homologacao` from #959;
 - physical result: **REJECTED for synchronized CUE** by `142418.mp4`; the app still reports `ROUTE_UNCONFIRMED` for MK-300 MAIN + wired CUE.
 
-## RC29 qualification plan
+## Active CUE implementation plan
 
-- deterministic source materialization through `scripts/materialize_ci_sources_rc29.py`;
-- pure JVM regression proving a route may become valid after the old 1.5 s window while still remaining bounded;
-- existing route-convergence, stale-clock, offset, cancellation and write-failure regressions remain blocking;
-- Android selection-time preflight uses the same low-latency track mode as Studio playback and reasserts explicit routes after `play()`;
-- diagnostic export records the last preflight expected physical keys, observed routed physical keys and final result;
-- Android Lint, release build and relevant API36 regression;
-- only after software PASS, sign the exact tested RC29 tree;
-- owner physical acceptance on SM-X230 / Android 16 with MK-300 MAIN + wired CUE: CUE selection must persist; CUE-only track must reach only wired output; MAIN must remain isolated; Play/REC must remain stable; disconnect/reconnect must still fail closed.
+`history/CUE_DUAL_OUTPUT_CAPABILITY_IMPLEMENTATION_PLAN_2026-10-06.md` defines the implementation sequence and gates. It prohibits blind timeout expansion or unverified fallback, requires typed distinction between convergence/missing/wrong/mirrored routes, and treats a supported physical transport topology as a release prerequisite.
 
 ## Exact signed RC27 identity
 

@@ -1,6 +1,6 @@
 # Documentation map
 
-Updated: 2026-10-02
+Updated: 2026-10-06
 
 ## Authority rule
 
@@ -11,7 +11,7 @@ Historical files intentionally preserve old candidate names, states and words su
 ## Live authority — read first
 
 1. `PROJECT_IDENTITY.md` — stable product identity, support boundary, freeze and maintenance triggers.
-2. `CURRENT_STATE.md` — concise present-tense operational state, including retained RC26 signed authority and the active RC27 Mixer visual candidate while RC20 remains accepted.
+2. `CURRENT_STATE.md` — concise present-tense operational state, including the physically rejected RC29 target pair and active CUE capability plan while RC20 remains accepted.
 3. `RELEASE_BASELINE.md` — immutable exact identity of the accepted APK/backend baseline.
 4. `PRODUCT_REQUIREMENTS.md` — supported product behavior.
 5. `ARCHITECTURE.md` — current technical boundaries.
@@ -48,7 +48,7 @@ A subsystem contract does not create an unrelated release/maintenance gate merel
 
 ## Active successor evidence
 
-RC28 is the active corrective source candidate. Its contract/checkpoint is `history/RC28_CUE_PHYSICAL_ROUTE_IDENTITY_2026-10-03.md`. RC27 signed digital closure remains predecessor evidence in `history/RC27_MIXER_CARD_HIERARCHY_2026-10-02.md`; RC25 output/CUE correction remains historical design evidence but is superseded by RC28 where it equated physical proof with one logical endpoint id. Earlier evidence remains retained under history.
+The active CUE follow-up is `history/CUE_DUAL_OUTPUT_CAPABILITY_IMPLEMENTATION_PLAN_2026-10-06.md`. It follows physical RC29 evidence proving that the SM-X230 routes the requested wired CUE stream back to MK-300. RC29 settlement evidence is retained in `history/RC29_CUE_ROUTE_SETTLEMENT_2026-10-03.md`; RC28 physical-route identity evidence remains predecessor context. RC27 signed digital closure and RC25 CUE correction remain retained historical evidence.
 
 Candidate evidence never replaces `RELEASE_BASELINE.md` until the exact signed successor artifact completes required owner acceptance.
 

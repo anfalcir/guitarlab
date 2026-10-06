@@ -10,16 +10,25 @@ class CueStartupProbeTest {
         var cueFeeds = 0
         var cueOffset = 0L
         var converges = false
+        var wrongRoute = false
+        var mirroredRoute = false
         var missingRoute = false
         var routeAvailableAfterNs = 0L
         var staleClock = false
         var cueWrite = 512
-        private fun sink(id: Int) = object : CueProbeOutput {
+        fun sink(id: Int): CueProbeOutput = object : CueProbeOutput {
             override fun feedSilence(): Int {
                 if (id == 1) mainFeeds++ else cueFeeds++
                 return if (id == 1) 512 else cueWrite
             }
-            override fun routedDeviceId(): Int? = if (missingRoute || elapsed < routeAvailableAfterNs) null else if (id == 2 && converges && elapsed >= 64_000_000) 1 else id
+            override fun routedPhysicalKeys(): Set<String> = when {
+                missingRoute || elapsed < routeAvailableAfterNs -> emptySet()
+                mirroredRoute && id == 2 -> setOf("main", "cue")
+                wrongRoute && id == 2 -> setOf("other")
+                id == 2 && converges -> setOf("main")
+                id == 1 -> setOf("main")
+                else -> setOf("cue")
+            }
             override fun clockObservation(): AudioClockObservation? {
                 if (elapsed < 200_000_000) return null
                 // Driver publishes one fresh timestamp every 64 ms, not every polling iteration.
@@ -27,7 +36,7 @@ class CueStartupProbeTest {
                 return AudioClockObservation(frames, 1_000_000_000 + frames * 1_000_000_000 / 48_000 + if (id == 2) cueOffset else 0)
             }
         }
-        fun verify(cancelAt: Long = Long.MAX_VALUE) = CueStartupProbe.verify(sink(1), sink(2), 1, 2, 48_000,
+        fun verify(cancelAt: Long = Long.MAX_VALUE) = CueStartupProbe.verify(sink(1), sink(2), "main", "cue", 48_000,
             nowNs = { 1_000_000_000 + elapsed }, sleepMs = { elapsed += it * 1_000_000 }, keepRunning = { elapsed < cancelAt })
     }
 
@@ -49,9 +58,26 @@ class CueStartupProbeTest {
         // Hardware timestamps are authoritative; a full queue may legitimately accept zero.
         assertNull(f.verify())
     }
-    @Test fun missingOrConvergedRoutesNeverAdmitCue() {
-        assertEquals(CueStartupFailure.ROUTE_UNCONFIRMED, Fixture().apply { missingRoute = true }.verify())
-        assertEquals(CueStartupFailure.ROUTE_CHANGED, Fixture().apply { converges = true }.verify())
+    @Test fun routeFailuresDistinguishMissingConvergedWrongAndMirrored() {
+        assertEquals(CueStartupFailure.MISSING_EFFECTIVE_ROUTE, Fixture().apply { missingRoute = true }.verify())
+        assertEquals(CueStartupFailure.CONVERGED_TO_MAIN, Fixture().apply { converges = true }.verify())
+        assertEquals(CueStartupFailure.WRONG_OR_MIRRORED_ROUTE, Fixture().apply { wrongRoute = true }.verify())
+        assertEquals(CueStartupFailure.WRONG_OR_MIRRORED_ROUTE, Fixture().apply { mirroredRoute = true }.verify())
+    }
+    @Test fun routeLossAfterQualificationIsReportedSeparately() {
+        val f = Fixture()
+        var observations = 0
+        val main = f.sink(1)
+        val cue = object : CueProbeOutput by f.sink(2) {
+            override fun routedPhysicalKeys(): Set<String> =
+                if (observations++ >= 5) setOf("main") else setOf("cue")
+        }
+        assertEquals(CueStartupFailure.ROUTE_CHANGED, CueStartupProbe.verify(
+            main, cue, "main", "cue", 48_000,
+            nowNs = { 1_000_000_000 + f.elapsed },
+            sleepMs = { f.elapsed += it * 1_000_000 },
+            keepRunning = { true },
+        ))
     }
     @Test fun staleClockAndLargeOffsetRemainRejected() {
         assertEquals(CueStartupFailure.CLOCK_UNSTABLE, Fixture().apply { staleClock = true }.verify())
