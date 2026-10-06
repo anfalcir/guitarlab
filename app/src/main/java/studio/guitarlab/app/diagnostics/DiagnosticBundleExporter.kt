@@ -236,9 +236,12 @@ class DiagnosticBundleExporter(private val context: Context) {
         MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
 
     private fun cuePreflightJson(result: CuePreflightResult): JSONObject = JSONObject()
-        .put("schemaVersion", 1)
+        .put("schemaVersion", 2)
         .put("status", result.status.name)
         .put("sampleRateHz", result.evidence.sampleRateHz)
+        .put("attemptedCueSampleRates", JSONArray(result.evidence.attemptedCueSampleRates))
+        .put("negotiatedCueSampleRateHz", result.evidence.negotiatedCueSampleRateHz)
+        .put("cueResamplingRequired", result.evidence.cueResamplingRequired)
         .put("expectedMainPhysicalKey", result.evidence.expectedMainPhysicalKey)
         .put("expectedCuePhysicalKey", result.evidence.expectedCuePhysicalKey)
         .put("mainAdvertisedSampleRates", JSONArray(result.evidence.mainAdvertisedSampleRates))

@@ -202,6 +202,15 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
         val readers = mutableListOf<StudioPcmClipReader>()
         var track: AudioTrack? = null
         var cueTrack: AudioTrack? = null
+        val negotiatedCueProfile = if (request.preferredCueOutputRequested) {
+            val main = request.preferredOutputDevice
+            val cue = request.preferredCueOutputDevice
+            if (main != null && cue != null) AndroidCueRouteVerifier.negotiatedProfile(main, cue, request.sampleRateHz) else null
+        } else null
+        val cueOutputSampleRateHz = negotiatedCueProfile?.cueSampleRateHz ?: request.sampleRateHz
+        val cueResampler = if (cueOutputSampleRateHz != request.sampleRateHz) {
+            StereoLinearResampler(request.sampleRateHz, cueOutputSampleRateHz)
+        } else null
         var mainRoutingListener: AudioRouting.OnRoutingChangedListener? = null
         var cueRoutingListener: AudioRouting.OnRoutingChangedListener? = null
         val mainRouteInvalid = AtomicBoolean(false)
@@ -255,6 +264,7 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
                 mainTrack = audioTrack,
                 request = request,
                 bufferBytes = bufferBytes,
+                cueSampleRateHz = cueOutputSampleRateHz,
                 mainPreferredAccepted = mainPreferredAccepted,
                 listener = listener,
             )
@@ -392,6 +402,7 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
                     audioTrack.flush()
                     cueTrack?.pause()
                     cueTrack?.flush()
+                    cueResampler?.reset()
                     audioTrack.play()
                     cueTrack?.play()
                     clockStartFrame = renderFrame
@@ -445,6 +456,9 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
                 listener.onMasterMeter(StudioPlaybackMeter(peak = peak, rms = rms))
                 StudioPcmMixKernel.applyMaster(mainMix, sampleCount, runtimeMasterGainDb)
                 StudioPcmMixKernel.applyMaster(cueMix, sampleCount, runtimeMasterGainDb)
+                val resampledCueMix = if (cueTrack != null) cueResampler?.process(cueMix, framesToRender) else null
+                val cueWriteBuffer = resampledCueMix ?: cueMix
+                val cueWriteSampleCount = resampledCueMix?.size ?: sampleCount
 
                 val samplesWritten = audioTrack.write(mainMix, 0, sampleCount, AudioTrack.WRITE_BLOCKING)
                 if (samplesWritten < 0) error("Falha ao enviar áudio para a saída Android: código $samplesWritten.")
@@ -456,12 +470,17 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
                     // CUE is deliberately non-blocking: a slow/blocked secondary sink may be
                     // silenced, but it may never stall the render loop feeding MAIN.
                     val cueWrite = runCatching {
-                        activeCue.write(cueMix, 0, sampleCount, AudioTrack.WRITE_NON_BLOCKING)
+                        activeCue.write(cueWriteBuffer, 0, cueWriteSampleCount, AudioTrack.WRITE_NON_BLOCKING)
                     }.getOrDefault(AudioTrack.ERROR_INVALID_OPERATION)
-                    val writeComplete = CueRouteSafetyPolicy.secondaryWriteComplete(sampleCount, cueWrite)
+                    val writeComplete = CueRouteSafetyPolicy.secondaryWriteComplete(cueWriteSampleCount, cueWrite)
                     val routeSafe = !cueRouteInvalid.get() && cueRouteStillSafe(audioTrack, activeCue, request)
                     val mainPresented = playbackHeadDelta(playbackHead(audioTrack), clockHeadBase)
-                    val cuePresented = playbackHeadDelta(playbackHead(activeCue), cueClockHeadBase)
+                    val cuePresentedPhysical = playbackHeadDelta(playbackHead(activeCue), cueClockHeadBase)
+                    val cuePresented = scaleFramesBetweenRates(
+                        cuePresentedPhysical,
+                        fromSampleRateHz = cueOutputSampleRateHz,
+                        toSampleRateHz = request.sampleRateHz,
+                    )
                     val driftUnsafe = CueRouteSafetyPolicy.driftExceeded(
                         mainPresentedFrames = mainPresented,
                         cuePresentedFrames = cuePresented,
@@ -813,6 +832,7 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
         mainTrack: AudioTrack,
         request: StudioPlaybackRequest,
         bufferBytes: Int,
+        cueSampleRateHz: Int,
         mainPreferredAccepted: Boolean,
         listener: StudioPlaybackListener,
     ): AudioTrack? {
@@ -845,6 +865,16 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
         }
         val explicitMain = requireNotNull(main)
         val explicitCue = requireNotNull(cue)
+        val cueMinBytes = AudioTrack.getMinBufferSize(
+            cueSampleRateHz,
+            AudioFormat.CHANNEL_OUT_STEREO,
+            AudioFormat.ENCODING_PCM_FLOAT,
+        )
+        if (cueMinBytes <= 0) {
+            reportCueSuppressed(request, listener, "O Android não oferece buffer PCM válido para a taxa CUE negociada.")
+            return null
+        }
+        val cueBufferBytes = max(bufferBytes, cueMinBytes)
 
         val cueTrack = runCatching {
             AudioTrack.Builder()
@@ -857,12 +887,12 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
                 .setAudioFormat(
                     AudioFormat.Builder()
                         .setEncoding(AudioFormat.ENCODING_PCM_FLOAT)
-                        .setSampleRate(request.sampleRateHz)
+                        .setSampleRate(cueSampleRateHz)
                         .setChannelMask(AudioFormat.CHANNEL_OUT_STEREO)
                         .build()
                 )
                 .setTransferMode(AudioTrack.MODE_STREAM)
-                .setBufferSizeInBytes(bufferBytes)
+                .setBufferSizeInBytes(cueBufferBytes)
                 .setPerformanceMode(AudioTrack.PERFORMANCE_MODE_LOW_LATENCY)
                 .build()
         }.getOrNull()
@@ -884,6 +914,7 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
             expectedMain = explicitMain,
             expectedCue = explicitCue,
             sampleRateHz = request.sampleRateHz,
+            cueSampleRateHz = cueSampleRateHz,
         )
         if (!dualRouteResult.supported) {
             runCatching { cueTrack.release() }
@@ -908,10 +939,11 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
 
     private fun primeAndVerifyDualRoutes(
         mainTrack: AudioTrack, cueTrack: AudioTrack, expectedMain: AudioDeviceInfo,
-        expectedCue: AudioDeviceInfo, sampleRateHz: Int,
+        expectedCue: AudioDeviceInfo, sampleRateHz: Int, cueSampleRateHz: Int,
     ): CuePreflightResult = AndroidCueRouteVerifier.verifyTracks(
         mainTrack, cueTrack, expectedMain, expectedCue, sampleRateHz,
         keepRunning = { running },
+        cueSampleRateHz = cueSampleRateHz,
     )
 
     private fun cueRouteStillSafe(
@@ -986,6 +1018,12 @@ class AndroidStudioPlaybackEngine : AutoCloseable {
     private fun playbackHead(track: AudioTrack): Long = track.playbackHeadPosition.toLong() and 0xffffffffL
 
     private fun playbackHeadDelta(current: Long, base: Long): Long = (current - base) and 0xffffffffL
+
+    private fun scaleFramesBetweenRates(frames: Long, fromSampleRateHz: Int, toSampleRateHz: Int): Long {
+        if (fromSampleRateHz == toSampleRateHz) return frames
+        require(fromSampleRateHz > 0 && toSampleRateHz > 0)
+        return (frames.toDouble() * toSampleRateHz.toDouble() / fromSampleRateHz.toDouble()).toLong()
+    }
 
     private companion object {
         const val CHUNK_FRAMES = 1024

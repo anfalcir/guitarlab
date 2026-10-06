@@ -143,6 +143,7 @@ class CueRouteController(application: Application) : AndroidViewModel(applicatio
         generation.incrementAndGet()
         verificationJob?.cancel()
         synchronized(sessionCache) { sessionCache.clear() }
+        AndroidCueRouteVerifier.invalidateNegotiatedProfiles()
         routing.selectCueOutput(null)
         lastRequest = null
         _state.value = CueRouteControllerState(
@@ -164,6 +165,7 @@ class CueRouteController(application: Application) : AndroidViewModel(applicatio
         generation.incrementAndGet()
         verificationJob?.cancel()
         synchronized(sessionCache) { sessionCache.clear() }
+        AndroidCueRouteVerifier.invalidateNegotiatedProfiles()
         val wasSupported = _state.value.capability == CueRouteCapabilityState.SUPPORTED
         routing.selectCueOutput(null)
         _state.value = CueRouteControllerState(

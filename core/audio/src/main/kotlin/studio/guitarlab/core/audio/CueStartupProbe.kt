@@ -40,8 +40,9 @@ object CueStartupProbe {
         expectedMainPhysicalKey: String, expectedCuePhysicalKey: String, sampleRateHz: Int,
         nowNs: () -> Long, sleepMs: (Long) -> Unit, keepRunning: () -> Boolean,
         routeObserver: ((CueRouteObservation) -> Unit)? = null,
+        cueSampleRateHz: Int = sampleRateHz,
     ): CueStartupFailure? {
-        require(sampleRateHz > 0 && expectedMainPhysicalKey != expectedCuePhysicalKey)
+        require(sampleRateHz > 0 && cueSampleRateHz > 0 && expectedMainPhysicalKey != expectedCuePhysicalKey)
         val started = nowNs()
         var routeQualifiedAtNs: Long? = null
         var stableRoutePolls = 0
@@ -105,7 +106,7 @@ object CueStartupProbe {
                     return CueStartupFailure.CLOCK_UNSTABLE
                 }
                 val mainAnchor = AudioClockAnchorPolicy.estimate(mainClock, sampleRateHz, 4_000_000L)
-                val cueAnchor = AudioClockAnchorPolicy.estimate(cueClock, sampleRateHz, 4_000_000L)
+                val cueAnchor = AudioClockAnchorPolicy.estimate(cueClock, cueSampleRateHz, 4_000_000L)
                 if (mainAnchor != null && cueAnchor != null && mainAnchor.observations >= 3 && cueAnchor.observations >= 3) {
                     return if (CueRouteSafetyPolicy.initialOffsetWithinLimit(mainAnchor.streamOriginMonotonicNs,
                             cueAnchor.streamOriginMonotonicNs)) null else CueStartupFailure.OFFSET_EXCEEDED

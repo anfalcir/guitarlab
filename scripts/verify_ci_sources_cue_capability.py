@@ -28,7 +28,7 @@ require_tokens(
 )
 require_tokens(
     "platform/audio-android/src/main/kotlin/studio/guitarlab/platform/audio/android/AndroidCueRouteVerifier.kt",
-    ["CuePreflightEvidence", "CueRouteTraceBuffer", "mainPreferredReassertedAfterPlay", "CONVERGED_TO_MAIN"],
+    ["CuePreflightEvidence", "CueRouteTraceBuffer", "candidateCueSampleRates", "negotiatedProfile", "CONVERGED_TO_MAIN"],
 )
 require_tokens(
     "app/src/main/java/studio/guitarlab/app/ui/CueRouteController.kt",
@@ -36,7 +36,7 @@ require_tokens(
 )
 require_tokens(
     "platform/audio-android/src/main/kotlin/studio/guitarlab/platform/audio/android/AndroidStudioPlaybackEngine.kt",
-    ["verifyMainEffectiveRoute", "qualifyRuntimeRoutes", "addOnRoutingChangedListener", "WRITE_NON_BLOCKING"],
+    ["verifyMainEffectiveRoute", "qualifyRuntimeRoutes", "StereoLinearResampler", "scaleFramesBetweenRates", "WRITE_NON_BLOCKING"],
 )
 require_tokens(
     "app/src/main/java/studio/guitarlab/app/diagnostics/DiagnosticBundleExporter.kt",
