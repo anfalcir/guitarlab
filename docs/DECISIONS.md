@@ -626,4 +626,3 @@ RC34 phases B and C must not reassert MAIN before their evidence windows; otherw
 The prior rc34 recovery experiment was not causally isolated because it called `setPreferredDevice(MAIN)` and then immediately reasserted `setCommunicationDevice(CUE)`. RC35 therefore keeps both tones active and separates recovery ordering: phase E invokes only MAIN `setPreferredDevice`; phase F subsequently invokes only communication-device reassertion. No communication reassertion is performed when the silent CUE track is opened in C.
 
 Owner evidence records the audible pair independently in D/E/F. A transition `D=CUE_ONLY → E=BOTH → F=CUE_ONLY` is sufficient evidence that ordering, not physical impossibility, controls acoustic concurrency on the target device and justifies a later production startup-sequence experiment. The diagnostic probe itself does not alter Studio routing behavior.
-
