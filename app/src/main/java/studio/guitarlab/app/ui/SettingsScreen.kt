@@ -58,6 +58,7 @@ import studio.guitarlab.core.project.FileProjectRepository
 import studio.guitarlab.core.project.RecordingSampleRatePolicy
 import studio.guitarlab.core.project.ExternalControlAction
 import studio.guitarlab.platform.separation.RemoteCloudAuthClient
+import studio.guitarlab.platform.audio.android.CommunicationSplitLegacyScenario
 import studio.guitarlab.platform.audio.android.CommunicationSplitProbeAcousticOutcome
 import studio.guitarlab.platform.audio.android.CommunicationSplitProbePairOutcome
 import studio.guitarlab.platform.audio.android.CommunicationSplitProbePhase
@@ -71,6 +72,7 @@ fun SettingsScreen(
     onBackupSettings: () -> Unit = {},
     onDiagnostics: () -> Unit = {},
     cueRouteController: CueRouteController = viewModel(),
+    legacySequenceProbeViewModel: CueLegacySequenceProbeViewModel = viewModel(),
 ) {
     val context = LocalContext.current
     ExternalControlHub.initialize(context)
@@ -89,6 +91,7 @@ fun SettingsScreen(
     val projectRepository = remember(context) { FileProjectRepository(context.filesDir) }
     val scope = rememberCoroutineScope()
     val cueRouteState by cueRouteController.state.collectAsState()
+    val legacySequenceProbeState by legacySequenceProbeViewModel.state.collectAsState()
     val cueVerifying = cueRouteState.verifying
     val cueProbeRunning = cueRouteState.communicationProbeRunning
     val cueVerificationStatus = cueRouteState.message
@@ -98,7 +101,8 @@ fun SettingsScreen(
     var cloudAuthMessage by remember { mutableStateOf<String?>(null) }
     var calibrating by remember { mutableStateOf(false) }
     var digitalVerifying by remember { mutableStateOf(false) }
-    val latencyBusy = calibrating || digitalVerifying || cueVerifying || cueProbeRunning
+    val latencyBusy =
+        calibrating || digitalVerifying || cueVerifying || cueProbeRunning || legacySequenceProbeState.running
     var calibrationStatus by remember { mutableStateOf<String?>(null) }
     var calibrationProgress by remember { mutableStateOf(0 to 0) }
     var pendingCalibration by remember { mutableStateOf(false) }
@@ -457,6 +461,56 @@ fun SettingsScreen(
                                     outcome,
                                 )
                             }
+                        }
+
+                        SettingsActionRow(
+                            title = "Diagnóstico de ordem rc31 (G/H)",
+                            detail = "G testa communication antes de abrir os tracks. H repete após o precondicionamento dual-MEDIA do rc31. Tons baixos: grave=MAIN, agudo=CUE.",
+                            actionLabel = if (legacySequenceProbeState.running) {
+                                "Executando…"
+                            } else {
+                                when (legacySequenceProbeState.nextScenario) {
+                                    CommunicationSplitLegacyScenario.G_COMMUNICATION_BEFORE_OPEN -> "Executar G"
+                                    CommunicationSplitLegacyScenario.H_MEDIA_PRECONDITION_THEN_COMMUNICATION -> "Executar H"
+                                    null -> if (legacySequenceProbeState.complete) "Concluído" else "Aguardando"
+                                }
+                            },
+                            onClick = {
+                                legacySequenceProbeViewModel.runNext(
+                                    sampleRateHz = calibrationSampleRateHz ?: 48000,
+                                    projectId = projectId,
+                                )
+                            },
+                            enabled = !latencyBusy &&
+                                !cueRouteState.communicationProbeRunning &&
+                                legacySequenceProbeState.awaitingFeedback == null &&
+                                !legacySequenceProbeState.complete,
+                            testTag = "settings-cue-legacy-sequence-probe",
+                        )
+                        legacySequenceProbeState.message?.let { message ->
+                            Text(message, style = MaterialTheme.typography.bodySmall)
+                        }
+                        legacySequenceProbeState.awaitingFeedback?.let { scenario ->
+                            CommunicationProbePairOutcomeSelector(
+                                when (scenario) {
+                                    CommunicationSplitLegacyScenario.G_COMMUNICATION_BEFORE_OPEN ->
+                                        "Na etapa G, o que ficou audível?"
+                                    CommunicationSplitLegacyScenario.H_MEDIA_PRECONDITION_THEN_COMMUNICATION ->
+                                        "Na etapa H, após media-first rc31, o que ficou audível?"
+                                },
+                            ) { outcome ->
+                                legacySequenceProbeViewModel.recordOutcome(
+                                    scenario = scenario,
+                                    outcome = outcome,
+                                    projectId = projectId,
+                                )
+                            }
+                        }
+                        if (legacySequenceProbeState.complete) {
+                            TextButton(
+                                onClick = legacySequenceProbeViewModel::restart,
+                                modifier = Modifier.testTag("settings-cue-legacy-sequence-restart"),
+                            ) { Text("Reiniciar G/H") }
                         }
                     }
                     MonitoringSelector(

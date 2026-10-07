@@ -44,7 +44,7 @@ require_tokens(
 )
 require_tokens(
     "docs/CURRENT_STATE.md",
-    ["RC35 RECOVERY ORDER PROBE", "SIGNED CI PENDING", "PHYSICAL DIAGNOSTIC PENDING"],
+    ["RC36 LEGACY SEQUENCE PROBE", "SIGNED CI PENDING", "PHYSICAL DIAGNOSTIC PENDING"],
 )
 
 require_tokens(
@@ -97,3 +97,20 @@ probe_source = (
 ).read_text(encoding="utf-8")
 if "midPhaseMainReassert" in probe_source:
     raise SystemExit("Recovery probe must not combine MAIN and communication reassertion in one phase")
+
+require_tokens(
+    "platform/audio-android/src/main/kotlin/studio/guitarlab/platform/audio/android/CommunicationSplitLegacySequenceProbe.kt",
+    ["G_COMMUNICATION_BEFORE_OPEN", "H_MEDIA_PRECONDITION_THEN_COMMUNICATION", "runMediaPrecondition", "communicationSelectedBeforeTracks"],
+)
+require_tokens(
+    "app/src/main/java/studio/guitarlab/app/ui/CueLegacySequenceProbeViewModel.kt",
+    ["runNext", "audio.cue_legacy_sequence_probe", "recordOutcome"],
+)
+require_tokens(
+    "app/src/main/java/studio/guitarlab/app/ui/SettingsScreen.kt",
+    ["settings-cue-legacy-sequence-probe", "Diagnóstico de ordem rc31 (G/H)", "Executar G", "Executar H"],
+)
+require_tokens(
+    "app/src/main/java/studio/guitarlab/app/diagnostics/DiagnosticBundleExporter.kt",
+    ["audio-legacy-sequence-probe.json", "communicationSplitLegacySequenceJson"],
+)

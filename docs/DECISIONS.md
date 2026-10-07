@@ -626,3 +626,11 @@ RC34 phases B and C must not reassert MAIN before their evidence windows; otherw
 The prior rc34 recovery experiment was not causally isolated because it called `setPreferredDevice(MAIN)` and then immediately reasserted `setCommunicationDevice(CUE)`. RC35 therefore keeps both tones active and separates recovery ordering: phase E invokes only MAIN `setPreferredDevice`; phase F subsequently invokes only communication-device reassertion. No communication reassertion is performed when the silent CUE track is opened in C.
 
 Owner evidence records the audible pair independently in D/E/F. A transition `D=CUE_ONLY → E=BOTH → F=CUE_ONLY` is sufficient evidence that ordering, not physical impossibility, controls acoustic concurrency on the target device and justifies a later production startup-sequence experiment. The diagnostic probe itself does not alter Studio routing behavior.
+
+## D-115 — Reconstruct the RC31 ordering before changing production Communication Split
+
+2026-10-07. RC35 evidence `GuitarLab-Diagnostics-1791414127697.zip` reproduces `MAIN_LOST_IN_C` and D/E/F=`CUE_ONLY` in both MK-300→wired and wired→MK-300 orientations. MAIN preference reassertion is accepted but does not restore acoustic MAIN.
+
+The remaining historical clue is the earlier owner-observed physically correct split in the rc31 line. RC31 attempted dual MEDIA before Communication Split and selected the communication device before opening the communication test tracks. RC36 isolates these differences: G tests communication-before-open with no media precondition; H performs the prior dual-MEDIA silent attempt, releases it, then executes the identical G sequence.
+
+This is diagnostic-only. A production startup change requires a reproducible BOTH outcome followed by separate stability qualification.

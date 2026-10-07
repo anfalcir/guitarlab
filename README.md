@@ -3,7 +3,7 @@
 Private, single-owner Android guitar preparation, study, recording, mixing, export and backup appliance.
 
 Updated: 2026-10-07
-Release state: **RC20 ACCEPTED BASELINE / RC35 RECOVERY ORDER PROBE — SIGNED CI PENDING / PHYSICAL DIAGNOSTIC PENDING**
+Release state: **RC20 ACCEPTED BASELINE / RC36 LEGACY SEQUENCE PROBE — SIGNED CI PENDING / PHYSICAL DIAGNOSTIC PENDING**
 
 ## Start here
 

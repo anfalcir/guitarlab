@@ -48,11 +48,12 @@ A subsystem contract does not create an unrelated release/maintenance gate merel
 
 ## Current successor evidence and roadmap
 
-Live CUE behavior is defined by `CURRENT_STATE.md`, `PRODUCT_REQUIREMENTS.md`, `ARCHITECTURE.md`, `STUDIO_OPTIONS_AND_MIXER.md` and decisions D-110/D-111/D-112/D-113/D-114.
+Live CUE behavior is defined by `CURRENT_STATE.md`, `PRODUCT_REQUIREMENTS.md`, `ARCHITECTURE.md`, `STUDIO_OPTIONS_AND_MIXER.md` and decisions D-110/D-111/D-112/D-113/D-114/D-115.
 
 Dated evidence under `history/` is classified as follows:
 
-- `CUE_RECOVERY_ORDER_PROBE_RC35_2026-10-07.md` — active A–F recovery-order diagnostic separating MAIN-only and communication-only reassertion;
+- `CUE_LEGACY_SEQUENCE_PROBE_RC36_2026-10-07.md` — active G/H diagnostic reconstructing rc31 ordering and media-first preconditioning;
+- `CUE_RECOVERY_ORDER_PROBE_RC35_2026-10-07.md` — predecessor A–F evidence rejecting MAIN-only reassertion as recovery;
 - `CUE_COMMUNICATION_PHASE_PROBE_RC34_2026-10-07.md` — RC34 predecessor evidence locating MAIN suppression at communication AudioTrack activation;
 - `CUE_RUNTIME_ALIGNMENT_RC33_2026-10-07.md` — RC33 predecessor runtime warm-up/relative-drift correction and qualification scope;
 - `CUE_COMMUNICATION_SPLIT_STABILIZATION_2026-10-07.md` — RC32 predecessor stabilization rationale/owner-evidence snapshot;

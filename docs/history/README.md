@@ -28,7 +28,8 @@ The directory also intentionally contains older Alpha/RC notes, H/U/C/M mileston
 
 Historical files never become normative merely because they are referenced by current work.
 
-- `CUE_RECOVERY_ORDER_PROBE_RC35_2026-10-07.md` records the active A–F recovery-order probe separating MAIN-only and communication-only reassertion.
+- `CUE_LEGACY_SEQUENCE_PROBE_RC36_2026-10-07.md` records the active G/H reconstruction of rc31 ordering and dual-MEDIA preconditioning.
+- `CUE_RECOVERY_ORDER_PROBE_RC35_2026-10-07.md` records predecessor evidence rejecting MAIN-only reassertion as recovery.
 - `CUE_COMMUNICATION_PHASE_PROBE_RC34_2026-10-07.md` records the predecessor probe that located MAIN suppression at communication AudioTrack activation.
 - `CUE_RUNTIME_ALIGNMENT_RC33_2026-10-07.md` records the RC33 predecessor runtime warm-up/relative-drift correction opened by rc32 physical evidence.
 - `CUE_COMMUNICATION_SPLIT_STABILIZATION_2026-10-07.md` records the RC32 predecessor stabilization rationale and owner-device evidence snapshot.

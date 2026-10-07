@@ -20,6 +20,8 @@ import studio.guitarlab.platform.separation.FileRemoteJobStore
 import studio.guitarlab.platform.audio.android.AndroidCueRouteVerifier
 import studio.guitarlab.platform.audio.android.CuePreflightResult
 import studio.guitarlab.platform.audio.android.CueTrackConfigurationEvidence
+import studio.guitarlab.platform.audio.android.CommunicationSplitLegacySequenceProbe
+import studio.guitarlab.platform.audio.android.CommunicationSplitLegacySequenceResult
 import studio.guitarlab.platform.audio.android.CommunicationSplitPhaseProbe
 import studio.guitarlab.platform.audio.android.CommunicationSplitProbeResult
 
@@ -92,6 +94,10 @@ class DiagnosticBundleExporter(private val context: Context) {
 
         CommunicationSplitPhaseProbe.lastResult()?.let { probe ->
             entries["audio-communication-probe.json"] = communicationSplitProbeJson(probe)
+                .toString(2).toByteArray()
+        }
+        CommunicationSplitLegacySequenceProbe.lastResult()?.let { probe ->
+            entries["audio-legacy-sequence-probe.json"] = communicationSplitLegacySequenceJson(probe)
                 .toString(2).toByteArray()
         }
 
@@ -271,6 +277,76 @@ class DiagnosticBundleExporter(private val context: Context) {
                     )
                 }
             })
+
+    private fun communicationSplitLegacySequenceJson(
+        result: CommunicationSplitLegacySequenceResult,
+    ): JSONObject {
+        fun scenarioJson(
+            evidence: studio.guitarlab.platform.audio.android.CommunicationSplitLegacyScenarioEvidence?,
+        ): Any {
+            if (evidence == null) return JSONObject.NULL
+            return JSONObject()
+                .put("scenario", evidence.scenario.name)
+                .put("completed", evidence.completed)
+                .put("error", evidence.error)
+                .put("communicationSelectedBeforeTracks", evidence.communicationSelectedBeforeTracks)
+                .put("communicationPhysicalKey", evidence.communicationPhysicalKey)
+                .put("mainPreferredAccepted", evidence.mainPreferredAccepted)
+                .put("mainPreferredReassertedAfterPlay", evidence.mainPreferredReassertedAfterPlay)
+                .put("communicationReassertedAfterPlay", evidence.communicationReassertedAfterPlay)
+                .put("mainPhysicalKeys", JSONArray(evidence.mainPhysicalKeys))
+                .put("cuePhysicalKeys", JSONArray(evidence.cuePhysicalKeys))
+                .put("mainPlaybackHeadStart", evidence.mainPlaybackHeadStart)
+                .put("mainPlaybackHeadEnd", evidence.mainPlaybackHeadEnd)
+                .put("cuePlaybackHeadStart", evidence.cuePlaybackHeadStart)
+                .put("cuePlaybackHeadEnd", evidence.cuePlaybackHeadEnd)
+                .put("mainWrittenSamples", evidence.mainWrittenSamples)
+                .put("cueWrittenSamples", evidence.cueWrittenSamples)
+                .put("mainZeroWrites", evidence.mainZeroWrites)
+                .put("cueZeroWrites", evidence.cueZeroWrites)
+                .put("mainShortWrites", evidence.mainShortWrites)
+                .put("cueShortWrites", evidence.cueShortWrites)
+                .put("mainUnderruns", evidence.mainUnderruns)
+                .put("cueUnderruns", evidence.cueUnderruns)
+                .put("musicVolume", evidence.musicVolume)
+                .put("musicVolumeMax", evidence.musicVolumeMax)
+                .put("musicMuted", evidence.musicMuted)
+                .put("voiceVolume", evidence.voiceVolume)
+                .put("voiceVolumeMax", evidence.voiceVolumeMax)
+                .put("voiceMuted", evidence.voiceMuted)
+                .put(
+                    "precondition",
+                    evidence.precondition?.let { pre ->
+                        JSONObject()
+                            .put("attempted", pre.attempted)
+                            .put("mainPreferredAccepted", pre.mainPreferredAccepted)
+                            .put("cuePreferredAccepted", pre.cuePreferredAccepted)
+                            .put("mainPreferredReasserted", pre.mainPreferredReasserted)
+                            .put("cuePreferredReasserted", pre.cuePreferredReasserted)
+                            .put("mainPhysicalKeys", JSONArray(pre.mainPhysicalKeys))
+                            .put("cuePhysicalKeys", JSONArray(pre.cuePhysicalKeys))
+                            .put("mainAdvanced", pre.mainAdvanced)
+                            .put("cueAdvanced", pre.cueAdvanced)
+                            .put("mainWrittenSamples", pre.mainWrittenSamples)
+                            .put("cueWrittenSamples", pre.cueWrittenSamples)
+                            .put("mainZeroWrites", pre.mainZeroWrites)
+                            .put("cueZeroWrites", pre.cueZeroWrites)
+                            .put("error", pre.error)
+                    } ?: JSONObject.NULL,
+                )
+        }
+
+        return JSONObject()
+            .put("schemaVersion", 1)
+            .put("expectedMainPhysicalKey", result.expectedMainPhysicalKey)
+            .put("expectedCuePhysicalKey", result.expectedCuePhysicalKey)
+            .put("sessionSampleRateHz", result.sessionSampleRateHz)
+            .put("cueSampleRateHz", result.cueSampleRateHz)
+            .put("gPairOutcome", result.gPairOutcome?.name)
+            .put("hPairOutcome", result.hPairOutcome?.name)
+            .put("gEvidence", scenarioJson(result.gEvidence))
+            .put("hEvidence", scenarioJson(result.hEvidence))
+    }
 
     private fun sanitize(value: String?): String? {
         if (value == null) return null
