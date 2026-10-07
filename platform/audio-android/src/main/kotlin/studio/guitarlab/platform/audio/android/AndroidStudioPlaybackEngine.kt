@@ -299,17 +299,18 @@ class AndroidStudioPlaybackEngine(context: Context) : AutoCloseable {
                 if (!verifyMainEffectiveRoute(audioTrack, preferred)) {
                     error("A saída principal preferida foi aceita, mas o Android não confirmou sua rota física efetiva.")
                 }
-                listener.onRouting(
-                    StudioPlaybackRoutingStatus(
-                        requestedPreferredOutput = true,
-                        usingPreferredOutput = true,
-                        fellBackToAuto = false,
-                        deviceLabel = preferred.productName?.toString(),
-                        requestedPreferredCueOutput = request.preferredCueOutputRequested,
-                        usingPreferredCueOutput = false,
-                        cueSuppressed = request.preferredCueOutputRequested,
-                    ),
-                )
+                // prepareCueOutput already publishes the specific CUE suppression reason. Do not
+                // overwrite it with a second generic cueSuppressed event.
+                if (!request.preferredCueOutputRequested) {
+                    listener.onRouting(
+                        StudioPlaybackRoutingStatus(
+                            requestedPreferredOutput = true,
+                            usingPreferredOutput = true,
+                            fellBackToAuto = false,
+                            deviceLabel = preferred.productName?.toString(),
+                        ),
+                    )
+                }
             }
 
             val repeatLoop = request.loopEnabled && request.repeatLoop
