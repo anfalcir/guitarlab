@@ -51,12 +51,14 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import studio.guitarlab.app.backup.BackupSettingsStore
+import studio.guitarlab.core.audio.CueRouteCapabilityState
 import studio.guitarlab.core.audio.LatencyFineAdjustmentPolicy
 import studio.guitarlab.core.audio.MonitoringMode
 import studio.guitarlab.core.project.FileProjectRepository
 import studio.guitarlab.core.project.RecordingSampleRatePolicy
 import studio.guitarlab.core.project.ExternalControlAction
 import studio.guitarlab.platform.separation.RemoteCloudAuthClient
+import studio.guitarlab.platform.audio.android.CommunicationSplitProbeAcousticOutcome
 
 @Composable
 fun SettingsScreen(
@@ -86,6 +88,7 @@ fun SettingsScreen(
     val scope = rememberCoroutineScope()
     val cueRouteState by cueRouteController.state.collectAsState()
     val cueVerifying = cueRouteState.verifying
+    val cueProbeRunning = cueRouteState.communicationProbeRunning
     val cueVerificationStatus = cueRouteState.message
     val remoteCloudAuth = remember(context) { RemoteCloudAuthClient(context) }
     var remoteCloudSession by remember { mutableStateOf(remoteCloudAuth.currentSession()) }
@@ -93,7 +96,7 @@ fun SettingsScreen(
     var cloudAuthMessage by remember { mutableStateOf<String?>(null) }
     var calibrating by remember { mutableStateOf(false) }
     var digitalVerifying by remember { mutableStateOf(false) }
-    val latencyBusy = calibrating || digitalVerifying || cueVerifying
+    val latencyBusy = calibrating || digitalVerifying || cueVerifying || cueProbeRunning
     var calibrationStatus by remember { mutableStateOf<String?>(null) }
     var calibrationProgress by remember { mutableStateOf(0 to 0) }
     var pendingCalibration by remember { mutableStateOf(false) }
@@ -367,6 +370,68 @@ fun SettingsScreen(
                             onClick = cueRouteController::retry,
                             modifier = Modifier.testTag("cue_verification_retry"),
                         ) { Text("Testar novamente") }
+                    }
+                    if (
+                        cueRouteState.capability == CueRouteCapabilityState.SUPPORTED &&
+                        selectedOutput != null &&
+                        selectedCueOutput != null
+                    ) {
+                        SettingsActionRow(
+                            title = "Diagnóstico MAIN + CUE",
+                            detail = "Teste audível em 4 etapas (~6 s): MAIN apenas, seleção de comunicação, CUE ativo em silêncio e MAIN+CUE simultâneos. Use volume moderado.",
+                            actionLabel = if (cueProbeRunning) "Executando…" else "Executar",
+                            onClick = cueRouteController::runCommunicationProbe,
+                            enabled = !latencyBusy,
+                            testTag = "settings-cue-communication-probe",
+                        )
+                        cueRouteState.communicationProbeMessage?.let { message ->
+                            Text(
+                                message,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.testTag("cue_communication_probe_status"),
+                            )
+                        }
+                        if (cueRouteState.communicationProbeAwaitingFeedback) {
+                            Text(
+                                "Em qual etapa o tom grave da MAIN deixou de ser ouvido?",
+                                style = MaterialTheme.typography.labelLarge,
+                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            ) {
+                                OutlinedButton(
+                                    onClick = { cueRouteController.recordCommunicationProbeOutcome(CommunicationSplitProbeAcousticOutcome.MAIN_NOT_AUDIBLE_IN_A) },
+                                    modifier = Modifier.weight(1f),
+                                ) { Text("A") }
+                                OutlinedButton(
+                                    onClick = { cueRouteController.recordCommunicationProbeOutcome(CommunicationSplitProbeAcousticOutcome.MAIN_LOST_IN_B) },
+                                    modifier = Modifier.weight(1f),
+                                ) { Text("B") }
+                                OutlinedButton(
+                                    onClick = { cueRouteController.recordCommunicationProbeOutcome(CommunicationSplitProbeAcousticOutcome.MAIN_LOST_IN_C) },
+                                    modifier = Modifier.weight(1f),
+                                ) { Text("C") }
+                            }
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            ) {
+                                OutlinedButton(
+                                    onClick = { cueRouteController.recordCommunicationProbeOutcome(CommunicationSplitProbeAcousticOutcome.MAIN_LOST_IN_D) },
+                                    modifier = Modifier.weight(1f),
+                                ) { Text("D") }
+                                OutlinedButton(
+                                    onClick = { cueRouteController.recordCommunicationProbeOutcome(CommunicationSplitProbeAcousticOutcome.MAIN_AUDIBLE_ALL_PHASES) },
+                                    modifier = Modifier.weight(1f),
+                                ) { Text("Não sumiu") }
+                                OutlinedButton(
+                                    onClick = { cueRouteController.recordCommunicationProbeOutcome(CommunicationSplitProbeAcousticOutcome.UNABLE_TO_TELL) },
+                                    modifier = Modifier.weight(1f),
+                                ) { Text("Não sei") }
+                            }
+                        }
                     }
                     MonitoringSelector(
                         mode = monitoringMode,

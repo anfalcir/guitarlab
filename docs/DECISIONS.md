@@ -605,3 +605,11 @@ For Communication Split, runtime drift is defined as **change in the MAIN↔CUE 
 
 Each Play creates a new runtime diagnostic session and clears stale evidence. Diagnostics bind the failure to expected routes, strategy/rates, warm-up accepted/presented counts, baseline/current delta, relative drift, queue state and actual routed endpoints.
 
+## D-113 — Logical Android route proof is not acoustic dual-output proof
+
+2026-10-07. RC33 owner evidence with both tablet+wired and MK-300+wired demonstrates that `AudioTrack.getRoutedDevices()` can report the intended distinct MAIN/CUE endpoints while only the Communication/CUE side is audibly effective. A physically advancing AudioTrack and a correct framework route therefore prove logical routing, not acoustic concurrency below AudioPolicy/HAL.
+
+Communication Split must not be promoted solely from distinct `routedDevices`, advancing playback heads or accepted writes. Diagnostic qualification separates four transitions: MAIN-only playback; `setCommunicationDevice()` with no CUE track; active silent `USAGE_VOICE_COMMUNICATION` track; and active signaled CUE track. Per-phase logical routes, playback heads, accepted samples and relevant stream-volume state are recorded, while the owner records the first phase where MAIN becomes inaudible.
+
+The probe is evidence gathering only. It may classify where arbitration begins but may not weaken MAIN/CUE fail-closed route rules or claim a portable public-API dual-output capability. USB multichannel remains the preferred deterministic architecture when available.
+

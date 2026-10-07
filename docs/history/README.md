@@ -28,7 +28,8 @@ The directory also intentionally contains older Alpha/RC notes, H/U/C/M mileston
 
 Historical files never become normative merely because they are referenced by current work.
 
-- `CUE_RUNTIME_ALIGNMENT_RC33_2026-10-07.md` records the active runtime warm-up/relative-drift correction opened by rc32 physical evidence.
+- `CUE_COMMUNICATION_PHASE_PROBE_RC34_2026-10-07.md` records the active A/B/C/D probe used to locate the transition that suppresses MAIN acoustically.
+- `CUE_RUNTIME_ALIGNMENT_RC33_2026-10-07.md` records the RC33 predecessor runtime warm-up/relative-drift correction opened by rc32 physical evidence.
 - `CUE_COMMUNICATION_SPLIT_STABILIZATION_2026-10-07.md` records the RC32 predecessor stabilization rationale and owner-device evidence snapshot.
 - `RC32_COMMUNICATION_SPLIT_DIGITAL_QUALIFICATION_2026-10-07.md` records exact final CI #972/signing identity.
 - `DOCUMENTATION_AUDIT_RC32_2026-10-07.md` records the evidence-to-fix matrix and live-document cleanup.

@@ -20,6 +20,8 @@ import studio.guitarlab.platform.separation.FileRemoteJobStore
 import studio.guitarlab.platform.audio.android.AndroidCueRouteVerifier
 import studio.guitarlab.platform.audio.android.CuePreflightResult
 import studio.guitarlab.platform.audio.android.CueTrackConfigurationEvidence
+import studio.guitarlab.platform.audio.android.CommunicationSplitPhaseProbe
+import studio.guitarlab.platform.audio.android.CommunicationSplitProbeResult
 
 data class DiagnosticBundleResult(
     val entryNames: List<String>,
@@ -87,6 +89,11 @@ class DiagnosticBundleExporter(private val context: Context) {
             .put("lastCuePreflightStatus", cuePreflight?.status?.name)
             .put("lastCuePreflightEvidence", cuePreflight?.let(::cuePreflightJson))
             .toString(2).toByteArray()
+
+        CommunicationSplitPhaseProbe.lastResult()?.let { probe ->
+            entries["audio-communication-probe.json"] = communicationSplitProbeJson(probe)
+                .toString(2).toByteArray()
+        }
 
         entries["activity.json"] = JSONArray().also { array ->
             activity.forEach { record ->
@@ -209,6 +216,50 @@ class DiagnosticBundleExporter(private val context: Context) {
         }
         return DiagnosticBundleResult(entries.keys.sorted(), checksums)
     }
+
+    private fun communicationSplitProbeJson(result: CommunicationSplitProbeResult): JSONObject =
+        JSONObject()
+            .put("schemaVersion", 1)
+            .put("startedAtEpochMs", result.startedAtEpochMs)
+            .put("completedAtEpochMs", result.completedAtEpochMs)
+            .put("completed", result.completed)
+            .put("error", result.error)
+            .put("expectedMainPhysicalKey", result.expectedMainPhysicalKey)
+            .put("expectedCuePhysicalKey", result.expectedCuePhysicalKey)
+            .put("sessionSampleRateHz", result.sessionSampleRateHz)
+            .put("cueSampleRateHz", result.cueSampleRateHz)
+            .put("acousticOutcome", result.acousticOutcome?.name)
+            .put("phases", JSONArray().also { array ->
+                result.phases.forEach { phase ->
+                    array.put(
+                        JSONObject()
+                            .put("phase", phase.phase.name)
+                            .put("elapsedMs", phase.elapsedMs)
+                            .put("mainPhysicalKeys", JSONArray(phase.mainPhysicalKeys))
+                            .put("cuePhysicalKeys", JSONArray(phase.cuePhysicalKeys))
+                            .put("communicationPhysicalKey", phase.communicationPhysicalKey)
+                            .put("audioMode", phase.audioMode)
+                            .put("mainPlaybackHeadStart", phase.mainPlaybackHeadStart)
+                            .put("mainPlaybackHeadEnd", phase.mainPlaybackHeadEnd)
+                            .put("mainAdvanced", phase.mainAdvanced)
+                            .put("cuePlaybackHeadStart", phase.cuePlaybackHeadStart)
+                            .put("cuePlaybackHeadEnd", phase.cuePlaybackHeadEnd)
+                            .put("cueAdvanced", phase.cueAdvanced)
+                            .put("mainWrittenSamples", phase.mainWrittenSamples)
+                            .put("cueWrittenSamples", phase.cueWrittenSamples)
+                            .put("mainZeroWrites", phase.mainZeroWrites)
+                            .put("cueZeroWrites", phase.cueZeroWrites)
+                            .put("mainSampleRateHz", phase.mainSampleRateHz)
+                            .put("cueSampleRateHz", phase.cueSampleRateHz)
+                            .put("musicVolume", phase.musicVolume)
+                            .put("musicVolumeMax", phase.musicVolumeMax)
+                            .put("voiceVolume", phase.voiceVolume)
+                            .put("voiceVolumeMax", phase.voiceVolumeMax)
+                            .put("mainPreferredAccepted", phase.mainPreferredAccepted)
+                            .put("communicationSelectionActive", phase.communicationSelectionActive)
+                    )
+                }
+            })
 
     private fun sanitize(value: String?): String? {
         if (value == null) return null

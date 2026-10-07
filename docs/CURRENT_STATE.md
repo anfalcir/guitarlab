@@ -4,57 +4,46 @@ Updated: 2026-10-07
 
 ## Status
 
-**RC33 RUNTIME ALIGNMENT — IMPLEMENTED / SIGNED CI PENDING / PHYSICAL REQUALIFICATION PENDING**
+**RC34 COMMUNICATION PHASE PROBE — IMPLEMENTED / SIGNED CI PENDING / PHYSICAL DIAGNOSTIC PENDING**
 
-The current source candidate is `0.5.0-rc33` / versionCode `53`. RC32 / CI #972 remains the last signed digital PASS until this exact source completes the signed workflow.
+The current source candidate is `0.5.0-rc34` / versionCode `54`. RC33 / Android CI #974 remains the last signed digital PASS until this exact probe candidate completes the signed workflow.
 
-## Evidence that opened RC33
+## Why RC34 exists
 
-Owner testing of the exact signed rc32 APK without MK-300 used both:
-- MAIN = tablet speaker / CUE = wired headset;
-- MAIN = wired headset / CUE = tablet speaker.
+Owner testing of signed rc33 produced a repeatable pattern on Samsung SM-X230 / Android 16:
 
-The new rc32 diagnostic bundle `GuitarLab-Diagnostics-1791375828493.zip` shows all six new selection-time preflights as `SUPPORTED` (four speaker→wired and two wired→speaker), all through `COMMUNICATION_SPLIT` without global `MODE_IN_COMMUNICATION`. This means rc32 materially stabilized device selection/admission.
+- with no track routed to CUE, normal MAIN playback is fully audible;
+- when at least one track is routed to CUE, that track is audible on the secondary wired output while the MAIN program becomes inaudible;
+- with MK-300 as MAIN and wired headset as CUE, Android still reports distinct logical routes and rc33 reports `ROUTE_QUALIFIED` without drift, backpressure or route-loss suppression.
 
-The remaining failure moved to runtime. The retained rc32 runtime diagnostic reports `reason=DRIFT`, MAIN `37396` project-rate frames, CUE `41395`, absolute difference `3999` frames (~90.7 ms at 44.1 kHz), limit `2646` frames (60 ms) and GuitarLab queue backlog `0`.
+This proves the remaining question is no longer startup/drift qualification. It is **which communication-routing transition causes MAIN to become acoustically ineffective despite the framework continuing to report a valid MAIN route**.
 
-Code audit found that runtime route qualification drained only the silent MAIN warm-up before capturing later playback-head baselines. Silent CUE frames already accepted by its native `AudioTrack` could still be pending outside the GuitarLab FIFO, making residual startup buffering look like clock drift.
+## RC34 diagnostic probe
 
-## RC33 correction
+Options exposes an explicit, audible four-phase probe after a Communication Split pair is validated:
 
-- Runtime route qualification tracks **actual accepted frame counts independently for MAIN and CUE**.
-- Non-blocking short/zero prime/feed writes are accepted and counted; only negative writes are hard write failures.
-- Qualification keeps at most a small target amount of silent audio outstanding instead of continuously filling either sink.
-- Before musical playback baselines are captured, both sinks must present every warm-up frame that they accepted.
-- Communication Split drift is now relative: after both real streams advance at least the baseline arming window, the current CUE−MAIN separation becomes the fixed pipeline baseline.
-- Only later movement away from that baseline is drift. The existing 60 ms communication envelope and 750 ms persistence window remain; the implementation does not simply raise thresholds.
-- Seek clears the CUE queue/resampler and resets the relative-drift monitor.
-- Exact physical route proof remains immediate and fail-closed. Wrong/missing/converged/mirrored routes are never excused as timing.
-- Every CUE Play clears stale runtime evidence and starts a fresh diagnostic `sessionId` containing expected MAIN/CUE, strategy and rates.
-- Runtime suppression evidence now includes warm-up accepted/presented counts, baseline/current delta, relative drift, queue backlog and actual routes.
-- Obsolete rc31 escalation-policy helpers are removed from the active source.
-- Zero ducking and mixer-owned content levels remain unchanged.
+- **A — MAIN only:** 440 Hz low-level tone on the selected MAIN; no communication device selected by the probe and no CUE AudioTrack.
+- **B — communication device selected:** MAIN tone continues; the selected CUE endpoint becomes the Android communication device, but no CUE AudioTrack exists yet.
+- **C — CUE AudioTrack active with silence:** MAIN tone continues; a `USAGE_VOICE_COMMUNICATION` CUE track is opened/played but receives silence.
+- **D — both active:** MAIN continues at 440 Hz and CUE receives a distinct 880 Hz low-level tone.
 
-## Tests added
+Each phase lasts about 1.4 s. The user records the first phase in which MAIN becomes inaudible (A/B/C/D), or reports that MAIN remained audible / could not be determined.
 
-Focused JVM coverage proves:
-- bounded warm-up feed decisions;
-- drain is incomplete until all accepted frames are presented;
-- a large but fixed pipeline separation becomes the baseline rather than false drift;
-- transient relative movement recovers without suppression;
-- only sustained relative drift fails;
-- seek/reset requires a fresh baseline.
+The probe records per phase expected/effective physical route keys, communication-device key, AudioManager mode, playback-head movement, samples accepted, zero-write counts, actual rates and STREAM_MUSIC / STREAM_VOICE_CALL volume state. The result is exported as `audio-communication-probe.json` and journaled.
 
-Existing CUE negotiation/resampling, route-safety, startup-probe and non-blocking FIFO tests remain in place. CI source guards require the new alignment implementation and prohibit reintroduction of the obsolete absolute Communication Split runtime timer.
+The probe is diagnostic only: it does not promote a logically routed pair to physical/acoustic support.
 
-## CI trigger note
+## Safety
 
-The rc33 source commit `3cd4ca3ad75632255fd9b3ce983fa15195eb6bc1` was published through a low-level Git ref update that did not emit the repository's expected Actions `push` event. A documentation-only follow-up commit intentionally carries `[run ci signed]` so GitHub Actions qualifies the unchanged rc33 runtime source through the normal signed pipeline.
+Probe tones are intentionally low level (~−24 dBFS), short and user-triggered. The probe runs only after explicit MAIN+CUE validation, owns/restores the communication session, and releases both AudioTracks in all completion/error paths. Existing fail-closed Studio routing, zero-duck invariant and mixer semantics are unchanged.
 
-## Residual gate
+## Interpretation target
 
-The exact rc33 source must pass signed Android CI (unit tests, Lint/build, API36 regression, exact-artifact signing). After digital PASS, physical retest should begin with tablet speaker + wired headset if MK-300 is unavailable, then repeat with MK-300 MAIN + wired CUE when available. Acceptance remains based on repeated stable routing, long playback, seek/loop, representative Play/REC, zero automatic ducking and acceptable audible alignment/fidelity.
+- MAIN disappears in **B** → `setCommunicationDevice()` / communication-device arbitration is sufficient to suppress effective MAIN.
+- MAIN survives B but disappears in **C** → opening/playing `USAGE_VOICE_COMMUNICATION` activates the conflicting AudioPolicy/HAL path.
+- MAIN survives C but disappears in **D** → the conflict begins only when the communication stream carries real signal.
+- MAIN survives all phases → the full Studio/mixer/runtime path, not the basic public communication routing primitive, remains the next suspect.
 
-## Accepted baseline and future work
+## Accepted baseline and roadmap
 
-`RELEASE_BASELINE.md` remains authoritative for the accepted RC20 baseline until owner acceptance of an exact signed successor. The USB multichannel MAIN 1/2 + CUE 3/4 roadmap remains active future work under `docs/history/CUE_USB_MULTICHANNEL_IMPLEMENTATION_PLAN_2026-10-06.md`.
+`RELEASE_BASELINE.md` remains authoritative for the accepted RC20 baseline. USB multichannel MAIN 1/2 + CUE 3/4 remains the preferred deterministic professional roadmap when supported by hardware.

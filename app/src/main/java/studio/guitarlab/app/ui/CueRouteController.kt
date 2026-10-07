@@ -22,6 +22,10 @@ import studio.guitarlab.core.audio.CueRouteCapabilityState
 import studio.guitarlab.platform.audio.android.AndroidCueRouteVerifier
 import studio.guitarlab.platform.audio.android.CuePreflightResult
 import studio.guitarlab.platform.audio.android.CuePreflightStatus
+import studio.guitarlab.platform.audio.android.CueOutputStrategy
+import studio.guitarlab.platform.audio.android.CommunicationSplitPhaseProbe
+import studio.guitarlab.platform.audio.android.CommunicationSplitProbeAcousticOutcome
+import studio.guitarlab.platform.audio.android.CommunicationSplitProbePhase
 
 data class CueRouteControllerState(
     val capability: CueRouteCapabilityState = CueRouteCapabilityState.NOT_CONFIGURED,
@@ -29,6 +33,9 @@ data class CueRouteControllerState(
     val selectedCueSignature: String? = null,
     val candidateCueSignature: String? = null,
     val canRetry: Boolean = false,
+    val communicationProbeRunning: Boolean = false,
+    val communicationProbeMessage: String? = null,
+    val communicationProbeAwaitingFeedback: Boolean = false,
 ) {
     val verifying: Boolean get() = capability == CueRouteCapabilityState.VERIFYING
 }
@@ -46,6 +53,7 @@ class CueRouteController(application: Application) : AndroidViewModel(applicatio
     private val generation = AtomicLong()
     private val sessionCache = mutableMapOf<CacheKey, CuePreflightResult>()
     private var verificationJob: Job? = null
+    private var communicationProbeJob: Job? = null
     private var lastRequest: CacheKey? = null
     private var lastProjectId: String? = null
     private val _state = MutableStateFlow(CueRouteControllerState())
@@ -76,6 +84,7 @@ class CueRouteController(application: Application) : AndroidViewModel(applicatio
         lastProjectId = projectId
         val ticket = generation.incrementAndGet()
         verificationJob?.cancel()
+        communicationProbeJob?.cancel()
         routing.selectCueOutput(null)
         _state.value = CueRouteControllerState(
             capability = CueRouteCapabilityState.VERIFYING,
@@ -131,9 +140,146 @@ class CueRouteController(application: Application) : AndroidViewModel(applicatio
         )
     }
 
+    fun runCommunicationProbe() {
+        val request = lastRequest
+        if (request == null || _state.value.capability != CueRouteCapabilityState.SUPPORTED) {
+            _state.value = _state.value.copy(
+                communicationProbeMessage = "Valide primeiro uma combinação MAIN + CUE.",
+                communicationProbeAwaitingFeedback = false,
+            )
+            return
+        }
+        val ticket = generation.get()
+        communicationProbeJob?.cancel()
+        _state.value = _state.value.copy(
+            communicationProbeRunning = true,
+            communicationProbeMessage = "Iniciando diagnóstico audível A/B/C/D…",
+            communicationProbeAwaitingFeedback = false,
+        )
+        journal.append(
+            eventType = "audio.cue_communication_probe",
+            projectId = lastProjectId,
+            state = "STARTED",
+            summary = "Diagnóstico audível MAIN/CUE A/B/C/D iniciado.",
+            technicalDetail = "sampleRateHz=${request.sampleRateHz}",
+        )
+        communicationProbeJob = viewModelScope.launch {
+            val result = try {
+                runInterruptible(Dispatchers.IO) {
+                    val main = routing.resolveSelectedOutputDevice()
+                    val cue = routing.resolveSelectedCueOutputDevice()
+                    if (main == null || cue == null) null
+                    else {
+                        val profile = AndroidCueRouteVerifier.negotiatedProfile(main, cue, request.sampleRateHz)
+                        if (profile?.strategy != CueOutputStrategy.COMMUNICATION_SPLIT) {
+                            error("A combinação atual não usa Communication Split.")
+                        }
+                        CommunicationSplitPhaseProbe.run(
+                            audioManager = audioManager,
+                            main = main,
+                            cue = cue,
+                            profile = profile,
+                            keepRunning = {
+                                generation.get() == ticket && !Thread.currentThread().isInterrupted
+                            },
+                            onPhase = { phase ->
+                                if (generation.get() == ticket) {
+                                    _state.value = _state.value.copy(
+                                        communicationProbeMessage = communicationProbePhaseMessage(phase),
+                                    )
+                                }
+                            },
+                        )
+                    }
+                }
+            } catch (_: CancellationException) {
+                return@launch
+            } catch (error: Throwable) {
+                if (generation.get() == ticket) {
+                    _state.value = _state.value.copy(
+                        communicationProbeRunning = false,
+                        communicationProbeMessage = error.message ?: "Não foi possível executar o diagnóstico.",
+                        communicationProbeAwaitingFeedback = false,
+                    )
+                }
+                return@launch
+            }
+            if (generation.get() != ticket) return@launch
+            if (result == null) {
+                _state.value = _state.value.copy(
+                    communicationProbeRunning = false,
+                    communicationProbeMessage = "As saídas selecionadas não estão mais disponíveis.",
+                    communicationProbeAwaitingFeedback = false,
+                )
+                return@launch
+            }
+            journal.append(
+                eventType = "audio.cue_communication_probe",
+                projectId = lastProjectId,
+                state = if (result.completed) "COMPLETED" else "FAILED",
+                summary = if (result.completed) {
+                    "Diagnóstico audível A/B/C/D concluído."
+                } else {
+                    "Diagnóstico audível A/B/C/D interrompido."
+                },
+                technicalDetail = result.diagnosticSummary(),
+            )
+            _state.value = _state.value.copy(
+                communicationProbeRunning = false,
+                communicationProbeMessage = if (result.completed) {
+                    "Teste concluído. Informe abaixo em qual etapa o tom da MAIN deixou de ser ouvido."
+                } else {
+                    "Teste interrompido: ${result.error ?: "causa não identificada"}."
+                },
+                communicationProbeAwaitingFeedback = result.completed,
+            )
+        }
+    }
+
+    fun recordCommunicationProbeOutcome(outcome: CommunicationSplitProbeAcousticOutcome) {
+        CommunicationSplitPhaseProbe.recordAcousticOutcome(outcome)
+        val message = when (outcome) {
+            CommunicationSplitProbeAcousticOutcome.MAIN_NOT_AUDIBLE_IN_A ->
+                "Registrado: MAIN já não estava audível na etapa A."
+            CommunicationSplitProbeAcousticOutcome.MAIN_LOST_IN_B ->
+                "Registrado: MAIN sumiu ao selecionar o dispositivo de comunicação (B)."
+            CommunicationSplitProbeAcousticOutcome.MAIN_LOST_IN_C ->
+                "Registrado: MAIN sumiu quando o AudioTrack CUE entrou ativo com silêncio (C)."
+            CommunicationSplitProbeAcousticOutcome.MAIN_LOST_IN_D ->
+                "Registrado: MAIN sumiu somente quando o CUE começou a tocar sinal (D)."
+            CommunicationSplitProbeAcousticOutcome.MAIN_AUDIBLE_ALL_PHASES ->
+                "Registrado: MAIN permaneceu audível em todas as etapas."
+            CommunicationSplitProbeAcousticOutcome.UNABLE_TO_TELL ->
+                "Registrado: não foi possível determinar acusticamente a etapa."
+        }
+        journal.append(
+            eventType = "audio.cue_communication_probe",
+            projectId = lastProjectId,
+            state = "ACOUSTIC_OUTCOME",
+            summary = message,
+            technicalDetail = CommunicationSplitPhaseProbe.lastResult()?.diagnosticSummary(),
+        )
+        _state.value = _state.value.copy(
+            communicationProbeMessage = "$message Exporte o diagnóstico para análise.",
+            communicationProbeAwaitingFeedback = false,
+        )
+    }
+
+    private fun communicationProbePhaseMessage(phase: CommunicationSplitProbePhase): String = when (phase) {
+        CommunicationSplitProbePhase.A_MAIN_ONLY ->
+            "A/4 · MAIN apenas: deve tocar um tom grave na saída principal."
+        CommunicationSplitProbePhase.B_COMMUNICATION_DEVICE_SELECTED ->
+            "B/4 · CUE preparado, ainda sem AudioTrack CUE: o tom MAIN deve continuar."
+        CommunicationSplitProbePhase.C_CUE_TRACK_SILENT ->
+            "C/4 · AudioTrack CUE ativo com silêncio: o tom MAIN deve continuar."
+        CommunicationSplitProbePhase.D_CUE_TONE_ACTIVE ->
+            "D/4 · MAIN grave + CUE agudo devem tocar simultaneamente em saídas diferentes."
+    }
+
     fun disable() {
         generation.incrementAndGet()
         verificationJob?.cancel()
+        communicationProbeJob?.cancel()
         routing.selectCueOutput(null)
         lastRequest = null
         _state.value = CueRouteControllerState()
@@ -142,6 +288,7 @@ class CueRouteController(application: Application) : AndroidViewModel(applicatio
     fun onMainSelectionChanged() {
         generation.incrementAndGet()
         verificationJob?.cancel()
+        communicationProbeJob?.cancel()
         synchronized(sessionCache) { sessionCache.clear() }
         AndroidCueRouteVerifier.invalidateNegotiatedProfiles()
         routing.selectCueOutput(null)
@@ -157,6 +304,7 @@ class CueRouteController(application: Application) : AndroidViewModel(applicatio
     override fun onCleared() {
         generation.incrementAndGet()
         verificationJob?.cancel()
+        communicationProbeJob?.cancel()
         runCatching { audioManager.unregisterAudioDeviceCallback(deviceCallback) }
         super.onCleared()
     }
@@ -164,6 +312,7 @@ class CueRouteController(application: Application) : AndroidViewModel(applicatio
     private fun topologyChanged() {
         generation.incrementAndGet()
         verificationJob?.cancel()
+        communicationProbeJob?.cancel()
         synchronized(sessionCache) { sessionCache.clear() }
         AndroidCueRouteVerifier.invalidateNegotiatedProfiles()
         val wasSupported = _state.value.capability == CueRouteCapabilityState.SUPPORTED

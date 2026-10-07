@@ -103,7 +103,7 @@ A candidate is invalidated when source, materialized runtime bytes, package/vers
 
 ## Current CUE application
 
-The active Android successor is the RC32 Communication Split stabilization described by `CURRENT_STATE.md`. Its digital qualification covers the affected audio path; residual owner-device qualification must prove repeated MK-300 MAIN + wired CUE operation, usable fidelity, no automatic ducking, long playback, seek/loop and disconnect/reconnect behavior. Existing RC20 baseline evidence and unrelated cloud/Drive/UI evidence remain reusable.
+The active Android successor is the RC34 Communication Split phase-probe candidate described by `CURRENT_STATE.md`. Its digital gate must verify probe lifecycle, phase ordering/signal generation, diagnostic serialization and preservation of existing CUE safety invariants. Physical evidence must identify the first A/B/C/D transition where MAIN becomes inaudible on the affected hardware; distinct `routedDevices` alone are not acoustic dual-output acceptance. Existing RC20 baseline evidence and unrelated cloud/Drive/UI evidence remain reusable.
 
 ## Frozen baseline
 
