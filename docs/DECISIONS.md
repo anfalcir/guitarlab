@@ -618,3 +618,12 @@ The probe is evidence gathering only. It may classify where arbitration begins b
 ### D-113 clarification — causal ordering and independent acoustic observations
 
 RC34 phases B and C must not reassert MAIN before their evidence windows; otherwise the probe can mask the arbitration transition it is meant to isolate. Phase D may reassert MAIN once halfway through as a separate recovery experiment. Acoustic evidence is three-dimensional: first MAIN loss, CUE-tone audibility in D, and MAIN audibility after the D reassertion.
+
+## D-114 — Recovery ordering must be tested as independent MAIN-only and communication-only actions
+
+2026-10-07. RC34 physical evidence `GuitarLab-Diagnostics-1791411563637.zip` shows MAIN remains audibly effective after initial `setCommunicationDevice(CUE)` but becomes inaudible when a `USAGE_VOICE_COMMUNICATION` AudioTrack is played, even with digital silence. At that point MAIN continues to advance at approximately real-time rate, remains logically routed to MK-300 and STREAM_MUSIC is not muted. CUE later becomes audibly effective with signal.
+
+The prior rc34 recovery experiment was not causally isolated because it called `setPreferredDevice(MAIN)` and then immediately reasserted `setCommunicationDevice(CUE)`. RC35 therefore keeps both tones active and separates recovery ordering: phase E invokes only MAIN `setPreferredDevice`; phase F subsequently invokes only communication-device reassertion. No communication reassertion is performed when the silent CUE track is opened in C.
+
+Owner evidence records the audible pair independently in D/E/F. A transition `D=CUE_ONLY → E=BOTH → F=CUE_ONLY` is sufficient evidence that ordering, not physical impossibility, controls acoustic concurrency on the target device and justifies a later production startup-sequence experiment. The diagnostic probe itself does not alter Studio routing behavior.
+

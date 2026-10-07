@@ -19,9 +19,20 @@ class CommunicationSplitPhaseProbeTest {
 
     @Test
     fun acousticFeedbackDimensionsRemainIndependent() {
-        assertEquals(6, CommunicationSplitProbeAcousticOutcome.entries.size)
-        assertEquals(3, CommunicationSplitProbeCueToneOutcome.entries.size)
-        assertEquals(3, CommunicationSplitProbeMainAfterReassertOutcome.entries.size)
+        assertEquals(8, CommunicationSplitProbeAcousticOutcome.entries.size)
+        assertEquals(5, CommunicationSplitProbePairOutcome.entries.size)
+    }
+
+    @Test
+    fun recoveryPhasesComeOnlyAfterCueIsAlreadySignaled() {
+        assertTrue(
+            CommunicationSplitProbePhase.E_MAIN_REASSERT_ONLY.ordinal >
+                CommunicationSplitProbePhase.D_CUE_TONE_ACTIVE.ordinal,
+        )
+        assertTrue(
+            CommunicationSplitProbePhase.F_COMMUNICATION_REASSERT.ordinal >
+                CommunicationSplitProbePhase.E_MAIN_REASSERT_ONLY.ordinal,
+        )
     }
 
     @Test
@@ -32,6 +43,8 @@ class CommunicationSplitPhaseProbeTest {
                 CommunicationSplitProbePhase.B_COMMUNICATION_DEVICE_SELECTED,
                 CommunicationSplitProbePhase.C_CUE_TRACK_SILENT,
                 CommunicationSplitProbePhase.D_CUE_TONE_ACTIVE,
+                CommunicationSplitProbePhase.E_MAIN_REASSERT_ONLY,
+                CommunicationSplitProbePhase.F_COMMUNICATION_REASSERT,
             ),
             CommunicationSplitProbePhase.entries,
         )

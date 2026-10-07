@@ -59,8 +59,8 @@ import studio.guitarlab.core.project.RecordingSampleRatePolicy
 import studio.guitarlab.core.project.ExternalControlAction
 import studio.guitarlab.platform.separation.RemoteCloudAuthClient
 import studio.guitarlab.platform.audio.android.CommunicationSplitProbeAcousticOutcome
-import studio.guitarlab.platform.audio.android.CommunicationSplitProbeCueToneOutcome
-import studio.guitarlab.platform.audio.android.CommunicationSplitProbeMainAfterReassertOutcome
+import studio.guitarlab.platform.audio.android.CommunicationSplitProbePairOutcome
+import studio.guitarlab.platform.audio.android.CommunicationSplitProbePhase
 
 @Composable
 fun SettingsScreen(
@@ -380,7 +380,7 @@ fun SettingsScreen(
                     ) {
                         SettingsActionRow(
                             title = "Diagnóstico MAIN + CUE",
-                            detail = "Teste audível em 4 etapas (~6 s): MAIN apenas, seleção de comunicação, CUE ativo em silêncio e MAIN+CUE simultâneos. Use volume moderado.",
+                            detail = "Teste audível em 6 etapas (~10 s): isola o gatilho e depois testa MAIN-only reassert e communication-only reassert. Use volume moderado.",
                             actionLabel = if (cueProbeRunning) "Executando…" else "Executar",
                             onClick = cueRouteController::runCommunicationProbe,
                             enabled = !latencyBusy,
@@ -399,77 +399,64 @@ fun SettingsScreen(
                                 "Em qual etapa o tom grave da MAIN deixou de ser ouvido?",
                                 style = MaterialTheme.typography.labelLarge,
                             )
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            ) {
-                                OutlinedButton(
-                                    onClick = { cueRouteController.recordCommunicationProbeOutcome(CommunicationSplitProbeAcousticOutcome.MAIN_NOT_AUDIBLE_IN_A) },
-                                    modifier = Modifier.weight(1f),
-                                ) { Text("A") }
-                                OutlinedButton(
-                                    onClick = { cueRouteController.recordCommunicationProbeOutcome(CommunicationSplitProbeAcousticOutcome.MAIN_LOST_IN_B) },
-                                    modifier = Modifier.weight(1f),
-                                ) { Text("B") }
-                                OutlinedButton(
-                                    onClick = { cueRouteController.recordCommunicationProbeOutcome(CommunicationSplitProbeAcousticOutcome.MAIN_LOST_IN_C) },
-                                    modifier = Modifier.weight(1f),
-                                ) { Text("C") }
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                ProbeChoiceButton("A", Modifier.weight(1f)) {
+                                    cueRouteController.recordCommunicationProbeOutcome(CommunicationSplitProbeAcousticOutcome.MAIN_NOT_AUDIBLE_IN_A)
+                                }
+                                ProbeChoiceButton("B", Modifier.weight(1f)) {
+                                    cueRouteController.recordCommunicationProbeOutcome(CommunicationSplitProbeAcousticOutcome.MAIN_LOST_IN_B)
+                                }
+                                ProbeChoiceButton("C", Modifier.weight(1f)) {
+                                    cueRouteController.recordCommunicationProbeOutcome(CommunicationSplitProbeAcousticOutcome.MAIN_LOST_IN_C)
+                                }
                             }
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            ) {
-                                OutlinedButton(
-                                    onClick = { cueRouteController.recordCommunicationProbeOutcome(CommunicationSplitProbeAcousticOutcome.MAIN_LOST_IN_D) },
-                                    modifier = Modifier.weight(1f),
-                                ) { Text("D") }
-                                OutlinedButton(
-                                    onClick = { cueRouteController.recordCommunicationProbeOutcome(CommunicationSplitProbeAcousticOutcome.MAIN_AUDIBLE_ALL_PHASES) },
-                                    modifier = Modifier.weight(1f),
-                                ) { Text("Não sumiu") }
-                                OutlinedButton(
-                                    onClick = { cueRouteController.recordCommunicationProbeOutcome(CommunicationSplitProbeAcousticOutcome.UNABLE_TO_TELL) },
-                                    modifier = Modifier.weight(1f),
-                                ) { Text("Não sei") }
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                ProbeChoiceButton("D", Modifier.weight(1f)) {
+                                    cueRouteController.recordCommunicationProbeOutcome(CommunicationSplitProbeAcousticOutcome.MAIN_LOST_IN_D)
+                                }
+                                ProbeChoiceButton("E", Modifier.weight(1f)) {
+                                    cueRouteController.recordCommunicationProbeOutcome(CommunicationSplitProbeAcousticOutcome.MAIN_LOST_IN_E)
+                                }
+                                ProbeChoiceButton("F", Modifier.weight(1f)) {
+                                    cueRouteController.recordCommunicationProbeOutcome(CommunicationSplitProbeAcousticOutcome.MAIN_LOST_IN_F)
+                                }
+                            }
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                ProbeChoiceButton("Não sumiu", Modifier.weight(1f)) {
+                                    cueRouteController.recordCommunicationProbeOutcome(CommunicationSplitProbeAcousticOutcome.MAIN_AUDIBLE_ALL_PHASES)
+                                }
+                                ProbeChoiceButton("Não sei", Modifier.weight(1f)) {
+                                    cueRouteController.recordCommunicationProbeOutcome(CommunicationSplitProbeAcousticOutcome.UNABLE_TO_TELL)
+                                }
                             }
                         }
-                    }
-                    if (cueRouteState.communicationProbeAwaitingCueFeedback) {
-                        Text("Na fase D, você ouviu o tom agudo do CUE?", style = MaterialTheme.typography.labelLarge)
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            OutlinedButton(
-                                onClick = { cueRouteController.recordCommunicationProbeCueToneOutcome(CommunicationSplitProbeCueToneOutcome.AUDIBLE) },
-                                modifier = Modifier.weight(1f),
-                            ) { Text("Sim") }
-                            OutlinedButton(
-                                onClick = { cueRouteController.recordCommunicationProbeCueToneOutcome(CommunicationSplitProbeCueToneOutcome.NOT_AUDIBLE) },
-                                modifier = Modifier.weight(1f),
-                            ) { Text("Não") }
-                            OutlinedButton(
-                                onClick = { cueRouteController.recordCommunicationProbeCueToneOutcome(CommunicationSplitProbeCueToneOutcome.UNABLE_TO_TELL) },
-                                modifier = Modifier.weight(1f),
-                            ) { Text("Não sei") }
+                        if (cueRouteState.communicationProbeAwaitingDPairFeedback) {
+                            CommunicationProbePairOutcomeSelector("Na fase D, o que ficou audível?") { outcome ->
+                                cueRouteController.recordCommunicationProbePairOutcome(
+                                    CommunicationSplitProbePhase.D_CUE_TONE_ACTIVE,
+                                    outcome,
+                                )
+                            }
                         }
-                    }
-                    if (cueRouteState.communicationProbeAwaitingReassertFeedback) {
-                        Text(
-                            "Depois da reafirmação no meio da fase D, o tom grave MAIN estava audível?",
-                            style = MaterialTheme.typography.labelLarge,
-                        )
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            OutlinedButton(
-                                onClick = { cueRouteController.recordCommunicationProbeMainAfterReassertOutcome(CommunicationSplitProbeMainAfterReassertOutcome.AUDIBLE_AFTER_REASSERT) },
-                                modifier = Modifier.weight(1f),
-                            ) { Text("Sim") }
-                            OutlinedButton(
-                                onClick = { cueRouteController.recordCommunicationProbeMainAfterReassertOutcome(CommunicationSplitProbeMainAfterReassertOutcome.NOT_AUDIBLE_AFTER_REASSERT) },
-                                modifier = Modifier.weight(1f),
-                            ) { Text("Não") }
-                            OutlinedButton(
-                                onClick = { cueRouteController.recordCommunicationProbeMainAfterReassertOutcome(CommunicationSplitProbeMainAfterReassertOutcome.UNABLE_TO_TELL) },
-                                modifier = Modifier.weight(1f),
-                            ) { Text("Não sei") }
+                        if (cueRouteState.communicationProbeAwaitingEPairFeedback) {
+                            CommunicationProbePairOutcomeSelector(
+                                "Na fase E, após reafirmar SOMENTE MAIN, o que ficou audível?",
+                            ) { outcome ->
+                                cueRouteController.recordCommunicationProbePairOutcome(
+                                    CommunicationSplitProbePhase.E_MAIN_REASSERT_ONLY,
+                                    outcome,
+                                )
+                            }
+                        }
+                        if (cueRouteState.communicationProbeAwaitingFPairFeedback) {
+                            CommunicationProbePairOutcomeSelector(
+                                "Na fase F, após reafirmar SOMENTE communication/CUE, o que ficou audível?",
+                            ) { outcome ->
+                                cueRouteController.recordCommunicationProbePairOutcome(
+                                    CommunicationSplitProbePhase.F_COMMUNICATION_REASSERT,
+                                    outcome,
+                                )
+                            }
                         }
                     }
                     MonitoringSelector(
@@ -1064,5 +1051,31 @@ private fun OptionRow(title: String, value: String, detail: String) {
                 Text(detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
+    }
+}
+
+@Composable
+private fun ProbeChoiceButton(
+    label: String,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    OutlinedButton(onClick = onClick, modifier = modifier) { Text(label) }
+}
+
+@Composable
+private fun CommunicationProbePairOutcomeSelector(
+    title: String,
+    onSelect: (CommunicationSplitProbePairOutcome) -> Unit,
+) {
+    Text(title, style = MaterialTheme.typography.labelLarge)
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        ProbeChoiceButton("Só MAIN", Modifier.weight(1f)) { onSelect(CommunicationSplitProbePairOutcome.MAIN_ONLY) }
+        ProbeChoiceButton("Só CUE", Modifier.weight(1f)) { onSelect(CommunicationSplitProbePairOutcome.CUE_ONLY) }
+        ProbeChoiceButton("Ambos", Modifier.weight(1f)) { onSelect(CommunicationSplitProbePairOutcome.BOTH) }
+    }
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        ProbeChoiceButton("Nenhum", Modifier.weight(1f)) { onSelect(CommunicationSplitProbePairOutcome.NONE) }
+        ProbeChoiceButton("Não sei", Modifier.weight(1f)) { onSelect(CommunicationSplitProbePairOutcome.UNABLE_TO_TELL) }
     }
 }

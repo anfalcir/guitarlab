@@ -219,7 +219,7 @@ class DiagnosticBundleExporter(private val context: Context) {
 
     private fun communicationSplitProbeJson(result: CommunicationSplitProbeResult): JSONObject =
         JSONObject()
-            .put("schemaVersion", 1)
+            .put("schemaVersion", 2)
             .put("startedAtEpochMs", result.startedAtEpochMs)
             .put("completedAtEpochMs", result.completedAtEpochMs)
             .put("completed", result.completed)
@@ -229,8 +229,9 @@ class DiagnosticBundleExporter(private val context: Context) {
             .put("sessionSampleRateHz", result.sessionSampleRateHz)
             .put("cueSampleRateHz", result.cueSampleRateHz)
             .put("acousticOutcome", result.acousticOutcome?.name)
-            .put("cueToneOutcome", result.cueToneOutcome?.name)
-            .put("mainAfterReassertOutcome", result.mainAfterReassertOutcome?.name)
+            .put("dPairOutcome", result.dPairOutcome?.name)
+            .put("ePairOutcome", result.ePairOutcome?.name)
+            .put("fPairOutcome", result.fPairOutcome?.name)
             .put("phases", JSONArray().also { array ->
                 result.phases.forEach { phase ->
                     array.put(
@@ -265,7 +266,8 @@ class DiagnosticBundleExporter(private val context: Context) {
                             .put("cueUnderruns", phase.cueUnderruns)
                             .put("mainPreferredAccepted", phase.mainPreferredAccepted)
                             .put("communicationSelectionActive", phase.communicationSelectionActive)
-                            .put("mainPreferredReassertedMidPhase", phase.mainPreferredReassertedMidPhase)
+                            .put("mainPreferredReassertAccepted", phase.mainPreferredReassertAccepted)
+                            .put("communicationReassertAccepted", phase.communicationReassertAccepted)
                     )
                 }
             })

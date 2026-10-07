@@ -25,8 +25,7 @@ import studio.guitarlab.platform.audio.android.CuePreflightStatus
 import studio.guitarlab.platform.audio.android.CueOutputStrategy
 import studio.guitarlab.platform.audio.android.CommunicationSplitPhaseProbe
 import studio.guitarlab.platform.audio.android.CommunicationSplitProbeAcousticOutcome
-import studio.guitarlab.platform.audio.android.CommunicationSplitProbeCueToneOutcome
-import studio.guitarlab.platform.audio.android.CommunicationSplitProbeMainAfterReassertOutcome
+import studio.guitarlab.platform.audio.android.CommunicationSplitProbePairOutcome
 import studio.guitarlab.platform.audio.android.CommunicationSplitProbePhase
 
 data class CueRouteControllerState(
@@ -38,8 +37,9 @@ data class CueRouteControllerState(
     val communicationProbeRunning: Boolean = false,
     val communicationProbeMessage: String? = null,
     val communicationProbeAwaitingFeedback: Boolean = false,
-    val communicationProbeAwaitingCueFeedback: Boolean = false,
-    val communicationProbeAwaitingReassertFeedback: Boolean = false,
+    val communicationProbeAwaitingDPairFeedback: Boolean = false,
+    val communicationProbeAwaitingEPairFeedback: Boolean = false,
+    val communicationProbeAwaitingFPairFeedback: Boolean = false,
 ) {
     val verifying: Boolean get() = capability == CueRouteCapabilityState.VERIFYING
 }
@@ -150,6 +150,9 @@ class CueRouteController(application: Application) : AndroidViewModel(applicatio
             _state.value = _state.value.copy(
                 communicationProbeMessage = "Valide primeiro uma combinação MAIN + CUE.",
                 communicationProbeAwaitingFeedback = false,
+                communicationProbeAwaitingDPairFeedback = false,
+                communicationProbeAwaitingEPairFeedback = false,
+                communicationProbeAwaitingFPairFeedback = false,
             )
             return
         }
@@ -157,14 +160,17 @@ class CueRouteController(application: Application) : AndroidViewModel(applicatio
         communicationProbeJob?.cancel()
         _state.value = _state.value.copy(
             communicationProbeRunning = true,
-            communicationProbeMessage = "Iniciando diagnóstico audível A/B/C/D…",
+            communicationProbeMessage = "Iniciando diagnóstico audível A/B/C/D/E/F…",
             communicationProbeAwaitingFeedback = false,
+            communicationProbeAwaitingDPairFeedback = false,
+            communicationProbeAwaitingEPairFeedback = false,
+            communicationProbeAwaitingFPairFeedback = false,
         )
         journal.append(
             eventType = "audio.cue_communication_probe",
             projectId = lastProjectId,
             state = "STARTED",
-            summary = "Diagnóstico audível MAIN/CUE A/B/C/D iniciado.",
+            summary = "Diagnóstico audível MAIN/CUE A/B/C/D/E/F iniciado.",
             technicalDetail = "sampleRateHz=${request.sampleRateHz}",
         )
         communicationProbeJob = viewModelScope.launch {
@@ -204,6 +210,9 @@ class CueRouteController(application: Application) : AndroidViewModel(applicatio
                         communicationProbeRunning = false,
                         communicationProbeMessage = error.message ?: "Não foi possível executar o diagnóstico.",
                         communicationProbeAwaitingFeedback = false,
+            communicationProbeAwaitingDPairFeedback = false,
+            communicationProbeAwaitingEPairFeedback = false,
+            communicationProbeAwaitingFPairFeedback = false,
                     )
                 }
                 return@launch
@@ -214,6 +223,9 @@ class CueRouteController(application: Application) : AndroidViewModel(applicatio
                     communicationProbeRunning = false,
                     communicationProbeMessage = "As saídas selecionadas não estão mais disponíveis.",
                     communicationProbeAwaitingFeedback = false,
+            communicationProbeAwaitingDPairFeedback = false,
+            communicationProbeAwaitingEPairFeedback = false,
+            communicationProbeAwaitingFPairFeedback = false,
                 )
                 return@launch
             }
@@ -222,9 +234,9 @@ class CueRouteController(application: Application) : AndroidViewModel(applicatio
                 projectId = lastProjectId,
                 state = if (result.completed) "COMPLETED" else "FAILED",
                 summary = if (result.completed) {
-                    "Diagnóstico audível A/B/C/D concluído."
+                    "Diagnóstico audível A/B/C/D/E/F concluído."
                 } else {
-                    "Diagnóstico audível A/B/C/D interrompido."
+                    "Diagnóstico audível A/B/C/D/E/F interrompido."
                 },
                 technicalDetail = result.diagnosticSummary(),
             )
@@ -236,8 +248,9 @@ class CueRouteController(application: Application) : AndroidViewModel(applicatio
                     "Teste interrompido: ${result.error ?: "causa não identificada"}."
                 },
                 communicationProbeAwaitingFeedback = result.completed,
-                communicationProbeAwaitingCueFeedback = false,
-                communicationProbeAwaitingReassertFeedback = false,
+                communicationProbeAwaitingDPairFeedback = false,
+                communicationProbeAwaitingEPairFeedback = false,
+                communicationProbeAwaitingFPairFeedback = false,
             )
         }
     }
@@ -253,6 +266,10 @@ class CueRouteController(application: Application) : AndroidViewModel(applicatio
                 "Registrado: MAIN sumiu quando o AudioTrack CUE entrou ativo com silêncio (C)."
             CommunicationSplitProbeAcousticOutcome.MAIN_LOST_IN_D ->
                 "Registrado: MAIN sumiu somente quando o CUE começou a tocar sinal (D)."
+            CommunicationSplitProbeAcousticOutcome.MAIN_LOST_IN_E ->
+                "Registrado: MAIN sumiu após reafirmar somente a saída MAIN (E)."
+            CommunicationSplitProbeAcousticOutcome.MAIN_LOST_IN_F ->
+                "Registrado: MAIN sumiu após reafirmar novamente o dispositivo de comunicação (F)."
             CommunicationSplitProbeAcousticOutcome.MAIN_AUDIBLE_ALL_PHASES ->
                 "Registrado: MAIN permaneceu audível em todas as etapas."
             CommunicationSplitProbeAcousticOutcome.UNABLE_TO_TELL ->
@@ -266,68 +283,79 @@ class CueRouteController(application: Application) : AndroidViewModel(applicatio
             technicalDetail = CommunicationSplitPhaseProbe.lastResult()?.diagnosticSummary(),
         )
         _state.value = _state.value.copy(
-            communicationProbeMessage = "$message Agora confirme se ouviu o tom agudo do CUE na fase D.",
+            communicationProbeMessage = "$message Agora informe o que ficou audível na fase D.",
             communicationProbeAwaitingFeedback = false,
-            communicationProbeAwaitingCueFeedback = true,
-            communicationProbeAwaitingReassertFeedback = false,
+            communicationProbeAwaitingDPairFeedback = true,
+            communicationProbeAwaitingEPairFeedback = false,
+            communicationProbeAwaitingFPairFeedback = false,
         )
     }
 
-    fun recordCommunicationProbeCueToneOutcome(outcome: CommunicationSplitProbeCueToneOutcome) {
-        CommunicationSplitPhaseProbe.recordCueToneOutcome(outcome)
-        val message = when (outcome) {
-            CommunicationSplitProbeCueToneOutcome.AUDIBLE -> "Registrado: o tom agudo CUE foi audível na fase D."
-            CommunicationSplitProbeCueToneOutcome.NOT_AUDIBLE -> "Registrado: o tom agudo CUE não foi audível na fase D."
-            CommunicationSplitProbeCueToneOutcome.UNABLE_TO_TELL -> "Registrado: não foi possível confirmar o tom CUE na fase D."
-        }
-        journal.append(
-            eventType = "audio.cue_communication_probe",
-            projectId = lastProjectId,
-            state = "ACOUSTIC_CUE_OUTCOME",
-            summary = message,
-            technicalDetail = CommunicationSplitPhaseProbe.lastResult()?.diagnosticSummary(),
-        )
-        _state.value = _state.value.copy(
-            communicationProbeMessage = "$message Agora confirme se MAIN estava audível depois da reafirmação no meio da fase D.",
-            communicationProbeAwaitingCueFeedback = false,
-            communicationProbeAwaitingReassertFeedback = true,
-        )
-    }
-
-    fun recordCommunicationProbeMainAfterReassertOutcome(
-        outcome: CommunicationSplitProbeMainAfterReassertOutcome,
+    fun recordCommunicationProbePairOutcome(
+        phase: CommunicationSplitProbePhase,
+        outcome: CommunicationSplitProbePairOutcome,
     ) {
-        CommunicationSplitPhaseProbe.recordMainAfterReassertOutcome(outcome)
-        val message = when (outcome) {
-            CommunicationSplitProbeMainAfterReassertOutcome.AUDIBLE_AFTER_REASSERT ->
-                "Registrado: MAIN estava audível depois da reafirmação no meio da fase D."
-            CommunicationSplitProbeMainAfterReassertOutcome.NOT_AUDIBLE_AFTER_REASSERT ->
-                "Registrado: MAIN continuou inaudível depois da reafirmação no meio da fase D."
-            CommunicationSplitProbeMainAfterReassertOutcome.UNABLE_TO_TELL ->
-                "Registrado: não foi possível avaliar MAIN depois da reafirmação."
+        require(
+            phase == CommunicationSplitProbePhase.D_CUE_TONE_ACTIVE ||
+                phase == CommunicationSplitProbePhase.E_MAIN_REASSERT_ONLY ||
+                phase == CommunicationSplitProbePhase.F_COMMUNICATION_REASSERT,
+        )
+        CommunicationSplitPhaseProbe.recordPairOutcome(phase, outcome)
+        val phaseLabel = when (phase) {
+            CommunicationSplitProbePhase.D_CUE_TONE_ACTIVE -> "D"
+            CommunicationSplitProbePhase.E_MAIN_REASSERT_ONLY -> "E"
+            CommunicationSplitProbePhase.F_COMMUNICATION_REASSERT -> "F"
+            else -> error("Fase sem observação de par")
         }
+        val observation = when (outcome) {
+            CommunicationSplitProbePairOutcome.MAIN_ONLY -> "somente MAIN"
+            CommunicationSplitProbePairOutcome.CUE_ONLY -> "somente CUE"
+            CommunicationSplitProbePairOutcome.BOTH -> "MAIN + CUE"
+            CommunicationSplitProbePairOutcome.NONE -> "nenhum dos dois"
+            CommunicationSplitProbePairOutcome.UNABLE_TO_TELL -> "não foi possível avaliar"
+        }
+        val message = "Registrado na fase $phaseLabel: $observation."
         journal.append(
             eventType = "audio.cue_communication_probe",
             projectId = lastProjectId,
-            state = "ACOUSTIC_MAIN_REASSERT_OUTCOME",
+            state = "ACOUSTIC_PAIR_$phaseLabel",
             summary = message,
             technicalDetail = CommunicationSplitPhaseProbe.lastResult()?.diagnosticSummary(),
         )
-        _state.value = _state.value.copy(
-            communicationProbeMessage = "$message Probe concluído; exporte o diagnóstico para análise.",
-            communicationProbeAwaitingReassertFeedback = false,
-        )
+        _state.value = when (phase) {
+            CommunicationSplitProbePhase.D_CUE_TONE_ACTIVE -> _state.value.copy(
+                communicationProbeMessage =
+                    "$message Agora informe o que ficou audível em E, após reafirmar somente MAIN.",
+                communicationProbeAwaitingDPairFeedback = false,
+                communicationProbeAwaitingEPairFeedback = true,
+            )
+            CommunicationSplitProbePhase.E_MAIN_REASSERT_ONLY -> _state.value.copy(
+                communicationProbeMessage =
+                    "$message Agora informe o que ficou audível em F, após reafirmar somente communication/CUE.",
+                communicationProbeAwaitingEPairFeedback = false,
+                communicationProbeAwaitingFPairFeedback = true,
+            )
+            CommunicationSplitProbePhase.F_COMMUNICATION_REASSERT -> _state.value.copy(
+                communicationProbeMessage = "$message Probe concluído; exporte o diagnóstico para análise.",
+                communicationProbeAwaitingFPairFeedback = false,
+            )
+            else -> _state.value
+        }
     }
 
     private fun communicationProbePhaseMessage(phase: CommunicationSplitProbePhase): String = when (phase) {
         CommunicationSplitProbePhase.A_MAIN_ONLY ->
-            "A/4 · MAIN apenas: deve tocar um tom grave na saída principal."
+            "A/6 · MAIN apenas: deve tocar um tom grave na saída principal."
         CommunicationSplitProbePhase.B_COMMUNICATION_DEVICE_SELECTED ->
-            "B/4 · CUE preparado, ainda sem AudioTrack CUE: o tom MAIN deve continuar."
+            "B/6 · CUE selecionado como communication device; MAIN deve continuar."
         CommunicationSplitProbePhase.C_CUE_TRACK_SILENT ->
-            "C/4 · AudioTrack CUE ativo com silêncio: o tom MAIN deve continuar."
+            "C/6 · AudioTrack CUE ativo com silêncio; MAIN deve continuar."
         CommunicationSplitProbePhase.D_CUE_TONE_ACTIVE ->
-            "D/4 · MAIN grave + CUE agudo. Na metade, MAIN é reafirmado; observe se o grave volta/permanece."
+            "D/6 · MAIN grave + CUE agudo, sem nenhuma reasserção."
+        CommunicationSplitProbePhase.E_MAIN_REASSERT_ONLY ->
+            "E/6 · Reafirmando SOMENTE MAIN; os dois tons continuam."
+        CommunicationSplitProbePhase.F_COMMUNICATION_REASSERT ->
+            "F/6 · Reafirmando SOMENTE communication/CUE; os dois tons continuam."
     }
 
     fun disable() {

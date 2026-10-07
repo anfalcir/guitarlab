@@ -44,7 +44,7 @@ require_tokens(
 )
 require_tokens(
     "docs/CURRENT_STATE.md",
-    ["RC34 COMMUNICATION PHASE PROBE", "SIGNED CI PENDING", "PHYSICAL DIAGNOSTIC PENDING"],
+    ["RC35 RECOVERY ORDER PROBE", "SIGNED CI PENDING", "PHYSICAL DIAGNOSTIC PENDING"],
 )
 
 require_tokens(
@@ -66,15 +66,15 @@ if "cueDriftUnsafeSinceNs" in engine_source:
 
 require_tokens(
     "platform/audio-android/src/main/kotlin/studio/guitarlab/platform/audio/android/CommunicationSplitPhaseProbe.kt",
-    ["A_MAIN_ONLY", "B_COMMUNICATION_DEVICE_SELECTED", "C_CUE_TRACK_SILENT", "D_CUE_TONE_ACTIVE", "STREAM_MUSIC", "STREAM_VOICE_CALL", "mainPreferredReassertedMidPhase", "cueToneOutcome", "mainAfterReassertOutcome"],
+    ["A_MAIN_ONLY", "B_COMMUNICATION_DEVICE_SELECTED", "C_CUE_TRACK_SILENT", "D_CUE_TONE_ACTIVE", "E_MAIN_REASSERT_ONLY", "F_COMMUNICATION_REASSERT", "STREAM_MUSIC", "STREAM_VOICE_CALL", "dPairOutcome", "ePairOutcome", "fPairOutcome"],
 )
 require_tokens(
     "app/src/main/java/studio/guitarlab/app/ui/CueRouteController.kt",
-    ["runCommunicationProbe", "recordCommunicationProbeOutcome", "recordCommunicationProbeCueToneOutcome", "recordCommunicationProbeMainAfterReassertOutcome", "audio.cue_communication_probe"],
+    ["runCommunicationProbe", "recordCommunicationProbeOutcome", "recordCommunicationProbePairOutcome", "audio.cue_communication_probe"],
 )
 require_tokens(
     "app/src/main/java/studio/guitarlab/app/ui/SettingsScreen.kt",
-    ["settings-cue-communication-probe", "Em qual etapa o tom grave da MAIN deixou de ser ouvido?"],
+    ["settings-cue-communication-probe", "Em qual etapa o tom grave da MAIN deixou de ser ouvido?", "reafirmar SOMENTE MAIN", "reafirmar SOMENTE communication/CUE"],
 )
 require_tokens(
     "app/src/main/java/studio/guitarlab/app/diagnostics/DiagnosticBundleExporter.kt",
@@ -91,3 +91,9 @@ for relative in [
     forbidden = "AUDIOFOCUS_GAIN_TRANSIENT_" + "MAY_DUCK"
     if forbidden in source:
         raise SystemExit(f"CUE zero-duck invariant violated in {relative}")
+
+probe_source = (
+    ROOT / "platform/audio-android/src/main/kotlin/studio/guitarlab/platform/audio/android/CommunicationSplitPhaseProbe.kt"
+).read_text(encoding="utf-8")
+if "midPhaseMainReassert" in probe_source:
+    raise SystemExit("Recovery probe must not combine MAIN and communication reassertion in one phase")
