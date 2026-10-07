@@ -5,6 +5,7 @@ import android.media.AudioDeviceInfo
 import android.media.AudioFormat
 import android.media.AudioManager
 import android.media.AudioTrack
+import android.os.Build
 import kotlin.math.PI
 import kotlin.math.sin
 
@@ -359,7 +360,11 @@ object CommunicationSplitPhaseProbe {
         }
         check(keepRunning()) { "Probe cancelled" }
 
-        val currentCommunication = runCatching { audioManager.communicationDevice }.getOrNull()
+        val currentCommunication = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            runCatching { audioManager.communicationDevice }.getOrNull()
+        } else {
+            null
+        }
         return CommunicationSplitProbePhaseEvidence(
             phase = phase,
             elapsedMs = (System.nanoTime() - startedNs) / 1_000_000L,
