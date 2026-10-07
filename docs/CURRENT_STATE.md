@@ -44,6 +44,10 @@ Probe tones are intentionally low level (~−24 dBFS), short and user-triggered.
 - MAIN survives C but disappears in **D** → the conflict begins only when the communication stream carries real signal.
 - MAIN survives all phases → the full Studio/mixer/runtime path, not the basic public communication routing primitive, remains the next suspect.
 
+## CI trigger note
+
+The rc34 source commit is `e686b35b037edee93ccb08f025addcaae28c933c`. It is followed only by this documentation trigger so GitHub Actions receives a normal push event and qualifies the unchanged rc34 runtime source through the signed Android workflow.
+
 ## Accepted baseline and roadmap
 
 `RELEASE_BASELINE.md` remains authoritative for the accepted RC20 baseline. USB multichannel MAIN 1/2 + CUE 3/4 remains the preferred deterministic professional roadmap when supported by hardware.
