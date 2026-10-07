@@ -47,6 +47,10 @@ Focused JVM coverage proves:
 
 Existing CUE negotiation/resampling, route-safety, startup-probe and non-blocking FIFO tests remain in place. CI source guards require the new alignment implementation and prohibit reintroduction of the obsolete absolute Communication Split runtime timer.
 
+## CI trigger note
+
+The rc33 source commit `3cd4ca3ad75632255fd9b3ce983fa15195eb6bc1` was published through a low-level Git ref update that did not emit the repository's expected Actions `push` event. A documentation-only follow-up commit intentionally carries `[run ci signed]` so GitHub Actions qualifies the unchanged rc33 runtime source through the normal signed pipeline.
+
 ## Residual gate
 
 The exact rc33 source must pass signed Android CI (unit tests, Lint/build, API36 regression, exact-artifact signing). After digital PASS, physical retest should begin with tablet speaker + wired headset if MK-300 is unavailable, then repeat with MK-300 MAIN + wired CUE when available. Acceptance remains based on repeated stable routing, long playback, seek/loop, representative Play/REC, zero automatic ducking and acceptable audible alignment/fidelity.
