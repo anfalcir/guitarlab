@@ -3,7 +3,7 @@
 Private, single-owner Android guitar preparation, study, recording, mixing, export and backup appliance.
 
 Updated: 2026-10-07
-Release state: **RC20 ACCEPTED BASELINE / RC32 COMMUNICATION SPLIT SUCCESSOR — DIGITAL PASS + SIGNED / PHYSICAL REQUALIFICATION PENDING**
+Release state: **RC20 ACCEPTED BASELINE / RC33 RUNTIME ALIGNMENT SUCCESSOR — SIGNED CI PENDING / PHYSICAL REQUALIFICATION PENDING**
 
 ## Start here
 

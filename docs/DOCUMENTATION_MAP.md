@@ -48,11 +48,12 @@ A subsystem contract does not create an unrelated release/maintenance gate merel
 
 ## Current successor evidence and roadmap
 
-Live CUE behavior is defined by `CURRENT_STATE.md`, `PRODUCT_REQUIREMENTS.md`, `ARCHITECTURE.md`, `STUDIO_OPTIONS_AND_MIXER.md` and decisions D-110/D-111.
+Live CUE behavior is defined by `CURRENT_STATE.md`, `PRODUCT_REQUIREMENTS.md`, `ARCHITECTURE.md`, `STUDIO_OPTIONS_AND_MIXER.md` and decisions D-110/D-111/D-112.
 
 Dated evidence under `history/` is classified as follows:
 
-- `CUE_COMMUNICATION_SPLIT_STABILIZATION_2026-10-07.md` — RC32 stabilization rationale/owner-evidence snapshot;
+- `CUE_RUNTIME_ALIGNMENT_RC33_2026-10-07.md` — active RC33 runtime warm-up/relative-drift correction and qualification scope;
+- `CUE_COMMUNICATION_SPLIT_STABILIZATION_2026-10-07.md` — RC32 predecessor stabilization rationale/owner-evidence snapshot;
 - `RC32_COMMUNICATION_SPLIT_DIGITAL_QUALIFICATION_2026-10-07.md` — exact final CI #972/signing identity for the rc32 producer;
 - `DOCUMENTATION_AUDIT_RC32_2026-10-07.md` — code/evidence/documentation consistency audit and live-doc cleanup record;
 - `RC31_COMMUNICATION_SPLIT_DIGITAL_QUALIFICATION_2026-10-06.md` — predecessor digital/signing evidence;

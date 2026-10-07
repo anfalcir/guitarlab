@@ -216,6 +216,29 @@ class AndroidStudioPlaybackEngine(context: Context) : AutoCloseable {
             StereoLinearResampler(request.sampleRateHz, cueOutputSampleRateHz)
         } else null
         val communicationSplitActive = negotiatedCueProfile?.strategy == CueOutputStrategy.COMMUNICATION_SPLIT
+        if (request.preferredCueOutputRequested) {
+            AndroidCueRouteVerifier.clearRuntimeCueDiagnostic()
+        }
+        val runtimeCueDiagnosticSessionId = if (request.preferredCueOutputRequested) {
+            val main = request.preferredOutputDevice
+            val cue = request.preferredCueOutputDevice
+            if (main != null && cue != null) {
+                AndroidCueRouteVerifier.beginRuntimeCueDiagnostic(
+                    main = main,
+                    cue = cue,
+                    strategy = negotiatedCueProfile?.strategy ?: CueOutputStrategy.MULTI_DEVICE,
+                    mainSampleRateHz = request.sampleRateHz,
+                    cueSampleRateHz = cueOutputSampleRateHz,
+                )
+            } else null
+        } else null
+        val cueRelativeDriftMonitor = if (communicationSplitActive) {
+            CueRelativeDriftMonitor(
+                minPresentedFrames = CUE_RELATIVE_DRIFT_BASELINE_MIN_FRAMES,
+                maxRelativeDriftFrames = CueRouteSafetyPolicy.communicationDriftLimitFrames(request.sampleRateHz),
+                failureGraceNs = CUE_COMMUNICATION_DRIFT_GRACE_NS,
+            )
+        } else null
         val cueWriteQueue = CueNonBlockingWriteQueue(
             maxPendingSamples = maxOf(
                 2,
@@ -224,6 +247,7 @@ class AndroidStudioPlaybackEngine(context: Context) : AutoCloseable {
         )
         var mainRoutingListener: AudioRouting.OnRoutingChangedListener? = null
         var cueRoutingListener: AudioRouting.OnRoutingChangedListener? = null
+        var runtimeRouteQualification: RuntimeRouteQualificationResult? = null
         val mainRouteInvalid = AtomicBoolean(false)
         val cueRouteInvalid = AtomicBoolean(false)
         try {
@@ -334,9 +358,11 @@ class AndroidStudioPlaybackEngine(context: Context) : AutoCloseable {
                 runtimePrime.size,
                 AudioTrack.WRITE_NON_BLOCKING,
             )
-            if (mainPrimeWrite != runtimePrime.size) {
-                error("A saída principal não aceitou a pré-carga determinística de reprodução.")
+            if (mainPrimeWrite < 0) {
+                error("A saída principal não aceitou a pré-carga de reprodução.")
             }
+            val mainPrimeQueuedFrames = mainPrimeWrite / 2L
+            var cuePrimeQueuedFrames = 0L
             cueTrack?.let { activeCue ->
                 val cuePrimeWrite = activeCue.write(
                     runtimePrime,
@@ -356,9 +382,12 @@ class AndroidStudioPlaybackEngine(context: Context) : AutoCloseable {
                         listener,
                         "A saída CUE não aceitou a pré-carga de início; foi desativada antes do áudio musical.",
                     )
+                } else {
+                    cuePrimeQueuedFrames = cuePrimeWrite / 2L
                 }
             }
             val runtimeWarmupHeadBase = playbackHead(audioTrack)
+            val runtimeWarmupCueHeadBase = cueTrack?.let(::playbackHead) ?: 0L
             audioTrack.play()
             cueTrack?.play()
             if (communicationCueSession != null) {
@@ -383,14 +412,40 @@ class AndroidStudioPlaybackEngine(context: Context) : AutoCloseable {
                 }
             }
             cueTrack?.let { activeCue ->
-                when (qualifyRuntimeRoutes(
-                    audioTrack,
-                    activeCue,
-                    request,
-                    runtimeWarmupHeadBase,
-                    RUNTIME_PRIME_FRAMES.toLong(),
-                )) {
-                    RuntimeRouteQualification.QUALIFIED -> Unit
+                val qualification = qualifyRuntimeRoutes(
+                    mainTrack = audioTrack,
+                    cueTrack = activeCue,
+                    request = request,
+                    mainWarmupHeadBase = runtimeWarmupHeadBase,
+                    cueWarmupHeadBase = runtimeWarmupCueHeadBase,
+                    initiallyQueuedMainFrames = mainPrimeQueuedFrames,
+                    initiallyQueuedCueFrames = cuePrimeQueuedFrames,
+                )
+                runtimeRouteQualification = qualification
+                when (qualification.status) {
+                    RuntimeRouteQualification.QUALIFIED -> {
+                        runtimeCueDiagnosticSessionId?.let { sessionId ->
+                            AndroidCueRouteVerifier.recordRuntimeCueDiagnostic(
+                                sessionId,
+                                buildString {
+                                    append("state=ROUTE_QUALIFIED")
+                                    append("; expectedMain=").append(
+                                        request.preferredOutputDevice?.let(AndroidOutputRouteIdentity::physicalKey),
+                                    )
+                                    append("; expectedCue=").append(
+                                        request.preferredCueOutputDevice?.let(AndroidOutputRouteIdentity::physicalKey),
+                                    )
+                                    append("; strategy=").append(
+                                        negotiatedCueProfile?.strategy?.name ?: CueOutputStrategy.MULTI_DEVICE.name,
+                                    )
+                                    append("; warmupMainQueuedFrames=").append(qualification.mainQueuedFrames)
+                                    append("; warmupCueQueuedFrames=").append(qualification.cueQueuedFrames)
+                                    append("; warmupMainPresentedFrames=").append(qualification.mainPresentedFrames)
+                                    append("; warmupCuePresentedFrames=").append(qualification.cuePresentedFrames)
+                                },
+                            )
+                        }
+                    }
                     RuntimeRouteQualification.MAIN_FAILED ->
                         error("A rota MAIN deixou de ser comprovada ao iniciar o áudio de reprodução.")
                     RuntimeRouteQualification.CUE_FAILED,
@@ -440,7 +495,6 @@ class AndroidStudioPlaybackEngine(context: Context) : AutoCloseable {
             clockHeadBase = playbackHead(audioTrack)
             var cueClockHeadBase = cueTrack?.let(::playbackHead) ?: 0L
             var cueDriftViolationCount = 0
-            var cueDriftUnsafeSinceNs: Long? = null
             var playbackStartReported = false
 
             while (running) {
@@ -463,7 +517,7 @@ class AndroidStudioPlaybackEngine(context: Context) : AutoCloseable {
                     clockHeadBase = playbackHead(audioTrack)
                     cueClockHeadBase = cueTrack?.let(::playbackHead) ?: 0L
                     cueDriftViolationCount = 0
-                    cueDriftUnsafeSinceNs = null
+                    cueRelativeDriftMonitor?.reset()
                     writtenFramesSinceClockBase = 0L
                     playbackClockAnchor = null
                     clockAnchorAttempted = false
@@ -552,20 +606,23 @@ class AndroidStudioPlaybackEngine(context: Context) : AutoCloseable {
                     } else {
                         CueRouteSafetyPolicy.driftLimitFrames(request.sampleRateHz)
                     }
-                    val driftUnsafe = CueRouteSafetyPolicy.driftExceeded(
+                    val relativeObservation = cueRelativeDriftMonitor?.observe(
                         mainPresentedFrames = mainPresented,
                         cuePresentedFrames = cuePresented,
-                        sampleRateHz = request.sampleRateHz,
-                        maxDriftFrames = maxDriftFrames,
+                        nowNs = System.nanoTime(),
                     )
-                    val nowNs = System.nanoTime()
+                    val driftUnsafe = if (communicationSplitActive) {
+                        relativeObservation?.unsafe == true
+                    } else {
+                        CueRouteSafetyPolicy.driftExceeded(
+                            mainPresentedFrames = mainPresented,
+                            cuePresentedFrames = cuePresented,
+                            sampleRateHz = request.sampleRateHz,
+                            maxDriftFrames = maxDriftFrames,
+                        )
+                    }
                     val driftFailure = if (communicationSplitActive) {
-                        if (driftUnsafe) {
-                            if (cueDriftUnsafeSinceNs == null) cueDriftUnsafeSinceNs = nowNs
-                        } else {
-                            cueDriftUnsafeSinceNs = null
-                        }
-                        cueDriftUnsafeSinceNs?.let { nowNs - it >= CUE_COMMUNICATION_DRIFT_GRACE_NS } == true
+                        relativeObservation?.failed == true
                     } else {
                         cueDriftViolationCount = if (driftUnsafe) cueDriftViolationCount + 1 else 0
                         cueDriftViolationCount >= CUE_DRIFT_CONSECUTIVE_LIMIT
@@ -579,25 +636,52 @@ class AndroidStudioPlaybackEngine(context: Context) : AutoCloseable {
                             else ->
                                 "A saída CUE perdeu sincronismo e foi desativada."
                         }
-                        AndroidCueRouteVerifier.recordRuntimeCueDiagnostic(
-                            buildString {
-                                append("reason=").append(
-                                    when {
-                                        backpressureUnsafe -> "BACKPRESSURE"
-                                        !routeSafe -> "ROUTE_LOST"
-                                        else -> "DRIFT"
-                                    },
-                                )
-                                append("; strategy=").append(negotiatedCueProfile?.strategy?.name ?: "UNKNOWN")
-                                append("; pendingCueSamples=").append(cueWriteQueue.pendingSamples)
-                                append("; mainPresentedFrames=").append(mainPresented)
-                                append("; cuePresentedFrames=").append(cuePresented)
-                                append("; driftFrames=").append(kotlin.math.abs(mainPresented - cuePresented))
-                                append("; maxDriftFrames=").append(maxDriftFrames)
-                                append("; mainRoutes=").append(AndroidOutputRouteIdentity.routedPhysicalKeys(audioTrack).sorted())
-                                append("; cueRoutes=").append(AndroidOutputRouteIdentity.routedPhysicalKeys(activeCue).sorted())
-                            },
-                        )
+                        runtimeCueDiagnosticSessionId?.let { sessionId ->
+                            AndroidCueRouteVerifier.recordRuntimeCueDiagnostic(
+                                sessionId,
+                                buildString {
+                                    append("state=SUPPRESSED")
+                                    append("; reason=").append(
+                                        when {
+                                            backpressureUnsafe -> "BACKPRESSURE"
+                                            !routeSafe -> "ROUTE_LOST"
+                                            else -> "DRIFT"
+                                        },
+                                    )
+                                    append("; expectedMain=").append(
+                                        request.preferredOutputDevice?.let(AndroidOutputRouteIdentity::physicalKey),
+                                    )
+                                    append("; expectedCue=").append(
+                                        request.preferredCueOutputDevice?.let(AndroidOutputRouteIdentity::physicalKey),
+                                    )
+                                    append("; strategy=").append(negotiatedCueProfile?.strategy?.name ?: "UNKNOWN")
+                                    append("; pendingCueSamples=").append(cueWriteQueue.pendingSamples)
+                                    append("; mainPresentedFrames=").append(mainPresented)
+                                    append("; cuePresentedFrames=").append(cuePresented)
+                                    append("; currentDeltaFrames=").append(
+                                        relativeObservation?.currentDeltaFrames ?: (cuePresented - mainPresented),
+                                    )
+                                    append("; baselineDeltaFrames=").append(relativeObservation?.baselineDeltaFrames)
+                                    append("; relativeDriftFrames=").append(
+                                        relativeObservation?.relativeDriftFrames
+                                            ?: kotlin.math.abs(mainPresented - cuePresented),
+                                    )
+                                    append("; maxDriftFrames=").append(maxDriftFrames)
+                                    runtimeRouteQualification?.let { warmup ->
+                                        append("; warmupMainQueuedFrames=").append(warmup.mainQueuedFrames)
+                                        append("; warmupCueQueuedFrames=").append(warmup.cueQueuedFrames)
+                                        append("; warmupMainPresentedFrames=").append(warmup.mainPresentedFrames)
+                                        append("; warmupCuePresentedFrames=").append(warmup.cuePresentedFrames)
+                                    }
+                                    append("; mainRoutes=").append(
+                                        AndroidOutputRouteIdentity.routedPhysicalKeys(audioTrack).sorted(),
+                                    )
+                                    append("; cueRoutes=").append(
+                                        AndroidOutputRouteIdentity.routedPhysicalKeys(activeCue).sorted(),
+                                    )
+                                },
+                            )
+                        }
                         runCatching { activeCue.pause() }
                         runCatching { activeCue.flush() }
                         runCatching { activeCue.release() }
@@ -870,55 +954,129 @@ class AndroidStudioPlaybackEngine(context: Context) : AutoCloseable {
 
     private enum class RuntimeRouteQualification { QUALIFIED, MAIN_FAILED, CUE_FAILED, WRITE_FAILED }
 
-    /** Re-proves the fresh runtime start; selection-time/probe routing is never carried forward. */
+    private data class RuntimeRouteQualificationResult(
+        val status: RuntimeRouteQualification,
+        val mainQueuedFrames: Long,
+        val cueQueuedFrames: Long,
+        val mainPresentedFrames: Long,
+        val cuePresentedFrames: Long,
+    )
+
+    /**
+     * Re-proves physical runtime routing while keeping warm-up bounded. Both sinks must consume all
+     * accepted warm-up frames before musical playback establishes new playback-head baselines.
+     */
     private fun qualifyRuntimeRoutes(
         mainTrack: AudioTrack,
         cueTrack: AudioTrack,
         request: StudioPlaybackRequest,
-        warmupHeadBase: Long,
+        mainWarmupHeadBase: Long,
+        cueWarmupHeadBase: Long,
         initiallyQueuedMainFrames: Long,
-    ): RuntimeRouteQualification {
-        val expectedMain = request.preferredOutputDevice ?: return RuntimeRouteQualification.MAIN_FAILED
-        val expectedCue = request.preferredCueOutputDevice ?: return RuntimeRouteQualification.CUE_FAILED
+        initiallyQueuedCueFrames: Long,
+    ): RuntimeRouteQualificationResult {
+        val expectedMain = request.preferredOutputDevice ?: return RuntimeRouteQualificationResult(
+            RuntimeRouteQualification.MAIN_FAILED, 0L, 0L, 0L, 0L,
+        )
+        val expectedCue = request.preferredCueOutputDevice ?: return RuntimeRouteQualificationResult(
+            RuntimeRouteQualification.CUE_FAILED, 0L, 0L, 0L, 0L,
+        )
         val expectedMainKey = AndroidOutputRouteIdentity.physicalKey(expectedMain)
         val expectedCueKey = AndroidOutputRouteIdentity.physicalKey(expectedCue)
         val silence = FloatArray(RUNTIME_ROUTE_FEED_FRAMES * 2)
         var stablePolls = 0
-        var warmupMainFrames = initiallyQueuedMainFrames
+        var warmupMainFrames = initiallyQueuedMainFrames.coerceAtLeast(0L)
+        var warmupCueFrames = initiallyQueuedCueFrames.coerceAtLeast(0L)
         val deadline = System.nanoTime() + MAIN_ROUTE_SETTLE_TIMEOUT_NS
-        fun finish(status: RuntimeRouteQualification): RuntimeRouteQualification {
+
+        fun presentedMain(): Long = playbackHeadDelta(playbackHead(mainTrack), mainWarmupHeadBase)
+        fun presentedCue(): Long = playbackHeadDelta(playbackHead(cueTrack), cueWarmupHeadBase)
+
+        fun snapshot(status: RuntimeRouteQualification) = RuntimeRouteQualificationResult(
+            status = status,
+            mainQueuedFrames = warmupMainFrames,
+            cueQueuedFrames = warmupCueFrames,
+            mainPresentedFrames = presentedMain(),
+            cuePresentedFrames = presentedCue(),
+        )
+
+        fun finish(status: RuntimeRouteQualification): RuntimeRouteQualificationResult {
             val drainDeadline = System.nanoTime() + RUNTIME_WARMUP_DRAIN_TIMEOUT_NS
-            while (
-                running &&
-                playbackHeadDelta(playbackHead(mainTrack), warmupHeadBase) < warmupMainFrames &&
-                System.nanoTime() < drainDeadline
-            ) {
+            while (running && System.nanoTime() < drainDeadline) {
+                val mainPresented = presentedMain()
+                val cuePresented = presentedCue()
+                if (
+                    CueRuntimeWarmupPolicy.drained(warmupMainFrames, mainPresented) &&
+                    CueRuntimeWarmupPolicy.drained(warmupCueFrames, cuePresented)
+                ) {
+                    val mainActual = AndroidOutputRouteIdentity.routedPhysicalKeys(mainTrack)
+                    val cueActual = AndroidOutputRouteIdentity.routedPhysicalKeys(cueTrack)
+                    return when {
+                        !AndroidOutputRouteIdentity.routesOnlyToExpected(expectedMainKey, mainActual) ->
+                            snapshot(RuntimeRouteQualification.MAIN_FAILED)
+                        !AndroidOutputRouteIdentity.routesOnlyToExpected(expectedCueKey, cueActual) ->
+                            snapshot(RuntimeRouteQualification.CUE_FAILED)
+                        else -> snapshot(status)
+                    }
+                }
                 try {
                     Thread.sleep(1L)
                 } catch (_: InterruptedException) {
                     Thread.currentThread().interrupt()
-                    return RuntimeRouteQualification.WRITE_FAILED
+                    return snapshot(RuntimeRouteQualification.WRITE_FAILED)
                 }
             }
-            return if (playbackHeadDelta(playbackHead(mainTrack), warmupHeadBase) >= warmupMainFrames) {
-                status
-            } else {
-                RuntimeRouteQualification.MAIN_FAILED
+            val mainPresented = presentedMain()
+            val cuePresented = presentedCue()
+            if (!CueRuntimeWarmupPolicy.drained(warmupMainFrames, mainPresented)) {
+                return snapshot(RuntimeRouteQualification.MAIN_FAILED)
+            }
+            if (!CueRuntimeWarmupPolicy.drained(warmupCueFrames, cuePresented)) {
+                return snapshot(RuntimeRouteQualification.CUE_FAILED)
+            }
+            val mainActual = AndroidOutputRouteIdentity.routedPhysicalKeys(mainTrack)
+            val cueActual = AndroidOutputRouteIdentity.routedPhysicalKeys(cueTrack)
+            return when {
+                !AndroidOutputRouteIdentity.routesOnlyToExpected(expectedMainKey, mainActual) ->
+                    snapshot(RuntimeRouteQualification.MAIN_FAILED)
+                !AndroidOutputRouteIdentity.routesOnlyToExpected(expectedCueKey, cueActual) ->
+                    snapshot(RuntimeRouteQualification.CUE_FAILED)
+                else -> snapshot(status)
             }
         }
+
         try {
             while (running && System.nanoTime() < deadline) {
-                val mainWrite = mainTrack.write(silence, 0, silence.size, AudioTrack.WRITE_NON_BLOCKING)
-                val cueWrite = cueTrack.write(silence, 0, silence.size, AudioTrack.WRITE_NON_BLOCKING)
-                if (mainWrite < 0) return finish(RuntimeRouteQualification.MAIN_FAILED)
-                if (cueWrite < 0) return finish(RuntimeRouteQualification.WRITE_FAILED)
-                warmupMainFrames += mainWrite / 2L
+                val mainPresented = presentedMain()
+                if (CueRuntimeWarmupPolicy.shouldFeed(
+                        warmupMainFrames,
+                        mainPresented,
+                        RUNTIME_ROUTE_TARGET_OUTSTANDING_FRAMES,
+                    )) {
+                    val mainWrite = mainTrack.write(silence, 0, silence.size, AudioTrack.WRITE_NON_BLOCKING)
+                    if (mainWrite < 0) return finish(RuntimeRouteQualification.MAIN_FAILED)
+                    warmupMainFrames += mainWrite / 2L
+                }
+
+                val cuePresented = presentedCue()
+                if (CueRuntimeWarmupPolicy.shouldFeed(
+                        warmupCueFrames,
+                        cuePresented,
+                        RUNTIME_ROUTE_TARGET_OUTSTANDING_FRAMES,
+                    )) {
+                    val cueWrite = cueTrack.write(silence, 0, silence.size, AudioTrack.WRITE_NON_BLOCKING)
+                    if (cueWrite < 0) return finish(RuntimeRouteQualification.WRITE_FAILED)
+                    warmupCueFrames += cueWrite / 2L
+                }
+
                 val mainActual = AndroidOutputRouteIdentity.routedPhysicalKeys(mainTrack)
                 val cueActual = AndroidOutputRouteIdentity.routedPhysicalKeys(cueTrack)
                 val exact = AndroidOutputRouteIdentity.routesOnlyToExpected(expectedMainKey, mainActual) &&
                     AndroidOutputRouteIdentity.routesOnlyToExpected(expectedCueKey, cueActual)
                 stablePolls = if (exact) stablePolls + 1 else 0
-                if (stablePolls >= MAIN_ROUTE_STABLE_POLLS) return finish(RuntimeRouteQualification.QUALIFIED)
+                if (stablePolls >= MAIN_ROUTE_STABLE_POLLS) {
+                    return finish(RuntimeRouteQualification.QUALIFIED)
+                }
                 Thread.sleep(MAIN_ROUTE_POLL_MS)
             }
         } catch (_: InterruptedException) {
@@ -927,12 +1085,18 @@ class AndroidStudioPlaybackEngine(context: Context) : AutoCloseable {
         } catch (_: RuntimeException) {
             return finish(RuntimeRouteQualification.MAIN_FAILED)
         }
+
         val mainActual = AndroidOutputRouteIdentity.routedPhysicalKeys(mainTrack)
-        return finish(if (AndroidOutputRouteIdentity.routesOnlyToExpected(expectedMainKey, mainActual)) {
-            RuntimeRouteQualification.CUE_FAILED
-        } else {
-            RuntimeRouteQualification.MAIN_FAILED
-        })
+        val cueActual = AndroidOutputRouteIdentity.routedPhysicalKeys(cueTrack)
+        return finish(
+            when {
+                !AndroidOutputRouteIdentity.routesOnlyToExpected(expectedMainKey, mainActual) ->
+                    RuntimeRouteQualification.MAIN_FAILED
+                !AndroidOutputRouteIdentity.routesOnlyToExpected(expectedCueKey, cueActual) ->
+                    RuntimeRouteQualification.CUE_FAILED
+                else -> RuntimeRouteQualification.CUE_FAILED
+            },
+        )
     }
 
     private fun prepareCueOutput(
@@ -1187,12 +1351,14 @@ class AndroidStudioPlaybackEngine(context: Context) : AutoCloseable {
         const val CUE_DRIFT_CONSECUTIVE_LIMIT = 3
         const val CUE_MAX_PENDING_MS = 180
         const val CUE_COMMUNICATION_DRIFT_GRACE_NS = 750_000_000L
+        const val CUE_RELATIVE_DRIFT_BASELINE_MIN_FRAMES = 2_048L
         const val MAIN_ROUTE_PROBE_FRAMES = 256
         const val MAIN_ROUTE_POLL_MS = 8L
         const val MAIN_ROUTE_STABLE_POLLS = 4
         const val MAIN_ROUTE_SETTLE_TIMEOUT_NS = 5_000_000_000L
         const val RUNTIME_PRIME_FRAMES = 512
         const val RUNTIME_ROUTE_FEED_FRAMES = 512
+        const val RUNTIME_ROUTE_TARGET_OUTSTANDING_FRAMES = 1_024L
         const val RUNTIME_WARMUP_DRAIN_TIMEOUT_NS = 500_000_000L
     }
 }

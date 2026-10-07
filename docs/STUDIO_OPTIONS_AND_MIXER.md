@@ -7,7 +7,7 @@ Options owns low-frequency setup and diagnostics: input route, main output, seco
 
 MAIN may remain Android-selected for ordinary single-output work. CUE is explicit-only: MAIN must be explicit, CUE must resolve to a different live low-latency endpoint and CUE never falls back silently into MAIN. Bluetooth remains valid for ordinary single-output MAIN but is excluded from synchronized CUE.
 
-Selection-time admission first uses Communication Split when Android exposes the requested CUE endpoint as a communication device; otherwise it can use conventional independent media devices. Physical MAIN/CUE separation is mandatory in either strategy. Timing qualification is strategy-specific: conventional multi-device retains the 12 ms startup-origin bound, while Communication Split permits a bounded 60 ms fixed pipeline offset and uses a sustained 60 ms/750 ms runtime drift guard. The automatic path does not enter global `MODE_IN_COMMUNICATION`.
+Selection-time admission first uses Communication Split when Android exposes the requested CUE endpoint as a communication device; otherwise it can use conventional independent media devices. Physical MAIN/CUE separation is mandatory in either strategy. Timing qualification is strategy-specific: conventional multi-device retains the 12 ms startup-origin bound, while Communication Split permits a bounded 60 ms selection-time fixed pipeline offset. Runtime warm-up is bounded and drained on both sinks before music starts; after both streams advance, a relative MAIN↔CUE baseline is established and only sustained movement beyond 60 ms for 750 ms is treated as drift. The automatic path does not enter global `MODE_IN_COMMUNICATION`.
 
 Project persistence and final-audio export are **not** Options actions.
 

@@ -82,6 +82,7 @@ class DiagnosticBundleExporter(private val context: Context) {
             .put("effectiveOutput", routeHealth.effectiveOutput?.let { "${it.transportFamily}:${it.label}" })
             .put("effectiveCueOutput", routeHealth.effectiveCueOutput?.let { "${it.transportFamily}:${it.label}" })
             .put("lastCuePreflight", AndroidCueRouteVerifier.lastPreflightDiagnostic())
+            .put("lastCueRuntimeVersion", 2)
             .put("lastCueRuntime", AndroidCueRouteVerifier.lastRuntimeCueDiagnostic())
             .put("lastCuePreflightStatus", cuePreflight?.status?.name)
             .put("lastCuePreflightEvidence", cuePreflight?.let(::cuePreflightJson))

@@ -28,7 +28,7 @@ require_tokens(
 )
 require_tokens(
     "platform/audio-android/src/main/kotlin/studio/guitarlab/platform/audio/android/AndroidCueRouteVerifier.kt",
-    ["CuePreflightEvidence", "CueCommunicationEvidence", "candidateCueSampleRates", "negotiatedProfile", "COMMUNICATION_SPLIT", "initialOffsetNs"],
+    ["CuePreflightEvidence", "CueCommunicationEvidence", "candidateCueSampleRates", "negotiatedProfile", "COMMUNICATION_SPLIT", "beginRuntimeCueDiagnostic", "clearRuntimeCueDiagnostic"],
 )
 require_tokens(
     "app/src/main/java/studio/guitarlab/app/ui/CueRouteController.kt",
@@ -36,16 +36,33 @@ require_tokens(
 )
 require_tokens(
     "platform/audio-android/src/main/kotlin/studio/guitarlab/platform/audio/android/AndroidStudioPlaybackEngine.kt",
-    ["verifyMainEffectiveRoute", "qualifyRuntimeRoutes", "StereoLinearResampler", "COMMUNICATION_SPLIT", "CueNonBlockingWriteQueue"],
+    ["verifyMainEffectiveRoute", "qualifyRuntimeRoutes", "CueRelativeDriftMonitor", "RUNTIME_ROUTE_TARGET_OUTSTANDING_FRAMES", "initiallyQueuedCueFrames"],
 )
 require_tokens(
     "app/src/main/java/studio/guitarlab/app/diagnostics/DiagnosticBundleExporter.kt",
-    ["lastCuePreflightStatus", "lastCuePreflightEvidence", "lastCueRuntime", "initialOffsetNs", "duckingRequested"],
+    ["lastCuePreflightStatus", "lastCuePreflightEvidence", "lastCueRuntimeVersion", "lastCueRuntime", "initialOffsetNs", "duckingRequested"],
 )
 require_tokens(
     "docs/CURRENT_STATE.md",
-    ["COMMUNICATION SPLIT STABILIZATION", "RC32", "PHYSICAL REQUALIFICATION PENDING"],
+    ["RC33 RUNTIME ALIGNMENT", "SIGNED CI PENDING", "PHYSICAL REQUALIFICATION PENDING"],
 )
+
+require_tokens(
+    "platform/audio-android/src/main/kotlin/studio/guitarlab/platform/audio/android/CueRuntimeAlignment.kt",
+    ["CueRuntimeWarmupPolicy", "CueRelativeDriftMonitor", "baselineDeltaFrames", "relativeDriftFrames"],
+)
+
+communication_source = (
+    ROOT / "platform/audio-android/src/main/kotlin/studio/guitarlab/platform/audio/android/CommunicationCueRouting.kt"
+).read_text(encoding="utf-8")
+if "CommunicationCuePolicy" in communication_source:
+    raise SystemExit("Obsolete CommunicationCuePolicy must not return to the active routing path")
+
+engine_source = (
+    ROOT / "platform/audio-android/src/main/kotlin/studio/guitarlab/platform/audio/android/AndroidStudioPlaybackEngine.kt"
+).read_text(encoding="utf-8")
+if "cueDriftUnsafeSinceNs" in engine_source:
+    raise SystemExit("Communication runtime drift must use the relative-baseline monitor")
 
 print("Typed CUE capability source checkpoint verified")
 

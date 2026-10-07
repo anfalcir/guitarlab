@@ -12,16 +12,6 @@ internal data class CommunicationCueDiscovery(
     val currentPhysicalKey: String?,
 )
 
-internal object CommunicationCuePolicy {
-    val modeCandidates: List<Boolean> = listOf(false)
-
-    fun shouldAttemptAfterMedia(status: CuePreflightStatus): Boolean = when (status) {
-        CuePreflightStatus.CANCELLED,
-        CuePreflightStatus.EXPECTED_PAIR_NOT_DISTINCT -> false
-        else -> true
-    }
-}
-
 internal class CommunicationCueSession internal constructor(
     private val audioManager: AudioManager,
     val device: AudioDeviceInfo,

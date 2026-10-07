@@ -8,6 +8,7 @@ import android.media.AudioTrack
 import android.media.AudioTimestamp
 import android.os.Build
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicLong
 import studio.guitarlab.core.audio.AudioClockObservation
 import studio.guitarlab.core.audio.CueProbeOutput
 import studio.guitarlab.core.audio.CueRouteObservation
@@ -150,12 +151,38 @@ object AndroidCueRouteVerifier {
     @Volatile private var lastPreflightResult: CuePreflightResult? = null
     @Volatile private var lastRuntimeCueDiagnostic: String? = null
     private val negotiatedProfiles = ConcurrentHashMap<String, CueOutputProfile>()
+    private val runtimeCueSessionSequence = AtomicLong(0L)
 
     fun lastPreflightResult(): CuePreflightResult? = lastPreflightResult
     fun lastPreflightDiagnostic(): String? = lastPreflightResult?.diagnosticSummary()
     fun lastRuntimeCueDiagnostic(): String? = lastRuntimeCueDiagnostic
-    fun recordRuntimeCueDiagnostic(detail: String) {
-        lastRuntimeCueDiagnostic = detail.take(4_096)
+    fun clearRuntimeCueDiagnostic() {
+        lastRuntimeCueDiagnostic = null
+    }
+
+    fun beginRuntimeCueDiagnostic(
+        main: AudioDeviceInfo,
+        cue: AudioDeviceInfo,
+        strategy: CueOutputStrategy,
+        mainSampleRateHz: Int,
+        cueSampleRateHz: Int,
+    ): Long {
+        val sessionId = runtimeCueSessionSequence.incrementAndGet()
+        lastRuntimeCueDiagnostic = buildString {
+            append("sessionId=").append(sessionId)
+            append("; state=STARTED")
+            append("; startedAtEpochMs=").append(System.currentTimeMillis())
+            append("; expectedMain=").append(AndroidOutputRouteIdentity.physicalKey(main))
+            append("; expectedCue=").append(AndroidOutputRouteIdentity.physicalKey(cue))
+            append("; strategy=").append(strategy.name)
+            append("; mainSampleRateHz=").append(mainSampleRateHz)
+            append("; cueSampleRateHz=").append(cueSampleRateHz)
+        }.take(4_096)
+        return sessionId
+    }
+
+    fun recordRuntimeCueDiagnostic(sessionId: Long, detail: String) {
+        lastRuntimeCueDiagnostic = "sessionId=$sessionId; $detail".take(4_096)
     }
 
     fun negotiatedProfile(

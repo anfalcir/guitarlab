@@ -593,3 +593,15 @@ Physical route identity remains fail-closed and authoritative. Static presentati
 
 A partial or zero `WRITE_NON_BLOCKING` result is treated as transient backpressure, not immediate CUE failure. A bounded FIFO preserves sample order without ever blocking MAIN; CUE is disabled only on fatal write, bounded-backlog overflow, sustained drift, or physical-route loss. Runtime diagnostics export the last suppression reason and timing/backlog evidence. User-facing text describes readiness or unavailability without internal terms such as experimental strategy, homologation or ducking.
 
+## D-112 — Runtime CUE synchronization is relative to a fully drained dual-sink baseline
+
+2026-10-07. RC32 owner testing with tablet speaker + wired headset proves selection-time Communication Split is now repeatable in both directions, but runtime can still suppress an otherwise valid route. The diagnostic `GuitarLab-Diagnostics-1791375828493.zip` records all new rc32 preflights as `SUPPORTED` while the retained runtime failure reports roughly 90.7 ms absolute presented-frame separation with zero GuitarLab FIFO backlog.
+
+Code audit identifies a deterministic confounder: runtime route qualification counted/drained accepted silent warm-up only for MAIN. CUE could therefore retain already-enqueued silence inside its native `AudioTrack` when the later playback-head bases were captured. Absolute `cuePresented-mainPresented` then mixed residual startup pipeline state with true clock drift.
+
+RC33 makes route qualification symmetric and bounded. Actual non-blocking transfer counts are accumulated independently for MAIN and CUE, outstanding warm-up is capped, and both sinks must present every accepted warm-up frame before musical playback establishes new bases. Short/zero non-blocking transfers remain valid scheduling outcomes; negative writes remain failures.
+
+For Communication Split, runtime drift is defined as **change in the MAIN↔CUE presented-frame delta after both real streams have advanced enough to establish a baseline**. Fixed pipeline offset belongs to that baseline and is not itself drift. Only subsequent relative movement beyond the existing communication envelope for the existing persistence interval can suppress CUE. Seek resets the baseline. Physical route mismatch remains immediate fail-closed and is never normalized away as timing.
+
+Each Play creates a new runtime diagnostic session and clears stale evidence. Diagnostics bind the failure to expected routes, strategy/rates, warm-up accepted/presented counts, baseline/current delta, relative drift, queue state and actual routed endpoints.
+

@@ -36,6 +36,20 @@ class CueOutputNegotiationTest {
     }
 
     @Test
+    fun communicationProfileKeepsExplicitStrategyWithoutGlobalMode() {
+        val profile = CueOutputProfile(
+            sessionSampleRateHz = 44_100,
+            mainSampleRateHz = 44_100,
+            cueSampleRateHz = 48_000,
+            strategy = CueOutputStrategy.COMMUNICATION_SPLIT,
+            communicationModeRequired = false,
+        )
+        assertTrue(profile.requiresCueResampling)
+        assertEquals(CueOutputStrategy.COMMUNICATION_SPLIT, profile.strategy)
+        assertEquals(false, profile.communicationModeRequired)
+    }
+
+    @Test
     fun streamingResamplerKeepsCumulativeDurationAcrossChunks() {
         val resampler = StereoLinearResampler(44_100, 48_000)
         var outputFrames = 0L
