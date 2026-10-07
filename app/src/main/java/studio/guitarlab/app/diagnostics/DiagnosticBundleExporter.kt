@@ -82,6 +82,7 @@ class DiagnosticBundleExporter(private val context: Context) {
             .put("effectiveOutput", routeHealth.effectiveOutput?.let { "${it.transportFamily}:${it.label}" })
             .put("effectiveCueOutput", routeHealth.effectiveCueOutput?.let { "${it.transportFamily}:${it.label}" })
             .put("lastCuePreflight", AndroidCueRouteVerifier.lastPreflightDiagnostic())
+            .put("lastCueRuntime", AndroidCueRouteVerifier.lastRuntimeCueDiagnostic())
             .put("lastCuePreflightStatus", cuePreflight?.status?.name)
             .put("lastCuePreflightEvidence", cuePreflight?.let(::cuePreflightJson))
             .toString(2).toByteArray()
@@ -236,13 +237,14 @@ class DiagnosticBundleExporter(private val context: Context) {
         MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
 
     private fun cuePreflightJson(result: CuePreflightResult): JSONObject = JSONObject()
-        .put("schemaVersion", 3)
+        .put("schemaVersion", 4)
         .put("status", result.status.name)
         .put("strategy", result.evidence.strategy.name)
         .put("sampleRateHz", result.evidence.sampleRateHz)
         .put("attemptedCueSampleRates", JSONArray(result.evidence.attemptedCueSampleRates))
         .put("negotiatedCueSampleRateHz", result.evidence.negotiatedCueSampleRateHz)
         .put("cueResamplingRequired", result.evidence.cueResamplingRequired)
+        .put("initialOffsetNs", result.evidence.initialOffsetNs)
         .put("expectedMainPhysicalKey", result.evidence.expectedMainPhysicalKey)
         .put("expectedCuePhysicalKey", result.evidence.expectedCuePhysicalKey)
         .put("mainAdvertisedSampleRates", JSONArray(result.evidence.mainAdvertisedSampleRates))

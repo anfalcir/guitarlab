@@ -1,22 +1,26 @@
 # Current State — GuitarLab Studio
 
-Updated: 2026-10-06
+Updated: 2026-10-07
 
 ## Status
 
-**RC31 COMMUNICATION SPLIT — DIGITAL QUALIFICATION PASS; PHYSICAL ROUTE/FIDELITY QUALIFICATION PENDING**
+**RC32 COMMUNICATION SPLIT STABILIZATION — IMPLEMENTED; DIGITAL QUALIFICATION PENDING; PHYSICAL REQUALIFICATION PENDING**
 
-The current source is `0.5.0-rc31` / versionCode `51`. It preserves the rc30 adaptive-rate, canonical physical-route and fail-closed CUE protections and adds a second capability strategy for the physically rejected SM-X230 dual-media topology.
+RC31 owner-device evidence on SM-X230 / Android 16 is now positive for physical routing: MAIN MK-300 and wired CUE were repeatedly observed as distinct effective routes under `COMMUNICATION_SPLIT`, and real project audio was heard simultaneously on the intended destinations. The remaining RC31 instability is caused by validation/runtime policy, not by inability to expose the two routes.
 
-Admission tries `MULTI_DEVICE` first. If two `USAGE_MEDIA` tracks cannot remain on distinct physical outputs, Android 12+ is probed with `COMMUNICATION_SPLIT`: MAIN remains `USAGE_MEDIA + CONTENT_TYPE_MUSIC`; CUE is opened as `USAGE_VOICE_COMMUNICATION + CONTENT_TYPE_MUSIC`, and the selected CUE endpoint must exist in `getAvailableCommunicationDevices()`. Candidate A leaves `AudioManager.mode` unchanged. Candidate B uses `MODE_IN_COMMUNICATION` only if A fails. Every process-global communication mutation is lifecycle-owned and restored.
+The diagnostic bundle `GuitarLab-Diagnostics-1791369836868.zip` records repeated `SUPPORTED` Communication Split results with MAIN `usb|usb-audio - mk300|card=1`, CUE `wired-jack|`, MAIN 44.1 kHz, CUE 48 kHz and `modeRequired=false`. It also records intermittent `OFFSET_EXCEEDED` outcomes; the final failures use `MODE_IN_COMMUNICATION`, while all captured successful qualifications use the non-mode communication path. The companion screen recording shows two runtime suppressions: transient non-blocking CUE backpressure and runtime route requalification failure. One run reproduced correct real audio separation for several seconds before the previous drift/backpressure guard disabled CUE.
 
-A successful `setCommunicationDevice` call is not admission evidence. Playing MAIN and CUE tracks must still prove exact distinct canonical physical routes, advancing clocks and bounded initial offset. Runtime repeats route proof and retains non-blocking CUE, drift guard, route listeners and fail-closed suppression. The negotiated profile records the exact strategy and whether communication mode was required so playback repeats what Settings proved.
+RC32 / versionCode `52` therefore separates route safety from synchronization quality. Physical route identity remains exact and fail-closed. Communication-capable CUE is attempted before MULTI_DEVICE to avoid first perturbing AudioPolicy with a known-convergent dual-MEDIA probe; MULTI_DEVICE remains a compatibility fallback. `MODE_IN_COMMUNICATION` is no longer part of the automatic path.
 
-Zero ducking is mandatory. CUE does not request transient-may-duck focus, rewrite MAIN gain or manipulate Android system volume. Mixer/project gains remain authoritative. Communication-route success is not yet a fidelity claim: effective PCM format is recorded, but OEM post-mix DSP requires physical qualification. Successful Communication Split therefore records `fidelityQualification=PENDING_PHYSICAL`.
+The default 12 ms startup offset limit remains for conventional MULTI_DEVICE. COMMUNICATION_SPLIT uses a bounded 60 ms startup limit and exports the actual measured offset. Runtime communication drift uses a 60 ms bound that must persist for 750 ms before suppression. These wider communication-specific limits are quality/stability policy only; they never weaken physical-route proof.
 
-The implementation adds `MODIFY_AUDIO_SETTINGS` (normal permission), communication-device/mode evidence, schema v3 route diagnostics, unit policy coverage and CI source guards. Android CI **#969 / run `37549317925`** is PASS on producer SHA `00fe4d621849bf5f8f1211e25ecba9d6a6c28598`: Unit tests, Android Lint, debug/release assembly, API 36 instrumented regression, tested-candidate provenance, signing and signed package/certificate verification all passed. RC31 is digitally qualified for the targeted physical Communication Split experiment; product support remains blocked on the SM-X230 route/fidelity/zero-duck physical gate.
+CUE remains strictly non-blocking relative to MAIN, but partial/zero `AudioTrack.WRITE_NON_BLOCKING` results are no longer treated as immediate failure. A bounded FIFO keeps sample order and absorbs transient backpressure; overflow/fatal write still disables CUE. Runtime Communication Split no longer repeats the full selection-time silent clock preflight on the same tracks before real playback; the actual playback start performs fresh physical route qualification and runtime drift supervision instead.
 
-The professional USB multichannel MAIN 1/2 + CUE 3/4 plan remains active at `history/CUE_USB_MULTICHANNEL_IMPLEMENTATION_PLAN_2026-10-06.md`. Communication Split is specified at `history/CUE_COMMUNICATION_SPLIT_EXPERIMENT_PLAN_2026-10-06.md`.
+User-facing text is product-facing (`Saída CUE pronta` / concise failure messages). Internal strategy/homologation/ducking language stays in diagnostics. Route diagnostics advance to schema v4 with `initialOffsetNs` and `lastCueRuntime`, including backlog, drift and effective-route evidence for any runtime suppression.
+
+Zero ducking remains mandatory. Mixer/project gains remain authoritative. RC31 CI #969 remains the last signed digital PASS; RC32 must pass software, API36 and signing before physical requalification.
+
+The professional USB multichannel MAIN 1/2 + CUE 3/4 plan remains active at `history/CUE_USB_MULTICHANNEL_IMPLEMENTATION_PLAN_2026-10-06.md`. RC32 stabilization evidence and rationale are recorded at `history/CUE_COMMUNICATION_SPLIT_STABILIZATION_2026-10-07.md`.
 
 ## Exact signed RC31 identity — physical validation pending
 

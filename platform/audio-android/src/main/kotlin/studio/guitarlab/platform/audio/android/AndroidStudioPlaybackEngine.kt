@@ -215,6 +215,13 @@ class AndroidStudioPlaybackEngine(context: Context) : AutoCloseable {
         val cueResampler = if (cueOutputSampleRateHz != request.sampleRateHz) {
             StereoLinearResampler(request.sampleRateHz, cueOutputSampleRateHz)
         } else null
+        val communicationSplitActive = negotiatedCueProfile?.strategy == CueOutputStrategy.COMMUNICATION_SPLIT
+        val cueWriteQueue = CueNonBlockingWriteQueue(
+            maxPendingSamples = maxOf(
+                2,
+                cueOutputSampleRateHz * 2 * CUE_MAX_PENDING_MS / 1_000,
+            ),
+        )
         var mainRoutingListener: AudioRouting.OnRoutingChangedListener? = null
         var cueRoutingListener: AudioRouting.OnRoutingChangedListener? = null
         val mainRouteInvalid = AtomicBoolean(false)
@@ -336,7 +343,7 @@ class AndroidStudioPlaybackEngine(context: Context) : AutoCloseable {
                     runtimePrime.size,
                     AudioTrack.WRITE_NON_BLOCKING,
                 )
-                if (cuePrimeWrite != runtimePrime.size) {
+                if (cuePrimeWrite < 0) {
                     cueRoutingListener?.let { runCatching { activeCue.removeOnRoutingChangedListener(it) } }
                     cueRoutingListener = null
                     runCatching { activeCue.release() }
@@ -396,7 +403,7 @@ class AndroidStudioPlaybackEngine(context: Context) : AutoCloseable {
                         reportCueSuppressed(
                             request,
                             listener,
-                            "A rota CUE não permaneceu comprovada no início do áudio de reprodução.",
+                            "Não foi possível confirmar a saída CUE ao iniciar a reprodução.",
                         )
                     }
                 }
@@ -432,6 +439,7 @@ class AndroidStudioPlaybackEngine(context: Context) : AutoCloseable {
             clockHeadBase = playbackHead(audioTrack)
             var cueClockHeadBase = cueTrack?.let(::playbackHead) ?: 0L
             var cueDriftViolationCount = 0
+            var cueDriftUnsafeSinceNs: Long? = null
             var playbackStartReported = false
 
             while (running) {
@@ -447,12 +455,14 @@ class AndroidStudioPlaybackEngine(context: Context) : AutoCloseable {
                     cueTrack?.pause()
                     cueTrack?.flush()
                     cueResampler?.reset()
+                    cueWriteQueue.clear()
                     audioTrack.play()
                     cueTrack?.play()
                     clockStartFrame = renderFrame
                     clockHeadBase = playbackHead(audioTrack)
                     cueClockHeadBase = cueTrack?.let(::playbackHead) ?: 0L
                     cueDriftViolationCount = 0
+                    cueDriftUnsafeSinceNs = null
                     writtenFramesSinceClockBase = 0L
                     playbackClockAnchor = null
                     clockAnchorAttempted = false
@@ -503,6 +513,11 @@ class AndroidStudioPlaybackEngine(context: Context) : AutoCloseable {
                 val resampledCueMix = if (cueTrack != null) cueResampler?.process(cueMix, framesToRender) else null
                 val cueWriteBuffer = resampledCueMix ?: cueMix
                 val cueWriteSampleCount = resampledCueMix?.size ?: sampleCount
+                val cueEnqueued = if (cueTrack != null) {
+                    cueWriteQueue.enqueue(cueWriteBuffer, cueWriteSampleCount)
+                } else {
+                    true
+                }
 
                 val samplesWritten = audioTrack.write(mainMix, 0, sampleCount, AudioTrack.WRITE_BLOCKING)
                 if (samplesWritten < 0) error("Falha ao enviar áudio para a saída Android: código $samplesWritten.")
@@ -511,12 +526,18 @@ class AndroidStudioPlaybackEngine(context: Context) : AutoCloseable {
                 writtenFramesSinceClockBase += writtenFrames
 
                 cueTrack?.let { activeCue ->
-                    // CUE is deliberately non-blocking: a slow/blocked secondary sink may be
-                    // silenced, but it may never stall the render loop feeding MAIN.
-                    val cueWrite = runCatching {
-                        activeCue.write(cueWriteBuffer, 0, cueWriteSampleCount, AudioTrack.WRITE_NON_BLOCKING)
-                    }.getOrDefault(AudioTrack.ERROR_INVALID_OPERATION)
-                    val writeComplete = CueRouteSafetyPolicy.secondaryWriteComplete(cueWriteSampleCount, cueWrite)
+                    // CUE never blocks MAIN. Partial/zero non-blocking writes stay queued in a
+                    // small bounded buffer; only a fatal write or sustained backlog disables CUE.
+                    val drain = if (cueEnqueued) {
+                        cueWriteQueue.drain { buffer, offset, count ->
+                            runCatching {
+                                activeCue.write(buffer, offset, count, AudioTrack.WRITE_NON_BLOCKING)
+                            }.getOrDefault(AudioTrack.ERROR_INVALID_OPERATION)
+                        }
+                    } else {
+                        CueWriteDrainResult(0, cueWriteQueue.pendingSamples, fatalError = false)
+                    }
+                    val backpressureUnsafe = !cueEnqueued || drain.fatalError
                     val routeSafe = !cueRouteInvalid.get() && cueRouteStillSafe(audioTrack, activeCue, request)
                     val mainPresented = playbackHeadDelta(playbackHead(audioTrack), clockHeadBase)
                     val cuePresentedPhysical = playbackHeadDelta(playbackHead(activeCue), cueClockHeadBase)
@@ -525,25 +546,62 @@ class AndroidStudioPlaybackEngine(context: Context) : AutoCloseable {
                         fromSampleRateHz = cueOutputSampleRateHz,
                         toSampleRateHz = request.sampleRateHz,
                     )
+                    val maxDriftFrames = if (communicationSplitActive) {
+                        CueRouteSafetyPolicy.communicationDriftLimitFrames(request.sampleRateHz)
+                    } else {
+                        CueRouteSafetyPolicy.driftLimitFrames(request.sampleRateHz)
+                    }
                     val driftUnsafe = CueRouteSafetyPolicy.driftExceeded(
                         mainPresentedFrames = mainPresented,
                         cuePresentedFrames = cuePresented,
                         sampleRateHz = request.sampleRateHz,
+                        maxDriftFrames = maxDriftFrames,
                     )
-                    cueDriftViolationCount = if (driftUnsafe) cueDriftViolationCount + 1 else 0
-                    if (!writeComplete || !routeSafe || cueDriftViolationCount >= CUE_DRIFT_CONSECUTIVE_LIMIT) {
-                        val reason = when {
-                            !writeComplete ->
-                                "A saída CUE não acompanhou o fluxo em tempo real; foi silenciada para não bloquear a saída principal."
-                            !routeSafe ->
-                                "A rota CUE mudou, convergiu para a saída principal ou deixou de ser confirmada."
-                            else ->
-                                "A saída CUE excedeu o limite de deriva segura em relação à saída principal."
+                    val nowNs = System.nanoTime()
+                    val driftFailure = if (communicationSplitActive) {
+                        if (driftUnsafe) {
+                            if (cueDriftUnsafeSinceNs == null) cueDriftUnsafeSinceNs = nowNs
+                        } else {
+                            cueDriftUnsafeSinceNs = null
                         }
+                        cueDriftUnsafeSinceNs?.let { nowNs - it >= CUE_COMMUNICATION_DRIFT_GRACE_NS } == true
+                    } else {
+                        cueDriftViolationCount = if (driftUnsafe) cueDriftViolationCount + 1 else 0
+                        cueDriftViolationCount >= CUE_DRIFT_CONSECUTIVE_LIMIT
+                    }
+                    if (backpressureUnsafe || !routeSafe || driftFailure) {
+                        val reason = when {
+                            backpressureUnsafe ->
+                                "A saída CUE ficou indisponível durante a reprodução e foi desativada."
+                            !routeSafe ->
+                                "A saída CUE mudou de rota e foi desativada."
+                            else ->
+                                "A saída CUE perdeu sincronismo e foi desativada."
+                        }
+                        AndroidCueRouteVerifier.recordRuntimeCueDiagnostic(
+                            buildString {
+                                append("reason=").append(
+                                    when {
+                                        backpressureUnsafe -> "BACKPRESSURE"
+                                        !routeSafe -> "ROUTE_LOST"
+                                        else -> "DRIFT"
+                                    },
+                                )
+                                append("; strategy=").append(negotiatedCueProfile?.strategy?.name ?: "UNKNOWN")
+                                append("; pendingCueSamples=").append(cueWriteQueue.pendingSamples)
+                                append("; mainPresentedFrames=").append(mainPresented)
+                                append("; cuePresentedFrames=").append(cuePresented)
+                                append("; driftFrames=").append(kotlin.math.abs(mainPresented - cuePresented))
+                                append("; maxDriftFrames=").append(maxDriftFrames)
+                                append("; mainRoutes=").append(AndroidOutputRouteIdentity.routedPhysicalKeys(audioTrack).sorted())
+                                append("; cueRoutes=").append(AndroidOutputRouteIdentity.routedPhysicalKeys(activeCue).sorted())
+                            },
+                        )
                         runCatching { activeCue.pause() }
                         runCatching { activeCue.flush() }
                         runCatching { activeCue.release() }
                         cueTrack = null
+                        cueWriteQueue.clear()
                         communicationCueSession?.close()
                         communicationCueSession = null
                         cueRoutingListener?.let { listenerToRemove ->
@@ -990,23 +1048,23 @@ class AndroidStudioPlaybackEngine(context: Context) : AutoCloseable {
             )
         } else null
 
-        val dualRouteResult = primeAndVerifyDualRoutes(
-            mainTrack = mainTrack,
-            cueTrack = cueTrack,
-            expectedMain = explicitMain,
-            expectedCue = explicitCue,
-            sampleRateHz = request.sampleRateHz,
-            cueSampleRateHz = cueSampleRateHz,
-            strategy = cueStrategy,
-            communicationEvidence = communicationEvidence,
-            cueRouteReassert = if (cueStrategy == CueOutputStrategy.COMMUNICATION_SPLIT) {
-                { communicationSession?.reassert() == true }
-            } else null,
-        )
-        if (!dualRouteResult.supported) {
-            runCatching { cueTrack.release() }
-            reportCueSuppressed(request, listener, dualRouteResult.userMessage)
-            return null
+        if (cueStrategy != CueOutputStrategy.COMMUNICATION_SPLIT) {
+            val dualRouteResult = primeAndVerifyDualRoutes(
+                mainTrack = mainTrack,
+                cueTrack = cueTrack,
+                expectedMain = explicitMain,
+                expectedCue = explicitCue,
+                sampleRateHz = request.sampleRateHz,
+                cueSampleRateHz = cueSampleRateHz,
+                strategy = cueStrategy,
+                communicationEvidence = communicationEvidence,
+                cueRouteReassert = null,
+            )
+            if (!dualRouteResult.supported) {
+                runCatching { cueTrack.release() }
+                reportCueSuppressed(request, listener, dualRouteResult.userMessage)
+                return null
+            }
         }
 
         listener.onRouting(
@@ -1126,6 +1184,8 @@ class AndroidStudioPlaybackEngine(context: Context) : AutoCloseable {
         const val CLOCK_ANCHOR_SAMPLES = 6
         const val CLOCK_ANCHOR_POLL_MS = 3L
         const val CUE_DRIFT_CONSECUTIVE_LIMIT = 3
+        const val CUE_MAX_PENDING_MS = 180
+        const val CUE_COMMUNICATION_DRIFT_GRACE_NS = 750_000_000L
         const val MAIN_ROUTE_PROBE_FRAMES = 256
         const val MAIN_ROUTE_POLL_MS = 8L
         const val MAIN_ROUTE_STABLE_POLLS = 4

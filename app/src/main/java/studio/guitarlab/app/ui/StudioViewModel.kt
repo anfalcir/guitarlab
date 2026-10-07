@@ -2652,8 +2652,8 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                             if (sessionId != playbackSessionId || state.transport.mode != TransportMode.PLAYING) return@launch
                             val detail = status.cueFailureReason ?: "A saída secundária não pôde ser confirmada."
                             postTransientWarning(
-                                "CUE foi silenciado para impedir vazamento para a saída principal. $detail",
-                                "CUE foi silenciado para impedir vazamento para a saída principal.",
+                                "CUE foi desativado. $detail",
+                                "CUE foi desativado para manter a saída principal estável.",
                             )
                         }
                     }
@@ -2853,7 +2853,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                             val current = _state.value
                             if (current.recordingSession.phase == RecordingSessionPhase.CAPTURING) {
                                 postTransientWarning(
-                                    "CUE foi silenciado durante a gravação para impedir vazamento no MAIN. ${status.cueFailureReason ?: "Rota secundária não confirmada."}",
+                                    "CUE foi desativado durante a gravação. ${status.cueFailureReason ?: "A saída secundária não pôde ser confirmada."}",
                                     "CUE foi silenciado durante a gravação; o take continua normalmente.",
                                 )
                             }

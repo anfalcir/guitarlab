@@ -45,13 +45,10 @@ class CueRouteSafetyPolicyTest {
         assertEquals(689L, CueRouteSafetyPolicy.driftLimitFrames(44_100))
         assertFalse(CueRouteSafetyPolicy.driftExceeded(100_000, 100_750, 48_000))
         assertTrue(CueRouteSafetyPolicy.driftExceeded(100_000, 100_751, 48_000))
-    }
-    @Test
-    fun secondarySinkMayNeverBackPressureMain() {
-        assertTrue(CueRouteSafetyPolicy.secondaryWriteComplete(2048, 2048))
-        assertFalse(CueRouteSafetyPolicy.secondaryWriteComplete(2048, 1024))
-        assertFalse(CueRouteSafetyPolicy.secondaryWriteComplete(2048, 0))
-        assertFalse(CueRouteSafetyPolicy.secondaryWriteComplete(2048, -3))
+        assertEquals(2_880L, CueRouteSafetyPolicy.communicationDriftLimitFrames(48_000))
+        assertFalse(CueRouteSafetyPolicy.driftExceeded(
+            100_000, 102_880, 48_000, CueRouteSafetyPolicy.communicationDriftLimitFrames(48_000),
+        ))
     }
 
     @Test
@@ -61,6 +58,11 @@ class CueRouteSafetyPolicyTest {
         assertTrue(CueRouteSafetyPolicy.initialOffsetWithinLimit(1_000_000_000L + limit, 1_000_000_000L))
         assertFalse(CueRouteSafetyPolicy.initialOffsetWithinLimit(1_000_000_000L, 1_000_000_000L + limit + 1L))
         assertFalse(CueRouteSafetyPolicy.initialOffsetWithinLimit(Long.MIN_VALUE, Long.MAX_VALUE))
+        assertTrue(CueRouteSafetyPolicy.initialOffsetWithinLimit(
+            1_000_000_000L,
+            1_000_000_000L + 30_000_000L,
+            CueRouteSafetyPolicy.COMMUNICATION_INITIAL_OFFSET_LIMIT_NS,
+        ))
     }
 
 }

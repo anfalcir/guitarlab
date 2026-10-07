@@ -13,7 +13,7 @@ internal data class CommunicationCueDiscovery(
 )
 
 internal object CommunicationCuePolicy {
-    val modeCandidates: List<Boolean> = listOf(false, true)
+    val modeCandidates: List<Boolean> = listOf(false)
 
     fun shouldAttemptAfterMedia(status: CuePreflightStatus): Boolean = when (status) {
         CuePreflightStatus.CANCELLED,

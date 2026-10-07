@@ -11,6 +11,7 @@ import java.util.concurrent.ConcurrentHashMap
 import studio.guitarlab.core.audio.AudioClockObservation
 import studio.guitarlab.core.audio.CueProbeOutput
 import studio.guitarlab.core.audio.CueRouteObservation
+import studio.guitarlab.core.audio.CueRouteSafetyPolicy
 import studio.guitarlab.core.audio.CueStartupFailure
 import studio.guitarlab.core.audio.CueStartupProbe
 
@@ -81,6 +82,7 @@ data class CuePreflightEvidence(
     val attemptedCueSampleRates: List<Int> = emptyList(),
     val negotiatedCueSampleRateHz: Int? = null,
     val cueResamplingRequired: Boolean = false,
+    val initialOffsetNs: Long? = null,
     val strategy: CueOutputStrategy = CueOutputStrategy.MULTI_DEVICE,
     val communication: CueCommunicationEvidence? = null,
 )
@@ -104,6 +106,7 @@ data class CuePreflightResult(
         append("; attemptedCueSampleRates=").append(evidence.attemptedCueSampleRates)
         append("; negotiatedCueSampleRateHz=").append(evidence.negotiatedCueSampleRateHz)
         append("; cueResamplingRequired=").append(evidence.cueResamplingRequired)
+        append("; initialOffsetNs=").append(evidence.initialOffsetNs)
         append("; strategy=").append(evidence.strategy.name)
         evidence.communication?.let { communication ->
             append("; communicationApiSupported=").append(communication.apiSupported)
@@ -145,10 +148,15 @@ internal class CueRouteTraceBuffer(private val capacity: Int = 64) {
 /** Silent output-only preflight. Does not measure acoustic or input round-trip latency. */
 object AndroidCueRouteVerifier {
     @Volatile private var lastPreflightResult: CuePreflightResult? = null
+    @Volatile private var lastRuntimeCueDiagnostic: String? = null
     private val negotiatedProfiles = ConcurrentHashMap<String, CueOutputProfile>()
 
     fun lastPreflightResult(): CuePreflightResult? = lastPreflightResult
     fun lastPreflightDiagnostic(): String? = lastPreflightResult?.diagnosticSummary()
+    fun lastRuntimeCueDiagnostic(): String? = lastRuntimeCueDiagnostic
+    fun recordRuntimeCueDiagnostic(detail: String) {
+        lastRuntimeCueDiagnostic = detail.take(4_096)
+    }
 
     fun negotiatedProfile(
         main: AudioDeviceInfo,
@@ -182,75 +190,13 @@ object AndroidCueRouteVerifier {
         }
 
         val candidates = CueOutputNegotiationPolicy.candidateCueSampleRates(
-            sampleRateHz, cue.sampleRates.toList(),
+            sampleRateHz,
+            cue.sampleRates.toList(),
         )
-        val attemptedMedia = ArrayList<Int>(candidates.size)
-        var lastMedia: CuePreflightResult? = null
-        for (cueRate in candidates) {
-            if (!keepRunning()) {
-                lastMedia = CuePreflightResult(
-                    CuePreflightStatus.CANCELLED,
-                    messageFor(CuePreflightStatus.CANCELLED),
-                    emptyEvidence(main, cue, sampleRateHz).copy(attemptedCueSampleRates = attemptedMedia.toList()),
-                )
-                break
-            }
-            val attempt = verifyDeviceConfiguration(main, cue, sampleRateHz, cueRate, keepRunning)
-            attemptedMedia += cueRate
-            val annotated = attempt.copy(evidence = attempt.evidence.copy(
-                attemptedCueSampleRates = attemptedMedia.toList(),
-                negotiatedCueSampleRateHz = cueRate.takeIf { attempt.supported },
-                cueResamplingRequired = attempt.supported && cueRate != sampleRateHz,
-                strategy = CueOutputStrategy.MULTI_DEVICE,
-            ))
-            if (attempt.supported) {
-                negotiatedProfiles[profileKey] = CueOutputProfile(
-                    sampleRateHz, sampleRateHz, cueRate, CueOutputStrategy.MULTI_DEVICE,
-                )
-                val verified = annotated.copy(userMessage = if (cueRate != sampleRateHz) {
-                    "MAIN e CUE foram comprovados em saídas físicas distintas. CUE será adaptado automaticamente de " +
-                        sampleRateHz + " para " + cueRate + " Hz sem alterar o projeto."
-                } else messageFor(CuePreflightStatus.SUPPORTED))
-                lastPreflightResult = verified
-                return verified
-            }
-            lastMedia = annotated
-            if (!CommunicationCuePolicy.shouldAttemptAfterMedia(attempt.status)) break
-        }
-        val mediaFailure = lastMedia ?: CuePreflightResult(
-            CuePreflightStatus.OPEN_FAILED,
-            messageFor(CuePreflightStatus.OPEN_FAILED),
-            emptyEvidence(main, cue, sampleRateHz).copy(attemptedCueSampleRates = attemptedMedia.toList()),
-        )
-        if (!CommunicationCuePolicy.shouldAttemptAfterMedia(mediaFailure.status) || !keepRunning()) {
-            lastPreflightResult = mediaFailure
-            return mediaFailure
-        }
+        val communicationDiscovery = AndroidCommunicationCueRouting.discover(audioManager, cue)
+        var communicationFailure: CuePreflightResult? = null
 
-        val discovery = AndroidCommunicationCueRouting.discover(audioManager, cue)
-        if (!discovery.apiSupported || discovery.matchingDevice == null) {
-            val rejected = CuePreflightResult(
-                CuePreflightStatus.COMMUNICATION_DEVICE_UNAVAILABLE,
-                messageFor(CuePreflightStatus.COMMUNICATION_DEVICE_UNAVAILABLE),
-                mediaFailure.evidence.copy(
-                    strategy = CueOutputStrategy.COMMUNICATION_SPLIT,
-                    communication = CueCommunicationEvidence(
-                        discovery.apiSupported,
-                        discovery.availablePhysicalKeys,
-                        discovery.currentPhysicalKey,
-                        false,
-                        audioManager.mode,
-                        null,
-                        false,
-                    ),
-                ),
-            )
-            lastPreflightResult = rejected
-            return rejected
-        }
-
-        var lastCommunication: CuePreflightResult? = null
-        for (modeRequired in CommunicationCuePolicy.modeCandidates) {
+        if (communicationDiscovery.apiSupported && communicationDiscovery.matchingDevice != null) {
             val attempted = ArrayList<Int>()
             for (cueRate in candidates.take(MAX_COMMUNICATION_RATE_CANDIDATES)) {
                 if (!keepRunning()) {
@@ -264,33 +210,86 @@ object AndroidCueRouteVerifier {
                     ).also { lastPreflightResult = it }
                 }
                 val attempt = verifyCommunicationConfiguration(
-                    audioManager, main, cue, sampleRateHz, cueRate, modeRequired, keepRunning,
+                    audioManager = audioManager,
+                    main = main,
+                    cue = cue,
+                    mainSampleRateHz = sampleRateHz,
+                    cueSampleRateHz = cueRate,
+                    communicationModeRequired = false,
+                    keepRunning = keepRunning,
                 )
                 attempted += cueRate
-                val annotated = attempt.copy(evidence = attempt.evidence.copy(
-                    attemptedCueSampleRates = attempted.toList(),
-                    negotiatedCueSampleRateHz = cueRate.takeIf { attempt.supported },
-                    cueResamplingRequired = attempt.supported && cueRate != sampleRateHz,
-                    strategy = CueOutputStrategy.COMMUNICATION_SPLIT,
-                ))
+                val annotated = attempt.copy(
+                    evidence = attempt.evidence.copy(
+                        attemptedCueSampleRates = attempted.toList(),
+                        negotiatedCueSampleRateHz = cueRate.takeIf { attempt.supported },
+                        cueResamplingRequired = attempt.supported && cueRate != sampleRateHz,
+                        strategy = CueOutputStrategy.COMMUNICATION_SPLIT,
+                    ),
+                )
                 if (attempt.supported) {
                     negotiatedProfiles[profileKey] = CueOutputProfile(
-                        sampleRateHz,
-                        sampleRateHz,
-                        cueRate,
-                        CueOutputStrategy.COMMUNICATION_SPLIT,
-                        communicationModeRequired = modeRequired,
+                        sessionSampleRateHz = sampleRateHz,
+                        mainSampleRateHz = sampleRateHz,
+                        cueSampleRateHz = cueRate,
+                        strategy = CueOutputStrategy.COMMUNICATION_SPLIT,
+                        communicationModeRequired = false,
                     )
-                    val verified = annotated.copy(userMessage =
-                        "Rota experimental Communication Split comprovada: MAIN e CUE permaneceram em saídas físicas distintas. " +
-                            "Qualidade musical permanece pendente de homologação física; não há ducking solicitado pelo GuitarLab.")
+                    val verified = annotated.copy(
+                        userMessage = "Saída CUE pronta. O áudio principal e o CUE estão usando saídas separadas.",
+                    )
                     lastPreflightResult = verified
                     return verified
                 }
-                lastCommunication = annotated
+                communicationFailure = annotated
+                if (attempt.status == CuePreflightStatus.CANCELLED) break
             }
         }
-        return (lastCommunication ?: mediaFailure).also { lastPreflightResult = it }
+
+        val attemptedMedia = ArrayList<Int>(candidates.size)
+        var lastMedia: CuePreflightResult? = null
+        for (cueRate in candidates) {
+            if (!keepRunning()) {
+                lastMedia = CuePreflightResult(
+                    CuePreflightStatus.CANCELLED,
+                    messageFor(CuePreflightStatus.CANCELLED),
+                    emptyEvidence(main, cue, sampleRateHz).copy(attemptedCueSampleRates = attemptedMedia.toList()),
+                )
+                break
+            }
+            val attempt = verifyDeviceConfiguration(main, cue, sampleRateHz, cueRate, keepRunning)
+            attemptedMedia += cueRate
+            val annotated = attempt.copy(
+                evidence = attempt.evidence.copy(
+                    attemptedCueSampleRates = attemptedMedia.toList(),
+                    negotiatedCueSampleRateHz = cueRate.takeIf { attempt.supported },
+                    cueResamplingRequired = attempt.supported && cueRate != sampleRateHz,
+                    strategy = CueOutputStrategy.MULTI_DEVICE,
+                ),
+            )
+            if (attempt.supported) {
+                negotiatedProfiles[profileKey] = CueOutputProfile(
+                    sampleRateHz,
+                    sampleRateHz,
+                    cueRate,
+                    CueOutputStrategy.MULTI_DEVICE,
+                )
+                val verified = annotated.copy(
+                    userMessage = "Saída CUE pronta. O áudio principal e o CUE estão usando saídas separadas.",
+                )
+                lastPreflightResult = verified
+                return verified
+            }
+            lastMedia = annotated
+        }
+
+        val finalResult = communicationFailure ?: lastMedia ?: CuePreflightResult(
+            CuePreflightStatus.OPEN_FAILED,
+            messageFor(CuePreflightStatus.OPEN_FAILED),
+            emptyEvidence(main, cue, sampleRateHz),
+        )
+        lastPreflightResult = finalResult
+        return finalResult
     }
 
     private fun verifyDeviceConfiguration(
@@ -512,6 +511,7 @@ object AndroidCueRouteVerifier {
         val expectedCueKey = AndroidOutputRouteIdentity.physicalKey(expectedCue)
         var mainPreferredReasserted: Boolean? = null
         var cuePreferredReasserted: Boolean? = null
+        var initialOffsetNs: Long? = null
         fun evidence() = CuePreflightEvidence(
             sampleRateHz = sampleRateHz,
             expectedMainPhysicalKey = expectedMainKey,
@@ -527,6 +527,7 @@ object AndroidCueRouteVerifier {
             mainTrack = trackEvidence(mainTrack),
             cueTrack = trackEvidence(cueTrack),
             routedTransitions = emptyList(),
+            initialOffsetNs = initialOffsetNs,
             strategy = strategy,
             communication = communicationEvidence,
         )
@@ -577,6 +578,12 @@ object AndroidCueRouteVerifier {
                 keepRunning = { keepRunning() && !Thread.currentThread().isInterrupted },
                 routeObserver = routeObserver,
                 cueSampleRateHz = cueSampleRateHz,
+                maxInitialOffsetNs = if (strategy == CueOutputStrategy.COMMUNICATION_SPLIT) {
+                    CueRouteSafetyPolicy.COMMUNICATION_INITIAL_OFFSET_LIMIT_NS
+                } else {
+                    CueRouteSafetyPolicy.DEFAULT_INITIAL_OFFSET_LIMIT_NS
+                },
+                initialOffsetObserver = { initialOffsetNs = it },
             )
             result(failure?.toPreflightStatus() ?: CuePreflightStatus.SUPPORTED)
         } catch (_: InterruptedException) {
@@ -667,7 +674,7 @@ object AndroidCueRouteVerifier {
         CuePreflightStatus.WRONG_OR_MIRRORED_ROUTE -> "O Android encaminhou ou espelhou áudio para uma saída física diferente da selecionada."
         CuePreflightStatus.ROUTE_CHANGED -> "Uma rota MAIN/CUE mudou depois de ter sido confirmada."
         CuePreflightStatus.CLOCK_UNSTABLE -> "Os clocks MAIN/CUE não avançaram de forma estável durante a verificação."
-        CuePreflightStatus.OFFSET_EXCEEDED -> "O offset inicial entre MAIN e CUE excedeu 12 ms."
+        CuePreflightStatus.OFFSET_EXCEEDED -> "Não foi possível estabilizar a saída CUE. Tente novamente."
         CuePreflightStatus.VERIFICATION_FAILED -> "O Android não conseguiu comprovar sincronização inicial entre MAIN e CUE."
     }
 }

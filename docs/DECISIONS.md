@@ -583,3 +583,13 @@ The Android verifier returns a typed result with bounded structured evidence. `s
 
 Track gain/pan/mute/solo, Master and routing metadata remain the authoritative product controls. Output `AudioTrack` gain stays at unity after mixer processing except for explicit mute/fail-safe mechanics. Android/device volume remains an external user/system multiplier and may differ between media and communication strategies; diagnostics may report it, but GuitarLab does not change it automatically. Any candidate backend that causes implicit MAIN attenuation as a consequence of enabling CUE fails physical homologation.
 
+## D-111 — Communication Split separates route safety from static offset and transient backpressure
+
+2026-10-07. Owner-device RC31 evidence on SM-X230/Android 16 proves that MAIN MK-300 and wired CUE can be physically distinct through the public communication-device route, but also proves that the original dual-MEDIA safety thresholds are over-conservative for the heterogeneous MEDIA + COMMUNICATION topology.
+
+Communication-capable CUE is therefore attempted before MULTI_DEVICE so a known-convergent MEDIA+MEDIA probe does not perturb AudioPolicy first. `MODE_IN_COMMUNICATION` is removed from the automatic fallback path because owner evidence produced no successful qualification with it and it changes global routing/volume policy. MULTI_DEVICE remains available as compatibility fallback when communication routing is unavailable or fails.
+
+Physical route identity remains fail-closed and authoritative. Static presentation offset is no longer conflated with route safety: COMMUNICATION_SPLIT receives a wider bounded startup window while the exact measured offset is exported for hardware qualification. Runtime drift is evaluated with a communication-specific tolerance and persistence window instead of three instantaneous polls.
+
+A partial or zero `WRITE_NON_BLOCKING` result is treated as transient backpressure, not immediate CUE failure. A bounded FIFO preserves sample order without ever blocking MAIN; CUE is disabled only on fatal write, bounded-backlog overflow, sustained drift, or physical-route loss. Runtime diagnostics export the last suppression reason and timing/backlog evidence. User-facing text describes readiness or unavailability without internal terms such as experimental strategy, homologation or ducking.
+

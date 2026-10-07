@@ -6,8 +6,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class CommunicationCuePolicyTest {
-    @Test fun triesNonModeCandidateBeforeModeInCommunication() {
-        assertEquals(listOf(false, true), CommunicationCuePolicy.modeCandidates)
+    @Test fun automaticPathDoesNotEnterGlobalCommunicationMode() {
+        assertEquals(listOf(false), CommunicationCuePolicy.modeCandidates)
     }
 
     @Test fun cancellationAndSamePhysicalEndpointDoNotEscalate() {

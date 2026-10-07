@@ -36,8 +36,18 @@ class CueStartupProbeTest {
                 return AudioClockObservation(frames, 1_000_000_000 + frames * 1_000_000_000 / 48_000 + if (id == 2) cueOffset else 0)
             }
         }
-        fun verify(cancelAt: Long = Long.MAX_VALUE) = CueStartupProbe.verify(sink(1), sink(2), "main", "cue", 48_000,
-            nowNs = { 1_000_000_000 + elapsed }, sleepMs = { elapsed += it * 1_000_000 }, keepRunning = { elapsed < cancelAt })
+        fun verify(
+            cancelAt: Long = Long.MAX_VALUE,
+            maxInitialOffsetNs: Long = CueRouteSafetyPolicy.DEFAULT_INITIAL_OFFSET_LIMIT_NS,
+            offsetObserver: ((Long) -> Unit)? = null,
+        ) = CueStartupProbe.verify(
+            sink(1), sink(2), "main", "cue", 48_000,
+            nowNs = { 1_000_000_000 + elapsed },
+            sleepMs = { elapsed += it * 1_000_000 },
+            keepRunning = { elapsed < cancelAt },
+            maxInitialOffsetNs = maxInitialOffsetNs,
+            initialOffsetObserver = offsetObserver,
+        )
     }
 
     @Test fun keepsBothStreamsFedAcrossDelayedAndRepeatedTimestamps() {
@@ -79,9 +89,19 @@ class CueStartupProbeTest {
             keepRunning = { true },
         ))
     }
-    @Test fun staleClockAndLargeOffsetRemainRejected() {
+    @Test fun staleClockAndLargeOffsetRemainRejectedByDefault() {
         assertEquals(CueStartupFailure.CLOCK_UNSTABLE, Fixture().apply { staleClock = true }.verify())
         assertEquals(CueStartupFailure.OFFSET_EXCEEDED, Fixture().apply { cueOffset = 30_000_000 }.verify())
+    }
+
+    @Test fun communicationStrategyAllowsStableStaticOffsetAndReportsIt() {
+        var observed: Long? = null
+        val fixture = Fixture().apply { cueOffset = 30_000_000 }
+        assertNull(fixture.verify(
+            maxInitialOffsetNs = CueRouteSafetyPolicy.COMMUNICATION_INITIAL_OFFSET_LIMIT_NS,
+            offsetObserver = { observed = it },
+        ))
+        assertEquals(30_000_000L, observed)
     }
     @Test fun cancellationAndWriteErrorsExitWithinTheBound() {
         val f = Fixture()

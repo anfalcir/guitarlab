@@ -21,8 +21,10 @@ data class CueRouteAdmission(
  */
 object CueRouteSafetyPolicy {
     const val DEFAULT_INITIAL_OFFSET_LIMIT_NS = 12_000_000L
+    const val COMMUNICATION_INITIAL_OFFSET_LIMIT_NS = 60_000_000L
     private const val MIN_DRIFT_LIMIT_FRAMES = 512L
     private const val DRIFT_DIVISOR = 64
+    private const val COMMUNICATION_DRIFT_LIMIT_MS = 60L
 
     fun admit(
         cueRequested: Boolean,
@@ -54,8 +56,21 @@ object CueRouteSafetyPolicy {
         return maxOf(MIN_DRIFT_LIMIT_FRAMES, (sampleRateHz / DRIFT_DIVISOR).toLong())
     }
 
-    fun driftExceeded(mainPresentedFrames: Long, cuePresentedFrames: Long, sampleRateHz: Int): Boolean =
-        kotlin.math.abs(mainPresentedFrames - cuePresentedFrames) > driftLimitFrames(sampleRateHz)
+    fun communicationDriftLimitFrames(sampleRateHz: Int): Long {
+        require(sampleRateHz > 0) { "sampleRateHz must be positive" }
+        val communicationFrames = sampleRateHz.toLong() * COMMUNICATION_DRIFT_LIMIT_MS / 1_000L
+        return maxOf(driftLimitFrames(sampleRateHz), communicationFrames)
+    }
+
+    fun driftExceeded(
+        mainPresentedFrames: Long,
+        cuePresentedFrames: Long,
+        sampleRateHz: Int,
+        maxDriftFrames: Long = driftLimitFrames(sampleRateHz),
+    ): Boolean {
+        require(maxDriftFrames >= 0L)
+        return kotlin.math.abs(mainPresentedFrames - cuePresentedFrames) > maxDriftFrames
+    }
 
     fun initialOffsetWithinLimit(
         mainStreamOriginNs: Long,
@@ -63,16 +78,11 @@ object CueRouteSafetyPolicy {
         maxOffsetNs: Long = DEFAULT_INITIAL_OFFSET_LIMIT_NS,
     ): Boolean {
         require(maxOffsetNs >= 0L)
-        return absoluteDistance(mainStreamOriginNs, cueStreamOriginNs) <= maxOffsetNs
+        return initialOffsetNs(mainStreamOriginNs, cueStreamOriginNs) <= maxOffsetNs
     }
 
-    /**
-     * CUE is a secondary sink and may never back-pressure MAIN. The render loop therefore writes
-     * CUE in non-blocking mode and keeps it active only when one call accepts the complete chunk.
-     * Partial/zero/error writes are treated as secondary-sink backpressure and fail closed.
-     */
-    fun secondaryWriteComplete(requestedSamples: Int, writtenSamples: Int): Boolean =
-        requestedSamples > 0 && writtenSamples == requestedSamples
+    fun initialOffsetNs(mainStreamOriginNs: Long, cueStreamOriginNs: Long): Long =
+        absoluteDistance(mainStreamOriginNs, cueStreamOriginNs)
 
     private fun absoluteDistance(left: Long, right: Long): Long {
         val delta = try {

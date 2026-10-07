@@ -41,6 +41,8 @@ object CueStartupProbe {
         nowNs: () -> Long, sleepMs: (Long) -> Unit, keepRunning: () -> Boolean,
         routeObserver: ((CueRouteObservation) -> Unit)? = null,
         cueSampleRateHz: Int = sampleRateHz,
+        maxInitialOffsetNs: Long = CueRouteSafetyPolicy.DEFAULT_INITIAL_OFFSET_LIMIT_NS,
+        initialOffsetObserver: ((Long) -> Unit)? = null,
     ): CueStartupFailure? {
         require(sampleRateHz > 0 && cueSampleRateHz > 0 && expectedMainPhysicalKey != expectedCuePhysicalKey)
         val started = nowNs()
@@ -108,8 +110,12 @@ object CueStartupProbe {
                 val mainAnchor = AudioClockAnchorPolicy.estimate(mainClock, sampleRateHz, 4_000_000L)
                 val cueAnchor = AudioClockAnchorPolicy.estimate(cueClock, cueSampleRateHz, 4_000_000L)
                 if (mainAnchor != null && cueAnchor != null && mainAnchor.observations >= 3 && cueAnchor.observations >= 3) {
-                    return if (CueRouteSafetyPolicy.initialOffsetWithinLimit(mainAnchor.streamOriginMonotonicNs,
-                            cueAnchor.streamOriginMonotonicNs)) null else CueStartupFailure.OFFSET_EXCEEDED
+                    val offsetNs = CueRouteSafetyPolicy.initialOffsetNs(
+                        mainAnchor.streamOriginMonotonicNs,
+                        cueAnchor.streamOriginMonotonicNs,
+                    )
+                    initialOffsetObserver?.invoke(offsetNs)
+                    return if (offsetNs <= maxInitialOffsetNs) null else CueStartupFailure.OFFSET_EXCEEDED
                 }
                 if (now - qualifiedAt >= CLOCK_QUALIFICATION_TIMEOUT_NS) {
                     return CueStartupFailure.CLOCK_UNSTABLE

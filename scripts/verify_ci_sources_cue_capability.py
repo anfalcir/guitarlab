@@ -28,7 +28,7 @@ require_tokens(
 )
 require_tokens(
     "platform/audio-android/src/main/kotlin/studio/guitarlab/platform/audio/android/AndroidCueRouteVerifier.kt",
-    ["CuePreflightEvidence", "CueCommunicationEvidence", "candidateCueSampleRates", "negotiatedProfile", "COMMUNICATION_SPLIT"],
+    ["CuePreflightEvidence", "CueCommunicationEvidence", "candidateCueSampleRates", "negotiatedProfile", "COMMUNICATION_SPLIT", "initialOffsetNs"],
 )
 require_tokens(
     "app/src/main/java/studio/guitarlab/app/ui/CueRouteController.kt",
@@ -36,15 +36,15 @@ require_tokens(
 )
 require_tokens(
     "platform/audio-android/src/main/kotlin/studio/guitarlab/platform/audio/android/AndroidStudioPlaybackEngine.kt",
-    ["verifyMainEffectiveRoute", "qualifyRuntimeRoutes", "StereoLinearResampler", "COMMUNICATION_SPLIT", "USAGE_VOICE_COMMUNICATION"],
+    ["verifyMainEffectiveRoute", "qualifyRuntimeRoutes", "StereoLinearResampler", "COMMUNICATION_SPLIT", "CueNonBlockingWriteQueue"],
 )
 require_tokens(
     "app/src/main/java/studio/guitarlab/app/diagnostics/DiagnosticBundleExporter.kt",
-    ["lastCuePreflightStatus", "lastCuePreflightEvidence", "cuePreflightJson", "duckingRequested"],
+    ["lastCuePreflightStatus", "lastCuePreflightEvidence", "lastCueRuntime", "initialOffsetNs", "duckingRequested"],
 )
 require_tokens(
     "docs/CURRENT_STATE.md",
-    ["COMMUNICATION SPLIT IMPLEMENTED", "RC31", "PHYSICAL QUALITY QUALIFICATION PENDING"],
+    ["COMMUNICATION SPLIT STABILIZATION", "RC32", "PHYSICAL REQUALIFICATION PENDING"],
 )
 
 print("Typed CUE capability source checkpoint verified")
