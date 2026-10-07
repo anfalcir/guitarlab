@@ -1,6 +1,6 @@
 # Test and Homologation Policy
 
-Updated: 2026-10-03
+Updated: 2026-10-07
 
 ## Purpose
 
@@ -41,7 +41,7 @@ Run the software gate and affected API 36 instrumented regression. Add target-de
 
 Run deterministic core/audio tests, Android integration and relevant API 36 coverage. Target SM-X230/MK-300 validation is required when route, timestamp, buffering, capture, monitoring, latency or audible/visual synchronization can materially change.
 
-For dual-output/CUE changes, digital gates must cover backward-compatible project persistence, per-track routing policy, same-endpoint rejection, missing-route behavior, stable clock-anchor policy, the 12 ms initial presentation-offset guard, continuous drift bounds, non-blocking secondary backpressure behavior, Mixer accessibility and both Play/REC integration. Physical acceptance must then verify the actual intended MAIN + CUE hardware combination because Android/HAL routing and acoustic/device latency of two simultaneous physical outputs cannot be proven by emulator CI.
+For dual-output/CUE changes, digital gates must cover backward-compatible project persistence, per-track routing policy, same-endpoint rejection, missing/wrong/mirrored route behavior, strategy selection, clock/offset policy, bounded non-blocking CUE buffering, runtime drift handling, zero-duck invariants, Mixer accessibility and both Play/REC integration. Strategy-specific timing limits must be tested explicitly: conventional multi-device keeps its tight startup bound, while Communication Split uses its documented bounded static-offset and sustained-drift windows. Physical acceptance must verify the actual intended MAIN + CUE hardware combination because Android/HAL routing, OEM processing and audible usefulness cannot be proven by emulator CI.
 
 Typed capability regressions must additionally distinguish CUE convergence to MAIN, absent effective route, unexpected/mirrored routes and loss after qualification. Evidence buffers must remain bounded and ordered. Android gates must cover controller cancellation, session-cache reuse/invalidation, `AudioDeviceCallback`/routing-listener cleanup, truthful MAIN effective-route reporting, explicit retry and diagnostic JSON schema/redaction. None of these digital results may be presented as physical dual-output acceptance.
 
@@ -101,19 +101,10 @@ Historical plans may contain “pending/open/current” language from their own 
 
 A candidate is invalidated when source, materialized runtime bytes, package/version, unsigned APK, signer, relevant backend digest or another protected identity changes after qualification. A documentation-only commit does not retroactively change an already-built candidate.
 
-## Current feature application
+## Current CUE application
 
-RC27 is an owner-requested Mixer visual-hierarchy refinement after review of the signed RC26 Studio. It reopens only affected Mixer presentation and adjacent Studio geometry evidence: centered track/Master headers, soft section boundaries, selected/unselected card treatment, existing pointer/slider interaction, large-font containment, horizontal overflow and target-tablet density. RC26 remains signed digital evidence for its code tree, but RC27 is a new runtime candidate and must qualify its exact source. Existing audio routing/recording, frozen Demucs and unrelated Drive evidence remain applicable because RC27 does not change those paths. RC20 remains the accepted physical baseline until an exact signed successor is owner-accepted.
-
-Automated geometry must establish useful hierarchy and workspace density, not only control existence: inline non-overlapping 48 dp touch regions, centered header identity groups, compact edge-anchored clipping badges that do not cover centered titles, full-width/non-overlapping internal sections, complete/minimum height budgets, a third full waveform lane with complete Mixer on target-tablet geometry and stable navbar slots. Capture and inspect RC27 screenshots of five managed-audio clips in complete/minimum states plus focused clipping/large-font evidence before declaring digital UI qualification complete. Owner physical acceptance remains a distinct step.
+The active Android successor is the RC32 Communication Split stabilization described by `CURRENT_STATE.md`. Its digital qualification covers the affected audio path; residual owner-device qualification must prove repeated MK-300 MAIN + wired CUE operation, usable fidelity, no automatic ducking, long playback, seek/loop and disconnect/reconnect behavior. Existing RC20 baseline evidence and unrelated cloud/Drive/UI evidence remain reusable.
 
 ## Frozen baseline
 
-The accepted RC20 identity and physical result are recorded in `RELEASE_BASELINE.md` and `history/RC20_PHYSICAL_HOMOLOGATION_FINAL_2026-09-25.md`.
-
-No recurring test schedule is required for the frozen personal-use appliance. Qualification resumes only after a maintenance trigger or explicit new feature.
-
-
-## RC28 current maintenance scope
-
-RC28 changes Android output-route identity and CUE admission/runtime verification after owner evidence on SM-X230/Android 16. Digital qualification must cover canonical physical identity for USB/built-in aliases, rejection of different USB cards, rejection of additional mirrored physical destinations, existing clock/offset/backpressure policy and Settings/Play integration. Because this path depends on vendor/HAL routing, software PASS cannot promote the candidate: the exact signed APK must be tested with MK-300 MAIN + wired CUE. RC27 UI evidence, Demucs, Drive and unrelated recording/export evidence remain reusable.
+The accepted release identity and physical result remain defined by `RELEASE_BASELINE.md` until an exact signed successor is owner-accepted. No recurring test schedule is required for the personal-use appliance; qualification resumes only after a maintenance trigger or explicit feature change.

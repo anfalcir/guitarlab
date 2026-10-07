@@ -1,6 +1,6 @@
 # GuitarLab Visual System
 
-Updated: 2026-10-02
+Updated: 2026-10-07
 
 ## Product intent
 GuitarLab should visually read as one coherent music-production/study instrument: clear modules, restrained graphite surfaces, precise controls and small-radius rectangular geometry. Studio may be the densest workspace, but Prepare, Export, Activity, Backup and Settings must use the same visual grammar. The interface must prioritize immediate operational comprehension over decorative softness.
@@ -188,26 +188,4 @@ Backup/restore must use the same page/section/status language as the rest of Gui
 ## Visual qualification when affected
 Changes to shared shell, layout, typography, shapes, colors or responsive behavior require focused semantic geometry and screenshot review for the affected surfaces and representative reference-device conditions. Do not replay the historical full screenshot matrix for unrelated audio/backend/search logic changes. Existing accepted screenshots remain evidence until a visual change invalidates them.
 
-## RC24 density correction
-
-Owner video rejected RC23 ergonomics despite digital PASS. Equal navbar side slots preserve absolute transport centering. Níveis moves to Master; pin and arbitrary expanded-height controls are retired. Menu content uses vertical lists, not horizontal toolbar fragments. Track buttons visibly fill 46 of their 48 dp targets and touch regions are contiguous, never overlapping. Thin slider drawings with integrated readouts replace stacked framed controls. Complete/minimum heights are 252/172 dp at font scale 1.0; channel width is 200 dp. Large fonts expand geometry. The same details strip and domain callbacks serve the minimum mode. Automated fit assertions are necessary but do not certify physical comfort; inspect filled-project captures and obtain owner acceptance.
-
-## RC26 Mixer/levels refinement
-
-Owner-approved RC26 presentation keeps the accepted RC25 shell geometry while making three focused changes: Níveis becomes the third left-side navbar action and uses a distinct gauge/speedometer symbol; track and Master PK/RMS rows consume the full inner strip width with CLIP reset moved to the header; Master drops the redundant Níveis text button and uses a wider volume slider whose one-line `VOL +dB` readout sits below it. Left/right navbar reservations remain equal so transport stays centered. Channel widths and 252/172 dp dock heights remain unchanged.
-
-## RC27 Mixer card hierarchy refinement
-
-Owner-approved RC27 refines only the card presentation established by RC26. Track headers center the accent dot + title group; Master centers `MASTER`. Track cards use subtle accent-tinted outer identity plus low-contrast 6 dp internal section surfaces for actions, meters and mix. Volume/Pan remain in one mix section with a quiet internal divider. Master uses the same section language for header, meters and volume without inventing unused controls.
-
-The implementation is geometry-preserving: normal-font track width remains 200 dp, Master remains 144 dp, state targets remain 48×48 dp with 46 dp visible faces, complete/minimum dock heights remain 252/172 dp, PK/RMS keep the RC26 full-width contract and Master keeps its wide volume control with one-line `VOL +dB` readout. Large-font growth remains unchanged. This is a visual-hierarchy change, not a mixer/audio/domain change.
-
-Qualification must assert centered header geometry, full-width/non-overlapping section regions, existing touch-target and slider behavior, target-tablet five-channel fit, and inspect complete/minimum screenshots. The RC24/RC26 sections above remain historical evolution; where presentation conflicts, RC27 is the current Mixer visual contract.
-
-## RC27b transient CLIP badge
-
-Post-#953 visual review found one remaining hierarchy collision outside the normal complete/minimum tablet frames: the textual `CLIP` face could overlap a centered track/Master title, especially on Master and large-font focused captures. RC27b preserves the existing 48×48 dp clear-clipping target, callback and semantics but changes only its visible face to a compact 28×24 dp warning badge. Track/Master titles remain geometrically centered and the visible warning badge is regression-tested not to overlap them. Meter width, card width/height and audio semantics remain unchanged.
-
-## RC27c CLIP face edge anchoring
-
-CI #954 proved the compact face size alone was insufficient on Master: the 28×24 dp warning face was still centered inside its 48×48 dp action target and therefore overlapped the geometrically centered `MASTER` title. RC27c preserves both the 48×48 dp target and 28×24 dp visible face, but anchors the visible face at the outer/right edge of the target. This maximizes separation from centered identity text without changing callback, semantics, hit area, card geometry or meter width.
+Current Mixer geometry remains normative from the live Mixer contract: normal-font track width 200 dp, Master 144 dp, complete/minimum heights 252/172 dp, 48 dp semantic action targets with compact visible faces, centered track/Master identity, full-width meter regions and an edge-anchored compact clipping warning that may not overlap centered identity text. Candidate-specific RC24/RC26/RC27 evolution is preserved under `docs/history/`, not in this live visual contract.

@@ -1,11 +1,13 @@
 # Studio Options, Export and Mixer Contract
 
-Updated: 2026-10-02
+Updated: 2026-10-07
 
 ## Options
 Options owns low-frequency setup and diagnostics: input route, main output, secondary/CUE output, monitoring, Studio preferences, import capability information and diagnostic tools. These controls stay out of the timeline.
 
-MAIN may remain Android-selected for ordinary single-output work. CUE is explicit-only: it can be selected only when MAIN is explicit, must resolve to a different live endpoint and has no automatic fallback. Synchronized CUE intentionally excludes Bluetooth because wireless presentation latency is too large/variable for the MAIN↔CUE alignment contract; both MAIN and CUE must be wired/USB/other low-latency destinations. Bluetooth remains valid for ordinary single-output MAIN. Selection alone does not activate CUE: the playback engine first confirms distinct routes plus stable presentation clocks and admits CUE only when the initial MAIN↔CUE stream-origin offset is at most 12 ms. If that proof fails, or the live drift later exceeds the bounded envelope, the CUE bus is silenced while MAIN continues whenever safe.
+MAIN may remain Android-selected for ordinary single-output work. CUE is explicit-only: MAIN must be explicit, CUE must resolve to a different live low-latency endpoint and CUE never falls back silently into MAIN. Bluetooth remains valid for ordinary single-output MAIN but is excluded from synchronized CUE.
+
+Selection-time admission first uses Communication Split when Android exposes the requested CUE endpoint as a communication device; otherwise it can use conventional independent media devices. Physical MAIN/CUE separation is mandatory in either strategy. Timing qualification is strategy-specific: conventional multi-device retains the 12 ms startup-origin bound, while Communication Split permits a bounded 60 ms fixed pipeline offset and uses a sustained 60 ms/750 ms runtime drift guard. The automatic path does not enter global `MODE_IN_COMMUNICATION`.
 
 Project persistence and final-audio export are **not** Options actions.
 
@@ -28,7 +30,7 @@ Minimum height is 172 dp. It retains the centered header, all four direct state 
 
 Each track persists an output-route value with backward-compatible default `MAIN`. The engine contract supports `MAIN`, `CUE` and `MAIN_AND_CUE`; the first user-facing headphone control intentionally toggles exclusive MAIN ↔ CUE. New MAIN→CUE activation requires an available explicit low-latency pair; rejection preserves MAIN and history. Returning CUE→MAIN remains possible even when a device disappears. Route changes are accepted only while the transport is stopped, so Play/REC cannot leave track metadata and live-monitor routing out of sync. The route is restored with the project, applied to normal playback and backing playback during recording, and does not destructively change clips/takes.
 
-CUE is a secondary monitoring/playback bus. The secondary sink is opened only when currently playable content belongs to a CUE-routed track; an empty CUE track does not create an unnecessary output stream. Its writer is non-blocking relative to MAIN: if the secondary sink cannot accept a complete render chunk, CUE is silenced rather than allowed to stall the primary output. CUE is not an export exclusion flag. Studio Master export continues to render the project timeline/mix semantics independently of the live physical CUE assignment.
+CUE is a secondary monitoring/playback bus. The secondary sink is opened only when currently playable content belongs to a CUE-routed track; an empty CUE track does not create an unnecessary output stream. Its writer is non-blocking relative to MAIN and uses a bounded FIFO so transient partial/zero writes do not kill CUE. Fatal writes, sustained backlog, sustained drift or physical-route loss disable CUE without blocking MAIN. No CUE path automatically ducks MAIN; level balance remains under the GuitarLab mixer. CUE is not an export exclusion flag. Studio Master export continues to render project timeline/mix semantics independently of the live physical CUE assignment.
 
 ## Timeline/track UI
 - track names: canonical 1–24 chars;
@@ -53,27 +55,4 @@ CUE is a secondary monitoring/playback bus. The secondary sink is opened only wh
 ## Qualification
 Repeat focused Mixer/Options/Export regression when a candidate changes those surfaces or their domain commands. A Mixer visual-hierarchy candidate must additionally assert centered headers, section width/order, retained 48 dp targets, large-font containment and five-channel target-tablet fit, then inspect complete/minimum screenshot artifacts. They do not create a global release or maintenance gate for unrelated worker/search changes.
 
-## RC25 route startup correction
-
-The media-output selector excludes Bluetooth SCO (call profile), retaining A2DP/LE media and preserving legitimate mono USB outputs. Recording inputs are unchanged. An old SCO output preference migrates only to one unambiguous matching product/address media route; ambiguities remain unavailable instead of selecting another headset. Candidate ids never include SCO.
-
-Dual-output admission prefills silence, then feeds both AudioTracks with non-blocking writes through a bounded route-settlement phase of up to 5 s followed by a separate clock-qualification phase of up to 2 s. Repeated timestamps do not count, three independent stable observations per sink are required, route convergence and >12 ms initial offset reject CUE, cancellation exits promptly, and cleanup restores volume/flushes probe buffers. No musical samples are used in admission. Runtime queues are primed again after probe cleanup; CUE writes remain non-blocking and route listeners complement per-chunk route/drift guards. Android preferred-device acceptance is not proof of simultaneous physical routing; hardware pairs require owner acceptance.
-
-A seleção secundária é validada imediatamente em Opções: mostra “Verificando MAIN + CUE”, abre duas saídas com buffers zerados e volume zero e somente persiste CUE depois de comprovar rotas distintas e clocks estáveis. O controlador diferencia fone ausente, convergência para MAIN, rota errada/espelhada, clock indisponível e offset excedido; falhas mantêm CUE desativado e permitem teste explícito novamente. Nova seleção, alteração de MAIN e qualquer callback de adição/remoção de dispositivo cancelam resultados pendentes e invalidam o cache da sessão. Diagnósticos de latência não rodam em paralelo com esse teste. O teste usa a taxa do projeto disponível (48 kHz fora do projeto); mede evidência de apresentação relativa, não latência acústica/round-trip. Play/REC ainda verifica os streams reais e mudanças posteriores; uma aprovação anterior não garante suporte permanente do hardware.
-
-Os sliders compactos reservam 48dp de altura interativa, com thumb visual de 6×20dp centralizado. A margem horizontal interna de 10dp acomoda a expansão semântica do Material Slider, permitindo alcançar todo o controle nos extremos da rolagem. Isso se aplica a volume, pan e Master sem aumentar a altura dos docks ou a largura dos canais.
-
-## RC27b clipping affordance
-
-Clipping reset remains a header action so PK/RMS keep the full-width RC26/RC27 meter contract. Its semantic/click target remains 48×48 dp with the same `Limpar clipping…` description and callback. Only the visible face is compacted to a 28×24 dp warning badge, preventing centered track/Master identity text from colliding with the transient clipping affordance at normal and large font scales.
-
-## RC27c clipping badge placement
-
-The clear-clipping action retains its 48×48 dp semantic/touch target and 28×24 dp visible warning face. The face is aligned to the outer/right edge of that target rather than centered inside it, preventing the transient warning from intruding into the centered identity region. This is purely visual placement; reset behavior and accessible target size are unchanged.
-
-
-## RC28 CUE physical-route identity
-
-The selector and verifier now use the same physical-route abstraction. Android numeric device ids remain transient logical endpoint ids, not persisted or treated as physical identity. On API 36 the verifier inspects the complete `AudioTrack.routedDevices` set: several logical endpoints are accepted only when every one canonicalizes to the explicitly selected physical destination. This covers legitimate MK-300 USB endpoint aliases without weakening isolation.
-
-CUE still fails closed when route evidence is absent, MAIN and CUE canonicalize to the same physical destination, either stream is mirrored to an additional physical destination, clocks do not stabilize, initial presentation offset exceeds 12 ms, or runtime drift/backpressure guards fail. Selection-time verification and Play use the same physical-route rule so a route cannot pass Settings and then be rejected merely because Android reports a sibling logical endpoint during playback.
+CUE routing/timing candidates additionally require deterministic core/audio tests, Android/API36 regression and physical validation on the affected hardware topology. Candidate-specific RC25/RC27/RC28 narratives are archived under `docs/history/`; they are not live contract text.

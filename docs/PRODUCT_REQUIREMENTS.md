@@ -1,6 +1,6 @@
 # Product Requirements
 
-Updated: 2026-10-02
+Updated: 2026-10-07
 
 Stable product identity, support boundaries, proportional quality, freeze policy and maintenance triggers are governed by `PROJECT_IDENTITY.md` and D-090.
 
@@ -113,8 +113,11 @@ The currently implemented format set includes WAV PCM, FLAC, AIFF/AIFC PCM, MP3,
 - Per-track output-route changes are allowed only with transport stopped; Play/REC uses a stable routing snapshot.
 - CUE requires an explicit MAIN route, a resolvable low-latency secondary device and live proof that MAIN/CUE are distinct endpoints. Bluetooth is excluded from synchronized CUE because its presentation latency is not suitable for the alignment contract. CUE never falls back silently to MAIN.
 - The secondary CUE sink is opened only when playable content is assigned to a CUE-routed track; empty CUE tracks do not create an idle secondary stream.
-- CUE output writes may not block MAIN. Secondary backpressure/partial writes suppress CUE fail-closed instead of stalling the primary render loop.
-- Before audible use, MAIN and CUE must each provide stable presentation-clock evidence and their estimated stream origins must differ by no more than 12 ms. During playback, repeated presented-frame divergence beyond the continuous guard (~15.6 ms at 48 kHz) suppresses CUE. If the CUE route is lost, rejected, converges with MAIN, lacks stable clock evidence, exceeds either synchronization guard or cannot accept complete non-blocking chunks, CUE is silenced and the user receives explicit feedback; safe MAIN playback continues.
+- CUE may use a capability-proven communication-route split or conventional independent media devices. When the selected CUE endpoint is a valid Android communication device, the communication strategy is attempted first; conventional multi-device media routing remains a compatibility fallback.
+- CUE output may never block MAIN. Partial/zero non-blocking writes are buffered in a small bounded FIFO and retried in order; fatal writes or bounded-backlog overflow disable CUE rather than stalling the primary render loop.
+- Physical route identity is always exact and fail-closed. Missing, converged, wrong or mirrored MAIN/CUE routes disable CUE regardless of timing.
+- Synchronization thresholds are strategy-specific: conventional multi-device CUE retains the tight 12 ms startup-origin bound; Communication Split permits a bounded 60 ms static startup offset and suppresses only sustained runtime divergence beyond a 60 ms envelope for 750 ms. Measured offset/drift evidence remains diagnostic and does not weaken route isolation.
+- CUE activation never requests automatic ducking, changes MAIN gain or manipulates Android system-volume groups. Mixer/project gain is authoritative.
 - Playback/backing/monitoring return must never feed the recording writer.
 - Record uses visible 3-second countdown plus zero-time revalidation of permission, route, project and exactly one armed track.
 - Finalized takes enter immutable managed storage transactionally; zero-frame attempts create no clip.

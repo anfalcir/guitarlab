@@ -1,6 +1,6 @@
 # GuitarLab — Project Identity
 
-Updated: 2026-10-01
+Updated: 2026-10-07
 
 This document defines the stable identity, support boundary, quality philosophy and maintenance policy of GuitarLab. It operationalizes `D-090` in `docs/DECISIONS.md`. If a later numbered decision explicitly supersedes this document, the later decision wins.
 
@@ -62,7 +62,7 @@ Existing CI and vulnerability workflows are not weakened merely to implement thi
 
 ## Freeze policy
 
-`RELEASE_BASELINE.md` records the exact immutable identity of the currently accepted baseline. RC20 remains that accepted baseline while RC22 proceeds as an owner-requested dual-output feature candidate built on the RC21-integrated Android source; opening a successor candidate does not mutate the accepted artifact identity. For every accepted baseline:
+`RELEASE_BASELINE.md` records the exact immutable identity of the currently accepted baseline. Opening, qualifying or signing a successor candidate never mutates that accepted artifact identity; the active successor is tracked only in `CURRENT_STATE.md`. For every accepted baseline:
 
 - freeze the exact signed APK;
 - record and freeze its producer SHA, package/version, APK SHA-256 and signer certificate;
@@ -83,7 +83,7 @@ Development reopens only for one or more of:
 
 A future change requalifies only the paths it can materially affect, plus adjacent smoke needed to prove safe integration. Previously accepted unrelated evidence remains reusable.
 
-RC21 was the first maintenance example of this rule. RC22 is a separate explicit owner-requested feature: per-track MAIN/CUE monitoring reopens only the Android playback/routing/monitoring paths and their adjacent persistence/UI tests. It does not reopen the frozen Demucs worker or unrelated Drive evidence. Until RC22 is signed and physically accepted for the affected hardware path, RC20 remains the promoted baseline.
+Per-track MAIN/CUE work is an example of this proportional rule: it reopens Android playback/routing/monitoring and adjacent persistence/UI tests, but does not reopen the frozen Demucs worker or unrelated Drive evidence. Until an exact signed successor is physically accepted for the affected hardware path, the baseline recorded in `RELEASE_BASELINE.md` remains promoted.
 
 ## Release principle
 

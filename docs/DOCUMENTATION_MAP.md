@@ -1,6 +1,6 @@
 # Documentation map
 
-Updated: 2026-10-06
+Updated: 2026-10-07
 
 ## Authority rule
 
@@ -11,7 +11,7 @@ Historical files intentionally preserve old candidate names, states and words su
 ## Live authority — read first
 
 1. `PROJECT_IDENTITY.md` — stable product identity, support boundary, freeze and maintenance triggers.
-2. `CURRENT_STATE.md` — concise present-tense operational state, including the physically rejected RC29 target pair and active CUE capability plan while RC20 remains accepted.
+2. `CURRENT_STATE.md` — concise present-tense successor state, exact current candidate identity and residual physical gates while the accepted baseline remains unchanged.
 3. `RELEASE_BASELINE.md` — immutable exact identity of the accepted APK/backend baseline.
 4. `PRODUCT_REQUIREMENTS.md` — supported product behavior.
 5. `ARCHITECTURE.md` — current technical boundaries.
@@ -46,19 +46,21 @@ These remain live only for their subsystem:
 
 A subsystem contract does not create an unrelated release/maintenance gate merely because it exists.
 
-## Active successor evidence
+## Current successor evidence and roadmap
 
-The active CUE work now has two complementary tracks:
+Live CUE behavior is defined by `CURRENT_STATE.md`, `PRODUCT_REQUIREMENTS.md`, `ARCHITECTURE.md`, `STUDIO_OPTIONS_AND_MIXER.md` and decisions D-110/D-111.
 
-- `history/CUE_DUAL_OUTPUT_CAPABILITY_IMPLEMENTATION_PLAN_2026-10-06.md` — capability-gated multi-device routing and physical route proof;
-- `history/CUE_USB_MULTICHANNEL_IMPLEMENTATION_PLAN_2026-10-06.md` — professional single-device USB multichannel backend with MAIN 1/2 + CUE 3/4;
-- `history/CUE_COMMUNICATION_SPLIT_EXPERIMENT_PLAN_2026-10-06.md` — experimental MEDIA + COMMUNICATION strategy split, gated by physical-route, fidelity and zero-ducking proof.
-- `history/CUE_COMMUNICATION_SPLIT_STABILIZATION_2026-10-07.md` — RC32 owner-device stabilization after physical route success exposed over-conservative timing/backpressure guards.
-- `history/RC31_COMMUNICATION_SPLIT_DIGITAL_QUALIFICATION_2026-10-06.md` — exact CI #969 digital/signing evidence; physical route and fidelity remain pending.
+Dated evidence under `history/` is classified as follows:
 
-They follow physical evidence that the SM-X230 can converge independently requested media tracks onto the same active output. RC29 settlement evidence is retained in `history/RC29_CUE_ROUTE_SETTLEMENT_2026-10-03.md`; RC30 adaptive-rate evidence remains current successor context. RC28 physical-route identity evidence remains predecessor context. RC27 signed digital closure and RC25 CUE correction remain retained historical evidence.
+- `CUE_COMMUNICATION_SPLIT_STABILIZATION_2026-10-07.md` — RC32 stabilization rationale/owner-evidence snapshot;
+- `RC32_COMMUNICATION_SPLIT_DIGITAL_QUALIFICATION_2026-10-07.md` — exact final CI #972/signing identity for the rc32 producer;
+- `DOCUMENTATION_AUDIT_RC32_2026-10-07.md` — code/evidence/documentation consistency audit and live-doc cleanup record;
+- `RC31_COMMUNICATION_SPLIT_DIGITAL_QUALIFICATION_2026-10-06.md` — predecessor digital/signing evidence;
+- `CUE_COMMUNICATION_SPLIT_EXPERIMENT_PLAN_2026-10-06.md` — superseded implementation plan, retained for traceability;
+- `CUE_DUAL_OUTPUT_CAPABILITY_IMPLEMENTATION_PLAN_2026-10-06.md` and `CUE_AUTO_NEGOTIATION_2026-10-06.md` — superseded predecessor plans/evidence;
+- `CUE_USB_MULTICHANNEL_IMPLEMENTATION_PLAN_2026-10-06.md` — active future professional roadmap (single USB device, MAIN 1/2 + CUE 3/4), not part of the current rc32 runtime.
 
-Candidate evidence never replaces `RELEASE_BASELINE.md` until the exact signed successor artifact completes required owner acceptance.
+Older RC25–RC30 CUE records remain historical evidence only. Candidate evidence never replaces `RELEASE_BASELINE.md` until the exact signed successor artifact completes required owner acceptance.
 
 ## Archived RC20 closure set
 
@@ -92,4 +94,4 @@ Accepted evidence remains reusable unless a later source/backend/hardware change
 
 Documentation-only commits never retroactively change an already-built APK or worker. The accepted producer SHA, APK hashes, signer and worker digest are defined by `RELEASE_BASELINE.md`, not by the latest documentation commit on `main`.
 
-During an active successor candidate such as RC27, `CURRENT_STATE.md` identifies the source/digital/signing state while `RELEASE_BASELINE.md` intentionally continues to identify the last physically accepted release. Promotion updates the baseline only after owner acceptance.
+During any active successor candidate, `CURRENT_STATE.md` identifies source/digital/signing state while `RELEASE_BASELINE.md` intentionally continues to identify the last physically accepted release. Promotion updates the baseline only after owner acceptance.

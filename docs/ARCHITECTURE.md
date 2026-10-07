@@ -1,6 +1,6 @@
 # GuitarLab Architecture
 
-Updated: 2026-10-01
+Updated: 2026-10-07
 
 ## Repository and release boundary
 - `main` is canonical.
@@ -83,19 +83,26 @@ Home is the project-library/navigation surface. Studio remains the creative edit
 The canonical Export workspace owns external delivery; editable `.guitarlab` persistence is distinct from WAV/FLAC/MP3 master delivery. Home/Studio export entry points route to that single workspace. Mixer state is persisted where applicable and playback/export must respect gain/pan/mute/solo/master behavior.
 
 Live Studio playback has two logical stereo buses:
-`track render → per-track gain/pan/audibility → MAIN and/or CUE bus → independent Android output sinks`.
+`track render → per-track gain/pan/audibility → MAIN and/or CUE bus → Android output backend(s)`.
 
-Track output routing is durable project metadata with `MAIN` as the compatibility default. MAIN is the normal master/monitor sink. Route mutations are stopped-state operations; the active Play/REC session therefore never has to reconcile a newly changed track route with an already-open monitor path. CUE is an optional secondary monitoring sink and is fail-closed: it requires an explicit MAIN selection, an explicit distinct low-latency CUE selection, successful endpoint opening and effective-route confirmation. Bluetooth outputs are excluded from synchronized CUE. The CUE sink is instantiated only when the playback clip set actually references at least one CUE-routed track. Before audible release, a silent probe obtains stable `AudioTimestamp` evidence for both live streams and compares their estimated stream-origin monotonic times; CUE is rejected when that initial presentation offset exceeds 12 ms or either clock lacks stable evidence. Runtime routing is then rechecked while streaming; route convergence/loss suppresses CUE rather than leaking its tracks to MAIN. Continuous presented-frame divergence is limited to 750 frames at 48 kHz (about 15.6 ms) / 689 frames at 44.1 kHz, with three consecutive violations required before suppression.
+Track output routing is durable project metadata with `MAIN` as the compatibility default. Route mutations are stopped-state operations. CUE is optional and fail-closed: MAIN and CUE must resolve to explicit distinct physical endpoints, and preferred-device acceptance alone is never treated as proof of effective routing. Bluetooth remains excluded from synchronized CUE.
 
-`CueRouteController` is the application lifecycle boundary for selection-time admission. It owns cancellation/generation safety, a process-session cache keyed by exact MAIN/CUE signatures and rate, diagnostic-journal events, explicit retry and topology invalidation from one `AudioDeviceCallback`. Device enumeration/resolution remains in `StudioAudioRoutingStore`. The controller persists a CUE selection only after the typed verifier returns `SUPPORTED`; convergence, absence, mirroring, clock failure and route loss remain distinct states and clear the active CUE selection.
+The Android backend supports two capability strategies:
 
-The Android verifier consumes complete canonical physical route sets while both streams are playing. Its bounded evidence includes expected/actual physical keys, advertised formats, actual track configuration, preferred-route outcomes before and after `play()`, write results and route transitions. Preferred-device acceptance is never reported as effective MAIN/CUE routing. The playback engine separately verifies MAIN-only sessions after `play()`, attaches routing listeners to live tracks and retains per-chunk polling as a second line of defense.
+- `COMMUNICATION_SPLIT`: when the requested CUE endpoint is exposed by `AudioManager.getAvailableCommunicationDevices()`, MAIN remains `USAGE_MEDIA + CONTENT_TYPE_MUSIC` and CUE uses `USAGE_VOICE_COMMUNICATION + CONTENT_TYPE_MUSIC`. This strategy is attempted before dual-MEDIA on eligible devices. The automatic path does **not** enter `MODE_IN_COMMUNICATION`.
+- `MULTI_DEVICE`: conventional independent media sinks using explicit preferred devices. It remains a compatibility fallback for devices/topologies that genuinely support two independent media routes.
 
-MAIN owns render-loop timing. MAIN writes may block according to the established primary sink contract; CUE writes are non-blocking and must accept each full chunk. A short/zero/error CUE write is secondary backpressure and immediately suppresses CUE, so a slow or wedged secondary device cannot stall MAIN. The engine deliberately does not delay MAIN to compensate an unsafe secondary route: synchronization proof is an admission/survival condition for CUE, not a hidden primary-output offset.
+`CueRouteController` owns selection-time admission, cancellation/generation safety, process-session profile caching, topology invalidation, retry and diagnostic journaling. A successful preflight persists the exact strategy, physical rates and strategy parameters that runtime must reproduce.
 
-Normal Play and backing playback during REC use the same dual-bus playback engine. Software monitoring of the armed input follows that track's exclusive MAIN/CUE state when monitoring is enabled; a required CUE monitor route is verified and silenced on fallback while capture continues. The recording writer remains input-only and never consumes playback/CUE data.
+Physical-route safety and synchronization quality are separate concerns. Both strategies require exact canonical MAIN/CUE route separation and fail closed on missing, converged, wrong or mirrored routes. Conventional `MULTI_DEVICE` retains the tight 12 ms initial presentation-origin bound. `COMMUNICATION_SPLIT` allows a bounded 60 ms initial static offset because MEDIA and COMMUNICATION can have different fixed pipelines; the measured offset is exported diagnostically. Runtime communication drift uses a 60 ms envelope and must remain outside it for 750 ms before CUE is suppressed. These wider communication-specific timing bounds never relax physical-route identity.
 
-CUE assignment is intentionally not part of offline Master Export exclusion semantics. Export renders project mix state; physical monitoring assignments do not delete or omit a track from the deliverable.
+MAIN owns render-loop timing. CUE never blocks MAIN. CUE writes use `WRITE_NON_BLOCKING` through a bounded FIFO: partial or zero writes are normal transient backpressure and remain queued in order, while negative writes, sustained backlog beyond the bounded queue, route loss or sustained drift disable CUE. The queue is cleared on seek/route loss and is not a hidden delay mechanism for MAIN.
+
+Runtime Communication Split does not repeat the complete selection-time silent clock preflight on the same freshly opened tracks. Instead, the negotiated profile recreates the proven strategy, playback performs fresh physical-route qualification before musical content proceeds, and route/drift guards remain active throughout the session. Runtime suppression exports the specific cause, pending CUE samples, presented-frame delta, drift limit and effective route keys.
+
+CUE never requests automatic ducking, never rewrites MAIN gain and never manipulates Android system volume to manufacture a mix. Track/Master mixer gain remains the product authority; Android device/volume-group controls remain external multipliers.
+
+Normal Play and backing playback during REC use the same dual-bus engine. Software monitoring follows the armed track's output route when enabled; losing a required CUE path disables CUE while capture remains input-only. CUE assignment is monitoring/playback metadata and never excludes a track from offline Master Export.
 
 ## Lifecycle and persistence
 Durable creative state belongs in project persistence, not transient Composable state. Navigation/recreation and interrupted media operations are independently recoverable. Home library query state is presentation state and may be recreated without changing project data.
@@ -105,7 +112,7 @@ Compatibility recovery is deliberately separated from persisted-byte identity. C
 ## Build/release architecture
 `scripts/build_local.sh` is the local software gate when its environment is available. GitHub workflows provide controlled Android/API36/signing and cloud qualification. Required jobs are selected proportionally under `TEST_AND_HOMOLOGATION_POLICY.md`.
 
-Large deltas are materialized from `.source-parts` serially. The canonical entrypoint and current tail are identified in `CI_PIPELINE.md`; the active RC23 Studio-layout tail is `scripts/materialize_ci_sources_rc23.py`. Protected blocks verify patch/archive identity and exact terminal Git blobs; the tail preserves `git diff --check`, semantic guards and reverse-apply/idempotence checks. Unexplained drift blocks the build.
+The canonical Android source-validation entrypoint is `scripts/materialize_ci_sources.sh`. For the current checked-in source line it executes semantic/source guards, including CUE capability and zero-duck invariants. Older staged materializers and `.source-parts` remain historical/reproducibility inputs only; `CI_PIPELINE.md` is the live execution authority. Unexplained source drift blocks qualification.
 
 ## Backup transport boundary — direct Drive v3 production path
 The protected backup domain remains transport-agnostic: project/revision identity, deduplication, retention and restore semantics are separated from transport. Direct Drive API v3 is the current backup transport.
@@ -126,4 +133,4 @@ Automatic backup is owned by WorkManager and the production Drive service, not b
 
 The local durable store is recovery intent, not proof that a cloud job exists. When reconciliation finds no remote job, replayable pre-dispatch states are idempotently re-enqueued, cancellation requests terminalize locally, and states requiring an already-created remote job expire safely. Cancellation/worker retry exhaustion must end in a terminal local state. Restoration of `SOURCE_READY` is source-generation-aware and may not overwrite newer active work. Per-project observation prefers active work over a late terminal completion from an older generation.
 
-RC20 remains the accepted frozen baseline while RC21 is the active proportional maintenance candidate. RC21 was opened by an observed regression under the maintenance policy and is qualified only on affected/adjacent paths. Completed plans and older milestones remain historical evidence. Closed plans and milestones remain historical evidence only.
+The accepted release identity is defined only by `RELEASE_BASELINE.md`; the current successor candidate and residual physical gates are defined only by `CURRENT_STATE.md`. Completed candidate plans and milestone narratives remain historical evidence under `docs/history/`.
