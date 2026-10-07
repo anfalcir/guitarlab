@@ -53,6 +53,7 @@ The active CUE work now has two complementary tracks:
 - `history/CUE_DUAL_OUTPUT_CAPABILITY_IMPLEMENTATION_PLAN_2026-10-06.md` — capability-gated multi-device routing and physical route proof;
 - `history/CUE_USB_MULTICHANNEL_IMPLEMENTATION_PLAN_2026-10-06.md` — professional single-device USB multichannel backend with MAIN 1/2 + CUE 3/4;
 - `history/CUE_COMMUNICATION_SPLIT_EXPERIMENT_PLAN_2026-10-06.md` — experimental MEDIA + COMMUNICATION strategy split, gated by physical-route, fidelity and zero-ducking proof.
+- `history/RC31_COMMUNICATION_SPLIT_DIGITAL_QUALIFICATION_2026-10-06.md` — exact CI #969 digital/signing evidence; physical route and fidelity remain pending.
 
 They follow physical evidence that the SM-X230 can converge independently requested media tracks onto the same active output. RC29 settlement evidence is retained in `history/RC29_CUE_ROUTE_SETTLEMENT_2026-10-03.md`; RC30 adaptive-rate evidence remains current successor context. RC28 physical-route identity evidence remains predecessor context. RC27 signed digital closure and RC25 CUE correction remain retained historical evidence.
 

@@ -6,6 +6,8 @@ Updated: 2026-10-06
 
 **EXPERIMENTAL / NÃO SUPORTADO ATÉ PROVA FÍSICA DE ROTA E FIDELIDADE**
 
+Implementação concluída em `0.5.0-rc31` / versionCode `51`. Qualificação digital PASS em Android CI #969 / run `37549317925`, producer SHA `00fe4d621849bf5f8f1211e25ecba9d6a6c28598`. O APK assinado está pronto somente para homologação física; nenhum suporte de rota ou fidelidade é declarado antes do teste no SM-X230.
+
 Este plano investiga se o GuitarLab consegue manter MAIN na estratégia de mídia e encaminhar CUE pela estratégia pública de comunicação do Android, reproduzindo de forma controlada o tipo de separação observado em cenários como media no Android Auto e conteúdo de comunicação no dispositivo local.
 
 O objetivo não é imitar comportamento proprietário de outro aplicativo. O objetivo é testar, com APIs públicas, se duas estratégias distintas permitem uma topologia que dois `USAGE_MEDIA` independentes não conseguiram manter no Samsung SM-X230.

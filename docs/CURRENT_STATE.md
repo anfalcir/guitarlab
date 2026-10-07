@@ -4,7 +4,7 @@ Updated: 2026-10-06
 
 ## Status
 
-**RC31 COMMUNICATION SPLIT IMPLEMENTED — DIGITAL QUALIFICATION PENDING; PHYSICAL QUALITY QUALIFICATION PENDING**
+**RC31 COMMUNICATION SPLIT — DIGITAL QUALIFICATION PASS; PHYSICAL ROUTE/FIDELITY QUALIFICATION PENDING**
 
 The current source is `0.5.0-rc31` / versionCode `51`. It preserves the rc30 adaptive-rate, canonical physical-route and fail-closed CUE protections and adds a second capability strategy for the physically rejected SM-X230 dual-media topology.
 
@@ -14,9 +14,24 @@ A successful `setCommunicationDevice` call is not admission evidence. Playing MA
 
 Zero ducking is mandatory. CUE does not request transient-may-duck focus, rewrite MAIN gain or manipulate Android system volume. Mixer/project gains remain authoritative. Communication-route success is not yet a fidelity claim: effective PCM format is recorded, but OEM post-mix DSP requires physical qualification. Successful Communication Split therefore records `fidelityQualification=PENDING_PHYSICAL`.
 
-The implementation adds `MODIFY_AUDIO_SETTINGS` (normal permission), communication-device/mode evidence, schema v3 route diagnostics, unit policy coverage and CI source guards. Software/API36/signed-build qualification is pending. RC30 remains the preceding signed diagnostic candidate until rc31 completes digital qualification.
+The implementation adds `MODIFY_AUDIO_SETTINGS` (normal permission), communication-device/mode evidence, schema v3 route diagnostics, unit policy coverage and CI source guards. Android CI **#969 / run `37549317925`** is PASS on producer SHA `00fe4d621849bf5f8f1211e25ecba9d6a6c28598`: Unit tests, Android Lint, debug/release assembly, API 36 instrumented regression, tested-candidate provenance, signing and signed package/certificate verification all passed. RC31 is digitally qualified for the targeted physical Communication Split experiment; product support remains blocked on the SM-X230 route/fidelity/zero-duck physical gate.
 
 The professional USB multichannel MAIN 1/2 + CUE 3/4 plan remains active at `history/CUE_USB_MULTICHANNEL_IMPLEMENTATION_PLAN_2026-10-06.md`. Communication Split is specified at `history/CUE_COMMUNICATION_SPLIT_EXPERIMENT_PLAN_2026-10-06.md`.
+
+## Exact signed RC31 identity — physical validation pending
+
+- producer/signing SHA: `00fe4d621849bf5f8f1211e25ecba9d6a6c28598`;
+- Android CI authority: **#969 / run `37549317925`**;
+- package: `studio.guitarlab.app`;
+- versionName: `0.5.0-rc31`; versionCode: `51`;
+- unsigned APK SHA-256: `d7d930ca782a6ad326cfb7295e2c2e09b96575cf8b1635c0baed05f60278a46a`;
+- signed APK SHA-256: `7d9a0892ac221449ce72d3297e402cd1c605504f82bc808a6c00eaea2e4b3544`;
+- signer certificate SHA-256: `4B82890A9812BB89E1BBEF179A48752BDA2CA8AB284C833DAA27A907F4CE5E89`;
+- signed artifact: `GuitarLabStudio-0.5.0-rc31-homologacao`;
+- artifact ZIP digest: `sha256:323f971a7987fba017bb8adff5525cafb536d156fced025e8a9cf30f95fbc4e8`;
+- artifact gate: `software+android-integration-passed;physical-validation-pending`;
+- physical target: SM-X230 / Android 16, MAIN MK-300 media + CUE wired communication;
+- Communication Split fidelity remains `PENDING_PHYSICAL`; digital PASS is not a claim of hi-fi or independent physical routing on the owner device.
 
 ## Exact signed RC28 identity and physical rejection
 
