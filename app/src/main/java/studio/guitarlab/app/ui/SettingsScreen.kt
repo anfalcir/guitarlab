@@ -59,6 +59,8 @@ import studio.guitarlab.core.project.RecordingSampleRatePolicy
 import studio.guitarlab.core.project.ExternalControlAction
 import studio.guitarlab.platform.separation.RemoteCloudAuthClient
 import studio.guitarlab.platform.audio.android.CommunicationSplitProbeAcousticOutcome
+import studio.guitarlab.platform.audio.android.CommunicationSplitProbeCueToneOutcome
+import studio.guitarlab.platform.audio.android.CommunicationSplitProbeMainAfterReassertOutcome
 
 @Composable
 fun SettingsScreen(
@@ -431,6 +433,43 @@ fun SettingsScreen(
                                     modifier = Modifier.weight(1f),
                                 ) { Text("Não sei") }
                             }
+                        }
+                    }
+                    if (cueRouteState.communicationProbeAwaitingCueFeedback) {
+                        Text("Na fase D, você ouviu o tom agudo do CUE?", style = MaterialTheme.typography.labelLarge)
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            OutlinedButton(
+                                onClick = { cueRouteController.recordCommunicationProbeCueToneOutcome(CommunicationSplitProbeCueToneOutcome.AUDIBLE) },
+                                modifier = Modifier.weight(1f),
+                            ) { Text("Sim") }
+                            OutlinedButton(
+                                onClick = { cueRouteController.recordCommunicationProbeCueToneOutcome(CommunicationSplitProbeCueToneOutcome.NOT_AUDIBLE) },
+                                modifier = Modifier.weight(1f),
+                            ) { Text("Não") }
+                            OutlinedButton(
+                                onClick = { cueRouteController.recordCommunicationProbeCueToneOutcome(CommunicationSplitProbeCueToneOutcome.UNABLE_TO_TELL) },
+                                modifier = Modifier.weight(1f),
+                            ) { Text("Não sei") }
+                        }
+                    }
+                    if (cueRouteState.communicationProbeAwaitingReassertFeedback) {
+                        Text(
+                            "Depois da reafirmação no meio da fase D, o tom grave MAIN estava audível?",
+                            style = MaterialTheme.typography.labelLarge,
+                        )
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            OutlinedButton(
+                                onClick = { cueRouteController.recordCommunicationProbeMainAfterReassertOutcome(CommunicationSplitProbeMainAfterReassertOutcome.AUDIBLE_AFTER_REASSERT) },
+                                modifier = Modifier.weight(1f),
+                            ) { Text("Sim") }
+                            OutlinedButton(
+                                onClick = { cueRouteController.recordCommunicationProbeMainAfterReassertOutcome(CommunicationSplitProbeMainAfterReassertOutcome.NOT_AUDIBLE_AFTER_REASSERT) },
+                                modifier = Modifier.weight(1f),
+                            ) { Text("Não") }
+                            OutlinedButton(
+                                onClick = { cueRouteController.recordCommunicationProbeMainAfterReassertOutcome(CommunicationSplitProbeMainAfterReassertOutcome.UNABLE_TO_TELL) },
+                                modifier = Modifier.weight(1f),
+                            ) { Text("Não sei") }
                         }
                     }
                     MonitoringSelector(

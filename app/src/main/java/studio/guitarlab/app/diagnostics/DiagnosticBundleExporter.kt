@@ -229,6 +229,8 @@ class DiagnosticBundleExporter(private val context: Context) {
             .put("sessionSampleRateHz", result.sessionSampleRateHz)
             .put("cueSampleRateHz", result.cueSampleRateHz)
             .put("acousticOutcome", result.acousticOutcome?.name)
+            .put("cueToneOutcome", result.cueToneOutcome?.name)
+            .put("mainAfterReassertOutcome", result.mainAfterReassertOutcome?.name)
             .put("phases", JSONArray().also { array ->
                 result.phases.forEach { phase ->
                     array.put(
@@ -249,14 +251,21 @@ class DiagnosticBundleExporter(private val context: Context) {
                             .put("cueWrittenSamples", phase.cueWrittenSamples)
                             .put("mainZeroWrites", phase.mainZeroWrites)
                             .put("cueZeroWrites", phase.cueZeroWrites)
+                            .put("mainShortWrites", phase.mainShortWrites)
+                            .put("cueShortWrites", phase.cueShortWrites)
                             .put("mainSampleRateHz", phase.mainSampleRateHz)
                             .put("cueSampleRateHz", phase.cueSampleRateHz)
                             .put("musicVolume", phase.musicVolume)
                             .put("musicVolumeMax", phase.musicVolumeMax)
+                            .put("musicMuted", phase.musicMuted)
                             .put("voiceVolume", phase.voiceVolume)
                             .put("voiceVolumeMax", phase.voiceVolumeMax)
+                            .put("voiceMuted", phase.voiceMuted)
+                            .put("mainUnderruns", phase.mainUnderruns)
+                            .put("cueUnderruns", phase.cueUnderruns)
                             .put("mainPreferredAccepted", phase.mainPreferredAccepted)
                             .put("communicationSelectionActive", phase.communicationSelectionActive)
+                            .put("mainPreferredReassertedMidPhase", phase.mainPreferredReassertedMidPhase)
                     )
                 }
             })

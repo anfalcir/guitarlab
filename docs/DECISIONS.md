@@ -613,3 +613,8 @@ Communication Split must not be promoted solely from distinct `routedDevices`, a
 
 The probe is evidence gathering only. It may classify where arbitration begins but may not weaken MAIN/CUE fail-closed route rules or claim a portable public-API dual-output capability. USB multichannel remains the preferred deterministic architecture when available.
 
+
+
+### D-113 clarification — causal ordering and independent acoustic observations
+
+RC34 phases B and C must not reassert MAIN before their evidence windows; otherwise the probe can mask the arbitration transition it is meant to isolate. Phase D may reassert MAIN once halfway through as a separate recovery experiment. Acoustic evidence is three-dimensional: first MAIN loss, CUE-tone audibility in D, and MAIN audibility after the D reassertion.

@@ -28,3 +28,8 @@ D failure isolates signaled communication playback.
 No failure in A-D sends investigation back to the full Studio/mixer/runtime path.
 
 The probe does not claim acoustic success from `getRoutedDevices()` and does not alter production CUE safety policy.
+
+
+## Refinement before signed qualification
+
+B and C intentionally do not reassert MAIN before measurement. D runs ~2.4 s and performs one MAIN preference reassertion halfway through. The owner records three independent observations: first MAIN-loss phase, CUE 880 Hz audibility in D, and MAIN audibility after the reassertion. Per-phase evidence additionally includes zero/short writes, underruns and MUSIC/VOICE_CALL mute state.

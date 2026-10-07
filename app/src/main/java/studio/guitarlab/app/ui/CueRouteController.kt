@@ -25,6 +25,8 @@ import studio.guitarlab.platform.audio.android.CuePreflightStatus
 import studio.guitarlab.platform.audio.android.CueOutputStrategy
 import studio.guitarlab.platform.audio.android.CommunicationSplitPhaseProbe
 import studio.guitarlab.platform.audio.android.CommunicationSplitProbeAcousticOutcome
+import studio.guitarlab.platform.audio.android.CommunicationSplitProbeCueToneOutcome
+import studio.guitarlab.platform.audio.android.CommunicationSplitProbeMainAfterReassertOutcome
 import studio.guitarlab.platform.audio.android.CommunicationSplitProbePhase
 
 data class CueRouteControllerState(
@@ -36,6 +38,8 @@ data class CueRouteControllerState(
     val communicationProbeRunning: Boolean = false,
     val communicationProbeMessage: String? = null,
     val communicationProbeAwaitingFeedback: Boolean = false,
+    val communicationProbeAwaitingCueFeedback: Boolean = false,
+    val communicationProbeAwaitingReassertFeedback: Boolean = false,
 ) {
     val verifying: Boolean get() = capability == CueRouteCapabilityState.VERIFYING
 }
@@ -232,6 +236,8 @@ class CueRouteController(application: Application) : AndroidViewModel(applicatio
                     "Teste interrompido: ${result.error ?: "causa não identificada"}."
                 },
                 communicationProbeAwaitingFeedback = result.completed,
+                communicationProbeAwaitingCueFeedback = false,
+                communicationProbeAwaitingReassertFeedback = false,
             )
         }
     }
@@ -260,8 +266,56 @@ class CueRouteController(application: Application) : AndroidViewModel(applicatio
             technicalDetail = CommunicationSplitPhaseProbe.lastResult()?.diagnosticSummary(),
         )
         _state.value = _state.value.copy(
-            communicationProbeMessage = "$message Exporte o diagnóstico para análise.",
+            communicationProbeMessage = "$message Agora confirme se ouviu o tom agudo do CUE na fase D.",
             communicationProbeAwaitingFeedback = false,
+            communicationProbeAwaitingCueFeedback = true,
+            communicationProbeAwaitingReassertFeedback = false,
+        )
+    }
+
+    fun recordCommunicationProbeCueToneOutcome(outcome: CommunicationSplitProbeCueToneOutcome) {
+        CommunicationSplitPhaseProbe.recordCueToneOutcome(outcome)
+        val message = when (outcome) {
+            CommunicationSplitProbeCueToneOutcome.AUDIBLE -> "Registrado: o tom agudo CUE foi audível na fase D."
+            CommunicationSplitProbeCueToneOutcome.NOT_AUDIBLE -> "Registrado: o tom agudo CUE não foi audível na fase D."
+            CommunicationSplitProbeCueToneOutcome.UNABLE_TO_TELL -> "Registrado: não foi possível confirmar o tom CUE na fase D."
+        }
+        journal.append(
+            eventType = "audio.cue_communication_probe",
+            projectId = lastProjectId,
+            state = "ACOUSTIC_CUE_OUTCOME",
+            summary = message,
+            technicalDetail = CommunicationSplitPhaseProbe.lastResult()?.diagnosticSummary(),
+        )
+        _state.value = _state.value.copy(
+            communicationProbeMessage = "$message Agora confirme se MAIN estava audível depois da reafirmação no meio da fase D.",
+            communicationProbeAwaitingCueFeedback = false,
+            communicationProbeAwaitingReassertFeedback = true,
+        )
+    }
+
+    fun recordCommunicationProbeMainAfterReassertOutcome(
+        outcome: CommunicationSplitProbeMainAfterReassertOutcome,
+    ) {
+        CommunicationSplitPhaseProbe.recordMainAfterReassertOutcome(outcome)
+        val message = when (outcome) {
+            CommunicationSplitProbeMainAfterReassertOutcome.AUDIBLE_AFTER_REASSERT ->
+                "Registrado: MAIN estava audível depois da reafirmação no meio da fase D."
+            CommunicationSplitProbeMainAfterReassertOutcome.NOT_AUDIBLE_AFTER_REASSERT ->
+                "Registrado: MAIN continuou inaudível depois da reafirmação no meio da fase D."
+            CommunicationSplitProbeMainAfterReassertOutcome.UNABLE_TO_TELL ->
+                "Registrado: não foi possível avaliar MAIN depois da reafirmação."
+        }
+        journal.append(
+            eventType = "audio.cue_communication_probe",
+            projectId = lastProjectId,
+            state = "ACOUSTIC_MAIN_REASSERT_OUTCOME",
+            summary = message,
+            technicalDetail = CommunicationSplitPhaseProbe.lastResult()?.diagnosticSummary(),
+        )
+        _state.value = _state.value.copy(
+            communicationProbeMessage = "$message Probe concluído; exporte o diagnóstico para análise.",
+            communicationProbeAwaitingReassertFeedback = false,
         )
     }
 
@@ -273,7 +327,7 @@ class CueRouteController(application: Application) : AndroidViewModel(applicatio
         CommunicationSplitProbePhase.C_CUE_TRACK_SILENT ->
             "C/4 · AudioTrack CUE ativo com silêncio: o tom MAIN deve continuar."
         CommunicationSplitProbePhase.D_CUE_TONE_ACTIVE ->
-            "D/4 · MAIN grave + CUE agudo devem tocar simultaneamente em saídas diferentes."
+            "D/4 · MAIN grave + CUE agudo. Na metade, MAIN é reafirmado; observe se o grave volta/permanece."
     }
 
     fun disable() {

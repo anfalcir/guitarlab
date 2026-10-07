@@ -24,6 +24,18 @@ enum class CommunicationSplitProbeAcousticOutcome {
     UNABLE_TO_TELL,
 }
 
+enum class CommunicationSplitProbeCueToneOutcome {
+    AUDIBLE,
+    NOT_AUDIBLE,
+    UNABLE_TO_TELL,
+}
+
+enum class CommunicationSplitProbeMainAfterReassertOutcome {
+    AUDIBLE_AFTER_REASSERT,
+    NOT_AUDIBLE_AFTER_REASSERT,
+    UNABLE_TO_TELL,
+}
+
 data class CommunicationSplitProbePhaseEvidence(
     val phase: CommunicationSplitProbePhase,
     val elapsedMs: Long,
@@ -39,14 +51,21 @@ data class CommunicationSplitProbePhaseEvidence(
     val cueWrittenSamples: Long,
     val mainZeroWrites: Int,
     val cueZeroWrites: Int,
+    val mainShortWrites: Int,
+    val cueShortWrites: Int,
     val mainSampleRateHz: Int,
     val cueSampleRateHz: Int?,
     val musicVolume: Int?,
     val musicVolumeMax: Int?,
+    val musicMuted: Boolean?,
     val voiceVolume: Int?,
     val voiceVolumeMax: Int?,
+    val voiceMuted: Boolean?,
+    val mainUnderruns: Int,
+    val cueUnderruns: Int?,
     val mainPreferredAccepted: Boolean,
     val communicationSelectionActive: Boolean,
+    val mainPreferredReassertedMidPhase: Boolean?,
 ) {
     val mainAdvanced: Boolean get() = mainPlaybackHeadEnd > mainPlaybackHeadStart
     val cueAdvanced: Boolean get() =
@@ -64,6 +83,8 @@ data class CommunicationSplitProbeResult(
     val completed: Boolean,
     val error: String? = null,
     val acousticOutcome: CommunicationSplitProbeAcousticOutcome? = null,
+    val cueToneOutcome: CommunicationSplitProbeCueToneOutcome? = null,
+    val mainAfterReassertOutcome: CommunicationSplitProbeMainAfterReassertOutcome? = null,
 ) {
     fun diagnosticSummary(): String = buildString {
         append("completed=").append(completed)
@@ -82,12 +103,23 @@ data class CommunicationSplitProbeResult(
                 append(",cueAdvanced=").append(phase.cueAdvanced)
                 append(",mainWritten=").append(phase.mainWrittenSamples)
                 append(",cueWritten=").append(phase.cueWrittenSamples)
+                append(",mainZeroWrites=").append(phase.mainZeroWrites)
+                append(",cueZeroWrites=").append(phase.cueZeroWrites)
+                append(",mainShortWrites=").append(phase.mainShortWrites)
+                append(",cueShortWrites=").append(phase.cueShortWrites)
+                append(",mainUnderruns=").append(phase.mainUnderruns)
+                append(",cueUnderruns=").append(phase.cueUnderruns)
                 append(",musicVol=").append(phase.musicVolume).append("/").append(phase.musicVolumeMax)
+                append(",musicMuted=").append(phase.musicMuted)
                 append(",voiceVol=").append(phase.voiceVolume).append("/").append(phase.voiceVolumeMax)
+                append(",voiceMuted=").append(phase.voiceMuted)
+                append(",mainReassertMidD=").append(phase.mainPreferredReassertedMidPhase)
                 append("}")
             }
         })
         append("; acousticOutcome=").append(acousticOutcome?.name)
+        append("; cueToneOutcome=").append(cueToneOutcome?.name)
+        append("; mainAfterReassertOutcome=").append(mainAfterReassertOutcome?.name)
         error?.let { append("; error=").append(it) }
     }
 }
@@ -124,6 +156,14 @@ object CommunicationSplitPhaseProbe {
         lastResult = lastResult?.copy(acousticOutcome = outcome)
     }
 
+    fun recordCueToneOutcome(outcome: CommunicationSplitProbeCueToneOutcome) {
+        lastResult = lastResult?.copy(cueToneOutcome = outcome)
+    }
+
+    fun recordMainAfterReassertOutcome(outcome: CommunicationSplitProbeMainAfterReassertOutcome) {
+        lastResult = lastResult?.copy(mainAfterReassertOutcome = outcome)
+    }
+
     fun run(
         audioManager: AudioManager,
         main: AudioDeviceInfo,
@@ -145,7 +185,7 @@ object CommunicationSplitPhaseProbe {
         var communicationSession: CommunicationCueSession? = null
         var mainPreferredAccepted = false
 
-        fun result(completed: Boolean, error: String? = null): CommunicationSplitProbeResult =
+        fun result(completed: Boolean, error: String? = null) =
             CommunicationSplitProbeResult(
                 startedAtEpochMs = startedAt,
                 completedAtEpochMs = System.currentTimeMillis(),
@@ -156,7 +196,6 @@ object CommunicationSplitPhaseProbe {
                 phases = evidence.toList(),
                 completed = completed,
                 error = error,
-                acousticOutcome = null,
             ).also { lastResult = it }
 
         try {
@@ -180,8 +219,8 @@ object CommunicationSplitPhaseProbe {
             check(keepRunning()) { "Probe cancelled" }
             communicationSession = AndroidCommunicationCueRouting.begin(audioManager, cue, modeRequired = false)
                 ?: error("Communication device selection rejected")
-            mainPreferredAccepted = mainTrack.setPreferredDevice(main)
 
+            // B isolates setCommunicationDevice(): do not reassert MAIN before measuring it.
             onPhase(CommunicationSplitProbePhase.B_COMMUNICATION_DEVICE_SELECTED)
             evidence += runPhase(
                 CommunicationSplitProbePhase.B_COMMUNICATION_DEVICE_SELECTED,
@@ -198,8 +237,8 @@ object CommunicationSplitPhaseProbe {
             cueTrack = createTrack(profile.cueSampleRateHz, AudioAttributes.USAGE_VOICE_COMMUNICATION)
             check(communicationSession.reassert()) { "Communication device reassertion rejected" }
             cueTrack.play()
-            mainPreferredAccepted = mainTrack.setPreferredDevice(main)
 
+            // C isolates activation of the silent communication AudioTrack: do not reassert MAIN.
             onPhase(CommunicationSplitProbePhase.C_CUE_TRACK_SILENT)
             evidence += runPhase(
                 CommunicationSplitProbePhase.C_CUE_TRACK_SILENT,
@@ -213,9 +252,8 @@ object CommunicationSplitPhaseProbe {
             )
 
             check(keepRunning()) { "Probe cancelled" }
-            check(communicationSession.reassert()) { "Communication device reassertion rejected" }
-            mainPreferredAccepted = mainTrack.setPreferredDevice(main)
 
+            // D changes only silence -> 880 Hz. Reassert MAIN once halfway through to test recovery.
             onPhase(CommunicationSplitProbePhase.D_CUE_TONE_ACTIVE)
             evidence += runPhase(
                 CommunicationSplitProbePhase.D_CUE_TONE_ACTIVE,
@@ -226,6 +264,11 @@ object CommunicationSplitPhaseProbe {
                 true,
                 true,
                 keepRunning,
+                midPhaseMainReassert = {
+                    val accepted = mainTrack.setPreferredDevice(main)
+                    communicationSession.reassert()
+                    accepted
+                },
             )
 
             return result(completed = true)
@@ -254,20 +297,33 @@ object CommunicationSplitPhaseProbe {
         communicationSelectionActive: Boolean,
         cueToneActive: Boolean,
         keepRunning: () -> Boolean,
+        midPhaseMainReassert: (() -> Boolean)? = null,
     ): CommunicationSplitProbePhaseEvidence {
         val startedNs = System.nanoTime()
-        val deadlineNs = startedNs + PHASE_DURATION_NS
+        val durationNs =
+            if (phase == CommunicationSplitProbePhase.D_CUE_TONE_ACTIVE) D_PHASE_DURATION_NS else PHASE_DURATION_NS
+        val deadlineNs = startedNs + durationNs
+        val reassertAtNs = startedNs + durationNs / 2L
         val mainHeadStart = playbackHead(mainTrack)
         val cueHeadStart = cueTrack?.let(::playbackHead)
+        val mainUnderrunStart = mainTrack.underrunCount
+        val cueUnderrunStart = cueTrack?.underrunCount
         var mainWrittenSamples = 0L
         var cueWrittenSamples = 0L
         var mainZeroWrites = 0
         var cueZeroWrites = 0
+        var mainShortWrites = 0
+        var cueShortWrites = 0
         var mainFrameCursor = 0L
         var cueFrameCursor = 0L
+        var mainReasserted: Boolean? = null
         val silence = cueTrack?.let { FloatArray(CHUNK_FRAMES * 2) }
 
         while (keepRunning() && System.nanoTime() < deadlineNs) {
+            if (midPhaseMainReassert != null && mainReasserted == null && System.nanoTime() >= reassertAtNs) {
+                mainReasserted = runCatching(midPhaseMainReassert).getOrDefault(false)
+            }
+
             val mainTone = CommunicationSplitProbeSignal.stereoTone(
                 mainTrack.sampleRate,
                 MAIN_TONE_HZ,
@@ -277,6 +333,7 @@ object CommunicationSplitPhaseProbe {
             val mainWrite = mainTrack.write(mainTone, 0, mainTone.size, AudioTrack.WRITE_NON_BLOCKING)
             check(mainWrite >= 0) { "MAIN write failed: $mainWrite" }
             if (mainWrite == 0) mainZeroWrites += 1
+            if (mainWrite in 1 until mainTone.size) mainShortWrites += 1
             mainWrittenSamples += mainWrite
             mainFrameCursor += mainWrite / 2L
 
@@ -294,6 +351,7 @@ object CommunicationSplitPhaseProbe {
                 val cueWrite = track.write(cueBuffer, 0, cueBuffer.size, AudioTrack.WRITE_NON_BLOCKING)
                 check(cueWrite >= 0) { "CUE write failed: $cueWrite" }
                 if (cueWrite == 0) cueZeroWrites += 1
+                if (cueWrite in 1 until cueBuffer.size) cueShortWrites += 1
                 cueWrittenSamples += cueWrite
                 cueFrameCursor += cueWrite / 2L
             }
@@ -317,14 +375,24 @@ object CommunicationSplitPhaseProbe {
             cueWrittenSamples = cueWrittenSamples,
             mainZeroWrites = mainZeroWrites,
             cueZeroWrites = cueZeroWrites,
+            mainShortWrites = mainShortWrites,
+            cueShortWrites = cueShortWrites,
             mainSampleRateHz = mainTrack.sampleRate,
             cueSampleRateHz = cueTrack?.sampleRate,
             musicVolume = runCatching { audioManager.getStreamVolume(AudioManager.STREAM_MUSIC) }.getOrNull(),
             musicVolumeMax = runCatching { audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC) }.getOrNull(),
+            musicMuted = runCatching { audioManager.isStreamMute(AudioManager.STREAM_MUSIC) }.getOrNull(),
             voiceVolume = runCatching { audioManager.getStreamVolume(AudioManager.STREAM_VOICE_CALL) }.getOrNull(),
             voiceVolumeMax = runCatching { audioManager.getStreamMaxVolume(AudioManager.STREAM_VOICE_CALL) }.getOrNull(),
+            voiceMuted = runCatching { audioManager.isStreamMute(AudioManager.STREAM_VOICE_CALL) }.getOrNull(),
+            mainUnderruns = (mainTrack.underrunCount - mainUnderrunStart).coerceAtLeast(0),
+            cueUnderruns = cueTrack?.let { track ->
+                val start = cueUnderrunStart ?: track.underrunCount
+                (track.underrunCount - start).coerceAtLeast(0)
+            },
             mainPreferredAccepted = mainPreferredAccepted,
             communicationSelectionActive = communicationSelectionActive,
+            mainPreferredReassertedMidPhase = mainReasserted,
         )
     }
 
@@ -366,6 +434,7 @@ object CommunicationSplitPhaseProbe {
 
     private const val CHUNK_FRAMES = 256
     private const val PHASE_DURATION_NS = 1_400_000_000L
+    private const val D_PHASE_DURATION_NS = 2_400_000_000L
     private const val MAIN_TONE_HZ = 440.0
     private const val CUE_TONE_HZ = 880.0
 }

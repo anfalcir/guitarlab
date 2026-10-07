@@ -51,3 +51,8 @@ The rc34 source commit is `e686b35b037edee93ccb08f025addcaae28c933c`. It is foll
 ## Accepted baseline and roadmap
 
 `RELEASE_BASELINE.md` remains authoritative for the accepted RC20 baseline. USB multichannel MAIN 1/2 + CUE 3/4 remains the preferred deterministic professional roadmap when supported by hardware.
+
+
+## Probe causal refinement before signed qualification
+
+B and C deliberately do not reassert MAIN before measurement, so communication-device selection and silent communication-track activation remain isolated variables. D lasts ~2.4 s and performs one MAIN preference reassertion halfway through. Owner feedback records three independent facts: first MAIN-loss phase, CUE 880 Hz audibility in D, and MAIN audibility after the mid-D reassertion. Per-phase evidence includes zero/short writes, underruns and MUSIC/VOICE_CALL mute state.

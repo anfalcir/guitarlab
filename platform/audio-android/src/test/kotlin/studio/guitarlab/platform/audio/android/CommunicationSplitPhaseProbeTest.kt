@@ -18,6 +18,13 @@ class CommunicationSplitPhaseProbeTest {
     }
 
     @Test
+    fun acousticFeedbackDimensionsRemainIndependent() {
+        assertEquals(6, CommunicationSplitProbeAcousticOutcome.entries.size)
+        assertEquals(3, CommunicationSplitProbeCueToneOutcome.entries.size)
+        assertEquals(3, CommunicationSplitProbeMainAfterReassertOutcome.entries.size)
+    }
+
+    @Test
     fun phaseOrderMatchesDiagnosticContract() {
         assertEquals(
             listOf(
